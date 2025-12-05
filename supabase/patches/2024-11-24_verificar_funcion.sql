@@ -10,6 +10,7 @@ DECLARE
   func_params text;
   has_anon_permission boolean;
   has_auth_permission boolean;
+  func_oid oid;
 BEGIN
   RAISE NOTICE '========================================';
   RAISE NOTICE 'VERIFICACIÓN DE create_orden_with_contact';
@@ -59,12 +60,27 @@ BEGIN
   RAISE NOTICE '3. PARÁMETROS: %', func_params;
   RAISE NOTICE '';
   
-  -- 3. Verificar permisos
-  SELECT has_function_privilege('anon', 'create_orden_with_contact', 'EXECUTE')
-  INTO has_anon_permission;
+  -- 3. Verificar permisos (usando OID en lugar del nombre)
+  -- Obtener el OID de la función
+  SELECT p.oid INTO func_oid
+  FROM pg_proc p
+  JOIN pg_namespace n ON p.pronamespace = n.oid
+  WHERE n.nspname = 'public'
+    AND p.proname = 'create_orden_with_contact'
+  LIMIT 1;
   
-  SELECT has_function_privilege('authenticated', 'create_orden_with_contact', 'EXECUTE')
-  INTO has_auth_permission;
+  IF func_oid IS NULL THEN
+    RAISE WARNING 'No se pudo obtener el OID de la función';
+    has_anon_permission := false;
+    has_auth_permission := false;
+  ELSE
+    -- Verificar permisos usando el OID
+    SELECT has_function_privilege('anon', func_oid, 'EXECUTE')
+    INTO has_anon_permission;
+    
+    SELECT has_function_privilege('authenticated', func_oid, 'EXECUTE')
+    INTO has_auth_permission;
+  END IF;
   
   RAISE NOTICE '4. PERMISOS:';
   IF has_anon_permission THEN
