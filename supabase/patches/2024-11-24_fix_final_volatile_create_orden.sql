@@ -99,6 +99,19 @@ DECLARE
   v_new_id integer;
   v_sectores_final text[];
   v_sector_inicial_final text;
+  sectores_validos text[] := ARRAY[
+    'Diseño Gráfico',
+    'Diseño en Proceso',
+    'En Espera',
+    'Imprenta (Área de Impresión)',
+    'Taller de Imprenta',
+    'Taller Gráfico',
+    'Instalaciones',
+    'Metalúrgica',
+    'Finalizado en Taller',
+    'Almacén de Entrega'
+  ];
+  sector_item text;
 BEGIN
   -- Validaciones básicas
   IF COALESCE(p_numero_op, '') = '' THEN
@@ -109,10 +122,26 @@ BEGIN
     RAISE EXCEPTION 'p_cliente es requerido';
   END IF;
   
-  -- Determinar sectores
+  -- Determinar sectores (deben coincidir EXACTAMENTE con las columnas del Kanban)
   IF p_sectores IS NOT NULL AND array_length(p_sectores, 1) > 0 THEN
     v_sectores_final := p_sectores;
+    
+    -- Validar que todos los sectores sean válidos (coincidan con columnas Kanban)
+    FOREACH sector_item IN ARRAY v_sectores_final
+    LOOP
+      IF NOT (sector_item = ANY(sectores_validos)) THEN
+        RAISE EXCEPTION 'Sector "%" no es válido. Debe ser uno de: %', 
+          sector_item, 
+          array_to_string(sectores_validos, ', ');
+      END IF;
+    END LOOP;
   ELSIF COALESCE(p_sector, '') != '' THEN
+    -- Validar que el sector único sea válido
+    IF NOT (p_sector = ANY(sectores_validos)) THEN
+      RAISE EXCEPTION 'Sector "%" no es válido. Debe ser uno de: %', 
+        p_sector, 
+        array_to_string(sectores_validos, ', ');
+    END IF;
     v_sectores_final := ARRAY[p_sector];
   ELSE
     v_sectores_final := ARRAY['Diseño Gráfico'];
@@ -120,6 +149,20 @@ BEGIN
   
   -- Determinar sector inicial
   IF COALESCE(p_sector_inicial, '') != '' THEN
+    -- Validar que sector_inicial sea válido
+    IF NOT (p_sector_inicial = ANY(sectores_validos)) THEN
+      RAISE EXCEPTION 'Sector inicial "%" no es válido. Debe ser uno de: %', 
+        p_sector_inicial, 
+        array_to_string(sectores_validos, ', ');
+    END IF;
+    
+    -- Validar que sector_inicial esté en el array de sectores
+    IF NOT (p_sector_inicial = ANY(v_sectores_final)) THEN
+      RAISE EXCEPTION 'El sector inicial "%" debe estar en la lista de sectores requeridos: %', 
+        p_sector_inicial, 
+        array_to_string(v_sectores_final, ', ');
+    END IF;
+    
     v_sector_inicial_final := p_sector_inicial;
   ELSIF COALESCE(p_sector, '') != '' THEN
     v_sector_inicial_final := p_sector;
