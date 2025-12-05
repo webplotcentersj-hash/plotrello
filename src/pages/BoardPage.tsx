@@ -179,10 +179,17 @@ const BoardPage = ({
 
     const ordenId = parseTaskIdToOrdenId(taskId)
     if (ordenId) {
+      const nuevoEstado = mapStatusToEstado(destination)
+      
+      // Notificar a App.tsx sobre el movimiento reciente para evitar efecto espejo
+      window.dispatchEvent(new CustomEvent('user-moved-task', {
+        detail: { taskId: ordenId.toString(), estado: nuevoEstado, timestamp: Date.now() }
+      }))
+      
       const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
       const response = await apiService.moveOrden(
         ordenId,
-        mapStatusToEstado(destination),
+        nuevoEstado,
         usuarioId
       )
       if (!response.success) {

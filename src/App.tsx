@@ -196,14 +196,44 @@ function App() {
   useEffect(() => {
     if (!supabase || !isAuthenticated) return
 
+    // Track movimientos recientes del usuario para evitar efecto espejo del realtime
+    const recentUserMoves = new Map<string, { estado: string; timestamp: number }>()
+
+    // Escuchar eventos de movimiento del usuario desde BoardPage
+    const handleUserMove = (event: Event) => {
+      const customEvent = event as CustomEvent<{ taskId: string; estado: string; timestamp: number }>
+      const { taskId, estado, timestamp } = customEvent.detail
+      recentUserMoves.set(taskId, { estado, timestamp })
+      console.log(`📝 Registrado movimiento del usuario: ${taskId} → ${estado}`)
+    }
+
+    window.addEventListener('user-moved-task', handleUserMove)
+
     const upsertTaskFromOrden = (orden: OrdenTrabajo) => {
       if (!orden?.id) return
+      const taskId = orden.id!.toString()
+      const mapped = ordenToTask(orden)
+      
+      // Verificar si hay un movimiento reciente del usuario para esta ficha
+      const recentMove = recentUserMoves.get(taskId)
+      if (recentMove) {
+        const timeSinceMove = Date.now() - recentMove.timestamp
+        // Si el movimiento fue hace menos de 3 segundos y el estado del realtime
+        // es diferente al estado que el usuario movió, ignorar (efecto espejo)
+        if (timeSinceMove < 3000 && orden.estado !== recentMove.estado) {
+          console.log(`⏭️ Ignorando actualización realtime (efecto espejo) para ${taskId}: realtime=${orden.estado}, usuario movió a=${recentMove.estado}`)
+          return
+        }
+        // Si pasaron más de 3 segundos, limpiar el tracking
+        if (timeSinceMove >= 3000) {
+          recentUserMoves.delete(taskId)
+        }
+      }
+      
       setTasks((prev) => {
         const next = [...prev]
-        const mapped = ordenToTask(orden)
-        const idx = next.findIndex((task) => task.id === orden.id!.toString())
+        const idx = next.findIndex((task) => task.id === taskId)
         if (idx >= 0) {
-          // Confiar en la BD - actualizar siempre con los datos más recientes
           next[idx] = mapped
         } else {
           next.unshift(mapped)
@@ -265,6 +295,7 @@ function App() {
     return () => {
       void ordenesChannel.unsubscribe()
       void historialChannel.unsubscribe()
+      window.removeEventListener('user-moved-task', handleUserMove)
     }
   }, [isAuthenticated])
 
