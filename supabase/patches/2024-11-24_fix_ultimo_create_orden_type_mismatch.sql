@@ -42,11 +42,16 @@ BEGIN
   RAISE NOTICE '✅ Eliminación completada';
 END $$;
 
--- Esperar un momento para que PostgreSQL procese
-SELECT pg_sleep(0.2);
+-- ============================================
+-- PASO 2: Esperar un momento (sin retornar resultado)
+-- ============================================
+DO $$
+BEGIN
+  PERFORM pg_sleep(0.1);
+END $$;
 
 -- ============================================
--- PASO 2: Crear la función CORRECTA con tipos explícitos
+-- PASO 3: Crear la función CORRECTA con tipos explícitos
 -- ============================================
 CREATE FUNCTION public.create_orden_with_contact(
   p_numero_op varchar,
@@ -201,14 +206,14 @@ END;
 $$;
 
 -- ============================================
--- PASO 3: Otorgar permisos explícitos
+-- PASO 4: Otorgar permisos explícitos
 -- ============================================
 GRANT EXECUTE ON FUNCTION public.create_orden_with_contact(
   varchar, varchar, date, text, varchar, varchar, varchar, text, text, text[], text, text, varchar, text, text, text, text, text, text, text, text
 ) TO anon, authenticated, service_role;
 
 -- ============================================
--- PASO 4: Verificación final
+-- PASO 5: Verificación final
 -- ============================================
 DO $$
 DECLARE
