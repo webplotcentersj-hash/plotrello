@@ -106,12 +106,13 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     })
   }
 
-  // ⚠️ IMPORTANTE: Si el estado no coincide con el sector, usar el sector como fallback
-  // Esto asegura que cada ficha aparezca en su columna correcta
+  // ⚠️ IMPORTANTE: Para fichas duplicadas, usar el sector para determinar la columna
+  // El backend ya asegura que estado = sector al crear fichas duplicadas
+  // Pero si hay discrepancia, priorizar el sector (donde debe aparecer la ficha)
   const estadoMapeado = mapEstadoToStatus(orden.estado)
-  const sectorMapeado = orden.sector ? mapEstadoToStatus(orden.sector) : estadoMapeado
-  // Si el estado mapeado no coincide con el sector, usar el sector (para fichas duplicadas)
-  const statusFinal = orden.sector && estadoMapeado !== sectorMapeado ? sectorMapeado : estadoMapeado
+  const statusFinal = orden.sector 
+    ? mapEstadoToStatus(orden.sector)  // Usar sector directamente (más confiable para columna)
+    : estadoMapeado
 
   return {
     id: orden.id?.toString() ?? crypto.randomUUID(),
