@@ -195,9 +195,9 @@ class ApiService {
             p_fecha_entrega: orden.fecha_entrega || new Date().toISOString().split('T')[0],
             p_operario_asignado: orden.operario_asignado || null,
             p_complejidad: orden.complejidad || 'Media',
-            p_sector: orden.sector_inicial || orden.sector || 'Diseño Gráfico',
+            p_sector: orden.sectores && orden.sectores.length > 0 ? orden.sectores[0] : (orden.sector || 'Diseño Gráfico'), // Primer sector
             p_sectores: orden.sectores && orden.sectores.length > 0 ? orden.sectores : null,
-            p_sector_inicial: orden.sector_inicial || orden.sector || null,
+            p_sector_inicial: orden.sectores && orden.sectores.length > 0 ? orden.sectores[0] : (orden.sector || null), // Para compatibilidad
             p_materiales: orden.materiales || null,
             p_nombre_creador: orden.nombre_creador || null,
             p_telefono_cliente: orden.telefono_cliente || null,

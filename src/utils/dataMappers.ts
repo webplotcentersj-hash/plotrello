@@ -180,9 +180,9 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     fecha_ingreso: task.updatedAt,
     operario_asignado: task.ownerId,
     complejidad: mapImpactToComplejidad(task.impact),
-    sector: task.sectorInicial ?? task.assignedSector, // Usar sectorInicial si existe
+    sector: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Primer sector o assignedSector
     sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null),
-    sector_inicial: task.sectorInicial ?? task.assignedSector ?? null,
+    sector_inicial: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Para compatibilidad
     materiales: task.materials.join(', '),
     nombre_creador: task.createdBy,
     foto_url: task.photoUrl?.trim() || null,

@@ -51,7 +51,6 @@ const TaskCreateModal = ({
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [horaEstimada, setHoraEstimada] = useState('')
   const [selectedSectores, setSelectedSectores] = useState<string[]>([])
-  const [sectorInicial, setSectorInicial] = useState<string>('')
   const [sectorSearch, setSectorSearch] = useState('')
   const [operario, setOperario] = useState<string>('')
   const [complejidad, setComplejidad] = useState<string>('Media')
@@ -66,14 +65,7 @@ const TaskCreateModal = ({
   const [isMaterialDropdownOpen, setIsMaterialDropdownOpen] = useState(false)
   const attachmentsRef = useRef<LocalAttachment[]>([])
 
-  useEffect(() => {
-    // Si no hay sectores seleccionados y hay sectores disponibles, seleccionar el primero
-    if (selectedSectores.length === 0 && sectores.length > 0) {
-      const primerSector = sectores[0].nombre
-      setSelectedSectores([primerSector])
-      setSectorInicial(primerSector)
-    }
-  }, [sectores, selectedSectores])
+  // No necesitamos sector inicial, se crean automáticamente para cada sector requerido
 
   useEffect(() => {
     if (!operario && teamMembers.length > 0) {
@@ -89,17 +81,10 @@ const TaskCreateModal = ({
       return
     }
 
-    // Sector inicial es opcional, solo indica dónde aparece inicialmente
-    // No necesita estar en los sectores seleccionados
-    if (!sectorInicial) {
-      alert('Por favor selecciona un sector inicial')
-      return
-    }
-    
-    // Solo duplicar si hay 2 o más sectores seleccionados
+    // Requerir al menos un sector
     if (selectedSectores.length === 0) {
-      // Si no hay sectores seleccionados, usar solo el sector inicial
-      // No se duplicará (solo 1 sector)
+      alert('Por favor selecciona al menos un sector requerido')
+      return
     }
 
     if (hasPendingUploads) {
@@ -115,35 +100,39 @@ const TaskCreateModal = ({
 
     const creatorName = stripEmailDomain(usuario?.nombre) ?? usuario?.nombre ?? 'Usuario'
 
-    // Mapear sector inicial al status correspondiente
+    // Mapear el primer sector al status correspondiente (la primera ficha aparecerá ahí)
     const mapSectorToStatus = (sector: string): TaskStatus => {
       const sectorMap: Record<string, TaskStatus> = {
         'Diseño Gráfico': 'diseno-grafico',
+        'Diseño en Proceso': 'diseno-proceso',
+        'En Espera': 'en-espera',
+        'Imprenta (Área de Impresión)': 'imprenta',
         'Taller de Imprenta': 'taller-imprenta',
         'Taller Gráfico': 'taller-grafico',
         'Instalaciones': 'instalaciones',
         'Metalúrgica': 'metalurgica',
-        'Imprenta (Área de Impresión)': 'imprenta',
-        'Mostrador': 'diseno-grafico', // Default
-        'Caja': 'diseno-grafico' // Default
+        'Finalizado en Taller': 'finalizado-taller',
+        'Almacén de Entrega': 'almacen-entrega'
       }
       return sectorMap[sector] || 'diseno-grafico'
     }
+
+    // El primer sector es donde aparecerá la primera ficha (se crearán automáticamente las demás)
+    const primerSector = selectedSectores[0]
 
     const newTask: Omit<Task, 'id'> = {
       opNumber,
       title: cliente,
       dniCuit: dniCuit.trim() || undefined,
       summary: descripcion || 'Sin descripción.',
-      status: mapSectorToStatus(sectorInicial),
+      status: mapSectorToStatus(primerSector),
       priority: (prioridad.toLowerCase() === 'normal' ? 'media' : prioridad.toLowerCase()) as any,
       ownerId: operario || teamMembers[0]?.id || '',
       createdBy: creatorName,
       tags: [],
       materials: materials.map((m) => m.name),
-      assignedSector: sectorInicial, // Para compatibilidad
-      sectores: selectedSectores, // Array de sectores requeridos
-      sectorInicial: sectorInicial, // Sector donde aparece la ficha principal
+      assignedSector: primerSector, // Primer sector (se crearán automáticamente las demás)
+      sectores: selectedSectores, // Array de sectores requeridos - se crearán N fichas automáticamente
       esSubTarea: false, // Es ficha principal
       photoUrl: photoUrl || '',
       storyPoints: 0,
@@ -474,29 +463,25 @@ const TaskCreateModal = ({
             )}
           </div>
 
-          <div className="form-group">
-            <label>Sector inicial (dónde aparece la ficha principal)</label>
-            <select
-              value={sectorInicial}
-              onChange={(e) => setSectorInicial(e.target.value)}
-              style={{ width: '100%', padding: '8px', borderRadius: '6px' }}
-            >
-              <option value="">Seleccionar sector inicial...</option>
-              {sectores.map((sector) => (
-                <option key={sector.id} value={sector.nombre}>
-                  {sector.nombre}
-                </option>
-              ))}
-            </select>
-            <small style={{ color: '#999', fontSize: '0.85rem', marginTop: '4px', display: 'block' }}>
-              La ficha principal aparecerá en la columna de este sector.
-              {selectedSectores.length > 0 && (
-                <span style={{ color: '#f97316', display: 'block', marginTop: '4px' }}>
-                  ⚠️ Se crearán fichas duplicadas en: {selectedSectores.join(', ')}
-                </span>
-              )}
-            </small>
-          </div>
+          {selectedSectores.length > 0 && (
+            <div className="form-group">
+              <label>Información</label>
+              <div style={{ 
+                padding: '12px', 
+                backgroundColor: 'rgba(249, 115, 22, 0.1)', 
+                borderRadius: '8px',
+                border: '1px solid rgba(249, 115, 22, 0.3)'
+              }}>
+                <small style={{ color: '#f97316', fontSize: '0.9rem', display: 'block' }}>
+                  ℹ️ Se crearán {selectedSectores.length} {selectedSectores.length === 1 ? 'ficha' : 'fichas'} automáticamente (una por cada sector seleccionado).
+                  <br />
+                  Todas compartirán el mismo OP #{opNumber || 'XXX'} y se moverán independientemente.
+                  <br />
+                  Se unificarán automáticamente cuando todas estén en "Finalizado en Taller".
+                </small>
+              </div>
+            </div>
+          )}
 
           <div className="form-row">
             <div className="form-group">
