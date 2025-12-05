@@ -280,7 +280,7 @@ const TaskCreateModal = ({
   }, [])
 
   const normalizedSectorQuery = sectorSearch.trim().toLowerCase()
-  const filteredSectors = sectores
+  const filteredSectors = sectoresValidos
     .filter((sector) =>
       normalizedSectorQuery ? sector.nombre.toLowerCase().includes(normalizedSectorQuery) : true
     )
