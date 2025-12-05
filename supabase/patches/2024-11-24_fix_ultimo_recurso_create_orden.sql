@@ -108,7 +108,7 @@ RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-STABLE
+VOLATILE
 AS $$
 DECLARE
   v_new_id integer;
