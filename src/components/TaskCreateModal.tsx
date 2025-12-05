@@ -84,14 +84,22 @@ const TaskCreateModal = ({
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
 
   const handleCreate = () => {
-    if (!opNumber || !cliente || selectedSectores.length === 0) {
-      alert('Por favor completa los campos obligatorios: N° OP, Cliente y al menos un Sector')
+    if (!opNumber || !cliente) {
+      alert('Por favor completa los campos obligatorios: N° OP y Cliente')
       return
     }
 
-    if (!sectorInicial || !selectedSectores.includes(sectorInicial)) {
-      alert('Por favor selecciona un sector inicial de los sectores seleccionados')
+    // Sector inicial es opcional, solo indica dónde aparece inicialmente
+    // No necesita estar en los sectores seleccionados
+    if (!sectorInicial) {
+      alert('Por favor selecciona un sector inicial')
       return
+    }
+    
+    // Solo duplicar si hay 2 o más sectores seleccionados
+    if (selectedSectores.length === 0) {
+      // Si no hay sectores seleccionados, usar solo el sector inicial
+      // No se duplicará (solo 1 sector)
     }
 
     if (hasPendingUploads) {
