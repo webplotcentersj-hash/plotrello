@@ -40,6 +40,24 @@ const TaskCreateModal = ({
   onCreate
 }: TaskCreateModalProps) => {
   const { usuario } = useAuth()
+  
+  // Sectores válidos que coinciden con las columnas del Kanban
+  const sectoresKanban = [
+    'Diseño Gráfico',
+    'Diseño en Proceso',
+    'En Espera',
+    'Imprenta (Área de Impresión)',
+    'Taller de Imprenta',
+    'Taller Gráfico',
+    'Instalaciones',
+    'Metalúrgica',
+    'Finalizado en Taller',
+    'Almacén de Entrega'
+  ]
+  
+  // Filtrar sectores para que solo muestre los que coinciden con las columnas del Kanban
+  const sectoresValidos = sectores.filter((s) => sectoresKanban.includes(s.nombre))
+  
   const [opNumber, setOpNumber] = useState('')
   const [cliente, setCliente] = useState('')
   const [dniCuit, setDniCuit] = useState('')
