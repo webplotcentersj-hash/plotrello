@@ -9,7 +9,7 @@ import DashboardPantallasPage from './pages/DashboardPantallasPage'
 import ImpresorasPage from './pages/ImpresorasPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
-import type { ActivityEvent, Task, TaskStatus, TeamMember } from './types/board'
+import type { ActivityEvent, Task, TeamMember } from './types/board'
 import type {
   HistorialMovimiento,
   MaterialRecord,
@@ -134,38 +134,13 @@ function App() {
         }
         
         // Combinar fichas principales y sub-tareas
-        // Las fichas principales deben aparecer en su sector_inicial
+        // ⚠️ IMPORTANTE: NO sobrescribir el status basándose en sector_inicial
+        // El status debe venir del estado en la BD, que refleja el movimiento real
         const allTasks = [...fichasPrincipales, ...subTareas]
         
-        // Ajustar el status de las fichas principales según su sector_inicial
-        const tasksWithCorrectStatus = allTasks.map((task) => {
-          if (task.esSubTarea) {
-            // Las sub-tareas ya tienen su status correcto según su sector
-            return task
-          } else {
-            // Las fichas principales deben aparecer en su sector_inicial
-            if (task.sectorInicial) {
-              const mapSectorToStatus = (sector: string): TaskStatus => {
-                const sectorMap: Record<string, TaskStatus> = {
-                  'Diseño Gráfico': 'diseno-grafico',
-                  'Taller de Imprenta': 'taller-imprenta',
-                  'Taller Gráfico': 'taller-grafico',
-                  'Instalaciones': 'instalaciones',
-                  'Metalúrgica': 'metalurgica',
-                  'Imprenta (Área de Impresión)': 'imprenta',
-                  'Mostrador': 'diseno-grafico',
-                  'Caja': 'diseno-grafico'
-                }
-                return sectorMap[sector] || 'diseno-grafico'
-              }
-              return {
-                ...task,
-                status: mapSectorToStatus(task.sectorInicial)
-              }
-            }
-            return task
-          }
-        })
+        // Usar directamente el status que viene de la BD (ya mapeado en ordenToTask)
+        // NO sobrescribir con sector_inicial porque eso revierte los movimientos
+        const tasksWithCorrectStatus = allTasks
         
         setTasks(tasksWithCorrectStatus)
       } else {

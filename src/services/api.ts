@@ -710,18 +710,38 @@ class ApiService {
     if (supabase) {
       const { data: current, error: fetchError } = await supabase
         .from('ordenes_trabajo')
-        .select('estado')
+        .select('estado, sector')
         .eq('id', id)
         .maybeSingle()
 
       if (fetchError || !current) {
         return { success: false, error: fetchError?.message || 'Orden no encontrada' }
       }
-      const currentEstado = (current as { estado: string }).estado
+      const currentEstado = (current as { estado: string; sector: string }).estado
+      
+      // Mapear el nuevo estado al sector correspondiente
+      const estadoToSector: Record<string, string> = {
+        'Diseño Gráfico': 'Diseño Gráfico',
+        'Diseño en Proceso': 'Diseño en Proceso',
+        'En Espera': 'En Espera',
+        'Imprenta (Área de Impresión)': 'Imprenta (Área de Impresión)',
+        'Taller de Imprenta': 'Taller de Imprenta',
+        'Taller Gráfico': 'Taller Gráfico',
+        'Instalaciones': 'Instalaciones',
+        'Metalúrgica': 'Metalúrgica',
+        'Finalizado en Taller': 'Finalizado en Taller',
+        'Almacén de Entrega': 'Almacén de Entrega'
+      }
+      
+      const nuevoSector = estadoToSector[nuevoEstado] || nuevoEstado
 
+      // ⚠️ IMPORTANTE: Actualizar tanto estado como sector
       const { error: updateError } = await supabase
         .from('ordenes_trabajo')
-        .update({ estado: nuevoEstado })
+        .update({ 
+          estado: nuevoEstado,
+          sector: nuevoSector  // Actualizar el sector también
+        })
         .eq('id', id)
 
       if (updateError) {
