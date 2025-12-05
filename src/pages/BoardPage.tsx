@@ -187,11 +187,18 @@ const BoardPage = ({
       )
       if (!response.success) {
         setActionError(response.error || 'No se pudo actualizar la orden en Supabase.')
+        // Revertir el cambio local si falla
+        setTasks((prev) =>
+          prev.map((task) => {
+            if (task.id !== taskId) return task
+            return taskSnapshot
+          })
+        )
       } else {
         setActionSuccess('Orden actualizada en Supabase.')
-        if (onReloadData) {
-          await onReloadData()
-        }
+        // ⚠️ NO recargar todos los datos - confiar en el realtime subscription
+        // El realtime actualizará automáticamente cuando la BD cambie
+        // onReloadData() causaba que las fichas volvieran al estado anterior
       }
     }
   }

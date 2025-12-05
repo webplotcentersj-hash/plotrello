@@ -203,6 +203,7 @@ function App() {
         const mapped = ordenToTask(orden)
         const idx = next.findIndex((task) => task.id === orden.id!.toString())
         if (idx >= 0) {
+          // Confiar en la BD - actualizar siempre con los datos más recientes
           next[idx] = mapped
         } else {
           next.unshift(mapped)
