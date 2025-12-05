@@ -156,12 +156,8 @@ BEGIN
         array_to_string(sectores_validos, ', ');
     END IF;
     
-    -- Validar que sector_inicial esté en el array de sectores
-    IF NOT (p_sector_inicial = ANY(v_sectores_final)) THEN
-      RAISE EXCEPTION 'El sector inicial "%" debe estar en la lista de sectores requeridos: %', 
-        p_sector_inicial, 
-        array_to_string(v_sectores_final, ', ');
-    END IF;
+    -- NO validar que sector_inicial esté en sectores[] (permite duplicación)
+    -- El sector_inicial puede ser diferente a los sectores requeridos
     
     v_sector_inicial_final := p_sector_inicial;
   ELSIF COALESCE(p_sector, '') != '' THEN

@@ -34,9 +34,11 @@ export interface Task {
   materials: string[]
   assignedSector: string // Sector actual (para compatibilidad)
   sectores?: string[] // Array de sectores requeridos
-  sectorInicial?: string // Sector donde aparece la ficha principal
+  sectorInicial?: string // Sector donde aparece la ficha principal (puede NO estar en sectores[])
   esSubTarea?: boolean // Indica si es una sub-tarea
   idFichaPrincipal?: string // ID de la ficha principal (si es sub-tarea)
+  esDuplicado?: boolean // Indica si es una ficha duplicada
+  idOrdenOriginal?: number // ID de la ficha original (si es duplicada)
   photoUrl: string
   storyPoints: number
   progress: number

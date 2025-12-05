@@ -84,6 +84,15 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [] }: TaskC
               title={task.assignedSector}
             ></div>
           )}
+          {/* Indicador de ficha duplicada */}
+          {task.esDuplicado && (
+            <div 
+              className="duplicate-indicator" 
+              title={`Ficha duplicada de OP #${task.opNumber}`}
+            >
+              📋
+            </div>
+          )}
           <div className="task-actions">
             {onEdit && (
               <button

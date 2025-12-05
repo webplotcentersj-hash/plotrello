@@ -125,6 +125,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     sectores: orden.sectores && orden.sectores.length > 0 ? orden.sectores : (orden.sector ? [orden.sector] : []),
     sectorInicial: orden.sector_inicial ?? orden.sector ?? undefined,
     esSubTarea: false, // Las órdenes principales no son sub-tareas
+    esDuplicado: orden.es_duplicado ?? false,
+    idOrdenOriginal: orden.id_orden_original ?? undefined,
     photoUrl: orden.foto_url?.trim() || '',
     storyPoints: 0,
     progress: orden.estado?.toLowerCase().includes('finalizado') ? 100 : 50,

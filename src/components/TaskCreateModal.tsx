@@ -466,25 +466,29 @@ const TaskCreateModal = ({
             )}
           </div>
 
-          {selectedSectores.length > 0 && (
-            <div className="form-group">
-              <label>Sector inicial (dónde aparece la ficha principal)</label>
-              <select
-                value={sectorInicial}
-                onChange={(e) => setSectorInicial(e.target.value)}
-                style={{ width: '100%', padding: '8px', borderRadius: '6px' }}
-              >
-                {selectedSectores.map((sector) => (
-                  <option key={sector} value={sector}>
-                    {sector}
-                  </option>
-                ))}
-              </select>
-              <small style={{ color: '#999', fontSize: '0.85rem', marginTop: '4px', display: 'block' }}>
-                La ficha principal aparecerá en la columna de este sector
-              </small>
-            </div>
-          )}
+          <div className="form-group">
+            <label>Sector inicial (dónde aparece la ficha principal)</label>
+            <select
+              value={sectorInicial}
+              onChange={(e) => setSectorInicial(e.target.value)}
+              style={{ width: '100%', padding: '8px', borderRadius: '6px' }}
+            >
+              <option value="">Seleccionar sector inicial...</option>
+              {sectores.map((sector) => (
+                <option key={sector.id} value={sector.nombre}>
+                  {sector.nombre}
+                </option>
+              ))}
+            </select>
+            <small style={{ color: '#999', fontSize: '0.85rem', marginTop: '4px', display: 'block' }}>
+              La ficha principal aparecerá en la columna de este sector.
+              {selectedSectores.length > 0 && (
+                <span style={{ color: '#f97316', display: 'block', marginTop: '4px' }}>
+                  ⚠️ Se crearán fichas duplicadas en: {selectedSectores.join(', ')}
+                </span>
+              )}
+            </small>
+          </div>
 
           <div className="form-row">
             <div className="form-group">

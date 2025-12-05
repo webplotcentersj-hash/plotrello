@@ -13,7 +13,7 @@ export interface OrdenTrabajo {
   complejidad?: string | null
   sector?: string | null // Sector único (para compatibilidad)
   sectores?: string[] | null // Array de sectores requeridos
-  sector_inicial?: string | null // Sector donde aparece la ficha principal
+  sector_inicial?: string | null // Sector donde aparece la ficha principal (puede NO estar en sectores[])
   materiales?: string | null
   nombre_creador?: string | null
   foto_url?: string | null
@@ -24,6 +24,8 @@ export interface OrdenTrabajo {
   whatsapp_link?: string | null
   ubicacion_link?: string | null
   drive_link?: string | null
+  es_duplicado?: boolean | null // Indica si es una ficha duplicada
+  id_orden_original?: number | null // ID de la ficha original (si es duplicada)
 }
 
 export type UserRole =
