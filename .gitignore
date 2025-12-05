@@ -32,3 +32,7 @@ backend/api/config/database.php
 *.njsproj
 *.sln
 *.sw?
+
+# MCP configuration (contains sensitive tokens)
+mcp.json
+*.mcp.json
