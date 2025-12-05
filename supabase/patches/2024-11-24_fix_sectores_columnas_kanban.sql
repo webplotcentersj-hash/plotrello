@@ -56,7 +56,9 @@ SET
   activo = EXCLUDED.activo,
   orden_visualizacion = EXCLUDED.orden_visualizacion;
 
-RAISE NOTICE '✅ Tabla sectores actualizada';
+DO $$
+BEGIN
+  RAISE NOTICE '✅ Tabla sectores actualizada';
 END $$;
 
 -- ============================================
@@ -113,24 +115,21 @@ BEGIN
 END;
 $$;
 
-RAISE NOTICE '✅ Función de validación creada';
-
--- ============================================
--- PASO 4: Actualizar función create_orden_with_contact para usar validación
--- ============================================
--- Nota: Esto se hará en el script fix_final_volatile_create_orden.sql
--- Aquí solo documentamos la lógica
-
-RAISE NOTICE '========================================';
-RAISE NOTICE 'LÓGICA DE MÚLTIPLES SECTORES:';
-RAISE NOTICE '========================================';
-RAISE NOTICE '1. sectores[]: Array con TODOS los sectores requeridos';
-RAISE NOTICE '2. sector_inicial: Sector donde aparece la FICHA PRINCIPAL';
-RAISE NOTICE '3. Para cada sector en sectores[] (excepto sector_inicial):';
-RAISE NOTICE '   → Se crea una SUB-TAREA automáticamente';
-RAISE NOTICE '   → La sub-tarea aparece en su columna correspondiente';
-RAISE NOTICE '4. La ficha principal aparece solo en sector_inicial';
-RAISE NOTICE '========================================';
+DO $$
+BEGIN
+  RAISE NOTICE '✅ Función de validación creada';
+  RAISE NOTICE '';
+  RAISE NOTICE '========================================';
+  RAISE NOTICE 'LÓGICA DE MÚLTIPLES SECTORES:';
+  RAISE NOTICE '========================================';
+  RAISE NOTICE '1. sectores[]: Array con TODOS los sectores requeridos';
+  RAISE NOTICE '2. sector_inicial: Sector donde aparece la FICHA PRINCIPAL';
+  RAISE NOTICE '3. Para cada sector en sectores[] (excepto sector_inicial):';
+  RAISE NOTICE '   → Se crea una SUB-TAREA automáticamente';
+  RAISE NOTICE '   → La sub-tarea aparece en su columna correspondiente';
+  RAISE NOTICE '4. La ficha principal aparece solo en sector_inicial';
+  RAISE NOTICE '========================================';
+END $$;
 
 COMMIT;
 
