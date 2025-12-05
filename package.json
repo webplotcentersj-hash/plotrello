@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clear-cache": "node scripts/clear-cache.js",
+    "clean": "node scripts/clear-cache.js && npm run build",
+    "clean-all": "node scripts/clear-cache.js --clean-node && npm run build"
   },
   "devDependencies": {
     "@types/react": "^19.2.6",
