@@ -238,6 +238,25 @@ function App() {
         } else {
           next.unshift(mapped)
         }
+        
+        // ⚠️ IMPORTANTE: Si una ficha fue eliminada (unificada), remover todas las fichas relacionadas
+        // y agregar solo la ficha unificada
+        if (orden.estado === 'Finalizado en Taller' && !orden.es_duplicado) {
+          // Buscar y remover fichas duplicadas relacionadas (mismo OP)
+          const opNumber = orden.numero_op
+          const filtered = next.filter((task) => {
+            // Mantener la ficha actual si es la unificada
+            if (task.id === taskId) return true
+            // Remover fichas duplicadas del mismo OP
+            if (task.opNumber === opNumber && task.esDuplicado) {
+              console.log(`🗑️ Removiendo ficha duplicada ${task.id} del OP ${opNumber} (unificada)`)
+              return false
+            }
+            return true
+          })
+          return filtered
+        }
+        
         return next
       })
     }
