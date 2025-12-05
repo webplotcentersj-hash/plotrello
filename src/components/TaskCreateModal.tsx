@@ -183,18 +183,10 @@ const TaskCreateModal = ({
       // Remover sector
       const newSectores = selectedSectores.filter((s) => s !== sector)
       setSelectedSectores(newSectores)
-      // Si el sector removido era el inicial, cambiar el inicial al primero disponible
-      if (sectorInicial === sector) {
-        setSectorInicial(newSectores.length > 0 ? newSectores[0] : '')
-      }
     } else {
       // Agregar sector
       const newSectores = [...selectedSectores, sector]
       setSelectedSectores(newSectores)
-      // Si no hay sector inicial, usar este como inicial
-      if (!sectorInicial) {
-        setSectorInicial(sector)
-      }
     }
     setSectorSearch('')
     setIsSectorDropdownOpen(false)
@@ -450,9 +442,6 @@ const TaskCreateModal = ({
                       onClick={() => {
                         const newSectores = selectedSectores.filter((s) => s !== sector)
                         setSelectedSectores(newSectores)
-                        if (sectorInicial === sector) {
-                          setSectorInicial(newSectores.length > 0 ? newSectores[0] : '')
-                        }
                       }}
                     >
                       ×
