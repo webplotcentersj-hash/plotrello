@@ -211,21 +211,41 @@ class ApiService {
           }
           
           console.log('🔍 Llamando función SQL con parámetros:', JSON.stringify(rpcParams, null, 2))
+          console.log('🔍 Tipos de parámetros:', Object.entries(rpcParams).map(([k, v]) => `${k}: ${typeof v}${Array.isArray(v) ? ' (array)' : ''}`).join(', '))
           
           const { data, error } = await supabaseClient.rpc('create_orden_with_contact', rpcParams)
           
+          console.log('📊 Respuesta RPC:', { 
+            hasData: data !== null && data !== undefined, 
+            dataType: typeof data, 
+            isArray: Array.isArray(data),
+            dataValue: data,
+            hasError: error !== null,
+            errorType: error ? typeof error : null
+          })
+          
           if (error) {
             console.error('❌ Error en función SQL:', error)
-            console.error('❌ Detalles del error:', {
+            console.error('❌ Detalles completos del error:', JSON.stringify(error, null, 2))
+            console.error('❌ Propiedades del error:', {
               message: error.message,
               details: error.details,
               hint: error.hint,
-              code: error.code
+              code: error.code,
+              name: error.name
             })
+            
+            // Log adicional para debugging
+            console.error('❌ Parámetros enviados:', JSON.stringify(rpcParams, null, 2))
+            
             // Retornar el error en lugar de continuar silenciosamente
+            const errorMsg = error.message || 'Error desconocido'
+            const errorHint = error.hint ? ` (${error.hint})` : ''
+            const errorDetails = error.details ? ` - ${error.details}` : ''
+            
             return { 
               success: false, 
-              error: `Error al crear orden: ${error.message}${error.hint ? ` (${error.hint})` : ''}` 
+              error: `Error al crear orden: ${errorMsg}${errorHint}${errorDetails}` 
             }
           }
           
