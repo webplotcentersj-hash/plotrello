@@ -20,7 +20,7 @@ import type {
 import { useAuth } from './hooks/useAuth'
 import './app.css'
 import apiService from './services/api'
-import { historialToActivity, ordenToTask, tareaToTask } from './utils/dataMappers'
+import { historialToActivity, ordenToTask } from './utils/dataMappers'
 import { supabase } from './services/supabaseClient'
 
 const DEFAULT_SECTORES: SectorRecord[] = [
