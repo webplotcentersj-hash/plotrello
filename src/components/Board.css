@@ -51,11 +51,12 @@
   padding: 18px;
   display: flex;
   flex-direction: column;
+  max-height: 85vh;
   min-height: 420px;
   transition: border 120ms ease, transform 120ms ease;
   scroll-snap-align: start;
   position: relative;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .column-load-indicator {
@@ -115,6 +116,30 @@
   flex-direction: column;
   gap: 12px;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(235, 103, 27, 0.5) transparent;
+}
+
+.column-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.column-body::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.column-body::-webkit-scrollbar-thumb {
+  background: rgba(235, 103, 27, 0.5);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.column-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(235, 103, 27, 0.8);
 }
 
 .column-empty {
