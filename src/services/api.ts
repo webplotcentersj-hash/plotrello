@@ -787,7 +787,20 @@ class ApiService {
       return { success: true }
     }
 
-    return { success: false, error: 'No hay conexión a Supabase' }
+    if (hasLegacyBackend) {
+      return this.legacyRequest(`/ordenes.php?id=${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ usuario_trabajando_nombre: workingUser })
+      })
+    }
+
+    const index = fallbackOrdenes.findIndex((orden) => orden.id === id)
+    if (index >= 0) {
+      fallbackOrdenes[index].usuario_trabajando_nombre = workingUser ?? null
+      return { success: true }
+    }
+
+    return { success: false, error: 'Orden no encontrada' }
   }
 
   async marcarEntregado(id: number, entregado: boolean): Promise<ApiResponse<void>> {
@@ -822,22 +835,6 @@ class ApiService {
     }
 
     return { success: false, error: 'No hay conexión a Supabase' }
-  }
-
-    if (hasLegacyBackend) {
-      return this.legacyRequest(`/ordenes.php?id=${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ usuario_trabajando_nombre: workingUser })
-      })
-    }
-
-    const index = fallbackOrdenes.findIndex((orden) => orden.id === id)
-    if (index >= 0) {
-      fallbackOrdenes[index].usuario_trabajando_nombre = workingUser ?? null
-      return { success: true }
-    }
-
-    return { success: false, error: 'Orden no encontrada' }
   }
 
   // ========== HISTORIAL DE MOVIMIENTOS ==========
