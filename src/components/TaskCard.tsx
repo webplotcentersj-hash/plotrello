@@ -145,6 +145,13 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [] }: TaskC
                 </span>
               </div>
             )}
+            {/* Ubicación física cuando está finalizado */}
+            {task.status === 'finalizado-taller' && task.finalLocation && (
+              <div className="task-location-pill">
+                <span className="location-dot">📍</span>
+                <span className="location-text">Ubicación: {task.finalLocation}</span>
+              </div>
+            )}
             <div className="task-op-line">
               <span className="task-op">#{task.opNumber}</span>
               <span className="task-date">{formatShortDate(task.dueDate)}</span>

@@ -35,6 +35,7 @@ export interface Task {
   assignedSector: string // Sector actual (para compatibilidad)
   sectores?: string[] // Array de sectores requeridos
   sectorInicial?: string // Sector donde aparece la ficha principal (puede NO estar en sectores[])
+  finalLocation?: string // Ubicación física al llegar a Finalizado en Taller (sector previo)
   esSubTarea?: boolean // Indica si es una sub-tarea
   idFichaPrincipal?: string // ID de la ficha principal (si es sub-tarea)
   esDuplicado?: boolean // Indica si es una ficha duplicada

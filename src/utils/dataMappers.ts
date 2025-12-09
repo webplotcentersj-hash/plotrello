@@ -132,6 +132,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     assignedSector: orden.sector_inicial ?? orden.sector ?? 'Sin sector',
     sectores: orden.sectores && orden.sectores.length > 0 ? orden.sectores : (orden.sector ? [orden.sector] : []),
     sectorInicial: orden.sector_inicial ?? orden.sector ?? undefined,
+    finalLocation: orden.ubicacion_final ?? undefined,
     esSubTarea: false, // Las órdenes principales no son sub-tareas
     esDuplicado: orden.es_duplicado ?? false,
     idOrdenOriginal: orden.id_orden_original ?? undefined,

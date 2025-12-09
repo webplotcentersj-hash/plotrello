@@ -26,6 +26,7 @@ export interface OrdenTrabajo {
   drive_link?: string | null
   es_duplicado?: boolean | null // Indica si es una ficha duplicada
   id_orden_original?: number | null // ID de la ficha original (si es duplicada)
+  ubicacion_final?: string | null // Sector físico previo al pasar a Finalizado en Taller
 }
 
 export type UserRole =
