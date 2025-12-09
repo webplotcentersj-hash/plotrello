@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import type { Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import './TaskCard.css'
+import Subtasks from './Subtasks'
 
 type TaskCardProps = {
   task: Task
@@ -50,6 +51,8 @@ const stripEmailDomain = (value?: string | null) => {
 
 const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDraggable = true, onMarkDelivered }: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const ordenId = Number(task.id)
+  const hasOrdenId = !Number.isNaN(ordenId)
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'
@@ -335,6 +338,12 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
               </div>
               <span>{task.progress}%</span>
             </div>
+
+            {hasOrdenId && (
+              <div className="task-subtasks">
+                <Subtasks ordenId={ordenId} />
+              </div>
+            )}
 
             <div className="task-timings">
               <div>

@@ -5,6 +5,7 @@ import type {
   Notification,
   OrdenTrabajo,
   SectorRecord,
+  TareaSubitem,
   TareaRecord,
   UsuarioRecord,
   UserRole
@@ -835,6 +836,129 @@ class ApiService {
     }
 
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ===== SUBTAREAS / CHECKLIST =====
+  async getSubitems(idOrden: number): Promise<ApiResponse<TareaSubitem[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('tarea_subitems')
+        .select('*')
+        .eq('id_orden', idOrden)
+        .order('creado_en', { ascending: true })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as TareaSubitem[]) ?? [] }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async createSubitem(payload: {
+    idOrden: number
+    titulo: string
+    duracionEstimadaMin?: number | null
+  }): Promise<ApiResponse<TareaSubitem>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('tarea_subitems')
+        .insert({
+          id_orden: payload.idOrden,
+          titulo: payload.titulo,
+          duracion_estimada_min: payload.duracionEstimadaMin ?? null
+        })
+        .select()
+        .single()
+      if (error || !data) return { success: false, error: error?.message || 'No se pudo crear la subtarea' }
+      return { success: true, data: data as TareaSubitem }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async toggleSubitemDone(id: number, done: boolean, startedAt?: string | null): Promise<ApiResponse<void>> {
+    if (supabase) {
+      // si se marca como done y hay un timer en curso, sumarlo
+      let extraSeconds = 0
+      if (done && startedAt) {
+        const started = new Date(startedAt).getTime()
+        extraSeconds = Math.max(0, Math.round((Date.now() - started) / 1000))
+      }
+
+      const { error } = await supabase.rpc('tarea_subitems_toggle_done', {
+        p_id: id,
+        p_done: done,
+        p_extra_seconds: extraSeconds
+      }).select()
+
+      // si la RPC no existe, hacer fallback con update
+      if (error) {
+        const updateData: Partial<TareaSubitem> & { tiempo_invertido_seg?: number } = {
+          done,
+          completado_en: done ? new Date().toISOString() : null,
+          iniciado_en: null
+        }
+        if (extraSeconds > 0) {
+          updateData.tiempo_invertido_seg = (await this.getSubitemTime(id)) + extraSeconds
+        }
+        const { error: upError } = await supabase.from('tarea_subitems').update(updateData).eq('id', id)
+        if (upError) return { success: false, error: upError.message }
+      }
+      return { success: true }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  private async getSubitemTime(id: number): Promise<number> {
+    if (!supabase) return 0
+    const { data } = await supabase.from('tarea_subitems').select('tiempo_invertido_seg').eq('id', id).maybeSingle()
+    return (data as { tiempo_invertido_seg?: number } | null)?.tiempo_invertido_seg ?? 0
+  }
+
+  async startSubitemTimer(id: number): Promise<ApiResponse<void>> {
+    if (supabase) {
+      const nowIso = new Date().toISOString()
+      const { error } = await supabase
+        .from('tarea_subitems')
+        .update({ iniciado_en: nowIso })
+        .eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async stopSubitemTimer(id: number, startedAt?: string | null): Promise<ApiResponse<{ timeAdded: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    if (!startedAt) {
+      // solo limpiar iniciado_en
+      const { error } = await supabase.from('tarea_subitems').update({ iniciado_en: null }).eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { timeAdded: 0 } }
+    }
+    const started = new Date(startedAt).getTime()
+    const extraSeconds = Math.max(0, Math.round((Date.now() - started) / 1000))
+    const currentTime = await this.getSubitemTime(id)
+    const { error } = await supabase
+      .from('tarea_subitems')
+      .update({
+        iniciado_en: null,
+        tiempo_invertido_seg: currentTime + extraSeconds
+      })
+      .eq('id', id)
+    if (error) return { success: false, error: error.message }
+    return { success: true, data: { timeAdded: extraSeconds } }
+  }
+
+  async renameSubitem(id: number, titulo: string): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const { error } = await supabase.from('tarea_subitems').update({ titulo }).eq('id', id)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  }
+
+  async deleteSubitem(id: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const { error } = await supabase.from('tarea_subitems').delete().eq('id', id)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
   }
 
   // ========== HISTORIAL DE MOVIMIENTOS ==========

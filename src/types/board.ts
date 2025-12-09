@@ -54,6 +54,20 @@ export interface Task {
   locationUrl?: string
   driveUrl?: string
   entregado?: boolean // Indica si la ficha fue entregada y está archivada
+  subtasks?: Subtask[]
+  subtaskProgress?: number // porcentaje completado
+  subtaskTimeSpentSec?: number // tiempo total invertido en subtareas
+}
+
+export interface Subtask {
+  id: string
+  ordenId: number
+  title: string
+  done: boolean
+  estimatedMinutes?: number
+  timeSpentSec: number
+  startedAt?: string
+  completedAt?: string
 }
 
 export interface ActivityEvent {

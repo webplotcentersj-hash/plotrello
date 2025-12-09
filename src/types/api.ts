@@ -30,6 +30,20 @@ export interface OrdenTrabajo {
   entregado?: boolean | null // Indica si la ficha fue entregada y está archivada
 }
 
+// Subtareas / checklist por ficha
+export interface TareaSubitem {
+  id: number
+  id_orden: number
+  titulo: string
+  done: boolean
+  duracion_estimada_min?: number | null
+  tiempo_invertido_seg: number
+  iniciado_en?: string | null
+  completado_en?: string | null
+  creado_en?: string
+  actualizado_en?: string
+}
+
 export type UserRole =
   | 'administracion'
   | 'gerencia'

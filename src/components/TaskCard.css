@@ -579,6 +579,10 @@
   padding: 8px 0;
 }
 
+.task-subtasks {
+  margin-top: 8px;
+}
+
 .progress-track {
   flex: 1;
   height: 8px;
