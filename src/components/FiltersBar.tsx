@@ -53,35 +53,35 @@ const FiltersBar = ({
             ))}
           </div>
         </div>
+        {onOpenLibrary && (
+          <div className="library-button-container">
+            <button
+              type="button"
+              className="library-button"
+              onClick={onOpenLibrary}
+              title="Bibliotecas de OPs"
+            >
+              🔍 Bibliotecas de OPs
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="status-chips-container">
-        <div className="status-chips">
-          {columns.map((column) => (
-            <button
-              key={column.id}
-              type="button"
-              className={statusFocus.includes(column.id) ? 'chip active' : 'chip'}
-              onClick={() => onStatusToggle(column.id)}
-            >
-              <span className="chip-dot" style={{ background: column.accent }} />
-              {column.label}
-            </button>
-          ))}
-          <button type="button" className="chip reset" onClick={onStatusReset}>
-            Limpiar foco
-          </button>
-        </div>
-        {onOpenLibrary && (
+      <div className="status-chips">
+        {columns.map((column) => (
           <button
+            key={column.id}
             type="button"
-            className="library-button"
-            onClick={onOpenLibrary}
-            title="Bibliotecas de OPs"
+            className={statusFocus.includes(column.id) ? 'chip active' : 'chip'}
+            onClick={() => onStatusToggle(column.id)}
           >
-            🔍 Bibliotecas de OPs
+            <span className="chip-dot" style={{ background: column.accent }} />
+            {column.label}
           </button>
-        )}
+        ))}
+        <button type="button" className="chip reset" onClick={onStatusReset}>
+          Limpiar foco
+        </button>
       </div>
     </section>
   )

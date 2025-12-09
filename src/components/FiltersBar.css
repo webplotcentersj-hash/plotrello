@@ -23,6 +23,13 @@
   display: grid;
   grid-template-columns: minmax(0, 200px) 1fr;
   gap: 16px;
+  align-items: flex-end;
+}
+
+.library-button-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
 }
 
 .filter-control label {
@@ -65,19 +72,10 @@
   color: var(--text-primary);
 }
 
-.status-chips-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
 .status-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  flex: 1;
 }
 
 .library-button {
