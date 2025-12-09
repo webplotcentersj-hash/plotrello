@@ -66,7 +66,6 @@ const BoardPage = ({
   const [ownerFilter, setOwnerFilter] = useState<string>('todos')
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('todas')
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
@@ -136,14 +135,13 @@ const BoardPage = ({
     return tasks.filter((task) => {
       const matchesOwner = ownerFilter === 'todos' || task.ownerId === ownerFilter
       const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
-      const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesSearch =
         task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.summary.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesOwner && matchesPriority && matchesStatus && matchesSearch
+      return matchesOwner && matchesPriority && matchesSearch
     })
-  }, [tasks, ownerFilter, priorityFilter, statusFocus, searchQuery])
+  }, [tasks, ownerFilter, priorityFilter, searchQuery])
 
   const handleMoveTask = async (taskId: string, destination: TaskStatus) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
@@ -208,12 +206,6 @@ const BoardPage = ({
         // onReloadData() causaba que las fichas volvieran al estado anterior
       }
     }
-  }
-
-  const toggleStatusFocus = (status: TaskStatus) => {
-    setStatusFocus((prev) =>
-      prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]
-    )
   }
 
   const handleEditTask = (task: Task) => {
@@ -422,10 +414,6 @@ const BoardPage = ({
         onSearchChange={setSearchQuery}
         ownerFilter={ownerFilter}
         onOwnerChange={setOwnerFilter}
-        statusFocus={statusFocus}
-        onStatusToggle={toggleStatusFocus}
-        onStatusReset={() => setStatusFocus([])}
-        columns={BOARD_COLUMNS}
         priorityFilter={priorityFilter}
         onPriorityChange={(value) => setPriorityFilter(value as PriorityFilter)}
         priorityFilters={PRIORITY_FILTERS}

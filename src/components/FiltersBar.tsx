@@ -1,4 +1,4 @@
-import type { ColumnConfig, TeamMember, TaskStatus } from '../types/board'
+import type { TeamMember } from '../types/board'
 import './FiltersBar.css'
 
 type FiltersBarProps = {
@@ -6,10 +6,6 @@ type FiltersBarProps = {
   onSearchChange: (value: string) => void
   ownerFilter: string
   onOwnerChange: (value: string) => void
-  statusFocus: TaskStatus[]
-  onStatusToggle: (status: TaskStatus) => void
-  onStatusReset: () => void
-  columns: ColumnConfig[]
   priorityFilter: string
   onPriorityChange: (value: string) => void
   priorityFilters: ReadonlyArray<{ id: string; label: string }>
@@ -21,10 +17,6 @@ const FiltersBar = ({
   onSearchChange,
   ownerFilter,
   onOwnerChange,
-  statusFocus,
-  onStatusToggle,
-  onStatusReset,
-  columns,
   priorityFilter,
   onPriorityChange,
   priorityFilters,
@@ -69,23 +61,6 @@ const FiltersBar = ({
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="status-chips">
-        {columns.map((column) => (
-          <button
-            key={column.id}
-            type="button"
-            className={statusFocus.includes(column.id) ? 'chip active' : 'chip'}
-            onClick={() => onStatusToggle(column.id)}
-          >
-            <span className="chip-dot" style={{ background: column.accent }} />
-            {column.label}
-          </button>
-        ))}
-        <button type="button" className="chip reset" onClick={onStatusReset}>
-          Limpiar foco
-        </button>
       </div>
     </section>
   )
