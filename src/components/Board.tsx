@@ -37,13 +37,6 @@ const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDe
     }, {})
   }, [tasks, columns])
 
-  const totalsByStatus = useMemo(() => {
-    return columns.reduce<Record<string, number>>((acc, column) => {
-      acc[column.id] = allTasks.filter((task) => task.status === column.id).length
-      return acc
-    }, {})
-  }, [allTasks, columns])
-
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result
     if (!destination) return
@@ -54,11 +47,6 @@ const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDe
       return
     }
     onMoveTask(draggableId, destination.droppableId as TaskStatus)
-  }
-
-  const scrollToColumn = (status: TaskStatus) => {
-    const target = columnRefs.current[status]
-    target?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
 
   return (
