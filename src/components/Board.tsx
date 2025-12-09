@@ -63,19 +63,6 @@ const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDe
 
   return (
     <div className="board-wrapper">
-      <div className="board-nav">
-        {columns.map((column) => (
-          <button
-            key={column.id}
-            type="button"
-            onClick={() => scrollToColumn(column.id)}
-            className="board-nav__chip"
-          >
-            <span>{column.label}</span>
-            <strong>{totalsByStatus[column.id] ?? 0}</strong>
-          </button>
-        ))}
-      </div>
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="columns-grid">
           {columns.map((column) => (
