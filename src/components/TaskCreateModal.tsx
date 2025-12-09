@@ -484,7 +484,9 @@ const TaskCreateModal = ({
                   <br />
                   Todas compartirán el mismo OP #{opNumber || 'XXX'} y se moverán independientemente.
                   <br />
-                  Se unificarán automáticamente cuando todas estén en "Finalizado en Taller".
+                  {selectedSectores.length > 1
+                    ? 'Se unificarán automáticamente cuando todas estén en "Finalizado en Taller".'
+                    : 'Si hay un solo sector, la ficha permanecerá en "Finalizado en Taller" sin unificación.'}
                 </small>
               </div>
             </div>
