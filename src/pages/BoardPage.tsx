@@ -20,15 +20,6 @@ import {
   mapStatusToEstado
 } from '../utils/dataMappers'
 
-const PRIORITY_FILTERS = [
-  { id: 'todas', label: 'Todas' },
-  { id: 'alta', label: 'Alta' },
-  { id: 'media', label: 'Media' },
-  { id: 'baja', label: 'Baja' }
-] as const
-
-type PriorityFilter = (typeof PRIORITY_FILTERS)[number]['id']
-
 type BoardPageProps = {
   tasks: Task[]
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>
@@ -63,8 +54,7 @@ const BoardPage = ({
   materialesCatalog
 }: BoardPageProps) => {
   const { usuario, isAdmin } = useAuth()
-  const [ownerFilter, setOwnerFilter] = useState<string>('todos')
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('todas')
+  const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -133,15 +123,20 @@ const BoardPage = ({
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      const matchesOwner = ownerFilter === 'todos' || task.ownerId === ownerFilter
-      const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
+      const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesSearch =
         task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.summary.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesOwner && matchesPriority && matchesSearch
+      return matchesStatus && matchesSearch
     })
-  }, [tasks, ownerFilter, priorityFilter, searchQuery])
+  }, [tasks, statusFocus, searchQuery])
+
+  const toggleStatusFocus = (status: TaskStatus) => {
+    setStatusFocus((prev) =>
+      prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]
+    )
+  }
 
   const handleMoveTask = async (taskId: string, destination: TaskStatus) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
@@ -412,12 +407,10 @@ const BoardPage = ({
       <FiltersBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        ownerFilter={ownerFilter}
-        onOwnerChange={setOwnerFilter}
-        priorityFilter={priorityFilter}
-        onPriorityChange={(value) => setPriorityFilter(value as PriorityFilter)}
-        priorityFilters={PRIORITY_FILTERS}
-        teamMembers={teamMembers}
+        statusFocus={statusFocus}
+        onStatusToggle={toggleStatusFocus}
+        onStatusReset={() => setStatusFocus([])}
+        columns={BOARD_COLUMNS}
       />
 
       <main className="app-layout">
