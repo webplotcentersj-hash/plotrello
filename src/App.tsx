@@ -110,38 +110,14 @@ function App() {
         return
       }
 
-      const [ordenesResp, historialResp, subTareasResp] = await Promise.all([
+      const [ordenesResp, historialResp] = await Promise.all([
         apiService.getOrdenes(),
-        apiService.getHistorialMovimientos({ limit: 100 }),
-        apiService.getSubTareas() // Cargar todas las sub-tareas
+        apiService.getHistorialMovimientos({ limit: 100 })
       ])
 
       if (ordenesResp.success && ordenesResp.data) {
-        // Convertir órdenes a tasks (fichas principales)
-        const fichasPrincipales = ordenesResp.data.map((orden) => ordenToTask(orden))
-        
-        // Convertir sub-tareas a tasks
-        let subTareas: Task[] = []
-        if (subTareasResp.success && subTareasResp.data && ordenesResp.data) {
-          subTareas = subTareasResp.data
-            .map((tarea) => {
-              // Buscar la orden correspondiente
-              const orden = ordenesResp.data!.find((o) => o.id === tarea.id_orden)
-              if (!orden) return null
-              return tareaToTask(tarea, orden)
-            })
-            .filter((task): task is Task => task !== null)
-        }
-        
-        // Combinar fichas principales y sub-tareas
-        // ⚠️ IMPORTANTE: NO sobrescribir el status basándose en sector_inicial
-        // El status debe venir del estado en la BD, que refleja el movimiento real
-        const allTasks = [...fichasPrincipales, ...subTareas]
-        
-        // Usar directamente el status que viene de la BD (ya mapeado en ordenToTask)
-        // NO sobrescribir con sector_inicial porque eso revierte los movimientos
-        const tasksWithCorrectStatus = allTasks
-        
+        // Solo fichas principales: las sub-tareas no se muestran en el tablero
+        const tasksWithCorrectStatus = ordenesResp.data.map((orden) => ordenToTask(orden))
         setTasks(tasksWithCorrectStatus)
       } else {
         setDataError(ordenesResp.error || 'No se pudieron cargar las órdenes')
