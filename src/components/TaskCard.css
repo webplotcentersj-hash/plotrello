@@ -100,6 +100,14 @@
   display: flex;
   gap: 6px;
   z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.task-card:hover .task-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .task-action-btn {
