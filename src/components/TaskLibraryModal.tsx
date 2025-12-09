@@ -283,6 +283,7 @@ const TaskLibraryModal = ({
                   onEdit={onEditTask}
                   onDelete={onDeleteTask}
                   sectores={sectores}
+                  isDraggable={false}
                 />
               )
             })}

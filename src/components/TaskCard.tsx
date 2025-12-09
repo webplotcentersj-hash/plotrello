@@ -12,6 +12,7 @@ type TaskCardProps = {
   onEdit?: (task: Task) => void
   onDelete?: (taskId: string) => void
   sectores?: SectorRecord[]
+  isDraggable?: boolean
 }
 
 const formatShortDate = (value: string) =>
@@ -46,7 +47,7 @@ const stripEmailDomain = (value?: string | null) => {
   return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
 }
 
-const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [] }: TaskCardProps) => {
+const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDraggable = true }: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
@@ -61,18 +62,16 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [] }: TaskC
   const sectorInfo = sectores.find((s) => s.nombre === task.assignedSector)
   const sectorColor = sectorInfo?.color || '#6B7280'
 
-  return (
-    <Draggable draggableId={task.id} index={index}>
-      {(provided, snapshot) => (
-        <article
-          className={clsx('task-card', `priority-${task.priority}`, {
-            'is-dragging': snapshot.isDragging,
-            'is-collapsed': !isExpanded
-          })}
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-        >
+  const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
+    const { ref, className: extraClassName, ...restProps } = draggableProps || {}
+    return (
+      <article
+        className={clsx('task-card', `priority-${task.priority}`, {
+          'is-collapsed': !isExpanded
+        }, extraClassName)}
+        ref={ref}
+        {...restProps}
+      >
           {task.priority === 'alta' && (
             <div className="priority-led-indicator" title="Prioridad Alta"></div>
           )}
@@ -360,9 +359,27 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [] }: TaskC
             {isExpanded ? 'Ocultar detalles' : 'Ver detalles'}
           </button>
         </article>
-      )}
-    </Draggable>
-  )
+    )
+  }
+
+  if (isDraggable) {
+    return (
+      <Draggable draggableId={task.id} index={index}>
+        {(provided, snapshot) =>
+          renderCardContent({
+            ref: provided.innerRef,
+            className: clsx({
+              'is-dragging': snapshot.isDragging
+            }),
+            ...provided.draggableProps,
+            ...provided.dragHandleProps
+          })
+        }
+      </Draggable>
+    )
+  }
+
+  return renderCardContent()
 }
 
 export default TaskCard

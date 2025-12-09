@@ -79,29 +79,31 @@
 }
 
 .library-button {
-  background: #eb671b;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 10px 20px;
-  font-weight: 600;
-  font-size: 0.95rem;
+  background: rgba(235, 103, 27, 0.15);
+  color: #eb671b;
+  border: 1px solid rgba(235, 103, 27, 0.3);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 0.85rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(235, 103, 27, 0.3);
+  backdrop-filter: blur(10px);
 }
 
 .library-button:hover {
-  background: #d45a16;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(235, 103, 27, 0.4);
+  background: rgba(235, 103, 27, 0.25);
+  border-color: rgba(235, 103, 27, 0.5);
+  color: #f97316;
+  transform: translateY(-1px);
 }
 
 .library-button:active {
   transform: translateY(0);
+  background: rgba(235, 103, 27, 0.2);
 }
 
 .chip {
