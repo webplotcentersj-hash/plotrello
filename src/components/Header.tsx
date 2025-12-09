@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import NotificationsDropdown from './NotificationsDropdown'
 import './Header.css'
@@ -16,6 +17,7 @@ type HeaderProps = {
 }
 
 const Header = ({ teamMembers, activity, onAddNewOrder, onOptimizeSprint, onNavigateToStats, onNavigateToUsuarios, onOpenChatAI, onNavigateToChat, onLogout, isAdmin = false }: HeaderProps) => {
+  const [actionsOpen, setActionsOpen] = useState(false)
   const today = new Date()
   const movesToday = activity.filter((event) => {
     const eventDate = new Date(event.timestamp)
@@ -52,44 +54,55 @@ const Header = ({ teamMembers, activity, onAddNewOrder, onOptimizeSprint, onNavi
               + Agregar Nueva Orden
             </button>
           )}
-          {onOpenChatAI && (
-            <button className="brand-button ai-button" onClick={onOpenChatAI}>
-              🤖 PlotAI
-            </button>
-          )}
-          {onNavigateToChat && (
-            <button className="brand-button chat-button" onClick={onNavigateToChat}>
-              💬 Chat
-            </button>
-          )}
-          {onNavigateToStats && isAdmin && (
-            <button className="brand-button" onClick={onNavigateToStats}>
-              📊 Estadísticas
-            </button>
-          )}
-          {onNavigateToUsuarios && isAdmin && (
-            <button className="brand-button" onClick={onNavigateToUsuarios}>
-              👥 Usuarios
-            </button>
-          )}
-          {onOptimizeSprint && (
-            <button className="brand-button" onClick={onOptimizeSprint}>
-              Optimizar sprint
-            </button>
-          )}
-          <a
-            href="https://tools.plotcenter.com.ar/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="brand-button tools-button"
+          <button
+            className="ghost-button actions-toggle"
+            type="button"
+            onClick={() => setActionsOpen((prev) => !prev)}
+            aria-expanded={actionsOpen}
+            aria-label="Abrir menú de acciones"
           >
-            🔧 Herramientas
-          </a>
-          {onLogout && (
-            <button className="brand-button logout-button" onClick={onLogout} title="Cerrar sesión">
-              🚪 Salir
-            </button>
-          )}
+            {actionsOpen ? '✕ Cerrar' : '☰ Acciones'}
+          </button>
+          <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
+            {onOpenChatAI && (
+              <button className="brand-button ai-button" onClick={onOpenChatAI}>
+                🤖 PlotAI
+              </button>
+            )}
+            {onNavigateToChat && (
+              <button className="brand-button chat-button" onClick={onNavigateToChat}>
+                💬 Chat
+              </button>
+            )}
+            {onNavigateToStats && isAdmin && (
+              <button className="brand-button" onClick={onNavigateToStats}>
+                📊 Estadísticas
+              </button>
+            )}
+            {onNavigateToUsuarios && isAdmin && (
+              <button className="brand-button" onClick={onNavigateToUsuarios}>
+                👥 Usuarios
+              </button>
+            )}
+            {onOptimizeSprint && (
+              <button className="brand-button" onClick={onOptimizeSprint}>
+                Optimizar sprint
+              </button>
+            )}
+            <a
+              href="https://tools.plotcenter.com.ar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="brand-button tools-button"
+            >
+              🔧 Herramientas
+            </a>
+            {onLogout && (
+              <button className="brand-button logout-button" onClick={onLogout} title="Cerrar sesión">
+                🚪 Salir
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
