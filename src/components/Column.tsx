@@ -9,6 +9,7 @@ type ColumnProps = {
   tasks: Task[]
   members: TeamMember[]
   totalColumnTasks: number
+  maxTasksInColumn: number
   droppableProvided: DroppableProvided
   isActive: boolean
   containerRef: Ref<HTMLDivElement>
@@ -23,6 +24,7 @@ const Column = ({
   tasks,
   members,
   totalColumnTasks,
+  maxTasksInColumn,
   droppableProvided,
   isActive,
   containerRef,
@@ -31,8 +33,12 @@ const Column = ({
   sectores,
   onMarkDelivered
 }: ColumnProps) => {
+  // Calcular el porcentaje de carga de la columna
+  const loadPercentage = maxTasksInColumn > 0 ? (tasks.length / maxTasksInColumn) * 100 : 0
+
   return (
     <div className={`board-column ${isActive ? 'column-active' : ''}`} ref={containerRef}>
+      <div className="column-load-indicator" style={{ height: `${loadPercentage}%` }} />
       <header>
         <div>
           <p className="column-eyebrow">{column.label}</p>

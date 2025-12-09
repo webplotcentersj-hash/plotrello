@@ -47,6 +47,28 @@ const COMPLEJIDAD_TO_IMPACT: Record<string, Task['impact']> = {
   baja: 'low'
 }
 
+// Mapeo de estados a porcentaje de progreso
+const STATUS_TO_PROGRESS: Record<TaskStatus, number> = {
+  'diseno-grafico': 10,
+  'diseno-proceso': 20,
+  'en-espera': 30,
+  'imprenta': 40,
+  'taller-imprenta': 50,
+  'taller-grafico': 50,
+  'instalaciones': 60,
+  'metalurgica': 60,
+  'finalizado-taller': 80,
+  'almacen-entrega': 90
+}
+
+// Función para calcular el progreso basado en el estado
+const calculateProgressFromStatus = (status: TaskStatus, entregado?: boolean): number => {
+  // Si está entregado, 100%
+  if (entregado) return 100
+  // Si no, usar el mapeo de estados
+  return STATUS_TO_PROGRESS[status] || 0
+}
+
 const buildWhatsappLinkFromPhone = (phone?: string | null): string | undefined => {
   if (!phone) return undefined
   const digits = phone.replace(/\D/g, '')
@@ -138,7 +160,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     idOrdenOriginal: orden.id_orden_original ?? undefined,
     photoUrl: orden.foto_url?.trim() || '',
     storyPoints: 0,
-    progress: orden.estado?.toLowerCase().includes('finalizado') ? 100 : 50,
+    progress: calculateProgressFromStatus(statusFinal, orden.entregado ?? false),
     createdAt: orden.fecha_creacion ?? new Date().toISOString(),
     dueDate: orden.fecha_entrega ?? orden.fecha_creacion ?? new Date().toISOString(),
     updatedAt: orden.fecha_ingreso ?? orden.fecha_creacion ?? new Date().toISOString(),

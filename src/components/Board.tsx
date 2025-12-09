@@ -38,6 +38,11 @@ const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDe
     }, {})
   }, [tasks, columns])
 
+  // Calcular el máximo de tareas en cualquier columna para normalizar la barra
+  const maxTasksInColumn = useMemo(() => {
+    return Math.max(...Object.values(groupedByStatus).map((tasks) => tasks.length), 1)
+  }, [groupedByStatus])
+
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result
     if (!destination) return
@@ -62,6 +67,7 @@ const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDe
                   tasks={groupedByStatus[column.id] ?? []}
                   members={members}
                   totalColumnTasks={allTasks.filter((task) => task.status === column.id).length}
+                  maxTasksInColumn={maxTasksInColumn}
                   droppableProvided={provided}
                   isActive={snapshot.isDraggingOver}
                   containerRef={(node) => {
