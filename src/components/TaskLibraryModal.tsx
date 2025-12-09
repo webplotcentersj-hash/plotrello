@@ -286,6 +286,7 @@ const TaskLibraryModal = ({
                   onDelete={onDeleteTask}
                   sectores={sectores}
                   isDraggable={false}
+                  onMarkDelivered={onMarkDelivered}
                 />
               )
             })}

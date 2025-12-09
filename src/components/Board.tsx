@@ -70,6 +70,7 @@ const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDe
                   onEditTask={onEditTask}
                   onDeleteTask={onDeleteTask}
                   sectores={sectores}
+                  onMarkDelivered={onMarkDelivered}
                 />
               )}
             </Droppable>
