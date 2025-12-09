@@ -23,11 +23,6 @@ const Subtasks = ({ ordenId }: SubtasksProps) => {
   const [newEstimate, setNewEstimate] = useState<number | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
 
-  const runningIds = useMemo(
-    () => new Set(subtasks.filter((s) => s.startedAt && !s.done).map((s) => s.id)),
-    [subtasks]
-  )
-
   const fetchSubtasks = async () => {
     setLoading(true)
     const res = await apiService.getSubitems(ordenId)
@@ -62,17 +57,18 @@ const Subtasks = ({ ordenId }: SubtasksProps) => {
       duracionEstimadaMin: newEstimate
     })
     if (res.success && res.data) {
+      const data = res.data
       setSubtasks((prev) => [
         ...prev,
         {
-          id: res.data.id.toString(),
+          id: data.id.toString(),
           ordenId,
-          title: res.data.titulo,
-          done: res.data.done,
-          estimatedMinutes: res.data.duracion_estimada_min ?? undefined,
-          timeSpentSec: res.data.tiempo_invertido_seg ?? 0,
-          startedAt: res.data.iniciado_en ?? undefined,
-          completedAt: res.data.completado_en ?? undefined
+          title: data.titulo,
+          done: data.done,
+          estimatedMinutes: data.duracion_estimada_min ?? undefined,
+          timeSpentSec: data.tiempo_invertido_seg ?? 0,
+          startedAt: data.iniciado_en ?? undefined,
+          completedAt: data.completado_en ?? undefined
         }
       ])
       setNewTitle('')
