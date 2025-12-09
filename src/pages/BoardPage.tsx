@@ -8,6 +8,7 @@ import TaskEditModal from '../components/TaskEditModal'
 import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
 import PlotAIChat from '../components/PlotAIChat'
+import TaskLibraryModal from '../components/TaskLibraryModal'
 import { BOARD_COLUMNS } from '../data/mockData'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
@@ -61,6 +62,7 @@ const BoardPage = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
   const [isChatAIOpen, setIsChatAIOpen] = useState(false)
+  const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
@@ -421,6 +423,7 @@ const BoardPage = ({
           { id: 'baja', label: 'Baja' }
         ]}
         onPriorityChange={setPriorityFilter}
+        onOpenLibrary={() => setIsLibraryModalOpen(true)}
       />
 
       <main className="app-layout">
@@ -482,6 +485,18 @@ const BoardPage = ({
           activity={activity}
           onCreateTask={handleCreateTask}
           onClose={() => setIsChatAIOpen(false)}
+        />
+      )}
+
+      {isLibraryModalOpen && (
+        <TaskLibraryModal
+          tasks={tasks}
+          teamMembers={teamMembers}
+          sectores={sectores}
+          columns={BOARD_COLUMNS}
+          onClose={() => setIsLibraryModalOpen(false)}
+          onEditTask={handleEditTask}
+          onDeleteTask={handleDeleteTask}
         />
       )}
     </div>

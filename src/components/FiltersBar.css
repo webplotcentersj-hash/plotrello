@@ -65,10 +65,45 @@
   color: var(--text-primary);
 }
 
+.status-chips-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .status-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  flex: 1;
+}
+
+.library-button {
+  background: #eb671b;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(235, 103, 27, 0.3);
+}
+
+.library-button:hover {
+  background: #d45a16;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(235, 103, 27, 0.4);
+}
+
+.library-button:active {
+  transform: translateY(0);
 }
 
 .chip {

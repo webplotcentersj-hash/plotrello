@@ -11,6 +11,7 @@ type FiltersBarProps = {
   priorityFilter: Priority | 'todas'
   priorityFilters: ReadonlyArray<{ id: Priority | 'todas'; label: string }>
   onPriorityChange: (value: Priority | 'todas') => void
+  onOpenLibrary?: () => void
 }
 
 const FiltersBar = ({
@@ -22,7 +23,8 @@ const FiltersBar = ({
   columns,
   priorityFilter,
   priorityFilters,
-  onPriorityChange
+  onPriorityChange,
+  onOpenLibrary
 }: FiltersBarProps) => {
   return (
     <section className="filters-bar">
@@ -53,21 +55,33 @@ const FiltersBar = ({
         </div>
       </div>
 
-      <div className="status-chips">
-        {columns.map((column) => (
-          <button
-            key={column.id}
-            type="button"
-            className={statusFocus.includes(column.id) ? 'chip active' : 'chip'}
-            onClick={() => onStatusToggle(column.id)}
-          >
-            <span className="chip-dot" style={{ background: column.accent }} />
-            {column.label}
+      <div className="status-chips-container">
+        <div className="status-chips">
+          {columns.map((column) => (
+            <button
+              key={column.id}
+              type="button"
+              className={statusFocus.includes(column.id) ? 'chip active' : 'chip'}
+              onClick={() => onStatusToggle(column.id)}
+            >
+              <span className="chip-dot" style={{ background: column.accent }} />
+              {column.label}
+            </button>
+          ))}
+          <button type="button" className="chip reset" onClick={onStatusReset}>
+            Limpiar foco
           </button>
-        ))}
-        <button type="button" className="chip reset" onClick={onStatusReset}>
-          Limpiar foco
-        </button>
+        </div>
+        {onOpenLibrary && (
+          <button
+            type="button"
+            className="library-button"
+            onClick={onOpenLibrary}
+            title="Bibliotecas de OPs"
+          >
+            🔍 Bibliotecas de OPs
+          </button>
+        )}
       </div>
     </section>
   )
