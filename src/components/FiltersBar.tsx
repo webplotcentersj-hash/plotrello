@@ -1,4 +1,4 @@
-import type { ColumnConfig, TaskStatus } from '../types/board'
+import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import './FiltersBar.css'
 
 type FiltersBarProps = {
@@ -8,6 +8,9 @@ type FiltersBarProps = {
   onStatusToggle: (status: TaskStatus) => void
   onStatusReset: () => void
   columns: ReadonlyArray<ColumnConfig>
+  priorityFilter: Priority | 'todas'
+  priorityFilters: ReadonlyArray<{ id: Priority | 'todas'; label: string }>
+  onPriorityChange: (value: Priority | 'todas') => void
 }
 
 const FiltersBar = ({
@@ -16,7 +19,10 @@ const FiltersBar = ({
   statusFocus,
   onStatusToggle,
   onStatusReset,
-  columns
+  columns,
+  priorityFilter,
+  priorityFilters,
+  onPriorityChange
 }: FiltersBarProps) => {
   return (
     <section className="filters-bar">
@@ -27,6 +33,24 @@ const FiltersBar = ({
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
         />
+      </div>
+
+      <div className="filter-grid">
+        <div className="filter-control">
+          <label>Prioridad</label>
+          <div className="priority-group">
+            {priorityFilters.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                className={filter.id === priorityFilter ? 'active' : ''}
+                onClick={() => onPriorityChange(filter.id)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="status-chips">

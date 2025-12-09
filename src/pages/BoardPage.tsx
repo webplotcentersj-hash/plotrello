@@ -9,7 +9,7 @@ import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
 import PlotAIChat from '../components/PlotAIChat'
 import { BOARD_COLUMNS } from '../data/mockData'
-import type { ActivityEvent, Task, TaskStatus, TeamMember } from '../types/board'
+import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -55,6 +55,7 @@ const BoardPage = ({
 }: BoardPageProps) => {
   const { usuario, isAdmin } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
+  const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -124,13 +125,14 @@ const BoardPage = ({
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
+      const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
       const matchesSearch =
         task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.summary.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesStatus && matchesSearch
+      return matchesStatus && matchesPriority && matchesSearch
     })
-  }, [tasks, statusFocus, searchQuery])
+  }, [tasks, statusFocus, priorityFilter, searchQuery])
 
   const toggleStatusFocus = (status: TaskStatus) => {
     setStatusFocus((prev) =>
@@ -411,6 +413,14 @@ const BoardPage = ({
         onStatusToggle={toggleStatusFocus}
         onStatusReset={() => setStatusFocus([])}
         columns={BOARD_COLUMNS}
+        priorityFilter={priorityFilter}
+        priorityFilters={[
+          { id: 'todas', label: 'Todas' },
+          { id: 'alta', label: 'Alta' },
+          { id: 'media', label: 'Media' },
+          { id: 'baja', label: 'Baja' }
+        ]}
+        onPriorityChange={setPriorityFilter}
       />
 
       <main className="app-layout">
