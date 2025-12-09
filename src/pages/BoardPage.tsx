@@ -126,6 +126,9 @@ const BoardPage = ({
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      // Excluir fichas entregadas/archivadas del board principal
+      if (task.entregado) return false
+      
       const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
       const matchesSearch =
@@ -262,6 +265,24 @@ const BoardPage = ({
       } else if (onReloadData) {
         await onReloadData()
       }
+    }
+  }
+
+  const handleMarkDelivered = async (taskId: string, delivered: boolean) => {
+    const ordenId = parseTaskIdToOrdenId(taskId)
+    if (!ordenId) return
+
+    const response = await apiService.marcarEntregado(ordenId, delivered)
+    if (response.success) {
+      // Actualizar el estado local
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, entregado: delivered } : task
+        )
+      )
+      setActionSuccess(delivered ? 'Ficha marcada como entregada y archivada' : 'Ficha desarchivada')
+    } else {
+      setActionError(response.error || 'No se pudo marcar como entregado')
     }
   }
 
@@ -431,12 +452,13 @@ const BoardPage = ({
           <Board
             columns={BOARD_COLUMNS}
             tasks={filteredTasks}
-            allTasks={tasks}
+            allTasks={tasks.filter((t) => !t.entregado)}
             onMoveTask={handleMoveTask}
             members={teamMembers}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
             sectores={sectores}
+            onMarkDelivered={handleMarkDelivered}
           />
         </section>
 
@@ -497,6 +519,7 @@ const BoardPage = ({
           onClose={() => setIsLibraryModalOpen(false)}
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
+          onMarkDelivered={handleMarkDelivered}
         />
       )}
     </div>

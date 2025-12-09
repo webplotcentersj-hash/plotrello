@@ -148,7 +148,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     clientAddress,
     whatsappUrl,
     locationUrl,
-    driveUrl
+    driveUrl,
+    entregado: orden.entregado ?? false
   }
 }
 

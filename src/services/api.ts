@@ -787,6 +787,43 @@ class ApiService {
       return { success: true }
     }
 
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async marcarEntregado(id: number, entregado: boolean): Promise<ApiResponse<void>> {
+    if (supabase) {
+      const { error } = await supabase
+        .from('ordenes_trabajo')
+        .update({ entregado })
+        .eq('id', id)
+
+      if (error) return { success: false, error: error.message }
+
+      // Registrar en historial si se marca como entregado
+      if (entregado) {
+        const usuarioData = localStorage.getItem('usuario')
+        const nombreUsuario = usuarioData
+          ? JSON.parse(usuarioData).nombre || 'Usuario'
+          : 'Usuario'
+        const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
+
+        await supabase.from('historial_movimientos').insert({
+          id_orden: id,
+          estado_anterior: 'Almacén de Entrega',
+          estado_nuevo: 'Entregado (Archivado)',
+          id_usuario: usuarioId,
+          nombre_usuario: nombreUsuario,
+          timestamp: new Date().toISOString(),
+          comentario: 'Ficha marcada como entregada y archivada'
+        })
+      }
+
+      return { success: true }
+    }
+
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
     if (hasLegacyBackend) {
       return this.legacyRequest(`/ordenes.php?id=${id}`, {
         method: 'PATCH',

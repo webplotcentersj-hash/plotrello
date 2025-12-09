@@ -13,6 +13,7 @@ type TaskCardProps = {
   onDelete?: (taskId: string) => void
   sectores?: SectorRecord[]
   isDraggable?: boolean
+  onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
 }
 
 const formatShortDate = (value: string) =>
@@ -47,7 +48,7 @@ const stripEmailDomain = (value?: string | null) => {
   return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
 }
 
-const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDraggable = true }: TaskCardProps) => {
+const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDraggable = true, onMarkDelivered }: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
@@ -206,6 +207,22 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
                 <strong className="people-name">{workerDisplay}</strong>
               </div>
             </div>
+            {/* Checkbox Entregado cuando está en Almacén de Entrega */}
+            {task.status === 'almacen-entrega' && onMarkDelivered && (
+              <div className="task-delivered-checkbox">
+                <label className="delivered-label">
+                  <input
+                    type="checkbox"
+                    checked={task.entregado ?? false}
+                    onChange={async (e) => {
+                      e.stopPropagation()
+                      await onMarkDelivered(task.id, e.target.checked)
+                    }}
+                  />
+                  <span>✓ Entregado (Archivar)</span>
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="task-body">

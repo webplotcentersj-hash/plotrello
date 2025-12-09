@@ -53,6 +53,7 @@ export interface Task {
   whatsappUrl?: string
   locationUrl?: string
   driveUrl?: string
+  entregado?: boolean // Indica si la ficha fue entregada y está archivada
 }
 
 export interface ActivityEvent {

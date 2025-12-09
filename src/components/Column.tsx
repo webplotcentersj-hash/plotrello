@@ -15,6 +15,7 @@ type ColumnProps = {
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
   sectores?: SectorRecord[]
+  onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
 }
 
 const Column = ({
@@ -27,7 +28,8 @@ const Column = ({
   containerRef,
   onEditTask,
   onDeleteTask,
-  sectores
+  sectores,
+  onMarkDelivered
 }: ColumnProps) => {
   return (
     <div className={`board-column ${isActive ? 'column-active' : ''}`} ref={containerRef}>
@@ -51,6 +53,7 @@ const Column = ({
             onEdit={onEditTask}
             onDelete={onDeleteTask}
             sectores={sectores}
+            onMarkDelivered={onMarkDelivered}
           />
         ))}
         {droppableProvided.placeholder}

@@ -27,6 +27,7 @@ export interface OrdenTrabajo {
   es_duplicado?: boolean | null // Indica si es una ficha duplicada
   id_orden_original?: number | null // ID de la ficha original (si es duplicada)
   ubicacion_final?: string | null // Sector físico previo al pasar a Finalizado en Taller
+  entregado?: boolean | null // Indica si la ficha fue entregada y está archivada
 }
 
 export type UserRole =

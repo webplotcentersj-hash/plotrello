@@ -14,9 +14,10 @@ type BoardProps = {
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
   sectores?: SectorRecord[]
+  onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
 }
 
-const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDeleteTask, sectores }: BoardProps) => {
+const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDeleteTask, sectores, onMarkDelivered }: BoardProps) => {
   const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({
     'diseno-grafico': null,
     'diseno-proceso': null,

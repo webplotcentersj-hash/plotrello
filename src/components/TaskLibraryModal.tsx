@@ -12,6 +12,7 @@ type TaskLibraryModalProps = {
   onClose: () => void
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
+  onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
 }
 
 const TaskLibraryModal = ({
@@ -21,7 +22,8 @@ const TaskLibraryModal = ({
   columns,
   onClose,
   onEditTask,
-  onDeleteTask
+  onDeleteTask,
+  onMarkDelivered
 }: TaskLibraryModalProps) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSector, setSelectedSector] = useState<string>('todos')
