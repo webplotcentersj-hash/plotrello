@@ -1,13 +1,13 @@
-import type { TeamMember } from '../types/board'
+import type { ColumnConfig, TaskStatus } from '../types/board'
 import './FiltersBar.css'
 
 type FiltersBarProps = {
   searchQuery: string
   onSearchChange: (value: string) => void
-  statusFocus: string[]
-  onStatusToggle: (status: string) => void
+  statusFocus: TaskStatus[]
+  onStatusToggle: (status: TaskStatus) => void
   onStatusReset: () => void
-  columns: ReadonlyArray<{ id: string; label: string; accent: string }>
+  columns: ReadonlyArray<ColumnConfig>
 }
 
 const FiltersBar = ({
