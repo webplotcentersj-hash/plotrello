@@ -254,7 +254,7 @@ const BoardPage = ({
         }
         setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? mergedTask : task)))
         setActionSuccess('Cambios guardados en Supabase.')
-        if (onReloadData) await onReloadData()
+        // No recargamos datos aquí para evitar que la ficha vuelva a la columna previa
       } else {
         setActionError(response.error || 'No se pudo guardar la orden en Supabase.')
       }
