@@ -579,7 +579,8 @@
 }
 
 .task-subtasks {
-  margin-top: 8px;
+  margin-top: 10px;
+  margin-bottom: 12px;
 }
 
 .progress-track {
@@ -612,10 +613,11 @@
   gap: 16px;
   font-size: 0.8rem;
   color: var(--text-muted);
-  padding: 12px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  margin: 10px 0;
 }
 
 .task-timings > div {
