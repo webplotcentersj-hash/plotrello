@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import type { Task, TaskStatus, Priority, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
+import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import './TaskLibraryModal.css'
 
 type TaskLibraryModalProps = {
@@ -270,7 +271,27 @@ const TaskLibraryModal = ({
         <div className="task-library-results">
           <div className="results-header">
             <span>Resultados</span>
-            <span className="results-count">{filteredTasks.length} fichas encontradas</span>
+            <div className="results-header-right">
+              <span className="results-count">{filteredTasks.length} fichas encontradas</span>
+              {filteredTasks.length > 0 && (
+                <div className="export-buttons">
+                  <button
+                    className="export-btn export-csv"
+                    onClick={() => exportToCSV(filteredTasks, teamMembers, sectores, columns)}
+                    title="Exportar a CSV"
+                  >
+                    📊 CSV
+                  </button>
+                  <button
+                    className="export-btn export-pdf"
+                    onClick={() => exportToPDF(filteredTasks, teamMembers, sectores, columns)}
+                    title="Exportar a PDF"
+                  >
+                    📄 PDF
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="task-library-grid">

@@ -169,9 +169,56 @@
   color: var(--text-primary);
 }
 
+.results-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .results-count {
   font-size: 0.9rem;
   color: var(--text-muted);
+}
+
+.export-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.export-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: rgba(235, 103, 27, 0.5);
+  transform: translateY(-1px);
+}
+
+.export-btn.export-csv:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.export-btn.export-pdf:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.export-btn:active {
+  transform: translateY(0);
 }
 
 .task-library-grid {
