@@ -426,6 +426,7 @@ const BoardPage = ({
       <Header
         teamMembers={teamMembers}
         activity={activity}
+        currentUserName={resolveCurrentUserName()}
         onAddNewOrder={() => setIsCreateModalOpen(true)}
         onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
         onNavigateToStats={onNavigateToStats}

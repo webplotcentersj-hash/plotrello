@@ -6,6 +6,7 @@ import './Header.css'
 type HeaderProps = {
   teamMembers: TeamMember[]
   activity: ActivityEvent[]
+  currentUserName?: string
   onAddNewOrder?: () => void
   onOptimizeSprint?: () => void
   onNavigateToStats?: () => void
@@ -16,7 +17,7 @@ type HeaderProps = {
   isAdmin?: boolean
 }
 
-const Header = ({ teamMembers, activity, onAddNewOrder, onOptimizeSprint, onNavigateToStats, onNavigateToUsuarios, onOpenChatAI, onNavigateToChat, onLogout, isAdmin = false }: HeaderProps) => {
+const Header = ({ teamMembers, activity, currentUserName, onAddNewOrder, onOptimizeSprint, onNavigateToStats, onNavigateToUsuarios, onOpenChatAI, onNavigateToChat, onLogout, isAdmin = false }: HeaderProps) => {
   const [actionsOpen, setActionsOpen] = useState(false)
   const today = new Date()
   const movesToday = activity.filter((event) => {
@@ -103,6 +104,17 @@ const Header = ({ teamMembers, activity, onAddNewOrder, onOptimizeSprint, onNavi
               </button>
             )}
           </div>
+          {currentUserName && (
+            <div className="user-chip" title="Usuario conectado">
+              <div className="user-avatar">
+                {currentUserName.slice(0, 1).toUpperCase()}
+              </div>
+              <div className="user-meta">
+                <span>Conectado</span>
+                <strong>{currentUserName}</strong>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
