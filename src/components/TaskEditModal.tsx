@@ -727,9 +727,20 @@ const TaskEditModal = ({
                   >
                     <div>
                       <strong>{material.descripcion}</strong>
-                      {material.codigo && (
-                        <div className="dropdown-subtext">{material.codigo}</div>
-                      )}
+                      <div className="dropdown-subtext">
+                        {material.codigo && <span>{material.codigo}</span>}
+                        {material.stock !== null && material.stock !== undefined && (
+                          <span
+                            style={{
+                              marginLeft: material.codigo ? '8px' : '0',
+                              color: material.stock <= 0 ? '#f87171' : material.stock <= 10 ? '#fbbf24' : '#22c55e',
+                              fontWeight: 600
+                            }}
+                          >
+                            Stock: {material.stock}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

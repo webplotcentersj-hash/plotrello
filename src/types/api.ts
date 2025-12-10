@@ -85,6 +85,7 @@ export interface MaterialRecord {
   id: number
   codigo?: string | null
   descripcion: string
+  stock?: number | null // Cantidad disponible en stock
 }
 
 export interface HistorialMovimiento {

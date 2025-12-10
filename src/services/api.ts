@@ -1053,22 +1053,29 @@ class ApiService {
     // Intentar usar la base de datos de stock primero
     if (stockSupabase) {
       try {
-        // Nombre de la tabla de materiales en la base de stock (puede ser 'materiales', 'stock', 'productos', etc.)
-        // Si tu tabla tiene otro nombre, cambia 'materiales' por el nombre correcto
-        const tableName = import.meta.env.VITE_STOCK_TABLE_NAME || 'materiales'
-        
-        let query = stockSupabase.from(tableName).select('id, codigo, descripcion').order('descripcion', {
-          ascending: true
-        })
+        // Usar la tabla 'articulos' que tiene el stock
+        let query = stockSupabase
+          .from('articulos')
+          .select('id, codigo, descripcion, stock')
+          .order('descripcion', {
+            ascending: true
+          })
 
         if (search && search.trim().length >= 2) {
-          // Intentar buscar por descripción primero, si no existe, buscar por código
+          // Buscar por descripción o código
           query = query.or(`descripcion.ilike.%${search.trim()}%,codigo.ilike.%${search.trim()}%`)
         }
 
         const { data, error } = await query
         if (!error && data) {
-          return { success: true, data: (data as MaterialRecord[]) ?? [] }
+          // Mapear articulos a MaterialRecord incluyendo el stock
+          const materiales = data.map((articulo: any) => ({
+            id: articulo.id,
+            codigo: articulo.codigo || null,
+            descripcion: articulo.descripcion,
+            stock: articulo.stock ?? null
+          }))
+          return { success: true, data: materiales as MaterialRecord[] }
         }
         // Si hay error, continuar con fallback a base principal
         console.warn('⚠️ Error obteniendo materiales de stock, usando base principal:', error?.message)
