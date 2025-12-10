@@ -10,7 +10,7 @@ type TaskCreateModalProps = {
   sectores: SectorRecord[]
   materiales: MaterialRecord[]
   onClose: () => void
-  onCreate: (newTask: Omit<Task, 'id'>, options?: { openChecklist?: boolean }) => Promise<Task | void | null>
+  onCreate: (newTask: Omit<Task, 'id'>, options?: { openChecklist?: boolean }) => Promise<void>
 }
 
 type LocalAttachment = {

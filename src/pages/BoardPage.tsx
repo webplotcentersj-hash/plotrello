@@ -291,7 +291,7 @@ const BoardPage = ({
   const handleCreateTask = async (
     newTaskData: Omit<Task, 'id'>,
     options?: { openChecklist?: boolean }
-  ): Promise<Task | null> => {
+  ): Promise<void> => {
     try {
       console.log('📝 Creando nueva ficha:', {
         opNumber: newTaskData.opNumber,
@@ -323,14 +323,12 @@ const BoardPage = ({
           setChecklistTask(createdTask)
         }
         if (onReloadData) await onReloadData()
-        return createdTask
       } else {
         setActionError(response.error || 'No se pudo crear la orden en Supabase.')
       }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Error inesperado al crear la orden.')
     }
-    return null
   }
 
   const handleApplyOptimizations = (suggestions: Array<{
