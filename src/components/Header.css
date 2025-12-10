@@ -69,12 +69,14 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 12px 16px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  height: 44px;
+  box-sizing: border-box;
 }
 
 .user-avatar {
@@ -103,12 +105,17 @@
 }
 
 .actions-toggle {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
   font-weight: 700;
+  height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .actions-dropdown {
@@ -143,6 +150,8 @@
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(10px);
+  height: 44px;
+  box-sizing: border-box;
 }
 
 .ghost-button {
