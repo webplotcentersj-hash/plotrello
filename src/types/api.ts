@@ -63,6 +63,17 @@ export interface UsuarioRecord {
   rol: UserRole
 }
 
+export interface ClienteRecord {
+  id: number
+  nombre: string
+  dni_cuit?: string | null
+  telefono?: string | null
+  email?: string | null
+  direccion?: string | null
+  ubicacion_link?: string | null
+  drive_link?: string | null
+}
+
 export interface SectorRecord {
   id: number
   nombre: string

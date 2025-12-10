@@ -1,5 +1,6 @@
 import { BOARD_COLUMNS } from '../data/mockData'
 import type {
+  ClienteRecord,
   HistorialMovimiento,
   MaterialRecord,
   Notification,
@@ -1183,6 +1184,55 @@ class ApiService {
     }
 
     return { success: false, error: lastError || 'No se pudo crear el usuario.' }
+  }
+
+  // ========== CLIENTES ==========
+  async buscarClientes(query: string): Promise<ApiResponse<ClienteRecord[]>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('buscar_clientes', {
+        p_query: query.trim()
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: (data as ClienteRecord[]) ?? [] }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async buscarOCrearCliente(cliente: {
+    nombre: string
+    dni_cuit?: string
+    telefono?: string
+    email?: string
+    direccion?: string
+    ubicacion_link?: string
+    drive_link?: string
+  }): Promise<ApiResponse<ClienteRecord>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('buscar_o_crear_cliente', {
+        p_nombre: cliente.nombre.trim(),
+        p_dni_cuit: cliente.dni_cuit?.trim() || null,
+        p_telefono: cliente.telefono?.trim() || null,
+        p_email: cliente.email?.trim() || null,
+        p_direccion: cliente.direccion?.trim() || null,
+        p_ubicacion_link: cliente.ubicacion_link?.trim() || null,
+        p_drive_link: cliente.drive_link?.trim() || null
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        return { success: true, data: data[0] as ClienteRecord }
+      }
+
+      return { success: false, error: 'No se retornó el cliente creado' }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
   }
 
   // ========== CHAT ==========

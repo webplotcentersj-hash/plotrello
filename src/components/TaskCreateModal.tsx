@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { Task, TeamMember, TaskStatus } from '../types/board'
-import type { MaterialRecord, SectorRecord } from '../types/api'
+import type { ClienteRecord, MaterialRecord, SectorRecord } from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { useAuth } from '../hooks/useAuth'
 import { filterOperariosBySector } from '../utils/dataMappers'
+import apiService from '../services/api'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -84,6 +85,9 @@ const TaskCreateModal = ({
   const [tagInput, setTagInput] = useState('')
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false)
   const [isMaterialDropdownOpen, setIsMaterialDropdownOpen] = useState(false)
+  const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
+  const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
+  const [buscandoClientes, setBuscandoClientes] = useState(false)
   const attachmentsRef = useRef<LocalAttachment[]>([])
 
   // No necesitamos sector inicial, se crean automáticamente para cada sector requerido
@@ -99,6 +103,45 @@ const TaskCreateModal = ({
       setOperario(filteredOperarios[0].id)
     }
   }, [filteredOperarios, operario])
+
+  // Buscar clientes cuando se escribe en el campo cliente
+  useEffect(() => {
+    const buscarClientes = async () => {
+      if (cliente.trim().length < 2) {
+        setClientesEncontrados([])
+        setIsClienteDropdownOpen(false)
+        return
+      }
+
+      setBuscandoClientes(true)
+      const response = await apiService.buscarClientes(cliente.trim())
+      if (response.success && response.data) {
+        setClientesEncontrados(response.data)
+        setIsClienteDropdownOpen(true)
+      } else {
+        setClientesEncontrados([])
+      }
+      setBuscandoClientes(false)
+    }
+
+    const timeoutId = setTimeout(() => {
+      void buscarClientes()
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [cliente])
+
+  const handleSelectCliente = (clienteSeleccionado: ClienteRecord) => {
+    setCliente(clienteSeleccionado.nombre)
+    setDniCuit(clienteSeleccionado.dni_cuit || '')
+    setTelefonoCliente(clienteSeleccionado.telefono || '')
+    setEmailCliente(clienteSeleccionado.email || '')
+    setDireccionCliente(clienteSeleccionado.direccion || '')
+    setUbicacionUrl(clienteSeleccionado.ubicacion_link || '')
+    setDriveUrl(clienteSeleccionado.drive_link || '')
+    setClientesEncontrados([])
+    setIsClienteDropdownOpen(false)
+  }
 
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
 
@@ -117,6 +160,22 @@ const TaskCreateModal = ({
     if (hasPendingUploads) {
       alert('Espera a que termine la subida de archivos antes de crear la orden.')
       return
+    }
+
+    // Guardar/actualizar cliente antes de crear la OP
+    const clienteResponse = await apiService.buscarOCrearCliente({
+      nombre: cliente.trim(),
+      dni_cuit: dniCuit.trim() || undefined,
+      telefono: telefonoCliente.trim() || undefined,
+      email: emailCliente.trim() || undefined,
+      direccion: direccionCliente.trim() || undefined,
+      ubicacion_link: ubicacionUrl.trim() || undefined,
+      drive_link: driveUrl.trim() || undefined
+    })
+
+    if (!clienteResponse.success) {
+      console.warn('⚠️ No se pudo guardar/actualizar el cliente:', clienteResponse.error)
+      // Continuar de todas formas, pero mostrar advertencia
     }
 
     const dueDate = fechaEntrega
@@ -345,8 +404,42 @@ const TaskCreateModal = ({
                 type="text"
                 value={cliente}
                 onChange={(e) => setCliente(e.target.value)}
-                placeholder=""
+                onFocus={() => {
+                  if (clientesEncontrados.length > 0) setIsClienteDropdownOpen(true)
+                }}
+                onBlur={() => setTimeout(() => setIsClienteDropdownOpen(false), 200)}
+                placeholder="Buscar cliente existente..."
               />
+              {isClienteDropdownOpen && clientesEncontrados.length > 0 && (
+                <div className="dropdown-list">
+                  {buscandoClientes && (
+                    <div className="dropdown-item" style={{ color: 'var(--text-muted)' }}>
+                      Buscando...
+                    </div>
+                  )}
+                  {!buscandoClientes &&
+                    clientesEncontrados.map((c) => (
+                      <div
+                        key={c.id}
+                        className="dropdown-item"
+                        onMouseDown={(event) => {
+                          event.preventDefault()
+                          handleSelectCliente(c)
+                        }}
+                      >
+                        <div>
+                          <strong>{c.nombre}</strong>
+                          {c.dni_cuit && (
+                            <div className="dropdown-subtext">DNI/CUIT: {c.dni_cuit}</div>
+                          )}
+                          {c.telefono && (
+                            <div className="dropdown-subtext">Tel: {c.telefono}</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
