@@ -30,7 +30,18 @@
   display: flex;
   justify-content: flex-end;
   align-items: flex-end;
-  gap: 10px;
+  gap: 12px;
+}
+
+.library-button-container .brand-button,
+.library-button-container .library-button {
+  height: 44px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  min-width: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .filter-control label {
@@ -83,16 +94,20 @@
   background: rgba(235, 103, 27, 0.15);
   color: #eb671b;
   border: 1px solid rgba(235, 103, 27, 0.3);
-  border-radius: 10px;
-  padding: 8px 16px;
-  font-weight: 500;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   transition: all 0.2s;
   backdrop-filter: blur(10px);
+  height: 44px;
+  box-sizing: border-box;
+  min-width: 180px;
 }
 
 .library-button:hover {
