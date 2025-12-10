@@ -147,7 +147,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     ownerId: orden.operario_asignado ?? 'sin-asignar',
     createdBy: orden.nombre_creador ?? 'Sistema',
     workingUser: orden.usuario_trabajando_nombre ?? undefined,
-    tags: [],
+    tags: orden.etiquetas ?? [],
     materials: orden.materiales
       ? orden.materiales.split(',').map((m) => m.trim()).filter(Boolean)
       : [],
@@ -224,7 +224,8 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     direccion_cliente: task.clientAddress?.trim() || null,
     whatsapp_link: whatsappLink,
     ubicacion_link: task.locationUrl?.trim() || null,
-    drive_link: task.driveUrl?.trim() || null
+    drive_link: task.driveUrl?.trim() || null,
+    etiquetas: task.tags
   }
 
   // Debug: log datos de sectores y contacto

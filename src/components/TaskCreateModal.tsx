@@ -79,6 +79,8 @@ const TaskCreateModal = ({
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
   const [photoUrl, setPhotoUrl] = useState('')
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false)
   const [isMaterialDropdownOpen, setIsMaterialDropdownOpen] = useState(false)
   const attachmentsRef = useRef<LocalAttachment[]>([])
@@ -147,12 +149,12 @@ const TaskCreateModal = ({
       priority: (prioridad.toLowerCase() === 'normal' ? 'media' : prioridad.toLowerCase()) as any,
       ownerId: operario || teamMembers[0]?.id || '',
       createdBy: creatorName,
-      tags: [],
       materials: materials.map((m) => m.name),
       assignedSector: primerSector, // Primer sector (se crearán automáticamente las demás)
       sectores: selectedSectores, // Array de sectores requeridos - se crearán N fichas automáticamente
       esSubTarea: false, // Es ficha principal
       photoUrl: photoUrl || '',
+      tags,
       storyPoints: 0,
       progress: 0,
       createdAt: new Date().toISOString(),
@@ -194,6 +196,18 @@ const TaskCreateModal = ({
 
   const handleRemoveMaterial = (index: number) => {
     setMaterials(materials.filter((_, i) => i !== index))
+  }
+
+  const handleAddTag = () => {
+    const value = tagInput.trim()
+    if (!value) return
+    if (tags.includes(value)) return
+    setTags((prev) => [...prev, value])
+    setTagInput('')
+  }
+
+  const handleRemoveTag = (value: string) => {
+    setTags((prev) => prev.filter((t) => t !== value))
   }
 
   const handleToggleSector = (sector: string) => {
@@ -531,6 +545,39 @@ const TaskCreateModal = ({
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder=""
             />
+          </div>
+
+          <div className="form-group">
+            <label>Etiquetas (colores automáticos)</label>
+            <div className="tag-input-row">
+              <input
+                type="text"
+                placeholder="Ej: Urgente, Cliente VIP..."
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddTag()
+                  }
+                }}
+              />
+              <button type="button" className="btn-secondary" onClick={handleAddTag}>
+                + Agregar
+              </button>
+            </div>
+            {tags.length > 0 && (
+              <div className="selected-tags" style={{ marginTop: '8px' }}>
+                {tags.map((tag) => (
+                  <span key={tag} className="tag selected">
+                    {tag}
+                    <button type="button" onClick={() => handleRemoveTag(tag)}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="form-group">

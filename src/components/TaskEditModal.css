@@ -189,6 +189,16 @@
   margin-top: 8px;
 }
 
+.tag-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.tag-input-row input {
+  flex: 1;
+}
+
 .tag {
   display: inline-flex;
   align-items: center;

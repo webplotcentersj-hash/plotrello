@@ -42,6 +42,8 @@ const TaskEditModal = ({
   const [selectedSectors, setSelectedSectors] = useState<string[]>([])
   const [materials, setMaterials] = useState<Array<{ name: string; quantity: number }>>([])
   const [materialSearch, setMaterialSearch] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const [sectorSearch, setSectorSearch] = useState('')
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -93,6 +95,7 @@ const TaskEditModal = ({
         driveUrl: task.driveUrl
       })
       setSelectedSectors(task.assignedSector ? [task.assignedSector] : [])
+      setTags(task.tags || [])
       setMaterials(
         task.materials.map((m) => ({
           name: m,
@@ -159,6 +162,7 @@ const TaskEditModal = ({
     const updated: Task = {
       ...task,
       ...formData,
+      tags,
       materials: materials.map((m) => m.name),
       assignedSector: selectedSectors[0] || task.assignedSector,
       updatedAt: new Date().toISOString()
@@ -210,6 +214,18 @@ const TaskEditModal = ({
 
   const handleRemoveMaterial = (index: number) => {
     setMaterials(materials.filter((_, i) => i !== index))
+  }
+
+  const handleAddTag = () => {
+    const value = tagInput.trim()
+    if (!value) return
+    if (tags.includes(value)) return
+    setTags((prev) => [...prev, value])
+    setTagInput('')
+  }
+
+  const handleRemoveTag = (value: string) => {
+    setTags((prev) => prev.filter((t) => t !== value))
   }
 
   const handleAddSector = (sector: string) => {
@@ -487,6 +503,39 @@ const TaskEditModal = ({
             />
           </div>
 
+          <div className="form-group">
+            <label>Etiquetas (colores automáticos)</label>
+            <div className="tag-input-row">
+              <input
+                type="text"
+                placeholder="Ej: Urgente, Cliente VIP..."
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddTag()
+                  }
+                }}
+              />
+              <button type="button" className="btn-secondary" onClick={handleAddTag}>
+                + Agregar
+              </button>
+            </div>
+            {tags.length > 0 && (
+              <div className="selected-tags" style={{ marginTop: '8px' }}>
+                {tags.map((tag) => (
+                  <span key={tag} className="tag selected">
+                    {tag}
+                    <button type="button" onClick={() => handleRemoveTag(tag)}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label>Teléfono cliente (opcional)</label>
@@ -731,8 +780,14 @@ const TaskEditModal = ({
             {uploadError && <p className="upload-error">{uploadError}</p>}
             <div className="upload-section">
               <label className="upload-button">
-                Seleccionar archivo
-                <input type="file" accept="image/*" onChange={handleFileUpload} hidden />
+                Seleccionar archivos
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  onChange={handleFileUpload}
+                  hidden
+                />
               </label>
               <span className="upload-hint">
                 {hasPendingUploads

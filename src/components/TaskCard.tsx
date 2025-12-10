@@ -6,6 +6,15 @@ import type { SectorRecord } from '../types/api'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
+const stringToColor = (str: string) => {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const h = hash % 360
+  return `hsl(${h}, 70%, 60%)`
+}
+
 type TaskCardProps = {
   task: Task
   index: number
@@ -326,9 +335,21 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
 
             {task.tags.length > 0 && (
               <div className="task-tags">
-                {task.tags.map((tag) => (
-                  <span key={tag}>{tag}</span>
-                ))}
+                {task.tags.map((tag) => {
+                  const color = stringToColor(tag)
+                  return (
+                    <span
+                      key={tag}
+                      style={{
+                        background: `${color}22`,
+                        border: `1px solid ${color}55`,
+                        color
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  )
+                })}
               </div>
             )}
 
