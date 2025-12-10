@@ -11,7 +11,7 @@ import type {
   UsuarioRecord,
   UserRole
 } from '../types/api'
-import { supabase } from './supabaseClient'
+import { supabase, stockSupabase } from './supabaseClient'
 import bcrypt from 'bcryptjs'
 
 const LEGACY_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
@@ -1050,6 +1050,34 @@ class ApiService {
   }
 
   async getMateriales(search?: string): Promise<ApiResponse<MaterialRecord[]>> {
+    // Intentar usar la base de datos de stock primero
+    if (stockSupabase) {
+      try {
+        // Nombre de la tabla de materiales en la base de stock (puede ser 'materiales', 'stock', 'productos', etc.)
+        // Si tu tabla tiene otro nombre, cambia 'materiales' por el nombre correcto
+        const tableName = import.meta.env.VITE_STOCK_TABLE_NAME || 'materiales'
+        
+        let query = stockSupabase.from(tableName).select('id, codigo, descripcion').order('descripcion', {
+          ascending: true
+        })
+
+        if (search && search.trim().length >= 2) {
+          // Intentar buscar por descripción primero, si no existe, buscar por código
+          query = query.or(`descripcion.ilike.%${search.trim()}%,codigo.ilike.%${search.trim()}%`)
+        }
+
+        const { data, error } = await query
+        if (!error && data) {
+          return { success: true, data: (data as MaterialRecord[]) ?? [] }
+        }
+        // Si hay error, continuar con fallback a base principal
+        console.warn('⚠️ Error obteniendo materiales de stock, usando base principal:', error?.message)
+      } catch (err) {
+        console.warn('⚠️ Error conectando a base de stock, usando base principal:', err)
+      }
+    }
+
+    // Fallback: usar la base de datos principal
     if (supabase) {
       let query = supabase.from('materiales').select('id, codigo, descripcion').order('descripcion', {
         ascending: true
@@ -1064,6 +1092,7 @@ class ApiService {
       return { success: true, data: (data as MaterialRecord[]) ?? [] }
     }
 
+    // Fallback final: datos mock
     if (search && search.trim()) {
       const filtered = fallbackMateriales.filter((material) =>
         material.descripcion.toLowerCase().includes(search.trim().toLowerCase())

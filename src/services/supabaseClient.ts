@@ -3,7 +3,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// Variables para la base de datos de stock
+const stockUrl = import.meta.env.VITE_STOCK_SUPABASE_URL
+const stockAnonKey = import.meta.env.VITE_STOCK_SUPABASE_ANON_KEY
+
 let supabase: SupabaseClient | null = null
+let stockSupabase: SupabaseClient | null = null
 
 // Validar que la URL sea válida antes de crear el cliente
 const isValidUrl = (urlString: string | undefined): boolean => {
@@ -18,6 +23,7 @@ const isValidUrl = (urlString: string | undefined): boolean => {
   }
 }
 
+// Cliente principal de Supabase
 if (url && anonKey && isValidUrl(url)) {
   try {
     supabase = createClient(url, anonKey, {
@@ -47,6 +53,28 @@ if (url && anonKey && isValidUrl(url)) {
   }
 }
 
-export { supabase }
+// Cliente de Supabase para stock/materiales
+if (stockUrl && stockAnonKey && isValidUrl(stockUrl)) {
+  try {
+    stockSupabase = createClient(stockUrl, stockAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false
+      }
+    })
+    console.log('✅ Cliente de Supabase Stock inicializado correctamente')
+  } catch (error) {
+    console.error('❌ Error al inicializar Supabase Stock:', error)
+    console.warn('⚠️ Los materiales se cargarán desde la base de datos principal')
+  }
+} else {
+  console.warn(
+    '⚠️ VITE_STOCK_SUPABASE_URL o VITE_STOCK_SUPABASE_ANON_KEY no están configuradas.',
+    'Los materiales se cargarán desde la base de datos principal.'
+  )
+}
+
+export { supabase, stockSupabase }
 
 
