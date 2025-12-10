@@ -79,13 +79,14 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
   const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
     const { ref, className: extraClassName, ...restProps } = draggableProps || {}
     return (
-      <article
-        className={clsx('task-card', `priority-${task.priority}`, {
-          'is-collapsed': !isExpanded
-        }, extraClassName)}
-        ref={ref}
-        {...restProps}
-      >
+      <>
+        <article
+          className={clsx('task-card', `priority-${task.priority}`, {
+            'is-collapsed': !isExpanded
+          }, extraClassName)}
+          ref={ref}
+          {...restProps}
+        >
           {task.priority === 'alta' && (
             <div className="priority-led-indicator" title="Prioridad Alta"></div>
           )}
@@ -450,6 +451,7 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
             </div>
           </div>
         )}
+      </>
     )
   }
 
