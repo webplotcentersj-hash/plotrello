@@ -50,11 +50,6 @@ const Header = ({ teamMembers, activity, currentUserName, onAddNewOrder, onOptim
               onNavigateToChat?.()
             }
           }} />
-          {onAddNewOrder && (
-            <button className="brand-button" onClick={onAddNewOrder}>
-              + Agregar Nueva Orden
-            </button>
-          )}
           <button
             className="ghost-button actions-toggle"
             type="button"
