@@ -1,11 +1,12 @@
 .subtasks {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 12px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.25));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .subtasks-header {
@@ -17,37 +18,44 @@
 
 .subtasks-header h5 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 .subtasks-progress {
-  background: rgba(235, 103, 27, 0.15);
-  color: #f97316;
-  border: 1px solid rgba(235, 103, 27, 0.4);
-  border-radius: 10px;
-  padding: 4px 8px;
-  font-weight: 700;
-  font-size: 0.8rem;
+  background: rgba(235, 103, 27, 0.18);
+  color: #ff8a3d;
+  border: 1px solid rgba(235, 103, 27, 0.45);
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  box-shadow: 0 4px 10px rgba(235, 103, 27, 0.2);
 }
 
 .subtasks-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 240px;
+  gap: 10px;
+  max-height: 260px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 6px;
 }
 
 .subtasks-empty {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+  text-align: center;
 }
 
 .subtasks-error {
   color: #f87171;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  padding: 8px 10px;
+  border-radius: 10px;
 }
 
 .subtasks-loading {
@@ -56,31 +64,35 @@
 }
 
 .subtask {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  background: rgba(10, 12, 20, 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .subtask.done {
-  opacity: 0.7;
-  border-color: rgba(34, 197, 94, 0.4);
+  opacity: 0.8;
+  border-color: rgba(34, 197, 94, 0.35);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(10, 12, 20, 0.7));
 }
 
 .subtask label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .subtask input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   cursor: pointer;
+  accent-color: #22c55e;
 }
 
 .subtask-title {
@@ -90,16 +102,17 @@
 .subtask-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
 .pill {
   border-radius: 10px;
-  padding: 4px 8px;
-  font-size: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .pill.estimate {
@@ -114,9 +127,10 @@
 
 .pill.action {
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   transition: all 0.2s ease;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 700;
 }
 
 .pill.action.start {
@@ -131,34 +145,35 @@
 
 .pill.action:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .subtasks-add {
   display: grid;
-  grid-template-columns: 1fr 80px 100px;
-  gap: 6px;
+  grid-template-columns: 1fr 80px 110px;
+  gap: 8px;
 }
 
 .subtasks-add input {
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(10, 12, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 20, 0.92);
   color: var(--text-primary);
-  padding: 8px;
+  padding: 10px;
 }
 
 .subtasks-add button {
   border-radius: 10px;
-  border: 1px solid rgba(235, 103, 27, 0.5);
-  background: rgba(235, 103, 27, 0.12);
-  color: #f97316;
-  font-weight: 700;
+  border: 1px solid rgba(235, 103, 27, 0.6);
+  background: linear-gradient(135deg, rgba(235, 103, 27, 0.25), rgba(235, 103, 27, 0.15));
+  color: #ff9a50;
+  font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(235, 103, 27, 0.25);
 }
 
 .subtasks-add button:hover {
-  background: rgba(235, 103, 27, 0.2);
+  background: rgba(235, 103, 27, 0.32);
 }
 

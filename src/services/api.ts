@@ -845,7 +845,7 @@ class ApiService {
         .from('tarea_subitems')
         .select('*')
         .eq('id_orden', idOrden)
-        .order('creado_en', { ascending: true })
+        .order('created_at', { ascending: true })
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as TareaSubitem[]) ?? [] }
     }
