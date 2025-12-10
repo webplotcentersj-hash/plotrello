@@ -62,6 +62,7 @@
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
+  align-content: center;
 }
 
 .user-chip {
