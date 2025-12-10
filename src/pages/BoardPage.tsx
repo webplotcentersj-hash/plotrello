@@ -451,6 +451,7 @@ const BoardPage = ({
           { id: 'baja', label: 'Baja' }
         ]}
         onPriorityChange={setPriorityFilter}
+      onAddNewOrder={() => setIsCreateModalOpen(true)}
         onOpenLibrary={() => setIsLibraryModalOpen(true)}
       />
 

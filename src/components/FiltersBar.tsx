@@ -12,6 +12,7 @@ type FiltersBarProps = {
   priorityFilters: ReadonlyArray<{ id: Priority | 'todas'; label: string }>
   onPriorityChange: (value: Priority | 'todas') => void
   onOpenLibrary?: () => void
+  onAddNewOrder?: () => void
 }
 
 const FiltersBar = ({
@@ -24,7 +25,8 @@ const FiltersBar = ({
   priorityFilter,
   priorityFilters,
   onPriorityChange,
-  onOpenLibrary
+  onOpenLibrary,
+  onAddNewOrder
 }: FiltersBarProps) => {
   return (
     <section className="filters-bar">
@@ -53,8 +55,18 @@ const FiltersBar = ({
             ))}
           </div>
         </div>
-        {onOpenLibrary && (
-          <div className="library-button-container">
+        <div className="library-button-container">
+          {onAddNewOrder && (
+            <button
+              type="button"
+              className="brand-button"
+              onClick={onAddNewOrder}
+              title="Agregar Nueva Orden"
+            >
+              + Agregar Nueva Orden
+            </button>
+          )}
+          {onOpenLibrary && (
             <button
               type="button"
               className="library-button"
@@ -63,8 +75,8 @@ const FiltersBar = ({
             >
               🔍 Bibliotecas de OPs
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="status-chips">
