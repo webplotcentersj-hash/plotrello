@@ -11,7 +11,7 @@ type PlotAIChatProps = {
   activity: ActivityEvent[]
   teamMembers: TeamMember[]
   onClose: () => void
-  onCreateTask?: (newTask: Omit<Task, 'id'>) => Promise<void>
+  onCreateTask?: (newTask: Omit<Task, 'id'>, options?: { openChecklist?: boolean }) => Promise<void>
 }
 
 type SpeechRecognitionResultEventLike = {
@@ -224,7 +224,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     try {
       setIsCreatingOp(true)
       setCreateOpFeedback(null)
-      await onCreateTask(newTask)
+      await onCreateTask(newTask, { openChecklist: false })
       setCreateOpFeedback({
         type: 'success',
         message: `OP ${newTask.opNumber} creada correctamente.`

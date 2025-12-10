@@ -10,7 +10,7 @@ type TaskCreateModalProps = {
   sectores: SectorRecord[]
   materiales: MaterialRecord[]
   onClose: () => void
-  onCreate: (newTask: Omit<Task, 'id'>) => void
+  onCreate: (newTask: Omit<Task, 'id'>, options?: { openChecklist?: boolean }) => Promise<Task | void | null>
 }
 
 type LocalAttachment = {
@@ -93,7 +93,7 @@ const TaskCreateModal = ({
 
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
 
-  const handleCreate = () => {
+  const handleCreate = async (openChecklist = false) => {
     if (!opNumber || !cliente) {
       alert('Por favor completa los campos obligatorios: N° OP y Cliente')
       return
@@ -167,7 +167,7 @@ const TaskCreateModal = ({
       driveUrl: driveUrl.trim() || undefined
     }
 
-    onCreate(newTask)
+    await onCreate(newTask, { openChecklist })
     onClose()
   }
 
@@ -298,7 +298,7 @@ const TaskCreateModal = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
           <h2>Agregar Nueva Orden</h2>
           <button type="button" className="modal-close" onClick={onClose}>
@@ -473,20 +473,15 @@ const TaskCreateModal = ({
           {selectedSectores.length > 0 && (
             <div className="form-group">
               <label>Información</label>
-              <div style={{ 
-                padding: '12px', 
-                backgroundColor: 'rgba(249, 115, 22, 0.1)', 
-                borderRadius: '8px',
-                border: '1px solid rgba(249, 115, 22, 0.3)'
-              }}>
-                <small style={{ color: '#f97316', fontSize: '0.9rem', display: 'block' }}>
-                  ℹ️ Se crearán {selectedSectores.length} {selectedSectores.length === 1 ? 'ficha' : 'fichas'} automáticamente (una por cada sector seleccionado).
-                  <br />
-                  Todas compartirán el mismo OP #{opNumber || 'XXX'} y se moverán independientemente.
-                  <br />
+              <div className="info-panel">
+                <small>
+                  ℹ️ Se crearán {selectedSectores.length} {selectedSectores.length === 1 ? 'ficha' : 'fichas'} (una por sector).
+                  Todas comparten el mismo OP #{opNumber || 'XXX'} y se mueven por separado. <br />
                   {selectedSectores.length > 1
-                    ? 'Se unificarán automáticamente cuando todas estén en "Finalizado en Taller".'
-                    : 'Si hay un solo sector, la ficha permanecerá en "Finalizado en Taller" sin unificación.'}
+                    ? 'Se unifican cuando todas llegan a "Finalizado en Taller".'
+                    : 'Si hay un solo sector, la ficha queda en "Finalizado en Taller" sin unificación.'}
+                  <br />
+                  ✅ El checklist se habilita al crear la ficha. Usa “Crear y abrir checklist” para cargar subtareas al instante.
                 </small>
               </div>
             </div>
@@ -657,9 +652,24 @@ const TaskCreateModal = ({
           <button type="button" className="btn-cancel" onClick={onClose}>
             Cancelar
           </button>
-          <button type="button" className="btn-create" onClick={handleCreate} disabled={hasPendingUploads}>
-            Agregar Orden
-          </button>
+          <div className="footer-actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void handleCreate(true)}
+              disabled={hasPendingUploads}
+            >
+              Crear y abrir checklist
+            </button>
+            <button
+              type="button"
+              className="btn-create"
+              onClick={() => void handleCreate(false)}
+              disabled={hasPendingUploads}
+            >
+              Agregar Orden
+            </button>
+          </div>
         </footer>
       </div>
     </div>

@@ -20,6 +20,7 @@ import {
   taskToOrdenPayload,
   mapStatusToEstado
 } from '../utils/dataMappers'
+import Subtasks from '../components/Subtasks'
 
 type BoardPageProps = {
   tasks: Task[]
@@ -59,6 +60,7 @@ const BoardPage = ({
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
+  const [checklistTask, setChecklistTask] = useState<Task | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
   const [isChatAIOpen, setIsChatAIOpen] = useState(false)
@@ -286,7 +288,10 @@ const BoardPage = ({
     }
   }
 
-  const handleCreateTask = async (newTaskData: Omit<Task, 'id'>) => {
+  const handleCreateTask = async (
+    newTaskData: Omit<Task, 'id'>,
+    options?: { openChecklist?: boolean }
+  ): Promise<Task | null> => {
     try {
       console.log('📝 Creando nueva ficha:', {
         opNumber: newTaskData.opNumber,
@@ -314,13 +319,18 @@ const BoardPage = ({
           ...prev
         ])
         setActionSuccess('Orden creada en Supabase.')
+        if (options?.openChecklist) {
+          setChecklistTask(createdTask)
+        }
         if (onReloadData) await onReloadData()
+        return createdTask
       } else {
         setActionError(response.error || 'No se pudo crear la orden en Supabase.')
       }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Error inesperado al crear la orden.')
     }
+    return null
   }
 
   const handleApplyOptimizations = (suggestions: Array<{
@@ -508,6 +518,35 @@ const BoardPage = ({
           onCreateTask={handleCreateTask}
           onClose={() => setIsChatAIOpen(false)}
         />
+      )}
+
+      {checklistTask && (
+        <div className="modal-overlay" onClick={() => setChecklistTask(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <h2>
+                Checklist para OP {checklistTask.opNumber} – {checklistTask.title}
+              </h2>
+              <button type="button" className="modal-close" onClick={() => setChecklistTask(null)}>
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              {parseTaskIdToOrdenId(checklistTask.id) ? (
+                <Subtasks ordenId={parseTaskIdToOrdenId(checklistTask.id) as number} />
+              ) : (
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  No se pudo obtener el id de la ficha para mostrar el checklist.
+                </div>
+              )}
+            </div>
+            <footer className="modal-footer">
+              <button type="button" className="btn-cancel" onClick={() => setChecklistTask(null)}>
+                Cerrar
+              </button>
+            </footer>
+          </div>
+        </div>
       )}
 
       {isLibraryModalOpen && (
