@@ -1,0 +1,48 @@
+{
+  "name": "Trello Plot - Gestión de Órdenes de Trabajo",
+  "short_name": "Trello Plot",
+  "description": "Sistema de gestión de órdenes de trabajo con Kanban",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e0f16",
+  "theme_color": "#eb671b",
+  "orientation": "any",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Nueva Orden",
+      "short_name": "Nueva OP",
+      "description": "Crear una nueva orden de trabajo",
+      "url": "/?action=new",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}
+
