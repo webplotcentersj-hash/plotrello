@@ -56,7 +56,7 @@ const Header = ({ teamMembers, activity, currentUserName, onOptimizeSprint, onNa
             aria-expanded={actionsOpen}
             aria-label="Abrir menú de acciones"
           >
-            {actionsOpen ? '✕ Cerrar' : '☰ Acciones'}
+          {actionsOpen ? '✕' : '☰'}
           </button>
           <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
             {onOpenChatAI && (
