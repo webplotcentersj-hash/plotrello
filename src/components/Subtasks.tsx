@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import apiService from '../services/api'
 import type { Subtask } from '../types/board'
 import './Subtasks.css'
