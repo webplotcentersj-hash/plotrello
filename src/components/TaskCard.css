@@ -583,6 +583,32 @@
   margin-bottom: 12px;
 }
 
+.pill.checklist-button {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pill.checklist-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.checklist-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  color: #f97316;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
 .progress-track {
   flex: 1;
   height: 8px;
@@ -650,6 +676,62 @@
   min-width: 0;
   overflow: visible;
   flex-wrap: wrap;
+}
+
+.subtasks-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: grid;
+  place-items: center;
+  z-index: 1200;
+}
+
+.subtasks-modal .modal-content {
+  background: var(--surface-card);
+  border-radius: 16px;
+  max-width: 720px;
+  width: 95%;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.subtasks-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.subtasks-modal .modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.subtasks-modal .modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.subtasks-modal .modal-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.subtasks-modal .modal-body {
+  padding: 16px 18px;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 .task-toggle {

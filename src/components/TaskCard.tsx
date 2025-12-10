@@ -60,6 +60,7 @@ const stripEmailDomain = (value?: string | null) => {
 
 const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDraggable = true, onMarkDelivered }: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showChecklist, setShowChecklist] = useState(false)
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const workerName =
@@ -362,7 +363,22 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
 
             {hasOrdenId && (
               <div className="task-subtasks">
-                <Subtasks ordenId={ordenId} />
+                {((task.subtasks && task.subtasks.length > 0) || (task.subtaskProgress ?? 0) > 0) && (
+                  <span className="checklist-badge" title="Tiene subtareas pendientes">
+                    ●
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="pill checklist-button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsExpanded(true)
+                    setShowChecklist(true)
+                  }}
+                >
+                  ☑ Checklist
+                </button>
               </div>
             )}
 
@@ -406,6 +422,34 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
             {isExpanded ? 'Ocultar detalles' : 'Ver detalles'}
           </button>
         </article>
+        {showChecklist && hasOrdenId && (
+          <div
+            className="modal-overlay subtasks-modal"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowChecklist(false)
+            }}
+          >
+            <div
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <header className="modal-header">
+                <h3>Checklist de OP {task.opNumber}</h3>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setShowChecklist(false)}
+                >
+                  ×
+                </button>
+              </header>
+              <div className="modal-body">
+                <Subtasks ordenId={ordenId} />
+              </div>
+            </div>
+          </div>
+        )}
     )
   }
 
