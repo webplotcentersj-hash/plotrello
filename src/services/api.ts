@@ -845,7 +845,8 @@ class ApiService {
         .from('tarea_subitems')
         .select('*')
         .eq('id_orden', idOrden)
-        .order('created_at', { ascending: true })
+        // Ordenar por id para evitar depender de columnas no presentes en esquemas antiguos
+        .order('id', { ascending: true })
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as TareaSubitem[]) ?? [] }
     }
