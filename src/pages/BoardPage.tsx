@@ -245,7 +245,14 @@ const BoardPage = ({
       const response = await apiService.updateOrden(ordenId, taskToOrdenPayload(updatedTask))
       if (response.success && response.data) {
         const syncedTask = ordenToTask(response.data)
-        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? syncedTask : task)))
+        // Conservar la columna/estado actual para que no rebote al origen
+        const mergedTask = {
+          ...syncedTask,
+          status: updatedTask.status,
+          assignedSector: updatedTask.assignedSector,
+          sectores: updatedTask.sectores ?? syncedTask.sectores
+        }
+        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? mergedTask : task)))
         setActionSuccess('Cambios guardados en Supabase.')
         if (onReloadData) await onReloadData()
       } else {
