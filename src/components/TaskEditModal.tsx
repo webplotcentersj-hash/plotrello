@@ -94,7 +94,11 @@ const TaskEditModal = ({
         locationUrl: task.locationUrl,
         driveUrl: task.driveUrl
       })
-      setSelectedSectors(task.assignedSector ? [task.assignedSector] : [])
+      if (task.sectores && task.sectores.length > 0) {
+        setSelectedSectors(task.sectores)
+      } else {
+        setSelectedSectors(task.assignedSector ? [task.assignedSector] : [])
+      }
       setTags(task.tags || [])
       setMaterials(
         task.materials.map((m) => ({

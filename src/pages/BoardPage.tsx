@@ -244,15 +244,6 @@ const BoardPage = ({
     if (ordenId) {
       const response = await apiService.updateOrden(ordenId, taskToOrdenPayload(updatedTask))
       if (response.success && response.data) {
-        const syncedTask = ordenToTask(response.data)
-        // Conservar la columna/estado actual para que no rebote al origen
-        const mergedTask = {
-          ...syncedTask,
-          status: updatedTask.status,
-          assignedSector: updatedTask.assignedSector,
-          sectores: updatedTask.sectores ?? syncedTask.sectores
-        }
-        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? mergedTask : task)))
         setActionSuccess('Cambios guardados en Supabase.')
         // No recargamos datos aquí para evitar que la ficha vuelva a la columna previa
       } else {
