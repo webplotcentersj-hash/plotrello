@@ -60,7 +60,7 @@
 .header-actions {
   display: flex;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   align-content: center;
 }
