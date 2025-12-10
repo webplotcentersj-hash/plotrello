@@ -313,3 +313,33 @@ export const parseTaskIdToOrdenId = (taskId: string): number | null => {
   return match ? Number(match[1]) : null
 }
 
+// Mapeo de sectores a roles permitidos
+const SECTOR_TO_ROLES: Record<string, string[]> = {
+  'Diseño Gráfico': ['diseno', 'administracion'],
+  'Diseño en Proceso': ['diseno', 'administracion'],
+  'En Espera': ['administracion', 'gerencia'],
+  'Imprenta (Área de Impresión)': ['imprenta', 'administracion'],
+  'Taller de Imprenta': ['taller', 'imprenta'],
+  'Taller Gráfico': ['taller-grafico', 'taller'],
+  'Instalaciones': ['instalaciones', 'taller'],
+  'Metalúrgica': ['metalurgica', 'taller'],
+  'Finalizado en Taller': ['administracion', 'gerencia'],
+  'Almacén de Entrega': ['administracion', 'gerencia', 'mostrador', 'caja']
+}
+
+// Filtrar operarios según el sector de la ficha
+export const filterOperariosBySector = (
+  teamMembers: Array<{ id: string; name: string; role: string }>,
+  sector: string | null | undefined
+): Array<{ id: string; name: string; role: string }> => {
+  if (!sector) return teamMembers
+  
+  const allowedRoles = SECTOR_TO_ROLES[sector] || []
+  if (allowedRoles.length === 0) return teamMembers
+  
+  return teamMembers.filter((member) => {
+    const roleLower = member.role.toLowerCase()
+    return allowedRoles.some((allowed) => roleLower.includes(allowed.toLowerCase()))
+  })
+}
+

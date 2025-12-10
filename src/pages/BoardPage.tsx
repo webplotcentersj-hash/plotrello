@@ -470,7 +470,7 @@ const BoardPage = ({
         </section>
 
         <aside className="insights-panel">
-          <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />
+          {isAdmin && <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />}
           <ActivityFeed activity={activity} teamMembers={teamMembers} />
         </aside>
       </main>

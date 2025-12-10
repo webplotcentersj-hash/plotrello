@@ -3,7 +3,7 @@ import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { ComentarioOrden, HistorialMovimiento, MaterialRecord, SectorRecord } from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
-import { parseTaskIdToOrdenId } from '../utils/dataMappers'
+import { parseTaskIdToOrdenId, filterOperariosBySector } from '../utils/dataMappers'
 import './TaskEditModal.css'
 
 type TaskEditModalProps = {
@@ -154,6 +154,12 @@ const TaskEditModal = ({
       setComentarios([])
     }
   }, [task])
+
+  // Filtrar operarios según el sector de la ficha
+  const filteredOperarios = useMemo(() => {
+    if (!task) return teamMembers
+    return filterOperariosBySector(teamMembers, task.assignedSector)
+  }, [teamMembers, task])
 
   if (!task) return null
 
@@ -420,7 +426,7 @@ const TaskEditModal = ({
                 onChange={(e) => setFormData({ ...formData, ownerId: e.target.value })}
               >
                 <option value="">Otro</option>
-                {teamMembers.map((member) => (
+                {filteredOperarios.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
                   </option>

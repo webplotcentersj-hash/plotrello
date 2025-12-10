@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import type { Task, TeamMember, TaskStatus } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { useAuth } from '../hooks/useAuth'
+import { filterOperariosBySector } from '../utils/dataMappers'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -87,11 +88,17 @@ const TaskCreateModal = ({
 
   // No necesitamos sector inicial, se crean automáticamente para cada sector requerido
 
+  // Filtrar operarios según el primer sector seleccionado
+  const filteredOperarios = useMemo(() => {
+    const primerSector = selectedSectores[0]
+    return filterOperariosBySector(teamMembers, primerSector)
+  }, [teamMembers, selectedSectores])
+
   useEffect(() => {
-    if (!operario && teamMembers.length > 0) {
-      setOperario(teamMembers[0].id)
+    if (!operario && filteredOperarios.length > 0) {
+      setOperario(filteredOperarios[0].id)
     }
-  }, [teamMembers, operario])
+  }, [filteredOperarios, operario])
 
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
 
@@ -506,7 +513,7 @@ const TaskCreateModal = ({
               <label>Operario</label>
               <select value={operario} onChange={(e) => setOperario(e.target.value)}>
                 <option value="">Seleccionar...</option>
-                {teamMembers.map((member) => (
+                {filteredOperarios.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
                   </option>

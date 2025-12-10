@@ -1112,14 +1112,22 @@ class ApiService {
         p_rol: usuario.rol
       })
 
-      if (!error && data && data.length > 0) {
+      if (!error && data && Array.isArray(data) && data.length > 0) {
         return { success: true, data: data[0] as UsuarioRecord }
       }
 
-      lastError =
-        error?.message ||
-        'No se pudo crear el usuario mediante Supabase. Intentando backend legacy...'
-      console.warn('⚠️ Supabase RPC crear_usuario falló, intentando backend legacy.', lastError)
+      // Si hay error específico de la RPC, retornar inmediatamente sin intentar fallbacks
+      if (error) {
+        const errorMsg = error.message || 'Error al crear usuario'
+        // Si es un error de validación (rol inválido, usuario duplicado, etc), no intentar fallbacks
+        if (errorMsg.includes('Rol inválido') || errorMsg.includes('duplicate') || errorMsg.includes('unique')) {
+          return { success: false, error: errorMsg }
+        }
+        lastError = errorMsg
+        console.warn('⚠️ Supabase RPC crear_usuario falló:', errorMsg)
+      } else {
+        lastError = 'La función RPC no retornó datos'
+      }
 
       // Intentar fallback directo sobre la tabla usuarios usando hash local
       try {
@@ -1151,7 +1159,8 @@ class ApiService {
       }
     }
 
-    if (hasLegacyBackend) {
+    // Solo intentar backend legacy si Supabase no está disponible
+    if (!supabase && hasLegacyBackend) {
       const legacyResponse = await this.legacyRequest<UsuarioRecord>('/usuarios.php', {
         method: 'POST',
         body: JSON.stringify(usuario)
