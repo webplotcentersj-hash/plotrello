@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import clsx from 'clsx'
-import type { Task, TeamMember } from '../types/board'
+import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
@@ -24,6 +24,7 @@ type TaskCardProps = {
   sectores?: SectorRecord[]
   isDraggable?: boolean
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
+  activity?: ActivityEvent[]
 }
 
 const formatShortDate = (value: string) =>
@@ -58,9 +59,20 @@ const stripEmailDomain = (value?: string | null) => {
   return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
 }
 
-const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDraggable = true, onMarkDelivered }: TaskCardProps) => {
+const TaskCard = ({
+  task,
+  index,
+  owner,
+  onEdit,
+  onDelete,
+  sectores = [],
+  isDraggable = true,
+  onMarkDelivered,
+  activity = []
+}: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
+  const [showAudit, setShowAudit] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [qrLink, setQrLink] = useState<string | null>(null)
@@ -80,6 +92,8 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
   // Obtener el color del sector asignado
   const sectorInfo = sectores.find((s) => s.nombre === task.assignedSector)
   const sectorColor = sectorInfo?.color || '#6B7280'
+
+  const auditEvents = activity.filter((event) => event.taskId === task.id)
 
   const handleShowQr = async () => {
     setShowQr(true)
@@ -173,6 +187,17 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
               title="QR rápido"
             >
               🔳
+            </button>
+            <button
+              type="button"
+              className="task-action-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowAudit(true)
+              }}
+              title="Auditoría"
+            >
+              📜
             </button>
           </div>
           {task.photoUrl && (
@@ -527,6 +552,48 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
                     <a className="qr-download" href={qrDataUrl} download={`op-${task.opNumber}.png`}>
                       Descargar PNG
                     </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {showAudit && (
+          <div
+            className="modal-overlay"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowAudit(false)
+            }}
+          >
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <header className="modal-header">
+                <h3>Auditoría OP {task.opNumber}</h3>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setShowAudit(false)}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </header>
+              <div className="modal-body audit-body">
+                {auditEvents.length === 0 && <p className="muted">Sin eventos registrados.</p>}
+                {auditEvents.length > 0 && (
+                  <div className="audit-list">
+                    {auditEvents.map((event) => (
+                      <div key={event.id} className="audit-item">
+                        <div className="audit-main">
+                          <strong>{event.from} → {event.to}</strong>
+                          <span className="audit-note">{event.note}</span>
+                        </div>
+                        <div className="audit-meta">
+                          <span>{formatCompactDateTime(event.timestamp)}</span>
+                          <span className="audit-actor">Actor: {event.actorId}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

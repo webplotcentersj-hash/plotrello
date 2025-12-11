@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
-import type { ColumnConfig, Task, TaskStatus, TeamMember } from '../types/board'
+import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import Column from './Column'
 import './Board.css'
@@ -15,9 +15,21 @@ type BoardProps = {
   onDeleteTask?: (taskId: string) => void
   sectores?: SectorRecord[]
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
+  activity?: ActivityEvent[]
 }
 
-const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDeleteTask, sectores, onMarkDelivered }: BoardProps) => {
+const Board = ({
+  columns,
+  tasks,
+  allTasks,
+  onMoveTask,
+  members,
+  onEditTask,
+  onDeleteTask,
+  sectores,
+  onMarkDelivered,
+  activity
+}: BoardProps) => {
   const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({
     'diseno-grafico': null,
     'diseno-proceso': null,
@@ -77,6 +89,7 @@ const Board = ({ columns, tasks, allTasks, onMoveTask, members, onEditTask, onDe
                   onDeleteTask={onDeleteTask}
                   sectores={sectores}
                   onMarkDelivered={onMarkDelivered}
+                  activity={activity}
                 />
               )}
             </Droppable>

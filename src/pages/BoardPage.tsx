@@ -527,6 +527,7 @@ const BoardPage = ({
             onDeleteTask={handleDeleteTask}
             sectores={sectores}
             onMarkDelivered={handleMarkDelivered}
+            activity={activity}
           />
         </section>
 

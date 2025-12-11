@@ -237,6 +237,47 @@ body.compact-mode .task-actions {
   color: #f87171;
   text-align: center;
 }
+
+.audit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audit-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.audit-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit-note {
+  color: #cbd5e1;
+}
+
+.audit-meta {
+  display: flex;
+  justify-content: space-between;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+.audit-actor {
+  font-weight: 600;
+}
 .task-action-btn {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.1);
