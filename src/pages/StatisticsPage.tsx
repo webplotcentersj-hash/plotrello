@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bar,
@@ -17,6 +17,7 @@ import { BOARD_COLUMNS } from '../data/mockData'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import './StatisticsPage.css'
+import jsPDF from 'jspdf'
 
 type StatisticsPageProps = {
   tasks: Task[]
@@ -38,7 +39,18 @@ const COLORS = {
   'Taller de Imprenta': '#86efac'
 }
 
+const sanitizeName = (name?: string) => {
+  if (!name) return ''
+  const atIndex = name.indexOf('@')
+  if (atIndex > 0) return name.slice(0, atIndex)
+  return name
+}
+
 const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPageProps) => {
+  const [dateFrom, setDateFrom] = useState<string>('')
+  const [dateTo, setDateTo] = useState<string>('')
+  const [sectorFilter, setSectorFilter] = useState<string>('all')
+  const [operatorFilter, setOperatorFilter] = useState<string>('all')
   const { isAdmin, loading } = useAuth()
   const navigate = useNavigate()
 
@@ -55,14 +67,35 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
   const safeActivity = Array.isArray(activity) ? activity : []
   const safeTeamMembers = Array.isArray(teamMembers) ? teamMembers : []
 
+  const filteredTasks = useMemo(() => {
+    return safeTasks.filter((task) => {
+      const created = new Date(task.createdAt).getTime()
+      const updated = new Date(task.updatedAt).getTime()
+      const fromOk = dateFrom ? created >= new Date(dateFrom).getTime() : true
+      const toOk = dateTo ? updated <= new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 : true
+      const sectorOk = sectorFilter === 'all' ? true : (task.assignedSector || task.status) === sectorFilter
+      const operatorOk = operatorFilter === 'all' ? true : task.ownerId === operatorFilter
+      return fromOk && toOk && sectorOk && operatorOk
+    })
+  }, [safeTasks, dateFrom, dateTo, sectorFilter, operatorFilter])
+
+  const filteredActivity = useMemo(() => {
+    return safeActivity.filter((event) => {
+      const ts = new Date(event.timestamp).getTime()
+      const fromOk = dateFrom ? ts >= new Date(dateFrom).getTime() : true
+      const toOk = dateTo ? ts <= new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 : true
+      return fromOk && toOk
+    })
+  }, [safeActivity, dateFrom, dateTo])
+
   // IMPORTANTE: Todos los hooks (useMemo) deben estar ANTES de los returns condicionales
   // para cumplir con las reglas de los hooks de React
   
   // 1. Órdenes por Estado (Donut Chart)
   const ordersByStatus = useMemo(() => {
-    if (!safeTasks || safeTasks.length === 0) return []
+    if (!filteredTasks || filteredTasks.length === 0) return []
     const statusCounts: Record<string, number> = {}
-    safeTasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!task || !task.status) return
       const column = BOARD_COLUMNS.find((col) => col.id === task.status)
       const label = column?.label || task.status
@@ -77,9 +110,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
   // 2. Top 5 Clientes
   const topClients = useMemo(() => {
-    if (!safeTasks || safeTasks.length === 0) return []
+    if (!filteredTasks || filteredTasks.length === 0) return []
     const clientCounts: Record<string, number> = {}
-    safeTasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!task || !task.title) return
       const client = task.title
       clientCounts[client] = (clientCounts[client] || 0) + 1
@@ -96,9 +129,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
   // 3. Distribución por Sector
   const distributionBySector = useMemo(() => {
-    if (!safeTasks || safeTasks.length === 0) return []
+    if (!filteredTasks || filteredTasks.length === 0) return []
     const sectorCounts: Record<string, number> = {}
-    safeTasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!task) return
       const sector = task.assignedSector || 'Sin sector'
       sectorCounts[sector] = (sectorCounts[sector] || 0) + 1
@@ -112,12 +145,12 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
   // 4. Carga de Trabajo por Operario
   const workloadByOperator = useMemo(() => {
-    if (!safeTasks || safeTasks.length === 0) return []
+    if (!filteredTasks || filteredTasks.length === 0) return []
     const operatorCounts: Record<string, number> = {}
-    safeTasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!task) return
       const member = safeTeamMembers.find((m) => m.id === task.ownerId)
-      const operatorName = member?.name || 'Otro'
+      const operatorName = sanitizeName(member?.name) || 'Otro'
       operatorCounts[operatorName] = (operatorCounts[operatorName] || 0) + 1
     })
     return Object.entries(operatorCounts).map(([name, value]) => ({
@@ -128,12 +161,12 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
   // 5. Movimientos por Usuario
   const movementsByUser = useMemo(() => {
-    if (!safeActivity || safeActivity.length === 0) return []
+    if (!filteredActivity || filteredActivity.length === 0) return []
     const userMovements: Record<string, number> = {}
-    safeActivity.forEach((event) => {
+    filteredActivity.forEach((event) => {
       if (!event || !event.actorId) return
       const member = safeTeamMembers.find((m) => m.id === event.actorId)
-      const userName = member?.name || event.actorId
+      const userName = sanitizeName(member?.name) || event.actorId
       userMovements[userName] = (userMovements[userName] || 0) + 1
     })
     return Object.entries(userMovements)
@@ -146,13 +179,13 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
   // 6. Tiempo Promedio de Reacción por Usuario
   const reactionTimeByUser = useMemo(() => {
-    if (!safeActivity || safeActivity.length === 0) return []
+    if (!filteredActivity || filteredActivity.length === 0) return []
     const userReactionTimes: Record<string, { total: number; count: number }> = {}
     
-    safeActivity.forEach((event) => {
+    filteredActivity.forEach((event) => {
       if (!event || !event.actorId || !event.timestamp) return
       const member = safeTeamMembers.find((m) => m.id === event.actorId)
-      const userName = member?.name || event.actorId
+      const userName = sanitizeName(member?.name) || event.actorId
       
       if (!userReactionTimes[userName]) {
         userReactionTimes[userName] = { total: 0, count: 0 }
@@ -182,10 +215,10 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
   // 7. Tiempo Promedio por Estado (Bottleneck Detection)
   const avgTimeByStatus = useMemo(() => {
-    if (!safeTasks || safeTasks.length === 0) return []
+    if (!filteredTasks || filteredTasks.length === 0) return []
     const statusTimes: Record<string, { total: number; count: number }> = {}
     
-    safeTasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!task || !task.status || !task.updatedAt) return
       const column = BOARD_COLUMNS.find((col) => col.id === task.status)
       const statusName = column?.label || task.status
@@ -217,8 +250,8 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
   // 8. Registro de Actividad Cronológico
   const chronologicalActivity = useMemo(() => {
-    if (!safeActivity || safeActivity.length === 0) return []
-    return [...safeActivity]
+    if (!filteredActivity || filteredActivity.length === 0) return []
+    return [...filteredActivity]
       .filter((event) => event && event.timestamp)
       .sort((a, b) => {
         try {
@@ -252,20 +285,68 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
         
         return {
           fechaHora,
-          usuario: member?.name || '',
+          usuario: sanitizeName(member?.name) || '',
           opNumber: `#${safeTasks.find((t) => t && t.id === event.taskId)?.opNumber || 'N/A'}`,
           movimiento: `${fromColumn?.label || event.from || 'N/A'} → ${toColumn?.label || event.to || 'N/A'}`
         }
       })
   }, [safeActivity, safeTeamMembers, safeTasks])
 
+  // 9. Tiempo promedio por tipo de orden (usaremos estado/columna)
+  const avgCycleByStatus = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return []
+    const map: Record<string, { total: number; count: number }> = {}
+    safeTasks.forEach((task) => {
+      if (!task?.status || !task.createdAt || !task.updatedAt) return
+      const col = BOARD_COLUMNS.find((c) => c.id === task.status)
+      const label = col?.label || task.status
+      const start = new Date(task.createdAt).getTime()
+      const end = new Date(task.updatedAt).getTime()
+      if (isNaN(start) || isNaN(end)) return
+      const days = Math.max((end - start) / (1000 * 60 * 60 * 24), 0)
+      if (!map[label]) map[label] = { total: 0, count: 0 }
+      map[label].total += days
+      map[label].count += 1
+    })
+    return Object.entries(map)
+      .map(([name, data]) => ({
+        name,
+        'Promedio (días)': data.count > 0 ? data.total / data.count : 0
+      }))
+      .sort((a, b) => b['Promedio (días)'] - a['Promedio (días)'])
+  }, [safeTasks])
+
+  // 10. Tiempo promedio por operario
+  const avgCycleByOperator = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return []
+    const map: Record<string, { total: number; count: number }> = {}
+    filteredTasks.forEach((task) => {
+      if (!task?.createdAt || !task.updatedAt) return
+      const owner = safeTeamMembers.find((m) => m.id === task.ownerId)
+      const name = sanitizeName(owner?.name) || 'Sin asignar'
+      const start = new Date(task.createdAt).getTime()
+      const end = new Date(task.updatedAt).getTime()
+      if (isNaN(start) || isNaN(end)) return
+      const days = Math.max((end - start) / (1000 * 60 * 60 * 24), 0)
+      if (!map[name]) map[name] = { total: 0, count: 0 }
+      map[name].total += days
+      map[name].count += 1
+    })
+    return Object.entries(map)
+      .map(([name, data]) => ({
+        name,
+        'Promedio (días)': data.count > 0 ? data.total / data.count : 0
+      }))
+      .sort((a, b) => b['Promedio (días)'] - a['Promedio (días)'])
+  }, [filteredTasks, safeTeamMembers])
+
   // 9. Fichas Estancadas (> 3 días en el mismo estado)
   const stalledTasks = useMemo(() => {
-    if (!safeTasks || safeTasks.length === 0) return []
+    if (!filteredTasks || filteredTasks.length === 0) return []
     const now = Date.now()
     const threeDaysInMs = 3 * 24 * 60 * 60 * 1000
     
-    return safeTasks
+    return filteredTasks
       .filter((task) => {
         if (!task || !task.updatedAt) return false
         try {
@@ -297,7 +378,79 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
         }
       })
       .sort((a, b) => b.daysStalled - a.daysStalled)
-  }, [safeTasks])
+  }, [filteredTasks])
+
+  const exportCsv = (filename: string, rows: any[], columns: string[]) => {
+    if (!rows || rows.length === 0) {
+      alert('No hay datos para exportar.')
+      return
+    }
+    const header = columns.join(',')
+    const data = rows
+      .map((row) =>
+        columns
+          .map((col) => {
+            const val = row[col] ?? ''
+            const safe = typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
+            return safe
+          })
+          .join(',')
+      )
+      .join('\n')
+    const csv = `${header}\n${data}`
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportPdf = () => {
+    const doc = new jsPDF()
+    const marginLeft = 14
+    let line = 20
+
+    const addLine = (text: string, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.text(text, marginLeft, line)
+      line += 8
+    }
+
+    addLine('Reporte de Estadísticas', true)
+    addLine(`Rango: ${dateFrom || 'inicio'} - ${dateTo || 'hoy'}`)
+    addLine(`Sector: ${sectorFilter === 'all' ? 'Todos' : sectorFilter}`)
+    addLine(`Operario: ${operatorFilter === 'all' ? 'Todos' : operatorFilter}`)
+    line += 4
+
+    addLine('Órdenes por estado:', true)
+    ordersByStatus.slice(0, 8).forEach((s) => addLine(`- ${s.name}: ${s.value}`))
+    line += 4
+
+    addLine('Movimientos por usuario (top 5):', true)
+    movementsByUser.slice(0, 5).forEach((m) => addLine(`- ${m.name}: ${m.Movimientos}`))
+    line += 4
+
+    addLine('Tiempo promedio por estado (top 5):', true)
+    avgTimeByStatus.slice(0, 5).forEach((t) =>
+      addLine(`- ${t.name}: ${t['Tiempo Promedio (días)'].toFixed(2)} días`)
+    )
+    line += 4
+
+    addLine('Tiempo promedio por operario (top 5):', true)
+    avgCycleByOperator.slice(0, 5).forEach((t) =>
+      addLine(`- ${t.name}: ${t['Promedio (días)'].toFixed(2)} días`)
+    )
+    line += 4
+
+    addLine('Fichas estancadas (top 5):', true)
+    stalledTasks.slice(0, 5).forEach((t) =>
+      addLine(`- OP #${t.opNumber} · ${t.status} · ${t.daysStalled} días`)
+    )
+
+    doc.save('estadisticas.pdf')
+  }
 
   // Ahora sí, después de todos los hooks, podemos hacer returns condicionales
   if (loading) {
@@ -340,6 +493,50 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
             </button>
           </div>
           <h1>Estadísticas y Reportes</h1>
+        </div>
+        <div className="stats-filters">
+          <div className="filter-group">
+            <label>Desde</label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div className="filter-group">
+            <label>Hasta</label>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          <div className="filter-group">
+            <label>Sector</label>
+            <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)}>
+              <option value="all">Todos</option>
+              {BOARD_COLUMNS.map((col) => (
+                <option key={col.id} value={col.label}>
+                  {col.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Operario</label>
+            <select value={operatorFilter} onChange={(e) => setOperatorFilter(e.target.value)}>
+              <option value="all">Todos</option>
+              {safeTeamMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {sanitizeName(m.name) || m.id}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group export-group">
+            <button onClick={() => exportCsv('orders-por-estado', ordersByStatus, ['name', 'value'])}>
+              ⬇️ Exportar estados
+            </button>
+            <button onClick={() => exportCsv('tiempo-por-operario', avgCycleByOperator, ['name', 'Promedio (días)'])}>
+              ⬇️ Exportar tiempos
+            </button>
+            <button onClick={() => exportCsv('actividad', chronologicalActivity, ['fechaHora', 'usuario', 'opNumber', 'movimiento'])}>
+              ⬇️ Exportar actividad
+            </button>
+            <button onClick={exportPdf}>⬇️ PDF</button>
+          </div>
         </div>
       </header>
 
@@ -493,7 +690,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
           </div>
         </div>
 
-        {/* Tercera fila: Tiempo promedio por estado */}
+        {/* Tercera fila: Tiempo promedio por estado y por operario */}
         <div className="stats-row">
           <div className="stat-card full-width">
             <h3>Tiempo Promedio por Estado (Detección de Cuellos de Botella)</h3>
@@ -506,6 +703,52 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="Tiempo Promedio (días)" fill="#ef4444" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="stats-row">
+          <div className="stat-card full-width">
+            <h3>Tiempo Promedio por Tipo de Orden</h3>
+            <p className="stat-subtitle">Días desde creación a última actualización</p>
+            {avgCycleByStatus.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={avgCycleByStatus}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-20} textAnchor="end" height={80} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="Promedio (días)" fill="#60a5fa" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="stats-row">
+          <div className="stat-card full-width">
+            <h3>Tiempo Promedio por Operario</h3>
+            <p className="stat-subtitle">Días desde creación a última actualización</p>
+            {avgCycleByOperator.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={avgCycleByOperator}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="Promedio (días)" fill="#34d399" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
