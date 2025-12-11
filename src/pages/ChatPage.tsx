@@ -14,6 +14,7 @@ type ChatMessage = {
   timestamp: Date
   channel: string
   type?: 'message' | 'buzz' | 'alert'
+  status?: 'sending' | 'error' | 'sent'
 }
 
 type Channel = {
@@ -74,6 +75,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
   const [mentionQuery, setMentionQuery] = useState('')
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
   const [mentionStartIndex, setMentionStartIndex] = useState(-1)
+  const [isSending, setIsSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -85,6 +87,14 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const findMentionedMembers = (text: string): TeamMember[] => {
+    const mentions = Array.from(text.matchAll(/@([\w.\-]+)/g)).map((m) => m[1].toLowerCase())
+    if (mentions.length === 0) return []
+    return resolvedMembers.filter((member) =>
+      mentions.some((m) => member.name.toLowerCase().includes(m))
+    )
+  }
 
   // Cargar mensajes reales del canal
   useEffect(() => {
@@ -207,13 +217,11 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     }
   }, [currentChannel, usuario?.id])
 
-  const handleSendMessage = async () => {
-    // Permitir enviar si hay texto O archivos
-    if (!input.trim() && attachedFiles.length === 0) {
+  const handleSendMessage = async (mode: 'message' | 'alert' = 'message') => {
+    if (!input.trim() && attachedFiles.length === 0 && mode === 'message') {
       console.warn('⚠️ Intento de enviar mensaje vacío')
       return
     }
-    
     if (!usuario?.id) {
       console.error('❌ No se puede enviar mensaje: usuario no autenticado')
       alert('Debes estar autenticado para enviar mensajes')
@@ -223,72 +231,111 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     const content = input.trim()
     let finalContent = content
 
-    // Si hay archivos, agregar información sobre ellos al mensaje
     if (attachedFiles.length > 0) {
-      const fileInfo = attachedFiles.map((f) => `📎 ${f.name} (${(f.size / 1024).toFixed(1)} KB)`).join('\n')
+      const fileInfo = attachedFiles
+        .map((f) => `📎 ${f.name} (${(f.size / 1024).toFixed(1)} KB)`)
+        .join('\n')
       finalContent = content ? `${content}\n\n${fileInfo}` : fileInfo
     }
 
-    // Guardar valores antes de limpiar (por si falla)
     const savedContent = content
     const savedFiles = [...attachedFiles]
 
     setInput('')
     setAttachedFiles([])
     setShowEmojiPicker(false)
-    
-    // Auto-resize textarea
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
     }
 
-    console.log(`📤 Enviando mensaje al canal ${currentChannel}:`, finalContent)
+    const tempId = `temp-${Date.now()}`
+    const optimistic: ChatMessage = {
+      id: tempId,
+      userId: usuario.id.toString(),
+      userName: usuario.nombre || 'Yo',
+      userAvatar: (usuario.nombre || 'Y').charAt(0).toUpperCase(),
+      content: finalContent || (mode === 'alert' ? '¡Atención! Revisar esto de inmediato.' : ''),
+      timestamp: new Date(),
+      channel: currentChannel,
+      type: mode === 'alert' ? 'alert' : 'message',
+      status: 'sending'
+    }
+    setMessages((prev) => [...prev, optimistic])
+    setIsSending(true)
 
     try {
-      // Si hay archivos, subirlos primero
       if (savedFiles.length > 0) {
-        console.log('📎 Archivos adjuntos:', savedFiles.map(f => f.name))
+        console.log('📎 Archivos adjuntos:', savedFiles.map((f) => f.name))
       }
 
       const response = await apiService.enviarMensajeChat({
         canal: currentChannel,
-        contenido: finalContent,
+        contenido: finalContent || (mode === 'alert' ? '¡Atención! Revisar esto de inmediato.' : ''),
         usuario_id: usuario.id,
-        tipo: 'message'
+        tipo: mode === 'alert' ? 'alert' : 'message'
       })
 
-      if (!response.success) {
+      if (!response.success || !response.data) {
         console.error('❌ Error enviando mensaje:', response.error)
-        alert(`Error al enviar mensaje: ${response.error || 'Error desconocido'}`)
-        // Revertir el input si falla
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, status: 'error' } : m))
+        )
         setInput(savedContent)
         setAttachedFiles(savedFiles)
-      } else {
-        console.log('✅ Mensaje enviado exitosamente:', response.data)
-        // El mensaje se agregará automáticamente vía Realtime
-        // Pero también lo agregamos localmente por si Realtime falla
-        if (response.data) {
-          const newMessage: ChatMessage = {
-            id: response.data.id.toString(),
-            userId: response.data.usuario_id.toString(),
-            userName: response.data.nombre_usuario || usuario.nombre,
-            userAvatar: (response.data.nombre_usuario || usuario.nombre || 'U').charAt(0).toUpperCase(),
-            content: response.data.contenido,
-            timestamp: new Date(response.data.timestamp),
-            channel: currentChannel,
-            type: response.data.tipo || 'message'
-          }
-          setMessages((prev) => {
-            const exists = prev.some((m) => m.id === newMessage.id)
-            return exists ? prev : [...prev, newMessage]
+        return
+      }
+
+      const mentions = mode === 'message' ? findMentionedMembers(savedContent) : []
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId
+            ? {
+                ...m,
+                id: response.data!.id.toString(),
+                content: response.data!.contenido || finalContent,
+                status: 'sent'
+              }
+            : m
+        )
+      )
+
+      if (mentions.length > 0) {
+        for (const member of mentions) {
+          const memberId = Number(member.id)
+          if (Number.isNaN(memberId)) continue
+          await apiService.createNotification({
+            user_id: memberId,
+            title: `Te mencionaron en #${currentChannel}`,
+            description: savedContent || 'Tienes una mención',
+            type: 'mention'
           })
         }
       }
+
+      if (mode === 'alert') {
+        for (const member of resolvedMembers) {
+          const memberId = Number(member.id)
+          if (Number.isNaN(memberId) || memberId === usuario.id) continue
+          await apiService.createNotification({
+            user_id: memberId,
+            title: '🚨 Sirena en chat',
+            description: finalContent || 'Revisar mensaje de alerta',
+            type: 'warning'
+          })
+        }
+        setIsShaking(true)
+        setTimeout(() => setIsShaking(false), 1200)
+      }
     } catch (error) {
       console.error('❌ Excepción al enviar mensaje:', error)
-      alert(`Error al enviar mensaje: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'error' } : m))
+      )
       setInput(savedContent)
       setAttachedFiles(savedFiles)
+    } finally {
+      setIsSending(false)
     }
   }
 
@@ -528,52 +575,10 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     }
   }
 
-  // Función para enviar alerta con sirena
-  const handleSendAlert = async (targetUserId?: string) => {
-    if (!usuario?.id) {
-      alert('Debes estar autenticado para enviar una alerta')
-      return
-    }
-
-    // Buscar un usuario diferente al actual
-    const availableUsers = resolvedMembers.filter((m) => m.id !== currentUser.id)
-    if (availableUsers.length === 0) {
-      alert('No hay otros usuarios en línea para enviar una alerta')
-      return
-    }
-
-    const targetUser = targetUserId 
-      ? resolvedMembers.find((m) => m.id === targetUserId && m.id !== currentUser.id)
-      : availableUsers[Math.floor(Math.random() * availableUsers.length)]
-
-    if (!targetUser) {
-      alert('No se pudo encontrar un usuario destino')
-      return
-    }
-
-    // Reproducir sonido de sirena
+  // Función para enviar alerta con sirena (broadcast)
+  const handleSendAlert = async () => {
     playAlertSound()
-
-    try {
-      const targetUserIdNum = parseInt(targetUser.id)
-      if (isNaN(targetUserIdNum)) {
-        alert('ID de usuario inválido')
-        return
-      }
-
-      console.log(`🚨 Enviando alerta a ${targetUser.name}`)
-      const response = await apiService.enviarAlerta(targetUserIdNum, usuario.id, currentChannel)
-      
-      if (response.success) {
-        console.log('✅ Alerta enviada exitosamente')
-        // El mensaje se agregará automáticamente vía Realtime
-      } else {
-        alert(`Error al enviar alerta: ${response.error || 'Error desconocido'}`)
-      }
-    } catch (error) {
-      console.error('❌ Error enviando alerta:', error)
-      alert(`Error al enviar alerta: ${error instanceof Error ? error.message : 'Error desconocido'}`)
-    }
+    await handleSendMessage('alert')
   }
 
   // Efecto para detectar zumbidos y alertas recibidos
@@ -736,6 +741,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                       )}
                       <div className={`message-text ${message.type === 'buzz' ? 'buzz-text' : ''} ${message.type === 'alert' ? 'alert-text' : ''}`}>
                         {renderMessageWithMentions(message.content)}
+                        {message.status === 'sending' && <span className="message-status">Enviando…</span>}
+                        {message.status === 'error' && <span className="message-status error">Error</span>}
                       </div>
                     </div>
                   </div>
@@ -798,7 +805,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                 className="input-action-btn alert-btn"
                 onClick={() => handleSendAlert()}
                 title="Enviar alerta con sirena"
-                disabled={!usuario?.id}
+                disabled={!usuario?.id || isSending}
               >
                 🚨
               </button>
@@ -814,7 +821,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                 className="input-action-btn"
                 onClick={() => fileInputRef.current?.click()}
                 title="Adjuntar archivo"
-                disabled={!usuario?.id}
+                disabled={!usuario?.id || isSending}
               >
                 📎
               </button>
@@ -844,18 +851,28 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                   </div>
                 )}
               </div>
-              <button
-                className="send-button"
-                onClick={handleSendMessage}
-                disabled={!usuario?.id || (!input.trim() && attachedFiles.length === 0)}
-                title="Enviar (Enter)"
-              >
-                ➤
-              </button>
+              <div className="send-group">
+                <button
+                  className="input-action-btn alert-btn"
+                  onClick={() => handleSendAlert()}
+                  title="Sirena (alerta a todos)"
+                  disabled={!usuario?.id || isSending}
+                >
+                  🚨 Sirena
+                </button>
+                <button
+                  className="send-button"
+                  onClick={() => handleSendMessage()}
+                  disabled={!usuario?.id || isSending || (!input.trim() && attachedFiles.length === 0)}
+                  title="Enviar (Enter)"
+                >
+                  {isSending ? '…' : '➤'}
+                </button>
+              </div>
             </div>
           </div>
           <div className="input-hint">
-            <span>Presiona Enter para enviar, Shift+Enter para nueva línea</span>
+            <span>Enter: enviar • Shift+Enter: salto de línea • 🚨 Sirena: alerta a todos</span>
           </div>
         </div>
       </div>
