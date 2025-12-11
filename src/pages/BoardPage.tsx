@@ -30,6 +30,7 @@ type BoardPageProps = {
   teamMembers: TeamMember[]
   onNavigateToStats: () => void
   onNavigateToCalendar?: () => void
+  onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
   onNavigateToChat?: () => void
   onLogout?: () => void
@@ -48,6 +49,7 @@ const BoardPage = ({
   teamMembers,
   onNavigateToStats,
   onNavigateToCalendar,
+  onNavigateToGantt,
   onNavigateToUsuarios,
   onNavigateToChat,
   onLogout,
@@ -480,6 +482,7 @@ const BoardPage = ({
         onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
         onNavigateToStats={onNavigateToStats}
         onNavigateToCalendar={onNavigateToCalendar}
+        onNavigateToGantt={onNavigateToGantt}
         onNavigateToUsuarios={onNavigateToUsuarios}
         onNavigateToChat={onNavigateToChat}
         onOpenChatAI={() => setIsChatAIOpen(true)}

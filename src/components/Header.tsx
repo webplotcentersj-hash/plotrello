@@ -10,6 +10,7 @@ type HeaderProps = {
   onOptimizeSprint?: () => void
   onNavigateToStats?: () => void
   onNavigateToCalendar?: () => void
+  onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
@@ -24,6 +25,7 @@ const Header = ({
   onOptimizeSprint,
   onNavigateToStats,
   onNavigateToCalendar,
+  onNavigateToGantt,
   onNavigateToUsuarios,
   onOpenChatAI,
   onNavigateToChat,
@@ -90,6 +92,11 @@ const Header = ({
             {onNavigateToCalendar && (
               <button className="brand-button" onClick={onNavigateToCalendar}>
                 📅 Calendario
+              </button>
+            )}
+            {onNavigateToGantt && (
+              <button className="brand-button" onClick={onNavigateToGantt}>
+                📈 Gantt
               </button>
             )}
             {onNavigateToUsuarios && isAdmin && (
