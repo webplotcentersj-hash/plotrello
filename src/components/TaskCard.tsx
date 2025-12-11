@@ -25,6 +25,7 @@ type TaskCardProps = {
   isDraggable?: boolean
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
   activity?: ActivityEvent[]
+  members?: TeamMember[]
 }
 
 const formatShortDate = (value: string) =>
@@ -68,7 +69,8 @@ const TaskCard = ({
   sectores = [],
   isDraggable = true,
   onMarkDelivered,
-  activity = []
+  activity = [],
+  members = []
 }: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
@@ -590,7 +592,10 @@ const TaskCard = ({
                         </div>
                         <div className="audit-meta">
                           <span>{formatCompactDateTime(event.timestamp)}</span>
-                          <span className="audit-actor">Actor: {event.actorId}</span>
+                          <span className="audit-actor">
+                            Actor:{' '}
+                            {members.find((m) => m.id === event.actorId)?.name ?? event.actorId}
+                          </span>
                         </div>
                       </div>
                     ))}

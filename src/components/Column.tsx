@@ -63,6 +63,7 @@ const Column = ({
             sectores={sectores}
             onMarkDelivered={onMarkDelivered}
             activity={activity}
+            members={members}
           />
         ))}
         {droppableProvided.placeholder}
