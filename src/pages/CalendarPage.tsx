@@ -10,6 +10,7 @@ import {
   startOfMonth,
   startOfWeek
 } from 'date-fns'
+import { es } from 'date-fns/locale'
 import type { Task } from '../types/board'
 import './CalendarPage.css'
 
@@ -25,8 +26,8 @@ const normalizeDateKey = (value?: string) => {
   return format(parsed, 'yyyy-MM-dd')
 }
 
-const dayLabel = (date: Date) => format(date, 'EEE dd')
-const monthLabel = (date: Date) => format(date, 'MMMM yyyy')
+const dayLabel = (date: Date) => format(date, 'EEE dd', { locale: es })
+const monthLabel = (date: Date) => format(date, 'MMMM yyyy', { locale: es })
 
 const CalendarPage = ({ tasks, onBack }: CalendarPageProps) => {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
@@ -140,7 +141,7 @@ const CalendarPage = ({ tasks, onBack }: CalendarPageProps) => {
             {upcoming.map(([dateKey, dateTasks]) => (
               <div key={dateKey} className="sidebar-day">
                 <div className="sidebar-day-header">
-                  <span>{format(parseISO(dateKey), 'EEEE d')}</span>
+                  <span>{format(parseISO(dateKey), 'EEEE d', { locale: es })}</span>
                   <span className="sidebar-count">{dateTasks.length}</span>
                 </div>
                 <div className="sidebar-tasks">
