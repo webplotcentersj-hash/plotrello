@@ -67,6 +67,12 @@
   z-index: 1200;
 }
 
+@media (max-width: 1200px) {
+  .header-actions {
+    flex-wrap: wrap;
+  }
+}
+
 .user-chip {
   display: inline-flex;
   align-items: center;

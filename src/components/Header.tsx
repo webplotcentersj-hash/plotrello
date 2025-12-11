@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import NotificationsDropdown from './NotificationsDropdown'
+import ClockWidget from './ClockWidget'
+import WeatherWidget from './WeatherWidget'
 import './Header.css'
 
 type HeaderProps = {
@@ -62,6 +64,8 @@ const Header = ({
           <h1>Tablero Plot</h1>
         </div>
         <div className="header-actions">
+          <ClockWidget />
+          <WeatherWidget />
           <NotificationsDropdown onNotificationClick={(notification) => {
             // Si es una notificación de mención del chat, navegar al chat
             if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {

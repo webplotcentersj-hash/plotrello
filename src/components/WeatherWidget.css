@@ -1,0 +1,49 @@
+.weather-widget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  min-width: 200px;
+}
+
+.weather-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.weather-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.weather-temp {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e5ecf5;
+  line-height: 1.2;
+}
+
+.weather-description {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: capitalize;
+}
+
+.weather-location {
+  font-size: 0.7rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.weather-loading,
+.weather-error {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  padding: 4px 0;
+}
+
