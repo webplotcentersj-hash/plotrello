@@ -1,9 +1,11 @@
+import type { RefObject } from 'react'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import './FiltersBar.css'
 
 type FiltersBarProps = {
   searchQuery: string
   onSearchChange: (value: string) => void
+  searchInputRef?: RefObject<HTMLInputElement | null>
   statusFocus: TaskStatus[]
   onStatusToggle: (status: TaskStatus) => void
   onStatusReset: () => void
@@ -18,6 +20,7 @@ type FiltersBarProps = {
 const FiltersBar = ({
   searchQuery,
   onSearchChange,
+  searchInputRef,
   statusFocus,
   onStatusToggle,
   onStatusReset,
@@ -36,6 +39,7 @@ const FiltersBar = ({
           placeholder="Buscar por ID, título o tags…"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
+          ref={searchInputRef}
         />
       </div>
 

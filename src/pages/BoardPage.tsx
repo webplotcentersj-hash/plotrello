@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Board from '../components/Board'
 import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
@@ -69,6 +69,7 @@ const BoardPage = ({
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (actionError || actionSuccess) {
@@ -148,6 +149,53 @@ const BoardPage = ({
       prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]
     )
   }
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isTyping =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.getAttribute('contenteditable') === 'true')
+
+      const key = event.key.toLowerCase()
+      const isCmd = event.metaKey || event.ctrlKey
+
+      // Cmd/Ctrl + K o "/" para enfocar búsqueda
+      if (isCmd && key === 'k') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+        return
+      }
+      if (!isCmd && key === '/' && !isTyping) {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+        return
+      }
+
+      if (isTyping) return
+
+      // "c" para nueva orden
+      if (key === 'c') {
+        event.preventDefault()
+        setIsCreateModalOpen(true)
+        return
+      }
+
+      // "l" para abrir biblioteca
+      if (key === 'l') {
+        event.preventDefault()
+        setIsLibraryModalOpen(true)
+        return
+      }
+    }
+
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   const handleMoveTask = async (taskId: string, destination: TaskStatus) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
@@ -441,6 +489,7 @@ const BoardPage = ({
       <FiltersBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        searchInputRef={searchInputRef}
         statusFocus={statusFocus}
         onStatusToggle={toggleStatusFocus}
         onStatusReset={() => setStatusFocus([])}
