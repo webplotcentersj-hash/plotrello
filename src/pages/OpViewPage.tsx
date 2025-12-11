@@ -141,6 +141,14 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
           <button className="ghost-button" onClick={() => navigate('/')}>
             ← Volver al tablero
           </button>
+          <button
+            className="brand-button"
+            onClick={() => {
+              window.print()
+            }}
+          >
+            🖨️ Imprimir
+          </button>
         </footer>
       </div>
     </div>

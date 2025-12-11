@@ -102,6 +102,40 @@
 .opview-footer {
   display: flex;
   justify-content: flex-start;
+  gap: 10px;
   margin-top: 18px;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .opview-page {
+    padding: 0;
+    background: #fff;
+  }
+  .opview-card {
+    width: 100%;
+    max-width: 100%;
+    box-shadow: none;
+    border: none;
+    background: #fff;
+    color: #000;
+  }
+  .opview-header {
+    border-bottom: 1px solid #ccc;
+  }
+  .opview-block {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+  }
+  .badge {
+    border: 1px solid #e5e7eb;
+  }
+  .opview-footer,
+  .ghost-button,
+  .brand-button {
+    display: none;
+  }
 }
 
