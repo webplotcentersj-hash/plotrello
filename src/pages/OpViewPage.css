@@ -1,0 +1,107 @@
+.opview-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0b0d17 0%, #111629 100%);
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.opview-card {
+  width: min(100%, 900px);
+  background: rgba(15, 18, 30, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  color: #e2e8f0;
+  backdrop-filter: blur(12px);
+}
+
+.opview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 16px;
+}
+
+.opview-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0 0 4px 0;
+}
+
+.opview-title {
+  margin: 4px 0 0 0;
+  color: #cbd5e1;
+  font-size: 1.1rem;
+}
+
+.opview-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.opview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.opview-block {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.label {
+  margin: 0 0 6px 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.value {
+  margin: 0;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.muted {
+  color: #94a3b8;
+}
+
+.opview-footer {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 18px;
+}
+

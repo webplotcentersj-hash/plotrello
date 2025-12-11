@@ -214,6 +214,25 @@ body.compact-mode .task-actions {
   box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
 }
 
+.qr-link {
+  color: #93c5fd;
+  word-break: break-all;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.qr-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border-radius: 10px;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .qr-error {
   color: #f87171;
   text-align: center;

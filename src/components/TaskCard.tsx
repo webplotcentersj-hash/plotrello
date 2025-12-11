@@ -63,6 +63,7 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
   const [showChecklist, setShowChecklist] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [qrLink, setQrLink] = useState<string | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
   const [qrError, setQrError] = useState<string | null>(null)
   const ordenId = Number(task.id)
@@ -88,13 +89,12 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
       const { toDataURL } = await import('qrcode')
       const baseUrl =
         typeof window !== 'undefined' ? window.location.origin : 'https://trello.plotcenter.com.ar'
-      const targetUrl = `${baseUrl}/?op=${task.opNumber || task.id}`
-      const payload = `OP ${task.opNumber} - ${task.title}\nSector: ${
-        task.assignedSector ?? task.status
-      }\nEstado: ${task.status}`
-      const value = `${targetUrl}\n${payload}`
+      const targetUrl = `${baseUrl}/op/${encodeURIComponent(task.opNumber || task.id)}`
+      const value = targetUrl
       const dataUrl = await toDataURL(value, { width: 320, margin: 1 })
       setQrDataUrl(dataUrl)
+      setQrError(null)
+      setQrLink(targetUrl)
     } catch (error) {
       console.error('QR generation error', error)
       setQrError('No se pudo generar el QR')
@@ -515,6 +515,14 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
                 {!qrLoading && !qrError && qrDataUrl && (
                   <div className="qr-preview">
                     <img src={qrDataUrl} alt={`QR OP ${task.opNumber}`} />
+                    {qrLink && (
+                      <>
+                        <p className="qr-link">{qrLink}</p>
+                        <a className="qr-open" href={qrLink} target="_blank" rel="noopener noreferrer">
+                          Abrir enlace
+                        </a>
+                      </>
+                    )}
                     <p className="qr-label">Escaneá para abrir la OP</p>
                     <a className="qr-download" href={qrDataUrl} download={`op-${task.opNumber}.png`}>
                       Descargar PNG

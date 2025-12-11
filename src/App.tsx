@@ -9,6 +9,7 @@ import DashboardPantallasPage from './pages/DashboardPantallasPage'
 import ImpresorasPage from './pages/ImpresorasPage'
 import CalendarPage from './pages/CalendarPage'
 import GanttPage from './pages/GanttPage'
+import OpViewPage from './pages/OpViewPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -480,6 +481,10 @@ function AppRoutes({
       <Route
         path="/gantt"
         element={<GanttPage tasks={tasks} onBack={() => navigate('/')} />}
+      />
+      <Route
+        path="/op/:opNumber"
+        element={<OpViewPage tasks={tasks} sectores={sectores} />}
       />
       <Route
         path="/chat"
