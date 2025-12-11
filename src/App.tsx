@@ -7,6 +7,7 @@ import ClienteConsultaPage from './pages/ClienteConsultaPage'
 import UsuariosPage from './pages/UsuariosPage'
 import DashboardPantallasPage from './pages/DashboardPantallasPage'
 import ImpresorasPage from './pages/ImpresorasPage'
+import CalendarPage from './pages/CalendarPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -426,6 +427,7 @@ function AppRoutes({
             setActivity={setActivity}
             teamMembers={teamMembers}
             onNavigateToStats={() => navigate('/statistics')}
+            onNavigateToCalendar={() => navigate('/calendario')}
             onNavigateToUsuarios={() => navigate('/usuarios')}
             onNavigateToChat={() => navigate('/chat')}
             onLogout={onLogout}
@@ -447,6 +449,10 @@ function AppRoutes({
             onBack={() => navigate('/')}
           />
         }
+      />
+      <Route
+        path="/calendario"
+        element={<CalendarPage tasks={tasks} onBack={() => navigate('/')} />}
       />
       <Route
         path="/chat"

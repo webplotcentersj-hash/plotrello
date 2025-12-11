@@ -9,6 +9,7 @@ type HeaderProps = {
   currentUserName?: string
   onOptimizeSprint?: () => void
   onNavigateToStats?: () => void
+  onNavigateToCalendar?: () => void
   onNavigateToUsuarios?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
@@ -16,7 +17,19 @@ type HeaderProps = {
   isAdmin?: boolean
 }
 
-const Header = ({ teamMembers, activity, currentUserName, onOptimizeSprint, onNavigateToStats, onNavigateToUsuarios, onOpenChatAI, onNavigateToChat, onLogout, isAdmin = false }: HeaderProps) => {
+const Header = ({
+  teamMembers,
+  activity,
+  currentUserName,
+  onOptimizeSprint,
+  onNavigateToStats,
+  onNavigateToCalendar,
+  onNavigateToUsuarios,
+  onOpenChatAI,
+  onNavigateToChat,
+  onLogout,
+  isAdmin = false
+}: HeaderProps) => {
   const [actionsOpen, setActionsOpen] = useState(false)
   const today = new Date()
   const movesToday = activity.filter((event) => {
@@ -72,6 +85,11 @@ const Header = ({ teamMembers, activity, currentUserName, onOptimizeSprint, onNa
             {onNavigateToStats && isAdmin && (
               <button className="brand-button" onClick={onNavigateToStats}>
                 📊 Estadísticas
+              </button>
+            )}
+            {onNavigateToCalendar && (
+              <button className="brand-button" onClick={onNavigateToCalendar}>
+                📅 Calendario
               </button>
             )}
             {onNavigateToUsuarios && isAdmin && (

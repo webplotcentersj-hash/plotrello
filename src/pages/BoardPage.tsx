@@ -29,6 +29,7 @@ type BoardPageProps = {
   setActivity: React.Dispatch<React.SetStateAction<ActivityEvent[]>>
   teamMembers: TeamMember[]
   onNavigateToStats: () => void
+  onNavigateToCalendar?: () => void
   onNavigateToUsuarios?: () => void
   onNavigateToChat?: () => void
   onLogout?: () => void
@@ -46,6 +47,7 @@ const BoardPage = ({
   setActivity,
   teamMembers,
   onNavigateToStats,
+  onNavigateToCalendar,
   onNavigateToUsuarios,
   onNavigateToChat,
   onLogout,
@@ -429,6 +431,7 @@ const BoardPage = ({
         currentUserName={resolveCurrentUserName()}
         onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
         onNavigateToStats={onNavigateToStats}
+        onNavigateToCalendar={onNavigateToCalendar}
         onNavigateToUsuarios={onNavigateToUsuarios}
         onNavigateToChat={onNavigateToChat}
         onOpenChatAI={() => setIsChatAIOpen(true)}
