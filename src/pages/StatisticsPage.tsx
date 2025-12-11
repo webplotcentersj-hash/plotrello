@@ -27,16 +27,16 @@ type StatisticsPageProps = {
 }
 
 const COLORS = {
-  'Almacén de Entrega': '#fbbf24',
-  'Entregado o Instalado': '#4b5563',
+  'Almacén de Entrega': '#f59e0b',
+  'Entregado o Instalado': '#14b8a6',
   'Imprenta (Área de Impresión)': '#ef4444',
   'Mostrador': '#3b82f6',
   'Pendiente': '#9ca3af',
-  'Taller Gráfico': '#dc2626',
-  'En Espera': '#60a5fa',
+  'Taller Gráfico': '#a855f7',
+  'En Espera': '#22d3ee',
   'Finalizado en Taller': '#22c55e',
   'Instalaciones': '#f97316',
-  'Taller de Imprenta': '#86efac'
+  'Taller de Imprenta': '#fb7185'
 }
 
 const sanitizeName = (name?: string) => {
@@ -496,15 +496,15 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
         </div>
         <div className="stats-filters">
           <div className="filter-group">
-            <label>Desde</label>
+            <label>📅 Desde</label>
             <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
           <div className="filter-group">
-            <label>Hasta</label>
+            <label>📆 Hasta</label>
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
           <div className="filter-group">
-            <label>Sector</label>
+            <label>🏭 Sector</label>
             <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)}>
               <option value="all">Todos</option>
               {BOARD_COLUMNS.map((col) => (
@@ -515,7 +515,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
             </select>
           </div>
           <div className="filter-group">
-            <label>Operario</label>
+            <label>👤 Operario</label>
             <select value={operatorFilter} onChange={(e) => setOperatorFilter(e.target.value)}>
               <option value="all">Todos</option>
               {safeTeamMembers.map((m) => (
@@ -639,7 +639,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Órdenes" fill="#f97316" />
+                <Bar dataKey="Órdenes" fill="#f97316" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -659,7 +659,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Movimientos" fill="#a855f7" />
+                <Bar dataKey="Movimientos" fill="#a855f7" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -679,7 +679,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Tiempo Promedio (horas)" fill="#06b6d4" />
+                <Bar dataKey="Tiempo Promedio (horas)" fill="#06b6d4" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -702,7 +702,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Tiempo Promedio (días)" fill="#ef4444" />
+                  <Bar dataKey="Tiempo Promedio (días)" fill="#ef4444" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -725,7 +725,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Promedio (días)" fill="#60a5fa" />
+                  <Bar dataKey="Promedio (días)" fill="#60a5fa" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -748,7 +748,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Promedio (días)" fill="#34d399" />
+                  <Bar dataKey="Promedio (días)" fill="#34d399" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
