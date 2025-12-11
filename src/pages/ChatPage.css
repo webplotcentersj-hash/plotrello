@@ -429,9 +429,10 @@
   background: var(--brand);
   border: none;
   color: white;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -455,6 +456,30 @@
   text-align: center;
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.send-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.alert-btn {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  color: #fff;
+  min-width: 110px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+}
+
+.alert-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Scrollbar */

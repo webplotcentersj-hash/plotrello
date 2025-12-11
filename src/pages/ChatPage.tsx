@@ -851,24 +851,14 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                   </div>
                 )}
               </div>
-              <div className="send-group">
-                <button
-                  className="input-action-btn alert-btn"
-                  onClick={() => handleSendAlert()}
-                  title="Sirena (alerta a todos)"
-                  disabled={!usuario?.id || isSending}
-                >
-                  🚨 Sirena
-                </button>
-                <button
-                  className="send-button"
-                  onClick={() => handleSendMessage()}
-                  disabled={!usuario?.id || isSending || (!input.trim() && attachedFiles.length === 0)}
-                  title="Enviar (Enter)"
-                >
-                  {isSending ? '…' : '➤'}
-                </button>
-              </div>
+              <button
+                className="send-button"
+                onClick={() => handleSendMessage()}
+                disabled={!usuario?.id || isSending || (!input.trim() && attachedFiles.length === 0)}
+                title="Enviar (Enter)"
+              >
+                {isSending ? '…' : '➤'}
+              </button>
             </div>
           </div>
           <div className="input-hint">
