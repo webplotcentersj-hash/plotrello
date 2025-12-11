@@ -103,6 +103,13 @@
   border: none;
 }
 
+.stat-subtitle {
+  margin: 0 0 16px 0;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
 .stalled-title {
   color: #f87171 !important;
 }
@@ -118,6 +125,20 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+}
+
+.recharts-default-legend {
+  font-size: 0.85rem;
+  color: #e5ecf5 !important;
+}
+
+.recharts-cartesian-axis-tick text {
+  fill: #c7d0dd !important;
+  font-size: 0.85rem;
+}
+
+.recharts-tooltip-label {
+  color: #e5ecf5 !important;
 }
 
 .activity-table thead {
@@ -222,6 +243,11 @@
   color: #e2e8f0;
   padding: 8px 10px;
   border-radius: 10px;
+}
+
+.filter-group select option {
+  background: #0f111c;
+  color: #e5ecf5;
 }
 
 .export-group {

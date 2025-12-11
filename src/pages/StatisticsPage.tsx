@@ -296,7 +296,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
   const avgCycleByStatus = useMemo(() => {
     if (!filteredTasks || filteredTasks.length === 0) return []
     const map: Record<string, { total: number; count: number }> = {}
-    safeTasks.forEach((task) => {
+  filteredTasks.forEach((task) => {
       if (!task?.status || !task.createdAt || !task.updatedAt) return
       const col = BOARD_COLUMNS.find((c) => c.id === task.status)
       const label = col?.label || task.status
@@ -340,6 +340,14 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
       .sort((a, b) => b['Promedio (días)'] - a['Promedio (días)'])
   }, [filteredTasks, safeTeamMembers])
 
+  // Helper para calcular percentiles
+  const calculatePercentile = (values: number[], percentile: number): number => {
+    if (values.length === 0) return 0
+    const sorted = [...values].sort((a, b) => a - b)
+    const index = Math.ceil((percentile / 100) * sorted.length) - 1
+    return sorted[Math.max(0, index)] || 0
+  }
+
   // 9. Fichas Estancadas (> 3 días en el mismo estado)
   const stalledTasks = useMemo(() => {
     if (!filteredTasks || filteredTasks.length === 0) return []
@@ -378,6 +386,250 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
         }
       })
       .sort((a, b) => b.daysStalled - a.daysStalled)
+  }, [filteredTasks])
+
+  // 10. Lead Time y Cycle Time (p50/p90) por Estado
+  const leadCycleTimeByStatus = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return []
+    const statusMap: Record<string, number[]> = {}
+    
+    filteredTasks.forEach((task) => {
+      if (!task?.status || !task.createdAt || !task.updatedAt) return
+      const col = BOARD_COLUMNS.find((c) => c.id === task.status)
+      const label = col?.label || task.status
+      
+      try {
+        const start = new Date(task.createdAt).getTime()
+        const end = new Date(task.updatedAt).getTime()
+        if (isNaN(start) || isNaN(end)) return
+        const days = Math.max((end - start) / (1000 * 60 * 60 * 24), 0)
+        
+        if (!statusMap[label]) statusMap[label] = []
+        statusMap[label].push(days)
+      } catch {
+        return
+      }
+    })
+    
+    return Object.entries(statusMap).map(([name, values]) => ({
+      name,
+      p50: calculatePercentile(values, 50),
+      p90: calculatePercentile(values, 90),
+      promedio: values.reduce((a, b) => a + b, 0) / values.length
+    }))
+  }, [filteredTasks])
+
+  // 11. Lead Time y Cycle Time (p50/p90) por Operario
+  const leadCycleTimeByOperator = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return []
+    const operatorMap: Record<string, number[]> = {}
+    
+    filteredTasks.forEach((task) => {
+      if (!task?.createdAt || !task.updatedAt) return
+      const owner = safeTeamMembers.find((m) => m.id === task.ownerId)
+      const name = sanitizeName(owner?.name) || 'Sin asignar'
+      
+      try {
+        const start = new Date(task.createdAt).getTime()
+        const end = new Date(task.updatedAt).getTime()
+        if (isNaN(start) || isNaN(end)) return
+        const days = Math.max((end - start) / (1000 * 60 * 60 * 24), 0)
+        
+        if (!operatorMap[name]) operatorMap[name] = []
+        operatorMap[name].push(days)
+      } catch {
+        return
+      }
+    })
+    
+    return Object.entries(operatorMap).map(([name, values]) => ({
+      name,
+      p50: calculatePercentile(values, 50),
+      p90: calculatePercentile(values, 90),
+      promedio: values.reduce((a, b) => a + b, 0) / values.length
+    }))
+  }, [filteredTasks, safeTeamMembers])
+
+  // 12. Aging WIP (Work In Progress) - Buckets de tiempo
+  const agingWIP = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return []
+    const now = Date.now()
+    const buckets = {
+      '0-2 días': 0,
+      '3-5 días': 0,
+      '6-10 días': 0,
+      '11+ días': 0
+    }
+    
+    filteredTasks.forEach((task) => {
+      if (!task?.updatedAt || task.status === 'almacen-entrega' || task.entregado) return
+      
+      try {
+        const updatedTime = new Date(task.updatedAt).getTime()
+        if (isNaN(updatedTime)) return
+        const days = Math.floor((now - updatedTime) / (1000 * 60 * 60 * 24))
+        
+        if (days <= 2) buckets['0-2 días']++
+        else if (days <= 5) buckets['3-5 días']++
+        else if (days <= 10) buckets['6-10 días']++
+        else buckets['11+ días']++
+      } catch {
+        return
+      }
+    })
+    
+    return Object.entries(buckets).map(([name, value]) => ({ name, value }))
+  }, [filteredTasks])
+
+  // 13. Throughput Comparativo (período actual vs anterior)
+  const throughputComparison = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return null
+    
+    const now = Date.now()
+    const currentPeriodStart = dateFrom ? new Date(dateFrom).getTime() : now - 30 * 24 * 60 * 60 * 1000
+    const currentPeriodEnd = dateTo ? new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 : now
+    const periodLength = currentPeriodEnd - currentPeriodStart
+    const previousPeriodStart = currentPeriodStart - periodLength
+    const previousPeriodEnd = currentPeriodStart
+    
+    let currentCompleted = 0
+    let previousCompleted = 0
+    
+    filteredTasks.forEach((task) => {
+      if (!task?.updatedAt) return
+      try {
+        const updatedTime = new Date(task.updatedAt).getTime()
+        if (isNaN(updatedTime)) return
+        
+        // Solo contar tareas completadas (en almacén o entregadas)
+        const isCompleted = task.status === 'almacen-entrega' || task.entregado
+        if (!isCompleted) return
+        
+        if (updatedTime >= currentPeriodStart && updatedTime < currentPeriodEnd) {
+          currentCompleted++
+        } else if (updatedTime >= previousPeriodStart && updatedTime < previousPeriodEnd) {
+          previousCompleted++
+        }
+      } catch {
+        return
+      }
+    })
+    
+    const change = previousCompleted > 0 
+      ? ((currentCompleted - previousCompleted) / previousCompleted) * 100 
+      : currentCompleted > 0 ? 100 : 0
+    
+    return {
+      current: currentCompleted,
+      previous: previousCompleted,
+      change,
+      trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
+    }
+  }, [filteredTasks, dateFrom, dateTo])
+
+  // 14. SLA Compliance (vs fecha de compromiso)
+  const slaCompliance = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return null
+    
+    let total = 0
+    let onTime = 0
+    let late = 0
+    let noDueDate = 0
+    const deviations: number[] = []
+    
+    filteredTasks.forEach((task) => {
+      if (!task?.dueDate) {
+        noDueDate++
+        return
+      }
+      
+      try {
+        const dueDate = new Date(task.dueDate).getTime()
+        if (isNaN(dueDate)) {
+          noDueDate++
+          return
+        }
+        
+        // Usar updatedAt como fecha de finalización (o createdAt si aún no está completada)
+        const completionDate = task.status === 'almacen-entrega' || task.entregado
+          ? new Date(task.updatedAt).getTime()
+          : Date.now()
+        
+        if (isNaN(completionDate)) return
+        
+        total++
+        const deviationDays = (completionDate - dueDate) / (1000 * 60 * 60 * 24)
+        deviations.push(deviationDays)
+        
+        if (deviationDays <= 0) {
+          onTime++
+        } else {
+          late++
+        }
+      } catch {
+        return
+      }
+    })
+    
+    const complianceRate = total > 0 ? (onTime / total) * 100 : 0
+    const avgDeviation = deviations.length > 0 
+      ? deviations.reduce((a, b) => a + b, 0) / deviations.length 
+      : 0
+    
+    return {
+      total,
+      onTime,
+      late,
+      noDueDate,
+      complianceRate,
+      avgDeviation,
+      p50Deviation: calculatePercentile(deviations, 50),
+      p90Deviation: calculatePercentile(deviations, 90)
+    }
+  }, [filteredTasks])
+
+  // 15. WIP por Estado con Alertas
+  const wipByStatus = useMemo(() => {
+    if (!filteredTasks || filteredTasks.length === 0) return []
+    
+    // Límites de WIP por estado (configurables)
+    const wipLimits: Record<string, number> = {
+      'Diseño Gráfico': 10,
+      'Diseño/Proceso': 8,
+      'En Espera': 15,
+      'Imprenta (Área de Impresión)': 12,
+      'Taller de Imprenta': 10,
+      'Taller Gráfico': 15,
+      'Instalaciones': 8,
+      'Finalizado en Taller': 20,
+      'Almacén de Entrega': 25
+    }
+    
+    const statusCounts: Record<string, number> = {}
+    
+    filteredTasks.forEach((task) => {
+      if (!task?.status) return
+      // No contar tareas completadas/entregadas como WIP
+      if (task.status === 'almacen-entrega' || task.entregado) return
+      
+      const column = BOARD_COLUMNS.find((col) => col.id === task.status)
+      const label = column?.label || task.status
+      statusCounts[label] = (statusCounts[label] || 0) + 1
+    })
+    
+    return Object.entries(statusCounts).map(([name, count]) => {
+      const limit = wipLimits[name] || 20
+      const isOverLimit = count > limit
+      const utilization = (count / limit) * 100
+      
+      return {
+        name,
+        count,
+        limit,
+        isOverLimit,
+        utilization
+      }
+    }).sort((a, b) => b.count - a.count)
   }, [filteredTasks])
 
   const exportCsv = (filename: string, rows: any[], columns: string[]) => {
@@ -447,6 +699,46 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     addLine('Fichas estancadas (top 5):', true)
     stalledTasks.slice(0, 5).forEach((t) =>
       addLine(`- OP #${t.opNumber} · ${t.status} · ${t.daysStalled} días`)
+    )
+    line += 4
+
+    addLine('Lead/Cycle Time por Estado (p50/p90) - Top 5:', true)
+    leadCycleTimeByStatus.slice(0, 5).forEach((t) =>
+      addLine(`- ${t.name}: p50=${t.p50.toFixed(1)}d, p90=${t.p90.toFixed(1)}d, prom=${t.promedio.toFixed(1)}d`)
+    )
+    line += 4
+
+    addLine('Lead/Cycle Time por Operario (p50/p90) - Top 5:', true)
+    leadCycleTimeByOperator.slice(0, 5).forEach((t) =>
+      addLine(`- ${t.name}: p50=${t.p50.toFixed(1)}d, p90=${t.p90.toFixed(1)}d, prom=${t.promedio.toFixed(1)}d`)
+    )
+    line += 4
+
+    addLine('Aging WIP:', true)
+    agingWIP.forEach((a) => addLine(`- ${a.name}: ${a.value} tareas`))
+    line += 4
+
+    if (throughputComparison) {
+      addLine('Throughput Comparativo:', true)
+      addLine(`- Período actual: ${throughputComparison.current} tareas`)
+      addLine(`- Período anterior: ${throughputComparison.previous} tareas`)
+      addLine(`- Cambio: ${throughputComparison.change > 0 ? '+' : ''}${throughputComparison.change.toFixed(1)}%`)
+      line += 4
+    }
+
+    if (slaCompliance) {
+      addLine('SLA Compliance:', true)
+      addLine(`- Tasa de cumplimiento: ${slaCompliance.complianceRate.toFixed(1)}%`)
+      addLine(`- A tiempo: ${slaCompliance.onTime} | Retrasadas: ${slaCompliance.late}`)
+      addLine(`- Desviación promedio: ${slaCompliance.avgDeviation.toFixed(1)} días`)
+      addLine(`- p50 desviación: ${slaCompliance.p50Deviation.toFixed(1)} días`)
+      addLine(`- p90 desviación: ${slaCompliance.p90Deviation.toFixed(1)} días`)
+      line += 4
+    }
+
+    addLine('WIP por Estado (sobre límite):', true)
+    wipByStatus.filter((w) => w.isOverLimit).slice(0, 5).forEach((w) =>
+      addLine(`- ${w.name}: ${w.count}/${w.limit} (${w.utilization.toFixed(0)}%)`)
     )
 
     doc.save('estadisticas.pdf')
@@ -639,7 +931,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Órdenes" fill="#f97316" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Órdenes" fill="#a855f7" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -659,7 +951,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Movimientos" fill="#a855f7" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Movimientos" fill="#22c55e" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -679,7 +971,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Tiempo Promedio (horas)" fill="#06b6d4" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Tiempo Promedio (horas)" fill="#38bdf8" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -702,7 +994,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Tiempo Promedio (días)" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Tiempo Promedio (días)" fill="#f97316" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -725,7 +1017,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Promedio (días)" fill="#60a5fa" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Promedio (días)" fill="#60a5fa" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -748,7 +1040,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Promedio (días)" fill="#34d399" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Promedio (días)" fill="#34d399" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -807,6 +1099,249 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                 </ul>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Sexta fila: Métricas Avanzadas - Lead/Cycle Time por Estado */}
+        <div className="stats-row">
+          <div className="stat-card full-width">
+            <h3>Lead/Cycle Time por Estado (p50/p90)</h3>
+            <p className="stat-subtitle">Tiempo en días: mediana (p50) y percentil 90 (p90)</p>
+            {leadCycleTimeByStatus.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={leadCycleTimeByStatus}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-20} textAnchor="end" height={80} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Séptima fila: Lead/Cycle Time por Operario */}
+        <div className="stats-row">
+          <div className="stat-card full-width">
+            <h3>Lead/Cycle Time por Operario (p50/p90)</h3>
+            <p className="stat-subtitle">Tiempo en días: mediana (p50) y percentil 90 (p90)</p>
+            {leadCycleTimeByOperator.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={leadCycleTimeByOperator}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Octava fila: Aging WIP y Throughput */}
+        <div className="stats-row">
+          <div className="stat-card">
+            <h3>Aging WIP (Work In Progress)</h3>
+            <p className="stat-subtitle">Distribución de tareas por tiempo en estado actual</p>
+            {agingWIP.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={agingWIP}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="value" fill="#a855f7" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
+          </div>
+
+          <div className="stat-card">
+            <h3>Throughput Comparativo</h3>
+            <p className="stat-subtitle">Tareas completadas: período actual vs anterior</p>
+            {throughputComparison ? (
+              <div style={{ padding: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#e5ecf5', marginBottom: '10px' }}>
+                  {throughputComparison.current}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#c7d0dd', marginBottom: '20px' }}>
+                  Período actual
+                </div>
+                <div style={{ fontSize: '1.2rem', color: '#c7d0dd', marginBottom: '10px' }}>
+                  Período anterior: <strong>{throughputComparison.previous}</strong>
+                </div>
+                <div style={{ 
+                  fontSize: '1.1rem', 
+                  fontWeight: 'bold',
+                  color: throughputComparison.trend === 'up' ? '#22c55e' : 
+                         throughputComparison.trend === 'down' ? '#ef4444' : '#9ca3af',
+                  marginTop: '20px'
+                }}>
+                  {throughputComparison.change > 0 ? '↑' : throughputComparison.change < 0 ? '↓' : '→'} 
+                  {' '}
+                  {Math.abs(throughputComparison.change).toFixed(1)}%
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Novena fila: SLA Compliance */}
+        <div className="stats-row">
+          <div className="stat-card full-width">
+            <h3>SLA Compliance (vs Fecha de Compromiso)</h3>
+            <p className="stat-subtitle">Cumplimiento de fechas de entrega</p>
+            {slaCompliance ? (
+              <div style={{ padding: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                  <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '1.2rem', color: '#c7d0dd', marginBottom: '5px' }}>Tasa de Cumplimiento</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: slaCompliance.complianceRate >= 80 ? '#22c55e' : slaCompliance.complianceRate >= 60 ? '#f59e0b' : '#ef4444' }}>
+                      {slaCompliance.complianceRate.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '1.2rem', color: '#c7d0dd', marginBottom: '5px' }}>A Tiempo</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#22c55e' }}>
+                      {slaCompliance.onTime}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '1.2rem', color: '#c7d0dd', marginBottom: '5px' }}>Retrasadas</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>
+                      {slaCompliance.late}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '1.2rem', color: '#c7d0dd', marginBottom: '5px' }}>Desviación Promedio</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: slaCompliance.avgDeviation <= 0 ? '#22c55e' : '#ef4444' }}>
+                      {slaCompliance.avgDeviation.toFixed(1)} días
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
+                  <div style={{ textAlign: 'center', padding: '10px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.9rem', color: '#9ca3af', marginBottom: '5px' }}>p50 Desviación</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#e5ecf5' }}>
+                      {slaCompliance.p50Deviation.toFixed(1)} días
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '10px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.9rem', color: '#9ca3af', marginBottom: '5px' }}>p90 Desviación</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#e5ecf5' }}>
+                      {slaCompliance.p90Deviation.toFixed(1)} días
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '10px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.9rem', color: '#9ca3af', marginBottom: '5px' }}>Sin Fecha</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#9ca3af' }}>
+                      {slaCompliance.noDueDate}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Décima fila: WIP por Estado con Alertas */}
+        <div className="stats-row">
+          <div className="stat-card full-width">
+            <h3>WIP por Estado (Work In Progress)</h3>
+            <p className="stat-subtitle">Cantidad de tareas en progreso vs límites establecidos</p>
+            {wipByStatus.length > 0 ? (
+              <div className="table-container">
+                <table className="activity-table">
+                  <thead>
+                    <tr>
+                      <th>ESTADO</th>
+                      <th>WIP ACTUAL</th>
+                      <th>LÍMITE</th>
+                      <th>UTILIZACIÓN</th>
+                      <th>ESTADO</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wipByStatus.map((item, index) => (
+                      <tr key={index} style={item.isOverLimit ? { background: 'rgba(239, 68, 68, 0.1)' } : {}}>
+                        <td>{item.name}</td>
+                        <td style={{ fontWeight: 'bold', color: item.isOverLimit ? '#ef4444' : '#e5ecf5' }}>
+                          {item.count}
+                        </td>
+                        <td>{item.limit}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ 
+                              flex: 1, 
+                              height: '20px', 
+                              background: 'rgba(255, 255, 255, 0.1)', 
+                              borderRadius: '10px',
+                              overflow: 'hidden'
+                            }}>
+                              <div style={{
+                                width: `${Math.min(item.utilization, 100)}%`,
+                                height: '100%',
+                                background: item.utilization > 100 
+                                  ? 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)'
+                                  : item.utilization > 80
+                                  ? 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)'
+                                  : 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)',
+                                transition: 'width 0.3s'
+                              }} />
+                            </div>
+                            <span style={{ fontSize: '0.9rem', color: '#c7d0dd' }}>
+                              {item.utilization.toFixed(0)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          {item.isOverLimit ? (
+                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>⚠️ SOBRE LÍMITE</span>
+                          ) : item.utilization > 80 ? (
+                            <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>⚡ ALTA</span>
+                          ) : (
+                            <span style={{ color: '#22c55e' }}>✓ OK</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No hay datos para mostrar
+              </div>
+            )}
           </div>
         </div>
       </div>
