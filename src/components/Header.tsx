@@ -16,6 +16,8 @@ type HeaderProps = {
   onNavigateToChat?: () => void
   onLogout?: () => void
   isAdmin?: boolean
+  isCompact?: boolean
+  onToggleCompact?: () => void
 }
 
 const Header = ({
@@ -30,7 +32,9 @@ const Header = ({
   onOpenChatAI,
   onNavigateToChat,
   onLogout,
-  isAdmin = false
+  isAdmin = false,
+  isCompact = false,
+  onToggleCompact
 }: HeaderProps) => {
   const [actionsOpen, setActionsOpen] = useState(false)
   const today = new Date()
@@ -97,6 +101,11 @@ const Header = ({
             {onNavigateToGantt && (
               <button className="brand-button" onClick={onNavigateToGantt}>
                 📈 Gantt
+              </button>
+            )}
+            {onToggleCompact && (
+              <button className="brand-button" onClick={onToggleCompact}>
+                {isCompact ? '🪄 Vista expandida' : '🧊 Modo compacto'}
               </button>
             )}
             {onNavigateToUsuarios && isAdmin && (

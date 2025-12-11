@@ -17,6 +17,39 @@
   overflow: hidden;
 }
 
+body.compact-mode .task-card {
+  padding: 12px;
+  gap: 10px;
+  border-radius: 12px;
+}
+
+body.compact-mode .task-meta {
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 0;
+}
+
+body.compact-mode .task-title {
+  font-size: 1rem;
+}
+
+body.compact-mode .task-id {
+  font-size: 0.8rem;
+}
+
+body.compact-mode .task-footer {
+  gap: 8px;
+}
+
+body.compact-mode .task-progress {
+  height: 6px;
+}
+
+body.compact-mode .task-actions {
+  top: 8px;
+  right: 8px;
+}
+
 .priority-led-indicator {
   position: absolute;
   left: -6px;
