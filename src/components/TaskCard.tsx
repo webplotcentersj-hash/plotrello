@@ -61,6 +61,10 @@ const stripEmailDomain = (value?: string | null) => {
 const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDraggable = true, onMarkDelivered }: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
+  const [showQr, setShowQr] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [qrLoading, setQrLoading] = useState(false)
+  const [qrError, setQrError] = useState<string | null>(null)
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const workerName =
@@ -75,6 +79,29 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
   // Obtener el color del sector asignado
   const sectorInfo = sectores.find((s) => s.nombre === task.assignedSector)
   const sectorColor = sectorInfo?.color || '#6B7280'
+
+  const handleShowQr = async () => {
+    setShowQr(true)
+    setQrError(null)
+    setQrLoading(true)
+    try {
+      const { toDataURL } = await import('qrcode')
+      const baseUrl =
+        typeof window !== 'undefined' ? window.location.origin : 'https://trello.plotcenter.com.ar'
+      const targetUrl = `${baseUrl}/?op=${task.opNumber || task.id}`
+      const payload = `OP ${task.opNumber} - ${task.title}\nSector: ${
+        task.assignedSector ?? task.status
+      }\nEstado: ${task.status}`
+      const value = `${targetUrl}\n${payload}`
+      const dataUrl = await toDataURL(value, { width: 320, margin: 1 })
+      setQrDataUrl(dataUrl)
+    } catch (error) {
+      console.error('QR generation error', error)
+      setQrError('No se pudo generar el QR')
+    } finally {
+      setQrLoading(false)
+    }
+  }
 
   const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
     const { ref, className: extraClassName, ...restProps } = draggableProps || {}
@@ -136,6 +163,17 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
                 🗑️
               </button>
             )}
+            <button
+              type="button"
+              className="task-action-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                void handleShowQr()
+              }}
+              title="QR rápido"
+            >
+              🔳
+            </button>
           </div>
           {task.photoUrl && (
             <div className="task-photo">
@@ -447,6 +485,42 @@ const TaskCard = ({ task, index, owner, onEdit, onDelete, sectores = [], isDragg
               </header>
               <div className="modal-body">
                 <Subtasks ordenId={ordenId} />
+              </div>
+            </div>
+          </div>
+        )}
+        {showQr && (
+          <div
+            className="modal-overlay"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowQr(false)
+            }}
+          >
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <header className="modal-header">
+                <h3>QR OP {task.opNumber}</h3>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setShowQr(false)}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </header>
+              <div className="modal-body qr-body">
+                {qrLoading && <p>Generando QR...</p>}
+                {qrError && <p className="qr-error">{qrError}</p>}
+                {!qrLoading && !qrError && qrDataUrl && (
+                  <div className="qr-preview">
+                    <img src={qrDataUrl} alt={`QR OP ${task.opNumber}`} />
+                    <p className="qr-label">Escaneá para abrir la OP</p>
+                    <a className="qr-download" href={qrDataUrl} download={`op-${task.opNumber}.png`}>
+                      Descargar PNG
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>

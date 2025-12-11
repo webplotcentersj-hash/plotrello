@@ -12,6 +12,7 @@
     "clean-all": "node scripts/clear-cache.js --clean-node && npm run build"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "@types/react-router-dom": "^5.3.3",
@@ -30,6 +31,7 @@
     "date-fns": "^4.1.0",
     "jspdf": "^3.0.4",
     "marked": "^17.0.0",
+    "qrcode": "^1.5.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.6",

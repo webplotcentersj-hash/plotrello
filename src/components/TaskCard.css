@@ -175,6 +175,49 @@ body.compact-mode .task-actions {
   pointer-events: auto;
 }
 
+.qr-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-preview {
+  display: grid;
+  gap: 12px;
+  place-items: center;
+}
+
+.qr-preview img {
+  width: 240px;
+  height: 240px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.qr-label {
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.qr-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #0b0d17;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
+}
+
+.qr-error {
+  color: #f87171;
+  text-align: center;
+}
 .task-action-btn {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.1);
