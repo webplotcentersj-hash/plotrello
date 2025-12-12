@@ -5,6 +5,7 @@ import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import QRPrintView from './QRPrintView'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
@@ -87,6 +88,7 @@ const TaskCard = ({
   const [impresoraSeleccionada, setImpresoraSeleccionada] = useState<number | null>(null)
   const [asignandoImpresora, setAsignandoImpresora] = useState(false)
   const [metrosManuales, setMetrosManuales] = useState<string>('')
+  const [showQRPrint, setShowQRPrint] = useState(false)
   const { usuario, canManageImpresoras } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
@@ -210,6 +212,19 @@ const TaskCard = ({
             >
               📜
             </button>
+            {task.opNumber && (
+              <button
+                type="button"
+                className="task-action-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowQRPrint(true)
+                }}
+                title="Imprimir QR para Cliente"
+              >
+                🖨️
+              </button>
+            )}
           </div>
           {task.photoUrl && (
             <div className="task-photo">
