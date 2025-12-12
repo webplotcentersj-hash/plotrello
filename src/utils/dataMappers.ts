@@ -171,7 +171,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     whatsappUrl,
     locationUrl,
     driveUrl,
-    entregado: orden.entregado ?? false
+    entregado: orden.entregado ?? false,
+    metrosCuadrados: orden.metros_cuadrados ?? undefined
   }
 }
 
@@ -225,7 +226,8 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     whatsapp_link: whatsappLink,
     ubicacion_link: task.locationUrl?.trim() || null,
     drive_link: task.driveUrl?.trim() || null,
-    etiquetas: task.tags
+    etiquetas: task.tags,
+    metros_cuadrados: task.metrosCuadrados || null
   }
 
   // Debug: log datos de sectores y contacto

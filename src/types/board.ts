@@ -57,6 +57,7 @@ export interface Task {
   subtasks?: Subtask[]
   subtaskProgress?: number // porcentaje completado
   subtaskTimeSpentSec?: number // tiempo total invertido en subtareas
+  metrosCuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
 }
 
 export interface Subtask {

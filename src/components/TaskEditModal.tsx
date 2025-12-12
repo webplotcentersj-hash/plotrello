@@ -92,7 +92,8 @@ const TaskEditModal = ({
         clientAddress: task.clientAddress,
         // whatsappUrl se recalcula automáticamente a partir del teléfono al guardar
         locationUrl: task.locationUrl,
-        driveUrl: task.driveUrl
+        driveUrl: task.driveUrl,
+        metrosCuadrados: task.metrosCuadrados
       })
       if (task.sectores && task.sectores.length > 0) {
         setSelectedSectors(task.sectores)
@@ -512,6 +513,27 @@ const TaskEditModal = ({
               placeholder="Sin descripción."
             />
           </div>
+
+          {/* Campo de metros cuadrados cuando está en Taller Gráfico */}
+          {task.assignedSector === 'Taller Gráfico' && (
+            <div className="form-group">
+              <label>Metros Cuadrados (m²) - Para impresión</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.metrosCuadrados ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
+                  setFormData({ ...formData, metrosCuadrados: value ?? undefined })
+                }}
+                placeholder="Ej: 6.24 (se calcula automáticamente desde dimensiones si está vacío)"
+              />
+              <small style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                Si está vacío, se calculará automáticamente desde las dimensiones en la descripción (ej: "290CM X 215CM")
+              </small>
+            </div>
+          )}
 
           <div className="form-group">
             <label>Etiquetas (colores automáticos)</label>

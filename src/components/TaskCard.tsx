@@ -3,6 +3,8 @@ import { Draggable } from '@hello-pangea/dnd'
 import clsx from 'clsx'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
+import apiService from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
@@ -80,8 +82,14 @@ const TaskCard = ({
   const [qrLink, setQrLink] = useState<string | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
   const [qrError, setQrError] = useState<string | null>(null)
+  const [showAsignarImpresora, setShowAsignarImpresora] = useState(false)
+  const [impresorasDisponibles, setImpresorasDisponibles] = useState<any[]>([])
+  const [impresoraSeleccionada, setImpresoraSeleccionada] = useState<number | null>(null)
+  const [asignandoImpresora, setAsignandoImpresora] = useState(false)
+  const { usuario, canManageImpresoras } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
+  const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'
@@ -448,6 +456,41 @@ const TaskCard = ({
               </div>
             )}
 
+            {/* Botón para asignar impresora cuando está en Taller Gráfico */}
+            {isTallerGrafico && canManageImpresoras && hasOrdenId && (
+              <div className="task-impresora-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
+                  <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
+                    Metros²: <strong style={{ color: '#10b981' }}>{task.metrosCuadrados.toFixed(2)} m²</strong>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="pill"
+                  style={{ 
+                    background: 'rgba(16, 185, 129, 0.2)', 
+                    borderColor: 'rgba(16, 185, 129, 0.5)', 
+                    color: '#10b981',
+                    fontSize: '12px',
+                    padding: '6px 12px'
+                  }}
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    setShowAsignarImpresora(true)
+                    // Cargar impresoras disponibles
+                    const response = await apiService.getImpresoras()
+                    if (response.success && response.data) {
+                      setImpresorasDisponibles(response.data.filter((imp: any) => 
+                        imp.estado !== 'Mantenimiento' && imp.estado !== 'Fuera de Servicio' && imp.activa
+                      ))
+                    }
+                  }}
+                >
+                  🖨️ Asignar Impresora
+                </button>
+              </div>
+            )}
+
             <div className="task-timings">
               <div>
                 <span>Creado</span>
@@ -601,6 +644,108 @@ const TaskCard = ({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        {showAsignarImpresora && (
+          <div
+            className="modal-overlay"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowAsignarImpresora(false)
+            }}
+          >
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+              <header className="modal-header">
+                <h3>Asignar Impresora - OP {task.opNumber}</h3>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setShowAsignarImpresora(false)}
+                >
+                  ×
+                </button>
+              </header>
+              <div className="modal-body">
+                {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
+                  <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px' }}>
+                    <strong>Metros² registrados:</strong> {task.metrosCuadrados.toFixed(2)} m²
+                  </div>
+                )}
+                <label style={{ display: 'block', marginBottom: '10px', color: '#fff' }}>
+                  Seleccionar Impresora:
+                  <select
+                    value={impresoraSeleccionada || ''}
+                    onChange={(e) => setImpresoraSeleccionada(Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      marginTop: '5px',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#fff',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="">Seleccione una impresora...</option>
+                    {impresorasDisponibles.map((imp) => (
+                      <option key={imp.id} value={imp.id} style={{ background: '#1a1d2e', color: '#fff' }}>
+                        {imp.nombre} {imp.modelo ? `(${imp.modelo})` : ''} - {imp.estado}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {impresorasDisponibles.length === 0 && (
+                  <p style={{ color: '#9ca3af', fontSize: '12px', marginTop: '10px' }}>
+                    No hay impresoras disponibles en este momento.
+                  </p>
+                )}
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowAsignarImpresora(false)}
+                  className="cancel-button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!impresoraSeleccionada) {
+                      alert('Por favor seleccione una impresora')
+                      return
+                    }
+                    setAsignandoImpresora(true)
+                    try {
+                      const response = await apiService.asignarOrdenAImpresora(
+                        impresoraSeleccionada,
+                        ordenId,
+                        usuario?.nombre,
+                        task.metrosCuadrados ?? undefined
+                      )
+                      if (response.success) {
+                        alert('✅ Impresora asignada correctamente')
+                        setShowAsignarImpresora(false)
+                        setImpresoraSeleccionada(null)
+                        // Recargar la página o actualizar el estado
+                        window.location.reload()
+                      } else {
+                        alert(`Error: ${response.error}`)
+                      }
+                    } catch (error) {
+                      alert(`Error al asignar impresora: ${error}`)
+                    } finally {
+                      setAsignandoImpresora(false)
+                    }
+                  }}
+                  className="confirm-button"
+                  disabled={asignandoImpresora || !impresoraSeleccionada}
+                >
+                  {asignandoImpresora ? 'Asignando...' : 'Asignar Impresora'}
+                </button>
               </div>
             </div>
           </div>

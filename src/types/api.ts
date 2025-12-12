@@ -29,6 +29,7 @@ export interface OrdenTrabajo {
   ubicacion_final?: string | null // Sector físico previo al pasar a Finalizado en Taller
   entregado?: boolean | null // Indica si la ficha fue entregada y está archivada
   etiquetas?: string[] | null // Etiquetas de colores
+  metros_cuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
 }
 
 // Subtareas / checklist por ficha
