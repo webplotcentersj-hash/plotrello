@@ -50,6 +50,25 @@
   border: 1px solid #e5e7eb;
 }
 
+@media print {
+  /* Hacer que el preview card sea directamente imprimible */
+  .qr-print-preview-card {
+    display: block !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: 999999 !important;
+  }
+}
+
 .qr-print-preview-card .qr-print-header {
   display: flex;
   align-items: center;
