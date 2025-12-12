@@ -155,13 +155,6 @@ const OpPublicPage = () => {
                 </span>
               </div>
             )}
-            
-            {orden.prioridad && (
-              <div className="info-item">
-                <span className="info-label">Prioridad:</span>
-                <span className="info-value">{orden.prioridad}</span>
-              </div>
-            )}
           </div>
 
           <div className="qr-section">
