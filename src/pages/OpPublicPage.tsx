@@ -166,6 +166,24 @@ const OpPublicPage = () => {
                 <div style={{ padding: '20px', color: '#6b7280' }}>Generando QR...</div>
               )}
             </div>
+            <button 
+              onClick={() => window.print()} 
+              className="print-button"
+              style={{
+                marginTop: '20px',
+                padding: '12px 24px',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)'
+              }}
+            >
+              🖨️ Imprimir Tarjeta
+            </button>
           </div>
         </div>
       </div>

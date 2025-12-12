@@ -51,6 +51,7 @@
   height: auto;
   max-height: 80px;
   object-fit: contain;
+  display: block;
 }
 
 @media (min-width: 480px) {
@@ -58,6 +59,19 @@
     width: 100px;
     max-height: 100px;
   }
+}
+
+.print-button {
+  transition: all 0.2s;
+}
+
+.print-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5) !important;
+}
+
+.print-button:active {
+  transform: translateY(0);
 }
 
 .op-info {

@@ -68,6 +68,7 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
                 src="https://trello.plotcenter.com.ar/Group%20187.png" 
                 alt="Plot Center Logo" 
                 className="qr-print-logo-img"
+                style={{ width: '120px', height: 'auto', maxHeight: '120px', objectFit: 'contain' }}
               />
             </div>
             <div className="qr-print-title">
