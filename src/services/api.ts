@@ -1683,6 +1683,212 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  async cambiarEstadoImpresora(
+    impresoraId: number,
+    nuevoEstado: 'Disponible' | 'En Uso' | 'Mantenimiento' | 'Fuera de Servicio',
+    motivo?: string,
+    usuarioId?: number,
+    usuarioNombre?: string
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      // Obtener estado actual
+      const { data: impresoraActual } = await supabase
+        .from('impresoras')
+        .select('estado')
+        .eq('id', impresoraId)
+        .single()
+
+      if (!impresoraActual) {
+        return { success: false, error: 'Impresora no encontrada' }
+      }
+
+      // Actualizar estado
+      const { data, error } = await supabase
+        .from('impresoras')
+        .update({ estado: nuevoEstado })
+        .eq('id', impresoraId)
+        .select()
+        .single()
+
+      if (error) return { success: false, error: error.message }
+
+      // Registrar en historial
+      if (motivo || usuarioId || usuarioNombre) {
+        await supabase
+          .from('impresora_historial_estado')
+          .insert({
+            id_impresora: impresoraId,
+            estado_anterior: impresoraActual.estado,
+            estado_nuevo: nuevoEstado,
+            motivo: motivo || null,
+            usuario_id: usuarioId || null,
+            usuario_nombre: usuarioNombre || null
+          })
+      }
+
+      return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getHistorialImpresora(impresoraId: number, limit: number = 50): Promise<ApiResponse<any[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('impresora_historial_estado')
+        .select('*')
+        .eq('id_impresora', impresoraId)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as any[]) ?? [] }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getTrabajosActivosImpresora(impresoraId: number): Promise<ApiResponse<any[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('v_impresora_trabajos_activos')
+        .select('*')
+        .eq('id_impresora', impresoraId)
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as any[]) ?? [] }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async asignarOrdenAImpresora(
+    impresoraId: number,
+    ordenId: number,
+    operario?: string
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      // Verificar que la impresora esté disponible o en uso
+      const { data: impresora } = await supabase
+        .from('impresoras')
+        .select('estado')
+        .eq('id', impresoraId)
+        .single()
+
+      if (!impresora) {
+        return { success: false, error: 'Impresora no encontrada' }
+      }
+
+      if (impresora.estado === 'Mantenimiento' || impresora.estado === 'Fuera de Servicio') {
+        return { success: false, error: 'La impresora no está disponible para asignar trabajos' }
+      }
+
+      // Crear registro de uso
+      const { data, error } = await supabase
+        .from('impresora_uso')
+        .insert({
+          id_impresora: impresoraId,
+          id_orden: ordenId,
+          estado: 'En Proceso',
+          operario: operario || null
+        })
+        .select()
+        .single()
+
+      if (error) return { success: false, error: error.message }
+
+      // Actualizar estado de la impresora a "En Uso" si estaba disponible
+      if (impresora.estado === 'Disponible') {
+        await supabase
+          .from('impresoras')
+          .update({ estado: 'En Uso' })
+          .eq('id', impresoraId)
+      }
+
+      return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearImpresora(
+    nombre: string,
+    modelo?: string,
+    capacidadMaximaHoras?: number
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('impresoras')
+        .insert({
+          nombre,
+          modelo: modelo || null,
+          estado: 'Disponible',
+          capacidad_maxima_horas_dia: capacidadMaximaHoras || 24.0,
+          activa: true
+        })
+        .select()
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async actualizarImpresora(
+    impresoraId: number,
+    updates: {
+      nombre?: string
+      modelo?: string
+      capacidad_maxima_horas_dia?: number
+      activa?: boolean
+    }
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('impresoras')
+        .update(updates)
+        .eq('id', impresoraId)
+        .select()
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async eliminarImpresora(impresoraId: number): Promise<ApiResponse<any>> {
+    if (supabase) {
+      // Verificar que no tenga trabajos activos
+      const { data: trabajosActivos } = await supabase
+        .from('impresora_uso')
+        .select('id')
+        .eq('id_impresora', impresoraId)
+        .eq('estado', 'En Proceso')
+        .limit(1)
+
+      if (trabajosActivos && trabajosActivos.length > 0) {
+        return { success: false, error: 'No se puede eliminar una impresora con trabajos activos' }
+      }
+
+      // Marcar como inactiva en lugar de eliminar (soft delete)
+      const { data, error } = await supabase
+        .from('impresoras')
+        .update({ activa: false })
+        .eq('id', impresoraId)
+        .select()
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   // ============================================
   // NOTIFICACIONES
   // ============================================
