@@ -1783,6 +1783,7 @@ class ApiService {
         .from('v_impresora_trabajos_activos')
         .select('*')
         .eq('id_impresora', impresoraId)
+        .order('fecha_inicio', { ascending: true }) // Ordenar por fecha ascendente (el primero es el que está imprimiendo)
 
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as any[]) ?? [] }

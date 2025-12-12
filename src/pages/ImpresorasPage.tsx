@@ -104,13 +104,17 @@ const ImpresorasPage = () => {
       if (response.success && response.data) {
         setImpresoras(response.data as ImpresoraOcupacion[])
         
-        // Cargar trabajos activos para cada impresora
+        // Cargar trabajos activos para cada impresora (cola de impresión)
         const trabajosMap: Record<number, TrabajoActivoImpresora[]> = {}
         for (const imp of response.data) {
-          if (imp.trabajos_activos > 0) {
-            const trabajosResponse = await apiService.getTrabajosActivosImpresora(imp.id)
-            if (trabajosResponse.success && trabajosResponse.data) {
-              trabajosMap[imp.id] = trabajosResponse.data as TrabajoActivoImpresora[]
+          // Cargar trabajos activos incluso si trabajos_activos es 0 (puede haber desfase)
+          const trabajosResponse = await apiService.getTrabajosActivosImpresora(imp.id)
+          if (trabajosResponse.success && trabajosResponse.data) {
+            // Ordenar por fecha_inicio ascendente (el primero es el que está imprimiendo)
+            const trabajosOrdenados = (trabajosResponse.data as TrabajoActivoImpresora[])
+              .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
+            if (trabajosOrdenados.length > 0) {
+              trabajosMap[imp.id] = trabajosOrdenados
             }
           }
         }
@@ -552,8 +556,8 @@ const ImpresorasPage = () => {
                   <div className="stat-value-large">{impresora.trabajos_activos}</div>
                 </div>
 
-                {/* Mostrar trabajo activo si existe */}
-                {impresora.estado_impresora === 'En Uso' && trabajosActivosPorImpresora[impresora.id] && trabajosActivosPorImpresora[impresora.id].length > 0 && (
+                {/* Mostrar cola de impresión si existe */}
+                {trabajosActivosPorImpresora[impresora.id] && trabajosActivosPorImpresora[impresora.id].length > 0 && (
                   <div className="stat-item" style={{ 
                     marginTop: '15px', 
                     padding: '12px', 
@@ -561,31 +565,83 @@ const ImpresorasPage = () => {
                     borderRadius: '8px',
                     border: '1px solid rgba(59, 130, 246, 0.3)'
                   }}>
-                    <div className="stat-label" style={{ fontSize: '11px', marginBottom: '8px', color: '#60a5fa', fontWeight: '600' }}>
-                      🖨️ TRABAJO EN CURSO
+                    <div className="stat-label" style={{ fontSize: '11px', marginBottom: '12px', color: '#60a5fa', fontWeight: '600' }}>
+                      🖨️ COLA DE IMPRESIÓN ({trabajosActivosPorImpresora[impresora.id].length})
                     </div>
-                    {trabajosActivosPorImpresora[impresora.id].map((trabajo) => (
-                      <div key={trabajo.uso_id} style={{ marginBottom: '8px' }}>
-                        <div style={{ fontWeight: '600', color: '#fff', fontSize: '13px', marginBottom: '4px' }}>
-                          OP {trabajo.numero_op} - {trabajo.cliente}
+                    {trabajosActivosPorImpresora[impresora.id]
+                      .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
+                      .map((trabajo, index) => (
+                        <div 
+                          key={trabajo.uso_id} 
+                          style={{ 
+                            marginBottom: '12px', 
+                            padding: '10px',
+                            background: index === 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                            borderRadius: '6px',
+                            border: index === 0 ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                            position: 'relative'
+                          }}
+                        >
+                          {index === 0 && (
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: '8px', 
+                              right: '8px', 
+                              fontSize: '9px', 
+                              color: '#10b981', 
+                              fontWeight: '700',
+                              background: 'rgba(16, 185, 129, 0.3)',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              IMPRIMIENDO
+                            </div>
+                          )}
+                          {index > 0 && (
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: '8px', 
+                              right: '8px', 
+                              fontSize: '9px', 
+                              color: '#9ca3af', 
+                              fontWeight: '600',
+                              background: 'rgba(255, 255, 255, 0.1)',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              #{index + 1} EN COLA
+                            </div>
+                          )}
+                          <div style={{ fontWeight: '600', color: '#fff', fontSize: '13px', marginBottom: '4px', paddingRight: '80px' }}>
+                            OP {trabajo.numero_op} - {trabajo.cliente}
+                          </div>
+                          {trabajo.descripcion && (
+                            <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px', lineHeight: '1.4' }}>
+                              {trabajo.descripcion.length > 50 ? `${trabajo.descripcion.substring(0, 50)}...` : trabajo.descripcion}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {trabajo.metros_cuadrados && (
+                              <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>
+                                📏 {trabajo.metros_cuadrados.toFixed(2)} m²
+                              </div>
+                            )}
+                            {trabajo.operario && (
+                              <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                                👤 {trabajo.operario}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                              🕐 {new Date(trabajo.fecha_inicio).toLocaleString('es-AR', { 
+                                day: '2-digit', 
+                                month: '2-digit', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </div>
+                          </div>
                         </div>
-                        {trabajo.descripcion && (
-                          <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px', lineHeight: '1.4' }}>
-                            {trabajo.descripcion.length > 60 ? `${trabajo.descripcion.substring(0, 60)}...` : trabajo.descripcion}
-                          </div>
-                        )}
-                        {trabajo.metros_cuadrados && (
-                          <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>
-                            📏 {trabajo.metros_cuadrados.toFixed(2)} m²
-                          </div>
-                        )}
-                        {trabajo.operario && (
-                          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>
-                            Operario: {trabajo.operario}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
 
