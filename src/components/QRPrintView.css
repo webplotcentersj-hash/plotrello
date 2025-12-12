@@ -105,28 +105,33 @@
     padding: 0;
     margin: 0;
     z-index: 9999;
+    overflow: hidden;
   }
 
   .qr-print-container {
     width: 100%;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
+    max-width: 100%;
+    margin: 0;
+    padding: 15px;
     background: white;
-    height: auto;
-    min-height: auto;
+    height: 100vh;
+    max-height: 100vh;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     page-break-inside: avoid;
+    page-break-after: avoid;
+    overflow: hidden;
   }
 
   .qr-print-header {
     display: flex;
     align-items: center;
-    gap: 25px;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
+    gap: 20px;
+    margin-bottom: 15px;
+    padding-bottom: 12px;
     border-bottom: 2px solid #1f2937;
+    flex-shrink: 0;
   }
 
   .qr-print-logo {
@@ -166,7 +171,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 15px;
+    flex: 1;
+    min-height: 0;
   }
 
   .qr-print-instructions {
@@ -215,9 +222,10 @@
 
   .qr-print-footer {
     text-align: center;
-    margin-top: 15px;
-    padding-top: 12px;
+    margin-top: 10px;
+    padding-top: 10px;
     border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
   }
 
   .footer-text {
@@ -237,13 +245,20 @@
 
   /* Ocultar elementos no necesarios en impresión */
   @page {
-    margin: 5mm;
+    margin: 0;
     size: A4;
   }
 
   body {
     margin: 0;
     padding: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  * {
+    page-break-inside: avoid;
+    page-break-after: avoid;
   }
 }
 
