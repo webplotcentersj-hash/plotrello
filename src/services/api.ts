@@ -112,13 +112,32 @@ class ApiService {
   // ========== ORDENES DE TRABAJO ==========
   async getOrdenByOpNumber(opNumber: string): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
-      const { data, error } = await supabase
+      // Crear cliente sin autenticación para acceso público
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        return { success: false, error: 'Configuración de Supabase no encontrada' }
+      }
+
+      const publicClient = createClient(supabaseUrl, supabaseAnonKey)
+      
+      const { data, error } = await publicClient
         .from('ordenes_trabajo')
         .select('*')
         .eq('numero_op', opNumber)
-        .single()
+        .maybeSingle()
 
-      if (error) return { success: false, error: error.message }
+      if (error) {
+        console.error('Error fetching orden by OP number:', error)
+        return { success: false, error: error.message }
+      }
+      
+      if (!data) {
+        return { success: false, error: 'Orden no encontrada' }
+      }
+      
       return { success: true, data: data as OrdenTrabajo }
     }
 
