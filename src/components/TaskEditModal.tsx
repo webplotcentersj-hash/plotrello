@@ -130,20 +130,54 @@ const TaskEditModal = ({
         setEstimatedTime(`${hours}:${minutes}`)
       }
 
-      // Cargar historial completo y comentarios
+      // Cargar historial completo, comentarios y archivos adjuntos
       const ordenId = parseTaskIdToOrdenId(task.id)
       if (ordenId) {
         setLoadingHistory(true)
         Promise.all([
           apiService.getHistorialMovimientos({ ordenId, limit: 500 }),
-          apiService.getComentariosOrden(ordenId)
+          apiService.getComentariosOrden(ordenId),
+          apiService.getArchivosOrden(ordenId)
         ])
-          .then(([histResp, comResp]) => {
+          .then(([histResp, comResp, archivosResp]) => {
             if (histResp.success && histResp.data) {
               setFullHistory(histResp.data as HistorialMovimiento[])
             }
             if (comResp.success && comResp.data) {
               setComentarios(comResp.data as ComentarioOrden[])
+            }
+            // Cargar archivos adjuntos existentes
+            if (archivosResp.success && archivosResp.data) {
+              const archivosExistentes: LocalAttachment[] = (archivosResp.data as any[]).map((archivo) => ({
+                id: `existing-${archivo.id}`,
+                name: archivo.titulo || archivo.url.split('/').pop() || 'Archivo',
+                previewUrl: archivo.url,
+                remoteUrl: archivo.url,
+                uploading: false
+              }))
+              // Combinar con el photoUrl si existe y no está ya en los archivos
+              const archivosCombinados = [...archivosExistentes]
+              if (task.photoUrl && !archivosExistentes.some(a => a.remoteUrl === task.photoUrl)) {
+                archivosCombinados.push({
+                  id: 'existing-photo',
+                  name: task.photoUrl.split('/').pop() || 'Adjunto',
+                  previewUrl: task.photoUrl,
+                  remoteUrl: task.photoUrl,
+                  uploading: false
+                })
+              }
+              setAttachments(archivosCombinados)
+            } else if (task.photoUrl) {
+              // Si no hay archivos pero hay photoUrl, mantener solo el photoUrl
+              setAttachments([
+                {
+                  id: 'existing-photo',
+                  name: task.photoUrl.split('/').pop() || 'Adjunto',
+                  previewUrl: task.photoUrl,
+                  remoteUrl: task.photoUrl,
+                  uploading: false
+                }
+              ])
             }
           })
           .catch((err) => {
@@ -167,7 +201,7 @@ const TaskEditModal = ({
 
   if (!task) return null
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (hasPendingUploads) {
       alert('Espera a que termine la subida de archivos antes de guardar.')
       return
@@ -181,6 +215,24 @@ const TaskEditModal = ({
       assignedSector: selectedSectors[0] || task.assignedSector,
       updatedAt: new Date().toISOString()
     } as Task
+    
+    // Guardar archivos nuevos después de guardar la orden
+    const ordenId = parseTaskIdToOrdenId(task.id)
+    if (ordenId) {
+      // Obtener archivos existentes para comparar
+      const archivosExistentesResp = await apiService.getArchivosOrden(ordenId)
+      const archivosExistentesUrls = archivosExistentesResp.success && archivosExistentesResp.data
+        ? (archivosExistentesResp.data as any[]).map(a => a.url)
+        : []
+      
+      // Guardar solo los archivos nuevos (que no están en la base de datos)
+      for (const attachment of attachments) {
+        if (attachment.remoteUrl && !attachment.uploading && !archivosExistentesUrls.includes(attachment.remoteUrl)) {
+          await apiService.guardarArchivoOrden(ordenId, attachment.name, attachment.remoteUrl)
+        }
+      }
+    }
+    
     onSave(updated)
     onClose(task.id)
   }

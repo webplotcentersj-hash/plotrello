@@ -1,0 +1,128 @@
+.herramienta-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0b0d17 0%, #111629 100%);
+  color: #e5ecf5;
+  padding: 16px;
+}
+
+.herramienta-header {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 18px;
+  position: sticky;
+  top: 12px;
+  z-index: 100;
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  margin-bottom: 18px;
+}
+
+.herramienta-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.herramienta-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.herramienta-logo {
+  height: 42px;
+  width: auto;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+.herramienta-logo:hover {
+  transform: scale(1.05);
+}
+
+.herramienta-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: #e5ecf5;
+  font-weight: 800;
+}
+
+.back-button {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  color: #0b0d17;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.35);
+}
+
+.back-button:hover {
+  transform: translateY(-1px) scale(1.01);
+}
+
+.herramienta-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 18px 6px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.herramienta-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.herramienta-card h2 {
+  margin: 0 0 16px 0;
+  font-size: 1.3rem;
+  color: #e5ecf5;
+  font-weight: 700;
+}
+
+.herramienta-card p {
+  margin: 0;
+  color: #c7d0dd;
+  line-height: 1.6;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+  .herramienta-header {
+    top: 0;
+  }
+
+  .herramienta-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .herramienta-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .herramienta-card {
+    padding: 16px;
+  }
+}
+
+
+

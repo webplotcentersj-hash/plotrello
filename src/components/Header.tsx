@@ -14,6 +14,7 @@ type HeaderProps = {
   onNavigateToCalendar?: () => void
   onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
+  onNavigateToHerramienta?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
   onLogout?: () => void
@@ -31,6 +32,7 @@ const Header = ({
   onNavigateToCalendar,
   onNavigateToGantt,
   onNavigateToUsuarios,
+  onNavigateToHerramienta,
   onOpenChatAI,
   onNavigateToChat,
   onLogout,
@@ -115,6 +117,11 @@ const Header = ({
             {onNavigateToUsuarios && isAdmin && (
               <button className="brand-button" onClick={onNavigateToUsuarios}>
                 👥 Usuarios
+              </button>
+            )}
+            {onNavigateToHerramienta && (
+              <button className="brand-button" onClick={onNavigateToHerramienta}>
+                🛠️ Nueva Herramienta
               </button>
             )}
             {onOptimizeSprint && (

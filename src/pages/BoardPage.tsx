@@ -33,6 +33,7 @@ type BoardPageProps = {
   onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
   onNavigateToChat?: () => void
+  onNavigateToHerramienta?: () => void
   onLogout?: () => void
   onReloadData?: () => Promise<void>
   isSyncing?: boolean
@@ -54,6 +55,7 @@ const BoardPage = ({
   onNavigateToGantt,
   onNavigateToUsuarios,
   onNavigateToChat,
+  onNavigateToHerramienta,
   onLogout,
   onReloadData,
   isSyncing,
@@ -359,6 +361,17 @@ const BoardPage = ({
       console.log('📥 Respuesta de createOrden:', response)
       if (response.success && response.data) {
         const createdTask = ordenToTask(response.data)
+        const ordenId = parseTaskIdToOrdenId(createdTask.id)
+        
+        // Guardar archivos adjuntos si hay alguno en el taskData
+        if (newTaskData.attachments && Array.isArray(newTaskData.attachments) && ordenId) {
+          for (const attachment of newTaskData.attachments) {
+            if (attachment.remoteUrl && !attachment.uploading) {
+              await apiService.guardarArchivoOrden(ordenId, attachment.name, attachment.remoteUrl)
+            }
+          }
+        }
+        
         setTasks((prev) => [createdTask, ...prev])
         setActivity((prev) => [
           {
@@ -489,6 +502,7 @@ const BoardPage = ({
         onNavigateToGantt={onNavigateToGantt}
         onNavigateToUsuarios={onNavigateToUsuarios}
         onNavigateToChat={onNavigateToChat}
+        onNavigateToHerramienta={onNavigateToHerramienta}
         onOpenChatAI={() => setIsChatAIOpen(true)}
         onLogout={onLogout}
         isAdmin={isAdmin}

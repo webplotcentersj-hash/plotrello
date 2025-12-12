@@ -10,6 +10,7 @@ import ImpresorasPage from './pages/ImpresorasPage'
 import CalendarPage from './pages/CalendarPage'
 import GanttPage from './pages/GanttPage'
 import OpViewPage from './pages/OpViewPage'
+import HerramientaPage from './pages/HerramientaPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -452,6 +453,7 @@ function AppRoutes({
             onNavigateToGantt={() => navigate('/gantt')}
             onNavigateToUsuarios={() => navigate('/usuarios')}
             onNavigateToChat={() => navigate('/chat')}
+            onNavigateToHerramienta={() => navigate('/herramienta')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -501,6 +503,10 @@ function AppRoutes({
       <Route
         path="/impresoras"
         element={<ImpresorasPage />}
+      />
+      <Route
+        path="/herramienta"
+        element={<HerramientaPage onBack={() => navigate('/')} />}
       />
     </Routes>
     </>

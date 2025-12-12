@@ -1540,9 +1540,15 @@ class ApiService {
 
   async getArchivosOrden(ordenId: number) {
     if (supabase) {
-      const { data, error } = await supabase.storage.from('archivos').list(`ordenes/${ordenId}`)
+      // Obtener archivos desde la tabla enlaces_adjuntos
+      const { data, error } = await supabase
+        .from('enlaces_adjuntos')
+        .select('*')
+        .eq('id_orden', ordenId)
+        .order('creado_en', { ascending: false })
+
       if (error) return { success: false, error: error.message }
-      return { success: true, data }
+      return { success: true, data: (data as any[]) ?? [] }
     }
 
     if (hasLegacyBackend) {
@@ -1550,6 +1556,39 @@ class ApiService {
     }
 
     return { success: true, data: [] }
+  }
+
+  async guardarArchivoOrden(ordenId: number, nombreArchivo: string, urlArchivo: string): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('enlaces_adjuntos')
+        .insert({
+          id_orden: ordenId,
+          titulo: nombreArchivo,
+          url: urlArchivo
+        })
+        .select()
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async eliminarArchivoOrden(archivoId: number): Promise<ApiResponse<void>> {
+    if (supabase) {
+      const { error } = await supabase
+        .from('enlaces_adjuntos')
+        .delete()
+        .eq('id', archivoId)
+
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
   }
 
   // ========== COMENTARIOS ==========

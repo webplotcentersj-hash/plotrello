@@ -209,7 +209,7 @@ const TaskCreateModal = ({
     // El primer sector es donde aparecerá la primera ficha (se crearán automáticamente las demás)
     const primerSector = selectedSectores[0]
 
-    const newTask: Omit<Task, 'id'> = {
+    const newTask: Omit<Task, 'id'> & { attachments?: LocalAttachment[] } = {
       opNumber,
       title: cliente,
       dniCuit: dniCuit.trim() || undefined,
@@ -235,7 +235,8 @@ const TaskCreateModal = ({
       clientAddress: direccionCliente.trim() || undefined,
       // El link de WhatsApp se genera automáticamente a partir del teléfono en el mapper
       locationUrl: ubicacionUrl.trim() || undefined,
-      driveUrl: driveUrl.trim() || undefined
+      driveUrl: driveUrl.trim() || undefined,
+      attachments: attachments.filter(a => a.remoteUrl && !a.uploading) // Solo archivos listos
     }
 
     await onCreate(newTask, { openChecklist })
