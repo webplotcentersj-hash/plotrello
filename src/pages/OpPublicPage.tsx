@@ -115,9 +115,11 @@ const OpPublicPage = () => {
       <div className="op-public-container">
         <div className="op-public-header">
           <div className="logo-section">
-            <div className="logo-placeholder">
-              <span className="logo-text">PLOT CENTER</span>
-            </div>
+            <img 
+              src="https://trello.plotcenter.com.ar/Group%20187.png" 
+              alt="Plot Center Logo" 
+              className="logo-img"
+            />
           </div>
           <div className="op-info">
             <h1 className="op-number">OP {orden.numero_op}</h1>

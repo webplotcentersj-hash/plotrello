@@ -64,9 +64,11 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
         <div className="qr-print-container">
           <div className="qr-print-header">
             <div className="qr-print-logo">
-              <div className="logo-box">
-                <span className="logo-text">PLOT CENTER</span>
-              </div>
+              <img 
+                src="https://trello.plotcenter.com.ar/Group%20187.png" 
+                alt="Plot Center Logo" 
+                className="qr-print-logo-img"
+              />
             </div>
             <div className="qr-print-title">
               <h1 className="qr-print-op">OP {opNumber}</h1>

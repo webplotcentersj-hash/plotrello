@@ -132,24 +132,11 @@
     flex-shrink: 0;
   }
 
-  .logo-box {
+  .logo-cqr--img {
     width: 140px;
-    height: 140px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
-  }
-
-  .logo-text {
-    color: white;
-    font-weight: 900;
-    font-size: 20px;
-    letter-spacing: 3px;
-    text-align: center;
-    line-height: 1.2;
+    height: auto;
+    max-height: 140px;
+    object-fit: contain;
   }
 
   .qr-print-title {
