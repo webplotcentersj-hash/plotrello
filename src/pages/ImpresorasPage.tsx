@@ -25,6 +25,9 @@ type ImpresoraOcupacion = {
   porcentaje_ocupacion_hoy: number
   porcentaje_ocupacion_semana: number
   trabajos_activos: number
+  metros_cuadrados_hoy?: number
+  metros_cuadrados_semana?: number
+  metros_cuadrados_totales?: number
 }
 
 type HistorialEstado = {
@@ -48,6 +51,7 @@ type TrabajoActivo = {
   numero_op: string
   cliente: string
   descripcion: string
+  metros_cuadrados?: number | null
 }
 
 const ImpresorasPage = () => {
@@ -524,6 +528,32 @@ const ImpresorasPage = () => {
                   <div className="stat-label">Trabajos Activos</div>
                   <div className="stat-value-large">{impresora.trabajos_activos}</div>
                 </div>
+
+                {/* Metros cuadrados impresos */}
+                {(impresora.metros_cuadrados_hoy !== undefined || impresora.metros_cuadrados_semana !== undefined) && (
+                  <>
+                    <div className="stat-item">
+                      <div className="stat-label">Metros² Impresos Hoy</div>
+                      <div className="stat-value-large" style={{ color: '#10b981' }}>
+                        {impresora.metros_cuadrados_hoy?.toFixed(2) || '0.00'} m²
+                      </div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-label">Metros² Esta Semana</div>
+                      <div className="stat-value" style={{ color: '#60a5fa', fontSize: '18px' }}>
+                        {impresora.metros_cuadrados_semana?.toFixed(2) || '0.00'} m²
+                      </div>
+                    </div>
+                    {impresora.metros_cuadrados_totales !== undefined && impresora.metros_cuadrados_totales > 0 && (
+                      <div className="stat-item">
+                        <div className="stat-label">Metros² Totales</div>
+                        <div className="stat-value" style={{ color: '#8b5cf6', fontSize: '16px' }}>
+                          {impresora.metros_cuadrados_totales.toFixed(2)} m²
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Botones de acción */}
@@ -692,6 +722,7 @@ const ImpresorasPage = () => {
                       <th>OP</th>
                       <th>Cliente</th>
                       <th>Descripción</th>
+                      <th>Metros²</th>
                       <th>Operario</th>
                       <th>Inicio</th>
                     </tr>
@@ -702,6 +733,15 @@ const ImpresorasPage = () => {
                         <td>{trabajo.numero_op}</td>
                         <td>{trabajo.cliente}</td>
                         <td>{trabajo.descripcion}</td>
+                        <td>
+                          {trabajo.metros_cuadrados ? (
+                            <span style={{ color: '#10b981', fontWeight: '600' }}>
+                              {trabajo.metros_cuadrados.toFixed(2)} m²
+                            </span>
+                          ) : (
+                            <span style={{ color: '#6b7280', fontStyle: 'italic' }}>-</span>
+                          )}
+                        </td>
                         <td>{trabajo.operario || '-'}</td>
                         <td>{new Date(trabajo.fecha_inicio).toLocaleString('es-AR')}</td>
                       </tr>

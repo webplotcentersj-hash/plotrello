@@ -1769,7 +1769,8 @@ class ApiService {
   async asignarOrdenAImpresora(
     impresoraId: number,
     ordenId: number,
-    operario?: string
+    operario?: string,
+    metrosCuadrados?: number
   ): Promise<ApiResponse<any>> {
     if (supabase) {
       // Verificar que la impresora esté disponible o en uso
@@ -1794,7 +1795,8 @@ class ApiService {
           id_impresora: impresoraId,
           id_orden: ordenId,
           estado: 'En Proceso',
-          operario: operario || null
+          operario: operario || null,
+          metros_cuadrados: metrosCuadrados || null
         })
         .select()
         .single()
@@ -1809,6 +1811,25 @@ class ApiService {
           .eq('id', impresoraId)
       }
 
+      return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async actualizarMetrosImpresora(
+    usoId: number,
+    metrosCuadrados: number
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('impresora_uso')
+        .update({ metros_cuadrados: metrosCuadrados })
+        .eq('id', usoId)
+        .select()
+        .single()
+
+      if (error) return { success: false, error: error.message }
       return { success: true, data }
     }
 
