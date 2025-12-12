@@ -44,15 +44,61 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
             </button>
           </header>
           <div className="qr-print-modal-body">
-            <p style={{ marginBottom: '20px', color: '#6b7280' }}>
-              Esta es la vista de impresión. Haz clic en "Imprimir" para generar el documento para el cliente.
+            <p style={{ marginBottom: '20px', color: '#6b7280', textAlign: 'center' }}>
+              Vista previa de la tarjeta para el cliente
             </p>
+            
+            {/* Vista previa del contenido a imprimir */}
+            <div className="qr-print-preview-card">
+              <div className="qr-print-header">
+                <div className="qr-print-logo">
+                  <img 
+                    src="https://trello.plotcenter.com.ar/Group%20187.png" 
+                    alt="Plot Center Logo" 
+                    className="qr-print-logo-img"
+                  />
+                </div>
+                <div className="qr-print-title">
+                  <h1 className="qr-print-op">OP {opNumber}</h1>
+                  <h2 className="qr-print-cliente">{cliente}</h2>
+                </div>
+              </div>
+
+              <div className="qr-print-content">
+                <div className="qr-print-instructions">
+                  <p className="instructions-title">Consulta el estado de tu orden</p>
+                  <p className="instructions-text">
+                    Escaneá el código QR con tu celular para ver en tiempo real el estado de tu orden de trabajo.
+                  </p>
+                </div>
+
+                <div className="qr-print-qr-container">
+                  {loading ? (
+                    <div className="qr-loading">Generando código QR...</div>
+                  ) : qrDataUrl ? (
+                    <img src={qrDataUrl} alt="Código QR" className="qr-print-qr" />
+                  ) : (
+                    <div className="qr-error">Error al generar QR</div>
+                  )}
+                </div>
+
+                <div className="qr-print-footer">
+                  <p className="footer-text">
+                    <strong>Plot Center</strong> - Impresión y Diseño Gráfico
+                  </p>
+                  <p className="footer-url">
+                    {typeof window !== 'undefined' ? window.location.origin : ''}/op-public/{opNumber}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="qr-print-actions">
               <button type="button" className="btn-secondary" onClick={onClose}>
                 Cerrar
               </button>
-              <button type="button" className="btn-primary" onClick={handlePrint} disabled={loading}>
-                🖨️ Imprimir
+              <button type="button" className="btn-primary" onClick={handlePrint} disabled={loading || !qrDataUrl}>
+                🖨️ Imprimir Tarjeta
               </button>
             </div>
           </div>
