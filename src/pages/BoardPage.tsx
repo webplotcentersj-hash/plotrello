@@ -72,6 +72,7 @@ const BoardPage = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
   const [checklistTask, setChecklistTask] = useState<Task | null>(null)
+  const [qrPrintTask, setQrPrintTask] = useState<{ opNumber: string; cliente: string } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
   const [isChatAIOpen, setIsChatAIOpen] = useState(false)
@@ -630,6 +631,14 @@ const BoardPage = ({
             </footer>
           </div>
         </div>
+      )}
+
+      {qrPrintTask && (
+        <QRPrintView
+          opNumber={qrPrintTask.opNumber}
+          cliente={qrPrintTask.cliente}
+          onClose={() => setQrPrintTask(null)}
+        />
       )}
 
       {isLibraryModalOpen && (
