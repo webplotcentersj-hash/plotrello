@@ -9,6 +9,7 @@ import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
 import PlotAIChat from '../components/PlotAIChat'
 import TaskLibraryModal from '../components/TaskLibraryModal'
+import QRPrintView from '../components/QRPrintView'
 import { BOARD_COLUMNS } from '../data/mockData'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
@@ -386,6 +387,15 @@ const BoardPage = ({
           ...prev
         ])
         setActionSuccess('Orden creada en Supabase.')
+        
+        // Mostrar modal de QR para impresión
+        if (createdTask.opNumber && createdTask.title) {
+          setQrPrintTask({
+            opNumber: createdTask.opNumber,
+            cliente: createdTask.title
+          })
+        }
+        
         if (options?.openChecklist) {
           setChecklistTask(createdTask)
         }

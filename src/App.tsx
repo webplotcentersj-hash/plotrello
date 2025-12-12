@@ -10,6 +10,7 @@ import ImpresorasPage from './pages/ImpresorasPage'
 import CalendarPage from './pages/CalendarPage'
 import GanttPage from './pages/GanttPage'
 import OpViewPage from './pages/OpViewPage'
+import OpPublicPage from './pages/OpPublicPage'
 import HerramientaPage from './pages/HerramientaPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -331,6 +332,7 @@ function App() {
           {/* Rutas públicas */}
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
           <Route path="/dashboard-pantallas" element={<DashboardPantallasPage />} />
+          <Route path="/op-public/:opNumber" element={<OpPublicPage />} />
           <Route
             path="/login"
             element={

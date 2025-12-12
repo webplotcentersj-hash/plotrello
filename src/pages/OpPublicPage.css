@@ -1,0 +1,223 @@
+.op-public-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.op-public-container {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 800px;
+  width: 100%;
+  padding: 40px;
+}
+
+.op-public-header {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 40px;
+  padding-bottom: 30px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.logo-section {
+  flex-shrink: 0;
+}
+
+.logo-placeholder {
+  width: 120px;
+  height: 120px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.logo-text {
+  color: white;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 2px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.op-info {
+  flex: 1;
+}
+
+.op-number {
+  font-size: 48px;
+  font-weight: 900;
+  color: #1f2937;
+  margin: 0 0 10px 0;
+  letter-spacing: -1px;
+}
+
+.cliente-name {
+  font-size: 28px;
+  font-weight: 600;
+  color: #4b5563;
+  margin: 0;
+}
+
+.op-public-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.estado-section {
+  display: flex;
+  justify-content: center;
+}
+
+.estado-badge {
+  padding: 15px 30px;
+  border-radius: 12px;
+  border: 2px solid;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.estado-label {
+  opacity: 0.8;
+}
+
+.descripcion-section h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 10px 0;
+}
+
+.descripcion-section p {
+  font-size: 16px;
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.info-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.qr-section {
+  text-align: center;
+  padding: 30px;
+  background: #f9fafb;
+  border-radius: 15px;
+  margin-top: 20px;
+}
+
+.qr-instructions {
+  font-size: 16px;
+  color: #4b5563;
+  margin: 0 0 20px 0;
+  font-weight: 600;
+}
+
+.qr-code-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+  color: #6b7280;
+}
+
+.error-message {
+  text-align: center;
+  padding: 40px;
+}
+
+.error-message h2 {
+  color: #1f2937;
+  margin-bottom: 10px;
+}
+
+.error-message p {
+  color: #6b7280;
+}
+
+/* Estilos para impresión */
+@media print {
+  .op-public-page {
+    background: white;
+    padding: 0;
+  }
+
+  .op-public-container {
+    box-shadow: none;
+    padding: 30px;
+    max-width: 100%;
+  }
+
+  .op-public-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+  }
+
+  .logo-placeholder {
+    width: 100px;
+    height: 100px;
+  }
+
+  .logo-text {
+    font-size: 16px;
+  }
+
+  .op-number {
+    font-size: 42px;
+  }
+
+  .cliente-name {
+    font-size: 24px;
+  }
+
+  .qr-section {
+    page-break-inside: avoid;
+    margin-top: 30px;
+  }
+}
+

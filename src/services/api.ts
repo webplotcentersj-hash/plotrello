@@ -110,6 +110,21 @@ class ApiService {
   }
 
   // ========== ORDENES DE TRABAJO ==========
+  async getOrdenByOpNumber(opNumber: string): Promise<ApiResponse<OrdenTrabajo>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('ordenes_trabajo')
+        .select('*')
+        .eq('numero_op', opNumber)
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as OrdenTrabajo }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async getOrdenes(): Promise<ApiResponse<OrdenTrabajo[]>> {
     if (supabase) {
       // Usar select('*') para obtener todas las columnas disponibles automáticamente
