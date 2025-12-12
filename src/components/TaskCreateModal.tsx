@@ -21,6 +21,8 @@ type LocalAttachment = {
   previewUrl: string
   remoteUrl?: string
   uploading: boolean
+  type?: string // MIME type del archivo
+  file?: File // Referencia al archivo original para descarga
 }
 
 const COMPLEXITY_OPTIONS = ['Baja', 'Media', 'Alta']
@@ -89,6 +91,7 @@ const TaskCreateModal = ({
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const attachmentsRef = useRef<LocalAttachment[]>([])
+  const [previewAttachment, setPreviewAttachment] = useState<LocalAttachment | null>(null)
 
   // No necesitamos sector inicial, se crean automáticamente para cada sector requerido
 
@@ -299,7 +302,14 @@ const TaskCreateModal = ({
     for (const file of Array.from(files)) {
       const id = crypto.randomUUID()
       const previewUrl = URL.createObjectURL(file)
-      setAttachments((prev) => [...prev, { id, name: file.name, previewUrl, uploading: true }])
+      setAttachments((prev) => [...prev, { 
+        id, 
+        name: file.name, 
+        previewUrl, 
+        uploading: true,
+        type: file.type,
+        file: file
+      }])
 
       try {
         const remoteUrl = await uploadAttachmentAndGetUrl(file, 'capturas')
@@ -762,25 +772,71 @@ const TaskCreateModal = ({
             <label>Archivos (imágenes o PDF)</label>
             {attachments.length > 0 && (
               <div className="attached-files">
-                {attachments.map((file) => (
-                  <div key={file.id} className="file-item">
-                    <div className="file-preview">
-                      {file.remoteUrl || file.previewUrl ? (
-                        <img src={file.remoteUrl ?? file.previewUrl} alt={file.name} />
-                      ) : (
-                        <span>{file.name}</span>
-                      )}
-                      {file.uploading && <span className="upload-pill">Subiendo...</span>}
+                {attachments.map((file) => {
+                  const isImage = file.type?.startsWith('image/')
+                  const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+                  const fileUrl = file.remoteUrl || file.previewUrl
+                  
+                  return (
+                    <div key={file.id} className="file-item">
+                      <div 
+                        className="file-preview"
+                        style={{ cursor: fileUrl && !file.uploading ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          if (fileUrl && !file.uploading) {
+                            setPreviewAttachment(file)
+                          }
+                        }}
+                      >
+                        {isImage && fileUrl ? (
+                          <img src={fileUrl} alt={file.name} />
+                        ) : isPDF ? (
+                          <div className="file-icon pdf-icon">📄</div>
+                        ) : (
+                          <div className="file-icon">📎</div>
+                        )}
+                        <div className="file-info">
+                          <span className="file-name">{file.name}</span>
+                          {file.uploading && <span className="upload-pill">Subiendo...</span>}
+                        </div>
+                      </div>
+                      <div className="file-actions">
+                        {fileUrl && !file.uploading && (
+                          <button
+                            type="button"
+                            className="download-file"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const url = file.remoteUrl || file.previewUrl
+                              if (url) {
+                                const link = document.createElement('a')
+                                link.href = url
+                                link.download = file.name
+                                link.target = '_blank'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                              }
+                            }}
+                            title="Descargar"
+                          >
+                            ⬇️
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="delete-file"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveFile(file.id)
+                          }}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="delete-file"
-                      onClick={() => handleRemoveFile(file.id)}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
             {uploadError && <p className="upload-error">{uploadError}</p>}
@@ -830,6 +886,80 @@ const TaskCreateModal = ({
           </div>
         </footer>
       </div>
+
+      {/* Modal de previsualización de archivos */}
+      {previewAttachment && (
+        <div className="modal-overlay" onClick={() => setPreviewAttachment(null)} style={{ zIndex: 2000 }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh' }}>
+            <header className="modal-header">
+              <h3>{previewAttachment.name}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setPreviewAttachment(null)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+              {previewAttachment.type?.startsWith('image/') ? (
+                <img 
+                  src={previewAttachment.remoteUrl || previewAttachment.previewUrl} 
+                  alt={previewAttachment.name}
+                  style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }}
+                />
+              ) : previewAttachment.type === 'application/pdf' || previewAttachment.name.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewAttachment.remoteUrl || previewAttachment.previewUrl}
+                  style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '8px' }}
+                  title={previewAttachment.name}
+                />
+              ) : (
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                  <p>Vista previa no disponible para este tipo de archivo</p>
+                  <a
+                    href={previewAttachment.remoteUrl || previewAttachment.previewUrl}
+                    download={previewAttachment.name}
+                    style={{ 
+                      display: 'inline-block', 
+                      marginTop: '20px', 
+                      padding: '10px 20px', 
+                      background: 'rgba(59, 130, 246, 0.2)', 
+                      color: '#60a5fa',
+                      borderRadius: '6px',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    Descargar archivo
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button
+                onClick={() => {
+                  const url = previewAttachment.remoteUrl || previewAttachment.previewUrl
+                  if (url) {
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = previewAttachment.name
+                    link.target = '_blank'
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                  }
+                }}
+                className="confirm-button"
+              >
+                ⬇️ Descargar
+              </button>
+              <button onClick={() => setPreviewAttachment(null)} className="cancel-button">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
