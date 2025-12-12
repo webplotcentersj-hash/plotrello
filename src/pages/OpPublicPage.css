@@ -61,19 +61,6 @@
   }
 }
 
-.print-button {
-  transition: all 0.2s;
-}
-
-.print-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5) !important;
-}
-
-.print-button:active {
-  transform: translateY(0);
-}
-
 .op-info {
   flex: 1;
 }
@@ -236,6 +223,19 @@
   height: auto;
 }
 
+.print-button {
+  transition: all 0.2s;
+}
+
+.print-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5) !important;
+}
+
+.print-button:active {
+  transform: translateY(0);
+}
+
 .loading-spinner {
   text-align: center;
   padding: 40px;
@@ -259,20 +259,33 @@
 
 /* Estilos para impresión */
 @media print {
+  @page {
+    margin: 10mm;
+    size: A4;
+  }
+
   .op-public-page {
     background: white;
     padding: 0;
+    height: auto;
   }
 
   .op-public-container {
     box-shadow: none;
-    padding: 30px;
+    padding: 20px;
     max-width: 100%;
+    height: auto;
+    page-break-inside: avoid;
   }
 
   .op-public-header {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    page-break-inside: avoid;
+  }
+
+  .op-public-content {
+    page-break-inside: avoid;
   }
 
   .logo-img {
@@ -281,16 +294,23 @@
   }
 
   .op-number {
-    font-size: 42px;
+    font-size: 36px;
   }
 
   .cliente-name {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .qr-section {
     page-break-inside: avoid;
-    margin-top: 30px;
+    margin-top: 20px;
+  }
+
+  .print-button {
+    display: none !important;
+  }
+
+  .qr-code-container {
+    page-break-inside: avoid;
   }
 }
-
