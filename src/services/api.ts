@@ -765,6 +765,15 @@ class ApiService {
         timestamp: new Date().toISOString()
       })
 
+      // Si la orden llega a "Finalizado en Taller", liberar la impresora si está asignada
+      if (nuevoEstado === 'Finalizado en Taller') {
+        const usoActivoResponse = await this.getUsoActivoPorOrden(id)
+        if (usoActivoResponse.success && usoActivoResponse.data) {
+          const usoActivo = usoActivoResponse.data as { id: number; id_impresora: number }
+          await this.finalizarUsoImpresora(usoActivo.id, usoActivo.id_impresora)
+        }
+      }
+
       return { success: true, data: { id, estado: nuevoEstado } }
     }
 
@@ -1646,6 +1655,22 @@ class ApiService {
         .eq('id', impresoraId)
 
       return { success: true, data }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getUsoActivoPorOrden(ordenId: number): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('impresora_uso')
+        .select('id, id_impresora')
+        .eq('id_orden', ordenId)
+        .eq('estado', 'En Proceso')
+        .maybeSingle()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data || null }
     }
 
     return { success: false, error: 'Supabase no configurado' }
