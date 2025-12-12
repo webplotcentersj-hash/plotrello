@@ -82,7 +82,6 @@ const ImpresorasPage = () => {
   const [formNombre, setFormNombre] = useState('')
   const [formModelo, setFormModelo] = useState('')
   const [formCapacidad, setFormCapacidad] = useState('24')
-  const [formEstado, setFormEstado] = useState('Disponible')
 
   const loadData = async () => {
     setRefreshing(true)
@@ -204,7 +203,6 @@ const ImpresorasPage = () => {
     setFormNombre(impresora.nombre)
     setFormModelo(impresora.modelo || '')
     setFormCapacidad(impresora.capacidad_maxima_horas_dia?.toString() || '24')
-    setFormEstado(impresora.estado || 'Disponible')
     setShowEditarModal(true)
   }
 
