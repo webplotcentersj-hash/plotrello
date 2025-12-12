@@ -17,7 +17,7 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
       try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
         const qrUrl = `${baseUrl}/op-public/${opNumber}`
-        const dataUrl = await toDataURL(qrUrl, { width: 400, margin: 2 })
+        const dataUrl = await toDataURL(qrUrl, { width: 280, margin: 2 })
         setQrDataUrl(dataUrl)
       } catch (error) {
         console.error('Error generando QR:', error)

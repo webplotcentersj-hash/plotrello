@@ -1,7 +1,7 @@
 .op-public-page {
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  padding: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,20 +9,37 @@
 
 .op-public-container {
   background: white;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 800px;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  max-width: 100%;
   width: 100%;
-  padding: 40px;
+  padding: 20px;
+}
+
+@media (min-width: 480px) {
+  .op-public-container {
+    max-width: 500px;
+    padding: 30px;
+  }
 }
 
 .op-public-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 30px;
-  margin-bottom: 40px;
-  padding-bottom: 30px;
+  gap: 15px;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
   border-bottom: 2px solid #e5e7eb;
+  text-align: center;
+}
+
+@media (min-width: 480px) {
+  .op-public-header {
+    flex-direction: row;
+    text-align: left;
+    gap: 20px;
+  }
 }
 
 .logo-section {
@@ -30,10 +47,17 @@
 }
 
 .logo-img {
-  width: 120px;
+  width: 80px;
   height: auto;
-  max-height: 120px;
+  max-height: 80px;
   object-fit: contain;
+}
+
+@media (min-width: 480px) {
+  .logo-img {
+    width: 100px;
+    max-height: 100px;
+  }
 }
 
 .op-info {
@@ -41,24 +65,36 @@
 }
 
 .op-number {
-  font-size: 48px;
+  font-size: 32px;
   font-weight: 900;
   color: #1f2937;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
   letter-spacing: -1px;
 }
 
+@media (min-width: 480px) {
+  .op-number {
+    font-size: 42px;
+  }
+}
+
 .cliente-name {
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 600;
   color: #4b5563;
   margin: 0;
 }
 
+@media (min-width: 480px) {
+  .cliente-name {
+    font-size: 26px;
+  }
+}
+
 .op-public-content {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 20px;
 }
 
 .estado-section {
@@ -67,14 +103,21 @@
 }
 
 .estado-badge {
-  padding: 15px 30px;
-  border-radius: 12px;
+  padding: 12px 24px;
+  border-radius: 10px;
   border: 2px solid;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+
+@media (min-width: 480px) {
+  .estado-badge {
+    padding: 15px 30px;
+    font-size: 18px;
+  }
 }
 
 .estado-label {
@@ -82,17 +125,26 @@
 }
 
 .descripcion-section h3 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: #1f2937;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
 }
 
 .descripcion-section p {
-  font-size: 16px;
+  font-size: 14px;
   color: #4b5563;
-  line-height: 1.6;
+  line-height: 1.5;
   margin: 0;
+}
+
+@media (min-width: 480px) {
+  .descripcion-section h3 {
+    font-size: 20px;
+  }
+  .descripcion-section p {
+    font-size: 16px;
+  }
 }
 
 .info-grid {
@@ -108,7 +160,7 @@
 }
 
 .info-label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
@@ -116,34 +168,58 @@
 }
 
 .info-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #1f2937;
 }
 
+@media (min-width: 480px) {
+  .info-label {
+    font-size: 14px;
+  }
+  .info-value {
+    font-size: 18px;
+  }
+}
+
 .qr-section {
   text-align: center;
-  padding: 30px;
+  padding: 20px;
   background: #f9fafb;
-  border-radius: 15px;
-  margin-top: 20px;
+  border-radius: 12px;
+  margin-top: 15px;
 }
 
 .qr-instructions {
-  font-size: 16px;
+  font-size: 14px;
   color: #4b5563;
-  margin: 0 0 20px 0;
+  margin: 0 0 15px 0;
   font-weight: 600;
+}
+
+@media (min-width: 480px) {
+  .qr-section {
+    padding: 25px;
+  }
+  .qr-instructions {
+    font-size: 16px;
+    margin-bottom: 20px;
+  }
 }
 
 .qr-code-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 15px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code-container img {
+  max-width: 100%;
+  height: auto;
 }
 
 .loading-spinner {
