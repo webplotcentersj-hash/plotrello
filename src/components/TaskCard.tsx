@@ -798,24 +798,35 @@ const TaskCard = ({
     )
   }
 
-  if (isDraggable) {
-    return (
-      <Draggable draggableId={task.id} index={index}>
-        {(provided, snapshot) =>
-          renderCardContent({
-            ref: provided.innerRef,
-            className: clsx({
-              'is-dragging': snapshot.isDragging
-            }),
-            ...provided.draggableProps,
-            ...provided.dragHandleProps
-          })
-        }
-      </Draggable>
-    )
-  }
+  const cardContent = isDraggable ? (
+    <Draggable draggableId={task.id} index={index}>
+      {(provided, snapshot) =>
+        renderCardContent({
+          ref: provided.innerRef,
+          className: clsx({
+            'is-dragging': snapshot.isDragging
+          }),
+          ...provided.draggableProps,
+          ...provided.dragHandleProps
+        })
+      }
+    </Draggable>
+  ) : (
+    renderCardContent()
+  )
 
-  return renderCardContent()
+  return (
+    <>
+      {cardContent}
+      {showQRPrint && task.opNumber && (
+        <QRPrintView
+          opNumber={task.opNumber}
+          cliente={task.title}
+          onClose={() => setShowQRPrint(false)}
+        />
+      )}
+    </>
+  )
 }
 
 export default TaskCard
