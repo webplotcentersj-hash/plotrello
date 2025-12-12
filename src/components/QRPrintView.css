@@ -263,8 +263,27 @@
     display: none !important;
   }
 
-  /* El preview card ya tiene sus estilos en el primer @media print */
-  
+  /* Asegurar que el preview card y todos sus elementos sean visibles */
+  .qr-print-preview-card,
+  .qr-print-preview-card * {
+    visibility: visible !important;
+    display: block !important;
+  }
+
+  .qr-print-preview-card .qr-print-header,
+  .qr-print-preview-card .qr-print-content {
+    display: flex !important;
+  }
+
+  .qr-print-preview-card .qr-print-qr-container {
+    display: block !important;
+  }
+
+  .qr-print-preview-card img {
+    display: block !important;
+    visibility: visible !important;
+  }
+
   /* También mostrar la vista de impresión como backup */
   .qr-print-view {
     display: block !important;
@@ -288,6 +307,16 @@
   /* Ocultar todo lo demás */
   body > *:not(.qr-print-modal-content):not(.qr-print-view) {
     display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Asegurar que el body y html no oculten nada */
+  html, body {
+    visibility: visible !important;
+  }
+
+  html > *:not(.qr-print-modal-content):not(.qr-print-view),
+  body > *:not(.qr-print-modal-content):not(.qr-print-view) {
     visibility: hidden !important;
   }
 
