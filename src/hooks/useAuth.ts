@@ -50,12 +50,15 @@ export function useAuth() {
   const isAdmin = !!usuario && adminRoles.includes(usuario.rol)
   const isMostrador = usuario?.rol === 'mostrador'
   const isTallerGrafico = usuario?.rol === 'taller-grafico'
+  // Puede administrar impresoras: taller-grafico o administracion
+  const canManageImpresoras = !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
 
   return {
     usuario,
     isAdmin,
     isMostrador,
     isTallerGrafico,
+    canManageImpresoras,
     loading,
     setUsuario
   }

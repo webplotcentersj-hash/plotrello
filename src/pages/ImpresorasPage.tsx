@@ -52,7 +52,7 @@ type TrabajoActivo = {
 
 const ImpresorasPage = () => {
   const navigate = useNavigate()
-  const { loading: authLoading, usuario, isTallerGrafico } = useAuth()
+  const { loading: authLoading, usuario, canManageImpresoras } = useAuth()
   const [impresoras, setImpresoras] = useState<ImpresoraOcupacion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -127,8 +127,8 @@ const ImpresorasPage = () => {
   }
 
   const handleCambiarEstado = async () => {
-    if (!selectedImpresora || !isTallerGrafico) {
-      setError('Solo los usuarios de Taller Gráfico pueden cambiar el estado de las impresoras')
+    if (!selectedImpresora || !canManageImpresoras) {
+      setError('Solo los usuarios de Taller Gráfico o Administración pueden cambiar el estado de las impresoras')
       return
     }
 
@@ -228,7 +228,7 @@ const ImpresorasPage = () => {
           <div className="impresoras-header-title">
             <h1>Estado de Impresoras</h1>
             <div style={{ display: 'flex', gap: '10px' }}>
-              {isTallerGrafico && (
+              {canManageImpresoras && (
                 <>
                   <button
                     className="refresh-button"
@@ -409,7 +409,7 @@ const ImpresorasPage = () => {
 
               {/* Botones de acción */}
               <div className="impresora-actions">
-                {isTallerGrafico ? (
+                {canManageImpresoras ? (
                   <>
                     <button
                       className="action-button"
@@ -465,8 +465,8 @@ const ImpresorasPage = () => {
         )}
       </div>
 
-      {/* Modal para cambiar estado - Solo para taller-grafico */}
-      {showEstadoModal && selectedImpresora && isTallerGrafico && (
+      {/* Modal para cambiar estado - Solo para taller-grafico y administracion */}
+      {showEstadoModal && selectedImpresora && canManageImpresoras && (
         <div className="modal-overlay" onClick={() => setShowEstadoModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Cambiar Estado: {selectedImpresora.nombre}</h2>
@@ -604,8 +604,8 @@ const ImpresorasPage = () => {
         </div>
       )}
 
-      {/* Modal para gestión (CRUD) - Solo para taller-grafico */}
-      {showGestionModal && isTallerGrafico && (
+      {/* Modal para gestión (CRUD) - Solo para taller-grafico y administracion */}
+      {showGestionModal && canManageImpresoras && (
         <div className="modal-overlay" onClick={() => setShowGestionModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <h2>Gestión de Impresoras</h2>
