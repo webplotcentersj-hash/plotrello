@@ -83,6 +83,10 @@ const ImpresorasPage = () => {
   const [historial, setHistorial] = useState<HistorialEstado[]>([])
   const [trabajosActivos, setTrabajosActivos] = useState<TrabajoActivo[]>([])
   const [trabajosActivosPorImpresora, setTrabajosActivosPorImpresora] = useState<Record<number, TrabajoActivoImpresora[]>>({})
+  const [historialTrabajos, setHistorialTrabajos] = useState<any[]>([])
+  const [showHistorialTrabajosModal, setShowHistorialTrabajosModal] = useState(false)
+  const [historialTrabajos, setHistorialTrabajos] = useState<any[]>([])
+  const [showHistorialTrabajosModal, setShowHistorialTrabajosModal] = useState(false)
   const [nuevoEstado, setNuevoEstado] = useState<string>('Disponible')
   const [motivoCambio, setMotivoCambio] = useState('')
   const [loadingAction, setLoadingAction] = useState(false)
@@ -334,6 +338,32 @@ const ImpresorasPage = () => {
         setShowTrabajosModal(true)
       } else {
         setError(response.error || 'Error al cargar los trabajos activos')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setLoadingAction(false)
+    }
+  }
+
+  const handleVerHistorialTrabajos = async (impresora: ImpresoraOcupacion) => {
+    setSelectedImpresora(impresora)
+    setLoadingAction(true)
+    try {
+      const response = await apiService.getUsoImpresora(impresora.id, 100)
+      if (response.success && response.data) {
+        // Filtrar solo trabajos completados y ordenar por fecha de finalización descendente
+        const trabajosCompletados = (response.data as any[])
+          .filter((trabajo) => trabajo.estado === 'Completado')
+          .sort((a, b) => {
+            const fechaA = a.fecha_fin ? new Date(a.fecha_fin).getTime() : 0
+            const fechaB = b.fecha_fin ? new Date(b.fecha_fin).getTime() : 0
+            return fechaB - fechaA
+          })
+        setHistorialTrabajos(trabajosCompletados)
+        setShowHistorialTrabajosModal(true)
+      } else {
+        setError(response.error || 'Error al cargar el historial de trabajos')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
@@ -690,13 +720,19 @@ const ImpresorasPage = () => {
                       className="action-button"
                       onClick={() => handleVerHistorial(impresora)}
                     >
-                      📋 Historial
+                      📋 Historial Estado
                     </button>
                     <button
                       className="action-button"
                       onClick={() => handleVerTrabajos(impresora)}
                     >
                       📊 Trabajos Activos
+                    </button>
+                    <button
+                      className="action-button"
+                      onClick={() => handleVerHistorialTrabajos(impresora)}
+                    >
+                      📜 Historial Trabajos
                     </button>
                   </>
                 ) : (
@@ -706,7 +742,7 @@ const ImpresorasPage = () => {
                       onClick={() => handleVerHistorial(impresora)}
                       style={{ opacity: 0.8 }}
                     >
-                      📋 Ver Historial
+                      📋 Ver Historial Estado
                     </button>
                     <button
                       className="action-button"
@@ -714,6 +750,13 @@ const ImpresorasPage = () => {
                       style={{ opacity: 0.8 }}
                     >
                       📊 Ver Trabajos Activos
+                    </button>
+                    <button
+                      className="action-button"
+                      onClick={() => handleVerHistorialTrabajos(impresora)}
+                      style={{ opacity: 0.8 }}
+                    >
+                      📜 Ver Historial Trabajos
                     </button>
                   </>
                 )}
