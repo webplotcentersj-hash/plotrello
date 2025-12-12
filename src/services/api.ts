@@ -1572,13 +1572,17 @@ class ApiService {
   }
 
   // ========== IMPRESORAS ==========
-  async getImpresoras(): Promise<ApiResponse<any[]>> {
+  async getImpresoras(includeInactivas: boolean = false): Promise<ApiResponse<any[]>> {
     if (supabase) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('impresoras')
         .select('*')
-        .eq('activa', true)
-        .order('nombre', { ascending: true })
+      
+      if (!includeInactivas) {
+        query = query.eq('activa', true)
+      }
+      
+      const { data, error } = await query.order('nombre', { ascending: true })
 
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as any[]) ?? [] }

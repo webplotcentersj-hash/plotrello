@@ -69,6 +69,16 @@ const ImpresorasPage = () => {
   const [nuevoEstado, setNuevoEstado] = useState<string>('Disponible')
   const [motivoCambio, setMotivoCambio] = useState('')
   const [loadingAction, setLoadingAction] = useState(false)
+  
+  // Estados para gestión CRUD
+  const [todasImpresoras, setTodasImpresoras] = useState<any[]>([])
+  const [showCrearModal, setShowCrearModal] = useState(false)
+  const [showEditarModal, setShowEditarModal] = useState(false)
+  const [impresoraEditando, setImpresoraEditando] = useState<any>(null)
+  const [formNombre, setFormNombre] = useState('')
+  const [formModelo, setFormModelo] = useState('')
+  const [formCapacidad, setFormCapacidad] = useState('24')
+  const [formEstado, setFormEstado] = useState('Disponible')
 
   const loadData = async () => {
     setRefreshing(true)
@@ -88,11 +98,120 @@ const ImpresorasPage = () => {
     }
   }
 
+  const loadTodasImpresoras = async () => {
+    try {
+      const response = await apiService.getImpresoras(true) // Incluir inactivas
+      if (response.success && response.data) {
+        setTodasImpresoras(response.data as any[])
+      }
+    } catch (err) {
+      console.error('Error al cargar impresoras:', err)
+    }
+  }
+
+  const handleCrearImpresora = async () => {
+    if (!formNombre.trim()) {
+      setError('El nombre de la impresora es requerido')
+      return
+    }
+
+    setLoadingAction(true)
+    try {
+      const response = await apiService.crearImpresora(
+        formNombre.trim(),
+        formModelo.trim() || undefined,
+        parseFloat(formCapacidad) || 24.0
+      )
+
+      if (response.success) {
+        setShowCrearModal(false)
+        setFormNombre('')
+        setFormModelo('')
+        setFormCapacidad('24')
+        void loadData()
+        void loadTodasImpresoras()
+      } else {
+        setError(response.error || 'Error al crear la impresora')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setLoadingAction(false)
+    }
+  }
+
+  const handleEditarImpresora = async () => {
+    if (!impresoraEditando || !formNombre.trim()) {
+      setError('El nombre de la impresora es requerido')
+      return
+    }
+
+    setLoadingAction(true)
+    try {
+      const response = await apiService.actualizarImpresora(impresoraEditando.id, {
+        nombre: formNombre.trim(),
+        modelo: formModelo.trim() || undefined,
+        capacidad_maxima_horas_dia: parseFloat(formCapacidad) || 24.0,
+        activa: true
+      })
+
+      if (response.success) {
+        setShowEditarModal(false)
+        setImpresoraEditando(null)
+        setFormNombre('')
+        setFormModelo('')
+        setFormCapacidad('24')
+        void loadData()
+        void loadTodasImpresoras()
+      } else {
+        setError(response.error || 'Error al actualizar la impresora')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setLoadingAction(false)
+    }
+  }
+
+  const handleEliminarImpresora = async (id: number) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta impresora? Esta acción no se puede deshacer.')) {
+      return
+    }
+
+    setLoadingAction(true)
+    try {
+      const response = await apiService.eliminarImpresora(id)
+
+      if (response.success) {
+        void loadData()
+        void loadTodasImpresoras()
+      } else {
+        setError(response.error || 'Error al eliminar la impresora')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setLoadingAction(false)
+    }
+  }
+
+  const abrirEditarModal = (impresora: any) => {
+    setImpresoraEditando(impresora)
+    setFormNombre(impresora.nombre)
+    setFormModelo(impresora.modelo || '')
+    setFormCapacidad(impresora.capacidad_maxima_horas_dia?.toString() || '24')
+    setFormEstado(impresora.estado || 'Disponible')
+    setShowEditarModal(true)
+  }
+
   useEffect(() => {
     if (!authLoading) {
       void loadData()
+      if (canManageImpresoras) {
+        void loadTodasImpresoras()
+      }
     }
-  }, [authLoading])
+  }, [authLoading, canManageImpresoras])
 
   // Auto-refresh cada 30 segundos
   useEffect(() => {
@@ -607,14 +726,183 @@ const ImpresorasPage = () => {
       {/* Modal para gestión (CRUD) - Solo para taller-grafico y administracion */}
       {showGestionModal && canManageImpresoras && (
         <div className="modal-overlay" onClick={() => setShowGestionModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh' }}>
             <h2>Gestión de Impresoras</h2>
-            <p style={{ color: '#666', marginBottom: '20px' }}>
-              Funcionalidad de gestión completa (crear, editar, eliminar) próximamente.
-            </p>
+            
+            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                onClick={() => {
+                  setFormNombre('')
+                  setFormModelo('')
+                  setFormCapacidad('24')
+                  setFormEstado('Disponible')
+                  setShowCrearModal(true)
+                }}
+                className="confirm-button"
+                style={{ background: 'rgba(16, 185, 129, 0.2)', borderColor: 'rgba(16, 185, 129, 0.5)', color: '#10b981' }}
+              >
+                ➕ Crear Nueva Impresora
+              </button>
+              <button onClick={() => void loadTodasImpresoras()} className="refresh-button" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                🔄 Actualizar
+              </button>
+            </div>
+
+            <div style={{ maxHeight: '500px', overflowY: 'auto', marginBottom: '20px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Modelo</th>
+                    <th>Estado</th>
+                    <th>Capacidad (h/día)</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {todasImpresoras.map((imp) => (
+                    <tr key={imp.id}>
+                      <td>{imp.nombre}</td>
+                      <td>{imp.modelo || '-'}</td>
+                      <td>
+                        <span style={{ color: getColorByEstado(imp.estado) }}>
+                          {imp.estado}
+                        </span>
+                      </td>
+                      <td>{imp.capacidad_maxima_horas_dia}h</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => abrirEditarModal(imp)}
+                            className="action-button"
+                            style={{ fontSize: '11px', padding: '4px 8px' }}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            onClick={() => handleEliminarImpresora(imp.id)}
+                            className="action-button"
+                            style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.5)', color: '#fca5a5' }}
+                            disabled={loadingAction}
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {todasImpresoras.length === 0 && (
+                <p style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                  No hay impresoras registradas.
+                </p>
+              )}
+            </div>
+
             <div className="modal-actions">
               <button onClick={() => setShowGestionModal(false)} className="confirm-button">
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para crear impresora */}
+      {showCrearModal && (
+        <div className="modal-overlay" onClick={() => setShowCrearModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <h2>Crear Nueva Impresora</h2>
+            <div className="modal-form">
+              <label>
+                Nombre *:
+                <input
+                  type="text"
+                  value={formNombre}
+                  onChange={(e) => setFormNombre(e.target.value)}
+                  placeholder="Ej: Mimaki 130"
+                  style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px' }}
+                />
+              </label>
+              <label>
+                Modelo:
+                <input
+                  type="text"
+                  value={formModelo}
+                  onChange={(e) => setFormModelo(e.target.value)}
+                  placeholder="Ej: Plotter de Corte"
+                  style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px' }}
+                />
+              </label>
+              <label>
+                Capacidad Máxima (horas/día):
+                <input
+                  type="number"
+                  value={formCapacidad}
+                  onChange={(e) => setFormCapacidad(e.target.value)}
+                  min="1"
+                  max="24"
+                  step="0.5"
+                  style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px' }}
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowCrearModal(false)} className="cancel-button">
+                Cancelar
+              </button>
+              <button onClick={handleCrearImpresora} className="confirm-button" disabled={loadingAction}>
+                {loadingAction ? 'Creando...' : 'Crear Impresora'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para editar impresora */}
+      {showEditarModal && impresoraEditando && (
+        <div className="modal-overlay" onClick={() => setShowEditarModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <h2>Editar Impresora: {impresoraEditando.nombre}</h2>
+            <div className="modal-form">
+              <label>
+                Nombre *:
+                <input
+                  type="text"
+                  value={formNombre}
+                  onChange={(e) => setFormNombre(e.target.value)}
+                  style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px' }}
+                />
+              </label>
+              <label>
+                Modelo:
+                <input
+                  type="text"
+                  value={formModelo}
+                  onChange={(e) => setFormModelo(e.target.value)}
+                  style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px' }}
+                />
+              </label>
+              <label>
+                Capacidad Máxima (horas/día):
+                <input
+                  type="number"
+                  value={formCapacidad}
+                  onChange={(e) => setFormCapacidad(e.target.value)}
+                  min="1"
+                  max="24"
+                  step="0.5"
+                  style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '6px' }}
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowEditarModal(false)} className="cancel-button">
+                Cancelar
+              </button>
+              <button onClick={handleEditarImpresora} className="confirm-button" disabled={loadingAction}>
+                {loadingAction ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </div>
           </div>
