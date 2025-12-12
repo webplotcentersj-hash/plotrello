@@ -89,6 +89,7 @@ const TaskCard = ({
   const [asignandoImpresora, setAsignandoImpresora] = useState(false)
   const [metrosManuales, setMetrosManuales] = useState<string>('')
   const [showQRPrint, setShowQRPrint] = useState(false)
+  const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
   const { usuario, canManageImpresoras } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
@@ -216,9 +217,35 @@ const TaskCard = ({
               <button
                 type="button"
                 className="task-action-btn"
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation()
-                  setShowQRPrint(true)
+                  // Obtener los datos correctos de la orden
+                  try {
+                    const response = await apiService.getOrdenByOpNumber(task.opNumber!)
+                    if (response.success && response.data) {
+                      setQrPrintData({
+                        opNumber: response.data.numero_op,
+                        cliente: response.data.cliente
+                      })
+                      setShowQRPrint(true)
+                    } else {
+                      console.error('Error al obtener orden:', response.error)
+                      // Fallback: usar datos de la tarea
+                      setQrPrintData({
+                        opNumber: task.opNumber,
+                        cliente: task.title
+                      })
+                      setShowQRPrint(true)
+                    }
+                  } catch (error) {
+                    console.error('Error al obtener orden:', error)
+                    // Fallback: usar datos de la tarea
+                    setQrPrintData({
+                      opNumber: task.opNumber,
+                      cliente: task.title
+                    })
+                    setShowQRPrint(true)
+                  }
                 }}
                 title="Imprimir QR para Cliente"
               >
@@ -818,11 +845,14 @@ const TaskCard = ({
   return (
     <>
       {cardContent}
-      {showQRPrint && task.opNumber && (
+      {showQRPrint && qrPrintData && (
         <QRPrintView
-          opNumber={task.opNumber}
-          cliente={task.title}
-          onClose={() => setShowQRPrint(false)}
+          opNumber={qrPrintData.opNumber}
+          cliente={qrPrintData.cliente}
+          onClose={() => {
+            setShowQRPrint(false)
+            setQrPrintData(null)
+          }}
         />
       )}
     </>
