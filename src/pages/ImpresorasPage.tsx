@@ -85,8 +85,6 @@ const ImpresorasPage = () => {
   const [trabajosActivosPorImpresora, setTrabajosActivosPorImpresora] = useState<Record<number, TrabajoActivoImpresora[]>>({})
   const [historialTrabajos, setHistorialTrabajos] = useState<any[]>([])
   const [showHistorialTrabajosModal, setShowHistorialTrabajosModal] = useState(false)
-  const [historialTrabajos, setHistorialTrabajos] = useState<any[]>([])
-  const [showHistorialTrabajosModal, setShowHistorialTrabajosModal] = useState(false)
   const [nuevoEstado, setNuevoEstado] = useState<string>('Disponible')
   const [motivoCambio, setMotivoCambio] = useState('')
   const [loadingAction, setLoadingAction] = useState(false)
@@ -870,6 +868,95 @@ const ImpresorasPage = () => {
             </div>
             <div className="modal-actions">
               <button onClick={() => setShowHistorialModal(false)} className="confirm-button">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para historial de trabajos */}
+      {showHistorialTrabajosModal && selectedImpresora && (
+        <div className="modal-overlay" onClick={() => setShowHistorialTrabajosModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1000px', maxHeight: '90vh' }}>
+            <header className="modal-header">
+              <h2>Historial de Trabajos: {selectedImpresora.nombre}</h2>
+              <button type="button" className="modal-close" onClick={() => setShowHistorialTrabajosModal(false)}>
+                ×
+              </button>
+            </header>
+            <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '20px' }}>
+              {loadingAction ? (
+                <p style={{ textAlign: 'center', padding: '20px', color: '#666' }}>Cargando...</p>
+              ) : historialTrabajos.length > 0 ? (
+                <table style={{ width: '100%', borderCollapse: 'collapse', color: '#e0e0e0' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(59, 130, 246, 0.1)', borderBottom: '2px solid rgba(59, 130, 246, 0.3)' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>OP</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>Cliente</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>Descripción</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>Metros²</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>Operario</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>Inicio</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>Fin</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#60a5fa' }}>Horas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historialTrabajos.map((trabajo) => (
+                      <tr key={trabajo.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                        <td style={{ padding: '10px' }}>
+                          <strong style={{ color: '#fff' }}>{trabajo.ordenes_trabajo?.numero_op || '-'}</strong>
+                        </td>
+                        <td style={{ padding: '10px', fontSize: '13px' }}>
+                          {trabajo.ordenes_trabajo?.cliente || '-'}
+                        </td>
+                        <td style={{ padding: '10px', fontSize: '12px', color: '#9ca3af', maxWidth: '300px' }}>
+                          {trabajo.ordenes_trabajo?.descripcion ? (
+                            trabajo.ordenes_trabajo.descripcion.length > 50 
+                              ? `${trabajo.ordenes_trabajo.descripcion.substring(0, 50)}...` 
+                              : trabajo.ordenes_trabajo.descripcion
+                          ) : '-'}
+                        </td>
+                        <td style={{ padding: '10px', color: '#10b981', fontWeight: '600' }}>
+                          {trabajo.metros_cuadrados ? `${parseFloat(trabajo.metros_cuadrados).toFixed(2)} m²` : '-'}
+                        </td>
+                        <td style={{ padding: '10px', fontSize: '12px', color: '#6b7280' }}>
+                          {trabajo.operario || '-'}
+                        </td>
+                        <td style={{ padding: '10px', fontSize: '11px', color: '#9ca3af' }}>
+                          {trabajo.fecha_inicio ? new Date(trabajo.fecha_inicio).toLocaleString('es-AR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : '-'}
+                        </td>
+                        <td style={{ padding: '10px', fontSize: '11px', color: '#9ca3af' }}>
+                          {trabajo.fecha_fin ? new Date(trabajo.fecha_fin).toLocaleString('es-AR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : '-'}
+                        </td>
+                        <td style={{ padding: '10px', fontSize: '12px', color: '#60a5fa' }}>
+                          {trabajo.horas_usadas ? `${parseFloat(trabajo.horas_usadas).toFixed(2)}h` : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                  No hay historial de trabajos completados.
+                </p>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowHistorialTrabajosModal(false)} className="confirm-button">
                 Cerrar
               </button>
             </div>
