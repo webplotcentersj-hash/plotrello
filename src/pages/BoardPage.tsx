@@ -345,7 +345,7 @@ const BoardPage = ({
   }
 
   const handleCreateTask = async (
-    newTaskData: Omit<Task, 'id'>,
+    newTaskData: Omit<Task, 'id'> & { attachments?: Array<{ name: string; remoteUrl: string; uploading?: boolean }> },
     options?: { openChecklist?: boolean }
   ): Promise<void> => {
     try {
