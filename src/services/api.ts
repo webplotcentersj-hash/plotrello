@@ -765,12 +765,19 @@ class ApiService {
         timestamp: new Date().toISOString()
       })
 
-      // Si la orden llega a "Finalizado en Taller", liberar la impresora si está asignada
+      // Si la orden llega a "Finalizado en Taller", finalizar el uso de impresora si está asignada
       if (nuevoEstado === 'Finalizado en Taller') {
-        const usoActivoResponse = await this.getUsoActivoPorOrden(id)
-        if (usoActivoResponse.success && usoActivoResponse.data) {
-          const usoActivo = usoActivoResponse.data as { id: number; id_impresora: number }
-          await this.finalizarUsoImpresora(usoActivo.id, usoActivo.id_impresora)
+        try {
+          const usoActivoResponse = await this.getUsoActivoPorOrden(id)
+          if (usoActivoResponse.success && usoActivoResponse.data) {
+            const usoActivo = usoActivoResponse.data as { id: number; id_impresora: number }
+            const finalizarResponse = await this.finalizarUsoImpresora(usoActivo.id, usoActivo.id_impresora)
+            if (!finalizarResponse.success) {
+              console.error('Error al finalizar uso de impresora:', finalizarResponse.error)
+            }
+          }
+        } catch (error) {
+          console.error('Error al procesar finalización de impresora:', error)
         }
       }
 
