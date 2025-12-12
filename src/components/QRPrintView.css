@@ -381,14 +381,40 @@
     padding: 0;
   }
 
+  /* Ocultar todos los elementos de la página excepto la vista de impresión */
   html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
     height: auto !important;
     overflow: visible !important;
+    background: white !important;
+  }
+
+  /* Ocultar todos los elementos de la UI */
+  header,
+  nav,
+  footer,
+  aside,
+  .header,
+  .board,
+  .filters-bar,
+  .stats-panel,
+  .activity-feed,
+  .modal-overlay:not(.qr-print-view),
+  button:not(.qr-print-view button),
+  .task-card,
+  .board-column,
+  .trello-plot-app > *:not(.qr-print-view) {
+    display: none !important;
+    visibility: hidden !important;
   }
   
   .qr-print-view {
     height: auto !important;
-    position: relative !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
   }
   
   .qr-print-container {
