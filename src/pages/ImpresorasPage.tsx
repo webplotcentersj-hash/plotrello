@@ -30,6 +30,18 @@ type ImpresoraOcupacion = {
   metros_cuadrados_totales?: number
 }
 
+type TrabajoActivoImpresora = {
+  uso_id: number
+  id_impresora: number
+  id_orden: number
+  numero_op: string
+  cliente: string
+  descripcion: string
+  metros_cuadrados?: number | null
+  operario?: string | null
+  fecha_inicio: string
+}
+
 type HistorialEstado = {
   id: number
   id_impresora: number
@@ -70,6 +82,7 @@ const ImpresorasPage = () => {
   const [showGestionModal, setShowGestionModal] = useState(false)
   const [historial, setHistorial] = useState<HistorialEstado[]>([])
   const [trabajosActivos, setTrabajosActivos] = useState<TrabajoActivo[]>([])
+  const [trabajosActivosPorImpresora, setTrabajosActivosPorImpresora] = useState<Record<number, TrabajoActivoImpresora[]>>({})
   const [nuevoEstado, setNuevoEstado] = useState<string>('Disponible')
   const [motivoCambio, setMotivoCambio] = useState('')
   const [loadingAction, setLoadingAction] = useState(false)
@@ -90,6 +103,18 @@ const ImpresorasPage = () => {
       const response = await apiService.getImpresorasOcupacion()
       if (response.success && response.data) {
         setImpresoras(response.data as ImpresoraOcupacion[])
+        
+        // Cargar trabajos activos para cada impresora
+        const trabajosMap: Record<number, TrabajoActivoImpresora[]> = {}
+        for (const imp of response.data) {
+          if (imp.trabajos_activos > 0) {
+            const trabajosResponse = await apiService.getTrabajosActivosImpresora(imp.id)
+            if (trabajosResponse.success && trabajosResponse.data) {
+              trabajosMap[imp.id] = trabajosResponse.data as TrabajoActivoImpresora[]
+            }
+          }
+        }
+        setTrabajosActivosPorImpresora(trabajosMap)
       } else {
         setError(response.error || 'No se pudieron cargar los datos de impresoras')
       }
@@ -526,6 +551,43 @@ const ImpresorasPage = () => {
                   <div className="stat-label">Trabajos Activos</div>
                   <div className="stat-value-large">{impresora.trabajos_activos}</div>
                 </div>
+
+                {/* Mostrar trabajo activo si existe */}
+                {impresora.estado_impresora === 'En Uso' && trabajosActivosPorImpresora[impresora.id] && trabajosActivosPorImpresora[impresora.id].length > 0 && (
+                  <div className="stat-item" style={{ 
+                    marginTop: '15px', 
+                    padding: '12px', 
+                    background: 'rgba(59, 130, 246, 0.15)', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                  }}>
+                    <div className="stat-label" style={{ fontSize: '11px', marginBottom: '8px', color: '#60a5fa', fontWeight: '600' }}>
+                      🖨️ TRABAJO EN CURSO
+                    </div>
+                    {trabajosActivosPorImpresora[impresora.id].map((trabajo) => (
+                      <div key={trabajo.uso_id} style={{ marginBottom: '8px' }}>
+                        <div style={{ fontWeight: '600', color: '#fff', fontSize: '13px', marginBottom: '4px' }}>
+                          OP {trabajo.numero_op} - {trabajo.cliente}
+                        </div>
+                        {trabajo.descripcion && (
+                          <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px', lineHeight: '1.4' }}>
+                            {trabajo.descripcion.length > 60 ? `${trabajo.descripcion.substring(0, 60)}...` : trabajo.descripcion}
+                          </div>
+                        )}
+                        {trabajo.metros_cuadrados && (
+                          <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '600' }}>
+                            📏 {trabajo.metros_cuadrados.toFixed(2)} m²
+                          </div>
+                        )}
+                        {trabajo.operario && (
+                          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>
+                            Operario: {trabajo.operario}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Metros cuadrados impresos */}
                 {(impresora.metros_cuadrados_hoy !== undefined || impresora.metros_cuadrados_semana !== undefined) && (

@@ -1803,13 +1803,11 @@ class ApiService {
 
       if (error) return { success: false, error: error.message }
 
-      // Actualizar estado de la impresora a "En Uso" si estaba disponible
-      if (impresora.estado === 'Disponible') {
-        await supabase
-          .from('impresoras')
-          .update({ estado: 'En Uso' })
-          .eq('id', impresoraId)
-      }
+      // Actualizar estado de la impresora a "En Uso" automáticamente
+      await supabase
+        .from('impresoras')
+        .update({ estado: 'En Uso' })
+        .eq('id', impresoraId)
 
       return { success: true, data }
     }

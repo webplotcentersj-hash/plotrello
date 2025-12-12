@@ -86,6 +86,7 @@ const TaskCard = ({
   const [impresorasDisponibles, setImpresorasDisponibles] = useState<any[]>([])
   const [impresoraSeleccionada, setImpresoraSeleccionada] = useState<number | null>(null)
   const [asignandoImpresora, setAsignandoImpresora] = useState(false)
+  const [metrosManuales, setMetrosManuales] = useState<string>('')
   const { usuario, canManageImpresoras } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
@@ -477,6 +478,7 @@ const TaskCard = ({
                   onClick={async (e) => {
                     e.stopPropagation()
                     setShowAsignarImpresora(true)
+                    setMetrosManuales(task.metrosCuadrados?.toString() || '')
                     // Cargar impresoras disponibles
                     const response = await apiService.getImpresoras()
                     if (response.success && response.data) {
@@ -668,13 +670,34 @@ const TaskCard = ({
                 </button>
               </header>
               <div className="modal-body">
-                {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
-                  <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px' }}>
-                    <strong>Metros² registrados:</strong> {task.metrosCuadrados.toFixed(2)} m²
-                  </div>
-                )}
+                <label style={{ display: 'block', marginBottom: '15px', color: '#fff' }}>
+                  Metros Cuadrados (m²) a Imprimir *:
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={metrosManuales}
+                    onChange={(e) => setMetrosManuales(e.target.value)}
+                    placeholder={task.metrosCuadrados ? `Sugerido: ${task.metrosCuadrados.toFixed(2)}` : 'Ej: 6.24'}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      marginTop: '5px',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#fff',
+                      fontSize: '14px'
+                    }}
+                  />
+                  {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
+                    <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      Metros² registrados en la ficha: {task.metrosCuadrados.toFixed(2)} m²
+                    </small>
+                  )}
+                </label>
                 <label style={{ display: 'block', marginBottom: '10px', color: '#fff' }}>
-                  Seleccionar Impresora:
+                  Seleccionar Impresora *:
                   <select
                     value={impresoraSeleccionada || ''}
                     onChange={(e) => setImpresoraSeleccionada(Number(e.target.value))}
@@ -718,18 +741,24 @@ const TaskCard = ({
                       alert('Por favor seleccione una impresora')
                       return
                     }
+                    if (!metrosManuales || parseFloat(metrosManuales) <= 0) {
+                      alert('Por favor ingrese los metros cuadrados a imprimir')
+                      return
+                    }
                     setAsignandoImpresora(true)
                     try {
+                      const metros = parseFloat(metrosManuales)
                       const response = await apiService.asignarOrdenAImpresora(
                         impresoraSeleccionada,
                         ordenId,
                         usuario?.nombre,
-                        task.metrosCuadrados ?? undefined
+                        metros
                       )
                       if (response.success) {
-                        alert('✅ Impresora asignada correctamente')
+                        alert('✅ Impresora asignada correctamente. Estado cambiado a "En Uso".')
                         setShowAsignarImpresora(false)
                         setImpresoraSeleccionada(null)
+                        setMetrosManuales('')
                         // Recargar la página o actualizar el estado
                         window.location.reload()
                       } else {
@@ -742,7 +771,7 @@ const TaskCard = ({
                     }
                   }}
                   className="confirm-button"
-                  disabled={asignandoImpresora || !impresoraSeleccionada}
+                  disabled={asignandoImpresora || !impresoraSeleccionada || !metrosManuales || parseFloat(metrosManuales) <= 0}
                 >
                   {asignandoImpresora ? 'Asignando...' : 'Asignar Impresora'}
                 </button>
