@@ -203,22 +203,34 @@
 }
 
 @media print {
-  .qr-print-modal-overlay,
-  .qr-print-modal-content {
-    display: none !important;
+  /* Ocultar todo excepto la vista de impresión */
+  body * {
+    visibility: hidden;
+  }
+
+  .qr-print-view,
+  .qr-print-view * {
+    visibility: visible;
   }
 
   .qr-print-view {
-    display: block;
-    position: fixed;
-    top: 0;
+    position: absolute;
     left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
     background: white;
     padding: 0;
     margin: 0;
     z-index: 9999;
+    display: block !important;
+  }
+
+  .qr-print-modal-overlay,
+  .qr-print-modal-content,
+  .qr-print-preview-card {
+    display: none !important;
+    visibility: hidden !important;
   }
 
   .qr-print-container {
