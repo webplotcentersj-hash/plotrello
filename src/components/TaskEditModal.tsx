@@ -23,6 +23,8 @@ type LocalAttachment = {
   previewUrl: string
   remoteUrl?: string
   uploading: boolean
+  type?: string // MIME type del archivo
+  file?: File // Referencia al archivo original para descarga
 }
 
 const COMPLEXITY_OPTIONS = ['Baja', 'Media', 'Alta']
@@ -58,6 +60,7 @@ const TaskEditModal = ({
   const [savingComment, setSavingComment] = useState(false)
   const attachmentsRef = useRef<LocalAttachment[]>([])
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
+  const [previewAttachment, setPreviewAttachment] = useState<LocalAttachment | null>(null)
 
   const taskHistory = useMemo(() => {
     if (!task) return []
@@ -260,7 +263,14 @@ const TaskEditModal = ({
     for (const file of Array.from(files)) {
       const id = crypto.randomUUID()
       const previewUrl = URL.createObjectURL(file)
-      setAttachments((prev) => [...prev, { id, name: file.name, previewUrl, uploading: true }])
+      setAttachments((prev) => [...prev, { 
+        id, 
+        name: file.name, 
+        previewUrl, 
+        uploading: true,
+        type: file.type,
+        file: file
+      }])
 
       try {
         const remoteUrl = await uploadAttachmentAndGetUrl(file, `capturas/${task?.id ?? 'sin-id'}`)
@@ -799,25 +809,71 @@ const TaskEditModal = ({
             <label>Archivos Adjuntos</label>
             {attachments.length > 0 && (
               <div className="attached-files">
-                {attachments.map((file) => (
-                  <div key={file.id} className="file-item">
-                    <div className="file-preview">
-                      {file.remoteUrl || file.previewUrl ? (
-                        <img src={file.remoteUrl ?? file.previewUrl} alt={file.name} />
-                      ) : (
-                        <span>{file.name}</span>
-                      )}
-                      {file.uploading && <span className="upload-pill">Subiendo...</span>}
+                {attachments.map((file) => {
+                  const isImage = file.type?.startsWith('image/')
+                  const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+                  const fileUrl = file.remoteUrl || file.previewUrl
+                  
+                  return (
+                    <div key={file.id} className="file-item">
+                      <div 
+                        className="file-preview"
+                        style={{ cursor: fileUrl && !file.uploading ? 'pointer' : 'default' }}
+                        onClick={() => {
+                          if (fileUrl && !file.uploading) {
+                            setPreviewAttachment(file)
+                          }
+                        }}
+                      >
+                        {isImage && fileUrl ? (
+                          <img src={fileUrl} alt={file.name} />
+                        ) : isPDF ? (
+                          <div className="file-icon pdf-icon">📄</div>
+                        ) : (
+                          <div className="file-icon">📎</div>
+                        )}
+                        <div className="file-info">
+                          <span className="file-name">{file.name}</span>
+                          {file.uploading && <span className="upload-pill">Subiendo...</span>}
+                        </div>
+                      </div>
+                      <div className="file-actions">
+                        {fileUrl && !file.uploading && (
+                          <button
+                            type="button"
+                            className="download-file"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const url = file.remoteUrl || file.previewUrl
+                              if (url) {
+                                const link = document.createElement('a')
+                                link.href = url
+                                link.download = file.name
+                                link.target = '_blank'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                              }
+                            }}
+                            title="Descargar"
+                          >
+                            ⬇️
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="delete-file"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveFile(file.id)
+                          }}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="delete-file"
-                      onClick={() => handleRemoveFile(file.id)}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
             {uploadError && <p className="upload-error">{uploadError}</p>}
