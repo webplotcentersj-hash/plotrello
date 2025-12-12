@@ -629,12 +629,21 @@ const ImpresorasPage = () => {
                 <select
                   value={nuevoEstado}
                   onChange={(e) => setNuevoEstado(e.target.value)}
-                  style={{ width: '100%', padding: '8px', marginTop: '5px', borderRadius: '6px' }}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    marginTop: '5px', 
+                    borderRadius: '6px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    fontSize: '14px'
+                  }}
                 >
-                  <option value="Disponible">Disponible</option>
-                  <option value="En Uso">En Uso</option>
-                  <option value="Mantenimiento">Mantenimiento</option>
-                  <option value="Fuera de Servicio">Fuera de Servicio</option>
+                  <option value="Disponible" style={{ background: '#1a1d2e', color: '#fff' }}>Disponible</option>
+                  <option value="En Uso" style={{ background: '#1a1d2e', color: '#fff' }}>En Uso</option>
+                  <option value="Mantenimiento" style={{ background: '#1a1d2e', color: '#fff' }}>Mantenimiento</option>
+                  <option value="Fuera de Servicio" style={{ background: '#1a1d2e', color: '#fff' }}>Fuera de Servicio</option>
                 </select>
               </label>
               <label>

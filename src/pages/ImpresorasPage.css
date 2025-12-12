@@ -305,6 +305,12 @@
   font-size: 14px;
 }
 
+.modal-form select option {
+  background: #1a1d2e;
+  color: #fff;
+  padding: 8px;
+}
+
 .modal-form input:focus,
 .modal-form select:focus,
 .modal-form textarea:focus {
