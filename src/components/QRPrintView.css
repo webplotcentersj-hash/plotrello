@@ -222,24 +222,31 @@
 }
 
 @media print {
-  /* Ocultar overlay y acciones del modal */
+  /* Configuración de página */
+  @page {
+    margin: 10mm;
+    size: A4;
+  }
+
+  /* Ocultar overlay, header y acciones del modal */
   .qr-print-modal-overlay,
   .qr-print-modal-header,
   .qr-print-actions,
-  .modal-close {
+  .modal-close,
+  .qr-print-modal-body > p {
     display: none !important;
     visibility: hidden !important;
   }
 
-  /* Mostrar el modal content y preview card */
+  /* Hacer que el modal content sea fullscreen y visible */
   .qr-print-modal-content {
     display: block !important;
     visibility: visible !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
+    width: 100% !important;
+    height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
@@ -255,69 +262,108 @@
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
+    align-items: center !important;
     visibility: visible !important;
   }
 
-  /* Ocultar el texto de "Vista previa" */
-  .qr-print-modal-body > p {
-    display: none !important;
+  /* Preview card - hacerlo directamente imprimible */
+  .qr-print-preview-card {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    page-break-inside: avoid !important;
   }
 
-  /* Asegurar que el preview card y todos sus elementos sean visibles */
-  .qr-print-preview-card,
   .qr-print-preview-card * {
     visibility: visible !important;
-    display: block !important;
+    color: #000 !important;
   }
 
-  .qr-print-preview-card .qr-print-header,
+  .qr-print-preview-card .qr-print-header {
+    display: flex !important;
+    visibility: visible !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 15px !important;
+    border-bottom: 2px solid #000 !important;
+  }
+
+  .qr-print-preview-card .qr-print-logo-img {
+    display: block !important;
+    visibility: visible !important;
+    width: 120px !important;
+    height: auto !important;
+    max-height: 120px !important;
+  }
+
+  .qr-print-preview-card .qr-print-op {
+    display: block !important;
+    visibility: visible !important;
+    font-size: 48px !important;
+    color: #000 !important;
+  }
+
+  .qr-print-preview-card .qr-print-cliente {
+    display: block !important;
+    visibility: visible !important;
+    font-size: 28px !important;
+    color: #000 !important;
+  }
+
   .qr-print-preview-card .qr-print-content {
     display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .qr-print-preview-card .qr-print-qr-container {
     display: block !important;
+    visibility: visible !important;
+    background: #f9fafb !important;
+    padding: 15px !important;
   }
 
-  .qr-print-preview-card img {
+  .qr-print-preview-card .qr-print-qr {
     display: block !important;
     visibility: visible !important;
+    width: 300px !important;
+    height: 300px !important;
   }
 
-  /* También mostrar la vista de impresión como backup */
-  .qr-print-view {
+  .qr-print-preview-card .qr-print-footer {
     display: block !important;
     visibility: visible !important;
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: white !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    z-index: 999998 !important;
-    overflow: visible !important;
-  }
-
-  .qr-print-view * {
-    visibility: visible !important;
+    text-align: center !important;
+    margin-top: 20px !important;
+    padding-top: 15px !important;
+    border-top: 1px solid #000 !important;
   }
 
   /* Ocultar todo lo demás */
-  body > *:not(.qr-print-modal-content):not(.qr-print-view) {
+  body > *:not(.qr-print-modal-content),
+  html > *:not(.qr-print-modal-content) {
     display: none !important;
     visibility: hidden !important;
   }
 
-  /* Asegurar que el body y html no oculten nada */
+  /* Asegurar que body y html sean visibles */
   html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: white !important;
     visibility: visible !important;
-  }
-
-  html > *:not(.qr-print-modal-content):not(.qr-print-view),
-  body > *:not(.qr-print-modal-content):not(.qr-print-view) {
-    visibility: hidden !important;
   }
 
   .qr-print-container {
