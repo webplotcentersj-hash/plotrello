@@ -913,6 +913,80 @@ const TaskEditModal = ({
           </button>
         </footer>
       </div>
+
+      {/* Modal de previsualización de archivos */}
+      {previewAttachment && (
+        <div className="modal-overlay" onClick={() => setPreviewAttachment(null)} style={{ zIndex: 2000 }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh' }}>
+            <header className="modal-header">
+              <h3>{previewAttachment.name}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setPreviewAttachment(null)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+              {previewAttachment.type?.startsWith('image/') ? (
+                <img 
+                  src={previewAttachment.remoteUrl || previewAttachment.previewUrl} 
+                  alt={previewAttachment.name}
+                  style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }}
+                />
+              ) : previewAttachment.type === 'application/pdf' || previewAttachment.name.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={previewAttachment.remoteUrl || previewAttachment.previewUrl}
+                  style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '8px' }}
+                  title={previewAttachment.name}
+                />
+              ) : (
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                  <p>Vista previa no disponible para este tipo de archivo</p>
+                  <a
+                    href={previewAttachment.remoteUrl || previewAttachment.previewUrl}
+                    download={previewAttachment.name}
+                    style={{ 
+                      display: 'inline-block', 
+                      marginTop: '20px', 
+                      padding: '10px 20px', 
+                      background: 'rgba(59, 130, 246, 0.2)', 
+                      color: '#60a5fa',
+                      borderRadius: '6px',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    Descargar archivo
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button
+                onClick={() => {
+                  const url = previewAttachment.remoteUrl || previewAttachment.previewUrl
+                  if (url) {
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = previewAttachment.name
+                    link.target = '_blank'
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                  }
+                }}
+                className="confirm-button"
+              >
+                ⬇️ Descargar
+              </button>
+              <button onClick={() => setPreviewAttachment(null)} className="cancel-button">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
