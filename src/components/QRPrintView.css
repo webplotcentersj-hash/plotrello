@@ -238,20 +238,22 @@
   }
 
   .qr-print-container {
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    padding: 20px;
-    background: white;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+    visibility: visible !important;
   }
   
   .qr-print-container > * {
     page-break-inside: avoid;
+    visibility: visible !important;
   }
 
   .qr-print-header {
