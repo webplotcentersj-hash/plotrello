@@ -222,19 +222,53 @@
 }
 
 @media print {
-  /* Ocultar TODO excepto la vista de impresión */
-  * {
-    visibility: hidden;
+  /* Ocultar overlay y acciones del modal */
+  .qr-print-modal-overlay,
+  .qr-print-modal-header,
+  .qr-print-actions,
+  .modal-close {
+    display: none !important;
+    visibility: hidden !important;
   }
 
-  /* Mostrar solo la vista de impresión y todo su contenido */
-  .qr-print-view,
-  .qr-print-view * {
+  /* Mostrar el modal content y preview card */
+  .qr-print-modal-content {
+    display: block !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    z-index: 999999 !important;
+  }
+
+  .qr-print-modal-body {
+    padding: 20px !important;
+    margin: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
     visibility: visible !important;
   }
 
+  /* Ocultar el texto de "Vista previa" */
+  .qr-print-modal-body > p {
+    display: none !important;
+  }
+
+  /* El preview card ya tiene sus estilos en el primer @media print */
+  
+  /* También mostrar la vista de impresión como backup */
   .qr-print-view {
     display: block !important;
+    visibility: visible !important;
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
@@ -243,15 +277,16 @@
     background: white !important;
     padding: 0 !important;
     margin: 0 !important;
-    z-index: 999999 !important;
+    z-index: 999998 !important;
     overflow: visible !important;
   }
 
-  /* Ocultar modal y preview */
-  .qr-print-modal-overlay,
-  .qr-print-modal-content,
-  .qr-print-preview-card,
-  .qr-print-actions {
+  .qr-print-view * {
+    visibility: visible !important;
+  }
+
+  /* Ocultar todo lo demás */
+  body > *:not(.qr-print-modal-content):not(.qr-print-view) {
     display: none !important;
     visibility: hidden !important;
   }
