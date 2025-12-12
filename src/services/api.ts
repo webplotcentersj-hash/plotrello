@@ -765,8 +765,9 @@ class ApiService {
         timestamp: new Date().toISOString()
       })
 
-      // Si la orden llega a "Finalizado en Taller", finalizar el uso de impresora si está asignada
-      if (nuevoEstado === 'Finalizado en Taller') {
+      // Si la orden llega a un estado final, finalizar el uso de impresora si está asignada
+      // El trigger en la BD también lo hará automáticamente, pero esto asegura que se haga inmediatamente
+      if (nuevoEstado === 'Finalizado en Taller' || nuevoEstado === 'Almacén de Entrega' || nuevoEstado === 'Entregado o Instalado') {
         try {
           const usoActivoResponse = await this.getUsoActivoPorOrden(id)
           if (usoActivoResponse.success && usoActivoResponse.data) {
