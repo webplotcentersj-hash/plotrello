@@ -64,7 +64,6 @@ const ImpresorasPage = () => {
   const [showHistorialModal, setShowHistorialModal] = useState(false)
   const [showTrabajosModal, setShowTrabajosModal] = useState(false)
   const [showGestionModal, setShowGestionModal] = useState(false)
-  const [showAsignarModal, setShowAsignarModal] = useState(false)
   const [historial, setHistorial] = useState<HistorialEstado[]>([])
   const [trabajosActivos, setTrabajosActivos] = useState<TrabajoActivo[]>([])
   const [nuevoEstado, setNuevoEstado] = useState<string>('Disponible')
