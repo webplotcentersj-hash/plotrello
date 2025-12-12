@@ -1678,6 +1678,7 @@ class ApiService {
 
   async finalizarUsoImpresora(usoId: number, impresoraId: number): Promise<ApiResponse<any>> {
     if (supabase) {
+      // Finalizar el uso actual
       const { data, error } = await supabase
         .from('impresora_uso')
         .update({
@@ -1690,16 +1691,29 @@ class ApiService {
 
       if (error) return { success: false, error: error.message }
       
-      // Verificar si hay otros usos activos para esta impresora
-      const { data: otrosUsos } = await supabase
+      // Verificar si hay otros usos activos para esta impresora (trabajos en cola)
+      const { data: otrosUsos, error: otrosUsosError } = await supabase
         .from('impresora_uso')
         .select('id')
         .eq('id_impresora', impresoraId)
         .eq('estado', 'En Proceso')
+        .order('fecha_inicio', { ascending: true })
         .limit(1)
 
-      // Si no hay otros usos activos, cambiar estado a "Disponible"
-      if (!otrosUsos || otrosUsos.length === 0) {
+      if (otrosUsosError) {
+        console.error('Error al verificar otros usos:', otrosUsosError)
+      }
+
+      // Si hay otros trabajos en cola, mantener "En Uso"
+      // Si no hay más trabajos, cambiar a "Disponible"
+      if (otrosUsos && otrosUsos.length > 0) {
+        // Mantener en "En Uso" porque hay trabajos en cola
+        await supabase
+          .from('impresoras')
+          .update({ estado: 'En Uso' })
+          .eq('id', impresoraId)
+      } else {
+        // No hay más trabajos, cambiar a "Disponible"
         await supabase
           .from('impresoras')
           .update({ estado: 'Disponible' })
