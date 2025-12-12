@@ -773,7 +773,6 @@ const ImpresorasPage = () => {
                   setFormNombre('')
                   setFormModelo('')
                   setFormCapacidad('24')
-                  setFormEstado('Disponible')
                   setShowCrearModal(true)
                 }}
                 className="confirm-button"
