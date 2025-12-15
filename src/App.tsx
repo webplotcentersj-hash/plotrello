@@ -15,9 +15,9 @@ import HerramientaPage from './pages/HerramientaPage'
 import MostradorDashboardPage from './pages/MostradorDashboardPage'
 import OrdenesListasPage from './pages/OrdenesListasPage'
 import BuscarClientePage from './pages/BuscarClientePage'
-import EntregaPage from './pages/EntregaPage'
-import CalendarioEntregasPage from './pages/CalendarioEntregasPage'
-import ReportesMostradorPage from './pages/ReportesMostradorPage'
+// import EntregaPage from './pages/EntregaPage' // TODO: Implementar
+// import CalendarioEntregasPage from './pages/CalendarioEntregasPage' // TODO: Implementar
+// import ReportesMostradorPage from './pages/ReportesMostradorPage' // TODO: Implementar
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -533,7 +533,8 @@ function AppRoutes({
         path="/mostrador/buscar-cliente"
         element={<BuscarClientePage />}
       />
-      <Route
+      {/* TODO: Implementar estas páginas */}
+      {/* <Route
         path="/mostrador/entrega/:id"
         element={<EntregaPage />}
       />
@@ -544,7 +545,7 @@ function AppRoutes({
       <Route
         path="/mostrador/reportes"
         element={<ReportesMostradorPage />}
-      />
+      /> */}
     </Routes>
     </>
   )
