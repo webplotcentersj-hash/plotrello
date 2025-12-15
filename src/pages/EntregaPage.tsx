@@ -14,7 +14,6 @@ const EntregaPage = () => {
   const [loading, setLoading] = useState(true)
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null)
   const [firmaDataUrl, setFirmaDataUrl] = useState<string | null>(null)
-  const [isDrawing, setIsDrawing] = useState(false)
   const [observaciones, setObservaciones] = useState('')
   const [entregadoA, setEntregadoA] = useState('')
   const [dniRetira, setDniRetira] = useState('')
@@ -56,34 +55,66 @@ const EntregaPage = () => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: false })
     if (!ctx) return
 
-    canvas.width = 400
-    canvas.height = 150
-    ctx.strokeStyle = '#000'
-    ctx.lineWidth = 1.5
+    // Configurar tamaño del canvas con alta resolución para mejor calidad
+    const dpr = window.devicePixelRatio || 1
+    const displayWidth = 600
+    const displayHeight = 200
+    
+    canvas.width = displayWidth * dpr
+    canvas.height = displayHeight * dpr
+    canvas.style.width = displayWidth + 'px'
+    canvas.style.height = displayHeight + 'px'
+    
+    // Escalar el contexto para la alta resolución
+    ctx.scale(dpr, dpr)
+    
+    // Configurar estilo de dibujo mejorado
+    ctx.strokeStyle = '#000000'
+    ctx.fillStyle = '#000000'
+    ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
+    ctx.globalCompositeOperation = 'source-over'
+    
+    // Suavizado para mejor calidad
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
 
     let lastX = 0
     let lastY = 0
+    let isDrawingLocal = false
+
+    const getCoordinates = (e: MouseEvent | TouchEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      return {
+        x: ((clientX - rect.left) / rect.width) * displayWidth,
+        y: ((clientY - rect.top) / rect.height) * displayHeight
+      }
+    }
 
     const startDrawing = (e: MouseEvent | TouchEvent) => {
-      setIsDrawing(true)
-      const rect = canvas.getBoundingClientRect()
-      const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left
-      const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top
-      lastX = x
-      lastY = y
+      isDrawingLocal = true
+      const coords = getCoordinates(e)
+      lastX = coords.x
+      lastY = coords.y
+      
+      // Dibujar un punto inicial para capturar clics rápidos
+      ctx.beginPath()
+      ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2)
+      ctx.fill()
     }
 
     const draw = (e: MouseEvent | TouchEvent) => {
-      if (!isDrawing) return
+      if (!isDrawingLocal) return
       e.preventDefault()
-      const rect = canvas.getBoundingClientRect()
-      const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left
-      const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top
+      const coords = getCoordinates(e)
+      const x = coords.x
+      const y = coords.y
 
       ctx.beginPath()
       ctx.moveTo(lastX, lastY)
@@ -95,8 +126,11 @@ const EntregaPage = () => {
     }
 
     const stopDrawing = () => {
-      setIsDrawing(false)
-      setFirmaDataUrl(canvas.toDataURL())
+      if (isDrawingLocal) {
+        isDrawingLocal = false
+        // Guardar con mejor calidad
+        setFirmaDataUrl(canvas.toDataURL('image/png', 1.0))
+      }
     }
 
     canvas.addEventListener('mousedown', startDrawing)
@@ -123,7 +157,7 @@ const EntregaPage = () => {
       const cleanup = initCanvas()
       return cleanup
     }
-  }, [loading, orden, isDrawing])
+  }, [loading, orden])
 
   const limpiarFirma = () => {
     const canvas = canvasRef.current

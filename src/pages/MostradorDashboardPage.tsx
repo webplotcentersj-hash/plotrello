@@ -211,7 +211,7 @@ const MostradorDashboardPage = () => {
           <div className="header-actions">
             <button 
               className="btn-primary"
-              onClick={() => navigate('/board')}
+              onClick={() => navigate('/')}
             >
               Ver Tablero
             </button>
