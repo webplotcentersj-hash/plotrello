@@ -110,6 +110,12 @@ const ComprasDashboardPage = () => {
               Ver Todos los Pedidos
             </button>
             <button
+              className="btn-primary"
+              onClick={() => navigate('/compras/reportes')}
+            >
+              📊 Reportes
+            </button>
+            <button
               className="btn-secondary"
               onClick={() => navigate('/')}
             >

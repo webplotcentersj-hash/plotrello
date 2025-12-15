@@ -21,6 +21,7 @@ import ReportesMostradorPage from './pages/ReportesMostradorPage'
 import ClientesFrecuentesPage from './pages/ClientesFrecuentesPage'
 import ComprasDashboardPage from './pages/ComprasDashboardPage'
 import PedidoCompraDetallePage from './pages/PedidoCompraDetallePage'
+import ReportesStockPage from './pages/ReportesStockPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -571,6 +572,10 @@ function AppRoutes({
       <Route
         path="/compras/pedidos/:id"
         element={<PedidoCompraDetallePage />}
+      />
+      <Route
+        path="/compras/reportes"
+        element={<ReportesStockPage />}
       />
     </Routes>
     </>

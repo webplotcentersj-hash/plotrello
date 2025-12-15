@@ -313,8 +313,14 @@ class ApiService {
                 return { success: false, error: `Error al obtener orden creada: ${fetchError.message}` }
               }
               
-              console.log('✅ Orden completa obtenida:', fullOrden)
-              return { success: true, data: fullOrden as OrdenTrabajo }
+              if (fullOrden) {
+                // Descontar stock si hay materiales asociados
+                await this.descontarStockDeOrden(fullOrden.id, fullOrden.numero_op || '')
+                console.log('✅ Orden completa obtenida:', fullOrden)
+                return { success: true, data: fullOrden as OrdenTrabajo }
+              }
+              
+              return { success: false, error: 'No se pudo obtener la orden creada' }
             } else {
               console.error('❌ La función retornó un ID inválido:', { data, ordenId, type: typeof ordenId })
               return { 
@@ -549,7 +555,13 @@ class ApiService {
               return { success: false, error: fetchError.message }
             }
             
-            return { success: true, data: fullOrden as OrdenTrabajo }
+            if (fullOrden) {
+              // Descontar stock si hay materiales asociados (solo si se actualizaron materiales)
+              // Nota: En actualización no descontamos automáticamente, solo al crear
+              return { success: true, data: fullOrden as OrdenTrabajo }
+            }
+            
+            return { success: false, error: 'No se pudo obtener la orden actualizada' }
           }
         } catch (err) {
           console.warn('⚠️ Error al usar función SQL, continuando con método normal:', err)
@@ -2439,6 +2451,187 @@ class ApiService {
   }
 
   // ===== STOCK =====
+  // Función privada para descontar stock al crear una orden
+  private async descontarStockDeOrden(ordenId: number, numeroOp: string): Promise<void> {
+    if (!supabase || !stockSupabase) return
+
+    try {
+      // Obtener materiales asociados a la orden desde orden_materiales
+      const { data: ordenMateriales, error: materialesError } = await supabase
+        .from('orden_materiales')
+        .select('id_material, cantidad, materiales(id, codigo, descripcion)')
+        .eq('id_orden', ordenId)
+
+      if (materialesError || !ordenMateriales || ordenMateriales.length === 0) {
+        // No hay materiales asociados, no hacer nada
+        return
+      }
+
+      const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
+      const usuarioData = localStorage.getItem('usuario')
+      const nombreUsuario = usuarioData ? JSON.parse(usuarioData).nombre || 'Sistema' : 'Sistema'
+
+      // Para cada material, buscar en stock y descontar
+      for (const ordenMaterial of ordenMateriales) {
+        const material = ordenMaterial.materiales as any
+        if (!material) continue
+
+        // Buscar artículo en stock por código o descripción
+        let articuloStock: ArticuloStock | null = null
+
+        if (material.codigo) {
+          const { data: articulosPorCodigo } = await stockSupabase
+            .from('articulos')
+            .select('*')
+            .eq('codigo', material.codigo)
+            .maybeSingle()
+
+          if (articulosPorCodigo) {
+            articuloStock = articulosPorCodigo as ArticuloStock
+          }
+        }
+
+        // Si no se encontró por código, buscar por descripción
+        if (!articuloStock && material.descripcion) {
+          const { data: articulosPorDesc } = await stockSupabase
+            .from('articulos')
+            .select('*')
+            .ilike('descripcion', `%${material.descripcion}%`)
+            .limit(1)
+            .maybeSingle()
+
+          if (articulosPorDesc) {
+            articuloStock = articulosPorDesc as ArticuloStock
+          }
+        }
+
+        if (articuloStock && articuloStock.stock !== null && articuloStock.stock > 0) {
+          const cantidadAnterior = articuloStock.stock
+          const cantidadADescontar = Number(ordenMaterial.cantidad) || 1
+          const cantidadNueva = Math.max(0, cantidadAnterior - cantidadADescontar)
+
+          // Actualizar stock en la base de stock
+          await stockSupabase
+            .from('articulos')
+            .update({ stock: cantidadNueva })
+            .eq('id', articuloStock.id)
+
+          // Registrar movimiento de stock
+          await supabase.from('stock_movimientos').insert({
+            id_articulo_stock: articuloStock.id,
+            codigo_articulo: articuloStock.codigo || null,
+            descripcion: articuloStock.descripcion,
+            tipo_movimiento: 'Salida',
+            cantidad: cantidadADescontar,
+            cantidad_anterior: cantidadAnterior,
+            cantidad_nueva: cantidadNueva,
+            motivo: `Orden de trabajo ${numeroOp}`,
+            id_orden_trabajo: ordenId,
+            id_usuario: usuarioId,
+            nombre_usuario: nombreUsuario
+          })
+
+          // Verificar si el stock quedó bajo y crear alerta si es necesario
+          if (cantidadNueva <= 10 && cantidadNueva > 0) {
+            await this.crearAlertaStockBajo(articuloStock, cantidadNueva)
+          } else if (cantidadNueva === 0) {
+            await this.crearAlertaStockAgotado(articuloStock)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error descontando stock de orden:', error)
+      // No lanzar error para no interrumpir la creación de la orden
+    }
+  }
+
+  // Función privada para crear alerta de stock bajo
+  private async crearAlertaStockBajo(articulo: ArticuloStock, stockActual: number): Promise<void> {
+    if (!supabase) return
+
+    try {
+      // Verificar si ya existe una notificación reciente para este artículo
+      const hace24Horas = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      
+      const { data: notificacionesExistentes } = await supabase
+        .from('user_notifications')
+        .select('id')
+        .eq('type', 'stock_bajo')
+        .eq('related_id', articulo.id.toString())
+        .gte('timestamp', hace24Horas)
+        .limit(1)
+
+      // Si ya hay una notificación reciente, no crear otra
+      if (notificacionesExistentes && notificacionesExistentes.length > 0) {
+        return
+      }
+
+      // Crear notificación para usuarios de compras y admin
+      const { data: usuariosCompras } = await supabase
+        .from('usuarios')
+        .select('id')
+        .in('rol', ['compras', 'administracion', 'gerencia'])
+
+      if (usuariosCompras) {
+        for (const usuario of usuariosCompras) {
+          await supabase.from('user_notifications').insert({
+            user_id: usuario.id,
+            type: 'stock_bajo',
+            title: `Stock Bajo: ${articulo.descripcion}`,
+            description: `El artículo "${articulo.descripcion}" tiene stock bajo (${stockActual} unidades).`,
+            related_id: articulo.id.toString(),
+            read: false
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error creando alerta de stock bajo:', error)
+    }
+  }
+
+  // Función privada para crear alerta de stock agotado
+  private async crearAlertaStockAgotado(articulo: ArticuloStock): Promise<void> {
+    if (!supabase) return
+
+    try {
+      // Verificar si ya existe una notificación reciente
+      const hace24Horas = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      
+      const { data: notificacionesExistentes } = await supabase
+        .from('user_notifications')
+        .select('id')
+        .eq('type', 'stock_agotado')
+        .eq('related_id', articulo.id.toString())
+        .gte('timestamp', hace24Horas)
+        .limit(1)
+
+      if (notificacionesExistentes && notificacionesExistentes.length > 0) {
+        return
+      }
+
+      // Crear notificación para usuarios de compras y admin
+      const { data: usuariosCompras } = await supabase
+        .from('usuarios')
+        .select('id')
+        .in('rol', ['compras', 'administracion', 'gerencia'])
+
+      if (usuariosCompras) {
+        for (const usuario of usuariosCompras) {
+          await supabase.from('user_notifications').insert({
+            user_id: usuario.id,
+            type: 'stock_agotado',
+            title: `⚠️ Stock Agotado: ${articulo.descripcion}`,
+            description: `El artículo "${articulo.descripcion}" se ha agotado. Se requiere reposición urgente.`,
+            related_id: articulo.id.toString(),
+            read: false
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error creando alerta de stock agotado:', error)
+    }
+  }
+
   async getArticulosStock(search?: string, stockBajo?: boolean): Promise<ApiResponse<ArticuloStock[]>> {
     if (stockSupabase) {
       try {
@@ -2452,8 +2645,8 @@ class ApiService {
         }
 
         if (stockBajo) {
-          // Asumimos que hay un campo stock_minimo, si no existe, usar stock <= 10
-          query = query.or('stock.lte.10,stock_minimo.gte.stock')
+          // Filtrar artículos con stock bajo (<= 10) o agotado (<= 0)
+          query = query.or('stock.lte.10')
         }
 
         const { data, error } = await query
