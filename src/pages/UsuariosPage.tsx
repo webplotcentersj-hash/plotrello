@@ -19,6 +19,7 @@ const UsuariosPage = ({ onBack }: { onBack: () => void }) => {
     { value: 'metalurgica', label: 'Metalúrgica', color: '#ec4899' },
     { value: 'caja', label: 'Caja', color: '#facc15' },
     { value: 'mostrador', label: 'Mostrador', color: '#10b981' },
+    { value: 'compras', label: 'Compras', color: '#8b5cf6' },
     { value: 'recursos-humanos', label: 'Recursos Humanos', color: '#f472b6' },
     { value: 'gerencia', label: 'Gerencia', color: '#0ea5e9' }
   ]
