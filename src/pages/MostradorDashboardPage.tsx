@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
 import type { OrdenTrabajo } from '../types/api'
 import './MostradorDashboardPage.css'
 
@@ -21,12 +22,21 @@ type Atencion = {
 const MostradorDashboardPage = () => {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
-  // usuario se usará cuando implementemos el registro de atenciones
+  const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
+  
+  const handleRegistrarAtencionSuccess = () => {
+    loadAtencionesHoy()
+    if (isAdmin) {
+      loadMetricas(ordenesCreadasCount)
+    }
+  }
   const [loading, setLoading] = useState(true)
   const [ordenesListas, setOrdenesListas] = useState<OrdenTrabajo[]>([])
   const [ordenesPendientesHoy, setOrdenesPendientesHoy] = useState<OrdenTrabajo[]>([])
   const [atencionesHoy, setAtencionesHoy] = useState<Atencion[]>([])
   const [, setOrdenesCreadasHoy] = useState<OrdenTrabajo[]>([])
+  const [ordenesActivas, setOrdenesActivas] = useState<OrdenTrabajo[]>([])
+  const [showRegistrarAtencion, setShowRegistrarAtencion] = useState(false)
   
   // Métricas (solo admin)
   const [metricas, setMetricas] = useState({
@@ -75,6 +85,16 @@ const MostradorDashboardPage = () => {
           return fechaCreacion.getTime() === hoy.getTime()
         })
         setOrdenesCreadasHoy(creadasHoy)
+        setOrdenesCreadasCount(creadasHoy.length)
+
+        // Órdenes activas (no finalizadas ni entregadas)
+        const activas = ordenesResponse.data.filter(
+          (orden) => 
+            orden.estado !== 'Entregado o Instalado' &&
+            orden.estado !== 'Finalizado en Taller' &&
+            orden.estado !== 'Almacén de Entrega'
+        )
+        setOrdenesActivas(activas)
 
         // Cargar atenciones del día (si existe la tabla)
         await loadAtencionesHoy()
@@ -262,6 +282,13 @@ const MostradorDashboardPage = () => {
         <div className="acciones-grid">
           <button 
             className="accion-card"
+            onClick={() => setShowRegistrarAtencion(true)}
+          >
+            <div className="accion-icon">📝</div>
+            <div className="accion-label">Registrar Atención</div>
+          </button>
+          <button 
+            className="accion-card"
             onClick={() => navigate('/board')}
           >
             <div className="accion-icon">➕</div>
@@ -283,6 +310,9 @@ const MostradorDashboardPage = () => {
           >
             <div className="accion-icon">🔍</div>
             <div className="accion-label">Buscar Cliente</div>
+            {ordenesActivas.length > 0 && (
+              <span className="badge">{ordenesActivas.length} activas</span>
+            )}
           </button>
           <button 
             className="accion-card"
@@ -291,6 +321,15 @@ const MostradorDashboardPage = () => {
             <div className="accion-icon">📅</div>
             <div className="accion-label">Calendario de Entregas</div>
           </button>
+          {isAdmin && (
+            <button 
+              className="accion-card"
+              onClick={() => navigate('/mostrador/reportes')}
+            >
+              <div className="accion-icon">📊</div>
+              <div className="accion-label">Reportes</div>
+            </button>
+          )}
         </div>
       </section>
 
@@ -388,6 +427,14 @@ const MostradorDashboardPage = () => {
             ))}
           </div>
         </section>
+      )}
+
+      {/* Modal de Registrar Atención */}
+      {showRegistrarAtencion && (
+        <RegistrarAtencionModal
+          onClose={() => setShowRegistrarAtencion(false)}
+          onSuccess={handleRegistrarAtencionSuccess}
+        />
       )}
     </div>
   )
