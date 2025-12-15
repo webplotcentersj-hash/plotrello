@@ -15,10 +15,12 @@ type HeaderProps = {
   onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
   onNavigateToHerramienta?: () => void
+  onNavigateToMostrador?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
   onLogout?: () => void
   isAdmin?: boolean
+  isMostrador?: boolean
   isCompact?: boolean
   onToggleCompact?: () => void
 }
@@ -33,10 +35,12 @@ const Header = ({
   onNavigateToGantt,
   onNavigateToUsuarios,
   onNavigateToHerramienta,
+  onNavigateToMostrador,
   onOpenChatAI,
   onNavigateToChat,
   onLogout,
   isAdmin = false,
+  isMostrador = false,
   isCompact = false,
   onToggleCompact
 }: HeaderProps) => {
@@ -122,6 +126,11 @@ const Header = ({
             {onNavigateToHerramienta && (
               <button className="brand-button" onClick={onNavigateToHerramienta}>
                 🛠️ Nueva Herramienta
+              </button>
+            )}
+            {(isMostrador || isAdmin) && onNavigateToMostrador && (
+              <button className="brand-button" onClick={onNavigateToMostrador}>
+                📋 Dashboard Mostrador
               </button>
             )}
             {onOptimizeSprint && (

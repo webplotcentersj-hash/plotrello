@@ -35,6 +35,7 @@ type BoardPageProps = {
   onNavigateToUsuarios?: () => void
   onNavigateToChat?: () => void
   onNavigateToHerramienta?: () => void
+  onNavigateToMostrador?: () => void
   onLogout?: () => void
   onReloadData?: () => Promise<void>
   isSyncing?: boolean
@@ -57,6 +58,7 @@ const BoardPage = ({
   onNavigateToUsuarios,
   onNavigateToChat,
   onNavigateToHerramienta,
+  onNavigateToMostrador,
   onLogout,
   onReloadData,
   isSyncing,
@@ -66,7 +68,7 @@ const BoardPage = ({
   isCompact,
   onToggleCompact
 }: BoardPageProps) => {
-  const { usuario, isAdmin } = useAuth()
+  const { usuario, isAdmin, isMostrador } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')
@@ -514,9 +516,11 @@ const BoardPage = ({
         onNavigateToUsuarios={onNavigateToUsuarios}
         onNavigateToChat={onNavigateToChat}
         onNavigateToHerramienta={onNavigateToHerramienta}
+        onNavigateToMostrador={onNavigateToMostrador}
         onOpenChatAI={() => setIsChatAIOpen(true)}
         onLogout={onLogout}
         isAdmin={isAdmin}
+        isMostrador={isMostrador}
         isCompact={isCompact}
         onToggleCompact={onToggleCompact}
       />

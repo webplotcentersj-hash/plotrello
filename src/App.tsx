@@ -12,6 +12,8 @@ import GanttPage from './pages/GanttPage'
 import OpViewPage from './pages/OpViewPage'
 import OpPublicPage from './pages/OpPublicPage'
 import HerramientaPage from './pages/HerramientaPage'
+import MostradorDashboardPage from './pages/MostradorDashboardPage'
+import OrdenesListasPage from './pages/OrdenesListasPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -456,6 +458,7 @@ function AppRoutes({
             onNavigateToUsuarios={() => navigate('/usuarios')}
             onNavigateToChat={() => navigate('/chat')}
             onNavigateToHerramienta={() => navigate('/herramienta')}
+            onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -509,6 +512,18 @@ function AppRoutes({
       <Route
         path="/herramienta"
         element={<HerramientaPage onBack={() => navigate('/')} />}
+      />
+      <Route
+        path="/mostrador/dashboard"
+        element={<MostradorDashboardPage />}
+      />
+      <Route
+        path="/mostrador"
+        element={<MostradorDashboardPage />}
+      />
+      <Route
+        path="/mostrador/ordenes-listas"
+        element={<OrdenesListasPage />}
       />
     </Routes>
     </>
