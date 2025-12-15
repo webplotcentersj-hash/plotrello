@@ -1259,11 +1259,21 @@ class ApiService {
 
     if (supabase) {
       // Usar función RPC para crear usuario con hash de contraseña
+      console.log('🔍 [createUsuario] Intentando crear usuario:', {
+        nombre: usuario.nombre.trim(),
+        rol: usuario.rol,
+        rolType: typeof usuario.rol,
+        rolLength: usuario.rol?.length,
+        rolCharCodes: usuario.rol?.split('').map(c => c.charCodeAt(0))
+      })
+      
       const { data, error } = await supabase.rpc('crear_usuario', {
         p_nombre: usuario.nombre.trim(),
         p_password: usuario.password,
         p_rol: usuario.rol
       })
+
+      console.log('🔍 [createUsuario] Respuesta RPC:', { data, error })
 
       if (!error && data && Array.isArray(data) && data.length > 0) {
         return { success: true, data: data[0] as UsuarioRecord }
@@ -1272,6 +1282,13 @@ class ApiService {
       // Si hay error específico de la RPC, retornar inmediatamente sin intentar fallbacks
       if (error) {
         const errorMsg = error.message || 'Error al crear usuario'
+        console.error('❌ [createUsuario] Error de RPC:', {
+          message: errorMsg,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          fullError: error
+        })
         // Si es un error de validación (rol inválido, usuario duplicado, etc), no intentar fallbacks
         if (errorMsg.includes('Rol inválido') || errorMsg.includes('duplicate') || errorMsg.includes('unique')) {
           return { success: false, error: errorMsg }
