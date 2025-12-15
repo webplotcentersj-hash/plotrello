@@ -11,6 +11,7 @@ const GestionStockPage = () => {
   const [loading, setLoading] = useState(true)
   const [articulos, setArticulos] = useState<ArticuloStock[]>([])
   const [busqueda, setBusqueda] = useState('')
+  const [busquedaDebounce, setBusquedaDebounce] = useState('')
   const [mostrarModal, setMostrarModal] = useState(false)
   const [articuloEditando, setArticuloEditando] = useState<ArticuloStock | null>(null)
   const [formData, setFormData] = useState({
@@ -21,9 +22,13 @@ const GestionStockPage = () => {
     unidad: 'unidad',
     precio: 0,
     categoria: '',
-    proveedor: ''
+    proveedor: '',
+    sector: 'Gral'
   })
   const [mostrarStockBajo, setMostrarStockBajo] = useState(false)
+  const [filtroSector, setFiltroSector] = useState<string>('Todos')
+  
+  const sectores = ['Todos', 'Gral', 'Imprenta', 'Mostrador', 'Taller', 'Compras']
 
   useEffect(() => {
     if (authLoading) return
@@ -34,14 +39,25 @@ const GestionStockPage = () => {
     }
     loadArticulos()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManageCompras, navigate, authLoading, mostrarStockBajo])
+  }, [canManageCompras, navigate, authLoading, mostrarStockBajo, filtroSector, busquedaDebounce])
+
+  // Debounce para la búsqueda - espera 500ms después de que el usuario deje de escribir
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBusquedaDebounce(busqueda)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [busqueda])
 
   const loadArticulos = async () => {
     setLoading(true)
     try {
+      const sectorFiltro = filtroSector === 'Todos' ? undefined : filtroSector
       const response = await apiService.getArticulosStock(
-        busqueda.trim() || undefined,
-        mostrarStockBajo
+        busquedaDebounce.trim() || undefined,
+        mostrarStockBajo,
+        sectorFiltro
       )
       if (response.success && response.data) {
         setArticulos(response.data)
@@ -59,13 +75,6 @@ const GestionStockPage = () => {
     }
   }
 
-  useEffect(() => {
-    if (!authLoading && canManageCompras) {
-      loadArticulos()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda])
-
   const abrirModalNuevo = () => {
     setArticuloEditando(null)
     setFormData({
@@ -76,7 +85,8 @@ const GestionStockPage = () => {
       unidad: 'unidad',
       precio: 0,
       categoria: '',
-      proveedor: ''
+      proveedor: '',
+      sector: 'Gral'
     })
     setMostrarModal(true)
   }
@@ -91,7 +101,8 @@ const GestionStockPage = () => {
       unidad: articulo.unidad || 'unidad',
       precio: articulo.precio || 0,
       categoria: articulo.categoria || '',
-      proveedor: articulo.proveedor || ''
+      proveedor: articulo.proveedor || '',
+      sector: articulo.sector || 'Gral'
     })
     setMostrarModal(true)
   }
@@ -235,6 +246,9 @@ const GestionStockPage = () => {
               placeholder="Buscar por código o descripción..."
               className="search-input"
             />
+            {busquedaDebounce !== busqueda && (
+              <span className="search-indicator">Buscando...</span>
+            )}
           </div>
           <div className="filter-group">
             <label className="checkbox-label">
@@ -245,6 +259,28 @@ const GestionStockPage = () => {
               />
               Solo Stock Bajo/Agotado
             </label>
+          </div>
+        </div>
+        
+        {/* Filtros de Sector */}
+        <div className="sector-filters">
+          <h3 className="sector-filters-title">Filtrar por Sector:</h3>
+          <div className="sector-buttons">
+            {sectores.map((sector) => (
+              <button
+                key={sector}
+                className={`sector-btn ${filtroSector === sector ? 'active' : ''}`}
+                onClick={() => setFiltroSector(sector)}
+              >
+                {sector === 'Todos' && '📦'}
+                {sector === 'Gral' && '📁'}
+                {sector === 'Imprenta' && '🖨️'}
+                {sector === 'Mostrador' && '🖥️'}
+                {sector === 'Taller' && '🔧'}
+                {sector === 'Compras' && '🛒'}
+                {sector}
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -440,6 +476,20 @@ const GestionStockPage = () => {
                     placeholder="Proveedor (opcional)"
                   />
                 </div>
+              </div>
+              <div className="form-group">
+                <label>Sector:</label>
+                <select
+                  value={formData.sector}
+                  onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                  className="form-select"
+                >
+                  <option value="Gral">General</option>
+                  <option value="Imprenta">Imprenta</option>
+                  <option value="Mostrador">Mostrador</option>
+                  <option value="Taller">Taller</option>
+                  <option value="Compras">Compras</option>
+                </select>
               </div>
             </div>
             <div className="modal-footer">

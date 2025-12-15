@@ -2670,6 +2670,7 @@ class ApiService {
     precio?: number
     categoria?: string
     proveedor?: string
+    sector?: string
   }): Promise<ApiResponse<ArticuloStock>> {
     if (!stockSupabase) {
       return { success: false, error: 'No hay conexión a la base de datos de stock. Verifica VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY' }
@@ -2688,7 +2689,8 @@ class ApiService {
           unidad: articulo.unidad || 'unidad',
           precio: articulo.precio !== null && articulo.precio !== undefined ? Number(articulo.precio) : null,
           categoria: articulo.categoria || null,
-          proveedor: articulo.proveedor || null
+          proveedor: articulo.proveedor || null,
+          sector: articulo.sector || 'Gral'
         })
         .select()
         .single()
@@ -2727,6 +2729,7 @@ class ApiService {
       precio?: number
       categoria?: string
       proveedor?: string
+      sector?: string
     }
   ): Promise<ApiResponse<ArticuloStock>> {
     if (!stockSupabase) {
@@ -2755,6 +2758,7 @@ class ApiService {
       if (articulo.precio !== undefined) updateData.precio = articulo.precio !== null && articulo.precio !== undefined ? Number(articulo.precio) : null
       if (articulo.categoria !== undefined) updateData.categoria = articulo.categoria || null
       if (articulo.proveedor !== undefined) updateData.proveedor = articulo.proveedor || null
+      if (articulo.sector !== undefined) updateData.sector = articulo.sector || 'Gral'
 
       const { data, error } = await stockSupabase
         .from('articulos')
@@ -2786,28 +2790,40 @@ class ApiService {
     }
   }
 
-  async getArticulosStock(search?: string, stockBajo?: boolean): Promise<ApiResponse<ArticuloStock[]>> {
+  async getArticulosStock(search?: string, stockBajo?: boolean, sector?: string): Promise<ApiResponse<ArticuloStock[]>> {
     if (!stockSupabase) {
       console.warn('⚠️ No hay conexión a la base de datos de stock. Verifica VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY')
       return { success: false, error: 'No hay conexión a la base de datos de stock. Verifica las variables de entorno VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY' }
     }
 
     try {
-      console.log('📦 Obteniendo artículos de stock:', { search, stockBajo })
+      console.log('📦 Obteniendo artículos de stock:', { search, stockBajo, sector })
 
       let query = stockSupabase
         .from('articulos')
-        .select('id, codigo, descripcion, stock, stock_minimo, unidad, precio, categoria, proveedor, activo')
+        .select('id, codigo, descripcion, stock, stock_minimo, unidad, precio, categoria, proveedor, activo, sector')
         .order('descripcion', { ascending: true })
 
+      // Filtrar por sector
+      if (sector && sector !== 'Todos') {
+        if (sector === 'Gral') {
+          query = query.or('sector.is.null,sector.eq.Gral')
+        } else {
+          query = query.eq('sector', sector)
+        }
+      }
+
+      // Búsqueda mejorada - busca en descripción y código
       if (search && search.trim().length >= 2) {
-        query = query.or(`descripcion.ilike.%${search.trim()}%,codigo.ilike.%${search.trim()}%`)
+        const searchTerm = search.trim()
+        query = query.or(`descripcion.ilike.%${searchTerm}%,codigo.ilike.%${searchTerm}%`)
       }
 
       if (stockBajo) {
         // Filtrar artículos con stock bajo (<= stock_minimo) o agotado (<= 0 o null)
-        // Usar una consulta más compleja que maneje nulls
-        query = query.or('stock.is.null,stock.lte.0,stock.lte.stock_minimo')
+        query = query.or('stock.is.null,stock.lte.0')
+        // También filtrar por stock <= stock_minimo cuando ambos existen
+        // Esto requiere una consulta más compleja, pero por ahora usamos el filtro básico
       }
 
       const { data, error } = await query
@@ -2820,8 +2836,18 @@ class ApiService {
         }
       }
 
+      // Filtrar por stock bajo si es necesario (filtro adicional en memoria para casos complejos)
+      let articulosFiltrados = data || []
+      if (stockBajo) {
+        articulosFiltrados = articulosFiltrados.filter((art: any) => {
+          const stock = art.stock !== null && art.stock !== undefined ? Number(art.stock) : 0
+          const stockMinimo = art.stock_minimo !== null && art.stock_minimo !== undefined ? Number(art.stock_minimo) : 10
+          return stock === 0 || stock <= stockMinimo
+        })
+      }
+
       // Normalizar los datos para asegurar tipos correctos
-      const articulosNormalizados = (data || []).map((art: any) => ({
+      const articulosNormalizados = articulosFiltrados.map((art: any) => ({
         id: art.id,
         codigo: art.codigo || null,
         descripcion: art.descripcion,
@@ -2831,7 +2857,8 @@ class ApiService {
         precio: art.precio !== null && art.precio !== undefined ? Number(art.precio) : null,
         categoria: art.categoria || null,
         proveedor: art.proveedor || null,
-        activo: art.activo !== null && art.activo !== undefined ? Boolean(art.activo) : true
+        activo: art.activo !== null && art.activo !== undefined ? Boolean(art.activo) : true,
+        sector: art.sector || 'Gral'
       }))
 
       console.log(`✅ Artículos obtenidos: ${articulosNormalizados.length}`)

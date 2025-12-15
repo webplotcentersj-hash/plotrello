@@ -97,5 +97,6 @@ export interface ArticuloStock {
   categoria?: string | null
   stock_minimo?: number | null
   activo?: boolean | null
+  sector?: string | null
 }
 
