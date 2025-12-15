@@ -7,18 +7,21 @@ import './ComprasDashboardPage.css'
 
 const ComprasDashboardPage = () => {
   const navigate = useNavigate()
-  const { canManageCompras } = useAuth()
+  const { canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
 
   useEffect(() => {
+    if (authLoading) return // Esperar a que termine la carga de autenticación
+    
     if (!canManageCompras) {
       navigate('/')
       return
     }
     loadPedidos()
-  }, [filtroEstado, canManageCompras])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroEstado, canManageCompras, navigate, authLoading])
 
   const loadPedidos = async () => {
     setLoading(true)
@@ -83,12 +86,25 @@ const ComprasDashboardPage = () => {
     return colores[prioridad] || '#6b7280'
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="compras-dashboard-page">
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!canManageCompras) {
+    return (
+      <div className="compras-dashboard-page">
+        <div className="error-container">
+          <p>No tienes permiso para acceder a esta página.</p>
+          <button className="btn-primary" onClick={() => navigate('/')}>
+            Volver al Tablero
+          </button>
         </div>
       </div>
     )

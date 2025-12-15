@@ -9,7 +9,7 @@ import './ReportesStockPage.css'
 
 const ReportesStockPage = () => {
   const navigate = useNavigate()
-  const { canManageCompras } = useAuth()
+  const { canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [articulos, setArticulos] = useState<ArticuloStock[]>([])
   const [movimientos, setMovimientos] = useState<StockMovimiento[]>([])
@@ -26,12 +26,15 @@ const ReportesStockPage = () => {
   const reporteRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (authLoading) return // Esperar a que termine la carga de autenticación
+    
     if (!canManageCompras) {
       navigate('/')
       return
     }
     loadData()
-  }, [filtroStock, fechaDesde, fechaHasta, canManageCompras])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroStock, fechaDesde, fechaHasta, canManageCompras, navigate, authLoading])
 
   const loadData = async () => {
     setLoading(true)
@@ -147,12 +150,25 @@ const ReportesStockPage = () => {
 
   const stats = getEstadisticas()
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="reportes-stock-page">
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Cargando reportes...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!canManageCompras) {
+    return (
+      <div className="reportes-stock-page">
+        <div className="error-container">
+          <p>No tienes permiso para acceder a esta página.</p>
+          <button className="btn-primary" onClick={() => navigate('/compras/dashboard')}>
+            Volver al Dashboard
+          </button>
         </div>
       </div>
     )
