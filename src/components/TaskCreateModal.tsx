@@ -85,6 +85,9 @@ const TaskCreateModal = ({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [etiquetasDisponibles, setEtiquetasDisponibles] = useState<Array<{ nombre: string; veces_usada: number }>>([])
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([])
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false)
   const [isMaterialDropdownOpen, setIsMaterialDropdownOpen] = useState(false)
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
@@ -209,6 +212,10 @@ const TaskCreateModal = ({
     // El primer sector es donde aparecerá la primera ficha (se crearán automáticamente las demás)
     const primerSector = selectedSectores[0]
 
+    console.log('🏷️ [TaskCreateModal] Tags antes de crear orden:', tags)
+    console.log('🏷️ [TaskCreateModal] Tags es array:', Array.isArray(tags))
+    console.log('🏷️ [TaskCreateModal] Tags length:', tags?.length)
+    
     const newTask: Omit<Task, 'id'> & { attachments?: LocalAttachment[] } = {
       opNumber,
       title: cliente,
@@ -223,7 +230,7 @@ const TaskCreateModal = ({
       sectores: selectedSectores, // Array de sectores requeridos - se crearán N fichas automáticamente
       esSubTarea: false, // Es ficha principal
       photoUrl: photoUrl || '',
-      tags,
+      tags: tags && tags.length > 0 ? tags : [], // Asegurar que siempre sea un array
       storyPoints: 0,
       progress: 0,
       createdAt: new Date().toISOString(),
@@ -239,6 +246,7 @@ const TaskCreateModal = ({
       attachments: attachments.filter(a => a.remoteUrl && !a.uploading) // Solo archivos listos
     }
 
+    console.log('🏷️ [TaskCreateModal] newTask.tags:', newTask.tags)
     await onCreate(newTask, { openChecklist })
     onClose()
   }
@@ -268,12 +276,91 @@ const TaskCreateModal = ({
     setMaterials(materials.filter((_, i) => i !== index))
   }
 
-  const handleAddTag = () => {
+  // Cargar etiquetas disponibles al montar el componente
+  useEffect(() => {
+    const loadEtiquetasDisponibles = async () => {
+      try {
+        const response = await apiService.getEtiquetasDisponibles()
+        if (response.success && response.data) {
+          setEtiquetasDisponibles(response.data)
+        }
+      } catch (error) {
+        console.error('Error cargando etiquetas disponibles:', error)
+      }
+    }
+    loadEtiquetasDisponibles()
+  }, [])
+
+  // Filtrar sugerencias basadas en el input
+  useEffect(() => {
+    if (tagInput.trim().length > 0) {
+      const filtered = etiquetasDisponibles
+        .filter(e => e.nombre.toLowerCase().includes(tagInput.toLowerCase()))
+        .map(e => e.nombre)
+        .filter(nombre => !tags.includes(nombre))
+        .slice(0, 5) // Máximo 5 sugerencias
+      setTagSuggestions(filtered)
+      setIsTagDropdownOpen(filtered.length > 0)
+    } else {
+      setTagSuggestions([])
+      setIsTagDropdownOpen(false)
+    }
+  }, [tagInput, etiquetasDisponibles, tags])
+
+  const handleAddTag = async () => {
     const value = tagInput.trim()
     if (!value) return
     if (tags.includes(value)) return
+    
+    // Guardar etiqueta en la base de datos
+    try {
+      await apiService.guardarEtiquetaDisponible(value)
+      // Actualizar la lista local
+      const existingIndex = etiquetasDisponibles.findIndex(e => e.nombre.toLowerCase() === value.toLowerCase())
+      if (existingIndex >= 0) {
+        const updated = [...etiquetasDisponibles]
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          veces_usada: updated[existingIndex].veces_usada + 1
+        }
+        setEtiquetasDisponibles(updated)
+      } else {
+        setEtiquetasDisponibles([...etiquetasDisponibles, { nombre: value.toLowerCase(), veces_usada: 1 }])
+      }
+    } catch (error) {
+      console.error('Error guardando etiqueta:', error)
+    }
+    
     setTags((prev) => [...prev, value])
     setTagInput('')
+    setIsTagDropdownOpen(false)
+  }
+
+  const handleSelectTagSuggestion = async (suggestion: string) => {
+    if (tags.includes(suggestion)) return
+    
+    // Guardar etiqueta en la base de datos
+    try {
+      await apiService.guardarEtiquetaDisponible(suggestion)
+      // Actualizar la lista local
+      const existingIndex = etiquetasDisponibles.findIndex(e => e.nombre.toLowerCase() === suggestion.toLowerCase())
+      if (existingIndex >= 0) {
+        const updated = [...etiquetasDisponibles]
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          veces_usada: updated[existingIndex].veces_usada + 1
+        }
+        setEtiquetasDisponibles(updated)
+      } else {
+        setEtiquetasDisponibles([...etiquetasDisponibles, { nombre: suggestion.toLowerCase(), veces_usada: 1 }])
+      }
+    } catch (error) {
+      console.error('Error guardando etiqueta:', error)
+    }
+    
+    setTags((prev) => [...prev, suggestion])
+    setTagInput('')
+    setIsTagDropdownOpen(false)
   }
 
   const handleRemoveTag = (value: string) => {
@@ -665,17 +752,51 @@ const TaskCreateModal = ({
                 type="text"
                 placeholder="Ej: Urgente, Cliente VIP..."
                 value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
+                onChange={(e) => {
+                  setTagInput(e.target.value)
+                  setIsTagDropdownOpen(e.target.value.trim().length > 0)
+                }}
+                onFocus={() => {
+                  if (tagInput.trim().length > 0 && tagSuggestions.length > 0) {
+                    setIsTagDropdownOpen(true)
+                  }
+                }}
+                onBlur={() => {
+                  // Delay para permitir click en sugerencias
+                  setTimeout(() => setIsTagDropdownOpen(false), 200)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    handleAddTag()
+                    if (tagSuggestions.length > 0) {
+                      handleSelectTagSuggestion(tagSuggestions[0])
+                    } else {
+                      handleAddTag()
+                    }
+                  } else if (e.key === 'Escape') {
+                    setIsTagDropdownOpen(false)
                   }
                 }}
               />
               <button type="button" className="btn-secondary" onClick={handleAddTag}>
                 + Agregar
               </button>
+              {isTagDropdownOpen && tagSuggestions.length > 0 && (
+                <div className="tag-suggestions-dropdown">
+                  {tagSuggestions.map((suggestion) => (
+                    <div
+                      key={suggestion}
+                      onClick={() => handleSelectTagSuggestion(suggestion)}
+                      onMouseDown={(e) => {
+                        // Prevenir que el blur del input cierre el dropdown
+                        e.preventDefault()
+                      }}
+                    >
+                      {suggestion}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {tags.length > 0 && (
               <div className="selected-tags" style={{ marginTop: '8px' }}>

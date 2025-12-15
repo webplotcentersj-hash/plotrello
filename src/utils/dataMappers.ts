@@ -226,9 +226,12 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     whatsapp_link: whatsappLink,
     ubicacion_link: task.locationUrl?.trim() || null,
     drive_link: task.driveUrl?.trim() || null,
-    etiquetas: task.tags,
+    etiquetas: task.tags && Array.isArray(task.tags) && task.tags.length > 0 ? task.tags : null,
     metros_cuadrados: task.metrosCuadrados || null
   }
+  
+  console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)
+  console.log('🏷️ [taskToOrdenPayload] payload.etiquetas:', payload.etiquetas)
 
   // Debug: log datos de sectores y contacto
   console.log('📋 taskToOrdenPayload - Datos completos:', {

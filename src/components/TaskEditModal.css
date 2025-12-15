@@ -193,10 +193,47 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  position: relative;
 }
 
 .tag-input-row input {
   flex: 1;
+}
+
+.tag-suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tag-suggestions-dropdown > div {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--surface-border);
+  transition: background-color 0.2s;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.tag-suggestions-dropdown > div:last-child {
+  border-bottom: none;
+}
+
+.tag-suggestions-dropdown > div:hover {
+  background-color: var(--surface-muted);
+}
+
+.tag-suggestions-dropdown > div:active {
+  background-color: var(--surface-border);
 }
 
 .tag {

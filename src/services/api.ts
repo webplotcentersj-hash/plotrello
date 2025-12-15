@@ -230,6 +230,14 @@ class ApiService {
             hasMultipleSectors,
             hasContactFields
           })
+          // Normalizar etiquetas: asegurar que sea un array válido o null
+          const etiquetasNormalizadas = orden.etiquetas && Array.isArray(orden.etiquetas) && orden.etiquetas.length > 0 
+            ? orden.etiquetas.filter(e => e && e.trim().length > 0) // Filtrar etiquetas vacías
+            : null
+          
+          console.log('🏷️ Etiquetas recibidas:', orden.etiquetas)
+          console.log('🏷️ Etiquetas normalizadas:', etiquetasNormalizadas)
+          
           const rpcParams = {
             p_numero_op: orden.numero_op || '',
             p_cliente: orden.cliente || '',
@@ -251,13 +259,21 @@ class ApiService {
             p_ubicacion_link: orden.ubicacion_link || null,
             p_drive_link: orden.drive_link || null,
             p_foto_url: orden.foto_url || null,
-            p_dni_cuit: orden.dni_cuit || null
+            p_dni_cuit: orden.dni_cuit || null,
+            p_etiquetas: etiquetasNormalizadas
           }
           
           console.log('🔍 Llamando función SQL con parámetros:', JSON.stringify(rpcParams, null, 2))
           console.log('🔍 Tipos de parámetros:', Object.entries(rpcParams).map(([k, v]) => `${k}: ${typeof v}${Array.isArray(v) ? ' (array)' : ''}`).join(', '))
+          console.log('🏷️ p_etiquetas específicamente:', rpcParams.p_etiquetas, 'tipo:', typeof rpcParams.p_etiquetas, 'es array:', Array.isArray(rpcParams.p_etiquetas))
           
           const { data, error } = await supabaseClient.rpc('create_orden_with_contact', rpcParams)
+          
+          if (error) {
+            console.error('❌ Error en RPC create_orden_with_contact:', error)
+            console.error('❌ Parámetros enviados:', JSON.stringify(rpcParams, null, 2))
+            console.error('❌ Etiquetas específicamente:', rpcParams.p_etiquetas)
+          }
           
           console.log('📊 Respuesta RPC:', { 
             hasData: data !== null && data !== undefined, 
@@ -3310,6 +3326,47 @@ class ApiService {
     } catch (error) {
       console.warn('Error en ensureChatRoomExists:', error)
     }
+  }
+
+  // ===== ETIQUETAS DISPONIBLES =====
+  async getEtiquetasDisponibles(): Promise<ApiResponse<Array<{ nombre: string; veces_usada: number }>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_etiquetas_disponibles')
+        
+        if (error) {
+          console.error('Error obteniendo etiquetas disponibles:', error)
+          return { success: false, error: error.message }
+        }
+        
+        return { success: true, data: data || [] }
+      } catch (error) {
+        console.error('Excepción obteniendo etiquetas disponibles:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async guardarEtiquetaDisponible(nombre: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('agregar_etiqueta_disponible', {
+          p_nombre: nombre.trim()
+        })
+        
+        if (error) {
+          console.error('Error guardando etiqueta disponible:', error)
+          return { success: false, error: error.message }
+        }
+        
+        return { success: true }
+      } catch (error) {
+        console.error('Excepción guardando etiqueta disponible:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
   }
 }
 

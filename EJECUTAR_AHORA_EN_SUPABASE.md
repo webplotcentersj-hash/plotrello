@@ -1,0 +1,138 @@
+# ⚠️ EJECUTAR ESTO EN LA BASE DE DATOS PRINCIPAL
+
+**Base de datos:** https://bwdtrzcdzbzrtykjzber.supabase.co
+
+## Pasos:
+
+1. Ve a: https://bwdtrzcdzbzrtykjzber.supabase.co
+2. Abre el **SQL Editor**
+3. Copia y pega este código:
+
+```sql
+-- 1. Actualizar constraint para incluir compras
+ALTER TABLE public.usuarios
+DROP CONSTRAINT IF EXISTS usuarios_rol_check;
+
+ALTER TABLE public.usuarios
+ADD CONSTRAINT usuarios_rol_check CHECK (
+  rol IN (
+    'administracion',
+    'gerencia',
+    'recursos-humanos',
+    'diseno',
+    'imprenta',
+    'taller-grafico',
+    'instalaciones',
+    'metalurgica',
+    'caja',
+    'mostrador',
+    'compras'
+  )
+);
+
+-- 2. Actualizar función crear_usuario
+CREATE OR REPLACE FUNCTION public.crear_usuario(
+  p_nombre text,
+  p_password text,
+  p_rol text
+)
+RETURNS TABLE (id integer, nombre text, rol text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  new_user_id integer;
+  password_hash text;
+  autentificacion_exists boolean;
+BEGIN
+  IF p_rol NOT IN (
+    'administracion',
+    'gerencia',
+    'diseno',
+    'imprenta',
+    'taller-grafico',
+    'instalaciones',
+    'metalurgica',
+    'caja',
+    'mostrador',
+    'compras',
+    'recursos-humanos'
+  ) THEN
+    RAISE EXCEPTION 'Rol inválido: %', p_rol;
+  END IF;
+
+  IF trim(p_nombre) = '' THEN
+    RAISE EXCEPTION 'El nombre de usuario no puede estar vacío';
+  END IF;
+
+  IF length(p_password) < 6 THEN
+    RAISE EXCEPTION 'La contraseña debe tener al menos 6 caracteres';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.usuarios u
+    WHERE lower(u.nombre) = lower(trim(p_nombre))
+  ) THEN
+    RAISE EXCEPTION 'El usuario "%" ya existe', trim(p_nombre);
+  END IF;
+
+  SELECT EXISTS (
+    SELECT FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_name = 'autentificacion'
+  ) INTO autentificacion_exists;
+
+  IF autentificacion_exists THEN
+    IF EXISTS (
+      SELECT 1 FROM public.autentificacion a
+      WHERE lower(a.nombre) = lower(trim(p_nombre))
+    ) THEN
+      RAISE EXCEPTION 'El usuario "%" ya existe en autentificacion', trim(p_nombre);
+    END IF;
+  END IF;
+
+  password_hash := crypt(p_password, gen_salt('bf'));
+
+  INSERT INTO public.usuarios (nombre, password_hash, rol)
+  VALUES (trim(p_nombre), password_hash, p_rol)
+  RETURNING usuarios.id INTO new_user_id;
+
+  IF autentificacion_exists THEN
+    BEGIN
+      EXECUTE format('
+        INSERT INTO public.autentificacion (nombre, password_hash, rol)
+        VALUES (%L, %L, %L)
+        ON CONFLICT (nombre) DO UPDATE
+        SET password_hash = EXCLUDED.password_hash,
+            rol = EXCLUDED.rol
+      ', trim(p_nombre), password_hash, p_rol);
+    EXCEPTION
+      WHEN OTHERS THEN
+        RAISE WARNING 'No se pudo sincronizar con autentificacion: %', SQLERRM;
+    END;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    new_user_id AS id,
+    trim(p_nombre) AS nombre,
+    p_rol AS rol;
+END;
+$$;
+
+-- 3. Crear el usuario fbergaglio@plotcenter.com.ar
+INSERT INTO public.usuarios (nombre, password_hash, rol)
+VALUES (
+  'fbergaglio@plotcenter.com.ar',
+  crypt('plot3819', gen_salt('bf')),
+  'compras'
+)
+ON CONFLICT (nombre) DO UPDATE
+SET rol = 'compras',
+    password_hash = crypt('plot3819', gen_salt('bf'))
+RETURNING id, nombre, rol;
+```
+
+4. Haz clic en **RUN** o presiona `Ctrl+Enter`
+5. Verifica que aparezca el usuario en la tabla
+
