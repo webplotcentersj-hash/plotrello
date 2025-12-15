@@ -890,6 +890,51 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async procesarEntrega(
+    id: number,
+    datosEntrega: {
+      firmaDataUrl: string
+      entregadoA: string
+      dniRetira?: string
+      observaciones?: string
+      usuarioId: number
+      usuarioNombre: string
+    }
+  ): Promise<ApiResponse<void>> {
+    if (supabase) {
+      // Actualizar la orden con los datos de entrega
+      const { error: updateError } = await supabase
+        .from('ordenes_trabajo')
+        .update({
+          entregado: true,
+          estado: 'Entregado o Instalado',
+          firma_data_url: datosEntrega.firmaDataUrl,
+          entregado_a: datosEntrega.entregadoA,
+          dni_retira: datosEntrega.dniRetira || null,
+          observaciones_entrega: datosEntrega.observaciones || null,
+          fecha_entrega_efectiva: new Date().toISOString()
+        })
+        .eq('id', id)
+
+      if (updateError) return { success: false, error: updateError.message }
+
+      // Registrar en historial
+      await supabase.from('historial_movimientos').insert({
+        id_orden: id,
+        estado_anterior: 'Almacén de Entrega',
+        estado_nuevo: 'Entregado o Instalado',
+        id_usuario: datosEntrega.usuarioId,
+        nombre_usuario: datosEntrega.usuarioNombre,
+        timestamp: new Date().toISOString(),
+        comentario: `Orden entregada a ${datosEntrega.entregadoA}${datosEntrega.dniRetira ? ` (DNI: ${datosEntrega.dniRetira})` : ''}`
+      })
+
+      return { success: true }
+    }
+
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   // ===== SUBTAREAS / CHECKLIST =====
   async getSubitems(idOrden: number): Promise<ApiResponse<TareaSubitem[]>> {
     if (supabase) {

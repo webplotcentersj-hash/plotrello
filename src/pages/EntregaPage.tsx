@@ -149,25 +149,19 @@ const EntregaPage = () => {
 
     setSaving(true)
     try {
-      // Aquí actualizarías el estado de la orden en Supabase
-      // Por ahora simulamos la actualización
-      console.log('Marcando orden como entregada:', {
-        ordenId: orden.id,
-        entregadoA,
-        dniRetira,
-        observaciones,
-        firma: firmaDataUrl.substring(0, 50) + '...',
-        usuario: usuario.nombre
+      const response = await apiService.procesarEntrega(orden.id!, {
+        firmaDataUrl,
+        entregadoA: entregadoA.trim(),
+        dniRetira: dniRetira.trim() || undefined,
+        observaciones: observaciones.trim() || undefined,
+        usuarioId: usuario.id,
+        usuarioNombre: usuario.nombre
       })
 
-      // TODO: Implementar actualización real en Supabase
-      // await apiService.marcarOrdenEntregada(orden.id!, {
-      //   entregado_a: entregadoA,
-      //   dni_retira: dniRetira,
-      //   observaciones,
-      //   firma_data_url: firmaDataUrl,
-      //   usuario_id: usuario.id
-      // })
+      if (!response.success) {
+        alert(`Error al procesar la entrega: ${response.error}`)
+        return
+      }
 
       alert('Orden marcada como entregada exitosamente')
       navigate('/mostrador/ordenes-listas')
