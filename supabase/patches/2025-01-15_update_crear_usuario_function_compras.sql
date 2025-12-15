@@ -1,3 +1,4 @@
+-- Actualizar función crear_usuario para incluir rol 'compras'
 CREATE OR REPLACE FUNCTION public.crear_usuario(
   p_nombre text,
   p_password text,
@@ -25,7 +26,7 @@ BEGIN
     'compras',
     'recursos-humanos'
   ) THEN
-    RAISE EXCEPTION 'Rol no permitido. Usa uno válido de la lista.';
+    RAISE EXCEPTION 'Rol inválido: %', p_rol;
   END IF;
 
   IF trim(p_nombre) = '' THEN
@@ -96,5 +97,5 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.crear_usuario IS
-'Crea un nuevo usuario con hash de contraseña. Permite roles operativos y administrativos.';
+'Crea un nuevo usuario con hash de contraseña. Permite roles operativos, administrativos y compras.';
 
