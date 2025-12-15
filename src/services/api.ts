@@ -2193,58 +2193,87 @@ class ApiService {
       observaciones?: string
     }>
   }): Promise<ApiResponse<PedidoCompra>> {
-    if (supabase) {
-      try {
-        // Crear el pedido
-        const { data: pedidoData, error: pedidoError } = await supabase
-          .from('pedidos_compras')
-          .insert({
-            id_solicitante: pedido.id_solicitante,
-            nombre_solicitante: pedido.nombre_solicitante,
-            sector_solicitante: pedido.sector_solicitante || null,
-            prioridad: pedido.prioridad || 'Normal',
-            motivo: pedido.motivo || null,
-            observaciones: pedido.observaciones || null,
-            estado: 'Pendiente'
-          })
-          .select()
-          .single()
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
 
-        if (pedidoError) {
-          return { success: false, error: pedidoError.message }
+    try {
+      console.log('📦 Creando pedido de compra:', {
+        solicitante: pedido.nombre_solicitante,
+        items: pedido.items.length
+      })
+
+      // Crear el pedido
+      const { data: pedidoData, error: pedidoError } = await supabase
+        .from('pedidos_compras')
+        .insert({
+          id_solicitante: pedido.id_solicitante,
+          nombre_solicitante: pedido.nombre_solicitante,
+          sector_solicitante: pedido.sector_solicitante || null,
+          prioridad: pedido.prioridad || 'Normal',
+          motivo: pedido.motivo || null,
+          observaciones: pedido.observaciones || null,
+          estado: 'Pendiente'
+        })
+        .select()
+        .single()
+
+      if (pedidoError) {
+        console.error('❌ Error creando pedido:', pedidoError)
+        return { 
+          success: false, 
+          error: `Error al crear pedido: ${pedidoError.message}. Código: ${pedidoError.code || 'N/A'}. Detalles: ${pedidoError.details || 'N/A'}` 
         }
+      }
 
-        // Crear los items del pedido
-        if (pedido.items && pedido.items.length > 0) {
-          const itemsData = pedido.items.map(item => ({
-            id_pedido: pedidoData.id,
-            id_articulo_stock: item.id_articulo_stock || null,
-            codigo_articulo: item.codigo_articulo || null,
-            descripcion: item.descripcion,
-            cantidad_solicitada: item.cantidad_solicitada,
-            unidad: item.unidad || 'unidad',
-            observaciones: item.observaciones || null
-          }))
+      if (!pedidoData || !pedidoData.id) {
+        return { success: false, error: 'El pedido se creó pero no se retornó el ID' }
+      }
 
-          const { error: itemsError } = await supabase
-            .from('pedidos_compras_items')
-            .insert(itemsData)
+      // Crear los items del pedido
+      if (pedido.items && pedido.items.length > 0) {
+        const itemsData = pedido.items.map(item => ({
+          id_pedido: pedidoData.id,
+          id_articulo_stock: item.id_articulo_stock || null,
+          codigo_articulo: item.codigo_articulo || null,
+          descripcion: item.descripcion,
+          cantidad_solicitada: item.cantidad_solicitada,
+          unidad: item.unidad || 'unidad',
+          observaciones: item.observaciones || null
+        }))
 
-          if (itemsError) {
-            // Si falla la inserción de items, eliminar el pedido
-            await supabase.from('pedidos_compras').delete().eq('id', pedidoData.id)
-            return { success: false, error: itemsError.message }
+        console.log('📦 Insertando items del pedido:', itemsData.length)
+
+        const { error: itemsError } = await supabase
+          .from('pedidos_compras_items')
+          .insert(itemsData)
+
+        if (itemsError) {
+          console.error('❌ Error insertando items:', itemsError)
+          // Si falla la inserción de items, eliminar el pedido
+          await supabase.from('pedidos_compras').delete().eq('id', pedidoData.id)
+          return { 
+            success: false, 
+            error: `Error al crear items del pedido: ${itemsError.message}. Código: ${itemsError.code || 'N/A'}. Detalles: ${itemsError.details || 'N/A'}` 
           }
         }
 
-        // Obtener el pedido completo con items
-        const pedidoCompleto = await this.getPedidoCompra(pedidoData.id)
-        return pedidoCompleto
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+        console.log('✅ Items del pedido creados exitosamente')
+      }
+
+      // Obtener el pedido completo con items
+      const pedidoCompleto = await this.getPedidoCompra(pedidoData.id)
+      if (pedidoCompleto.success) {
+        console.log('✅ Pedido de compra creado exitosamente:', pedidoData.id)
+      }
+      return pedidoCompleto
+    } catch (error) {
+      console.error('❌ Excepción al crear pedido:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Error desconocido al crear pedido' 
       }
     }
-    return { success: false, error: 'No hay conexión a Supabase' }
   }
 
   async getPedidosCompra(filters?: {
@@ -2642,33 +2671,49 @@ class ApiService {
     categoria?: string
     proveedor?: string
   }): Promise<ApiResponse<ArticuloStock>> {
-    if (stockSupabase) {
-      try {
-        const { data, error } = await stockSupabase
-          .from('articulos')
-          .insert({
-            codigo: articulo.codigo || null,
-            descripcion: articulo.descripcion,
-            stock: articulo.stock || 0,
-            stock_minimo: articulo.stock_minimo || 0,
-            unidad: articulo.unidad || 'unidad',
-            precio: articulo.precio || null,
-            categoria: articulo.categoria || null,
-            proveedor: articulo.proveedor || null
-          })
-          .select()
-          .single()
+    if (!stockSupabase) {
+      return { success: false, error: 'No hay conexión a la base de datos de stock. Verifica VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY' }
+    }
 
-        if (error) {
-          return { success: false, error: error.message }
+    try {
+      console.log('📦 Creando artículo en stock:', articulo.descripcion)
+
+      const { data, error } = await stockSupabase
+        .from('articulos')
+        .insert({
+          codigo: articulo.codigo || null,
+          descripcion: articulo.descripcion,
+          stock: articulo.stock || 0,
+          stock_minimo: articulo.stock_minimo || 0,
+          unidad: articulo.unidad || 'unidad',
+          precio: articulo.precio || null,
+          categoria: articulo.categoria || null,
+          proveedor: articulo.proveedor || null
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ Error creando artículo:', error)
+        return { 
+          success: false, 
+          error: `Error al crear artículo: ${error.message}. Código: ${error.code || 'N/A'}. Detalles: ${error.details || 'N/A'}. Hint: ${error.hint || 'N/A'}` 
         }
+      }
 
-        return { success: true, data: data as ArticuloStock }
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      if (!data) {
+        return { success: false, error: 'El artículo se creó pero no se retornó' }
+      }
+
+      console.log('✅ Artículo creado exitosamente:', data.id)
+      return { success: true, data: data as ArticuloStock }
+    } catch (error) {
+      console.error('❌ Excepción al crear artículo:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Error desconocido al crear artículo' 
       }
     }
-    return { success: false, error: 'No hay conexión a la base de datos de stock' }
   }
 
   async actualizarArticuloStock(
@@ -2684,35 +2729,51 @@ class ApiService {
       proveedor?: string
     }
   ): Promise<ApiResponse<ArticuloStock>> {
-    if (stockSupabase) {
-      try {
-        const updateData: any = {}
-        if (articulo.codigo !== undefined) updateData.codigo = articulo.codigo || null
-        if (articulo.descripcion !== undefined) updateData.descripcion = articulo.descripcion
-        if (articulo.stock !== undefined) updateData.stock = articulo.stock
-        if (articulo.stock_minimo !== undefined) updateData.stock_minimo = articulo.stock_minimo
-        if (articulo.unidad !== undefined) updateData.unidad = articulo.unidad
-        if (articulo.precio !== undefined) updateData.precio = articulo.precio || null
-        if (articulo.categoria !== undefined) updateData.categoria = articulo.categoria || null
-        if (articulo.proveedor !== undefined) updateData.proveedor = articulo.proveedor || null
+    if (!stockSupabase) {
+      return { success: false, error: 'No hay conexión a la base de datos de stock. Verifica VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY' }
+    }
 
-        const { data, error } = await stockSupabase
-          .from('articulos')
-          .update(updateData)
-          .eq('id', id)
-          .select()
-          .single()
+    try {
+      console.log('📦 Actualizando artículo en stock:', id)
 
-        if (error) {
-          return { success: false, error: error.message }
+      const updateData: any = {}
+      if (articulo.codigo !== undefined) updateData.codigo = articulo.codigo || null
+      if (articulo.descripcion !== undefined) updateData.descripcion = articulo.descripcion
+      if (articulo.stock !== undefined) updateData.stock = articulo.stock
+      if (articulo.stock_minimo !== undefined) updateData.stock_minimo = articulo.stock_minimo
+      if (articulo.unidad !== undefined) updateData.unidad = articulo.unidad
+      if (articulo.precio !== undefined) updateData.precio = articulo.precio || null
+      if (articulo.categoria !== undefined) updateData.categoria = articulo.categoria || null
+      if (articulo.proveedor !== undefined) updateData.proveedor = articulo.proveedor || null
+
+      const { data, error } = await stockSupabase
+        .from('articulos')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ Error actualizando artículo:', error)
+        return { 
+          success: false, 
+          error: `Error al actualizar artículo: ${error.message}. Código: ${error.code || 'N/A'}. Detalles: ${error.details || 'N/A'}` 
         }
+      }
 
-        return { success: true, data: data as ArticuloStock }
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      if (!data) {
+        return { success: false, error: 'El artículo se actualizó pero no se retornó' }
+      }
+
+      console.log('✅ Artículo actualizado exitosamente:', id)
+      return { success: true, data: data as ArticuloStock }
+    } catch (error) {
+      console.error('❌ Excepción al actualizar artículo:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Error desconocido al actualizar artículo' 
       }
     }
-    return { success: false, error: 'No hay conexión a la base de datos de stock' }
   }
 
   async getArticulosStock(search?: string, stockBajo?: boolean): Promise<ApiResponse<ArticuloStock[]>> {
