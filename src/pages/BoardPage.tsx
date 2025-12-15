@@ -38,7 +38,6 @@ type BoardPageProps = {
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
-  onSolicitarProductos?: () => void
   onLogout?: () => void
   onReloadData?: () => Promise<void>
   isSyncing?: boolean
@@ -63,7 +62,6 @@ const BoardPage = ({
   onNavigateToHerramienta,
   onNavigateToMostrador,
   onNavigateToCompras,
-  onSolicitarProductos,
   onLogout,
   onReloadData,
   isSyncing,
@@ -524,7 +522,7 @@ const BoardPage = ({
         onNavigateToHerramienta={onNavigateToHerramienta}
         onNavigateToMostrador={onNavigateToMostrador}
         onNavigateToCompras={onNavigateToCompras}
-        onSolicitarProductos={onSolicitarProductos}
+        onSolicitarProductos={() => setIsSolicitarProductosOpen(true)}
         onOpenChatAI={() => setIsChatAIOpen(true)}
         onLogout={onLogout}
         isAdmin={isAdmin}

@@ -469,9 +469,6 @@ function AppRoutes({
             onNavigateToHerramienta={() => navigate('/herramienta')}
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onNavigateToCompras={() => navigate('/compras/dashboard')}
-            onSolicitarProductos={() => {
-              // Se manejará en BoardPage con el modal
-            }}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
