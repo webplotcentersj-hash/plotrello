@@ -33,30 +33,50 @@ const WeatherWidget = () => {
         )
         
         if (!response.ok) {
-          throw new Error('No se pudo obtener el clima')
+          throw new Error(`HTTP ${response.status}: No se pudo obtener el clima`)
         }
         
         const data = await response.json()
+        console.log('🌤️ Datos del clima recibidos:', data)
         
         // wttr.in estructura: data.current_condition[0]
-        const current = data.current_condition[0]
+        const current = data.current_condition?.[0]
+        
+        if (!current) {
+          console.error('❌ No se encontró current_condition en la respuesta:', data)
+          throw new Error('Formato de respuesta inválido')
+        }
+        
+        // Obtener temperatura - puede venir como string o number
+        const tempC = current.temp_C || current.tempC || current.temp
+        console.log('🌡️ Temperatura raw:', tempC, 'tipo:', typeof tempC)
+        
+        const temperatura = typeof tempC === 'string' ? parseInt(tempC, 10) : Math.round(Number(tempC))
+        
+        // Validar que la temperatura sea un número válido
+        if (isNaN(temperatura) || temperatura < -50 || temperatura > 60) {
+          console.error('❌ Temperatura inválida:', temperatura)
+          throw new Error(`Temperatura inválida: ${temperatura}°C`)
+        }
+        
+        console.log('✅ Temperatura procesada:', temperatura, '°C')
         
         setWeather({
-          temp: parseInt(current.temp_C),
-          description: current.lang_es?.[0]?.value || current.weatherDesc?.[0]?.value || 'Despejado',
-          icon: current.weatherCode || '',
+          temp: temperatura,
+          description: current.lang_es?.[0]?.value || current.weatherDesc?.[0]?.value || current.condition || 'Despejado',
+          icon: current.weatherCode || current.code || '',
           loading: false,
           error: null
         })
       } catch (error) {
         // Si falla la API, mostrar datos por defecto
-        console.warn('Error al obtener clima:', error)
+        console.error('❌ Error al obtener clima:', error)
         setWeather({
-          temp: 25, // Temperatura promedio de San Juan
+          temp: 0,
           description: 'Clima no disponible',
           icon: '',
           loading: false,
-          error: null
+          error: error instanceof Error ? error.message : 'Error desconocido'
         })
       }
     }
@@ -96,7 +116,17 @@ const WeatherWidget = () => {
   if (weather.error) {
     return (
       <div className="weather-widget">
-        <div className="weather-error">🌤️ --°C</div>
+        <div className="weather-error" title={weather.error}>🌤️ --°C</div>
+        <div className="weather-location">San Juan, AR</div>
+      </div>
+    )
+  }
+  
+  // Si la temperatura es 0 y no está cargando, probablemente hay un error
+  if (weather.temp === 0 && !weather.loading) {
+    return (
+      <div className="weather-widget">
+        <div className="weather-error" title="No se pudo obtener la temperatura">🌤️ --°C</div>
         <div className="weather-location">San Juan, AR</div>
       </div>
     )
