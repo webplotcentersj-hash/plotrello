@@ -1,0 +1,459 @@
+.calendario-entregas-page {
+  min-height: 100vh;
+  background: var(--surface-base);
+  padding: 24px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 2rem;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Controles */
+.calendario-controls {
+  background: var(--surface-card);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.vista-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.vista-btn {
+  padding: 8px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vista-btn:hover {
+  border-color: #3b82f6;
+}
+
+.vista-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.navegacion-mes {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navegacion-mes h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  min-width: 200px;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.navegacion-mes button {
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.navegacion-mes button:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+/* Vista de Mes */
+.calendario-mes {
+  background: var(--surface-card);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.dias-semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dia-semana-header {
+  padding: 12px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.semanas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.dia-calendario {
+  min-height: 120px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: var(--surface-base);
+  transition: all 0.2s;
+}
+
+.dia-calendario:hover {
+  background: rgba(59, 130, 246, 0.05);
+  border-color: #3b82f6;
+}
+
+.dia-calendario.otro-mes {
+  opacity: 0.3;
+}
+
+.dia-calendario.hoy {
+  border: 2px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.dia-numero {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+}
+
+.ordenes-del-dia {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orden-calendario {
+  padding: 4px 6px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orden-calendario:hover {
+  background: #2563eb;
+  transform: scale(1.05);
+}
+
+.mas-ordenes {
+  padding: 4px 6px;
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Vista de Semana */
+.calendario-semana {
+  background: var(--surface-card);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.semana-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 16px;
+}
+
+.dia-semana {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--surface-base);
+  min-height: 400px;
+}
+
+.dia-semana.hoy {
+  border: 2px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.dia-semana-nombre {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+
+.dia-semana-numero {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.ordenes-count {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.ordenes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.orden-item {
+  padding: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.orden-item:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.orden-item strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.orden-item span {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Vista de Día */
+.calendario-dia {
+  background: var(--surface-card);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.dia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dia-header h2 {
+  margin: 0;
+  font-size: 1.75rem;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.dia-navegacion {
+  display: flex;
+  gap: 8px;
+}
+
+.dia-navegacion button {
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dia-navegacion button:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+.ordenes-del-dia-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.orden-dia-card {
+  background: var(--surface-base);
+  border-radius: 12px;
+  padding: 20px;
+  border-left: 4px solid #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.orden-dia-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.orden-dia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.orden-dia-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.hora-entrega {
+  padding: 4px 12px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.orden-dia-cliente {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.orden-dia-descripcion {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  color: #3b82f6;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font-size: 0.875rem;
+}
+
+.btn-link:hover {
+  color: #2563eb;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  .calendario-entregas-page {
+    padding: 16px;
+  }
+
+  .calendario-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .navegacion-mes {
+    flex-direction: column;
+  }
+
+  .semana-header {
+    grid-template-columns: 1fr;
+  }
+
+  .dia-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

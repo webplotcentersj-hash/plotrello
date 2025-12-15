@@ -321,6 +321,13 @@ const MostradorDashboardPage = () => {
             <div className="accion-icon">📅</div>
             <div className="accion-label">Calendario de Entregas</div>
           </button>
+          <button 
+            className="accion-card"
+            onClick={() => navigate('/mostrador/clientes-frecuentes')}
+          >
+            <div className="accion-icon">⭐</div>
+            <div className="accion-label">Clientes Frecuentes</div>
+          </button>
           {isAdmin && (
             <button 
               className="accion-card"
