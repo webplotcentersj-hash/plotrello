@@ -10,6 +10,7 @@ import SprintOptimizerModal from '../components/SprintOptimizerModal'
 import PlotAIChat from '../components/PlotAIChat'
 import TaskLibraryModal from '../components/TaskLibraryModal'
 import QRPrintView from '../components/QRPrintView'
+import SolicitarProductosModal from '../components/SolicitarProductosModal'
 import { BOARD_COLUMNS } from '../data/mockData'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
@@ -36,6 +37,8 @@ type BoardPageProps = {
   onNavigateToChat?: () => void
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
+  onNavigateToCompras?: () => void
+  onSolicitarProductos?: () => void
   onLogout?: () => void
   onReloadData?: () => Promise<void>
   isSyncing?: boolean
@@ -59,6 +62,8 @@ const BoardPage = ({
   onNavigateToChat,
   onNavigateToHerramienta,
   onNavigateToMostrador,
+  onNavigateToCompras,
+  onSolicitarProductos,
   onLogout,
   onReloadData,
   isSyncing,
@@ -79,6 +84,7 @@ const BoardPage = ({
   const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
   const [isChatAIOpen, setIsChatAIOpen] = useState(false)
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
+  const [isSolicitarProductosOpen, setIsSolicitarProductosOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -517,6 +523,8 @@ const BoardPage = ({
         onNavigateToChat={onNavigateToChat}
         onNavigateToHerramienta={onNavigateToHerramienta}
         onNavigateToMostrador={onNavigateToMostrador}
+        onNavigateToCompras={onNavigateToCompras}
+        onSolicitarProductos={onSolicitarProductos}
         onOpenChatAI={() => setIsChatAIOpen(true)}
         onLogout={onLogout}
         isAdmin={isAdmin}
@@ -642,6 +650,16 @@ const BoardPage = ({
           opNumber={qrPrintTask.opNumber}
           cliente={qrPrintTask.cliente}
           onClose={() => setQrPrintTask(null)}
+        />
+      )}
+
+      {isSolicitarProductosOpen && (
+        <SolicitarProductosModal
+          onClose={() => setIsSolicitarProductosOpen(false)}
+          onSuccess={() => {
+            setIsSolicitarProductosOpen(false)
+            setActionSuccess('Pedido de compra creado exitosamente')
+          }}
         />
       )}
 

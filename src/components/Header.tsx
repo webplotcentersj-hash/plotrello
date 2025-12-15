@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ActivityEvent, TeamMember } from '../types/board'
+import { useAuth } from '../hooks/useAuth'
 import NotificationsDropdown from './NotificationsDropdown'
 import ClockWidget from './ClockWidget'
 import WeatherWidget from './WeatherWidget'
@@ -16,6 +17,8 @@ type HeaderProps = {
   onNavigateToUsuarios?: () => void
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
+  onNavigateToCompras?: () => void
+  onSolicitarProductos?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
   onLogout?: () => void
@@ -36,6 +39,8 @@ const Header = ({
   onNavigateToUsuarios,
   onNavigateToHerramienta,
   onNavigateToMostrador,
+  onNavigateToCompras,
+  onSolicitarProductos,
   onOpenChatAI,
   onNavigateToChat,
   onLogout,
@@ -44,6 +49,7 @@ const Header = ({
   isCompact = false,
   onToggleCompact
 }: HeaderProps) => {
+  const { canManageCompras } = useAuth()
   const [actionsOpen, setActionsOpen] = useState(false)
   const today = new Date()
   const movesToday = activity.filter((event) => {
@@ -131,6 +137,16 @@ const Header = ({
             {(isMostrador || isAdmin) && onNavigateToMostrador && (
               <button className="brand-button" onClick={onNavigateToMostrador}>
                 📋 Dashboard Mostrador
+              </button>
+            )}
+            {canManageCompras && onNavigateToCompras && (
+              <button className="brand-button" onClick={onNavigateToCompras}>
+                🛒 Compras
+              </button>
+            )}
+            {onSolicitarProductos && (
+              <button className="brand-button" onClick={onSolicitarProductos}>
+                📦 Solicitar Productos
               </button>
             )}
             {onOptimizeSprint && (

@@ -20,6 +20,7 @@ import CalendarioEntregasPage from './pages/CalendarioEntregasPage'
 import ReportesMostradorPage from './pages/ReportesMostradorPage'
 import ClientesFrecuentesPage from './pages/ClientesFrecuentesPage'
 import ComprasDashboardPage from './pages/ComprasDashboardPage'
+import PedidoCompraDetallePage from './pages/PedidoCompraDetallePage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -465,6 +466,10 @@ function AppRoutes({
             onNavigateToChat={() => navigate('/chat')}
             onNavigateToHerramienta={() => navigate('/herramienta')}
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
+            onNavigateToCompras={() => navigate('/compras/dashboard')}
+            onSolicitarProductos={() => {
+              // Se manejará en BoardPage con el modal
+            }}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -558,6 +563,14 @@ function AppRoutes({
       <Route
         path="/compras"
         element={<ComprasDashboardPage />}
+      />
+      <Route
+        path="/compras/pedidos"
+        element={<ComprasDashboardPage />}
+      />
+      <Route
+        path="/compras/pedidos/:id"
+        element={<PedidoCompraDetallePage />}
       />
     </Routes>
     </>
