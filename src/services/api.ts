@@ -2150,18 +2150,42 @@ class ApiService {
 
   // Helper para obtener usuarios de compras y administración
   private async getUsuariosComprasAdmin(): Promise<number[]> {
-    if (!supabase) return []
+    if (!supabase) {
+      console.warn('⚠️ Supabase no configurado en getUsuariosComprasAdmin')
+      return []
+    }
     
     try {
+      console.log('🔍 Buscando usuarios con rol compras o administracion...')
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id')
+        .select('id, nombre, rol')
         .in('rol', ['compras', 'administracion'])
       
-      if (error || !data) return []
+      if (error) {
+        console.error('❌ Error obteniendo usuarios de compras/admin:', error)
+        return []
+      }
+      
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No se encontraron usuarios con rol compras o administracion')
+        // Intentar también con 'gerencia' que puede tener acceso
+        const { data: dataGerencia, error: errorGerencia } = await supabase
+          .from('usuarios')
+          .select('id, nombre, rol')
+          .in('rol', ['gerencia'])
+        
+        if (!errorGerencia && dataGerencia && dataGerencia.length > 0) {
+          console.log('✅ Encontrados usuarios de gerencia:', dataGerencia.length)
+          return dataGerencia.map(u => u.id)
+        }
+        return []
+      }
+      
+      console.log(`✅ Encontrados ${data.length} usuarios de compras/admin:`, data.map(u => `${u.nombre} (${u.rol})`))
       return data.map(u => u.id)
     } catch (error) {
-      console.error('Error obteniendo usuarios de compras/admin:', error)
+      console.error('❌ Excepción obteniendo usuarios de compras/admin:', error)
       return []
     }
   }
@@ -2305,14 +2329,30 @@ class ApiService {
       const usuariosComprasAdmin = await this.getUsuariosComprasAdmin()
       const numeroPedido = pedidoData.numero_pedido || `#${pedidoData.id}`
       
+      console.log('🔔 Usuarios de compras/admin encontrados:', usuariosComprasAdmin.length, usuariosComprasAdmin)
+      
+      if (usuariosComprasAdmin.length === 0) {
+        console.warn('⚠️ No se encontraron usuarios de compras/admin para notificar')
+      }
+      
       for (const userId of usuariosComprasAdmin) {
-        await this.createNotification({
-          user_id: userId,
-          title: '📦 Nuevo pedido de compra',
-          description: `${pedido.nombre_solicitante} solicitó productos${pedido.sector_solicitante ? ` (${pedido.sector_solicitante})` : ''}. Pedido ${numeroPedido}`,
-          type: 'info',
-          pedido_id: pedidoData.id
-        })
+        try {
+          const notificationResult = await this.createNotification({
+            user_id: userId,
+            title: '📦 Nuevo pedido de compra',
+            description: `${pedido.nombre_solicitante} solicitó productos${pedido.sector_solicitante ? ` (${pedido.sector_solicitante})` : ''}. Pedido ${numeroPedido}`,
+            type: 'info',
+            pedido_id: pedidoData.id
+          })
+          
+          if (notificationResult.success) {
+            console.log(`✅ Notificación creada para usuario ${userId}`)
+          } else {
+            console.error(`❌ Error creando notificación para usuario ${userId}:`, notificationResult.error)
+          }
+        } catch (error) {
+          console.error(`❌ Excepción al crear notificación para usuario ${userId}:`, error)
+        }
       }
 
       // Obtener el pedido completo con items
