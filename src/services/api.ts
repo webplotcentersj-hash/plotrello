@@ -2157,6 +2157,8 @@ class ApiService {
     
     try {
       console.log('🔍 Buscando usuarios con rol compras o administracion...')
+      
+      // Primero intentar con compras y administracion
       const { data, error } = await supabase
         .from('usuarios')
         .select('id, nombre, rol')
@@ -2164,28 +2166,55 @@ class ApiService {
       
       if (error) {
         console.error('❌ Error obteniendo usuarios de compras/admin:', error)
-        return []
+        // Si hay error, intentar obtener todos los usuarios como fallback
+        return await this.getAllUsuariosIds()
       }
       
-      if (!data || data.length === 0) {
-        console.warn('⚠️ No se encontraron usuarios con rol compras o administracion')
-        // Intentar también con 'gerencia' que puede tener acceso
-        const { data: dataGerencia, error: errorGerencia } = await supabase
-          .from('usuarios')
-          .select('id, nombre, rol')
-          .in('rol', ['gerencia'])
-        
-        if (!errorGerencia && dataGerencia && dataGerencia.length > 0) {
-          console.log('✅ Encontrados usuarios de gerencia:', dataGerencia.length)
-          return dataGerencia.map(u => u.id)
-        }
-        return []
+      if (data && data.length > 0) {
+        console.log(`✅ Encontrados ${data.length} usuarios de compras/admin:`, data.map(u => `${u.nombre} (${u.rol})`))
+        return data.map(u => u.id)
       }
       
-      console.log(`✅ Encontrados ${data.length} usuarios de compras/admin:`, data.map(u => `${u.nombre} (${u.rol})`))
-      return data.map(u => u.id)
+      // Si no hay usuarios de compras/admin, intentar con gerencia
+      console.warn('⚠️ No se encontraron usuarios con rol compras o administracion, buscando gerencia...')
+      const { data: dataGerencia, error: errorGerencia } = await supabase
+        .from('usuarios')
+        .select('id, nombre, rol')
+        .in('rol', ['gerencia'])
+      
+      if (!errorGerencia && dataGerencia && dataGerencia.length > 0) {
+        console.log(`✅ Encontrados ${dataGerencia.length} usuarios de gerencia:`, dataGerencia.map(u => `${u.nombre} (${u.rol})`))
+        return dataGerencia.map(u => u.id)
+      }
+      
+      // Si tampoco hay gerencia, obtener TODOS los usuarios como último recurso
+      console.warn('⚠️ No se encontraron usuarios específicos, notificando a todos los usuarios...')
+      return await this.getAllUsuariosIds()
     } catch (error) {
       console.error('❌ Excepción obteniendo usuarios de compras/admin:', error)
+      // En caso de error, intentar obtener todos los usuarios
+      return await this.getAllUsuariosIds()
+    }
+  }
+
+  // Helper para obtener todos los IDs de usuarios (fallback)
+  private async getAllUsuariosIds(): Promise<number[]> {
+    if (!supabase) return []
+    
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, nombre, rol')
+      
+      if (error || !data || data.length === 0) {
+        console.warn('⚠️ No se encontraron usuarios en la base de datos')
+        return []
+      }
+      
+      console.log(`✅ Encontrados ${data.length} usuarios totales para notificar:`, data.map(u => `${u.nombre} (${u.rol})`))
+      return data.map(u => u.id)
+    } catch (error) {
+      console.error('❌ Error obteniendo todos los usuarios:', error)
       return []
     }
   }
