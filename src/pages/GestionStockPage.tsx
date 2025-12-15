@@ -45,9 +45,15 @@ const GestionStockPage = () => {
       )
       if (response.success && response.data) {
         setArticulos(response.data)
+      } else {
+        console.error('Error cargando artículos:', response.error)
+        alert(`Error al cargar artículos: ${response.error}`)
+        setArticulos([])
       }
     } catch (error) {
       console.error('Error cargando artículos:', error)
+      alert(`Error al cargar artículos: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+      setArticulos([])
     } finally {
       setLoading(false)
     }
@@ -264,12 +270,12 @@ const GestionStockPage = () => {
               </thead>
               <tbody>
                 {articulos.map((articulo) => {
-                  const stockActual = articulo.stock || 0
-                  const stockMinimo = articulo.stock_minimo || 0
+                  const stockActual = articulo.stock !== null && articulo.stock !== undefined ? articulo.stock : 0
+                  const stockMinimo = articulo.stock_minimo !== null && articulo.stock_minimo !== undefined ? articulo.stock_minimo : 0
                   const estadoStock =
-                    stockActual === 0
+                    stockActual === 0 || stockActual === null
                       ? 'agotado'
-                      : stockActual <= stockMinimo
+                      : stockMinimo > 0 && stockActual <= stockMinimo
                       ? 'bajo'
                       : 'normal'
 
@@ -283,9 +289,14 @@ const GestionStockPage = () => {
                           min="0"
                           step="0.001"
                           value={stockActual}
-                          onChange={(e) =>
-                            handleAjustarStock(articulo, parseFloat(e.target.value) || 0)
-                          }
+                          onChange={(e) => {
+                            const nuevoValor = e.target.value === '' ? null : parseFloat(e.target.value)
+                            if (nuevoValor !== null && !isNaN(nuevoValor)) {
+                              handleAjustarStock(articulo, nuevoValor)
+                            } else if (nuevoValor === null) {
+                              handleAjustarStock(articulo, 0)
+                            }
+                          }}
                           className="stock-input"
                         />
                       </td>

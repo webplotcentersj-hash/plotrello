@@ -2777,35 +2777,62 @@ class ApiService {
   }
 
   async getArticulosStock(search?: string, stockBajo?: boolean): Promise<ApiResponse<ArticuloStock[]>> {
-    if (stockSupabase) {
-      try {
-        let query = stockSupabase
-          .from('articulos')
-          .select('*')
-          .order('descripcion', { ascending: true })
+    if (!stockSupabase) {
+      console.warn('⚠️ No hay conexión a la base de datos de stock. Verifica VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY')
+      return { success: false, error: 'No hay conexión a la base de datos de stock. Verifica las variables de entorno VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY' }
+    }
 
-        if (search && search.trim().length >= 2) {
-          query = query.or(`descripcion.ilike.%${search.trim()}%,codigo.ilike.%${search.trim()}%`)
+    try {
+      console.log('📦 Obteniendo artículos de stock:', { search, stockBajo })
+
+      let query = stockSupabase
+        .from('articulos')
+        .select('id, codigo, descripcion, stock, stock_minimo, unidad, precio, categoria, proveedor, activo')
+        .order('descripcion', { ascending: true })
+
+      if (search && search.trim().length >= 2) {
+        query = query.or(`descripcion.ilike.%${search.trim()}%,codigo.ilike.%${search.trim()}%`)
+      }
+
+      if (stockBajo) {
+        // Filtrar artículos con stock bajo (<= stock_minimo) o agotado (<= 0 o null)
+        // Usar una consulta más compleja que maneje nulls
+        query = query.or('stock.is.null,stock.lte.0,stock.lte.stock_minimo')
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error('❌ Error obteniendo artículos de stock:', error)
+        return { 
+          success: false, 
+          error: `Error al obtener artículos: ${error.message}. Código: ${error.code || 'N/A'}. Detalles: ${error.details || 'N/A'}` 
         }
+      }
 
-        if (stockBajo) {
-          // Filtrar artículos con stock bajo (<= 10) o agotado (<= 0)
-          query = query.or('stock.lte.10')
-        }
+      // Normalizar los datos para asegurar tipos correctos
+      const articulosNormalizados = (data || []).map((art: any) => ({
+        id: art.id,
+        codigo: art.codigo || null,
+        descripcion: art.descripcion,
+        stock: art.stock !== null && art.stock !== undefined ? Number(art.stock) : null,
+        stock_minimo: art.stock_minimo !== null && art.stock_minimo !== undefined ? Number(art.stock_minimo) : null,
+        unidad: art.unidad || 'unidad',
+        precio: art.precio !== null && art.precio !== undefined ? Number(art.precio) : null,
+        categoria: art.categoria || null,
+        proveedor: art.proveedor || null,
+        activo: art.activo !== null && art.activo !== undefined ? Boolean(art.activo) : true
+      }))
 
-        const { data, error } = await query
-
-        if (error) {
-          console.warn('Error obteniendo artículos de stock:', error.message)
-          return { success: false, error: error.message }
-        }
-
-        return { success: true, data: (data as ArticuloStock[]) || [] }
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      console.log(`✅ Artículos obtenidos: ${articulosNormalizados.length}`)
+      return { success: true, data: articulosNormalizados as ArticuloStock[] }
+    } catch (error) {
+      console.error('❌ Excepción al obtener artículos:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Error desconocido al obtener artículos' 
       }
     }
-    return { success: false, error: 'No hay conexión a la base de datos de stock' }
   }
 
   async registrarMovimientoStock(movimiento: {
