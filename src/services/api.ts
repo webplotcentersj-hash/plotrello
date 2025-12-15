@@ -2203,11 +2203,31 @@ class ApiService {
         items: pedido.items.length
       })
 
+      // Verificar si el usuario existe en la BD antes de crear el pedido
+      let idSolicitanteFinal: number | null = null
+      if (pedido.id_solicitante && pedido.id_solicitante > 0) {
+        const { data: usuarioExiste, error: errorUsuario } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('id', pedido.id_solicitante)
+          .single()
+        
+        if (usuarioExiste && !errorUsuario) {
+          idSolicitanteFinal = pedido.id_solicitante
+          console.log(`✅ Usuario ${pedido.id_solicitante} encontrado en BD`)
+        } else {
+          console.warn(`⚠️ Usuario con ID ${pedido.id_solicitante} no existe en BD, creando pedido sin ID. Error: ${errorUsuario?.message || 'No encontrado'}`)
+          idSolicitanteFinal = null
+        }
+      } else {
+        console.log('ℹ️ No se proporcionó ID de solicitante válido, creando pedido sin ID')
+      }
+
       // Crear el pedido
       const { data: pedidoData, error: pedidoError } = await supabase
         .from('pedidos_compras')
         .insert({
-          id_solicitante: pedido.id_solicitante,
+          id_solicitante: idSolicitanteFinal,
           nombre_solicitante: pedido.nombre_solicitante,
           sector_solicitante: pedido.sector_solicitante || null,
           prioridad: pedido.prioridad || 'Normal',

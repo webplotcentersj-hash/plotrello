@@ -159,7 +159,8 @@ const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModal
             'mostrador': 'Mostrador',
             'caja': 'Caja',
             'administracion': 'Administración',
-            'gerencia': 'Gerencia'
+            'gerencia': 'Gerencia',
+            'compras': 'Compras'
           }
           sectorSolicitante = sectorMap[usuarioObj.rol] || ''
         } catch (e) {
@@ -167,8 +168,15 @@ const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModal
         }
       }
 
-      const response = await apiService.crearPedidoCompra({
+      console.log('📦 Creando pedido con datos:', {
         id_solicitante: usuario.id,
+        nombre_solicitante: usuario.nombre,
+        sector_solicitante: sectorSolicitante,
+        items: items.length
+      })
+
+      const response = await apiService.crearPedidoCompra({
+        id_solicitante: usuario.id || 0, // Enviar 0 si no hay ID, el backend lo manejará
         nombre_solicitante: usuario.nombre,
         sector_solicitante: sectorSolicitante,
         prioridad,
