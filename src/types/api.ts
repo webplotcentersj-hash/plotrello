@@ -57,6 +57,7 @@ export type UserRole =
   | 'metalurgica'
   | 'caja'
   | 'mostrador'
+  | 'compras'
 
 export interface UsuarioRecord {
   id: number

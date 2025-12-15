@@ -14,6 +14,7 @@ export type Usuario = {
     | 'metalurgica'
     | 'caja'
     | 'mostrador'
+    | 'compras'
 }
 
 export function useAuth() {
@@ -50,15 +51,20 @@ export function useAuth() {
   const isAdmin = !!usuario && adminRoles.includes(usuario.rol)
   const isMostrador = usuario?.rol === 'mostrador'
   const isTallerGrafico = usuario?.rol === 'taller-grafico'
+  const isCompras = usuario?.rol === 'compras'
   // Puede administrar impresoras: taller-grafico o administracion
   const canManageImpresoras = !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
+  // Puede gestionar compras: compras o administracion
+  const canManageCompras = !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion')
 
   return {
     usuario,
     isAdmin,
     isMostrador,
     isTallerGrafico,
+    isCompras,
     canManageImpresoras,
+    canManageCompras,
     loading,
     setUsuario
   }

@@ -11,6 +11,14 @@ import type {
   UsuarioRecord,
   UserRole
 } from '../types/api'
+import type {
+  PedidoCompra,
+  PedidoCompraComentario,
+  StockMovimiento,
+  ArticuloStock,
+  EstadoPedido,
+  PrioridadPedido
+} from '../types/pedidos'
 import { supabase, stockSupabase } from './supabaseClient'
 import bcrypt from 'bcryptjs'
 
@@ -2156,6 +2164,403 @@ class ApiService {
   }
 
   // Método privado para asegurar que un chat_room existe
+  // ===== PEDIDOS DE COMPRA =====
+  async crearPedidoCompra(pedido: {
+    id_solicitante: number
+    nombre_solicitante: string
+    sector_solicitante?: string
+    prioridad?: PrioridadPedido
+    motivo?: string
+    observaciones?: string
+    items: Array<{
+      id_articulo_stock?: number
+      codigo_articulo?: string
+      descripcion: string
+      cantidad_solicitada: number
+      unidad?: string
+      observaciones?: string
+    }>
+  }): Promise<ApiResponse<PedidoCompra>> {
+    if (supabase) {
+      try {
+        // Crear el pedido
+        const { data: pedidoData, error: pedidoError } = await supabase
+          .from('pedidos_compras')
+          .insert({
+            id_solicitante: pedido.id_solicitante,
+            nombre_solicitante: pedido.nombre_solicitante,
+            sector_solicitante: pedido.sector_solicitante || null,
+            prioridad: pedido.prioridad || 'Normal',
+            motivo: pedido.motivo || null,
+            observaciones: pedido.observaciones || null,
+            estado: 'Pendiente'
+          })
+          .select()
+          .single()
+
+        if (pedidoError) {
+          return { success: false, error: pedidoError.message }
+        }
+
+        // Crear los items del pedido
+        if (pedido.items && pedido.items.length > 0) {
+          const itemsData = pedido.items.map(item => ({
+            id_pedido: pedidoData.id,
+            id_articulo_stock: item.id_articulo_stock || null,
+            codigo_articulo: item.codigo_articulo || null,
+            descripcion: item.descripcion,
+            cantidad_solicitada: item.cantidad_solicitada,
+            unidad: item.unidad || 'unidad',
+            observaciones: item.observaciones || null
+          }))
+
+          const { error: itemsError } = await supabase
+            .from('pedidos_compras_items')
+            .insert(itemsData)
+
+          if (itemsError) {
+            // Si falla la inserción de items, eliminar el pedido
+            await supabase.from('pedidos_compras').delete().eq('id', pedidoData.id)
+            return { success: false, error: itemsError.message }
+          }
+        }
+
+        // Obtener el pedido completo con items
+        const pedidoCompleto = await this.getPedidoCompra(pedidoData.id)
+        return pedidoCompleto
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getPedidosCompra(filters?: {
+    estado?: EstadoPedido
+    id_solicitante?: number
+    id_aprobador?: number
+    prioridad?: PrioridadPedido
+  }): Promise<ApiResponse<PedidoCompra[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('pedidos_compras')
+          .select(`
+            *,
+            items:pedidos_compras_items(*),
+            comentarios:pedidos_compras_comentarios(*)
+          `)
+          .order('fecha_solicitud', { ascending: false })
+
+        if (filters?.estado) {
+          query = query.eq('estado', filters.estado)
+        }
+        if (filters?.id_solicitante) {
+          query = query.eq('id_solicitante', filters.id_solicitante)
+        }
+        if (filters?.id_aprobador) {
+          query = query.eq('id_aprobador', filters.id_aprobador)
+        }
+        if (filters?.prioridad) {
+          query = query.eq('prioridad', filters.prioridad)
+        }
+
+        const { data, error } = await query
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data as PedidoCompra[]) || [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getPedidoCompra(id: number): Promise<ApiResponse<PedidoCompra>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('pedidos_compras')
+          .select(`
+            *,
+            items:pedidos_compras_items(*),
+            comentarios:pedidos_compras_comentarios(*)
+          `)
+          .eq('id', id)
+          .single()
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: data as PedidoCompra }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async aprobarPedidoCompra(
+    id: number,
+    aprobador: { id: number; nombre: string },
+    itemsAprobados?: Array<{ id: number; cantidad_aprobada: number }>
+  ): Promise<ApiResponse<PedidoCompra>> {
+    if (supabase) {
+      try {
+        // Actualizar el pedido
+        const { error: updateError } = await supabase
+          .from('pedidos_compras')
+          .update({
+            estado: 'Aprobado',
+            fecha_aprobacion: new Date().toISOString(),
+            id_aprobador: aprobador.id,
+            nombre_aprobador: aprobador.nombre
+          })
+          .eq('id', id)
+
+        if (updateError) {
+          return { success: false, error: updateError.message }
+        }
+
+        // Actualizar cantidades aprobadas en items si se proporcionan
+        if (itemsAprobados && itemsAprobados.length > 0) {
+          for (const item of itemsAprobados) {
+            await supabase
+              .from('pedidos_compras_items')
+              .update({ cantidad_aprobada: item.cantidad_aprobada })
+              .eq('id', item.id)
+          }
+        }
+
+        return await this.getPedidoCompra(id)
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async rechazarPedidoCompra(
+    id: number,
+    aprobador: { id: number; nombre: string },
+    motivo_rechazo: string
+  ): Promise<ApiResponse<PedidoCompra>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('pedidos_compras')
+          .update({
+            estado: 'Rechazado',
+            fecha_rechazo: new Date().toISOString(),
+            id_aprobador: aprobador.id,
+            nombre_aprobador: aprobador.nombre,
+            motivo_rechazo
+          })
+          .eq('id', id)
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return await this.getPedidoCompra(id)
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async agregarComentarioPedido(
+    id_pedido: number,
+    comentario: {
+      id_usuario: number
+      nombre_usuario: string
+      comentario: string
+      es_interno?: boolean
+    }
+  ): Promise<ApiResponse<PedidoCompraComentario>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('pedidos_compras_comentarios')
+          .insert({
+            id_pedido,
+            id_usuario: comentario.id_usuario,
+            nombre_usuario: comentario.nombre_usuario,
+            comentario: comentario.comentario,
+            es_interno: comentario.es_interno || false
+          })
+          .select()
+          .single()
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: data as PedidoCompraComentario }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarEstadoPedido(
+    id: number,
+    estado: EstadoPedido
+  ): Promise<ApiResponse<PedidoCompra>> {
+    if (supabase) {
+      try {
+        const updateData: any = { estado }
+        
+        if (estado === 'Completado') {
+          updateData.fecha_completado = new Date().toISOString()
+        }
+
+        const { error } = await supabase
+          .from('pedidos_compras')
+          .update(updateData)
+          .eq('id', id)
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return await this.getPedidoCompra(id)
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ===== STOCK =====
+  async getArticulosStock(search?: string, stockBajo?: boolean): Promise<ApiResponse<ArticuloStock[]>> {
+    if (stockSupabase) {
+      try {
+        let query = stockSupabase
+          .from('articulos')
+          .select('*')
+          .order('descripcion', { ascending: true })
+
+        if (search && search.trim().length >= 2) {
+          query = query.or(`descripcion.ilike.%${search.trim()}%,codigo.ilike.%${search.trim()}%`)
+        }
+
+        if (stockBajo) {
+          // Asumimos que hay un campo stock_minimo, si no existe, usar stock <= 10
+          query = query.or('stock.lte.10,stock_minimo.gte.stock')
+        }
+
+        const { data, error } = await query
+
+        if (error) {
+          console.warn('Error obteniendo artículos de stock:', error.message)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data as ArticuloStock[]) || [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a la base de datos de stock' }
+  }
+
+  async registrarMovimientoStock(movimiento: {
+    id_articulo_stock: number
+    codigo_articulo?: string
+    descripcion: string
+    tipo_movimiento: 'Entrada' | 'Salida' | 'Ajuste' | 'Pedido' | 'Venta' | 'Devolución'
+    cantidad: number
+    cantidad_anterior?: number
+    cantidad_nueva?: number
+    motivo?: string
+    id_orden_trabajo?: number
+    id_pedido_compra?: number
+    id_usuario?: number
+    nombre_usuario?: string
+  }): Promise<ApiResponse<StockMovimiento>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('stock_movimientos')
+          .insert(movimiento)
+          .select()
+          .single()
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        // Actualizar stock en la base de stock si es necesario
+        if (stockSupabase && movimiento.cantidad_nueva !== undefined) {
+          await stockSupabase
+            .from('articulos')
+            .update({ stock: movimiento.cantidad_nueva })
+            .eq('id', movimiento.id_articulo_stock)
+        }
+
+        return { success: true, data: data as StockMovimiento }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getMovimientosStock(filters?: {
+    id_articulo_stock?: number
+    tipo_movimiento?: string
+    id_orden_trabajo?: number
+    id_pedido_compra?: number
+    fecha_desde?: string
+    fecha_hasta?: string
+  }): Promise<ApiResponse<StockMovimiento[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('stock_movimientos')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (filters?.id_articulo_stock) {
+          query = query.eq('id_articulo_stock', filters.id_articulo_stock)
+        }
+        if (filters?.tipo_movimiento) {
+          query = query.eq('tipo_movimiento', filters.tipo_movimiento)
+        }
+        if (filters?.id_orden_trabajo) {
+          query = query.eq('id_orden_trabajo', filters.id_orden_trabajo)
+        }
+        if (filters?.id_pedido_compra) {
+          query = query.eq('id_pedido_compra', filters.id_pedido_compra)
+        }
+        if (filters?.fecha_desde) {
+          query = query.gte('created_at', filters.fecha_desde)
+        }
+        if (filters?.fecha_hasta) {
+          query = query.lte('created_at', filters.fecha_hasta)
+        }
+
+        const { data, error } = await query
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data as StockMovimiento[]) || [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   private async ensureChatRoomExists(roomId: number, canalNombre: string): Promise<void> {
     if (!supabase) return
 

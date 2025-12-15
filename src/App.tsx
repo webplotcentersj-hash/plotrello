@@ -19,6 +19,7 @@ import EntregaPage from './pages/EntregaPage'
 import CalendarioEntregasPage from './pages/CalendarioEntregasPage'
 import ReportesMostradorPage from './pages/ReportesMostradorPage'
 import ClientesFrecuentesPage from './pages/ClientesFrecuentesPage'
+import ComprasDashboardPage from './pages/ComprasDashboardPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -549,6 +550,14 @@ function AppRoutes({
       <Route
         path="/mostrador/clientes-frecuentes"
         element={<ClientesFrecuentesPage />}
+      />
+      <Route
+        path="/compras/dashboard"
+        element={<ComprasDashboardPage />}
+      />
+      <Route
+        path="/compras"
+        element={<ComprasDashboardPage />}
       />
     </Routes>
     </>
