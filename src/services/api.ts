@@ -1539,6 +1539,9 @@ class ApiService {
           return { success: false, error: 'Error al obtener datos del usuario' }
         }
 
+        // Asegurar que el usuario existe en la tabla usuarios para notificaciones
+        await this.ensureUsuarioExists(usuarioDb.id, usuarioDb.nombre, usuarioDb.rol)
+
         localStorage.setItem('usuario', JSON.stringify(usuarioDb))
         localStorage.setItem('usuario_id', usuarioDb.id.toString())
 
@@ -2216,6 +2219,64 @@ class ApiService {
     } catch (error) {
       console.error('❌ Error obteniendo todos los usuarios:', error)
       return []
+    }
+  }
+
+  // Helper para asegurar que un usuario existe en la tabla usuarios
+  private async ensureUsuarioExists(id: number, nombre: string, rol: string): Promise<void> {
+    if (!supabase) return
+    
+    try {
+      // Verificar si el usuario ya existe
+      const { data: existingUser, error: checkError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('id', id)
+        .single()
+      
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('Error verificando usuario:', checkError)
+        return
+      }
+      
+      // Si el usuario no existe, intentar crearlo
+      if (!existingUser) {
+        console.log(`📝 Usuario ${id} (${nombre}) no existe en tabla usuarios, intentando crear...`)
+        
+        // Intentar insertar el usuario (sin password_hash ya que puede no estar disponible)
+        const { error: insertError } = await supabase
+          .from('usuarios')
+          .insert({
+            id: id,
+            nombre: nombre,
+            rol: rol,
+            password_hash: '' // Placeholder, el usuario ya está autenticado
+          })
+          .select()
+        
+        if (insertError) {
+          // Si falla por constraint de id único, intentar actualizar
+          if (insertError.code === '23505') {
+            console.log(`ℹ️ Usuario ${id} ya existe, actualizando...`)
+            const { error: updateError } = await supabase
+              .from('usuarios')
+              .update({ nombre, rol })
+              .eq('id', id)
+            
+            if (updateError) {
+              console.error('Error actualizando usuario:', updateError)
+            } else {
+              console.log(`✅ Usuario ${id} actualizado en tabla usuarios`)
+            }
+          } else {
+            console.error('Error creando usuario:', insertError)
+          }
+        } else {
+          console.log(`✅ Usuario ${id} creado en tabla usuarios`)
+        }
+      }
+    } catch (error) {
+      console.error('Excepción en ensureUsuarioExists:', error)
     }
   }
 
