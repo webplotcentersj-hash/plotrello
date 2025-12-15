@@ -2243,14 +2243,19 @@ class ApiService {
       if (!existingUser) {
         console.log(`📝 Usuario ${id} (${nombre}) no existe en tabla usuarios, intentando crear...`)
         
-        // Intentar insertar el usuario (sin password_hash ya que puede no estar disponible)
+        // Obtener el password_hash del usuario desde la función de login si es posible
+        // Como no tenemos acceso directo, usamos un hash placeholder que no será usado para login
+        // El usuario ya está autenticado, así que esto es solo para mantener la integridad de la tabla
+        const placeholderHash = '$2a$10$placeholder.hash.for.notification.user.sync'
+        
+        // Intentar insertar el usuario
         const { error: insertError } = await supabase
           .from('usuarios')
           .insert({
             id: id,
             nombre: nombre,
             rol: rol,
-            password_hash: '' // Placeholder, el usuario ya está autenticado
+            password_hash: placeholderHash
           })
           .select()
         
@@ -2270,9 +2275,28 @@ class ApiService {
             }
           } else {
             console.error('Error creando usuario:', insertError)
+            // Si falla por otro motivo, al menos intentar actualizar nombre y rol
+            const { error: updateError } = await supabase
+              .from('usuarios')
+              .update({ nombre, rol })
+              .eq('id', id)
+            
+            if (!updateError) {
+              console.log(`✅ Usuario ${id} actualizado como fallback`)
+            }
           }
         } else {
           console.log(`✅ Usuario ${id} creado en tabla usuarios`)
+        }
+      } else {
+        // Si el usuario existe, asegurarse de que nombre y rol estén actualizados
+        const { error: updateError } = await supabase
+          .from('usuarios')
+          .update({ nombre, rol })
+          .eq('id', id)
+        
+        if (!updateError) {
+          console.log(`✅ Usuario ${id} sincronizado en tabla usuarios`)
         }
       }
     } catch (error) {
