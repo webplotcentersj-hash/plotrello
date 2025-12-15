@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { toDataURL } from 'qrcode'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 import './QRPrintView.css'
 
 type QRPrintViewProps = {
@@ -11,6 +13,8 @@ type QRPrintViewProps = {
 const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const generateQRCode = async () => {
@@ -29,8 +33,49 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
     generateQRCode()
   }, [opNumber])
 
-  const handlePrint = () => {
-    window.print()
+  const handleSavePDF = async () => {
+    if (!printRef.current || !qrDataUrl) return
+
+    setSaving(true)
+    try {
+      // Capturar el contenido como imagen
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: printRef.current.scrollWidth,
+        height: printRef.current.scrollHeight,
+      })
+
+      // Crear PDF
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = canvas.width
+      const imgHeight = canvas.height
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
+      const imgScaledWidth = imgWidth * ratio
+      const imgScaledHeight = imgHeight * ratio
+      const xOffset = (pdfWidth - imgScaledWidth) / 2
+      const yOffset = (pdfHeight - imgScaledHeight) / 2
+
+      pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgScaledWidth, imgScaledHeight)
+      
+      // Descargar el PDF
+      pdf.save(`QR_OP_${opNumber}_${cliente.replace(/\s+/g, '_')}.pdf`)
+    } catch (error) {
+      console.error('Error generando PDF:', error)
+      alert('Error al generar el PDF. Por favor, intenta nuevamente.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -49,7 +94,7 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
             </p>
             
             {/* Vista previa del contenido a imprimir */}
-            <div className="qr-print-preview-card">
+            <div className="qr-print-preview-card" ref={printRef}>
               <div className="qr-print-header">
                 <div className="qr-print-logo">
                   <img 
@@ -97,57 +142,9 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
               <button type="button" className="btn-secondary" onClick={onClose}>
                 Cerrar
               </button>
-              <button type="button" className="btn-primary" onClick={handlePrint} disabled={loading || !qrDataUrl}>
-                🖨️ Imprimir Tarjeta
+              <button type="button" className="btn-primary" onClick={handleSavePDF} disabled={loading || !qrDataUrl || saving}>
+                {saving ? '⏳ Guardando...' : '💾 Guardar como PDF'}
               </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Vista de impresión */}
-      <div className="qr-print-view">
-        <div className="qr-print-container">
-          <div className="qr-print-header">
-            <div className="qr-print-logo">
-              <img 
-                src="https://trello.plotcenter.com.ar/Group%20187.png" 
-                alt="Plot Center Logo" 
-                className="qr-print-logo-img"
-                style={{ width: '120px', height: 'auto', maxHeight: '120px', objectFit: 'contain' }}
-              />
-            </div>
-            <div className="qr-print-title">
-              <h1 className="qr-print-op">OP {opNumber}</h1>
-              <h2 className="qr-print-cliente">{cliente}</h2>
-            </div>
-          </div>
-
-          <div className="qr-print-content">
-            <div className="qr-print-instructions">
-              <p className="instructions-title">Consulta el estado de tu orden</p>
-              <p className="instructions-text">
-                Escaneá el código QR con tu celular para ver en tiempo real el estado de tu orden de trabajo.
-              </p>
-            </div>
-
-            <div className="qr-print-qr-container">
-              {loading ? (
-                <div className="qr-loading">Generando código QR...</div>
-              ) : qrDataUrl ? (
-                <img src={qrDataUrl} alt="Código QR" className="qr-print-qr" />
-              ) : (
-                <div className="qr-error">Error al generar QR</div>
-              )}
-            </div>
-
-            <div className="qr-print-footer">
-              <p className="footer-text">
-                <strong>Plot Center</strong> - Impresión y Diseño Gráfico
-              </p>
-              <p className="footer-url">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/op-public/{opNumber}
-              </p>
             </div>
           </div>
         </div>

@@ -12,6 +12,7 @@
     "clean-all": "node scripts/clear-cache.js --clean-node && npm run build"
   },
   "devDependencies": {
+    "@types/html2canvas": "^0.5.35",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
@@ -29,6 +30,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
     "marked": "^17.0.0",
     "qrcode": "^1.5.3",
