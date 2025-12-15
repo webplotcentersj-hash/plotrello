@@ -89,7 +89,11 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
             </button>
           </header>
           <div className="qr-print-modal-body">
-            {/* Contenido del QR para generar PDF */}
+            <p style={{ marginBottom: '20px', color: '#6b7280', textAlign: 'center' }}>
+              Vista previa de la tarjeta para el cliente
+            </p>
+            
+            {/* Vista previa del contenido a imprimir */}
             <div className="qr-print-preview-card" ref={printRef}>
               <div className="qr-print-header">
                 <div className="qr-print-logo">
