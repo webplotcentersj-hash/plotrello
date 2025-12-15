@@ -8,7 +8,7 @@ import './PedidoCompraDetallePage.css'
 const PedidoCompraDetallePage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { usuario, canManageCompras } = useAuth()
+  const { usuario, canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedido, setPedido] = useState<PedidoCompra | null>(null)
   const [nuevoComentario, setNuevoComentario] = useState('')
@@ -20,14 +20,16 @@ const PedidoCompraDetallePage = () => {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    if (authLoading) return // Esperar a que termine la carga de autenticación
+    
     if (!canManageCompras) {
-      navigate('/')
+      navigate('/compras/dashboard')
       return
     }
     if (id) {
       loadPedido()
     }
-  }, [id, canManageCompras])
+  }, [id, canManageCompras, navigate, authLoading])
 
   const loadPedido = async () => {
     setLoading(true)
@@ -134,7 +136,11 @@ const PedidoCompraDetallePage = () => {
   }
 
   const handleCambiarEstado = async (nuevoEstado: string) => {
-    if (!pedido) return
+    if (!pedido || nuevoEstado === pedido.estado) return
+
+    if (!confirm(`¿Estás seguro de que deseas cambiar el estado a "${nuevoEstado}"?`)) {
+      return
+    }
 
     setSaving(true)
     try {
@@ -201,7 +207,7 @@ const PedidoCompraDetallePage = () => {
 
   const puedeAprobar = canManageCompras && (pedido.estado === 'Pendiente' || pedido.estado === 'En Revisión')
   const puedeRechazar = canManageCompras && (pedido.estado === 'Pendiente' || pedido.estado === 'En Revisión')
-  const puedeCambiarEstado = canManageCompras && ['Aprobado', 'En Compra'].includes(pedido.estado)
+  const puedeCambiarEstado = canManageCompras && pedido.estado !== 'Rechazado' && pedido.estado !== 'Cancelado'
 
   return (
     <div className="pedido-detalle-page">
@@ -361,26 +367,24 @@ const PedidoCompraDetallePage = () => {
                 </button>
               )}
               {puedeCambiarEstado && (
-                <>
-                  {pedido.estado === 'Aprobado' && (
-                    <button
-                      className="btn-primary"
-                      onClick={() => handleCambiarEstado('En Compra')}
-                      disabled={saving}
-                    >
-                      🛒 Marcar como En Compra
-                    </button>
-                  )}
-                  {pedido.estado === 'En Compra' && (
-                    <button
-                      className="btn-success"
-                      onClick={() => handleCambiarEstado('Completado')}
-                      disabled={saving}
-                    >
-                      ✅ Marcar como Completado
-                    </button>
-                  )}
-                </>
+                <div className="cambiar-estado-section">
+                  <label htmlFor="nuevo-estado">Cambiar Estado:</label>
+                  <select
+                    id="nuevo-estado"
+                    value={pedido.estado}
+                    onChange={(e) => handleCambiarEstado(e.target.value)}
+                    disabled={saving}
+                    className="estado-select"
+                  >
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="En Revisión">En Revisión</option>
+                    <option value="Aprobado">Aprobado</option>
+                    <option value="En Compra">En Compra</option>
+                    <option value="Completado">Completado</option>
+                    <option value="Rechazado">Rechazado</option>
+                    <option value="Cancelado">Cancelado</option>
+                  </select>
+                </div>
               )}
             </div>
           </section>

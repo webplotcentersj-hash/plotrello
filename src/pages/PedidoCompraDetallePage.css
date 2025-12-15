@@ -184,6 +184,44 @@ section h2 {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.cambiar-estado-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cambiar-estado-section label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.estado-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.estado-select:hover {
+  border-color: var(--primary-color);
+}
+
+.estado-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.estado-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-success,
