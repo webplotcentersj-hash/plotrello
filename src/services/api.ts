@@ -2124,6 +2124,7 @@ class ApiService {
     description?: string
     type?: 'info' | 'success' | 'warning' | 'error' | 'mention'
     orden_id?: number
+    pedido_id?: number
   }): Promise<ApiResponse<Notification>> {
     if (supabase) {
       const { data, error } = await supabase
@@ -2134,6 +2135,7 @@ class ApiService {
           description: notification.description || null,
           type: notification.type || 'info',
           orden_id: notification.orden_id || null,
+          pedido_id: notification.pedido_id || null,
           is_read: false
         })
         .select()
@@ -2144,6 +2146,24 @@ class ApiService {
     }
 
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // Helper para obtener usuarios de compras y administración
+  private async getUsuariosComprasAdmin(): Promise<number[]> {
+    if (!supabase) return []
+    
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id')
+        .in('rol', ['compras', 'administracion'])
+      
+      if (error || !data) return []
+      return data.map(u => u.id)
+    } catch (error) {
+      console.error('Error obteniendo usuarios de compras/admin:', error)
+      return []
+    }
   }
 
   async markNotificationAsRead(notificationId: number): Promise<ApiResponse<void>> {
@@ -2281,6 +2301,20 @@ class ApiService {
         console.log('✅ Items del pedido creados exitosamente')
       }
 
+      // Notificar a usuarios de compras y administración
+      const usuariosComprasAdmin = await this.getUsuariosComprasAdmin()
+      const numeroPedido = pedidoData.numero_pedido || `#${pedidoData.id}`
+      
+      for (const userId of usuariosComprasAdmin) {
+        await this.createNotification({
+          user_id: userId,
+          title: '📦 Nuevo pedido de compra',
+          description: `${pedido.nombre_solicitante} solicitó productos${pedido.sector_solicitante ? ` (${pedido.sector_solicitante})` : ''}. Pedido ${numeroPedido}`,
+          type: 'info',
+          pedido_id: pedidoData.id
+        })
+      }
+
       // Obtener el pedido completo con items
       const pedidoCompleto = await this.getPedidoCompra(pedidoData.id)
       if (pedidoCompleto.success) {
@@ -2397,7 +2431,19 @@ class ApiService {
           }
         }
 
-        return await this.getPedidoCompra(id)
+        // Obtener el pedido para notificar al solicitante
+        const pedido = await this.getPedidoCompra(id)
+        if (pedido.success && pedido.data && pedido.data.id_solicitante) {
+          await this.createNotification({
+            user_id: pedido.data.id_solicitante,
+            title: '✅ Pedido aprobado',
+            description: `Tu pedido ${pedido.data.numero_pedido} fue aprobado por ${aprobador.nombre}`,
+            type: 'success',
+            pedido_id: id
+          })
+        }
+
+        return pedido
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
@@ -2427,7 +2473,19 @@ class ApiService {
           return { success: false, error: error.message }
         }
 
-        return await this.getPedidoCompra(id)
+        // Obtener el pedido para notificar al solicitante
+        const pedido = await this.getPedidoCompra(id)
+        if (pedido.success && pedido.data && pedido.data.id_solicitante) {
+          await this.createNotification({
+            user_id: pedido.data.id_solicitante,
+            title: '❌ Pedido rechazado',
+            description: `Tu pedido ${pedido.data.numero_pedido} fue rechazado por ${aprobador.nombre}. Motivo: ${motivo_rechazo}`,
+            type: 'error',
+            pedido_id: id
+          })
+        }
+
+        return pedido
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
@@ -2462,6 +2520,25 @@ class ApiService {
           return { success: false, error: error.message }
         }
 
+        // Notificar al solicitante si el comentario no es interno
+        if (!comentario.es_interno) {
+          const { data: pedidoData } = await supabase
+            .from('pedidos_compras')
+            .select('id_solicitante, numero_pedido')
+            .eq('id', id_pedido)
+            .single()
+          
+          if (pedidoData && pedidoData.id_solicitante && pedidoData.id_solicitante !== comentario.id_usuario) {
+            await this.createNotification({
+              user_id: pedidoData.id_solicitante,
+              title: '💬 Nuevo comentario en tu pedido',
+              description: `${comentario.nombre_usuario} comentó en el pedido ${pedidoData.numero_pedido}`,
+              type: 'info',
+              pedido_id: id_pedido
+            })
+          }
+        }
+
         return { success: true, data: data as PedidoCompraComentario }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
@@ -2476,6 +2553,10 @@ class ApiService {
   ): Promise<ApiResponse<PedidoCompra>> {
     if (supabase) {
       try {
+        // Obtener el pedido antes de actualizar para saber el estado anterior
+        const pedidoAnterior = await this.getPedidoCompra(id)
+        const estadoAnterior = pedidoAnterior.success && pedidoAnterior.data ? pedidoAnterior.data.estado : 'Desconocido'
+        
         const updateData: any = { estado }
         
         if (estado === 'Completado') {
@@ -2491,7 +2572,19 @@ class ApiService {
           return { success: false, error: error.message }
         }
 
-        return await this.getPedidoCompra(id)
+        // Obtener el pedido actualizado para notificar al solicitante
+        const pedido = await this.getPedidoCompra(id)
+        if (pedido.success && pedido.data && pedido.data.id_solicitante && estadoAnterior !== estado) {
+          await this.createNotification({
+            user_id: pedido.data.id_solicitante,
+            title: '🔄 Estado del pedido actualizado',
+            description: `El estado de tu pedido ${pedido.data.numero_pedido} cambió de "${estadoAnterior}" a "${estado}"`,
+            type: 'info',
+            pedido_id: id
+          })
+        }
+
+        return pedido
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }

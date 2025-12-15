@@ -126,6 +126,7 @@ export interface Notification {
   description: string | null
   type: 'info' | 'success' | 'warning' | 'error' | 'mention'
   orden_id: number | null
+  pedido_id: number | null
   is_read: boolean
   timestamp: string
 }
