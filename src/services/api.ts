@@ -2355,15 +2355,22 @@ class ApiService {
       }
 
       // Notificar a usuarios de compras y administración
-      const usuariosComprasAdmin = await this.getUsuariosComprasAdmin()
+      // Intentar obtener usuarios de la BD primero
+      let usuariosComprasAdmin = await this.getUsuariosComprasAdmin()
       const numeroPedido = pedidoData.numero_pedido || `#${pedidoData.id}`
       
-      console.log('🔔 Usuarios de compras/admin encontrados:', usuariosComprasAdmin.length, usuariosComprasAdmin)
+      console.log('🔔 Usuarios de compras/admin encontrados en BD:', usuariosComprasAdmin.length, usuariosComprasAdmin)
       
-      if (usuariosComprasAdmin.length === 0) {
-        console.warn('⚠️ No se encontraron usuarios de compras/admin para notificar')
+      // Si no hay usuarios en BD pero hay id_solicitante, intentar notificar al solicitante
+      // (esto es un fallback para cuando los usuarios están en otra parte)
+      if (usuariosComprasAdmin.length === 0 && idSolicitanteFinal) {
+        console.log('⚠️ No hay usuarios en BD, pero hay id_solicitante. Intentando notificar al solicitante como fallback.')
+        // No notificamos al solicitante cuando crea su propio pedido, eso no tiene sentido
+        // En su lugar, simplemente logueamos que no hay usuarios para notificar
+        console.warn('⚠️ No se encontraron usuarios de compras/admin para notificar. Las notificaciones se crearán cuando haya usuarios en la tabla usuarios.')
       }
       
+      // Crear notificaciones solo si hay usuarios
       for (const userId of usuariosComprasAdmin) {
         try {
           const notificationResult = await this.createNotification({
