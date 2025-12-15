@@ -44,12 +44,16 @@ const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModal
 
     setBuscando(true)
     try {
-      const response = await apiService.getArticulosStock(busqueda.trim())
+      const response = await apiService.getArticulosStock(busqueda.trim(), false)
       if (response.success && response.data) {
         setArticulos(response.data)
+      } else {
+        console.error('Error buscando artículos:', response.error)
+        setArticulos([])
       }
     } catch (error) {
       console.error('Error buscando artículos:', error)
+      setArticulos([])
     } finally {
       setBuscando(false)
     }
@@ -61,9 +65,13 @@ const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModal
       const response = await apiService.getArticulosStock(undefined, true)
       if (response.success && response.data) {
         setArticulos(response.data)
+      } else {
+        console.error('Error cargando artículos con stock bajo:', response.error)
+        setArticulos([])
       }
     } catch (error) {
       console.error('Error cargando artículos con stock bajo:', error)
+      setArticulos([])
     } finally {
       setBuscando(false)
     }
@@ -170,15 +178,17 @@ const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModal
       })
 
       if (response.success) {
-        alert('Pedido de compra creado exitosamente')
+        alert('✅ Pedido de compra creado exitosamente')
         onSuccess?.()
         onClose()
       } else {
-        alert(`Error al crear pedido: ${response.error}`)
+        console.error('Error respuesta API:', response)
+        alert(`❌ Error al crear pedido: ${response.error || 'Error desconocido'}`)
       }
     } catch (error) {
       console.error('Error creando pedido:', error)
-      alert('Error al crear el pedido de compra')
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      alert(`❌ Error al crear el pedido de compra: ${errorMessage}`)
     } finally {
       setSaving(false)
     }

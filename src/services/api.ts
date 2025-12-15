@@ -2632,6 +2632,89 @@ class ApiService {
     }
   }
 
+  async crearArticuloStock(articulo: {
+    codigo?: string
+    descripcion: string
+    stock?: number
+    stock_minimo?: number
+    unidad?: string
+    precio?: number
+    categoria?: string
+    proveedor?: string
+  }): Promise<ApiResponse<ArticuloStock>> {
+    if (stockSupabase) {
+      try {
+        const { data, error } = await stockSupabase
+          .from('articulos')
+          .insert({
+            codigo: articulo.codigo || null,
+            descripcion: articulo.descripcion,
+            stock: articulo.stock || 0,
+            stock_minimo: articulo.stock_minimo || 0,
+            unidad: articulo.unidad || 'unidad',
+            precio: articulo.precio || null,
+            categoria: articulo.categoria || null,
+            proveedor: articulo.proveedor || null
+          })
+          .select()
+          .single()
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: data as ArticuloStock }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a la base de datos de stock' }
+  }
+
+  async actualizarArticuloStock(
+    id: number,
+    articulo: {
+      codigo?: string
+      descripcion?: string
+      stock?: number
+      stock_minimo?: number
+      unidad?: string
+      precio?: number
+      categoria?: string
+      proveedor?: string
+    }
+  ): Promise<ApiResponse<ArticuloStock>> {
+    if (stockSupabase) {
+      try {
+        const updateData: any = {}
+        if (articulo.codigo !== undefined) updateData.codigo = articulo.codigo || null
+        if (articulo.descripcion !== undefined) updateData.descripcion = articulo.descripcion
+        if (articulo.stock !== undefined) updateData.stock = articulo.stock
+        if (articulo.stock_minimo !== undefined) updateData.stock_minimo = articulo.stock_minimo
+        if (articulo.unidad !== undefined) updateData.unidad = articulo.unidad
+        if (articulo.precio !== undefined) updateData.precio = articulo.precio || null
+        if (articulo.categoria !== undefined) updateData.categoria = articulo.categoria || null
+        if (articulo.proveedor !== undefined) updateData.proveedor = articulo.proveedor || null
+
+        const { data, error } = await stockSupabase
+          .from('articulos')
+          .update(updateData)
+          .eq('id', id)
+          .select()
+          .single()
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: data as ArticuloStock }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a la base de datos de stock' }
+  }
+
   async getArticulosStock(search?: string, stockBajo?: boolean): Promise<ApiResponse<ArticuloStock[]>> {
     if (stockSupabase) {
       try {

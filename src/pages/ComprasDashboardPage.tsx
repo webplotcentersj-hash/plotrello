@@ -127,6 +127,12 @@ const ComprasDashboardPage = () => {
             </button>
             <button
               className="btn-primary"
+              onClick={() => navigate('/compras/gestion-stock')}
+            >
+              📦 Gestión Stock
+            </button>
+            <button
+              className="btn-primary"
               onClick={() => navigate('/compras/reportes')}
             >
               📊 Reportes

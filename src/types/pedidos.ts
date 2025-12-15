@@ -90,7 +90,7 @@ export interface ArticuloStock {
   id: number
   codigo?: string | null
   descripcion: string
-  stock: number
+  stock: number | null
   unidad?: string | null
   precio?: number | null
   proveedor?: string | null

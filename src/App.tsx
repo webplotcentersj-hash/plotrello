@@ -22,6 +22,7 @@ import ClientesFrecuentesPage from './pages/ClientesFrecuentesPage'
 import ComprasDashboardPage from './pages/ComprasDashboardPage'
 import PedidoCompraDetallePage from './pages/PedidoCompraDetallePage'
 import ReportesStockPage from './pages/ReportesStockPage'
+import GestionStockPage from './pages/GestionStockPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -576,6 +577,10 @@ function AppRoutes({
       <Route
         path="/compras/reportes"
         element={<ReportesStockPage />}
+      />
+      <Route
+        path="/compras/gestion-stock"
+        element={<GestionStockPage />}
       />
     </Routes>
     </>
