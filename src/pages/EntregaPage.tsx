@@ -62,7 +62,7 @@ const EntregaPage = () => {
     canvas.width = 400
     canvas.height = 150
     ctx.strokeStyle = '#000'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 1.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
