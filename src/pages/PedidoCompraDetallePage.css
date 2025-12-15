@@ -182,46 +182,68 @@ section h2 {
 
 .acciones-buttons {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
   align-items: center;
 }
 
 .cambiar-estado-section {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  min-width: 200px;
 }
 
-.cambiar-estado-section label {
+.estado-label {
   font-weight: 600;
   color: var(--text-primary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .estado-select {
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--surface-elevated);
+  padding: 10px 16px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  background: var(--surface-base);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 0.9375rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
 }
 
-.estado-select:hover {
-  border-color: var(--primary-color);
+.estado-select:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.5);
+  background-color: rgba(59, 130, 246, 0.1);
 }
 
 .estado-select:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background-color: rgba(59, 130, 246, 0.1);
 }
 
 .estado-select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.estado-select option {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  padding: 8px;
 }
 
 .btn-success,
@@ -457,6 +479,10 @@ section h2 {
   }
 
   .acciones-buttons button {
+    width: 100%;
+  }
+
+  .cambiar-estado-section {
     width: 100%;
   }
 }

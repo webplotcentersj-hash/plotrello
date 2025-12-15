@@ -368,7 +368,7 @@ const PedidoCompraDetallePage = () => {
               )}
               {puedeCambiarEstado && (
                 <div className="cambiar-estado-section">
-                  <label htmlFor="nuevo-estado">Cambiar Estado:</label>
+                  <label htmlFor="nuevo-estado" className="estado-label">Cambiar Estado:</label>
                   <select
                     id="nuevo-estado"
                     value={pedido.estado}
