@@ -135,20 +135,23 @@ const GestionStockPage = () => {
     }
   }
 
-  const handleAjustarStock = async (articulo: ArticuloStock, nuevoStock: number) => {
-    if (nuevoStock < 0) {
+  const handleAjustarStock = async (articulo: ArticuloStock, nuevoStock: number | null) => {
+    // Convertir null a 0 para cálculos
+    const stockValor = nuevoStock !== null && nuevoStock !== undefined ? nuevoStock : 0
+    
+    if (stockValor < 0) {
       alert('El stock no puede ser negativo')
       return
     }
 
-    const cantidadAnterior = articulo.stock || 0
-    const diferencia = nuevoStock - cantidadAnterior
-    const tipoMovimiento = diferencia > 0 ? 'Entrada' : 'Salida'
+    const cantidadAnterior = articulo.stock !== null && articulo.stock !== undefined ? articulo.stock : 0
+    const diferencia = stockValor - cantidadAnterior
+    const tipoMovimiento = diferencia > 0 ? 'Entrada' : diferencia < 0 ? 'Salida' : 'Ajuste'
 
     try {
-      // Actualizar stock
+      // Actualizar stock - asegurar que sea un número
       const response = await apiService.actualizarArticuloStock(articulo.id, {
-        stock: nuevoStock
+        stock: stockValor
       })
 
       if (response.success) {
@@ -160,7 +163,7 @@ const GestionStockPage = () => {
           tipo_movimiento: tipoMovimiento,
           cantidad: Math.abs(diferencia),
           cantidad_anterior: cantidadAnterior,
-          cantidad_nueva: nuevoStock,
+          cantidad_nueva: stockValor,
           motivo: 'Ajuste manual de stock'
         })
 

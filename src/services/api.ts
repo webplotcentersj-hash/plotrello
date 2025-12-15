@@ -2683,10 +2683,10 @@ class ApiService {
         .insert({
           codigo: articulo.codigo || null,
           descripcion: articulo.descripcion,
-          stock: articulo.stock || 0,
-          stock_minimo: articulo.stock_minimo || 0,
+          stock: articulo.stock !== null && articulo.stock !== undefined ? Number(articulo.stock) : 0,
+          stock_minimo: articulo.stock_minimo !== null && articulo.stock_minimo !== undefined ? Number(articulo.stock_minimo) : 0,
           unidad: articulo.unidad || 'unidad',
-          precio: articulo.precio || null,
+          precio: articulo.precio !== null && articulo.precio !== undefined ? Number(articulo.precio) : null,
           categoria: articulo.categoria || null,
           proveedor: articulo.proveedor || null
         })
@@ -2739,10 +2739,20 @@ class ApiService {
       const updateData: any = {}
       if (articulo.codigo !== undefined) updateData.codigo = articulo.codigo || null
       if (articulo.descripcion !== undefined) updateData.descripcion = articulo.descripcion
-      if (articulo.stock !== undefined) updateData.stock = articulo.stock
-      if (articulo.stock_minimo !== undefined) updateData.stock_minimo = articulo.stock_minimo
+      if (articulo.stock !== undefined) {
+        // Asegurar que stock sea un número válido
+        updateData.stock = articulo.stock !== null && articulo.stock !== undefined 
+          ? Number(articulo.stock) 
+          : null
+      }
+      if (articulo.stock_minimo !== undefined) {
+        // Asegurar que stock_minimo sea un número válido
+        updateData.stock_minimo = articulo.stock_minimo !== null && articulo.stock_minimo !== undefined 
+          ? Number(articulo.stock_minimo) 
+          : null
+      }
       if (articulo.unidad !== undefined) updateData.unidad = articulo.unidad
-      if (articulo.precio !== undefined) updateData.precio = articulo.precio || null
+      if (articulo.precio !== undefined) updateData.precio = articulo.precio !== null && articulo.precio !== undefined ? Number(articulo.precio) : null
       if (articulo.categoria !== undefined) updateData.categoria = articulo.categoria || null
       if (articulo.proveedor !== undefined) updateData.proveedor = articulo.proveedor || null
 
