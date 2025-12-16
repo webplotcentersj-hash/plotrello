@@ -65,6 +65,7 @@ export interface Task {
   referencias?: string | null // Referencias visuales o enlaces
   deadlineBrief?: string | null // Fecha límite para completar el brief
   estadoRevision?: string | null // Estado de revisión: 'pendiente', 'en_revision', 'aprobado', 'requiere_cambios'
+  briefToken?: string | null // Token único para acceso público al formulario de brief
 }
 
 export interface Subtask {

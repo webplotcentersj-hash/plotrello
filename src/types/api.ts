@@ -37,6 +37,7 @@ export interface OrdenTrabajo {
   referencias?: string | null // Referencias visuales o enlaces
   deadline_brief?: string | null // Fecha límite para completar el brief
   estado_revision?: string | null // Estado de revisión: 'pendiente', 'en_revision', 'aprobado', 'requiere_cambios'
+  brief_token?: string | null // Token único para acceso público al formulario de brief
 }
 
 export interface RevisionOrden {

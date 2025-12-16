@@ -15,6 +15,7 @@ import HerramientaPage from './pages/HerramientaPage'
 import MostradorDashboardPage from './pages/MostradorDashboardPage'
 import DisenoDashboardPage from './pages/DisenoDashboardPage'
 import GaleriaTrabajosPage from './pages/GaleriaTrabajosPage'
+import BriefPublicoPage from './pages/BriefPublicoPage'
 import OrdenesListasPage from './pages/OrdenesListasPage'
 import BuscarClientePage from './pages/BuscarClientePage'
 import EntregaPage from './pages/EntregaPage'
@@ -597,6 +598,10 @@ function AppRoutes({
       <Route
         path="/galeria-trabajos"
         element={<GaleriaTrabajosPage />}
+      />
+      <Route
+        path="/brief/:token"
+        element={<BriefPublicoPage />}
       />
     </Routes>
     </>

@@ -605,7 +605,13 @@ const TaskEditModal = ({
           {/* Sección de Brief Público */}
           <div className="form-section-divider">
             <h3>📋 Brief del Proyecto (Público)</h3>
-            <p className="section-description">Esta información será visible para todos los usuarios del sistema</p>
+            <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
+            {task && (() => {
+              const ordenId = parseTaskIdToOrdenId(task.id)
+              return ordenId ? (
+                <BriefLinkSection ordenId={ordenId} />
+              ) : null
+            })()}
           </div>
 
           <div className="form-group">

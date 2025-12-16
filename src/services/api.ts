@@ -3789,6 +3789,87 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  // ==================== BRIEF PÚBLICO - FORMULARIO CLIENTE ====================
+  
+  async generarBriefToken(idOrden: number): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('generar_brief_token', {
+          p_id_orden: idOrden
+        })
+
+        if (error) {
+          console.error('Error generando token de brief:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: data as string }
+      } catch (error) {
+        console.error('Error generando token de brief:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerOrdenPorBriefToken(token: string): Promise<ApiResponse<Partial<OrdenTrabajo>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_orden_por_brief_token', {
+          p_token: token
+        })
+
+        if (error) {
+          console.error('Error obteniendo orden por token:', error)
+          return { success: false, error: error.message }
+        }
+
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Token no válido' }
+        }
+
+        return { success: true, data: data[0] as Partial<OrdenTrabajo> }
+      } catch (error) {
+        console.error('Error obteniendo orden por token:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarBriefPublico(data: {
+    token: string
+    brief_publico: string
+    objetivo_proyecto?: string
+    publico_objetivo?: string
+    estilo_diseno?: string
+    referencias?: string
+  }): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('actualizar_brief_publico', {
+          p_token: data.token,
+          p_brief_publico: data.brief_publico,
+          p_objetivo_proyecto: data.objetivo_proyecto || null,
+          p_publico_objetivo: data.publico_objetivo || null,
+          p_estilo_diseno: data.estilo_diseno || null,
+          p_referencias: data.referencias || null
+        })
+
+        if (error) {
+          console.error('Error actualizando brief público:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true }
+      } catch (error) {
+        console.error('Error actualizando brief público:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {

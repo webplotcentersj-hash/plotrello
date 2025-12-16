@@ -1,0 +1,136 @@
+.brief-link-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.brief-link-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.brief-link-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.link-icon {
+  font-size: 1.2rem;
+}
+
+.brief-link-url {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.link-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: rgba(20, 22, 35, 0.85);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: 'Courier New', monospace;
+  cursor: text;
+}
+
+.link-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.btn-copy {
+  padding: 10px 16px;
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border: 1px solid rgba(102, 126, 234, 0.4);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-copy:hover {
+  background: rgba(102, 126, 234, 0.3);
+  transform: translateY(-1px);
+}
+
+.brief-link-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-share {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.btn-share.whatsapp {
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  color: white;
+}
+
+.btn-share.email {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-share:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.brief-link-help {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.brief-link-empty {
+  text-align: center;
+  padding: 20px;
+}
+
+.brief-link-empty p {
+  margin: 0 0 16px 0;
+  color: var(--text-secondary);
+}
+
+.btn-generar-link {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-generar-link:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.btn-generar-link:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
