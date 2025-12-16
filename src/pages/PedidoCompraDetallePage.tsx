@@ -358,6 +358,58 @@ const PedidoCompraDetallePage = () => {
           </div>
         </section>
 
+        {/* Tracking de Entrega */}
+        {pedido.estado === 'Aprobado' && (
+          <section className="tracking-section">
+            <div className="section-header">
+              <h2>📦 Tracking de Entrega</h2>
+              <button className="btn-action" onClick={() => setMostrarTracking(true)}>
+                {pedido.estado_entrega ? '✏️ Editar Tracking' : '➕ Agregar Tracking'}
+              </button>
+            </div>
+            {pedido.estado_entrega ? (
+              <div className="tracking-info">
+                <div className="info-grid">
+                  <div className="info-item">
+                    <label>Estado:</label>
+                    <span className={`estado-badge estado-${pedido.estado_entrega.toLowerCase().replace(' ', '-')}`}>
+                      {pedido.estado_entrega}
+                    </span>
+                  </div>
+                  {pedido.fecha_entrega_estimada && (
+                    <div className="info-item">
+                      <label>Fecha Estimada:</label>
+                      <span>{new Date(pedido.fecha_entrega_estimada).toLocaleDateString('es-AR')}</span>
+                    </div>
+                  )}
+                  {pedido.fecha_entrega_real && (
+                    <div className="info-item">
+                      <label>Fecha Real:</label>
+                      <span>{new Date(pedido.fecha_entrega_real).toLocaleDateString('es-AR')}</span>
+                    </div>
+                  )}
+                  {pedido.tracking_number && (
+                    <div className="info-item">
+                      <label>Número de Tracking:</label>
+                      <span>{pedido.tracking_number}</span>
+                    </div>
+                  )}
+                  {pedido.transportista && (
+                    <div className="info-item">
+                      <label>Transportista:</label>
+                      <span>{pedido.transportista}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="sin-tracking">
+                <p>No hay información de tracking disponible</p>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Items del Pedido */}
         <section className="items-section">
           <h2>Productos Solicitados</h2>
