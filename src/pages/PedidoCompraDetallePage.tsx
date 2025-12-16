@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoCompra, EstadoEntrega } from '../types/pedidos'
+import jsPDF from 'jspdf'
 import './PedidoCompraDetallePage.css'
 
 const PedidoCompraDetallePage = () => {

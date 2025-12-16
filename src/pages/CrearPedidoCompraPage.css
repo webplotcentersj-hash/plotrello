@@ -84,6 +84,40 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
+.btn-agregar-producto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.btn-agregar-producto .btn-icon {
+  font-size: 18px;
+}
+
+.btn-buscar-producto {
+  padding: 10px 14px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+}
+
+.btn-buscar-producto:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #3b82f6;
+  transform: scale(1.05);
+}
+
 .pedido-form {
   display: flex;
   flex-direction: column;

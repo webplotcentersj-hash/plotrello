@@ -1,0 +1,163 @@
+.seleccionar-producto-modal {
+  max-width: 700px;
+  max-height: 80vh;
+}
+
+.busqueda-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.busqueda-input-group {
+  flex: 1;
+  min-width: 250px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.busqueda-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--surface-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.busqueda-input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(235, 103, 27, 0.1);
+}
+
+.spinner-small {
+  position: absolute;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.articulos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.articulo-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--surface-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.articulo-item:hover {
+  background: var(--surface-card);
+  border-color: var(--brand);
+  transform: translateX(4px);
+}
+
+.articulo-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.articulo-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.articulo-descripcion {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.articulo-codigo {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.articulo-details {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.stock-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stock-badge.stock-ok {
+  background: rgba(61, 213, 152, 0.2);
+  color: #3dd598;
+}
+
+.stock-badge.stock-bajo {
+  background: rgba(255, 207, 92, 0.2);
+  color: #ffcf5c;
+}
+
+.stock-badge.sin-stock {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+}
+
+.articulo-precio {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.btn-select-producto {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-select-producto:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.no-results {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.no-results p {
+  margin: 0;
+  font-size: 14px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+

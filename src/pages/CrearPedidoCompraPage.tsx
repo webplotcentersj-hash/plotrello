@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { PrioridadPedido, Proveedor } from '../types/pedidos'
+import type { PrioridadPedido, Proveedor, ArticuloStock } from '../types/pedidos'
+import SeleccionarProductoStockModal from '../components/SeleccionarProductoStockModal'
 import './CrearPedidoCompraPage.css'
 
 const CrearPedidoCompraPage = () => {
@@ -20,18 +21,22 @@ const CrearPedidoCompraPage = () => {
     fecha_entrega_estimada: ''
   })
   const [items, setItems] = useState<Array<{
+    id_articulo_stock?: number
     codigo_articulo: string
     descripcion: string
     cantidad: string
     unidad: string
     observaciones: string
   }>>([{
+    id_articulo_stock: undefined,
     codigo_articulo: '',
     descripcion: '',
     cantidad: '1',
     unidad: 'unidad',
     observaciones: ''
   }])
+  const [mostrarModalProductos, setMostrarModalProductos] = useState(false)
+  const [itemIndexParaAgregar, setItemIndexParaAgregar] = useState<number | null>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -57,13 +62,41 @@ const CrearPedidoCompraPage = () => {
   }
 
   const handleAgregarItem = () => {
-    setItems([...items, {
-      codigo_articulo: '',
-      descripcion: '',
-      cantidad: '1',
-      unidad: 'unidad',
-      observaciones: ''
-    }])
+    setItemIndexParaAgregar(items.length)
+    setMostrarModalProductos(true)
+  }
+
+  const handleSeleccionarProducto = (articulo: ArticuloStock) => {
+    if (itemIndexParaAgregar !== null) {
+      const nuevosItems = [...items]
+      if (itemIndexParaAgregar >= items.length) {
+        // Agregar nuevo item
+        nuevosItems.push({
+          id_articulo_stock: articulo.id,
+          codigo_articulo: articulo.codigo || '',
+          descripcion: articulo.descripcion,
+          cantidad: '1',
+          unidad: articulo.unidad || 'unidad',
+          observaciones: ''
+        })
+      } else {
+        // Actualizar item existente
+        nuevosItems[itemIndexParaAgregar] = {
+          ...nuevosItems[itemIndexParaAgregar],
+          id_articulo_stock: articulo.id,
+          codigo_articulo: articulo.codigo || '',
+          descripcion: articulo.descripcion,
+          unidad: articulo.unidad || nuevosItems[itemIndexParaAgregar].unidad
+        }
+      }
+      setItems(nuevosItems)
+      setItemIndexParaAgregar(null)
+    }
+  }
+
+  const handleBuscarProducto = (index: number) => {
+    setItemIndexParaAgregar(index)
+    setMostrarModalProductos(true)
   }
 
   const handleEliminarItem = (index: number) => {
@@ -126,6 +159,7 @@ const CrearPedidoCompraPage = () => {
       const itemsParaEnviar = itemsValidos.map(item => {
         const cantidad = parseFloat(item.cantidad)
         return {
+          id_articulo_stock: item.id_articulo_stock,
           codigo_articulo: item.codigo_articulo.trim() || undefined,
           descripcion: item.descripcion.trim(),
           cantidad_solicitada: cantidad,
@@ -302,8 +336,9 @@ const CrearPedidoCompraPage = () => {
         <section className="form-section">
           <div className="section-header">
             <h2>Productos Solicitados</h2>
-            <button type="button" className="btn-action" onClick={handleAgregarItem}>
-              + Agregar Producto
+            <button type="button" className="btn-action btn-agregar-producto" onClick={handleAgregarItem}>
+              <span className="btn-icon">📦</span>
+              <span>Agregar del Stock</span>
             </button>
           </div>
           <div className="items-list">
@@ -324,12 +359,24 @@ const CrearPedidoCompraPage = () => {
                 <div className="item-form-grid">
                   <div className="form-group">
                     <label>Código de Artículo</label>
-                    <input
-                      type="text"
-                      value={item.codigo_articulo}
-                      onChange={(e) => handleItemChange(index, 'codigo_articulo', e.target.value)}
-                      placeholder="Código interno (opcional)"
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        value={item.codigo_articulo}
+                        onChange={(e) => handleItemChange(index, 'codigo_articulo', e.target.value)}
+                        placeholder="Código interno"
+                        readOnly={!!item.id_articulo_stock}
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-buscar-producto"
+                        onClick={() => handleBuscarProducto(index)}
+                        title="Buscar producto del stock"
+                      >
+                        🔍
+                      </button>
+                    </div>
                   </div>
                   <div className="form-group full-width">
                     <label>Descripción *</label>
@@ -340,7 +387,13 @@ const CrearPedidoCompraPage = () => {
                       placeholder="Descripción del producto"
                       required
                       minLength={3}
+                      readOnly={!!item.id_articulo_stock}
                     />
+                    {item.id_articulo_stock && (
+                      <small style={{ color: 'var(--success)', display: 'block', marginTop: '4px' }}>
+                        ✓ Producto del stock
+                      </small>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Cantidad *</label>
@@ -397,6 +450,16 @@ const CrearPedidoCompraPage = () => {
           </button>
         </section>
       </form>
+
+      {mostrarModalProductos && (
+        <SeleccionarProductoStockModal
+          onClose={() => {
+            setMostrarModalProductos(false)
+            setItemIndexParaAgregar(null)
+          }}
+          onSelect={handleSeleccionarProducto}
+        />
+      )}
     </div>
   )
 }
