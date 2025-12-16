@@ -39,7 +39,22 @@ const CrearPedidoCompraPage = () => {
       navigate('/compras/dashboard')
       return
     }
+    loadProveedores()
   }, [canManageCompras, usuario, navigate, authLoading])
+
+  const loadProveedores = async () => {
+    setLoadingProveedores(true)
+    try {
+      const response = await apiService.getProveedores()
+      if (response.success && response.data) {
+        setProveedores(response.data)
+      }
+    } catch (error) {
+      console.error('Error cargando proveedores:', error)
+    } finally {
+      setLoadingProveedores(false)
+    }
+  }
 
   const handleAgregarItem = () => {
     setItems([...items, {
@@ -68,6 +83,12 @@ const CrearPedidoCompraPage = () => {
 
     if (!usuario) {
       alert('No hay usuario autenticado')
+      return
+    }
+
+    // Validar proveedor
+    if (!formData.id_proveedor) {
+      alert('Debes seleccionar un proveedor externo')
       return
     }
 
@@ -117,6 +138,7 @@ const CrearPedidoCompraPage = () => {
         id_solicitante: usuario.id,
         nombre_solicitante: usuario.nombre,
         sector_solicitante: formData.sector_solicitante.trim(),
+        id_proveedor: parseInt(formData.id_proveedor),
         motivo: formData.motivo.trim() || undefined,
         observaciones: formData.observaciones.trim() || undefined,
         prioridad: formData.prioridad,
@@ -180,7 +202,10 @@ const CrearPedidoCompraPage = () => {
       <form onSubmit={handleSubmit} className="pedido-form">
         {/* Información General */}
         <section className="form-section">
-          <h2>Información General</h2>
+          <h2>📦 Pedido a Proveedor Externo</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem' }}>
+            Este pedido será enviado a un proveedor externo fuera de la empresa.
+          </p>
           <div className="form-grid">
             <div className="form-group">
               <label>Solicitante</label>
@@ -192,7 +217,29 @@ const CrearPedidoCompraPage = () => {
               />
             </div>
             <div className="form-group">
-              <label>Sector *</label>
+              <label>Proveedor (Externo) *</label>
+              <select
+                value={formData.id_proveedor}
+                onChange={(e) => setFormData({ ...formData, id_proveedor: e.target.value })}
+                required
+                disabled={loadingProveedores}
+              >
+                <option value="">Selecciona un proveedor</option>
+                {proveedores.map(proveedor => (
+                  <option key={proveedor.id} value={proveedor.id.toString()}>
+                    {proveedor.nombre} {proveedor.razon_social ? `(${proveedor.razon_social})` : ''}
+                  </option>
+                ))}
+              </select>
+              {loadingProveedores && <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>Cargando proveedores...</small>}
+              {proveedores.length === 0 && !loadingProveedores && (
+                <small style={{ color: 'var(--warning)', display: 'block', marginTop: '4px' }}>
+                  ⚠️ No hay proveedores registrados. <a href="/compras/proveedores" style={{ color: 'var(--brand)' }}>Crear proveedor</a>
+                </small>
+              )}
+            </div>
+            <div className="form-group">
+              <label>Sector Solicitante *</label>
               <select
                 value={formData.sector_solicitante}
                 onChange={(e) => setFormData({ ...formData, sector_solicitante: e.target.value })}
