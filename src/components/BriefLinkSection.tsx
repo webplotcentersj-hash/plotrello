@@ -42,8 +42,18 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
     console.log('🔍 handleGenerarLink llamado con ordenId:', ordenId)
     setLoading(true)
     try {
-      const response = await apiService.generarBriefToken(ordenId)
-      console.log('🔍 Respuesta de generarBriefToken:', response)
+      let response
+      if (ordenId) {
+        // Si hay ordenId, usar el método antiguo (compatibilidad)
+        response = await apiService.generarBriefToken(ordenId)
+      } else {
+        // Si no hay ordenId, crear un brief independiente (nuevo flujo)
+        const { usuario } = await import('../hooks/useAuth').then(m => m.useAuth())
+        const usuarioId = usuario?.id ? parseInt(usuario.id) : undefined
+        response = await apiService.crearBriefPublico(usuarioId)
+      }
+      
+      console.log('🔍 Respuesta:', response)
       if (response.success && response.data) {
         console.log('✅ Token generado exitosamente:', response.data)
         setBriefToken(response.data)

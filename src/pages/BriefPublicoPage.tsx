@@ -87,7 +87,18 @@ const BriefPublicoPage = () => {
     
     setLoading(true)
     try {
-      const response = await apiService.obtenerOrdenPorBriefToken(token)
+      // Intentar obtener desde la nueva tabla de briefs primero
+      const briefResponse = await apiService.obtenerBriefPorToken(token)
+      let response
+      
+      if (briefResponse.success && briefResponse.data) {
+        // Usar los datos del brief directamente
+        response = { success: true, data: briefResponse.data }
+      } else {
+        // Fallback: intentar con la función antigua
+        response = await apiService.obtenerOrdenPorBriefToken(token)
+      }
+      
       if (response.success && response.data) {
         setOrden(response.data)
         setFormData({
@@ -160,6 +171,7 @@ const BriefPublicoPage = () => {
     setError(null)
     
     try {
+      // Usar la nueva función que actualiza la tabla de briefs
       const response = await apiService.actualizarBriefPublico({
         token,
         cliente_nombre_completo: formData.cliente_nombre_completo.trim(),

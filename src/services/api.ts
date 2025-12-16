@@ -3792,6 +3792,29 @@ class ApiService {
 
   // ==================== BRIEF PÚBLICO - FORMULARIO CLIENTE ====================
   
+  // Crear un nuevo brief público (sin necesidad de OP)
+  async crearBriefPublico(usuarioId?: number): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_brief_publico', {
+          p_creado_por: usuarioId || null
+        })
+
+        if (error) {
+          console.error('Error creando brief público:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: data as string }
+      } catch (error) {
+        console.error('Error creando brief público:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // Generar token para una OP existente (compatibilidad hacia atrás)
   async generarBriefToken(idOrden: number): Promise<ApiResponse<string>> {
     if (supabase) {
       try {
@@ -3813,7 +3836,76 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  // Obtener brief por token (nueva estructura)
+  async obtenerBriefPorToken(token: string): Promise<ApiResponse<any>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_brief_por_token', {
+          p_token: token
+        })
+
+        if (error) {
+          console.error('Error obteniendo brief por token:', error)
+          return { success: false, error: error.message }
+        }
+
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Token no válido' }
+        }
+
+        return { success: true, data: data[0] }
+      } catch (error) {
+        console.error('Error obteniendo brief por token:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // Obtener orden por token de brief (compatibilidad hacia atrás)
   async obtenerOrdenPorBriefToken(token: string): Promise<ApiResponse<Partial<OrdenTrabajo>>> {
+    // Primero intentar obtener desde la nueva tabla de briefs
+    const briefResponse = await this.obtenerBriefPorToken(token)
+    if (briefResponse.success && briefResponse.data) {
+      // Si tiene orden asociada, obtenerla
+      if (briefResponse.data.id_orden_asociada) {
+        const ordenResponse = await this.getOrden(briefResponse.data.id_orden_asociada)
+        if (ordenResponse.success) {
+          return ordenResponse
+        }
+      }
+      // Si no tiene orden, devolver los datos del brief como si fuera una orden
+      return { 
+        success: true, 
+        data: {
+          numero_op: briefResponse.data.numero_op || 'Pendiente',
+          cliente: briefResponse.data.cliente || briefResponse.data.cliente_nombre_completo || 'Cliente',
+          cliente_nombre_completo: briefResponse.data.cliente_nombre_completo,
+          cliente_empresa: briefResponse.data.cliente_empresa,
+          telefono_cliente: briefResponse.data.telefono_cliente,
+          email_cliente: briefResponse.data.email_cliente,
+          tipo_producto_servicio: briefResponse.data.tipo_producto_servicio,
+          tipo_producto_otro: briefResponse.data.tipo_producto_otro,
+          necesita_asesoramiento: briefResponse.data.necesita_asesoramiento,
+          donde_colocados: briefResponse.data.donde_colocados,
+          digital_o_impresion: briefResponse.data.digital_o_impresion,
+          cantidades: briefResponse.data.cantidades,
+          objetivo_proyecto: briefResponse.data.objetivo_proyecto,
+          material_logo: briefResponse.data.material_logo,
+          material_textos: briefResponse.data.material_textos,
+          material_imagenes: briefResponse.data.material_imagenes,
+          tiene_referencias: briefResponse.data.tiene_referencias,
+          referencias_links: briefResponse.data.referencias_links,
+          brief_publico: briefResponse.data.brief_publico,
+          estilo_diseno: briefResponse.data.estilo_diseno,
+          referencias: briefResponse.data.referencias,
+          fecha_limite_brief: briefResponse.data.fecha_limite_brief,
+          es_urgencia: briefResponse.data.es_urgencia
+        } as Partial<OrdenTrabajo>
+      }
+    }
+    
+    // Fallback: intentar con la función antigua (compatibilidad)
     if (supabase) {
       try {
         const { data, error } = await supabase.rpc('obtener_orden_por_brief_token', {
@@ -3832,6 +3924,29 @@ class ApiService {
         return { success: true, data: data[0] as Partial<OrdenTrabajo> }
       } catch (error) {
         console.error('Error obteniendo orden por token:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // Asociar un brief a una orden
+  async asociarBriefAOrden(tokenBrief: string, idOrden: number): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('asociar_brief_a_orden', {
+          p_token_brief: tokenBrief,
+          p_id_orden: idOrden
+        })
+
+        if (error) {
+          console.error('Error asociando brief a orden:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true }
+      } catch (error) {
+        console.error('Error asociando brief a orden:', error)
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
     }
@@ -3864,7 +3979,37 @@ class ApiService {
   }): Promise<ApiResponse<void>> {
     if (supabase) {
       try {
-        const { error } = await supabase.rpc('actualizar_brief_publico', {
+        // Intentar con la nueva función primero
+        let error = null
+        try {
+          const result = await supabase.rpc('actualizar_brief_publico_completo', {
+            p_token: data.token,
+            p_cliente_nombre_completo: data.cliente_nombre_completo || null,
+            p_cliente_empresa: data.cliente_empresa || null,
+            p_telefono_cliente: data.telefono_cliente || null,
+            p_email_cliente: data.email_cliente || null,
+            p_tipo_producto_servicio: data.tipo_producto_servicio || null,
+            p_tipo_producto_otro: data.tipo_producto_otro || null,
+            p_necesita_asesoramiento: data.necesita_asesoramiento || false,
+            p_donde_colocados: data.donde_colocados || null,
+            p_digital_o_impresion: data.digital_o_impresion || null,
+            p_cantidades: data.cantidades || null,
+            p_objetivo_proyecto: data.objetivo_proyecto || null,
+            p_material_logo: data.material_logo || null,
+            p_material_textos: data.material_textos || null,
+            p_material_imagenes: data.material_imagenes || null,
+            p_tiene_referencias: data.tiene_referencias || false,
+            p_referencias_links: data.referencias_links || null,
+            p_brief_publico: data.brief_publico || null,
+            p_estilo_diseno: data.estilo_diseno || null,
+            p_referencias: data.referencias || null,
+            p_fecha_limite_brief: data.fecha_limite_brief || null,
+            p_es_urgencia: data.es_urgencia || false
+          })
+          error = result.error
+        } catch (e) {
+          // Si falla, intentar con la función antigua (compatibilidad)
+          const result = await supabase.rpc('actualizar_brief_publico', {
           p_token: data.token,
           p_cliente_nombre_completo: data.cliente_nombre_completo || null,
           p_cliente_empresa: data.cliente_empresa || null,
