@@ -339,6 +339,12 @@ const ComprasDashboardPage = () => {
               🏢 Proveedores
             </button>
             <button
+              className="btn-primary"
+              onClick={() => navigate('/compras/conciliacion-bancaria')}
+            >
+              💰 Conciliación Bancaria
+            </button>
+            <button
               className="btn-secondary"
               onClick={() => navigate('/')}
             >
