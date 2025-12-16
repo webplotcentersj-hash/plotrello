@@ -9,14 +9,6 @@ export type EstadoPedido =
   | 'Completado'
   | 'Cancelado'
 
-export type EstadoEntrega = 
-  | 'Pendiente'
-  | 'En Tránsito'
-  | 'Parcialmente Entregado'
-  | 'Listo para Retirar'
-  | 'Entregado'
-  | 'Retrasado'
-
 export type PrioridadPedido = 'Baja' | 'Normal' | 'Alta' | 'Urgente'
 
 export type TipoMovimientoStock = 
@@ -218,3 +210,81 @@ export interface ComparacionPresupuestos {
   created_at: string
 }
 
+export type EstadoEntrega = 
+  | 'Pendiente'
+  | 'En Tránsito'
+  | 'Parcialmente Entregado'
+  | 'Listo para Retirar'
+  | 'Entregado'
+  | 'Retrasado'
+
+// Tipos para conciliación bancaria
+export type EstadoPago = 'Pendiente' | 'Parcial' | 'Completado' | 'Vencido' | 'Cancelado'
+
+export interface Pago {
+  id: number
+  numero_pago: string
+  id_pedido_compra?: number | null
+  id_proveedor?: number | null
+  monto_total: number
+  monto_pagado: number
+  moneda: string
+  fecha_vencimiento?: string | null
+  fecha_pago?: string | null
+  metodo_pago?: string | null
+  numero_comprobante?: string | null
+  banco?: string | null
+  cuenta_bancaria?: string | null
+  estado: EstadoPago
+  observaciones?: string | null
+  id_usuario_registro?: number | null
+  nombre_usuario_registro?: string | null
+  fecha_conciliacion?: string | null
+  id_usuario_conciliacion?: number | null
+  created_at: string
+  updated_at: string
+  pedido?: PedidoCompra
+  proveedor?: Proveedor
+}
+
+export interface MovimientoBancario {
+  id: number
+  fecha_movimiento: string
+  fecha_valor?: string | null
+  tipo: 'Ingreso' | 'Egreso'
+  concepto: string
+  monto: number
+  moneda: string
+  banco: string
+  cuenta_bancaria: string
+  numero_comprobante?: string | null
+  referencia?: string | null
+  id_pago_asociado?: number | null
+  conciliado: boolean
+  fecha_conciliacion?: string | null
+  id_usuario_conciliacion?: number | null
+  observaciones?: string | null
+  created_at: string
+  updated_at: string
+  pago?: Pago
+}
+
+export interface ConciliacionBancaria {
+  id: number
+  fecha_conciliacion: string
+  fecha_desde: string
+  fecha_hasta: string
+  banco: string
+  cuenta_bancaria: string
+  saldo_inicial: number
+  saldo_final: number
+  total_ingresos: number
+  total_egresos: number
+  movimientos_conciliados: number
+  movimientos_pendientes: number
+  id_usuario: number
+  nombre_usuario: string
+  observaciones?: string | null
+  created_at: string
+  movimientos?: MovimientoBancario[]
+}

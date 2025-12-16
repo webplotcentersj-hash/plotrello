@@ -606,6 +606,10 @@ function AppRoutes({
         element={<ReportesComprasPage />}
       />
       <Route
+        path="/compras/crear-pedido"
+        element={<CrearPedidoCompraPage />}
+      />
+      <Route
         path="/diseno/dashboard"
         element={<DisenoDashboardPage />}
       />

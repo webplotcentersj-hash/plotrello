@@ -23,7 +23,11 @@ import type {
   Presupuesto,
   PrecioHistorial,
   ComparacionPresupuestos,
-  EstadoPresupuesto
+  EstadoPresupuesto,
+  Pago,
+  MovimientoBancario,
+  ConciliacionBancaria,
+  EstadoPago
 } from '../types/pedidos'
 import { supabase, stockSupabase } from './supabaseClient'
 import bcrypt from 'bcryptjs'
