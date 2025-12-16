@@ -21,7 +21,7 @@ interface BriefPendiente {
 
 const BriefsPendientesPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin, isDiseno } = useAuth()
+  const { isAdmin, isDiseno } = useAuth()
   const [briefs, setBriefs] = useState<BriefPendiente[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
