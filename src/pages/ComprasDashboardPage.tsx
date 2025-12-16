@@ -324,7 +324,7 @@ const ComprasDashboardPage = () => {
               className="btn-primary"
               onClick={() => navigate('/compras/reportes')}
             >
-              📊 Reportes
+              📊 Reportes y Exportación
             </button>
             <button
               className="btn-primary"
