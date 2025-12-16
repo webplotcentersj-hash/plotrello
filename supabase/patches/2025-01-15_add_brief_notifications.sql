@@ -6,7 +6,7 @@ SECURITY DEFINER
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT u.id, u.nombre, u.rol
+  SELECT u.id::integer AS user_id, u.nombre::varchar(255) AS user_nombre, u.rol::varchar(50) AS user_rol
   FROM public.usuarios u
   WHERE u.rol IN ('diseno', 'administracion', 'gerencia')
   ORDER BY u.id;

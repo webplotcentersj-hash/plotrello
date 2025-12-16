@@ -20,10 +20,14 @@ const DisenoDashboardPage = () => {
     proyectosPorDiseñador: {} as Record<string, number>
   })
 
-  const [datosGraficos, setDatosGraficos] = useState({
-    proyectosPorDia: [] as Array<{ fecha: string; iniciados: number; completados: number }>,
-    distribucionEstados: [] as Array<{ name: string; value: number; color: string }>,
-    proyectosPorDiseñador: [] as Array<{ nombre: string; cantidad: number }>
+  const [datosGraficos, setDatosGraficos] = useState<{
+    proyectosPorDia: Array<{ fecha: string; iniciados: number; completados: number }>
+    distribucionEstados: Array<{ name: string; value: number; color: string }>
+    proyectosPorDiseñador: Array<{ nombre: string; cantidad: number }>
+  }>({
+    proyectosPorDia: [],
+    distribucionEstados: [],
+    proyectosPorDiseñador: []
   })
 
   useEffect(() => {
