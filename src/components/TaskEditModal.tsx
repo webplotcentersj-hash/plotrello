@@ -607,26 +607,28 @@ const TaskEditModal = ({
           <div className="form-section-divider">
             <h3>📋 Brief del Proyecto (Público)</h3>
             <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
-            {task ? (
-              (() => {
-                const ordenId = parseTaskIdToOrdenId(task.id)
-                console.log('🔍 Debug BriefLinkSection - task.id:', task.id, 'ordenId:', ordenId, 'task completo:', task)
-                if (ordenId) {
-                  return <BriefLinkSection ordenId={ordenId} />
-                } else {
-                  console.warn('⚠️ No se pudo obtener ordenId para BriefLinkSection. Task ID:', task.id)
-                  return (
-                    <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                      <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>
-                        ⚠️ No se pudo obtener el ID de la orden. Task ID: {task.id}
-                      </p>
-                    </div>
-                  )
-                }
-              })()
-            ) : (
-              <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>⚠️ No hay tarea seleccionada</p>
-            )}
+            {(() => {
+              if (!task) {
+                return <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>⚠️ No hay tarea seleccionada</p>
+              }
+              
+              const ordenId = parseTaskIdToOrdenId(task.id)
+              console.log('🔍 Debug BriefLinkSection - task.id:', task.id, 'ordenId:', ordenId)
+              
+              if (!ordenId) {
+                console.warn('⚠️ No se pudo obtener ordenId para BriefLinkSection. Task ID:', task.id)
+                return (
+                  <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                    <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>
+                      ⚠️ No se pudo obtener el ID de la orden. Task ID: {task.id}
+                    </p>
+                  </div>
+                )
+              }
+              
+              console.log('✅ Renderizando BriefLinkSection con ordenId:', ordenId)
+              return <BriefLinkSection ordenId={ordenId} />
+            })()}
           </div>
 
           <div className="form-group">

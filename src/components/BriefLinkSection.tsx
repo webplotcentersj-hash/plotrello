@@ -11,35 +11,48 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  console.log('🔍 BriefLinkSection renderizado con ordenId:', ordenId)
+  console.log('🔍 BriefLinkSection renderizado con ordenId:', ordenId, 'tipo:', typeof ordenId)
 
   useEffect(() => {
-    console.log('🔍 BriefLinkSection useEffect - ordenId:', ordenId)
-    loadBriefToken()
+    console.log('🔍 BriefLinkSection useEffect ejecutado - ordenId:', ordenId)
+    if (ordenId) {
+      loadBriefToken()
+    } else {
+      console.error('❌ BriefLinkSection: ordenId es inválido:', ordenId)
+    }
   }, [ordenId])
 
   const loadBriefToken = async () => {
+    console.log('🔍 loadBriefToken llamado con ordenId:', ordenId)
     try {
       const ordenResponse = await apiService.getOrden(ordenId)
+      console.log('🔍 Respuesta de getOrden:', ordenResponse)
       if (ordenResponse.success && ordenResponse.data?.brief_token) {
+        console.log('✅ Token encontrado:', ordenResponse.data.brief_token)
         setBriefToken(ordenResponse.data.brief_token)
+      } else {
+        console.log('ℹ️ No hay token aún, el usuario puede generar uno')
       }
     } catch (error) {
-      console.error('Error cargando token de brief:', error)
+      console.error('❌ Error cargando token de brief:', error)
     }
   }
 
   const handleGenerarLink = async () => {
+    console.log('🔍 handleGenerarLink llamado con ordenId:', ordenId)
     setLoading(true)
     try {
       const response = await apiService.generarBriefToken(ordenId)
+      console.log('🔍 Respuesta de generarBriefToken:', response)
       if (response.success && response.data) {
+        console.log('✅ Token generado exitosamente:', response.data)
         setBriefToken(response.data)
       } else {
+        console.error('❌ Error generando token:', response.error)
         alert(`Error: ${response.error}`)
       }
     } catch (error) {
-      console.error('Error generando token:', error)
+      console.error('❌ Error generando token:', error)
       alert('Error al generar el link')
     } finally {
       setLoading(false)
