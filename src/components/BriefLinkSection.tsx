@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import apiService from '../services/api'
-import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import './BriefLinkSection.css'
 
 type BriefLinkSectionProps = {
