@@ -70,7 +70,6 @@ const DisenoDashboardPage = () => {
                  orden.estado !== 'Diseño Gráfico' && 
                  orden.estado !== 'Diseño en Proceso'
         })
-        setOrdenesCompletadasHoy(completadasHoy)
 
         // Calcular métricas
         const proyectosPorDiseñador: Record<string, number> = {}
