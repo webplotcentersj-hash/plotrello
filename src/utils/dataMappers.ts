@@ -180,7 +180,23 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     referencias: orden.referencias ?? undefined,
     deadlineBrief: orden.deadline_brief ?? undefined,
     estadoRevision: orden.estado_revision ?? undefined,
-    briefToken: orden.brief_token ?? undefined
+    briefToken: orden.brief_token ?? undefined,
+    // Campos del brief público completo
+    clienteNombreCompleto: orden.cliente_nombre_completo ?? undefined,
+    clienteEmpresa: orden.cliente_empresa ?? undefined,
+    tipoProductoServicio: orden.tipo_producto_servicio ?? undefined,
+    tipoProductoOtro: orden.tipo_producto_otro ?? undefined,
+    necesitaAsesoramiento: orden.necesita_asesoramiento ?? undefined,
+    dondeColocados: orden.donde_colocados ?? undefined,
+    digitalOImpresion: orden.digital_o_impresion ?? undefined,
+    cantidades: orden.cantidades ?? undefined,
+    materialLogo: orden.material_logo ?? undefined,
+    materialTextos: orden.material_textos ?? undefined,
+    materialImagenes: orden.material_imagenes ?? undefined,
+    tieneReferencias: orden.tiene_referencias ?? undefined,
+    referenciasLinks: orden.referencias_links ?? undefined,
+    fechaLimiteBrief: orden.fecha_limite_brief ?? undefined,
+    esUrgencia: orden.es_urgencia ?? undefined
   }
 }
 

@@ -653,6 +653,68 @@ const TaskEditModal = ({
             )}
           </div>
 
+          {/* Mostrar datos del brief completo si fueron completados por el cliente */}
+          {task && (task.clienteNombreCompleto || task.tipoProductoServicio?.length || task.materialLogo) && (
+            <div className="form-section-divider" style={{ marginTop: '24px', padding: '20px', background: 'rgba(102, 126, 234, 0.1)', borderRadius: '12px', border: '2px solid rgba(102, 126, 234, 0.3)' }}>
+              <h3 style={{ color: '#667eea', marginBottom: '16px' }}>📝 Brief Completado por el Cliente</h3>
+              
+              {task.clienteNombreCompleto && (
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Cliente:</strong> {task.clienteNombreCompleto}
+                  {task.clienteEmpresa && <span style={{ color: 'var(--text-secondary)' }}> - {task.clienteEmpresa}</span>}
+                </div>
+              )}
+              
+              {task.tipoProductoServicio && task.tipoProductoServicio.length > 0 && (
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Tipo de Producto/Servicio:</strong>
+                  <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {task.tipoProductoServicio.map((tipo, idx) => (
+                      <span key={idx} style={{ 
+                        padding: '4px 8px', 
+                        background: 'rgba(102, 126, 234, 0.2)', 
+                        borderRadius: '6px', 
+                        fontSize: '0.85rem',
+                        color: '#667eea'
+                      }}>
+                        {tipo}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {task.objetivoProyecto && (
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Objetivo:</strong> {task.objetivoProyecto}
+                </div>
+              )}
+              
+              {(task.materialLogo || task.materialTextos || task.materialImagenes) && (
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Material Disponible:</strong>
+                  <div style={{ marginTop: '4px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    {task.materialLogo && <div>Logo: {task.materialLogo.replace(/_/g, ' ')}</div>}
+                    {task.materialTextos && <div>Textos: {task.materialTextos.replace(/_/g, ' ')}</div>}
+                    {task.materialImagenes && <div>Imágenes: {task.materialImagenes.replace(/_/g, ' ')}</div>}
+                  </div>
+                </div>
+              )}
+              
+              {task.esUrgencia && (
+                <div style={{ marginBottom: '12px', padding: '8px', background: 'rgba(239, 68, 68, 0.2)', borderRadius: '6px' }}>
+                  <strong style={{ color: '#ef4444' }}>⚠️ URGENCIA</strong>
+                </div>
+              )}
+              
+              {task.fechaLimiteBrief && (
+                <div style={{ marginBottom: '12px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Fecha Límite:</strong> {new Date(task.fechaLimiteBrief).toLocaleDateString('es-AR')}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="form-group">
             <label>Brief Público</label>
             <textarea

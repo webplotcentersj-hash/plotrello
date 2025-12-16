@@ -66,6 +66,22 @@ export interface Task {
   deadlineBrief?: string | null // Fecha límite para completar el brief
   estadoRevision?: string | null // Estado de revisión: 'pendiente', 'en_revision', 'aprobado', 'requiere_cambios'
   briefToken?: string | null // Token único para acceso público al formulario de brief
+  // Campos del brief público completo
+  clienteNombreCompleto?: string | null
+  clienteEmpresa?: string | null
+  tipoProductoServicio?: string[] | null
+  tipoProductoOtro?: string | null
+  necesitaAsesoramiento?: boolean | null
+  dondeColocados?: string | null
+  digitalOImpresion?: string | null
+  cantidades?: string | null
+  materialLogo?: string | null
+  materialTextos?: string | null
+  materialImagenes?: string | null
+  tieneReferencias?: boolean | null
+  referenciasLinks?: string | null
+  fechaLimiteBrief?: string | null
+  esUrgencia?: boolean | null
 }
 
 export interface Subtask {

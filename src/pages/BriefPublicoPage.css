@@ -165,7 +165,8 @@
   font-size: 1rem;
   font-family: inherit;
   transition: all 0.2s;
-  color: #1f2937;
+  color: #1f2937 !important;
+  background: white !important;
 }
 
 .form-group input:focus,
@@ -355,8 +356,8 @@
   font-size: 1rem;
   font-family: inherit;
   transition: all 0.2s;
-  color: #1f2937;
-  background: white;
+  color: #1f2937 !important;
+  background: white !important;
   cursor: pointer;
 }
 
