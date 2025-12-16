@@ -309,6 +309,112 @@
   font-size: 0.875rem;
 }
 
+/* Alertas */
+.alertas-section {
+  margin-bottom: 32px;
+}
+
+.alertas-section h2 {
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.alertas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.alerta-card {
+  background: var(--surface-card);
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid;
+  transition: all 0.2s;
+}
+
+.alerta-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.alerta-card.severidad-alta {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--surface-card) 100%);
+}
+
+.alerta-card.severidad-media {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, var(--surface-card) 100%);
+}
+
+.alerta-card.severidad-baja {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, var(--surface-card) 100%);
+}
+
+.alerta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.alerta-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.severidad-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.severidad-badge.severidad-alta {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.severidad-badge.severidad-media {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.severidad-badge.severidad-baja {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.alerta-descripcion {
+  margin: 0 0 12px 0;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.alerta-accion {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.alerta-link {
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+
+.alerta-card:hover .alerta-link {
+  color: #2563eb;
+}
+
 /* Gráficos */
 .graficos-section {
   margin-bottom: 32px;
