@@ -38,6 +38,21 @@ export interface OrdenTrabajo {
   deadline_brief?: string | null // Fecha límite para completar el brief
   estado_revision?: string | null // Estado de revisión: 'pendiente', 'en_revision', 'aprobado', 'requiere_cambios'
   brief_token?: string | null // Token único para acceso público al formulario de brief
+  cliente_nombre_completo?: string | null // Nombre completo del cliente (del brief)
+  cliente_empresa?: string | null // Empresa/Emprendimiento del cliente
+  tipo_producto_servicio?: string[] | null // Array de tipos de productos/servicios seleccionados
+  tipo_producto_otro?: string | null // Otro tipo de producto especificado
+  necesita_asesoramiento?: boolean | null // Si necesita asesoramiento
+  donde_colocados?: string | null // Dónde serán colocados los productos
+  digital_o_impresion?: string | null // Si es digital, impresión o ambos
+  cantidades?: string | null // Cantidades requeridas
+  material_logo?: string | null // Estado del material de logo
+  material_textos?: string | null // Estado del material de textos
+  material_imagenes?: string | null // Estado del material de imágenes
+  tiene_referencias?: boolean | null // Si tiene referencias de estilo
+  referencias_links?: string | null // Links o descripción de referencias
+  fecha_limite_brief?: string | null // Fecha límite del proyecto
+  es_urgencia?: boolean | null // Si es un pedido urgente
 }
 
 export interface RevisionOrden {

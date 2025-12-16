@@ -60,9 +60,26 @@
 }
 
 .brief-header h1 {
-  margin: 0 0 16px 0;
+  margin: 0 0 8px 0;
   color: #1f2937;
   font-size: 2rem;
+}
+
+.brief-logo {
+  text-align: center;
+}
+
+.brief-subtitle {
+  margin: 0 0 8px 0;
+  color: #667eea;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.brief-address {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
 }
 
 .orden-info {

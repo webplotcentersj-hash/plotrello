@@ -3840,11 +3840,27 @@ class ApiService {
 
   async actualizarBriefPublico(data: {
     token: string
-    brief_publico: string
+    cliente_nombre_completo?: string
+    cliente_empresa?: string
+    telefono_cliente?: string
+    email_cliente?: string
+    tipo_producto_servicio?: string[]
+    tipo_producto_otro?: string
+    necesita_asesoramiento?: boolean
+    donde_colocados?: string
+    digital_o_impresion?: string
+    cantidades?: string
     objetivo_proyecto?: string
-    publico_objetivo?: string
+    material_logo?: string
+    material_textos?: string
+    material_imagenes?: string
+    tiene_referencias?: boolean
+    referencias_links?: string
+    brief_publico?: string
     estilo_diseno?: string
     referencias?: string
+    fecha_limite_brief?: string
+    es_urgencia?: boolean
   }): Promise<ApiResponse<void>> {
     if (supabase) {
       try {
