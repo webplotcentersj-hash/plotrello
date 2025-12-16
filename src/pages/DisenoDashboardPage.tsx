@@ -8,12 +8,10 @@ import './DisenoDashboardPage.css'
 
 const DisenoDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, usuario } = useAuth()
+  const { isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [ordenesDiseno, setOrdenesDiseno] = useState<OrdenTrabajo[]>([])
   const [ordenesEnProceso, setOrdenesEnProceso] = useState<OrdenTrabajo[]>([])
   const [ordenesPendientes, setOrdenesPendientes] = useState<OrdenTrabajo[]>([])
-  const [ordenesCompletadasHoy, setOrdenesCompletadasHoy] = useState<OrdenTrabajo[]>([])
   
   const [metricas, setMetricas] = useState({
     proyectosIniciados: 0,

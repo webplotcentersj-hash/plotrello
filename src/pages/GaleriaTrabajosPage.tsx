@@ -7,7 +7,7 @@ import './GaleriaTrabajosPage.css'
 
 const GaleriaTrabajosPage = () => {
   const navigate = useNavigate()
-  const { usuario, isDiseno, isAdmin } = useAuth()
+  const { isDiseno, isAdmin } = useAuth()
   const [trabajos, setTrabajos] = useState<TrabajoGaleria[]>([])
   const [categorias, setCategorias] = useState<CategoriaGaleria[]>([])
   const [loading, setLoading] = useState(true)

@@ -887,7 +887,7 @@ const TaskEditModal = ({
                       // Actualizar el estado de revisión en el task
                       setFormData(prev => ({
                         ...prev,
-                        estadoRevision: ordenResponse.data.estado_revision || undefined
+                        estadoRevision: ordenResponse.data?.estado_revision || undefined
                       }))
                     }
                   }
