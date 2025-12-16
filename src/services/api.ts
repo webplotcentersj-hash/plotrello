@@ -2596,7 +2596,8 @@ class ApiService {
           .select(`
             *,
             items:pedidos_compras_items(*),
-            comentarios:pedidos_compras_comentarios(*)
+            comentarios:pedidos_compras_comentarios(*),
+            proveedor:proveedores(*)
           `)
           .eq('id', id)
           .single()
