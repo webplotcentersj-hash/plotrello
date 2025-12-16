@@ -21,7 +21,6 @@ import type {
   Proveedor,
   ProveedorProducto,
   Presupuesto,
-  PresupuestoItem,
   PrecioHistorial,
   ComparacionPresupuestos,
   EstadoPresupuesto
