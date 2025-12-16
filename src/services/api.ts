@@ -2441,6 +2441,7 @@ class ApiService {
           prioridad: pedido.prioridad || 'Normal',
           motivo: pedido.motivo || null,
           observaciones: pedido.observaciones || null,
+          fecha_entrega_estimada: pedido.fecha_entrega_estimada || null,
           estado: 'Pendiente'
         })
         .select()
