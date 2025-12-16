@@ -24,6 +24,7 @@ type HeaderProps = {
   onLogout?: () => void
   isAdmin?: boolean
   isMostrador?: boolean
+  isDiseno?: boolean
   isCompact?: boolean
   onToggleCompact?: () => void
 }
@@ -46,6 +47,7 @@ const Header = ({
   onLogout,
   isAdmin = false,
   isMostrador = false,
+  isDiseno = false,
   isCompact = false,
   onToggleCompact
 }: HeaderProps) => {
@@ -162,14 +164,16 @@ const Header = ({
             >
               🔧 Herramientas
             </a>
-            <a
-              href="https://aitools.plotcenter.com.ar/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="brand-button ai-tools-button"
-            >
-              🤖 AI Tools
-            </a>
+            {(isDiseno || isAdmin) && (
+              <a
+                href="https://aitools.plotcenter.com.ar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="brand-button ai-tools-button"
+              >
+                🤖 AI Tools
+              </a>
+            )}
             {onLogout && (
               <button className="brand-button logout-button" onClick={onLogout} title="Cerrar sesión">
                 🚪 Salir

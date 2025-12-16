@@ -71,7 +71,7 @@ const BoardPage = ({
   isCompact,
   onToggleCompact
 }: BoardPageProps) => {
-  const { usuario, isAdmin, isMostrador } = useAuth()
+  const { usuario, isAdmin, isMostrador, isDiseno } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')
@@ -527,6 +527,7 @@ const BoardPage = ({
         onLogout={onLogout}
         isAdmin={isAdmin}
         isMostrador={isMostrador}
+        isDiseno={isDiseno}
         isCompact={isCompact}
         onToggleCompact={onToggleCompact}
       />
