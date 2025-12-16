@@ -147,8 +147,8 @@ const BriefsPendientesPage = () => {
                   </div>
                   <div className="brief-date">
                     {brief.fecha_completado 
-                      ? `Completado: ${new Date(brief.fecha_completado).toLocaleDateString('es-AR')}`
-                      : `Creado: ${new Date(brief.fecha_creacion).toLocaleDateString('es-AR')}`
+                      ? `Completado: ${brief.fecha_completado ? new Date(brief.fecha_completado).toLocaleDateString('es-AR') : 'N/A'}`
+                      : `Creado: ${brief.fecha_creacion ? new Date(brief.fecha_creacion).toLocaleDateString('es-AR') : 'N/A'}`
                     }
                   </div>
                 </div>
