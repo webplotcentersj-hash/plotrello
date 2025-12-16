@@ -74,6 +74,10 @@
   cursor: pointer;
   transition: all 0.2s;
   border: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-primary {
