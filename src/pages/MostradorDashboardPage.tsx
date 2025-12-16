@@ -138,22 +138,37 @@ const MostradorDashboardPage = () => {
 
   const loadAtencionesHoy = async () => {
     try {
-      // Por ahora usar localStorage hasta crear la tabla en Supabase
-      const atencionesGuardadas = localStorage.getItem('atenciones_mostrador')
-      if (atencionesGuardadas) {
-        const todasAtenciones: Atencion[] = JSON.parse(atencionesGuardadas)
-        const hoy = new Date()
-        hoy.setHours(0, 0, 0, 0)
-        
-        const atencionesHoy = todasAtenciones.filter((atencion) => {
-          const fechaAtencion = new Date(atencion.timestamp)
-          fechaAtencion.setHours(0, 0, 0, 0)
-          return fechaAtencion.getTime() === hoy.getTime()
-        })
+      // Obtener atenciones de hoy desde la base de datos
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      const hoyInicio = hoy.toISOString()
+      const hoyFin = new Date(hoy)
+      hoyFin.setHours(23, 59, 59, 999)
+      const hoyFinISO = hoyFin.toISOString()
+
+      const response = await apiService.obtenerAtencionesMostrador(hoyInicio, hoyFinISO)
+      
+      if (response.success && response.data) {
+        // Convertir formato de base de datos a formato de componente
+        const atencionesHoy: Atencion[] = response.data.map((atencion) => ({
+          id: atencion.id,
+          cliente_id: atencion.cliente_id || undefined,
+          cliente_nombre: atencion.cliente_nombre,
+          tipo: atencion.tipo,
+          orden_id: atencion.orden_id || undefined,
+          usuario_id: atencion.usuario_id,
+          usuario_nombre: atencion.usuario_nombre,
+          timestamp: atencion.fecha_atencion,
+          notas: atencion.notas || undefined
+        }))
         setAtencionesHoy(atencionesHoy)
+      } else {
+        console.error('Error obteniendo atenciones:', response.error)
+        setAtencionesHoy([])
       }
     } catch (error) {
       console.error('Error cargando atenciones:', error)
+      setAtencionesHoy([])
     }
   }
 
@@ -163,31 +178,51 @@ const MostradorDashboardPage = () => {
       const hoy = new Date()
       hoy.setHours(0, 0, 0, 0)
       
+      // Obtener atenciones de hoy desde la base de datos
+      const hoyInicio = hoy.toISOString()
+      const hoyFin = new Date(hoy)
+      hoyFin.setHours(23, 59, 59, 999)
+      const hoyFinISO = hoyFin.toISOString()
+
+      const atencionesResponse = await apiService.obtenerAtencionesMostrador(hoyInicio, hoyFinISO)
       let atencionesHoy: Atencion[] = []
+      
+      if (atencionesResponse.success && atencionesResponse.data) {
+        atencionesHoy = atencionesResponse.data.map((atencion) => ({
+          id: atencion.id,
+          cliente_id: atencion.cliente_id || undefined,
+          cliente_nombre: atencion.cliente_nombre,
+          tipo: atencion.tipo,
+          orden_id: atencion.orden_id || undefined,
+          usuario_id: atencion.usuario_id,
+          usuario_nombre: atencion.usuario_nombre,
+          timestamp: atencion.fecha_atencion,
+          notas: atencion.notas || undefined
+        }))
+      }
+
+      // Obtener todas las atenciones de los últimos 7 días para gráficos
+      const sieteDiasAtras = new Date()
+      sieteDiasAtras.setDate(sieteDiasAtras.getDate() - 7)
+      sieteDiasAtras.setHours(0, 0, 0, 0)
+      const todasAtencionesResponse = await apiService.obtenerAtencionesMostrador(
+        sieteDiasAtras.toISOString(),
+        null
+      )
       let todasAtenciones: Atencion[] = []
       
-      try {
-        if (atencionesGuardadas) {
-          todasAtenciones = JSON.parse(atencionesGuardadas)
-          if (Array.isArray(todasAtenciones)) {
-            atencionesHoy = todasAtenciones.filter((atencion) => {
-              try {
-                const fechaAtencion = new Date(atencion.timestamp)
-                fechaAtencion.setHours(0, 0, 0, 0)
-                return fechaAtencion.getTime() === hoy.getTime()
-              } catch (e) {
-                console.warn('Error procesando fecha de atención:', e, atencion)
-                return false
-              }
-            })
-          } else {
-            console.warn('atenciones_mostrador no es un array válido')
-            todasAtenciones = []
-          }
-        }
-      } catch (error) {
-        console.error('Error parseando atenciones de localStorage:', error)
-        todasAtenciones = []
+      if (todasAtencionesResponse.success && todasAtencionesResponse.data) {
+        todasAtenciones = todasAtencionesResponse.data.map((atencion) => ({
+          id: atencion.id,
+          cliente_id: atencion.cliente_id || undefined,
+          cliente_nombre: atencion.cliente_nombre,
+          tipo: atencion.tipo,
+          orden_id: atencion.orden_id || undefined,
+          usuario_id: atencion.usuario_id,
+          usuario_nombre: atencion.usuario_nombre,
+          timestamp: atencion.fecha_atencion,
+          notas: atencion.notas || undefined
+        }))
       }
 
       // Calcular órdenes entregadas hoy
@@ -227,7 +262,7 @@ const MostradorDashboardPage = () => {
         fecha.setDate(fecha.getDate() - i)
         fecha.setHours(0, 0, 0, 0)
         
-        const atencionesDia = Array.isArray(todasAtenciones) ? todasAtenciones.filter((atencion) => {
+        const atencionesDia = todasAtenciones.filter((atencion) => {
           try {
             const fechaAtencion = new Date(atencion.timestamp)
             fechaAtencion.setHours(0, 0, 0, 0)
@@ -235,7 +270,7 @@ const MostradorDashboardPage = () => {
           } catch (e) {
             return false
           }
-        }) : []
+        })
 
         ultimos7Dias.push({
           fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),

@@ -65,25 +65,47 @@ const RegistrarAtencionModal = ({
 
     setSaving(true)
     try {
-      const nuevaAtencion = {
-        id: Date.now(),
+      // Guardar en la base de datos
+      const response = await apiService.crearAtencionMostrador({
         cliente_nombre: clienteNombre.trim(),
         tipo: tipoAtencion,
-        orden_id: ordenId ? parseInt(ordenId) : undefined,
         usuario_id: usuario.id,
         usuario_nombre: usuario.nombre,
-        timestamp: new Date().toISOString(),
+        orden_id: ordenId ? parseInt(ordenId) : undefined,
         notas: notas.trim() || undefined
+      })
+
+      if (!response.success) {
+        throw new Error(response.error || 'Error al registrar la atención')
       }
 
-      // Guardar en localStorage (temporal hasta crear tabla en Supabase)
-      const atencionesGuardadas = localStorage.getItem('atenciones_mostrador')
-      const todasAtenciones = atencionesGuardadas 
-        ? JSON.parse(atencionesGuardadas) 
-        : []
-      
-      todasAtenciones.push(nuevaAtencion)
-      localStorage.setItem('atenciones_mostrador', JSON.stringify(todasAtenciones))
+      // Migrar datos antiguos de localStorage a la base de datos (solo una vez)
+      try {
+        const atencionesGuardadas = localStorage.getItem('atenciones_mostrador')
+        if (atencionesGuardadas) {
+          const todasAtenciones = JSON.parse(atencionesGuardadas)
+          if (Array.isArray(todasAtenciones) && todasAtenciones.length > 0) {
+            // Migrar datos antiguos
+            for (const atencion of todasAtenciones) {
+              if (atencion.usuario_id && atencion.usuario_nombre) {
+                await apiService.crearAtencionMostrador({
+                  cliente_nombre: atencion.cliente_nombre,
+                  tipo: atencion.tipo,
+                  usuario_id: atencion.usuario_id,
+                  usuario_nombre: atencion.usuario_nombre,
+                  orden_id: atencion.orden_id,
+                  notas: atencion.notas
+                })
+              }
+            }
+            // Marcar como migrado
+            localStorage.setItem('atenciones_mostrador_migrado', 'true')
+          }
+        }
+      } catch (migrateError) {
+        console.warn('Error migrando datos antiguos:', migrateError)
+        // No fallar si la migración falla
+      }
 
       onSuccess?.()
       onClose()

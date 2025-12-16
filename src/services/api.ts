@@ -3269,6 +3269,85 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  // ==================== ATENCIONES MOSTRADOR ====================
+  
+  async crearAtencionMostrador(data: {
+    cliente_nombre: string
+    tipo: 'virtual' | 'consulta' | 'venta'
+    usuario_id: number
+    usuario_nombre: string
+    orden_id?: number
+    cliente_id?: number
+    notas?: string
+  }): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data: result, error } = await supabase.rpc('crear_atencion_mostrador', {
+          p_cliente_nombre: data.cliente_nombre,
+          p_tipo: data.tipo,
+          p_usuario_id: data.usuario_id,
+          p_usuario_nombre: data.usuario_nombre,
+          p_orden_id: data.orden_id || null,
+          p_cliente_id: data.cliente_id || null,
+          p_notas: data.notas || null
+        })
+
+        if (error) {
+          console.error('Error creando atención:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: result as number }
+      } catch (error) {
+        console.error('Error creando atención:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerAtencionesMostrador(fechaInicio?: string, fechaFin?: string): Promise<ApiResponse<Array<{
+    id: number
+    cliente_id: number | null
+    cliente_nombre: string
+    tipo: 'virtual' | 'consulta' | 'venta'
+    orden_id: number | null
+    usuario_id: number
+    usuario_nombre: string
+    fecha_atencion: string
+    notas: string | null
+  }>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_atenciones_mostrador', {
+          p_fecha_inicio: fechaInicio || null,
+          p_fecha_fin: fechaFin || null
+        })
+
+        if (error) {
+          console.error('Error obteniendo atenciones:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as Array<{
+          id: number
+          cliente_id: number | null
+          cliente_nombre: string
+          tipo: 'virtual' | 'consulta' | 'venta'
+          orden_id: number | null
+          usuario_id: number
+          usuario_nombre: string
+          fecha_atencion: string
+          notas: string | null
+        }> }
+      } catch (error) {
+        console.error('Error obteniendo atenciones:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   private async ensureChatRoomExists(roomId: number, canalNombre: string): Promise<void> {
     if (!supabase) return
 

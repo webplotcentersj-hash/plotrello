@@ -56,19 +56,33 @@ const ReportesMostradorPage = () => {
         setOrdenes(ordenesFiltradas)
       }
 
-      // Cargar atenciones
-      const atencionesGuardadas = localStorage.getItem('atenciones_mostrador')
-      if (atencionesGuardadas) {
-        const todasAtenciones: Atencion[] = JSON.parse(atencionesGuardadas)
-        const inicio = new Date(fechaInicio)
-        const fin = new Date(fechaFin)
-        fin.setHours(23, 59, 59, 999)
+      // Cargar atenciones desde la base de datos
+      const inicio = new Date(fechaInicio)
+      inicio.setHours(0, 0, 0, 0)
+      const fin = new Date(fechaFin)
+      fin.setHours(23, 59, 59, 999)
 
-        const atencionesFiltradas = todasAtenciones.filter((atencion) => {
-          const fechaAtencion = new Date(atencion.timestamp)
-          return fechaAtencion >= inicio && fechaAtencion <= fin
-        })
+      const atencionesResponse = await apiService.obtenerAtencionesMostrador(
+        inicio.toISOString(),
+        fin.toISOString()
+      )
+
+      if (atencionesResponse.success && atencionesResponse.data) {
+        const atencionesFiltradas: Atencion[] = atencionesResponse.data.map((atencion) => ({
+          id: atencion.id,
+          cliente_id: atencion.cliente_id || undefined,
+          cliente_nombre: atencion.cliente_nombre,
+          tipo: atencion.tipo,
+          orden_id: atencion.orden_id || undefined,
+          usuario_id: atencion.usuario_id,
+          usuario_nombre: atencion.usuario_nombre,
+          timestamp: atencion.fecha_atencion,
+          notas: atencion.notas || undefined
+        }))
         setAtenciones(atencionesFiltradas)
+      } else {
+        console.error('Error obteniendo atenciones:', atencionesResponse.error)
+        setAtenciones([])
       }
     } catch (error) {
       console.error('Error cargando datos:', error)
