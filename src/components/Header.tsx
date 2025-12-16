@@ -18,6 +18,7 @@ type HeaderProps = {
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
+  onNavigateToDiseno?: () => void
   onSolicitarProductos?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
@@ -41,6 +42,7 @@ const Header = ({
   onNavigateToHerramienta,
   onNavigateToMostrador,
   onNavigateToCompras,
+  onNavigateToDiseno,
   onSolicitarProductos,
   onOpenChatAI,
   onNavigateToChat,
@@ -144,6 +146,11 @@ const Header = ({
             {canManageCompras && onNavigateToCompras && (
               <button className="brand-button" onClick={onNavigateToCompras}>
                 🛒 Compras
+              </button>
+            )}
+            {(isDiseno || isAdmin) && onNavigateToDiseno && (
+              <button className="brand-button" onClick={onNavigateToDiseno}>
+                🎨 Dashboard Diseño
               </button>
             )}
             {onSolicitarProductos && (

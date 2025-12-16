@@ -13,6 +13,7 @@ import OpViewPage from './pages/OpViewPage'
 import OpPublicPage from './pages/OpPublicPage'
 import HerramientaPage from './pages/HerramientaPage'
 import MostradorDashboardPage from './pages/MostradorDashboardPage'
+import DisenoDashboardPage from './pages/DisenoDashboardPage'
 import OrdenesListasPage from './pages/OrdenesListasPage'
 import BuscarClientePage from './pages/BuscarClientePage'
 import EntregaPage from './pages/EntregaPage'
@@ -469,6 +470,7 @@ function AppRoutes({
             onNavigateToHerramienta={() => navigate('/herramienta')}
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onNavigateToCompras={() => navigate('/compras/dashboard')}
+            onNavigateToDiseno={() => navigate('/diseno/dashboard')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -578,6 +580,14 @@ function AppRoutes({
       <Route
         path="/compras/gestion-stock"
         element={<GestionStockPage />}
+      />
+      <Route
+        path="/diseno/dashboard"
+        element={<DisenoDashboardPage />}
+      />
+      <Route
+        path="/diseno"
+        element={<DisenoDashboardPage />}
       />
     </Routes>
     </>
