@@ -153,6 +153,12 @@ const Header = ({
                 🎨 Dashboard Diseño
               </button>
             )}
+            <a
+              href="/galeria"
+              className="brand-button"
+            >
+              🖼️ Galería
+            </a>
             {onSolicitarProductos && (
               <button className="brand-button" onClick={onSolicitarProductos}>
                 📦 Solicitar Productos

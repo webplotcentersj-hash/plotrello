@@ -14,6 +14,7 @@ import OpPublicPage from './pages/OpPublicPage'
 import HerramientaPage from './pages/HerramientaPage'
 import MostradorDashboardPage from './pages/MostradorDashboardPage'
 import DisenoDashboardPage from './pages/DisenoDashboardPage'
+import GaleriaTrabajosPage from './pages/GaleriaTrabajosPage'
 import OrdenesListasPage from './pages/OrdenesListasPage'
 import BuscarClientePage from './pages/BuscarClientePage'
 import EntregaPage from './pages/EntregaPage'
@@ -588,6 +589,14 @@ function AppRoutes({
       <Route
         path="/diseno"
         element={<DisenoDashboardPage />}
+      />
+      <Route
+        path="/galeria"
+        element={<GaleriaTrabajosPage />}
+      />
+      <Route
+        path="/galeria-trabajos"
+        element={<GaleriaTrabajosPage />}
       />
     </Routes>
     </>

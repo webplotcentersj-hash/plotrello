@@ -3549,6 +3549,105 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  // ==================== GALERÍA DE TRABAJOS ====================
+  
+  async agregarTrabajoGaleria(data: {
+    id_orden: number
+    numero_op: string
+    cliente: string
+    titulo?: string
+    descripcion?: string
+    imagen_url: string
+    categoria?: string
+    tags?: string[]
+    fecha_completado?: string
+    usuario_subio_id?: number
+    usuario_subio_nombre?: string
+    visible_publico?: boolean
+    destacado?: boolean
+  }): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data: result, error } = await supabase.rpc('agregar_trabajo_galeria', {
+          p_id_orden: data.id_orden,
+          p_numero_op: data.numero_op,
+          p_cliente: data.cliente,
+          p_titulo: data.titulo || null,
+          p_descripcion: data.descripcion || null,
+          p_imagen_url: data.imagen_url,
+          p_categoria: data.categoria || null,
+          p_tags: data.tags || null,
+          p_fecha_completado: data.fecha_completado || new Date().toISOString().split('T')[0],
+          p_usuario_subio_id: data.usuario_subio_id || null,
+          p_usuario_subio_nombre: data.usuario_subio_nombre || null,
+          p_visible_publico: data.visible_publico !== undefined ? data.visible_publico : true,
+          p_destacado: data.destacado !== undefined ? data.destacado : false
+        })
+
+        if (error) {
+          console.error('Error agregando trabajo a galería:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: result as number }
+      } catch (error) {
+        console.error('Error agregando trabajo a galería:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerTrabajosGaleria(filtros?: {
+    categoria?: string
+    limit?: number
+    offset?: number
+    solo_destacados?: boolean
+    solo_publicos?: boolean
+  }): Promise<ApiResponse<Array<import('../types/api').TrabajoGaleria>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_trabajos_galeria', {
+          p_categoria: filtros?.categoria || null,
+          p_limit: filtros?.limit || 50,
+          p_offset: filtros?.offset || 0,
+          p_solo_destacados: filtros?.solo_destacados || false,
+          p_solo_publicos: filtros?.solo_publicos !== undefined ? filtros.solo_publicos : true
+        })
+
+        if (error) {
+          console.error('Error obteniendo trabajos de galería:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as Array<import('../types/api').TrabajoGaleria> }
+      } catch (error) {
+        console.error('Error obteniendo trabajos de galería:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerCategoriasGaleria(): Promise<ApiResponse<Array<import('../types/api').CategoriaGaleria>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_categorias_galeria')
+
+        if (error) {
+          console.error('Error obteniendo categorías:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as Array<import('../types/api').CategoriaGaleria> }
+      } catch (error) {
+        console.error('Error obteniendo categorías:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {

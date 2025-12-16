@@ -50,6 +50,28 @@ export interface RevisionOrden {
   fecha_aprobacion: string | null
 }
 
+export interface TrabajoGaleria {
+  id: number
+  id_orden: number
+  numero_op: string
+  cliente: string
+  titulo: string | null
+  descripcion: string | null
+  imagen_url: string
+  categoria: string | null
+  tags: string[] | null
+  fecha_completado: string
+  usuario_subio_nombre: string | null
+  visible_publico: boolean
+  destacado: boolean
+  created_at: string
+}
+
+export interface CategoriaGaleria {
+  categoria: string
+  cantidad: number
+}
+
 // Subtareas / checklist por ficha
 export interface TareaSubitem {
   id: number
