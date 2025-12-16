@@ -27,6 +27,7 @@ import ComprasDashboardPage from './pages/ComprasDashboardPage'
 import PedidoCompraDetallePage from './pages/PedidoCompraDetallePage'
 import ReportesStockPage from './pages/ReportesStockPage'
 import GestionStockPage from './pages/GestionStockPage'
+import ProveedoresPage from './pages/ProveedoresPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -584,6 +585,10 @@ function AppRoutes({
       <Route
         path="/compras/gestion-stock"
         element={<GestionStockPage />}
+      />
+      <Route
+        path="/compras/proveedores"
+        element={<ProveedoresPage />}
       />
       <Route
         path="/diseno/dashboard"

@@ -242,6 +242,12 @@ const ComprasDashboardPage = () => {
               📊 Reportes
             </button>
             <button
+              className="btn-primary"
+              onClick={() => navigate('/compras/proveedores')}
+            >
+              🏢 Proveedores
+            </button>
+            <button
               className="btn-secondary"
               onClick={() => navigate('/')}
             >
