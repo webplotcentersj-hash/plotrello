@@ -609,9 +609,13 @@ const TaskEditModal = ({
             <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
             {task && (() => {
               const ordenId = parseTaskIdToOrdenId(task.id)
-              return ordenId ? (
-                <BriefLinkSection ordenId={ordenId} />
-              ) : null
+              console.log('🔍 Debug BriefLinkSection - task.id:', task.id, 'ordenId:', ordenId)
+              if (ordenId) {
+                return <BriefLinkSection ordenId={ordenId} />
+              } else {
+                console.warn('⚠️ No se pudo obtener ordenId para BriefLinkSection')
+                return <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>⚠️ No se pudo obtener el ID de la orden</p>
+              }
             })()}
           </div>
 

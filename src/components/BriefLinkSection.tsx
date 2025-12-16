@@ -11,7 +11,10 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  console.log('🔍 BriefLinkSection renderizado con ordenId:', ordenId)
+
   useEffect(() => {
+    console.log('🔍 BriefLinkSection useEffect - ordenId:', ordenId)
     loadBriefToken()
   }, [ordenId])
 
