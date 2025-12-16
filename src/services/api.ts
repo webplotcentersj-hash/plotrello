@@ -4070,6 +4070,392 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  // ========== PROVEEDORES ==========
+  
+  async getProveedores(activos?: boolean): Promise<ApiResponse<Proveedor[]>> {
+    if (supabase) {
+      try {
+        let query = supabase.from('proveedores').select('*').order('nombre', { ascending: true })
+        if (activos !== undefined) {
+          query = query.eq('activo', activos)
+        }
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as Proveedor[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getProveedor(id: number): Promise<ApiResponse<Proveedor>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores')
+          .select('*')
+          .eq('id', id)
+          .single()
+        if (error) return { success: false, error: error.message }
+        if (!data) return { success: false, error: 'Proveedor no encontrado' }
+        return { success: true, data: data as Proveedor }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async crearProveedor(proveedor: {
+    nombre: string
+    razon_social?: string
+    cuit?: string
+    contacto_nombre?: string
+    telefono?: string
+    email?: string
+    direccion?: string
+    ciudad?: string
+    provincia?: string
+    codigo_postal?: string
+    sitio_web?: string
+    notas?: string
+  }): Promise<ApiResponse<Proveedor>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores')
+          .insert(proveedor)
+          .select()
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as Proveedor }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarProveedor(id: number, proveedor: Partial<Proveedor>): Promise<ApiResponse<Proveedor>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores')
+          .update(proveedor)
+          .eq('id', id)
+          .select()
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as Proveedor }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async eliminarProveedor(id: number): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('proveedores')
+          .update({ activo: false })
+          .eq('id', id)
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getProductosProveedor(idProveedor: number): Promise<ApiResponse<ProveedorProducto[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores_productos')
+          .select('*')
+          .eq('id_proveedor', idProveedor)
+          .eq('activo', true)
+          .order('descripcion', { ascending: true })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as ProveedorProducto[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async crearProductoProveedor(producto: {
+    id_proveedor: number
+    codigo_producto?: string
+    descripcion: string
+    unidad?: string
+    precio_unitario?: number
+    moneda?: string
+    stock_disponible?: number
+    tiempo_entrega_dias?: number
+    observaciones?: string
+  }): Promise<ApiResponse<ProveedorProducto>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores_productos')
+          .insert({
+            ...producto,
+            moneda: producto.moneda || 'ARS',
+            unidad: producto.unidad || 'unidad'
+          })
+          .select()
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as ProveedorProducto }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarProductoProveedor(id: number, producto: Partial<ProveedorProducto>): Promise<ApiResponse<ProveedorProducto>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('proveedores_productos')
+          .update(producto)
+          .eq('id', id)
+          .select()
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as ProveedorProducto }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getHistorialPrecios(idProveedor?: number, codigoProducto?: string): Promise<ApiResponse<PrecioHistorial[]>> {
+    if (supabase) {
+      try {
+        let query = supabase.from('precios_historial').select('*').order('fecha_cambio', { ascending: false })
+        if (idProveedor) {
+          query = query.eq('id_proveedor', idProveedor)
+        }
+        if (codigoProducto) {
+          query = query.eq('codigo_producto', codigoProducto)
+        }
+        const { data, error } = await query.limit(100)
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as PrecioHistorial[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ========== PRESUPUESTOS ==========
+
+  async crearPresupuesto(presupuesto: {
+    id_pedido_compra?: number
+    id_proveedor: number
+    fecha_vencimiento?: string
+    condiciones_pago?: string
+    tiempo_entrega_dias?: number
+    observaciones?: string
+    items: Array<{
+      id_item_pedido?: number
+      codigo_producto?: string
+      descripcion: string
+      cantidad: number
+      unidad?: string
+      precio_unitario: number
+      observaciones?: string
+    }>
+  }): Promise<ApiResponse<Presupuesto>> {
+    if (supabase) {
+      try {
+        const usuarioStr = localStorage.getItem('usuario')
+        const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+
+        // Calcular monto total
+        const montoTotal = presupuesto.items.reduce((sum, item) => {
+          return sum + (item.precio_unitario * item.cantidad)
+        }, 0)
+
+        // Generar número de presupuesto
+        const numeroPresupuesto = `PRES-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+
+        // Crear presupuesto
+        const { data: presupuestoData, error: presupuestoError } = await supabase
+          .from('presupuestos')
+          .insert({
+            numero_presupuesto: numeroPresupuesto,
+            id_pedido_compra: presupuesto.id_pedido_compra || null,
+            id_proveedor: presupuesto.id_proveedor,
+            fecha_vencimiento: presupuesto.fecha_vencimiento || null,
+            condiciones_pago: presupuesto.condiciones_pago || null,
+            tiempo_entrega_dias: presupuesto.tiempo_entrega_dias || null,
+            observaciones: presupuesto.observaciones || null,
+            monto_total: montoTotal,
+            id_usuario_solicitante: usuario?.id || null,
+            nombre_usuario_solicitante: usuario?.nombre || null
+          })
+          .select()
+          .single()
+
+        if (presupuestoError) return { success: false, error: presupuestoError.message }
+
+        // Crear items del presupuesto
+        const items = presupuesto.items.map(item => ({
+          id_presupuesto: presupuestoData.id,
+          id_item_pedido: item.id_item_pedido || null,
+          codigo_producto: item.codigo_producto || null,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          unidad: item.unidad || 'unidad',
+          precio_unitario: item.precio_unitario,
+          precio_total: item.precio_unitario * item.cantidad,
+          observaciones: item.observaciones || null
+        }))
+
+        const { error: itemsError } = await supabase
+          .from('presupuestos_items')
+          .insert(items)
+
+        if (itemsError) {
+          // Si falla la inserción de items, eliminar el presupuesto creado
+          await supabase.from('presupuestos').delete().eq('id', presupuestoData.id)
+          return { success: false, error: itemsError.message }
+        }
+
+        // Obtener el presupuesto completo con items
+        const { data: presupuestoCompleto, error: fetchError } = await supabase
+          .from('presupuestos')
+          .select(`
+            *,
+            items:presupuestos_items(*),
+            proveedor:proveedores(*)
+          `)
+          .eq('id', presupuestoData.id)
+          .single()
+
+        if (fetchError) return { success: false, error: fetchError.message }
+
+        return { success: true, data: presupuestoCompleto as Presupuesto }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getPresupuestos(filters?: {
+    id_pedido_compra?: number
+    id_proveedor?: number
+    estado?: EstadoPresupuesto
+  }): Promise<ApiResponse<Presupuesto[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('presupuestos')
+          .select(`
+            *,
+            items:presupuestos_items(*),
+            proveedor:proveedores(*)
+          `)
+          .order('fecha_solicitud', { ascending: false })
+
+        if (filters?.id_pedido_compra) {
+          query = query.eq('id_pedido_compra', filters.id_pedido_compra)
+        }
+        if (filters?.id_proveedor) {
+          query = query.eq('id_proveedor', filters.id_proveedor)
+        }
+        if (filters?.estado) {
+          query = query.eq('estado', filters.estado)
+        }
+
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as Presupuesto[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarPresupuesto(id: number, updates: {
+    estado?: EstadoPresupuesto
+    fecha_recepcion?: string
+    fecha_aceptacion?: string
+    archivo_adjunto_url?: string
+    observaciones?: string
+  }): Promise<ApiResponse<Presupuesto>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('presupuestos')
+          .update(updates)
+          .eq('id', id)
+          .select(`
+            *,
+            items:presupuestos_items(*),
+            proveedor:proveedores(*)
+          `)
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as Presupuesto }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async compararPresupuestos(idPedidoCompra: number, comparacion: {
+    id_presupuesto_seleccionado: number
+    notas_comparacion?: string
+    criterio_seleccion?: string
+  }): Promise<ApiResponse<ComparacionPresupuestos>> {
+    if (supabase) {
+      try {
+        const usuarioStr = localStorage.getItem('usuario')
+        const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+
+        const { data, error } = await supabase
+          .from('comparacion_presupuestos')
+          .insert({
+            id_pedido_compra: idPedidoCompra,
+            id_presupuesto_seleccionado: comparacion.id_presupuesto_seleccionado,
+            notas_comparacion: comparacion.notas_comparacion || null,
+            criterio_seleccion: comparacion.criterio_seleccion || null,
+            id_usuario_comparador: usuario?.id || null
+          })
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+
+        // Actualizar el presupuesto seleccionado a "Aceptado"
+        await supabase
+          .from('presupuestos')
+          .update({ estado: 'Aceptado', fecha_aceptacion: new Date().toISOString() })
+          .eq('id', comparacion.id_presupuesto_seleccionado)
+
+        return { success: true, data: data as ComparacionPresupuestos }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {

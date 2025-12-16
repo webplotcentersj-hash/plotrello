@@ -100,3 +100,108 @@ export interface ArticuloStock {
   sector?: string | null
 }
 
+// Tipos para gestión de proveedores
+export interface Proveedor {
+  id: number
+  nombre: string
+  razon_social?: string | null
+  cuit?: string | null
+  contacto_nombre?: string | null
+  telefono?: string | null
+  email?: string | null
+  direccion?: string | null
+  ciudad?: string | null
+  provincia?: string | null
+  codigo_postal?: string | null
+  sitio_web?: string | null
+  notas?: string | null
+  activo: boolean
+  calificacion: number
+  total_compras: number
+  monto_total_compras: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ProveedorProducto {
+  id: number
+  id_proveedor: number
+  codigo_producto?: string | null
+  descripcion: string
+  unidad: string
+  precio_unitario?: number | null
+  moneda: string
+  stock_disponible?: number | null
+  tiempo_entrega_dias?: number | null
+  observaciones?: string | null
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type EstadoPresupuesto = 'Pendiente' | 'Enviado' | 'Recibido' | 'Aceptado' | 'Rechazado' | 'Vencido'
+
+export interface Presupuesto {
+  id: number
+  numero_presupuesto: string
+  id_pedido_compra?: number | null
+  id_proveedor: number
+  estado: EstadoPresupuesto
+  fecha_solicitud: string
+  fecha_envio?: string | null
+  fecha_recepcion?: string | null
+  fecha_vencimiento?: string | null
+  fecha_aceptacion?: string | null
+  monto_total?: number | null
+  moneda: string
+  condiciones_pago?: string | null
+  tiempo_entrega_dias?: number | null
+  observaciones?: string | null
+  archivo_adjunto_url?: string | null
+  id_usuario_solicitante?: number | null
+  nombre_usuario_solicitante?: string | null
+  created_at: string
+  updated_at: string
+  items?: PresupuestoItem[]
+  proveedor?: Proveedor
+}
+
+export interface PresupuestoItem {
+  id: number
+  id_presupuesto: number
+  id_item_pedido?: number | null
+  codigo_producto?: string | null
+  descripcion: string
+  cantidad: number
+  unidad: string
+  precio_unitario: number
+  precio_total: number
+  observaciones?: string | null
+  created_at: string
+}
+
+export interface PrecioHistorial {
+  id: number
+  id_proveedor_producto?: number | null
+  id_proveedor?: number | null
+  codigo_producto?: string | null
+  descripcion: string
+  precio_anterior?: number | null
+  precio_nuevo: number
+  fecha_cambio: string
+  id_usuario?: number | null
+  motivo?: string | null
+  created_at: string
+}
+
+export interface ComparacionPresupuestos {
+  id: number
+  id_pedido_compra: number
+  id_presupuesto_seleccionado?: number | null
+  notas_comparacion?: string | null
+  criterio_seleccion?: string | null
+  id_usuario_comparador?: number | null
+  fecha_comparacion: string
+  created_at: string
+}
+
