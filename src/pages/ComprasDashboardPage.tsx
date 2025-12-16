@@ -18,6 +18,13 @@ const ComprasDashboardPage = () => {
     pedidosPorPrioridad: [] as Array<{ name: string; value: number; color: string }>,
     costosPorMes: [] as Array<{ mes: string; total: number }>
   })
+  const [alertas, setAlertas] = useState<Array<{
+    tipo: 'stock_bajo' | 'pedido_pendiente' | 'entrega_proxima' | 'presupuesto_vencido'
+    titulo: string
+    descripcion: string
+    severidad: 'alta' | 'media' | 'baja'
+    accion?: { url: string; texto: string }
+  }>>([])
 
   useEffect(() => {
     if (authLoading) return // Esperar a que termine la carga de autenticación
@@ -41,12 +48,90 @@ const ComprasDashboardPage = () => {
       if (response.success && response.data) {
         setPedidos(response.data)
         loadDatosGraficos(response.data)
+        await loadAlertas(response.data)
       }
     } catch (error) {
       console.error('Error cargando pedidos:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadAlertas = async (todosPedidos: PedidoCompra[]) => {
+    const nuevasAlertas: Array<{
+      tipo: 'stock_bajo' | 'pedido_pendiente' | 'entrega_proxima' | 'presupuesto_vencido'
+      titulo: string
+      descripcion: string
+      severidad: 'alta' | 'media' | 'baja'
+      accion?: { url: string; texto: string }
+    }> = []
+
+    // Alertas de pedidos pendientes (más de 3 días sin aprobar)
+    const pedidosPendientes = todosPedidos.filter(p => 
+      p.estado === 'Pendiente' && 
+      p.fecha_solicitud && 
+      (Date.now() - new Date(p.fecha_solicitud).getTime()) > 3 * 24 * 60 * 60 * 1000
+    )
+    pedidosPendientes.forEach(pedido => {
+      const diasPendiente = Math.floor((Date.now() - new Date(pedido.fecha_solicitud!).getTime()) / (24 * 60 * 60 * 1000))
+      nuevasAlertas.push({
+        tipo: 'pedido_pendiente',
+        titulo: `Pedido ${pedido.numero_pedido} pendiente`,
+        descripcion: `El pedido lleva ${diasPendiente} días sin aprobar`,
+        severidad: diasPendiente > 7 ? 'alta' : diasPendiente > 5 ? 'media' : 'baja',
+        accion: {
+          url: `/compras/pedidos/${pedido.id}`,
+          texto: 'Ver pedido'
+        }
+      })
+    })
+
+    // Alertas de entregas próximas (menos de 3 días)
+    const pedidosConEntrega = todosPedidos.filter(p => 
+      p.estado === 'Aprobado' && 
+      p.fecha_entrega_estimada
+    )
+    pedidosConEntrega.forEach(pedido => {
+      const diasHastaEntrega = Math.floor((new Date(pedido.fecha_entrega_estimada!).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+      if (diasHastaEntrega >= 0 && diasHastaEntrega <= 3) {
+        nuevasAlertas.push({
+          tipo: 'entrega_proxima',
+          titulo: `Entrega próxima: ${pedido.numero_pedido}`,
+          descripcion: `La entrega está programada para ${diasHastaEntrega === 0 ? 'hoy' : `en ${diasHastaEntrega} día${diasHastaEntrega > 1 ? 's' : ''}`}`,
+          severidad: diasHastaEntrega === 0 ? 'alta' : diasHastaEntrega === 1 ? 'alta' : 'media',
+          accion: {
+            url: `/compras/pedidos/${pedido.id}`,
+            texto: 'Ver pedido'
+          }
+        })
+      }
+    })
+
+    // Alertas de presupuestos vencidos
+    try {
+      const presupuestosResponse = await apiService.getPresupuestos({ estado: 'Vencido' })
+      if (presupuestosResponse.success && presupuestosResponse.data) {
+        presupuestosResponse.data.forEach((presupuesto: any) => {
+          nuevasAlertas.push({
+            tipo: 'presupuesto_vencido',
+            titulo: `Presupuesto vencido: ${presupuesto.numero_presupuesto}`,
+            descripcion: `El presupuesto del proveedor ${presupuesto.proveedor?.nombre || 'desconocido'} ha vencido`,
+            severidad: 'media',
+            accion: presupuesto.id_pedido_compra ? {
+              url: `/compras/presupuestos/${presupuesto.id_pedido_compra}`,
+              texto: 'Ver presupuestos'
+            } : undefined
+          })
+        })
+      }
+    } catch (error) {
+      console.error('Error cargando presupuestos vencidos:', error)
+    }
+
+    // Alertas de stock bajo (si hay integración con stock)
+    // Esto se puede implementar cuando haya integración con el sistema de stock
+
+    setAlertas(nuevasAlertas)
   }
 
   const loadDatosGraficos = (todosPedidos: PedidoCompra[]) => {
