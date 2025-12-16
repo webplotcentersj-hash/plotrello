@@ -101,12 +101,12 @@ const ReportesComprasPage = () => {
       }
 
       doc.setFontSize(12)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text(`Pedido ${pedido.numero_pedido}`, 14, y)
       y += 7
 
       doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(`Solicitante: ${pedido.nombre_solicitante}`, 14, y)
       y += 5
       doc.text(`Estado: ${pedido.estado}`, 14, y)
@@ -182,10 +182,10 @@ const ReportesComprasPage = () => {
     doc.text('Análisis de Costos', 14, 20)
 
     doc.setFontSize(12)
-    doc.setFont(undefined, 'bold')
+    doc.setFont('helvetica', 'bold')
     doc.text(`Total General: $${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 14, 35)
     doc.setFontSize(10)
-    doc.setFont(undefined, 'normal')
+    doc.setFont('helvetica', 'normal')
     doc.text(`Pedidos analizados: ${pedidosFiltrados.length}`, 14, 42)
 
     let y = 50
@@ -238,7 +238,7 @@ const ReportesComprasPage = () => {
   }
 
   const pedidosFiltrados = aplicarFiltros()
-  const { total, porEstado, porSector } = calcularCostos()
+  const { total } = calcularCostos()
 
   return (
     <div className="reportes-compras-page">
