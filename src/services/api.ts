@@ -3980,7 +3980,7 @@ class ApiService {
     if (supabase) {
       try {
         // Intentar con la nueva función primero
-        let error = null
+        let updateError = null
         try {
           const result = await supabase.rpc('actualizar_brief_publico_completo', {
             p_token: data.token,
@@ -4006,37 +4006,39 @@ class ApiService {
             p_fecha_limite_brief: data.fecha_limite_brief || null,
             p_es_urgencia: data.es_urgencia || false
           })
-          error = result.error
+          updateError = result.error
         } catch (e) {
           // Si falla, intentar con la función antigua (compatibilidad)
           const result = await supabase.rpc('actualizar_brief_publico', {
-          p_token: data.token,
-          p_cliente_nombre_completo: data.cliente_nombre_completo || null,
-          p_cliente_empresa: data.cliente_empresa || null,
-          p_telefono_cliente: data.telefono_cliente || null,
-          p_email_cliente: data.email_cliente || null,
-          p_tipo_producto_servicio: data.tipo_producto_servicio || null,
-          p_tipo_producto_otro: data.tipo_producto_otro || null,
-          p_necesita_asesoramiento: data.necesita_asesoramiento || false,
-          p_donde_colocados: data.donde_colocados || null,
-          p_digital_o_impresion: data.digital_o_impresion || null,
-          p_cantidades: data.cantidades || null,
-          p_objetivo_proyecto: data.objetivo_proyecto || null,
-          p_material_logo: data.material_logo || null,
-          p_material_textos: data.material_textos || null,
-          p_material_imagenes: data.material_imagenes || null,
-          p_tiene_referencias: data.tiene_referencias || false,
-          p_referencias_links: data.referencias_links || null,
-          p_brief_publico: data.brief_publico || null,
-          p_estilo_diseno: data.estilo_diseno || null,
-          p_referencias: data.referencias || null,
-          p_fecha_limite_brief: data.fecha_limite_brief || null,
-          p_es_urgencia: data.es_urgencia || false
-        })
+            p_token: data.token,
+            p_cliente_nombre_completo: data.cliente_nombre_completo || null,
+            p_cliente_empresa: data.cliente_empresa || null,
+            p_telefono_cliente: data.telefono_cliente || null,
+            p_email_cliente: data.email_cliente || null,
+            p_tipo_producto_servicio: data.tipo_producto_servicio || null,
+            p_tipo_producto_otro: data.tipo_producto_otro || null,
+            p_necesita_asesoramiento: data.necesita_asesoramiento || false,
+            p_donde_colocados: data.donde_colocados || null,
+            p_digital_o_impresion: data.digital_o_impresion || null,
+            p_cantidades: data.cantidades || null,
+            p_objetivo_proyecto: data.objetivo_proyecto || null,
+            p_material_logo: data.material_logo || null,
+            p_material_textos: data.material_textos || null,
+            p_material_imagenes: data.material_imagenes || null,
+            p_tiene_referencias: data.tiene_referencias || false,
+            p_referencias_links: data.referencias_links || null,
+            p_brief_publico: data.brief_publico || null,
+            p_estilo_diseno: data.estilo_diseno || null,
+            p_referencias: data.referencias || null,
+            p_fecha_limite_brief: data.fecha_limite_brief || null,
+            p_es_urgencia: data.es_urgencia || false
+          })
+          updateError = result.error
+        }
 
-        if (error) {
-          console.error('Error actualizando brief público:', error)
-          return { success: false, error: error.message }
+        if (updateError) {
+          console.error('Error actualizando brief público:', updateError)
+          return { success: false, error: updateError.message }
         }
 
         return { success: true }

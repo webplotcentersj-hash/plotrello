@@ -639,6 +639,14 @@ const TaskEditModal = ({
                 )
               })()
             ) : (
+              <div style={{ marginTop: '16px' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '12px' }}>
+                  💡 Puedes generar un link de brief para enviar al cliente antes de crear la OP
+                </p>
+                <BriefLinkSection />
+              </div>
+              })()
+            ) : (
               <div style={{ 
                 padding: '16px', 
                 background: 'rgba(239, 68, 68, 0.1)', 

@@ -7,6 +7,7 @@ type BriefLinkSectionProps = {
 }
 
 const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
+  const { usuario } = useAuth()
   const [briefToken, setBriefToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -48,8 +49,7 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
         response = await apiService.generarBriefToken(ordenId)
       } else {
         // Si no hay ordenId, crear un brief independiente (nuevo flujo)
-        const { usuario } = await import('../hooks/useAuth').then(m => m.useAuth())
-        const usuarioId = usuario?.id ? parseInt(usuario.id) : undefined
+        const usuarioId = usuario?.id ? parseInt(usuario.id.toString()) : undefined
         response = await apiService.crearBriefPublico(usuarioId)
       }
       
