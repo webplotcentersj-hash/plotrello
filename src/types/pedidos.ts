@@ -9,6 +9,14 @@ export type EstadoPedido =
   | 'Completado'
   | 'Cancelado'
 
+export type EstadoEntrega = 
+  | 'Pendiente'
+  | 'En Tránsito'
+  | 'Parcialmente Entregado'
+  | 'Listo para Retirar'
+  | 'Entregado'
+  | 'Retrasado'
+
 export type PrioridadPedido = 'Baja' | 'Normal' | 'Alta' | 'Urgente'
 
 export type TipoMovimientoStock = 
@@ -33,6 +41,11 @@ export interface PedidoCompra {
   fecha_aprobacion?: string | null
   fecha_rechazo?: string | null
   fecha_completado?: string | null
+  fecha_entrega_estimada?: string | null
+  fecha_entrega_real?: string | null
+  estado_entrega?: EstadoEntrega | null
+  tracking_number?: string | null
+  transportista?: string | null
   id_aprobador?: number | null
   nombre_aprobador?: string | null
   motivo_rechazo?: string | null

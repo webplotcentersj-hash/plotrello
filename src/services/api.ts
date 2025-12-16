@@ -2753,6 +2753,29 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async actualizarPedidoCompra(
+    id: number,
+    updates: Partial<PedidoCompra>
+  ): Promise<ApiResponse<PedidoCompra>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('pedidos_compras')
+          .update(updates)
+          .eq('id', id)
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return await this.getPedidoCompra(id)
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async actualizarEstadoPedido(
     id: number,
     estado: EstadoPedido

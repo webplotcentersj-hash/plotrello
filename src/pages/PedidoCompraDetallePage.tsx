@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { PedidoCompra } from '../types/pedidos'
+import type { PedidoCompra, EstadoEntrega } from '../types/pedidos'
 import './PedidoCompraDetallePage.css'
 
 const PedidoCompraDetallePage = () => {
@@ -18,6 +18,14 @@ const PedidoCompraDetallePage = () => {
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [cantidadesAprobadas, setCantidadesAprobadas] = useState<Record<number, number>>({})
   const [saving, setSaving] = useState(false)
+  const [mostrarTracking, setMostrarTracking] = useState(false)
+  const [formTracking, setFormTracking] = useState({
+    estado_entrega: 'Pendiente' as EstadoEntrega,
+    fecha_entrega_estimada: '',
+    fecha_entrega_real: '',
+    tracking_number: '',
+    transportista: ''
+  })
 
   useEffect(() => {
     if (authLoading) return // Esperar a que termine la carga de autenticación
@@ -43,6 +51,16 @@ const PedidoCompraDetallePage = () => {
           cantidades[item.id] = item.cantidad_solicitada
         })
         setCantidadesAprobadas(cantidades)
+        // Inicializar formulario de tracking con datos existentes
+        if (response.data.estado_entrega || response.data.fecha_entrega_estimada) {
+          setFormTracking({
+            estado_entrega: (response.data.estado_entrega as EstadoEntrega) || 'Pendiente',
+            fecha_entrega_estimada: response.data.fecha_entrega_estimada ? new Date(response.data.fecha_entrega_estimada).toISOString().split('T')[0] : '',
+            fecha_entrega_real: response.data.fecha_entrega_real ? new Date(response.data.fecha_entrega_real).toISOString().split('T')[0] : '',
+            tracking_number: response.data.tracking_number || '',
+            transportista: response.data.transportista || ''
+          })
+        }
       }
     } catch (error) {
       console.error('Error cargando pedido:', error)
@@ -169,6 +187,49 @@ const PedidoCompraDetallePage = () => {
       'Cancelado': '#6b7280'
     }
     return colores[estado] || '#6b7280'
+  }
+
+  const handleActualizarTracking = async () => {
+    if (!pedido || !usuario) return
+
+    setSaving(true)
+    try {
+      const updates: any = {
+        estado_entrega: formTracking.estado_entrega,
+        fecha_entrega_estimada: formTracking.fecha_entrega_estimada || null,
+        fecha_entrega_real: formTracking.fecha_entrega_real || null,
+        tracking_number: formTracking.tracking_number || null,
+        transportista: formTracking.transportista || null
+      }
+
+      // Si el estado es "Entregado", actualizar fecha_entrega_real automáticamente
+      if (formTracking.estado_entrega === 'Entregado' && !formTracking.fecha_entrega_real) {
+        updates.fecha_entrega_real = new Date().toISOString()
+      }
+
+      const trackingResponse = await apiService.actualizarPedidoCompra(pedido.id, updates)
+      if (trackingResponse.success) {
+        setMostrarTracking(false)
+        loadPedido()
+        // Enviar notificación al solicitante
+        if (pedido.id_solicitante && formTracking.estado_entrega !== pedido.estado_entrega) {
+          await apiService.createNotification({
+            user_id: pedido.id_solicitante,
+            title: '📦 Estado de entrega actualizado',
+            description: `El estado de entrega de tu pedido ${pedido.numero_pedido} cambió a "${formTracking.estado_entrega}"`,
+            type: 'info',
+            pedido_id: pedido.id
+          })
+        }
+      } else {
+        alert(`Error actualizando tracking: ${trackingResponse.error}`)
+      }
+    } catch (error) {
+      console.error('Error actualizando tracking:', error)
+      alert('Error al actualizar tracking')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const getPrioridadColor = (prioridad: string) => {

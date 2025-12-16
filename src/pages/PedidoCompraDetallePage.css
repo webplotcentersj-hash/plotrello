@@ -130,6 +130,102 @@ section h2 {
   color: var(--text-primary);
 }
 
+/* Tracking Section */
+.tracking-section {
+  margin-bottom: 32px;
+  background: var(--surface-card);
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.tracking-info {
+  padding: 16px;
+  background: var(--surface-base);
+  border-radius: 8px;
+}
+
+.sin-tracking {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+.estado-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+}
+
+.estado-badge.estado-pendiente {
+  background: #f59e0b;
+}
+
+.estado-badge.estado-en-tránsito {
+  background: #3b82f6;
+}
+
+.estado-badge.estado-parcialmente-entregado {
+  background: #8b5cf6;
+}
+
+.estado-badge.estado-listo-para-retirar {
+  background: #10b981;
+}
+
+.estado-badge.estado-entregado {
+  background: #059669;
+}
+
+.estado-badge.estado-retrasado {
+  background: #ef4444;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
 /* Items Table */
 .items-table {
   overflow-x: auto;
