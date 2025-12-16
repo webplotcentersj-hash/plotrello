@@ -565,6 +565,75 @@ const PedidoCompraDetallePage = () => {
         </section>
       </div>
 
+      {/* Modal de Tracking */}
+      {mostrarTracking && (
+        <div className="modal-overlay" onClick={() => setMostrarTracking(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Tracking de Entrega</h3>
+            <div className="form-group">
+              <label>Estado de Entrega *</label>
+              <select
+                value={formTracking.estado_entrega}
+                onChange={(e) => setFormTracking({ ...formTracking, estado_entrega: e.target.value as EstadoEntrega })}
+              >
+                <option value="Pendiente">Pendiente</option>
+                <option value="En Tránsito">En Tránsito</option>
+                <option value="Parcialmente Entregado">Parcialmente Entregado</option>
+                <option value="Listo para Retirar">Listo para Retirar</option>
+                <option value="Entregado">Entregado</option>
+                <option value="Retrasado">Retrasado</option>
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Fecha Entrega Estimada</label>
+                <input
+                  type="date"
+                  value={formTracking.fecha_entrega_estimada}
+                  onChange={(e) => setFormTracking({ ...formTracking, fecha_entrega_estimada: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Fecha Entrega Real</label>
+                <input
+                  type="date"
+                  value={formTracking.fecha_entrega_real}
+                  onChange={(e) => setFormTracking({ ...formTracking, fecha_entrega_real: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Número de Tracking</label>
+                <input
+                  type="text"
+                  value={formTracking.tracking_number}
+                  onChange={(e) => setFormTracking({ ...formTracking, tracking_number: e.target.value })}
+                  placeholder="Ej: TRK123456789"
+                />
+              </div>
+              <div className="form-group">
+                <label>Transportista</label>
+                <input
+                  type="text"
+                  value={formTracking.transportista}
+                  onChange={(e) => setFormTracking({ ...formTracking, transportista: e.target.value })}
+                  placeholder="Ej: OCA, Andreani, etc."
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setMostrarTracking(false)}>
+                Cancelar
+              </button>
+              <button className="btn-primary" onClick={handleActualizarTracking} disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar Tracking'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Aprobación */}
       {mostrarAprobacion && (
         <div className="modal-overlay" onClick={() => setMostrarAprobacion(false)}>
