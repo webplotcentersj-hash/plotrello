@@ -138,11 +138,9 @@ const CrearPedidoCompraPage = () => {
 
   if (authLoading) {
     return (
-      <div className="crear-pedido-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando...</p>
-        </div>
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Cargando...</p>
       </div>
     )
   }
@@ -191,10 +189,11 @@ const CrearPedidoCompraPage = () => {
               />
             </div>
             <div className="form-group">
-              <label>Sector</label>
+              <label>Sector *</label>
               <select
                 value={formData.sector_solicitante}
                 onChange={(e) => setFormData({ ...formData, sector_solicitante: e.target.value })}
+                required
               >
                 <option value="">Selecciona un sector</option>
                 <option value="Diseño Gráfico">Diseño Gráfico</option>
@@ -290,6 +289,7 @@ const CrearPedidoCompraPage = () => {
                       onChange={(e) => handleItemChange(index, 'descripcion', e.target.value)}
                       placeholder="Descripción del producto"
                       required
+                      minLength={3}
                     />
                   </div>
                   <div className="form-group">
