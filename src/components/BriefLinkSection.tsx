@@ -92,8 +92,20 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
 
   const briefUrl = briefToken ? `${window.location.origin}/brief/${briefToken}` : null
 
+  console.log('🔍 BriefLinkSection render final - briefToken:', briefToken, 'briefUrl:', briefUrl, 'loading:', loading)
+
   return (
-    <div className="brief-link-section" style={{ display: 'block', visibility: 'visible', opacity: 1 }}>
+    <div 
+      className="brief-link-section" 
+      style={{ 
+        display: 'block', 
+        visibility: 'visible', 
+        opacity: 1,
+        minHeight: '120px',
+        border: '2px solid #667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.15)'
+      }}
+    >
       {briefToken ? (
         <div className="brief-link-container">
           <div className="brief-link-header">

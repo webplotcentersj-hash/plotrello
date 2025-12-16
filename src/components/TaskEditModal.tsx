@@ -607,28 +607,50 @@ const TaskEditModal = ({
           <div className="form-section-divider">
             <h3>📋 Brief del Proyecto (Público)</h3>
             <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
-            {(() => {
-              if (!task) {
-                return <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>⚠️ No hay tarea seleccionada</p>
-              }
-              
-              const ordenId = parseTaskIdToOrdenId(task.id)
-              console.log('🔍 Debug BriefLinkSection - task.id:', task.id, 'ordenId:', ordenId)
-              
-              if (!ordenId) {
-                console.warn('⚠️ No se pudo obtener ordenId para BriefLinkSection. Task ID:', task.id)
+            
+            {/* Componente para generar link del formulario */}
+            {task ? (
+              (() => {
+                const ordenId = parseTaskIdToOrdenId(task.id)
+                console.log('🔍 Debug BriefLinkSection - task.id:', task.id, 'ordenId:', ordenId, 'task completo:', task)
+                
+                if (!ordenId) {
+                  console.warn('⚠️ No se pudo obtener ordenId para BriefLinkSection. Task ID:', task.id)
+                  return (
+                    <div style={{ 
+                      padding: '16px', 
+                      background: 'rgba(239, 68, 68, 0.1)', 
+                      borderRadius: '8px', 
+                      border: '2px solid rgba(239, 68, 68, 0.5)',
+                      marginTop: '16px'
+                    }}>
+                      <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>
+                        ⚠️ No se pudo obtener el ID de la orden. Task ID: {task.id}
+                      </p>
+                    </div>
+                  )
+                }
+                
+                console.log('✅ Renderizando BriefLinkSection con ordenId:', ordenId)
                 return (
-                  <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                    <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>
-                      ⚠️ No se pudo obtener el ID de la orden. Task ID: {task.id}
-                    </p>
+                  <div style={{ marginTop: '16px' }}>
+                    <BriefLinkSection ordenId={ordenId} />
                   </div>
                 )
-              }
-              
-              console.log('✅ Renderizando BriefLinkSection con ordenId:', ordenId)
-              return <BriefLinkSection ordenId={ordenId} />
-            })()}
+              })()
+            ) : (
+              <div style={{ 
+                padding: '16px', 
+                background: 'rgba(239, 68, 68, 0.1)', 
+                borderRadius: '8px', 
+                border: '2px solid rgba(239, 68, 68, 0.5)',
+                marginTop: '16px'
+              }}>
+                <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>
+                  ⚠️ No hay tarea seleccionada
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
