@@ -601,6 +601,10 @@ function AppRoutes({
         path="/galeria-trabajos"
         element={<GaleriaTrabajosPage />}
       />
+      <Route
+        path="/briefs-pendientes"
+        element={<BriefsPendientesPage />}
+      />
     </Routes>
     </>
   )

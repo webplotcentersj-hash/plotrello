@@ -159,6 +159,82 @@ const TaskCreateModal = ({
     setIsClienteDropdownOpen(false)
   }
 
+  // Cargar brief token desde localStorage si existe
+  useEffect(() => {
+    const tokenGuardado = localStorage.getItem('brief_token_seleccionado')
+    if (tokenGuardado) {
+      setBriefTokenSeleccionado(tokenGuardado)
+      localStorage.removeItem('brief_token_seleccionado')
+      cargarBriefDesdeToken(tokenGuardado)
+    }
+  }, [])
+
+  // Cargar briefs pendientes si es diseño gráfico o admin
+  useEffect(() => {
+    if ((isAdmin || isDiseno) && mostrarSelectorBrief) {
+      cargarBriefsPendientes()
+    }
+  }, [isAdmin, isDiseno, mostrarSelectorBrief])
+
+  const cargarBriefsPendientes = async () => {
+    setLoadingBriefs(true)
+    try {
+      const response = await apiService.listarBriefsPendientes()
+      if (response.success && response.data) {
+        setBriefsPendientes(response.data)
+      }
+    } catch (error) {
+      console.error('Error cargando briefs pendientes:', error)
+    } finally {
+      setLoadingBriefs(false)
+    }
+  }
+
+  const cargarBriefDesdeToken = async (token: string) => {
+    try {
+      const response = await apiService.obtenerBriefPorToken(token)
+      if (response.success && response.data) {
+        const brief = response.data
+        // Prellenar campos con datos del brief
+        if (brief.cliente_nombre_completo) {
+          setCliente(brief.cliente_nombre_completo)
+        }
+        if (brief.cliente_empresa) {
+          setCliente(prev => prev ? `${prev} - ${brief.cliente_empresa}` : brief.cliente_empresa)
+        }
+        if (brief.telefono_cliente) {
+          setTelefonoCliente(brief.telefono_cliente)
+        }
+        if (brief.email_cliente) {
+          setEmailCliente(brief.email_cliente)
+        }
+        if (brief.brief_publico) {
+          setBriefPublico(brief.brief_publico)
+        }
+        if (brief.objetivo_proyecto) {
+          setObjetivoProyecto(brief.objetivo_proyecto)
+        }
+        if (brief.estilo_diseno) {
+          setEstiloDiseno(brief.estilo_diseno)
+        }
+        if (brief.referencias) {
+          setReferencias(brief.referencias)
+        }
+        if (brief.fecha_limite_brief) {
+          setDeadlineBrief(brief.fecha_limite_brief)
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando brief desde token:', error)
+    }
+  }
+
+  const handleSeleccionarBrief = async (brief: any) => {
+    setBriefTokenSeleccionado(brief.token)
+    await cargarBriefDesdeToken(brief.token)
+    setMostrarSelectorBrief(false)
+  }
+
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
 
   const handleCreate = async (openChecklist = false) => {
