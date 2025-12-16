@@ -23,33 +23,36 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
 
   useEffect(() => {
     console.log('🔍 BriefLinkSection useEffect ejecutado - ordenId:', ordenId)
-    if (ordenId && typeof ordenId === 'number') {
-      loadBriefToken()
-    } else if (ordenId === undefined) {
-      // Si no hay ordenId, es un brief independiente - no hacer nada
-      console.log('ℹ️ BriefLinkSection: Sin ordenId, es un brief independiente')
-    } else {
-      console.error('❌ BriefLinkSection: ordenId es inválido:', ordenId)
-    }
-  }, [ordenId])
-
-  const loadBriefToken = async () => {
-    if (!ordenId || typeof ordenId !== 'number') return
     
-    console.log('🔍 loadBriefToken llamado con ordenId:', ordenId)
-    try {
-      const ordenResponse = await apiService.getOrden(ordenId)
-      console.log('🔍 Respuesta de getOrden:', ordenResponse)
-      if (ordenResponse.success && ordenResponse.data?.brief_token) {
-        console.log('✅ Token encontrado:', ordenResponse.data.brief_token)
-        setBriefToken(ordenResponse.data.brief_token)
+    // Si no hay ordenId o no es un número válido, no hacer nada
+    if (!ordenId || typeof ordenId !== 'number') {
+      if (ordenId === undefined) {
+        console.log('ℹ️ BriefLinkSection: Sin ordenId, es un brief independiente')
       } else {
-        console.log('ℹ️ No hay token aún, el usuario puede generar uno')
+        console.log('ℹ️ BriefLinkSection: ordenId inválido:', ordenId)
       }
-    } catch (error) {
-      console.error('❌ Error cargando token de brief:', error)
+      return
     }
-  }
+    
+    // Cargar el token del brief directamente en el useEffect
+    const loadToken = async () => {
+      console.log('🔍 loadBriefToken llamado con ordenId:', ordenId)
+      try {
+        const ordenResponse = await apiService.getOrden(ordenId)
+        console.log('🔍 Respuesta de getOrden:', ordenResponse)
+        if (ordenResponse.success && ordenResponse.data?.brief_token) {
+          console.log('✅ Token encontrado:', ordenResponse.data.brief_token)
+          setBriefToken(ordenResponse.data.brief_token)
+        } else {
+          console.log('ℹ️ No hay token aún, el usuario puede generar uno')
+        }
+      } catch (error) {
+        console.error('❌ Error cargando token de brief:', error)
+      }
+    }
+    
+    loadToken()
+  }, [ordenId])
 
   const handleGenerarLink = async () => {
     console.log('🔍 handleGenerarLink llamado con ordenId:', ordenId)
