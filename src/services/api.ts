@@ -3648,6 +3648,147 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  // ==================== REGISTRO DE TIEMPO DE TRABAJO ====================
+  
+  async iniciarTiempoTrabajo(data: {
+    id_orden: number
+    usuario_id: number
+    usuario_nombre: string
+    hora_inicio?: string
+    descripcion?: string
+    tipo_trabajo?: 'diseno' | 'revision' | 'correccion' | 'consulta' | 'otro'
+  }): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data: result, error } = await supabase.rpc('iniciar_tiempo_trabajo', {
+          p_id_orden: data.id_orden,
+          p_usuario_id: data.usuario_id,
+          p_usuario_nombre: data.usuario_nombre,
+          p_hora_inicio: data.hora_inicio || null,
+          p_descripcion: data.descripcion || null,
+          p_tipo_trabajo: data.tipo_trabajo || 'diseno'
+        })
+
+        if (error) {
+          console.error('Error iniciando tiempo de trabajo:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: result as number }
+      } catch (error) {
+        console.error('Error iniciando tiempo de trabajo:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async finalizarTiempoTrabajo(idRegistro: number, horaFin?: string, descripcion?: string): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data: result, error } = await supabase.rpc('finalizar_tiempo_trabajo', {
+          p_id_registro: idRegistro,
+          p_hora_fin: horaFin || null,
+          p_descripcion: descripcion || null
+        })
+
+        if (error) {
+          console.error('Error finalizando tiempo de trabajo:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: result as number }
+      } catch (error) {
+        console.error('Error finalizando tiempo de trabajo:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async registrarTiempoManual(data: {
+    id_orden: number
+    usuario_id: number
+    usuario_nombre: string
+    fecha?: string
+    hora_inicio: string
+    hora_fin: string
+    tiempo_minutos?: number
+    descripcion?: string
+    tipo_trabajo?: 'diseno' | 'revision' | 'correccion' | 'consulta' | 'otro'
+  }): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data: result, error } = await supabase.rpc('registrar_tiempo_manual', {
+          p_id_orden: data.id_orden,
+          p_usuario_id: data.usuario_id,
+          p_usuario_nombre: data.usuario_nombre,
+          p_fecha: data.fecha || null,
+          p_hora_inicio: data.hora_inicio,
+          p_hora_fin: data.hora_fin,
+          p_tiempo_minutos: data.tiempo_minutos || null,
+          p_descripcion: data.descripcion || null,
+          p_tipo_trabajo: data.tipo_trabajo || 'diseno'
+        })
+
+        if (error) {
+          console.error('Error registrando tiempo manual:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: result as number }
+      } catch (error) {
+        console.error('Error registrando tiempo manual:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerTiempoTrabajoOrden(idOrden: number): Promise<ApiResponse<Array<import('../types/api').RegistroTiempo>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_tiempo_trabajo_orden', {
+          p_id_orden: idOrden
+        })
+
+        if (error) {
+          console.error('Error obteniendo tiempo de trabajo:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as Array<import('../types/api').RegistroTiempo> }
+      } catch (error) {
+        console.error('Error obteniendo tiempo de trabajo:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerTiempoUsuario(usuarioId: number, fechaDesde?: string, fechaHasta?: string): Promise<ApiResponse<Array<import('../types/api').TiempoUsuario>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_tiempo_usuario', {
+          p_usuario_id: usuarioId,
+          p_fecha_desde: fechaDesde || null,
+          p_fecha_hasta: fechaHasta || null
+        })
+
+        if (error) {
+          console.error('Error obteniendo tiempo de usuario:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as Array<import('../types/api').TiempoUsuario> }
+      } catch (error) {
+        console.error('Error obteniendo tiempo de usuario:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {
