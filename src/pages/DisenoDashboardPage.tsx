@@ -210,20 +210,22 @@ const DisenoDashboardPage = () => {
         <h2>📈 Estadísticas y Gráficos</h2>
         <div className="graficos-grid">
           {/* Gráfico de líneas - Proyectos iniciados vs completados */}
-          <div className="grafico-card">
-            <h3>Proyectos Iniciados vs Completados (Últimos 7 Días)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={datosGraficos.proyectosPorDia}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="fecha" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="iniciados" stroke="#f97316" name="Iniciados" strokeWidth={2} />
-                <Line type="monotone" dataKey="completados" stroke="#10b981" name="Completados" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {datosGraficos.proyectosPorDia.length > 0 && (
+            <div className="grafico-card">
+              <h3>Proyectos Iniciados vs Completados (Últimos 7 Días)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={datosGraficos.proyectosPorDia}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="fecha" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="iniciados" stroke="#f97316" name="Iniciados" strokeWidth={2} />
+                  <Line type="monotone" dataKey="completados" stroke="#10b981" name="Completados" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           {/* Gráfico circular - Distribución de estados */}
           {datosGraficos.distribucionEstados.length > 0 && (
