@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
 import type { OrdenTrabajo } from '../types/api'
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './MostradorDashboardPage.css'
 
 type TipoAtencion = 'virtual' | 'consulta' | 'venta'
@@ -37,6 +38,11 @@ const MostradorDashboardPage = () => {
   const [, setOrdenesCreadasHoy] = useState<OrdenTrabajo[]>([])
   const [ordenesActivas, setOrdenesActivas] = useState<OrdenTrabajo[]>([])
   const [showRegistrarAtencion, setShowRegistrarAtencion] = useState(false)
+  const [datosGraficos, setDatosGraficos] = useState({
+    atencionesPorDia: [] as Array<{ fecha: string; virtual: number; consulta: number; venta: number; total: number }>,
+    distribucionTipos: [] as Array<{ name: string; value: number; color: string }>,
+    ordenesPorDia: [] as Array<{ fecha: string; creadas: number; entregadas: number }>
+  })
   
   // Métricas (solo admin)
   const [metricas, setMetricas] = useState({
@@ -139,8 +145,9 @@ const MostradorDashboardPage = () => {
       hoy.setHours(0, 0, 0, 0)
       
       let atencionesHoy: Atencion[] = []
+      let todasAtenciones: Atencion[] = []
       if (atencionesGuardadas) {
-        const todasAtenciones: Atencion[] = JSON.parse(atencionesGuardadas)
+        todasAtenciones = JSON.parse(atencionesGuardadas)
         atencionesHoy = todasAtenciones.filter((atencion) => {
           const fechaAtencion = new Date(atencion.timestamp)
           fechaAtencion.setHours(0, 0, 0, 0)
@@ -148,13 +155,86 @@ const MostradorDashboardPage = () => {
         })
       }
 
+      // Calcular órdenes entregadas hoy
+      const ordenesEntregadasHoy = ordenesCreadasCount > 0 ? 
+        (await apiService.getOrdenes()).data?.filter((orden) => {
+          if (!orden.fecha_entrega) return false
+          const fechaEntrega = new Date(orden.fecha_entrega)
+          fechaEntrega.setHours(0, 0, 0, 0)
+          return fechaEntrega.getTime() === hoy.getTime() && orden.estado === 'Entregado o Instalado'
+        }).length || 0 : 0
+
       setMetricas({
         totalAtenciones: atencionesHoy.length,
         atencionesVirtuales: atencionesHoy.filter(a => a.tipo === 'virtual').length,
         consultas: atencionesHoy.filter(a => a.tipo === 'consulta').length,
         ventasConcretadas: atencionesHoy.filter(a => a.tipo === 'venta').length,
         ordenesCreadas: ordenesCreadasCount,
-        ordenesEntregadas: 0 // Se calculará cuando implementemos entregas
+        ordenesEntregadas: ordenesEntregadasHoy
+      })
+
+      // Preparar datos para gráficos (últimos 7 días)
+      const ultimos7Dias = []
+      for (let i = 6; i >= 0; i--) {
+        const fecha = new Date()
+        fecha.setDate(fecha.getDate() - i)
+        fecha.setHours(0, 0, 0, 0)
+        
+        const atencionesDia = todasAtenciones.filter((atencion) => {
+          const fechaAtencion = new Date(atencion.timestamp)
+          fechaAtencion.setHours(0, 0, 0, 0)
+          return fechaAtencion.getTime() === fecha.getTime()
+        })
+
+        ultimos7Dias.push({
+          fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+          virtual: atencionesDia.filter(a => a.tipo === 'virtual').length,
+          consulta: atencionesDia.filter(a => a.tipo === 'consulta').length,
+          venta: atencionesDia.filter(a => a.tipo === 'venta').length,
+          total: atencionesDia.length
+        })
+      }
+
+      // Distribución de tipos de atención
+      const distribucionTipos = [
+        { name: 'Virtual', value: atencionesHoy.filter(a => a.tipo === 'virtual').length, color: '#8b5cf6' },
+        { name: 'Consulta', value: atencionesHoy.filter(a => a.tipo === 'consulta').length, color: '#f59e0b' },
+        { name: 'Venta', value: atencionesHoy.filter(a => a.tipo === 'venta').length, color: '#10b981' }
+      ].filter(item => item.value > 0)
+
+      // Órdenes por día (últimos 7 días)
+      const ordenesResponse = await apiService.getOrdenes()
+      const ordenesPorDia = []
+      for (let i = 6; i >= 0; i--) {
+        const fecha = new Date()
+        fecha.setDate(fecha.getDate() - i)
+        fecha.setHours(0, 0, 0, 0)
+        
+        const ordenesDia = ordenesResponse.data?.filter((orden) => {
+          if (!orden.fecha_creacion) return false
+          const fechaCreacion = new Date(orden.fecha_creacion)
+          fechaCreacion.setHours(0, 0, 0, 0)
+          return fechaCreacion.getTime() === fecha.getTime()
+        }) || []
+
+        const entregadasDia = ordenesResponse.data?.filter((orden) => {
+          if (!orden.fecha_entrega) return false
+          const fechaEntrega = new Date(orden.fecha_entrega)
+          fechaEntrega.setHours(0, 0, 0, 0)
+          return fechaEntrega.getTime() === fecha.getTime() && orden.estado === 'Entregado o Instalado'
+        }) || []
+
+        ordenesPorDia.push({
+          fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+          creadas: ordenesDia.length,
+          entregadas: entregadasDia.length
+        })
+      }
+
+      setDatosGraficos({
+        atencionesPorDia: ultimos7Dias,
+        distribucionTipos,
+        ordenesPorDia
       })
     } catch (error) {
       console.error('Error cargando métricas:', error)
@@ -276,6 +356,88 @@ const MostradorDashboardPage = () => {
         </section>
       )}
 
+      {/* Gráficos Estadísticos */}
+      {isAdmin && (
+        <section className="graficos-section">
+          <h2>📈 Estadísticas y Gráficos</h2>
+          <div className="graficos-grid">
+            {/* Gráfico de barras - Atenciones por tipo (últimos 7 días) */}
+            <div className="grafico-card">
+              <h3>Atenciones por Tipo (Últimos 7 Días)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={datosGraficos.atencionesPorDia}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="fecha" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="virtual" fill="#8b5cf6" name="Virtual" />
+                  <Bar dataKey="consulta" fill="#f59e0b" name="Consulta" />
+                  <Bar dataKey="venta" fill="#10b981" name="Venta" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Gráfico circular - Distribución de tipos de atención */}
+            {datosGraficos.distribucionTipos.length > 0 && (
+              <div className="grafico-card">
+                <h3>Distribución de Atenciones Hoy</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={datosGraficos.distribucionTipos}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {datosGraficos.distribucionTipos.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Gráfico de líneas - Órdenes creadas vs entregadas */}
+            <div className="grafico-card">
+              <h3>Órdenes Creadas vs Entregadas (Últimos 7 Días)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={datosGraficos.ordenesPorDia}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="fecha" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="creadas" stroke="#3b82f6" name="Creadas" strokeWidth={2} />
+                  <Line type="monotone" dataKey="entregadas" stroke="#10b981" name="Entregadas" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Gráfico de líneas - Total de atenciones por día */}
+            <div className="grafico-card">
+              <h3>Total de Atenciones (Últimos 7 Días)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={datosGraficos.atencionesPorDia}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="fecha" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="total" stroke="#8b5cf6" name="Total Atenciones" strokeWidth={3} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Acciones Rápidas */}
       <section className="acciones-rapidas-section">
         <h2>⚡ Acciones Rápidas</h2>
@@ -289,7 +451,7 @@ const MostradorDashboardPage = () => {
           </button>
           <button 
             className="accion-card"
-            onClick={() => navigate('/board')}
+            onClick={() => navigate('/')}
           >
             <div className="accion-icon">➕</div>
             <div className="accion-label">Crear Nueva Orden</div>
