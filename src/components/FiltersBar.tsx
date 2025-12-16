@@ -1,5 +1,7 @@
 import type { RefObject } from 'react'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
+import { useAuth } from '../hooks/useAuth'
+import apiService from '../services/api'
 import './FiltersBar.css'
 
 type FiltersBarProps = {
@@ -31,6 +33,32 @@ const FiltersBar = ({
   onOpenLibrary,
   onAddNewOrder
 }: FiltersBarProps) => {
+  const { isAdmin, isDiseno, usuario } = useAuth()
+  const [copiandoBrief, setCopiandoBrief] = useState(false)
+
+  const handleGenerarBriefLink = async () => {
+    setCopiandoBrief(true)
+    try {
+      const usuarioId = usuario?.id ? parseInt(usuario.id.toString()) : undefined
+      const response = await apiService.crearBriefPublico(usuarioId)
+      
+      if (response.success && response.data) {
+        const token = response.data
+        const url = `${window.location.origin}/brief/${token}`
+        
+        await navigator.clipboard.writeText(url)
+        alert('✅ Link del brief copiado al portapapeles!\n\n' + url)
+      } else {
+        alert(`Error: ${response.error || 'No se pudo generar el link'}`)
+      }
+    } catch (error) {
+      console.error('Error generando link de brief:', error)
+      alert('Error al generar el link del brief')
+    } finally {
+      setCopiandoBrief(false)
+    }
+  }
+
   return (
     <section className="filters-bar">
       <div className="search-filter">
