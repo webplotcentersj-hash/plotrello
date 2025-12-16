@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import './BriefLinkSection.css'
 
 type BriefLinkSectionProps = {
-  ordenId: number
+  ordenId?: number // Opcional: si no se proporciona, crea un brief independiente
 }
 
 const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
