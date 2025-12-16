@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { RefObject } from 'react'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
