@@ -3866,11 +3866,27 @@ class ApiService {
       try {
         const { error } = await supabase.rpc('actualizar_brief_publico', {
           p_token: data.token,
-          p_brief_publico: data.brief_publico,
+          p_cliente_nombre_completo: data.cliente_nombre_completo || null,
+          p_cliente_empresa: data.cliente_empresa || null,
+          p_telefono_cliente: data.telefono_cliente || null,
+          p_email_cliente: data.email_cliente || null,
+          p_tipo_producto_servicio: data.tipo_producto_servicio || null,
+          p_tipo_producto_otro: data.tipo_producto_otro || null,
+          p_necesita_asesoramiento: data.necesita_asesoramiento || false,
+          p_donde_colocados: data.donde_colocados || null,
+          p_digital_o_impresion: data.digital_o_impresion || null,
+          p_cantidades: data.cantidades || null,
           p_objetivo_proyecto: data.objetivo_proyecto || null,
-          p_publico_objetivo: data.publico_objetivo || null,
+          p_material_logo: data.material_logo || null,
+          p_material_textos: data.material_textos || null,
+          p_material_imagenes: data.material_imagenes || null,
+          p_tiene_referencias: data.tiene_referencias || false,
+          p_referencias_links: data.referencias_links || null,
+          p_brief_publico: data.brief_publico || null,
           p_estilo_diseno: data.estilo_diseno || null,
-          p_referencias: data.referencias || null
+          p_referencias: data.referencias || null,
+          p_fecha_limite_brief: data.fecha_limite_brief || null,
+          p_es_urgencia: data.es_urgencia || false
         })
 
         if (error) {

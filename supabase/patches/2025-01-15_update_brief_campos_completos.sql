@@ -25,8 +25,11 @@ ALTER TABLE public.ordenes_trabajo
   ADD COLUMN IF NOT EXISTS fecha_limite_brief date,
   ADD COLUMN IF NOT EXISTS es_urgencia boolean DEFAULT false;
 
+-- Eliminar función existente si existe
+DROP FUNCTION IF EXISTS public.obtener_orden_por_brief_token(varchar);
+
 -- Actualizar función para obtener orden por token con nuevos campos
-CREATE OR REPLACE FUNCTION public.obtener_orden_por_brief_token(p_token varchar(255))
+CREATE FUNCTION public.obtener_orden_por_brief_token(p_token varchar(255))
 RETURNS TABLE (
   id integer,
   numero_op varchar(255),
