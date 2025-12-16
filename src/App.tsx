@@ -597,6 +597,14 @@ function AppRoutes({
         element={<PresupuestosPage />}
       />
       <Route
+        path="/compras/calendario-entregas"
+        element={<CalendarioEntregasPage />}
+      />
+      <Route
+        path="/compras/reportes"
+        element={<ReportesComprasPage />}
+      />
+      <Route
         path="/diseno/dashboard"
         element={<DisenoDashboardPage />}
       />
