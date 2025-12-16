@@ -5,6 +5,7 @@ import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
 import { parseTaskIdToOrdenId, filterOperariosBySector } from '../utils/dataMappers'
 import RevisionesSection from './RevisionesSection'
+import TiempoTrabajoSection from './TiempoTrabajoSection'
 import './TaskEditModal.css'
 
 type TaskEditModalProps = {
@@ -890,6 +891,19 @@ const TaskEditModal = ({
                       }))
                     }
                   }
+                }}
+              />
+            ) : null
+          })()}
+
+          {/* Sección de Registro de Tiempo */}
+          {task && (() => {
+            const ordenId = parseTaskIdToOrdenId(task.id)
+            return ordenId ? (
+              <TiempoTrabajoSection
+                ordenId={ordenId}
+                onTiempoActualizado={() => {
+                  // Recargar datos si es necesario
                 }}
               />
             ) : null
