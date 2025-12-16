@@ -644,6 +644,133 @@ const TaskCreateModal = ({
               )}
             </div>
 
+            {/* Selector de Brief Pendiente - Solo para Diseño Gráfico y Admin */}
+            {(isAdmin || isDiseno) && (
+              <div className="form-group">
+                <label>📋 Brief Público (Opcional)</label>
+                {briefTokenSeleccionado ? (
+                  <div style={{ 
+                    padding: '12px', 
+                    background: 'rgba(102, 126, 234, 0.1)', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(102, 126, 234, 0.3)',
+                    marginBottom: '8px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#667eea', fontWeight: 600 }}>
+                        ✓ Brief seleccionado
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBriefTokenSeleccionado(null)
+                          setCliente('')
+                          setTelefonoCliente('')
+                          setEmailCliente('')
+                          setBriefPublico('')
+                          setObjetivoProyecto('')
+                          setEstiloDiseno('')
+                          setReferencias('')
+                          setDeadlineBrief('')
+                        }}
+                        style={{
+                          padding: '4px 12px',
+                          background: 'rgba(239, 68, 68, 0.2)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.4)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        ✕ Quitar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSelectorBrief(!mostrarSelectorBrief)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      background: 'rgba(102, 126, 234, 0.1)',
+                      color: '#667eea',
+                      border: '1px dashed rgba(102, 126, 234, 0.4)',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    {mostrarSelectorBrief ? '✕ Cerrar selector' : '📋 Seleccionar Brief Pendiente'}
+                  </button>
+                )}
+                
+                {mostrarSelectorBrief && !briefTokenSeleccionado && (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
+                    background: 'var(--surface-card)',
+                    border: '1px solid var(--surface-border)',
+                    borderRadius: '8px',
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    {loadingBriefs ? (
+                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                        Cargando briefs...
+                      </div>
+                    ) : briefsPendientes.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                        No hay briefs pendientes
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {briefsPendientes.map((brief) => (
+                          <button
+                            key={brief.id}
+                            type="button"
+                            onClick={() => handleSeleccionarBrief(brief)}
+                            style={{
+                              padding: '12px',
+                              background: brief.completado ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
+                              border: `1px solid ${brief.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`,
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-2px)'
+                              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)'
+                              e.currentTarget.style.boxShadow = 'none'
+                            }}
+                          >
+                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                              {brief.cliente_nombre_completo || 'Cliente sin nombre'}
+                              {brief.cliente_empresa && ` - ${brief.cliente_empresa}`}
+                            </div>
+                            {brief.objetivo_proyecto && (
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                {brief.objetivo_proyecto.substring(0, 60)}...
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                              {brief.completado ? '✓ Completado' : '⏳ Pendiente'}
+                              {brief.es_urgencia && ' • ⚠️ Urgencia'}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="form-group">
               <label>DNI / CUIT</label>
               <input
