@@ -64,6 +64,7 @@ export interface Task {
   estiloDiseno?: string | null // Estilo de diseño requerido
   referencias?: string | null // Referencias visuales o enlaces
   deadlineBrief?: string | null // Fecha límite para completar el brief
+  estadoRevision?: string | null // Estado de revisión: 'pendiente', 'en_revision', 'aprobado', 'requiere_cambios'
 }
 
 export interface Subtask {

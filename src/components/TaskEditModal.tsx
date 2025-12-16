@@ -871,6 +871,30 @@ const TaskEditModal = ({
             </div>
           </div>
 
+          {/* Sección de Revisiones y Aprobaciones */}
+          {task && (() => {
+            const ordenId = parseTaskIdToOrdenId(task.id)
+            return ordenId ? (
+              <RevisionesSection
+                ordenId={ordenId}
+                estadoRevisionActual={task.estadoRevision}
+                onEstadoCambiado={async () => {
+                  // Recargar la orden para obtener el estado actualizado
+                  if (ordenId) {
+                    const ordenResponse = await apiService.getOrden(ordenId)
+                    if (ordenResponse.success && ordenResponse.data) {
+                      // Actualizar el estado de revisión en el task
+                      setFormData(prev => ({
+                        ...prev,
+                        estadoRevision: ordenResponse.data.estado_revision || undefined
+                      }))
+                    }
+                  }
+                }}
+              />
+            ) : null
+          })()}
+
           <div className="form-group">
             <label>Materiales</label>
             <input
