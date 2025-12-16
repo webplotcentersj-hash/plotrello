@@ -48,8 +48,6 @@ const DisenoDashboardPage = () => {
                  orden.sectores?.includes('Diseño en Proceso')
         })
 
-        setOrdenesDiseno(ordenesDisenoFiltradas)
-
         // Órdenes en proceso
         const enProceso = ordenesDisenoFiltradas.filter(
           (orden) => orden.estado === 'Diseño en Proceso'
