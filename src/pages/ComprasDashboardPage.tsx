@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoCompra } from '../types/pedidos'
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './ComprasDashboardPage.css'
 
 const ComprasDashboardPage = () => {
@@ -11,6 +12,12 @@ const ComprasDashboardPage = () => {
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
+  const [datosGraficos, setDatosGraficos] = useState({
+    pedidosPorEstado: [] as Array<{ name: string; value: number; color: string }>,
+    pedidosPorDia: [] as Array<{ fecha: string; pendientes: number; aprobados: number; completados: number }>,
+    pedidosPorPrioridad: [] as Array<{ name: string; value: number; color: string }>,
+    costosPorMes: [] as Array<{ mes: string; total: number }>
+  })
 
   useEffect(() => {
     if (authLoading) return // Esperar a que termine la carga de autenticación
@@ -33,12 +40,109 @@ const ComprasDashboardPage = () => {
       const response = await apiService.getPedidosCompra(filters)
       if (response.success && response.data) {
         setPedidos(response.data)
+        loadDatosGraficos(response.data)
       }
     } catch (error) {
       console.error('Error cargando pedidos:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadDatosGraficos = (todosPedidos: PedidoCompra[]) => {
+    // Pedidos por estado (Pie Chart)
+    const estados = ['Pendiente', 'En Revisión', 'Aprobado', 'En Compra', 'Completado', 'Rechazado']
+    const coloresEstados: Record<string, string> = {
+      'Pendiente': '#f59e0b',
+      'En Revisión': '#3b82f6',
+      'Aprobado': '#10b981',
+      'En Compra': '#8b5cf6',
+      'Completado': '#059669',
+      'Rechazado': '#ef4444'
+    }
+    const pedidosPorEstado = estados.map(estado => ({
+      name: estado,
+      value: todosPedidos.filter(p => p.estado === estado).length,
+      color: coloresEstados[estado]
+    })).filter(item => item.value > 0)
+
+    // Pedidos por día (últimos 7 días) - Line Chart
+    const ultimos7Dias = []
+    for (let i = 6; i >= 0; i--) {
+      const fecha = new Date()
+      fecha.setDate(fecha.getDate() - i)
+      fecha.setHours(0, 0, 0, 0)
+      
+      const pedidosDia = todosPedidos.filter((pedido) => {
+        try {
+          const fechaPedido = new Date(pedido.fecha_solicitud)
+          fechaPedido.setHours(0, 0, 0, 0)
+          return fechaPedido.getTime() === fecha.getTime()
+        } catch (e) {
+          return false
+        }
+      })
+
+      ultimos7Dias.push({
+        fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+        pendientes: pedidosDia.filter(p => p.estado === 'Pendiente').length,
+        aprobados: pedidosDia.filter(p => p.estado === 'Aprobado').length,
+        completados: pedidosDia.filter(p => p.estado === 'Completado').length
+      })
+    }
+
+    // Pedidos por prioridad (Bar Chart)
+    const prioridades = ['Baja', 'Normal', 'Alta', 'Urgente']
+    const coloresPrioridad: Record<string, string> = {
+      'Baja': '#6b7280',
+      'Normal': '#3b82f6',
+      'Alta': '#f59e0b',
+      'Urgente': '#ef4444'
+    }
+    const pedidosPorPrioridad = prioridades.map(prioridad => ({
+      name: prioridad,
+      value: todosPedidos.filter(p => p.prioridad === prioridad).length,
+      color: coloresPrioridad[prioridad]
+    }))
+
+    // Costos por mes (últimos 6 meses) - Bar Chart
+    const ultimos6Meses = []
+    for (let i = 5; i >= 0; i--) {
+      const fecha = new Date()
+      fecha.setMonth(fecha.getMonth() - i)
+      fecha.setDate(1)
+      fecha.setHours(0, 0, 0, 0)
+      
+      const pedidosMes = todosPedidos.filter((pedido) => {
+        try {
+          const fechaPedido = new Date(pedido.fecha_solicitud)
+          fechaPedido.setDate(1)
+          fechaPedido.setHours(0, 0, 0, 0)
+          return fechaPedido.getTime() === fecha.getTime() && pedido.estado === 'Completado'
+        } catch (e) {
+          return false
+        }
+      })
+
+      const totalMes = pedidosMes.reduce((sum, pedido) => {
+        const totalItems = pedido.items?.reduce((itemSum, item) => {
+          return itemSum + (item.precio_total || 0)
+        }, 0) || 0
+        return sum + totalItems
+      }, 0)
+
+      ultimos6Meses.push({
+        mes: fecha.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }),
+        total: totalMes
+      })
+    }
+
+    setDatosGraficos({
+      pedidosPorEstado,
+      pedidosPorDia: ultimos7Dias,
+      pedidosPorPrioridad,
+      costosPorMes: ultimos6Meses
+    })
   }
 
   const getEstadisticas = () => {
@@ -212,6 +316,87 @@ const ComprasDashboardPage = () => {
           </button>
         </div>
       </section>
+
+      {/* Gráficos */}
+      {pedidos.length > 0 && (
+        <section className="graficos-section">
+          <h2>📊 Análisis y Métricas</h2>
+          <div className="graficos-grid">
+            {/* Gráfico de distribución por estado */}
+            <div className="grafico-card">
+              <h3>Distribución por Estado</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={datosGraficos.pedidosPorEstado}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {datosGraficos.pedidosPorEstado.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Gráfico de pedidos por día */}
+            <div className="grafico-card">
+              <h3>Pedidos por Día (Últimos 7 días)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={datosGraficos.pedidosPorDia}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="fecha" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="pendientes" stroke="#f59e0b" name="Pendientes" />
+                  <Line type="monotone" dataKey="aprobados" stroke="#10b981" name="Aprobados" />
+                  <Line type="monotone" dataKey="completados" stroke="#059669" name="Completados" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Gráfico de pedidos por prioridad */}
+            <div className="grafico-card">
+              <h3>Pedidos por Prioridad</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={datosGraficos.pedidosPorPrioridad}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#3b82f6">
+                    {datosGraficos.pedidosPorPrioridad.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Gráfico de costos por mes */}
+            <div className="grafico-card">
+              <h3>Costos por Mes (Últimos 6 meses)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={datosGraficos.costosPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="mes" />
+                  <YAxis />
+                  <Tooltip formatter={(value: number) => `$${value.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`} />
+                  <Bar dataKey="total" fill="#8b5cf6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Lista de Pedidos */}
       <section className="pedidos-section">
