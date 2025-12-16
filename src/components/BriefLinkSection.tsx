@@ -8,6 +8,7 @@ type BriefLinkSectionProps = {
 }
 
 const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
+  // TODOS LOS HOOKS DEBEN IR PRIMERO, ANTES DE CUALQUIER RETURN CONDICIONAL
   const { usuario, isAdmin, isDiseno } = useAuth()
   const [briefToken, setBriefToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -15,9 +16,7 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
   
   // Restringir acceso solo para diseño gráfico y admin
   // IMPORTANTE: Esta validación debe ir DESPUÉS de todos los hooks
-  if (!isAdmin && !isDiseno) {
-    return null
-  }
+  const hasAccess = isAdmin || isDiseno
 
   console.log('🔍 BriefLinkSection renderizado con ordenId:', ordenId, 'tipo:', typeof ordenId)
 
@@ -118,6 +117,11 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
   const briefUrl = briefToken ? `${window.location.origin}/brief/${briefToken}` : null
 
   console.log('🔍 BriefLinkSection render final - briefToken:', briefToken, 'briefUrl:', briefUrl, 'loading:', loading)
+
+  // Retornar null DESPUÉS de todos los hooks si no tiene acceso
+  if (!hasAccess) {
+    return null
+  }
 
   return (
     <div 

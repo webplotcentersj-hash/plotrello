@@ -606,19 +606,19 @@ const TaskEditModal = ({
           </div>
 
           {/* Sección de Brief Público - Solo para Diseño Gráfico y Admin */}
-          {(isAdmin || isDiseno) && (
-            <div className="form-section-divider">
-              <h3>📋 Brief del Proyecto (Público)</h3>
-              <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
-              
-              {/* Componente para generar link del formulario */}
-              {task ? (
-                <BriefLinkSection ordenId={parseTaskIdToOrdenId(task.id) || undefined} />
-              ) : (
-                <BriefLinkSection />
-              )}
-            </div>
-          )}
+          {/* IMPORTANTE: BriefLinkSection maneja su propia validación de permisos internamente */}
+          {/* Siempre renderizamos el componente para mantener consistencia en los hooks */}
+          <div className="form-section-divider" style={{ display: (isAdmin || isDiseno) ? 'block' : 'none' }}>
+            <h3>📋 Brief del Proyecto (Público)</h3>
+            <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
+            
+            {/* Componente para generar link del formulario */}
+            {task ? (
+              <BriefLinkSection ordenId={parseTaskIdToOrdenId(task.id) || undefined} />
+            ) : (
+              <BriefLinkSection />
+            )}
+          </div>
 
           {/* Mostrar datos del brief completo si fueron completados por el cliente */}
           {task && (task.clienteNombreCompleto || task.tipoProductoServicio?.length || task.materialLogo) && (
