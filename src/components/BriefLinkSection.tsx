@@ -93,7 +93,7 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
   const briefUrl = briefToken ? `${window.location.origin}/brief/${briefToken}` : null
 
   return (
-    <div className="brief-link-section">
+    <div className="brief-link-section" style={{ display: 'block', visibility: 'visible', opacity: 1 }}>
       {briefToken ? (
         <div className="brief-link-container">
           <div className="brief-link-header">
