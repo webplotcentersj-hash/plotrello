@@ -25,10 +25,29 @@ const MostradorDashboardPage = () => {
   const { isAdmin } = useAuth()
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
   
-  const handleRegistrarAtencionSuccess = () => {
-    loadAtencionesHoy()
+  const handleRegistrarAtencionSuccess = async () => {
+    await loadAtencionesHoy()
     if (isAdmin) {
-      loadMetricas(ordenesCreadasCount)
+      // Recalcular órdenes creadas hoy antes de cargar métricas
+      try {
+        const ordenesResponse = await apiService.getOrdenes()
+        if (ordenesResponse.success && ordenesResponse.data) {
+          const hoy = new Date()
+          hoy.setHours(0, 0, 0, 0)
+          const creadasHoy = ordenesResponse.data.filter((orden) => {
+            if (!orden.fecha_creacion) return false
+            const fechaCreacion = new Date(orden.fecha_creacion)
+            fechaCreacion.setHours(0, 0, 0, 0)
+            return fechaCreacion.getTime() === hoy.getTime()
+          })
+          await loadMetricas(creadasHoy.length)
+        } else {
+          await loadMetricas(ordenesCreadasCount)
+        }
+      } catch (error) {
+        console.error('Error recalculando métricas:', error)
+        await loadMetricas(ordenesCreadasCount)
+      }
     }
   }
   const [loading, setLoading] = useState(true)
@@ -146,23 +165,51 @@ const MostradorDashboardPage = () => {
       
       let atencionesHoy: Atencion[] = []
       let todasAtenciones: Atencion[] = []
-      if (atencionesGuardadas) {
-        todasAtenciones = JSON.parse(atencionesGuardadas)
-        atencionesHoy = todasAtenciones.filter((atencion) => {
-          const fechaAtencion = new Date(atencion.timestamp)
-          fechaAtencion.setHours(0, 0, 0, 0)
-          return fechaAtencion.getTime() === hoy.getTime()
-        })
+      
+      try {
+        if (atencionesGuardadas) {
+          todasAtenciones = JSON.parse(atencionesGuardadas)
+          if (Array.isArray(todasAtenciones)) {
+            atencionesHoy = todasAtenciones.filter((atencion) => {
+              try {
+                const fechaAtencion = new Date(atencion.timestamp)
+                fechaAtencion.setHours(0, 0, 0, 0)
+                return fechaAtencion.getTime() === hoy.getTime()
+              } catch (e) {
+                console.warn('Error procesando fecha de atención:', e, atencion)
+                return false
+              }
+            })
+          } else {
+            console.warn('atenciones_mostrador no es un array válido')
+            todasAtenciones = []
+          }
+        }
+      } catch (error) {
+        console.error('Error parseando atenciones de localStorage:', error)
+        todasAtenciones = []
       }
 
       // Calcular órdenes entregadas hoy
-      const ordenesEntregadasHoy = ordenesCreadasCount > 0 ? 
-        (await apiService.getOrdenes()).data?.filter((orden) => {
-          if (!orden.fecha_entrega) return false
-          const fechaEntrega = new Date(orden.fecha_entrega)
-          fechaEntrega.setHours(0, 0, 0, 0)
-          return fechaEntrega.getTime() === hoy.getTime() && orden.estado === 'Entregado o Instalado'
-        }).length || 0 : 0
+      let ordenesEntregadasHoy = 0
+      try {
+        const ordenesResponse = await apiService.getOrdenes()
+        if (ordenesResponse.success && ordenesResponse.data && Array.isArray(ordenesResponse.data)) {
+          ordenesEntregadasHoy = ordenesResponse.data.filter((orden) => {
+            if (!orden.fecha_entrega) return false
+            try {
+              const fechaEntrega = new Date(orden.fecha_entrega)
+              fechaEntrega.setHours(0, 0, 0, 0)
+              return fechaEntrega.getTime() === hoy.getTime() && orden.estado === 'Entregado o Instalado'
+            } catch (e) {
+              console.warn('Error procesando fecha de entrega:', e, orden)
+              return false
+            }
+          }).length
+        }
+      } catch (error) {
+        console.error('Error obteniendo órdenes entregadas:', error)
+      }
 
       setMetricas({
         totalAtenciones: atencionesHoy.length,
@@ -180,11 +227,15 @@ const MostradorDashboardPage = () => {
         fecha.setDate(fecha.getDate() - i)
         fecha.setHours(0, 0, 0, 0)
         
-        const atencionesDia = todasAtenciones.filter((atencion) => {
-          const fechaAtencion = new Date(atencion.timestamp)
-          fechaAtencion.setHours(0, 0, 0, 0)
-          return fechaAtencion.getTime() === fecha.getTime()
-        })
+        const atencionesDia = Array.isArray(todasAtenciones) ? todasAtenciones.filter((atencion) => {
+          try {
+            const fechaAtencion = new Date(atencion.timestamp)
+            fechaAtencion.setHours(0, 0, 0, 0)
+            return fechaAtencion.getTime() === fecha.getTime()
+          } catch (e) {
+            return false
+          }
+        }) : []
 
         ultimos7Dias.push({
           fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
@@ -203,32 +254,67 @@ const MostradorDashboardPage = () => {
       ].filter(item => item.value > 0)
 
       // Órdenes por día (últimos 7 días)
-      const ordenesResponse = await apiService.getOrdenes()
-      const ordenesPorDia = []
-      for (let i = 6; i >= 0; i--) {
-        const fecha = new Date()
-        fecha.setDate(fecha.getDate() - i)
-        fecha.setHours(0, 0, 0, 0)
-        
-        const ordenesDia = ordenesResponse.data?.filter((orden) => {
-          if (!orden.fecha_creacion) return false
-          const fechaCreacion = new Date(orden.fecha_creacion)
-          fechaCreacion.setHours(0, 0, 0, 0)
-          return fechaCreacion.getTime() === fecha.getTime()
-        }) || []
+      let ordenesPorDia = []
+      try {
+        const ordenesResponse = await apiService.getOrdenes()
+        if (ordenesResponse.success && ordenesResponse.data && Array.isArray(ordenesResponse.data)) {
+          for (let i = 6; i >= 0; i--) {
+            const fecha = new Date()
+            fecha.setDate(fecha.getDate() - i)
+            fecha.setHours(0, 0, 0, 0)
+            
+            const ordenesDia = ordenesResponse.data.filter((orden) => {
+              if (!orden.fecha_creacion) return false
+              try {
+                const fechaCreacion = new Date(orden.fecha_creacion)
+                fechaCreacion.setHours(0, 0, 0, 0)
+                return fechaCreacion.getTime() === fecha.getTime()
+              } catch (e) {
+                return false
+              }
+            })
 
-        const entregadasDia = ordenesResponse.data?.filter((orden) => {
-          if (!orden.fecha_entrega) return false
-          const fechaEntrega = new Date(orden.fecha_entrega)
-          fechaEntrega.setHours(0, 0, 0, 0)
-          return fechaEntrega.getTime() === fecha.getTime() && orden.estado === 'Entregado o Instalado'
-        }) || []
+            const entregadasDia = ordenesResponse.data.filter((orden) => {
+              if (!orden.fecha_entrega) return false
+              try {
+                const fechaEntrega = new Date(orden.fecha_entrega)
+                fechaEntrega.setHours(0, 0, 0, 0)
+                return fechaEntrega.getTime() === fecha.getTime() && orden.estado === 'Entregado o Instalado'
+              } catch (e) {
+                return false
+              }
+            })
 
-        ordenesPorDia.push({
-          fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
-          creadas: ordenesDia.length,
-          entregadas: entregadasDia.length
-        })
+            ordenesPorDia.push({
+              fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+              creadas: ordenesDia.length,
+              entregadas: entregadasDia.length
+            })
+          }
+        } else {
+          // Si no hay datos, crear array vacío con fechas
+          for (let i = 6; i >= 0; i--) {
+            const fecha = new Date()
+            fecha.setDate(fecha.getDate() - i)
+            ordenesPorDia.push({
+              fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+              creadas: 0,
+              entregadas: 0
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error obteniendo órdenes para gráficos:', error)
+        // Crear array vacío con fechas
+        for (let i = 6; i >= 0; i--) {
+          const fecha = new Date()
+          fecha.setDate(fecha.getDate() - i)
+          ordenesPorDia.push({
+            fecha: fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+            creadas: 0,
+            entregadas: 0
+          })
+        }
       }
 
       setDatosGraficos({
