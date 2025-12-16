@@ -174,7 +174,6 @@ const MostradorDashboardPage = () => {
 
   const loadMetricas = async (ordenesCreadasCount: number = 0) => {
     try {
-      const atencionesGuardadas = localStorage.getItem('atenciones_mostrador')
       const hoy = new Date()
       hoy.setHours(0, 0, 0, 0)
       
@@ -207,7 +206,7 @@ const MostradorDashboardPage = () => {
       sieteDiasAtras.setHours(0, 0, 0, 0)
       const todasAtencionesResponse = await apiService.obtenerAtencionesMostrador(
         sieteDiasAtras.toISOString(),
-        null
+        undefined
       )
       let todasAtenciones: Atencion[] = []
       
