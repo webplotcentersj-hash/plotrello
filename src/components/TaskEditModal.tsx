@@ -47,6 +47,12 @@ const TaskEditModal = ({
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [sectorSearch, setSectorSearch] = useState('')
+  const [briefPublico, setBriefPublico] = useState('')
+  const [objetivoProyecto, setObjetivoProyecto] = useState('')
+  const [publicoObjetivo, setPublicoObjetivo] = useState('')
+  const [estiloDiseno, setEstiloDiseno] = useState('')
+  const [referencias, setReferencias] = useState('')
+  const [deadlineBrief, setDeadlineBrief] = useState('')
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [complexity, setComplexity] = useState<string>('Baja')
@@ -96,7 +102,13 @@ const TaskEditModal = ({
         // whatsappUrl se recalcula automáticamente a partir del teléfono al guardar
         locationUrl: task.locationUrl,
         driveUrl: task.driveUrl,
-        metrosCuadrados: task.metrosCuadrados
+        metrosCuadrados: task.metrosCuadrados,
+        briefPublico: task.briefPublico,
+        objetivoProyecto: task.objetivoProyecto,
+        publicoObjetivo: task.publicoObjetivo,
+        estiloDiseno: task.estiloDiseno,
+        referencias: task.referencias,
+        deadlineBrief: task.deadlineBrief
       })
       if (task.sectores && task.sectores.length > 0) {
         setSelectedSectors(task.sectores)
@@ -104,6 +116,12 @@ const TaskEditModal = ({
         setSelectedSectors(task.assignedSector ? [task.assignedSector] : [])
       }
       setTags(task.tags || [])
+      setBriefPublico(task.briefPublico || '')
+      setObjetivoProyecto(task.objetivoProyecto || '')
+      setPublicoObjetivo(task.publicoObjetivo || '')
+      setEstiloDiseno(task.estiloDiseno || '')
+      setReferencias(task.referencias || '')
+      setDeadlineBrief(task.deadlineBrief || '')
       setMaterials(
         task.materials.map((m) => ({
           name: m,
@@ -213,7 +231,13 @@ const TaskEditModal = ({
       tags,
       materials: materials.map((m) => m.name),
       assignedSector: selectedSectors[0] || task.assignedSector,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      briefPublico: briefPublico.trim() || undefined,
+      objetivoProyecto: objetivoProyecto.trim() || undefined,
+      publicoObjetivo: publicoObjetivo.trim() || undefined,
+      estiloDiseno: estiloDiseno.trim() || undefined,
+      referencias: referencias.trim() || undefined,
+      deadlineBrief: deadlineBrief || undefined
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
@@ -573,6 +597,73 @@ const TaskEditModal = ({
               value={formData.summary || ''}
               onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
               placeholder="Sin descripción."
+            />
+          </div>
+
+          {/* Sección de Brief Público */}
+          <div className="form-section-divider">
+            <h3>📋 Brief del Proyecto (Público)</h3>
+            <p className="section-description">Esta información será visible para todos los usuarios del sistema</p>
+          </div>
+
+          <div className="form-group">
+            <label>Brief Público</label>
+            <textarea
+              rows={5}
+              value={briefPublico}
+              onChange={(e) => setBriefPublico(e.target.value)}
+              placeholder="Describe el proyecto, objetivos, contexto y cualquier información relevante que deba conocer el equipo..."
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Objetivo del Proyecto</label>
+              <input
+                type="text"
+                value={objetivoProyecto}
+                onChange={(e) => setObjetivoProyecto(e.target.value)}
+                placeholder="Ej: Incrementar ventas, Branding, etc."
+              />
+            </div>
+            <div className="form-group">
+              <label>Público Objetivo</label>
+              <input
+                type="text"
+                value={publicoObjetivo}
+                onChange={(e) => setPublicoObjetivo(e.target.value)}
+                placeholder="Ej: Jóvenes 18-25 años, Empresas B2B, etc."
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Estilo de Diseño</label>
+              <input
+                type="text"
+                value={estiloDiseno}
+                onChange={(e) => setEstiloDiseno(e.target.value)}
+                placeholder="Ej: Minimalista, Corporativo, Moderno, etc."
+              />
+            </div>
+            <div className="form-group">
+              <label>Deadline del Brief</label>
+              <input
+                type="date"
+                value={deadlineBrief ? new Date(deadlineBrief).toISOString().split('T')[0] : ''}
+                onChange={(e) => setDeadlineBrief(e.target.value ? new Date(e.target.value).toISOString() : '')}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Referencias</label>
+            <textarea
+              rows={3}
+              value={referencias}
+              onChange={(e) => setReferencias(e.target.value)}
+              placeholder="Enlaces a referencias visuales, Pinterest, Behance, o descripción de estilos deseados..."
             />
           </div>
 

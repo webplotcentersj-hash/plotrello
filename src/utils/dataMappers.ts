@@ -172,7 +172,13 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     locationUrl,
     driveUrl,
     entregado: orden.entregado ?? false,
-    metrosCuadrados: orden.metros_cuadrados ?? undefined
+    metrosCuadrados: orden.metros_cuadrados ?? undefined,
+    briefPublico: orden.brief_publico ?? undefined,
+    objetivoProyecto: orden.objetivo_proyecto ?? undefined,
+    publicoObjetivo: orden.publico_objetivo ?? undefined,
+    estiloDiseno: orden.estilo_diseno ?? undefined,
+    referencias: orden.referencias ?? undefined,
+    deadlineBrief: orden.deadline_brief ?? undefined
   }
 }
 
@@ -227,7 +233,13 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     ubicacion_link: task.locationUrl?.trim() || null,
     drive_link: task.driveUrl?.trim() || null,
     etiquetas: task.tags && Array.isArray(task.tags) && task.tags.length > 0 ? task.tags : null,
-    metros_cuadrados: task.metrosCuadrados || null
+    metros_cuadrados: task.metrosCuadrados || null,
+    brief_publico: task.briefPublico?.trim() || null,
+    objetivo_proyecto: task.objetivoProyecto?.trim() || null,
+    publico_objetivo: task.publicoObjetivo?.trim() || null,
+    estilo_diseno: task.estiloDiseno?.trim() || null,
+    referencias: task.referencias?.trim() || null,
+    deadline_brief: task.deadlineBrief ? toDateOnly(task.deadlineBrief) : null
   }
   
   console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)

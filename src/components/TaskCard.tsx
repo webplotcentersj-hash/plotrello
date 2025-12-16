@@ -381,6 +381,50 @@ const TaskCard = ({
           <div className="task-body">
             <p className="task-description">{task.summary}</p>
 
+            {/* Brief Público */}
+            {task.briefPublico && (
+              <div className="task-brief">
+                <span className="section-label">📋 Brief Público:</span>
+                <p className="brief-content">{task.briefPublico}</p>
+                {(task.objetivoProyecto || task.publicoObjetivo || task.estiloDiseno || task.referencias) && (
+                  <div className="brief-details">
+                    {task.objetivoProyecto && (
+                      <div className="brief-item">
+                        <strong>Objetivo:</strong> {task.objetivoProyecto}
+                      </div>
+                    )}
+                    {task.publicoObjetivo && (
+                      <div className="brief-item">
+                        <strong>Público:</strong> {task.publicoObjetivo}
+                      </div>
+                    )}
+                    {task.estiloDiseno && (
+                      <div className="brief-item">
+                        <strong>Estilo:</strong> {task.estiloDiseno}
+                      </div>
+                    )}
+                    {task.referencias && (
+                      <div className="brief-item">
+                        <strong>Referencias:</strong> 
+                        {task.referencias.includes('http') ? (
+                          <a href={task.referencias} target="_blank" rel="noopener noreferrer" className="brief-link">
+                            {task.referencias}
+                          </a>
+                        ) : (
+                          <span>{task.referencias}</span>
+                        )}
+                      </div>
+                    )}
+                    {task.deadlineBrief && (
+                      <div className="brief-item">
+                        <strong>Deadline Brief:</strong> {new Date(task.deadlineBrief).toLocaleDateString('es-AR')}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {(task.clientPhone ||
               task.clientEmail ||
               task.clientAddress ||

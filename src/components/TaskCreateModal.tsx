@@ -78,6 +78,12 @@ const TaskCreateModal = ({
   const [complejidad, setComplejidad] = useState<string>('Media')
   const [prioridad, setPrioridad] = useState<string>('Normal')
   const [descripcion, setDescripcion] = useState('')
+  const [briefPublico, setBriefPublico] = useState('')
+  const [objetivoProyecto, setObjetivoProyecto] = useState('')
+  const [publicoObjetivo, setPublicoObjetivo] = useState('')
+  const [estiloDiseno, setEstiloDiseno] = useState('')
+  const [referencias, setReferencias] = useState('')
+  const [deadlineBrief, setDeadlineBrief] = useState('')
   const [materials, setMaterials] = useState<Array<{ name: string; quantity: number }>>([])
   const [materialSearch, setMaterialSearch] = useState('')
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
@@ -243,7 +249,13 @@ const TaskCreateModal = ({
       // El link de WhatsApp se genera automáticamente a partir del teléfono en el mapper
       locationUrl: ubicacionUrl.trim() || undefined,
       driveUrl: driveUrl.trim() || undefined,
-      attachments: attachments.filter(a => a.remoteUrl && !a.uploading) // Solo archivos listos
+      attachments: attachments.filter(a => a.remoteUrl && !a.uploading), // Solo archivos listos
+      briefPublico: briefPublico.trim() || undefined,
+      objetivoProyecto: objetivoProyecto.trim() || undefined,
+      publicoObjetivo: publicoObjetivo.trim() || undefined,
+      estiloDiseno: estiloDiseno.trim() || undefined,
+      referencias: referencias.trim() || undefined,
+      deadlineBrief: deadlineBrief || undefined
     }
 
     console.log('🏷️ [TaskCreateModal] newTask.tags:', newTask.tags)
@@ -742,6 +754,74 @@ const TaskCreateModal = ({
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder=""
+            />
+          </div>
+
+          {/* Sección de Brief Público */}
+          <div className="form-section-divider">
+            <h3>📋 Brief del Proyecto (Público)</h3>
+            <p className="section-description">Esta información será visible para todos los usuarios del sistema</p>
+          </div>
+
+          <div className="form-group">
+            <label>Brief Público *</label>
+            <textarea
+              rows={5}
+              value={briefPublico}
+              onChange={(e) => setBriefPublico(e.target.value)}
+              placeholder="Describe el proyecto, objetivos, contexto y cualquier información relevante que deba conocer el equipo..."
+              required
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Objetivo del Proyecto</label>
+              <input
+                type="text"
+                value={objetivoProyecto}
+                onChange={(e) => setObjetivoProyecto(e.target.value)}
+                placeholder="Ej: Incrementar ventas, Branding, etc."
+              />
+            </div>
+            <div className="form-group">
+              <label>Público Objetivo</label>
+              <input
+                type="text"
+                value={publicoObjetivo}
+                onChange={(e) => setPublicoObjetivo(e.target.value)}
+                placeholder="Ej: Jóvenes 18-25 años, Empresas B2B, etc."
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Estilo de Diseño</label>
+              <input
+                type="text"
+                value={estiloDiseno}
+                onChange={(e) => setEstiloDiseno(e.target.value)}
+                placeholder="Ej: Minimalista, Corporativo, Moderno, etc."
+              />
+            </div>
+            <div className="form-group">
+              <label>Deadline del Brief</label>
+              <input
+                type="date"
+                value={deadlineBrief}
+                onChange={(e) => setDeadlineBrief(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Referencias</label>
+            <textarea
+              rows={3}
+              value={referencias}
+              onChange={(e) => setReferencias(e.target.value)}
+              placeholder="Enlaces a referencias visuales, Pinterest, Behance, o descripción de estilos deseados..."
             />
           </div>
 

@@ -98,6 +98,27 @@
   letter-spacing: 0.05em;
 }
 
+.form-section-divider {
+  margin: 32px 0 20px 0;
+  padding: 16px 0;
+  border-top: 2px solid rgba(249, 115, 22, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.form-section-divider h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+  color: #f97316;
+  font-weight: 700;
+}
+
+.section-description {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .form-group input,
 .form-group select,
 .form-group textarea {

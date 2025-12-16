@@ -575,6 +575,50 @@ body.compact-mode .task-actions {
   line-height: 1.5;
 }
 
+.task-brief {
+  background: rgba(249, 115, 22, 0.1);
+  border-left: 3px solid #f97316;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.brief-content {
+  color: #e5ecf5;
+  margin: 8px 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.brief-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(249, 115, 22, 0.2);
+}
+
+.brief-item {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+}
+
+.brief-item strong {
+  color: #f97316;
+  margin-right: 6px;
+}
+
+.brief-link {
+  color: #93c5fd;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.brief-link:hover {
+  color: #60a5fa;
+}
+
 .task-contact {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 10px;

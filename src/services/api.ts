@@ -260,7 +260,13 @@ class ApiService {
             p_drive_link: orden.drive_link || null,
             p_foto_url: orden.foto_url || null,
             p_dni_cuit: orden.dni_cuit || null,
-            p_etiquetas: etiquetasNormalizadas
+            p_etiquetas: etiquetasNormalizadas,
+            p_brief_publico: orden.brief_publico || null,
+            p_objetivo_proyecto: orden.objetivo_proyecto || null,
+            p_publico_objetivo: orden.publico_objetivo || null,
+            p_estilo_diseno: orden.estilo_diseno || null,
+            p_referencias: orden.referencias || null,
+            p_deadline_brief: orden.deadline_brief || null
           }
           
           console.log('🔍 Llamando función SQL con parámetros:', JSON.stringify(rpcParams, null, 2))
