@@ -30,6 +30,8 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
   }, [ordenId])
 
   const loadBriefToken = async () => {
+    if (!ordenId || typeof ordenId !== 'number') return
+    
     console.log('🔍 loadBriefToken llamado con ordenId:', ordenId)
     try {
       const ordenResponse = await apiService.getOrden(ordenId)
