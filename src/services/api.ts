@@ -17,7 +17,14 @@ import type {
   StockMovimiento,
   ArticuloStock,
   EstadoPedido,
-  PrioridadPedido
+  PrioridadPedido,
+  Proveedor,
+  ProveedorProducto,
+  Presupuesto,
+  PresupuestoItem,
+  PrecioHistorial,
+  ComparacionPresupuestos,
+  EstadoPresupuesto
 } from '../types/pedidos'
 import { supabase, stockSupabase } from './supabaseClient'
 import bcrypt from 'bcryptjs'
