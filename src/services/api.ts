@@ -3453,6 +3453,102 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  // ==================== REVISIONES Y APROBACIONES ====================
+  
+  async solicitarRevisionOrden(data: {
+    id_orden: number
+    usuario_revisor_id: number
+    usuario_revisor_nombre: string
+    comentarios?: string
+  }): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data: result, error } = await supabase.rpc('solicitar_revision_orden', {
+          p_id_orden: data.id_orden,
+          p_usuario_revisor_id: data.usuario_revisor_id,
+          p_usuario_revisor_nombre: data.usuario_revisor_nombre,
+          p_comentarios: data.comentarios || null
+        })
+
+        if (error) {
+          console.error('Error solicitando revisión:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: result as number }
+      } catch (error) {
+        console.error('Error solicitando revisión:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async aprobarRevisionOrden(idRevision: number, comentarios?: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('aprobar_revision_orden', {
+          p_id_revision: idRevision,
+          p_comentarios: comentarios || null
+        })
+
+        if (error) {
+          console.error('Error aprobando revisión:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true }
+      } catch (error) {
+        console.error('Error aprobando revisión:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async rechazarRevisionOrden(idRevision: number, comentarios: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('rechazar_revision_orden', {
+          p_id_revision: idRevision,
+          p_comentarios: comentarios
+        })
+
+        if (error) {
+          console.error('Error rechazando revisión:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true }
+      } catch (error) {
+        console.error('Error rechazando revisión:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerRevisionesOrden(idOrden: number): Promise<ApiResponse<Array<import('../types/api').RevisionOrden>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_revisiones_orden', {
+          p_id_orden: idOrden
+        })
+
+        if (error) {
+          console.error('Error obteniendo revisiones:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as Array<import('../types/api').RevisionOrden> }
+      } catch (error) {
+        console.error('Error obteniendo revisiones:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {

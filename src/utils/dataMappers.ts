@@ -178,7 +178,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     publicoObjetivo: orden.publico_objetivo ?? undefined,
     estiloDiseno: orden.estilo_diseno ?? undefined,
     referencias: orden.referencias ?? undefined,
-    deadlineBrief: orden.deadline_brief ?? undefined
+    deadlineBrief: orden.deadline_brief ?? undefined,
+    estadoRevision: orden.estado_revision ?? undefined
   }
 }
 

@@ -4,6 +4,7 @@ import type { ComentarioOrden, HistorialMovimiento, MaterialRecord, SectorRecord
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
 import { parseTaskIdToOrdenId, filterOperariosBySector } from '../utils/dataMappers'
+import RevisionesSection from './RevisionesSection'
 import './TaskEditModal.css'
 
 type TaskEditModalProps = {

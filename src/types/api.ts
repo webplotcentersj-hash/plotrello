@@ -36,6 +36,18 @@ export interface OrdenTrabajo {
   estilo_diseno?: string | null // Estilo de diseño requerido
   referencias?: string | null // Referencias visuales o enlaces
   deadline_brief?: string | null // Fecha límite para completar el brief
+  estado_revision?: string | null // Estado de revisión: 'pendiente', 'en_revision', 'aprobado', 'requiere_cambios'
+}
+
+export interface RevisionOrden {
+  id: number
+  id_orden: number
+  usuario_revisor_id: number
+  usuario_revisor_nombre: string
+  estado_revision: 'pendiente' | 'en_revision' | 'aprobado' | 'requiere_cambios'
+  comentarios: string | null
+  fecha_revision: string
+  fecha_aprobacion: string | null
 }
 
 // Subtareas / checklist por ficha
