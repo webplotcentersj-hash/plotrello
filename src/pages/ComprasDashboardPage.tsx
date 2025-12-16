@@ -310,6 +310,12 @@ const ComprasDashboardPage = () => {
           <div className="header-actions">
             <button
               className="btn-primary"
+              onClick={() => navigate('/compras/crear-pedido')}
+            >
+              ➕ Crear Pedido
+            </button>
+            <button
+              className="btn-primary"
               onClick={() => navigate('/compras/pedidos')}
             >
               Ver Todos los Pedidos
