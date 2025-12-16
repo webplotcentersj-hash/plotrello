@@ -13,7 +13,19 @@ const ProveedoresPage = () => {
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null)
   const [productosProveedor, setProductosProveedor] = useState<ProveedorProducto[]>([])
   const [mostrarModal, setMostrarModal] = useState(false)
+  const [mostrarModalProductos, setMostrarModalProductos] = useState(false)
+  const [mostrarModalNuevoProducto, setMostrarModalNuevoProducto] = useState(false)
   const [modoEdicion, setModoEdicion] = useState(false)
+  const [formDataProducto, setFormDataProducto] = useState({
+    codigo_producto: '',
+    descripcion: '',
+    unidad: 'unidad',
+    precio_unitario: '',
+    moneda: 'ARS',
+    stock_disponible: '',
+    tiempo_entrega_dias: '',
+    observaciones: ''
+  })
   const [formData, setFormData] = useState({
     nombre: '',
     razon_social: '',
@@ -138,6 +150,54 @@ const ProveedoresPage = () => {
   const handleVerProductos = async (proveedor: Proveedor) => {
     setProveedorSeleccionado(proveedor)
     await loadProductosProveedor(proveedor.id)
+    setMostrarModalProductos(true)
+  }
+
+  const handleAbrirModalNuevoProducto = () => {
+    if (!proveedorSeleccionado) return
+    setFormDataProducto({
+      codigo_producto: '',
+      descripcion: '',
+      unidad: 'unidad',
+      precio_unitario: '',
+      moneda: 'ARS',
+      stock_disponible: '',
+      tiempo_entrega_dias: '',
+      observaciones: ''
+    })
+    setMostrarModalNuevoProducto(true)
+  }
+
+  const handleGuardarProducto = async () => {
+    if (!proveedorSeleccionado || !formDataProducto.descripcion.trim()) {
+      alert('La descripción es requerida')
+      return
+    }
+
+    try {
+      const response = await apiService.crearProductoProveedor({
+        id_proveedor: proveedorSeleccionado.id,
+        codigo_producto: formDataProducto.codigo_producto || undefined,
+        descripcion: formDataProducto.descripcion,
+        unidad: formDataProducto.unidad,
+        precio_unitario: formDataProducto.precio_unitario ? parseFloat(formDataProducto.precio_unitario) : undefined,
+        moneda: formDataProducto.moneda,
+        stock_disponible: formDataProducto.stock_disponible ? parseFloat(formDataProducto.stock_disponible) : undefined,
+        tiempo_entrega_dias: formDataProducto.tiempo_entrega_dias ? parseInt(formDataProducto.tiempo_entrega_dias) : undefined,
+        observaciones: formDataProducto.observaciones || undefined
+      })
+
+      if (response.success) {
+        alert('Producto agregado exitosamente')
+        setMostrarModalNuevoProducto(false)
+        await loadProductosProveedor(proveedorSeleccionado.id)
+      } else {
+        alert(`Error: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error guardando producto:', error)
+      alert('Error al guardar el producto')
+    }
   }
 
   const proveedoresFiltrados = proveedores.filter(p =>
@@ -411,29 +471,158 @@ const ProveedoresPage = () => {
       )}
 
       {/* Modal de Productos del Proveedor */}
-      {proveedorSeleccionado && productosProveedor.length > 0 && (
-        <div className="modal-overlay" onClick={() => setProveedorSeleccionado(null)}>
+      {mostrarModalProductos && proveedorSeleccionado && (
+        <div className="modal-overlay" onClick={() => { setMostrarModalProductos(false); setProveedorSeleccionado(null) }}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Productos de {proveedorSeleccionado.nombre}</h2>
-              <button className="btn-close" onClick={() => setProveedorSeleccionado(null)}>×</button>
+              <div className="modal-header-actions">
+                <button className="btn-action" onClick={handleAbrirModalNuevoProducto}>
+                  + Agregar Producto
+                </button>
+                <button className="btn-close" onClick={() => { setMostrarModalProductos(false); setProveedorSeleccionado(null) }}>×</button>
+              </div>
             </div>
             <div className="modal-body">
-              <div className="productos-list">
-                {productosProveedor.map((producto) => (
-                  <div key={producto.id} className="producto-item">
-                    <div className="producto-info">
-                      <strong>{producto.descripcion}</strong>
-                      {producto.codigo_producto && <span className="codigo">Código: {producto.codigo_producto}</span>}
-                      <div className="producto-details">
-                        <span>Precio: ${producto.precio_unitario?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || 'N/A'}</span>
-                        <span>Unidad: {producto.unidad}</span>
-                        {producto.tiempo_entrega_dias && <span>Tiempo entrega: {producto.tiempo_entrega_dias} días</span>}
+              {productosProveedor.length === 0 ? (
+                <div className="empty-state">
+                  <p>No hay productos registrados para este proveedor</p>
+                  <button className="btn-primary" onClick={handleAbrirModalNuevoProducto}>
+                    Agregar Primer Producto
+                  </button>
+                </div>
+              ) : (
+                <div className="productos-list">
+                  {productosProveedor.map((producto) => (
+                    <div key={producto.id} className="producto-item">
+                      <div className="producto-info">
+                        <strong>{producto.descripcion}</strong>
+                        {producto.codigo_producto && <span className="codigo">Código: {producto.codigo_producto}</span>}
+                        <div className="producto-details">
+                          <span>Precio: ${producto.precio_unitario?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || 'N/A'}</span>
+                          <span>Unidad: {producto.unidad}</span>
+                          {producto.stock_disponible !== null && <span>Stock: {producto.stock_disponible}</span>}
+                          {producto.tiempo_entrega_dias && <span>Tiempo entrega: {producto.tiempo_entrega_dias} días</span>}
+                        </div>
+                        {producto.observaciones && (
+                          <div className="producto-observaciones">
+                            <em>{producto.observaciones}</em>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Nuevo Producto */}
+      {mostrarModalNuevoProducto && proveedorSeleccionado && (
+        <div className="modal-overlay" onClick={() => setMostrarModalNuevoProducto(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Agregar Producto a {proveedorSeleccionado.nombre}</h2>
+              <button className="btn-close" onClick={() => setMostrarModalNuevoProducto(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Código del Producto</label>
+                <input
+                  type="text"
+                  value={formDataProducto.codigo_producto}
+                  onChange={(e) => setFormDataProducto({ ...formDataProducto, codigo_producto: e.target.value })}
+                  placeholder="Código interno del producto"
+                />
               </div>
+              <div className="form-group">
+                <label>Descripción *</label>
+                <input
+                  type="text"
+                  value={formDataProducto.descripcion}
+                  onChange={(e) => setFormDataProducto({ ...formDataProducto, descripcion: e.target.value })}
+                  placeholder="Descripción del producto"
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Unidad</label>
+                  <select
+                    value={formDataProducto.unidad}
+                    onChange={(e) => setFormDataProducto({ ...formDataProducto, unidad: e.target.value })}
+                  >
+                    <option value="unidad">Unidad</option>
+                    <option value="kg">Kilogramo</option>
+                    <option value="m">Metro</option>
+                    <option value="m2">Metro cuadrado</option>
+                    <option value="m3">Metro cúbico</option>
+                    <option value="l">Litro</option>
+                    <option value="caja">Caja</option>
+                    <option value="pack">Pack</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Precio Unitario</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formDataProducto.precio_unitario}
+                    onChange={(e) => setFormDataProducto({ ...formDataProducto, precio_unitario: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Moneda</label>
+                  <select
+                    value={formDataProducto.moneda}
+                    onChange={(e) => setFormDataProducto({ ...formDataProducto, moneda: e.target.value })}
+                  >
+                    <option value="ARS">ARS</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Stock Disponible</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={formDataProducto.stock_disponible}
+                    onChange={(e) => setFormDataProducto({ ...formDataProducto, stock_disponible: e.target.value })}
+                    placeholder="Cantidad disponible"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Tiempo de Entrega (días)</label>
+                  <input
+                    type="number"
+                    value={formDataProducto.tiempo_entrega_dias}
+                    onChange={(e) => setFormDataProducto({ ...formDataProducto, tiempo_entrega_dias: e.target.value })}
+                    placeholder="Días"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Observaciones</label>
+                <textarea
+                  value={formDataProducto.observaciones}
+                  onChange={(e) => setFormDataProducto({ ...formDataProducto, observaciones: e.target.value })}
+                  placeholder="Notas adicionales sobre el producto"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setMostrarModalNuevoProducto(false)}>
+                Cancelar
+              </button>
+              <button className="btn-primary" onClick={handleGuardarProducto}>
+                Guardar Producto
+              </button>
             </div>
           </div>
         </div>
