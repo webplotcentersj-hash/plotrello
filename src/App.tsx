@@ -611,6 +611,10 @@ function AppRoutes({
         element={<CrearPedidoCompraPage />}
       />
       <Route
+        path="/compras/conciliacion-bancaria"
+        element={<ConciliacionBancariaPage />}
+      />
+      <Route
         path="/diseno/dashboard"
         element={<DisenoDashboardPage />}
       />

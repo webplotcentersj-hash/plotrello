@@ -2391,6 +2391,7 @@ class ApiService {
     prioridad?: PrioridadPedido
     motivo?: string
     observaciones?: string
+    fecha_entrega_estimada?: string
     items: Array<{
       id_articulo_stock?: number
       codigo_articulo?: string
@@ -4483,6 +4484,385 @@ class ApiService {
           .eq('id', comparacion.id_presupuesto_seleccionado)
 
         return { success: true, data: data as ComparacionPresupuestos }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ===== CONCILIACIÓN BANCARIA =====
+  async crearPago(pago: {
+    id_pedido_compra?: number
+    id_proveedor?: number
+    monto_total: number
+    moneda: string
+    fecha_vencimiento?: string
+    metodo_pago?: string
+    banco?: string
+    cuenta_bancaria?: string
+    observaciones?: string
+  }): Promise<ApiResponse<Pago>> {
+    if (supabase) {
+      try {
+        const usuarioStr = localStorage.getItem('usuario')
+        const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+
+        // Generar número de pago
+        const { data: ultimoPago } = await supabase
+          .from('pagos')
+          .select('numero_pago')
+          .order('id', { ascending: false })
+          .limit(1)
+          .single()
+
+        let numeroPago = 'PAG-0001'
+        if (ultimoPago?.numero_pago) {
+          const ultimoNumero = parseInt(ultimoPago.numero_pago.split('-')[1])
+          numeroPago = `PAG-${String(ultimoNumero + 1).padStart(4, '0')}`
+        }
+
+        const { data, error } = await supabase
+          .from('pagos')
+          .insert({
+            numero_pago: numeroPago,
+            id_pedido_compra: pago.id_pedido_compra || null,
+            id_proveedor: pago.id_proveedor || null,
+            monto_total: pago.monto_total,
+            monto_pagado: 0,
+            moneda: pago.moneda,
+            fecha_vencimiento: pago.fecha_vencimiento || null,
+            metodo_pago: pago.metodo_pago || null,
+            banco: pago.banco || null,
+            cuenta_bancaria: pago.cuenta_bancaria || null,
+            estado: 'Pendiente',
+            observaciones: pago.observaciones || null,
+            id_usuario_registro: usuario?.id || null,
+            nombre_usuario_registro: usuario?.nombre || null
+          })
+          .select(`
+            *,
+            pedido:pedidos_compras(*),
+            proveedor:proveedores(*)
+          `)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as Pago }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getPagos(filters?: {
+    id_pedido_compra?: number
+    id_proveedor?: number
+    estado?: EstadoPago
+    fecha_desde?: string
+    fecha_hasta?: string
+  }): Promise<ApiResponse<Pago[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('pagos')
+          .select(`
+            *,
+            pedido:pedidos_compras(*),
+            proveedor:proveedores(*)
+          `)
+          .order('created_at', { ascending: false })
+
+        if (filters?.id_pedido_compra) {
+          query = query.eq('id_pedido_compra', filters.id_pedido_compra)
+        }
+        if (filters?.id_proveedor) {
+          query = query.eq('id_proveedor', filters.id_proveedor)
+        }
+        if (filters?.estado) {
+          query = query.eq('estado', filters.estado)
+        }
+        if (filters?.fecha_desde) {
+          query = query.gte('created_at', filters.fecha_desde)
+        }
+        if (filters?.fecha_hasta) {
+          query = query.lte('created_at', filters.fecha_hasta)
+        }
+
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as Pago[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarPago(id: number, updates: {
+    monto_pagado?: number
+    fecha_pago?: string
+    numero_comprobante?: string
+    estado?: EstadoPago
+    fecha_conciliacion?: string
+    observaciones?: string
+  }): Promise<ApiResponse<Pago>> {
+    if (supabase) {
+      try {
+        const usuarioStr = localStorage.getItem('usuario')
+        const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+
+        const updateData: any = { ...updates }
+        if (updates.fecha_conciliacion && usuario) {
+          updateData.id_usuario_conciliacion = usuario.id
+        }
+
+        const { data, error } = await supabase
+          .from('pagos')
+          .update(updateData)
+          .eq('id', id)
+          .select(`
+            *,
+            pedido:pedidos_compras(*),
+            proveedor:proveedores(*)
+          `)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as Pago }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async crearMovimientoBancario(movimiento: {
+    fecha_movimiento: string
+    fecha_valor?: string
+    tipo: 'Ingreso' | 'Egreso'
+    concepto: string
+    monto: number
+    moneda: string
+    banco: string
+    cuenta_bancaria: string
+    numero_comprobante?: string
+    referencia?: string
+    id_pago_asociado?: number
+    observaciones?: string
+  }): Promise<ApiResponse<MovimientoBancario>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('movimientos_bancarios')
+          .insert({
+            ...movimiento,
+            conciliado: false
+          })
+          .select(`
+            *,
+            pago:pagos(*)
+          `)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as MovimientoBancario }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getMovimientosBancarios(filters?: {
+    banco?: string
+    cuenta_bancaria?: string
+    conciliado?: boolean
+    fecha_desde?: string
+    fecha_hasta?: string
+    tipo?: 'Ingreso' | 'Egreso'
+  }): Promise<ApiResponse<MovimientoBancario[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('movimientos_bancarios')
+          .select(`
+            *,
+            pago:pagos(*)
+          `)
+          .order('fecha_movimiento', { ascending: false })
+
+        if (filters?.banco) {
+          query = query.eq('banco', filters.banco)
+        }
+        if (filters?.cuenta_bancaria) {
+          query = query.eq('cuenta_bancaria', filters.cuenta_bancaria)
+        }
+        if (filters?.conciliado !== undefined) {
+          query = query.eq('conciliado', filters.conciliado)
+        }
+        if (filters?.fecha_desde) {
+          query = query.gte('fecha_movimiento', filters.fecha_desde)
+        }
+        if (filters?.fecha_hasta) {
+          query = query.lte('fecha_movimiento', filters.fecha_hasta)
+        }
+        if (filters?.tipo) {
+          query = query.eq('tipo', filters.tipo)
+        }
+
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as MovimientoBancario[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async conciliarMovimiento(idMovimiento: number, idPago: number): Promise<ApiResponse<MovimientoBancario>> {
+    if (supabase) {
+      try {
+        const usuarioStr = localStorage.getItem('usuario')
+        const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+
+        const { data, error } = await supabase
+          .from('movimientos_bancarios')
+          .update({
+            id_pago_asociado: idPago,
+            conciliado: true,
+            fecha_conciliacion: new Date().toISOString(),
+            id_usuario_conciliacion: usuario?.id || null
+          })
+          .eq('id', idMovimiento)
+          .select(`
+            *,
+            pago:pagos(*)
+          `)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+
+        // Actualizar el estado del pago si corresponde
+        const { data: pagoData } = await supabase
+          .from('pagos')
+          .select('monto_total, monto_pagado')
+          .eq('id', idPago)
+          .single()
+
+        if (pagoData && data) {
+          const nuevoMontoPagado = (pagoData.monto_pagado || 0) + data.monto
+          const nuevoEstado: EstadoPago = nuevoMontoPagado >= pagoData.monto_total ? 'Completado' : nuevoMontoPagado > 0 ? 'Parcial' : 'Pendiente'
+
+          await supabase
+            .from('pagos')
+            .update({
+              monto_pagado: nuevoMontoPagado,
+              estado: nuevoEstado,
+              fecha_pago: nuevoEstado === 'Completado' ? new Date().toISOString() : null,
+              fecha_conciliacion: new Date().toISOString(),
+              id_usuario_conciliacion: usuario?.id || null
+            })
+            .eq('id', idPago)
+        }
+
+        return { success: true, data: data as MovimientoBancario }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async crearConciliacion(conciliacion: {
+    fecha_desde: string
+    fecha_hasta: string
+    banco: string
+    cuenta_bancaria: string
+    saldo_inicial: number
+    observaciones?: string
+  }): Promise<ApiResponse<ConciliacionBancaria>> {
+    if (supabase) {
+      try {
+        const usuarioStr = localStorage.getItem('usuario')
+        const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+
+        // Obtener movimientos del período
+        const { data: movimientos } = await supabase
+          .from('movimientos_bancarios')
+          .select('*')
+          .eq('banco', conciliacion.banco)
+          .eq('cuenta_bancaria', conciliacion.cuenta_bancaria)
+          .gte('fecha_movimiento', conciliacion.fecha_desde)
+          .lte('fecha_movimiento', conciliacion.fecha_hasta)
+
+        const totalIngresos = movimientos?.filter(m => m.tipo === 'Ingreso').reduce((sum, m) => sum + m.monto, 0) || 0
+        const totalEgresos = movimientos?.filter(m => m.tipo === 'Egreso').reduce((sum, m) => sum + m.monto, 0) || 0
+        const saldoFinal = conciliacion.saldo_inicial + totalIngresos - totalEgresos
+        const movimientosConciliados = movimientos?.filter(m => m.conciliado).length || 0
+        const movimientosPendientes = movimientos?.filter(m => !m.conciliado).length || 0
+
+        const { data, error } = await supabase
+          .from('conciliaciones_bancarias')
+          .insert({
+            fecha_conciliacion: new Date().toISOString(),
+            fecha_desde: conciliacion.fecha_desde,
+            fecha_hasta: conciliacion.fecha_hasta,
+            banco: conciliacion.banco,
+            cuenta_bancaria: conciliacion.cuenta_bancaria,
+            saldo_inicial: conciliacion.saldo_inicial,
+            saldo_final: saldoFinal,
+            total_ingresos: totalIngresos,
+            total_egresos: totalEgresos,
+            movimientos_conciliados: movimientosConciliados,
+            movimientos_pendientes: movimientosPendientes,
+            id_usuario: usuario?.id || null,
+            nombre_usuario: usuario?.nombre || null,
+            observaciones: conciliacion.observaciones || null
+          })
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as ConciliacionBancaria }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async getConciliaciones(filters?: {
+    banco?: string
+    cuenta_bancaria?: string
+    fecha_desde?: string
+    fecha_hasta?: string
+  }): Promise<ApiResponse<ConciliacionBancaria[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('conciliaciones_bancarias')
+          .select('*')
+          .order('fecha_conciliacion', { ascending: false })
+
+        if (filters?.banco) {
+          query = query.eq('banco', filters.banco)
+        }
+        if (filters?.cuenta_bancaria) {
+          query = query.eq('cuenta_bancaria', filters.cuenta_bancaria)
+        }
+        if (filters?.fecha_desde) {
+          query = query.gte('fecha_conciliacion', filters.fecha_desde)
+        }
+        if (filters?.fecha_hasta) {
+          query = query.lte('fecha_conciliacion', filters.fecha_hasta)
+        }
+
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as ConciliacionBancaria[] }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }

@@ -7,7 +7,7 @@ import './ConciliacionBancariaPage.css'
 
 const ConciliacionBancariaPage = () => {
   const navigate = useNavigate()
-  const { canManageCompras, usuario, loading: authLoading } = useAuth()
+  const { canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pagos, setPagos] = useState<Pago[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoBancario[]>([])
