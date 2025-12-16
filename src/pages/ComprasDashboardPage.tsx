@@ -277,11 +277,9 @@ const ComprasDashboardPage = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="compras-dashboard-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando...</p>
-        </div>
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Cargando...</p>
       </div>
     )
   }

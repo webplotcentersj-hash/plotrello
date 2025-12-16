@@ -68,27 +68,52 @@ const CrearPedidoCompraPage = () => {
       return
     }
 
-    // Validar que al menos un item tenga descripción
-    const itemsValidos = items.filter(item => item.descripcion.trim())
+    // Validar sector
+    if (!formData.sector_solicitante.trim()) {
+      alert('Debes seleccionar un sector')
+      return
+    }
+
+    // Validar que al menos un item tenga descripción y cantidad válida
+    const itemsValidos = items.filter(item => {
+      const descripcion = item.descripcion.trim()
+      const cantidad = parseFloat(item.cantidad)
+      return descripcion && cantidad > 0 && !isNaN(cantidad)
+    })
+
     if (itemsValidos.length === 0) {
-      alert('Debes agregar al menos un producto con descripción')
+      alert('Debes agregar al menos un producto con descripción y cantidad válida')
+      return
+    }
+
+    // Validar que todas las cantidades sean válidas
+    const itemsConCantidadInvalida = items.filter(item => {
+      const cantidad = parseFloat(item.cantidad)
+      return item.descripcion.trim() && (isNaN(cantidad) || cantidad <= 0)
+    })
+
+    if (itemsConCantidadInvalida.length > 0) {
+      alert('Todas las cantidades deben ser números mayores a 0')
       return
     }
 
     setSaving(true)
     try {
-      const itemsParaEnviar = itemsValidos.map(item => ({
-        codigo_articulo: item.codigo_articulo.trim() || undefined,
-        descripcion: item.descripcion.trim(),
-        cantidad_solicitada: parseFloat(item.cantidad) || 1,
-        unidad: item.unidad,
-        observaciones: item.observaciones.trim() || undefined
-      }))
+      const itemsParaEnviar = itemsValidos.map(item => {
+        const cantidad = parseFloat(item.cantidad)
+        return {
+          codigo_articulo: item.codigo_articulo.trim() || undefined,
+          descripcion: item.descripcion.trim(),
+          cantidad_solicitada: cantidad,
+          unidad: item.unidad || 'unidad',
+          observaciones: item.observaciones.trim() || undefined
+        }
+      })
 
       const response = await apiService.crearPedidoCompra({
         id_solicitante: usuario.id,
         nombre_solicitante: usuario.nombre,
-        sector_solicitante: formData.sector_solicitante.trim() || undefined,
+        sector_solicitante: formData.sector_solicitante.trim(),
         motivo: formData.motivo.trim() || undefined,
         observaciones: formData.observaciones.trim() || undefined,
         prioridad: formData.prioridad,
@@ -100,11 +125,12 @@ const CrearPedidoCompraPage = () => {
         alert(`Pedido creado exitosamente: ${response.data.numero_pedido}`)
         navigate(`/compras/pedidos/${response.data.id}`)
       } else {
-        alert(`Error al crear el pedido: ${response.error}`)
+        alert(`Error al crear el pedido: ${response.error || 'Error desconocido'}`)
       }
     } catch (error) {
       console.error('Error creando pedido:', error)
-      alert('Error al crear el pedido')
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      alert(`Error al crear el pedido: ${errorMessage}`)
     } finally {
       setSaving(false)
     }

@@ -260,11 +260,9 @@ const ConciliacionBancariaPage = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="conciliacion-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando...</p>
-        </div>
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Cargando...</p>
       </div>
     )
   }
