@@ -769,8 +769,21 @@ const TaskEditModal = ({
               <label>Deadline del Brief</label>
               <input
                 type="date"
-                value={deadlineBrief ? new Date(deadlineBrief).toISOString().split('T')[0] : ''}
-                onChange={(e) => setDeadlineBrief(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                value={deadlineBrief ? (() => {
+                  try {
+                    const date = new Date(deadlineBrief)
+                    return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0]
+                  } catch {
+                    return ''
+                  }
+                })() : ''}
+                onChange={(e) => {
+                  try {
+                    setDeadlineBrief(e.target.value ? new Date(e.target.value).toISOString() : '')
+                  } catch {
+                    setDeadlineBrief('')
+                  }
+                }}
               />
             </div>
           </div>
