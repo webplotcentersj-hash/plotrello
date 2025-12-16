@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { PrioridadPedido } from '../types/pedidos'
+import type { PrioridadPedido, Proveedor } from '../types/pedidos'
 import './CrearPedidoCompraPage.css'
 
 const CrearPedidoCompraPage = () => {
   const navigate = useNavigate()
   const { canManageCompras, usuario, loading: authLoading } = useAuth()
   const [saving, setSaving] = useState(false)
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [loadingProveedores, setLoadingProveedores] = useState(false)
   const [formData, setFormData] = useState({
     sector_solicitante: '',
+    id_proveedor: '',
     motivo: '',
     observaciones: '',
     prioridad: 'Normal' as PrioridadPedido,

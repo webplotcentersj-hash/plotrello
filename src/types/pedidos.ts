@@ -25,6 +25,8 @@ export interface PedidoCompra {
   id_solicitante: number
   nombre_solicitante: string
   sector_solicitante?: string | null
+  id_proveedor?: number | null // ID del proveedor externo al que se realiza el pedido
+  proveedor?: Proveedor | null // Objeto proveedor completo (cuando se hace join)
   estado: EstadoPedido
   prioridad: PrioridadPedido
   motivo?: string | null

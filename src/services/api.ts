@@ -2388,6 +2388,7 @@ class ApiService {
     id_solicitante: number
     nombre_solicitante: string
     sector_solicitante?: string
+    id_proveedor?: number // ID del proveedor externo
     prioridad?: PrioridadPedido
     motivo?: string
     observaciones?: string
@@ -2438,6 +2439,7 @@ class ApiService {
           id_solicitante: idSolicitanteFinal,
           nombre_solicitante: pedido.nombre_solicitante,
           sector_solicitante: pedido.sector_solicitante || null,
+          id_proveedor: pedido.id_proveedor || null,
           prioridad: pedido.prioridad || 'Normal',
           motivo: pedido.motivo || null,
           observaciones: pedido.observaciones || null,
