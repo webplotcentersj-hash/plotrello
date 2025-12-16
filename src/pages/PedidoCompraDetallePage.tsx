@@ -230,12 +230,18 @@ const PedidoCompraDetallePage = () => {
               </span>
             </div>
           </div>
-          <button
-            className="btn-secondary"
-            onClick={() => navigate('/compras/dashboard')}
-          >
-            ← Volver
-          </button>
+            <button
+              className="btn-secondary"
+              onClick={() => navigate('/compras/dashboard')}
+            >
+              ← Volver
+            </button>
+            <button
+              className="btn-primary"
+              onClick={() => navigate(`/compras/presupuestos/${pedido.id}`)}
+            >
+              💰 Presupuestos
+            </button>
         </div>
       </header>
 
