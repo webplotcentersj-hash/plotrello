@@ -148,6 +148,14 @@ const Header = ({
                 🛒 Compras
               </button>
             )}
+            {canManageCompras && (
+              <a
+                href="/compras/calendario-entregas"
+                className="brand-button"
+              >
+                📅 Calendario Entregas
+              </a>
+            )}
             {(isDiseno || isAdmin) && onNavigateToDiseno && (
               <button className="brand-button" onClick={onNavigateToDiseno}>
                 🎨 Dashboard Diseño
