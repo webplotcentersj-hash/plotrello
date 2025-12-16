@@ -108,6 +108,17 @@ const FiltersBar = ({
               🔍 Bibliotecas de OPs
             </button>
           )}
+          {(isAdmin || isDiseno) && (
+            <button
+              type="button"
+              className="brief-link-button"
+              onClick={handleGenerarBriefLink}
+              disabled={copiandoBrief}
+              title="Generar y copiar link del brief para enviar a clientes"
+            >
+              {copiandoBrief ? '⏳ Generando...' : '📋 Copiar Link Brief'}
+            </button>
+          )}
         </div>
       </div>
 
