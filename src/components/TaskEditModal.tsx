@@ -6,6 +6,7 @@ import apiService from '../services/api'
 import { parseTaskIdToOrdenId, filterOperariosBySector } from '../utils/dataMappers'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
+import BriefLinkSection from './BriefLinkSection'
 import './TaskEditModal.css'
 
 type TaskEditModalProps = {
