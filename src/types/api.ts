@@ -72,6 +72,26 @@ export interface CategoriaGaleria {
   cantidad: number
 }
 
+export interface RegistroTiempo {
+  id: number
+  id_orden: number
+  usuario_id: number
+  usuario_nombre: string
+  fecha: string
+  hora_inicio: string
+  hora_fin: string | null
+  tiempo_minutos: number | null
+  descripcion: string | null
+  tipo_trabajo: 'diseno' | 'revision' | 'correccion' | 'consulta' | 'otro'
+  created_at: string
+}
+
+export interface TiempoUsuario {
+  fecha: string
+  total_minutos: number
+  registros: number
+}
+
 // Subtareas / checklist por ficha
 export interface TareaSubitem {
   id: number
