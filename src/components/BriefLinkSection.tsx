@@ -23,8 +23,11 @@ const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
 
   useEffect(() => {
     console.log('🔍 BriefLinkSection useEffect ejecutado - ordenId:', ordenId)
-    if (ordenId) {
+    if (ordenId && typeof ordenId === 'number') {
       loadBriefToken()
+    } else if (ordenId === undefined) {
+      // Si no hay ordenId, es un brief independiente - no hacer nada
+      console.log('ℹ️ BriefLinkSection: Sin ordenId, es un brief independiente')
     } else {
       console.error('❌ BriefLinkSection: ordenId es inválido:', ordenId)
     }

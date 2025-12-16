@@ -613,42 +613,10 @@ const TaskEditModal = ({
               
               {/* Componente para generar link del formulario */}
               {task ? (
-              (() => {
-                const ordenId = parseTaskIdToOrdenId(task.id)
-                console.log('🔍 Debug BriefLinkSection - task.id:', task.id, 'ordenId:', ordenId, 'task completo:', task)
-                
-                if (!ordenId) {
-                  console.warn('⚠️ No se pudo obtener ordenId para BriefLinkSection. Task ID:', task.id)
-                  return (
-                    <div style={{ 
-                      padding: '16px', 
-                      background: 'rgba(239, 68, 68, 0.1)', 
-                      borderRadius: '8px', 
-                      border: '2px solid rgba(239, 68, 68, 0.5)',
-                      marginTop: '16px'
-                    }}>
-                      <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>
-                        ⚠️ No se pudo obtener el ID de la orden. Task ID: {task.id}
-                      </p>
-                    </div>
-                  )
-                }
-                
-                console.log('✅ Renderizando BriefLinkSection con ordenId:', ordenId)
-                return (
-                  <div style={{ marginTop: '16px' }}>
-                    <BriefLinkSection ordenId={ordenId} />
-                  </div>
-                )
-              })()
-            ) : (
-              <div style={{ marginTop: '16px' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '12px' }}>
-                  💡 Puedes generar un link de brief para enviar al cliente antes de crear la OP
-                </p>
+                <BriefLinkSection ordenId={parseTaskIdToOrdenId(task.id) || undefined} />
+              ) : (
                 <BriefLinkSection />
-              </div>
-            )}
+              )}
             </div>
           )}
 
