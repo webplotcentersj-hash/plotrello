@@ -154,6 +154,17 @@ const DisenoDashboardPage = () => {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="diseno-dashboard-page">
+        <div className="loading-container">
+          <div className="spinner"></div>
+          <p>Cargando dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="diseno-dashboard-page">
       <header className="dashboard-header">
