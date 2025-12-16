@@ -347,6 +347,7 @@ function App() {
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
           <Route path="/dashboard-pantallas" element={<DashboardPantallasPage />} />
           <Route path="/op-public/:opNumber" element={<OpPublicPage />} />
+          <Route path="/brief/:token" element={<BriefPublicoPage />} />
           <Route
             path="/login"
             element={
@@ -598,10 +599,6 @@ function AppRoutes({
       <Route
         path="/galeria-trabajos"
         element={<GaleriaTrabajosPage />}
-      />
-      <Route
-        path="/brief/:token"
-        element={<BriefPublicoPage />}
       />
     </Routes>
     </>
