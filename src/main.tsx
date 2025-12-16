@@ -11,6 +11,7 @@ window.addEventListener('error', (event) => {
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Promise rechazada:', event.reason)
+  event.preventDefault() // Prevenir que aparezca en consola como error no manejado
 })
 
 const rootElement = document.getElementById('app')

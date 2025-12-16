@@ -755,7 +755,9 @@ const TaskCreateModal = ({
                             </div>
                             {brief.objetivo_proyecto && (
                               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                {brief.objetivo_proyecto.substring(0, 60)}...
+                                {brief.objetivo_proyecto.length > 60 
+                                  ? `${brief.objetivo_proyecto.substring(0, 60)}...` 
+                                  : brief.objetivo_proyecto}
                               </div>
                             )}
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>

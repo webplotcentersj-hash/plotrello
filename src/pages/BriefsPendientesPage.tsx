@@ -173,7 +173,7 @@ const BriefsPendientesPage = () => {
                     </div>
                   )}
 
-                  {brief.tipo_producto_servicio && brief.tipo_producto_servicio.length > 0 && (
+                  {brief.tipo_producto_servicio && Array.isArray(brief.tipo_producto_servicio) && brief.tipo_producto_servicio.length > 0 && (
                     <div className="brief-info">
                       <strong>Tipo de Producto/Servicio:</strong>
                       <div className="brief-tags">

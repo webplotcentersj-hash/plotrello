@@ -3874,35 +3874,36 @@ class ApiService {
           return ordenResponse
         }
       }
-      // Si no tiene orden, devolver los datos del brief como si fuera una orden
-      return { 
-        success: true, 
-        data: {
-          numero_op: briefResponse.data.numero_op || 'Pendiente',
-          cliente: briefResponse.data.cliente || briefResponse.data.cliente_nombre_completo || 'Cliente',
-          cliente_nombre_completo: briefResponse.data.cliente_nombre_completo,
-          cliente_empresa: briefResponse.data.cliente_empresa,
-          telefono_cliente: briefResponse.data.telefono_cliente,
-          email_cliente: briefResponse.data.email_cliente,
-          tipo_producto_servicio: briefResponse.data.tipo_producto_servicio,
-          tipo_producto_otro: briefResponse.data.tipo_producto_otro,
-          necesita_asesoramiento: briefResponse.data.necesita_asesoramiento,
-          donde_colocados: briefResponse.data.donde_colocados,
-          digital_o_impresion: briefResponse.data.digital_o_impresion,
-          cantidades: briefResponse.data.cantidades,
-          objetivo_proyecto: briefResponse.data.objetivo_proyecto,
-          material_logo: briefResponse.data.material_logo,
-          material_textos: briefResponse.data.material_textos,
-          material_imagenes: briefResponse.data.material_imagenes,
-          tiene_referencias: briefResponse.data.tiene_referencias,
-          referencias_links: briefResponse.data.referencias_links,
-          brief_publico: briefResponse.data.brief_publico,
-          estilo_diseno: briefResponse.data.estilo_diseno,
-          referencias: briefResponse.data.referencias,
-          fecha_limite_brief: briefResponse.data.fecha_limite_brief,
-          es_urgencia: briefResponse.data.es_urgencia
-        } as Partial<OrdenTrabajo>
-      }
+        // Si no tiene orden, devolver los datos del brief como si fuera una orden
+        const briefData = briefResponse.data
+        return { 
+          success: true, 
+          data: {
+            numero_op: briefData.numero_op || 'Pendiente',
+            cliente: briefData.cliente || briefData.cliente_nombre_completo || 'Cliente',
+            cliente_nombre_completo: briefData.cliente_nombre_completo || null,
+            cliente_empresa: briefData.cliente_empresa || null,
+            telefono_cliente: briefData.telefono_cliente || null,
+            email_cliente: briefData.email_cliente || null,
+            tipo_producto_servicio: Array.isArray(briefData.tipo_producto_servicio) ? briefData.tipo_producto_servicio : null,
+            tipo_producto_otro: briefData.tipo_producto_otro || null,
+            necesita_asesoramiento: briefData.necesita_asesoramiento || false,
+            donde_colocados: briefData.donde_colocados || null,
+            digital_o_impresion: briefData.digital_o_impresion || null,
+            cantidades: briefData.cantidades || null,
+            objetivo_proyecto: briefData.objetivo_proyecto || null,
+            material_logo: briefData.material_logo || null,
+            material_textos: briefData.material_textos || null,
+            material_imagenes: briefData.material_imagenes || null,
+            tiene_referencias: briefData.tiene_referencias || false,
+            referencias_links: briefData.referencias_links || null,
+            brief_publico: briefData.brief_publico || null,
+            estilo_diseno: briefData.estilo_diseno || null,
+            referencias: briefData.referencias || null,
+            fecha_limite_brief: briefData.fecha_limite_brief || null,
+            es_urgencia: briefData.es_urgencia || false
+          } as Partial<OrdenTrabajo>
+        }
     }
     
     // Fallback: intentar con la función antigua (compatibilidad)

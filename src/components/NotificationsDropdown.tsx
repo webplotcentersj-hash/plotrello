@@ -219,16 +219,23 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     }
     setIsOpen(false)
     
-    // Navegar según el tipo de notificación
-    if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
-      // Es una notificación de mención del chat
-      navigate('/chat')
-    } else if (notification.pedido_id) {
-      // Es una notificación relacionada con un pedido de compra
-      navigate(`/compras/pedidos/${notification.pedido_id}`)
-    } else if (notification.orden_id) {
-      // Es una notificación relacionada con una orden
-      navigate('/')
+    try {
+      // Navegar según el tipo de notificación
+      if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
+        // Es una notificación de mención del chat
+        navigate('/chat')
+      } else if (notification.pedido_id) {
+        // Es una notificación relacionada con un pedido de compra
+        navigate(`/compras/pedidos/${notification.pedido_id}`)
+      } else if (notification.orden_id) {
+        // Es una notificación relacionada con una orden
+        navigate('/')
+      } else {
+        // Si no hay navegación específica, solo cerrar el dropdown
+        console.log('Notificación sin navegación específica:', notification)
+      }
+    } catch (error) {
+      console.error('Error navegando desde notificación:', error)
     }
     
     if (onNotificationClick) {
