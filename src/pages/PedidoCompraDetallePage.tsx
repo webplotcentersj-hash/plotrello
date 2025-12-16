@@ -243,6 +243,164 @@ const PedidoCompraDetallePage = () => {
     return colores[prioridad] || '#6b7280'
   }
 
+  const generarPDF = () => {
+    if (!pedido) return
+
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 14
+    let y = margin
+
+    // Encabezado
+    doc.setFontSize(20)
+    doc.setFont('helvetica', 'bold')
+    doc.text('ORDEN DE COMPRA', pageWidth / 2, y, { align: 'center' })
+    y += 10
+
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Número: ${pedido.numero_pedido}`, margin, y)
+    y += 7
+
+    // Información del pedido
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Información del Pedido', margin, y)
+    y += 7
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Solicitante: ${pedido.nombre_solicitante}`, margin, y)
+    y += 5
+
+    if (pedido.sector_solicitante) {
+      doc.text(`Sector: ${pedido.sector_solicitante}`, margin, y)
+      y += 5
+    }
+
+    if (pedido.proveedor) {
+      doc.text(`Proveedor: ${pedido.proveedor.nombre}`, margin, y)
+      y += 5
+      if (pedido.proveedor.razon_social) {
+        doc.text(`Razón Social: ${pedido.proveedor.razon_social}`, margin, y)
+        y += 5
+      }
+    }
+
+    doc.text(`Fecha de Solicitud: ${new Date(pedido.fecha_solicitud).toLocaleDateString('es-AR')}`, margin, y)
+    y += 5
+
+    doc.text(`Estado: ${pedido.estado}`, margin, y)
+    y += 5
+
+    doc.text(`Prioridad: ${pedido.prioridad}`, margin, y)
+    y += 5
+
+    if (pedido.fecha_entrega_estimada) {
+      doc.text(`Fecha de Entrega Estimada: ${new Date(pedido.fecha_entrega_estimada).toLocaleDateString('es-AR')}`, margin, y)
+      y += 5
+    }
+
+    if (pedido.motivo) {
+      y += 3
+      doc.setFont('helvetica', 'bold')
+      doc.text('Motivo:', margin, y)
+      y += 5
+      doc.setFont('helvetica', 'normal')
+      const motivoLines = doc.splitTextToSize(pedido.motivo, pageWidth - 2 * margin)
+      doc.text(motivoLines, margin, y)
+      y += motivoLines.length * 5
+    }
+
+    if (pedido.observaciones) {
+      y += 3
+      doc.setFont('helvetica', 'bold')
+      doc.text('Observaciones:', margin, y)
+      y += 5
+      doc.setFont('helvetica', 'normal')
+      const obsLines = doc.splitTextToSize(pedido.observaciones, pageWidth - 2 * margin)
+      doc.text(obsLines, margin, y)
+      y += obsLines.length * 5
+    }
+
+    // Items del pedido
+    if (pedido.items && pedido.items.length > 0) {
+      y += 5
+      if (y > 250) {
+        doc.addPage()
+        y = margin
+      }
+
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Productos Solicitados', margin, y)
+      y += 7
+
+      // Tabla de items
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Código', margin, y)
+      doc.text('Descripción', margin + 30, y)
+      doc.text('Cant.', margin + 100, y)
+      doc.text('Unidad', margin + 115, y)
+      doc.text('Obs.', margin + 140, y)
+      y += 5
+
+      doc.setDrawColor(200, 200, 200)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 3
+
+      doc.setFont('helvetica', 'normal')
+      pedido.items.forEach((item) => {
+        if (y > 270) {
+          doc.addPage()
+          y = margin
+          // Redibujar encabezado de tabla
+          doc.setFont('helvetica', 'bold')
+          doc.text('Código', margin, y)
+          doc.text('Descripción', margin + 30, y)
+          doc.text('Cant.', margin + 100, y)
+          doc.text('Unidad', margin + 115, y)
+          doc.text('Obs.', margin + 140, y)
+          y += 5
+          doc.line(margin, y, pageWidth - margin, y)
+          y += 3
+          doc.setFont('helvetica', 'normal')
+        }
+
+        const codigo = item.codigo_articulo || '-'
+        const descripcion = item.descripcion.length > 40 ? item.descripcion.substring(0, 37) + '...' : item.descripcion
+        const cantidad = item.cantidad_solicitada.toString()
+        const unidad = item.unidad || 'unidad'
+        const observaciones = item.observaciones ? (item.observaciones.length > 15 ? item.observaciones.substring(0, 12) + '...' : item.observaciones) : '-'
+
+        doc.text(codigo, margin, y)
+        doc.text(descripcion, margin + 30, y)
+        doc.text(cantidad, margin + 100, y)
+        doc.text(unidad, margin + 115, y)
+        doc.text(observaciones, margin + 140, y)
+        y += 5
+      })
+    }
+
+    // Pie de página
+    const totalPages = doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      doc.text(
+        `Página ${i} de ${totalPages} - Generado el ${new Date().toLocaleDateString('es-AR')}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      )
+    }
+
+    // Guardar PDF
+    doc.save(`pedido-compra-${pedido.numero_pedido}-${new Date().toISOString().split('T')[0]}.pdf`)
+  }
+
   if (loading) {
     return (
       <div className="pedido-detalle-page">
@@ -292,18 +450,27 @@ const PedidoCompraDetallePage = () => {
               </span>
             </div>
           </div>
-            <button
-              className="btn-secondary"
-              onClick={() => navigate('/compras/dashboard')}
-            >
-              ← Volver
-            </button>
-            <button
-              className="btn-primary"
-              onClick={() => navigate(`/compras/presupuestos/${pedido.id}`)}
-            >
-              💰 Presupuestos
-            </button>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button
+                className="btn-secondary"
+                onClick={() => navigate('/compras/dashboard')}
+              >
+                ← Volver
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => navigate(`/compras/presupuestos/${pedido.id}`)}
+              >
+                💰 Presupuestos
+              </button>
+              <button
+                className="btn-primary"
+                onClick={generarPDF}
+                style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+              >
+                📄 Descargar PDF
+              </button>
+            </div>
         </div>
       </header>
 
