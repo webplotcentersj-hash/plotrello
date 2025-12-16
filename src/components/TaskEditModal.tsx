@@ -708,7 +708,17 @@ const TaskEditModal = ({
               
               {task.fechaLimiteBrief && (
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>Fecha Límite:</strong> {new Date(task.fechaLimiteBrief).toLocaleDateString('es-AR')}
+                  <strong style={{ color: 'var(--text-primary)' }}>Fecha Límite:</strong> {
+                    task.fechaLimiteBrief 
+                      ? (() => {
+                          try {
+                            return new Date(task.fechaLimiteBrief).toLocaleDateString('es-AR')
+                          } catch (e) {
+                            return task.fechaLimiteBrief
+                          }
+                        })()
+                      : 'N/A'
+                  }
                 </div>
               )}
             </div>
