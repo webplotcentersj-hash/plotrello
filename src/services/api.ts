@@ -3930,6 +3930,26 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  // Listar briefs pendientes (sin OP asociada)
+  async listarBriefsPendientes(): Promise<ApiResponse<any[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_briefs_pendientes')
+
+        if (error) {
+          console.error('Error listando briefs pendientes:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as any[] }
+      } catch (error) {
+        console.error('Error listando briefs pendientes:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   // Asociar un brief a una orden
   async asociarBriefAOrden(tokenBrief: string, idOrden: number): Promise<ApiResponse<void>> {
     if (supabase) {

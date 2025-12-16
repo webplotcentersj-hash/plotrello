@@ -153,6 +153,14 @@ const Header = ({
                 🎨 Dashboard Diseño
               </button>
             )}
+            {(isDiseno || isAdmin) && (
+              <a
+                href="/briefs-pendientes"
+                className="brand-button"
+              >
+                📋 Briefs Pendientes
+              </a>
+            )}
             <a
               href="/galeria"
               className="brand-button"

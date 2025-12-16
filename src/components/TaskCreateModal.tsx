@@ -43,7 +43,11 @@ const TaskCreateModal = ({
   onClose,
   onCreate
 }: TaskCreateModalProps) => {
-  const { usuario } = useAuth()
+  const { usuario, isAdmin, isDiseno } = useAuth()
+  const [briefTokenSeleccionado, setBriefTokenSeleccionado] = useState<string | null>(null)
+  const [briefsPendientes, setBriefsPendientes] = useState<any[]>([])
+  const [loadingBriefs, setLoadingBriefs] = useState(false)
+  const [mostrarSelectorBrief, setMostrarSelectorBrief] = useState(false)
   
   // Sectores válidos que coinciden con las columnas del Kanban
   const sectoresKanban = [
@@ -259,7 +263,19 @@ const TaskCreateModal = ({
     }
 
     console.log('🏷️ [TaskCreateModal] newTask.tags:', newTask.tags)
+    
+    // Si hay un brief token seleccionado, guardarlo para asociarlo después de crear la OP
+    if (briefTokenSeleccionado) {
+      (newTask as any).briefToken = briefTokenSeleccionado
+    }
+    
     await onCreate(newTask, { openChecklist })
+    
+    // Asociar brief a la OP si hay token
+    if (briefTokenSeleccionado && (newTask as any).createdOrdenId) {
+      await apiService.asociarBriefAOrden(briefTokenSeleccionado, (newTask as any).createdOrdenId)
+    }
+    
     onClose()
   }
 

@@ -7,6 +7,7 @@ import { parseTaskIdToOrdenId, filterOperariosBySector } from '../utils/dataMapp
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
 import BriefLinkSection from './BriefLinkSection'
+import { useAuth } from '../hooks/useAuth'
 import './TaskEditModal.css'
 
 type TaskEditModalProps = {
@@ -43,6 +44,7 @@ const TaskEditModal = ({
   onSave,
   onDelete
 }: TaskEditModalProps) => {
+  const { isAdmin, isDiseno } = useAuth()
   const [formData, setFormData] = useState<Partial<Task>>({})
   const [selectedSectors, setSelectedSectors] = useState<string[]>([])
   const [materials, setMaterials] = useState<Array<{ name: string; quantity: number }>>([])
@@ -603,13 +605,14 @@ const TaskEditModal = ({
             />
           </div>
 
-          {/* Sección de Brief Público */}
-          <div className="form-section-divider">
-            <h3>📋 Brief del Proyecto (Público)</h3>
-            <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
-            
-            {/* Componente para generar link del formulario */}
-            {task ? (
+          {/* Sección de Brief Público - Solo para Diseño Gráfico y Admin */}
+          {(isAdmin || isDiseno) && (
+            <div className="form-section-divider">
+              <h3>📋 Brief del Proyecto (Público)</h3>
+              <p className="section-description">Envía este formulario al cliente para que complete el brief</p>
+              
+              {/* Componente para generar link del formulario */}
+              {task ? (
               (() => {
                 const ordenId = parseTaskIdToOrdenId(task.id)
                 console.log('🔍 Debug BriefLinkSection - task.id:', task.id, 'ordenId:', ordenId, 'task completo:', task)
@@ -645,21 +648,9 @@ const TaskEditModal = ({
                 </p>
                 <BriefLinkSection />
               </div>
-              })()
-            ) : (
-              <div style={{ 
-                padding: '16px', 
-                background: 'rgba(239, 68, 68, 0.1)', 
-                borderRadius: '8px', 
-                border: '2px solid rgba(239, 68, 68, 0.5)',
-                marginTop: '16px'
-              }}>
-                <p style={{ color: '#ef4444', fontSize: '0.875rem', margin: 0 }}>
-                  ⚠️ No hay tarea seleccionada
-                </p>
-              </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Mostrar datos del brief completo si fueron completados por el cliente */}
           {task && (task.clienteNombreCompleto || task.tipoProductoServicio?.length || task.materialLogo) && (

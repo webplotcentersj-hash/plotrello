@@ -373,6 +373,16 @@ const BoardPage = ({
         const createdTask = ordenToTask(response.data)
         const ordenId = parseTaskIdToOrdenId(createdTask.id)
         
+        // Asociar brief si hay token seleccionado
+        if ((newTaskData as any).briefToken && ordenId) {
+          try {
+            await apiService.asociarBriefAOrden((newTaskData as any).briefToken, ordenId)
+            console.log('✅ Brief asociado a la OP:', ordenId)
+          } catch (error) {
+            console.error('Error asociando brief a la OP:', error)
+          }
+        }
+        
         // Guardar archivos adjuntos si hay alguno en el taskData
         if (newTaskData.attachments && Array.isArray(newTaskData.attachments) && ordenId) {
           for (const attachment of newTaskData.attachments) {

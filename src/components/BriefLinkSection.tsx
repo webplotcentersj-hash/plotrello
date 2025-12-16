@@ -8,7 +8,12 @@ type BriefLinkSectionProps = {
 }
 
 const BriefLinkSection = ({ ordenId }: BriefLinkSectionProps) => {
-  const { usuario } = useAuth()
+  const { usuario, isAdmin, isDiseno } = useAuth()
+  
+  // Restringir acceso solo para diseño gráfico y admin
+  if (!isAdmin && !isDiseno) {
+    return null
+  }
   const [briefToken, setBriefToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
