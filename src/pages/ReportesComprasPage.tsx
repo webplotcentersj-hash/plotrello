@@ -19,7 +19,6 @@ const ReportesComprasPage = () => {
     prioridad: 'todos',
     sector: ''
   })
-  const [reporteTipo, setReporteTipo] = useState<'pedidos' | 'costos' | 'proveedores'>('pedidos')
 
   useEffect(() => {
     if (authLoading) return
@@ -66,16 +65,16 @@ const ReportesComprasPage = () => {
       })
     }
 
+    if (filtros.sector) {
+      filtrados = filtrados.filter(p => p.sector_solicitante === filtros.sector)
+    }
+
     if (filtros.estado !== 'todos') {
       filtrados = filtrados.filter(p => p.estado === filtros.estado)
     }
 
     if (filtros.prioridad !== 'todos') {
       filtrados = filtrados.filter(p => p.prioridad === filtros.prioridad)
-    }
-
-    if (filtros.sector) {
-      filtrados = filtrados.filter(p => p.sector_solicitante === filtros.sector)
     }
 
     return filtrados
@@ -95,7 +94,7 @@ const ReportesComprasPage = () => {
     doc.text(`Total de pedidos: ${pedidosFiltrados.length}`, 14, 36)
 
     let y = 50
-    pedidosFiltrados.forEach((pedido, index) => {
+    pedidosFiltrados.forEach((pedido) => {
       if (y > 270) {
         doc.addPage()
         y = 20
@@ -123,6 +122,10 @@ const ReportesComprasPage = () => {
       }
 
       y += 3
+      if (y > 270) {
+        doc.addPage()
+        y = 20
+      }
     })
 
     doc.save(`reporte-compras-${new Date().toISOString().split('T')[0]}.pdf`)
@@ -172,6 +175,7 @@ const ReportesComprasPage = () => {
 
   const exportarReporteCostos = () => {
     const { total, porEstado, porSector } = calcularCostos()
+    const pedidosFiltrados = aplicarFiltros()
     const doc = new jsPDF()
 
     doc.setFontSize(18)
@@ -180,6 +184,9 @@ const ReportesComprasPage = () => {
     doc.setFontSize(12)
     doc.setFont(undefined, 'bold')
     doc.text(`Total General: $${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 14, 35)
+    doc.setFontSize(10)
+    doc.setFont(undefined, 'normal')
+    doc.text(`Pedidos analizados: ${pedidosFiltrados.length}`, 14, 42)
 
     let y = 50
     doc.setFontSize(11)

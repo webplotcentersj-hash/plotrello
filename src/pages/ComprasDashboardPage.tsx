@@ -18,7 +18,7 @@ const ComprasDashboardPage = () => {
     pedidosPorPrioridad: [] as Array<{ name: string; value: number; color: string }>,
     costosPorMes: [] as Array<{ mes: string; total: number }>
   })
-  const [alertas, setAlertas] = useState<Array<{
+  const [, setAlertas] = useState<Array<{
     tipo: 'stock_bajo' | 'pedido_pendiente' | 'entrega_proxima' | 'presupuesto_vencido'
     titulo: string
     descripcion: string

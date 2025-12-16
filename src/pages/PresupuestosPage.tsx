@@ -8,7 +8,7 @@ import './PresupuestosPage.css'
 const PresupuestosPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { canManageCompras, usuario, loading: authLoading } = useAuth()
+  const { canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedido, setPedido] = useState<PedidoCompra | null>(null)
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([])
