@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
-import type { UsuarioRecord } from '../types/api'
 import {
   BarChart,
   Bar,
@@ -59,8 +58,7 @@ const RecursosHumanosEstadisticasPage = () => {
   }
 
   const getFechaHasta = () => {
-    const hoy = new Date()
-    return hoy.toISOString().split('T')[0]
+    return new Date().toISOString().split('T')[0]
   }
 
   const loadData = async () => {
