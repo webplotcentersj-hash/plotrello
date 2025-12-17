@@ -115,7 +115,7 @@ const HistorialEtapasTallerGrafico = ({ ordenId }: HistorialEtapasTallerGraficoP
     <div className="historial-etapas-container">
       <h4 className="historial-etapas-title">📋 Historial de Etapas</h4>
       <div className="historial-etapas-timeline">
-        {historial.map((item, index) => {
+        {historial.map((item) => {
           const color = getEtapaColor(item.etapa_nueva)
           const icon = getEtapaIcon(item.etapa_nueva)
           const isActive = item.fecha_fin_etapa === null
