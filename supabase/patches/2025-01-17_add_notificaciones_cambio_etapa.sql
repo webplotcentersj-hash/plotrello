@@ -50,7 +50,7 @@ BEGIN
       SELECT id, nombre 
       FROM public.usuarios 
       WHERE rol IN ('taller-grafico', 'administracion', 'gerencia')
-        AND (operario_asignado IS NULL OR nombre != NEW.operario_asignado)
+        AND (NEW.operario_asignado IS NULL OR nombre != NEW.operario_asignado)
     LOOP
       BEGIN
         notification_title := 'Cambio de etapa en Taller Gráfico';
