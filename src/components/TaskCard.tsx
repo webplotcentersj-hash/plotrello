@@ -94,9 +94,10 @@ const TaskCard = ({
   const [metrosManuales, setMetrosManuales] = useState<string>('')
   const [showQRPrint, setShowQRPrint] = useState(false)
   const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
-  const [showTagsModal, setShowTagsModal] = useState(false)
   const [showHistorialTallerModal, setShowHistorialTallerModal] = useState(false)
   const [showHistorialInstalacionesModal, setShowHistorialInstalacionesModal] = useState(false)
+  const [showEtapasTallerModal, setShowEtapasTallerModal] = useState(false)
+  const [showEtapasInstalacionesModal, setShowEtapasInstalacionesModal] = useState(false)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
@@ -625,18 +626,18 @@ const TaskCard = ({
             {/* Sección específica de Taller Gráfico - Visible para taller-grafico y admin */}
             {isTallerGrafico && hasOrdenId && (isAdmin || canManageImpresoras) && (
               <div className="task-taller-grafico-section">
-                {/* Selector de Etapas */}
-                <EtapaTallerGraficoSelector
-                  ordenId={ordenId}
-                  etapaActual={task.etapaTallerGrafico}
-                  onEtapaChange={() => {
-                    // Recargar datos si hay callback disponible
-                    if (onEdit) {
-                      // Trigger a reload through parent
-                      window.dispatchEvent(new CustomEvent('reload-tasks'))
-                    }
+                {/* Botón para cambiar etapa */}
+                <button
+                  type="button"
+                  className="btn-view-etapas"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowEtapasTallerModal(true)
                   }}
-                />
+                  title="Cambiar etapa"
+                >
+                  {task.etapaTallerGrafico ? `📍 ${task.etapaTallerGrafico}` : '⚙️ Seleccionar Etapa'}
+                </button>
 
                 {/* Botón para ver historial */}
                 <button
@@ -692,18 +693,18 @@ const TaskCard = ({
             {/* Sección específica de Instalaciones - Visible para instalaciones y admin */}
             {isInstalaciones && hasOrdenId && (isAdmin || canManageInstalaciones) && (
               <div className="task-instalaciones-section">
-                {/* Selector de Etapas */}
-                <EtapaInstalacionesSelector
-                  ordenId={ordenId}
-                  etapaActual={task.etapaInstalaciones}
-                  onEtapaChange={() => {
-                    // Recargar datos si hay callback disponible
-                    if (onEdit) {
-                      // Trigger a reload through parent
-                      window.dispatchEvent(new CustomEvent('reload-tasks'))
-                    }
+                {/* Botón para cambiar etapa */}
+                <button
+                  type="button"
+                  className="btn-view-etapas"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowEtapasInstalacionesModal(true)
                   }}
-                />
+                  title="Cambiar etapa"
+                >
+                  {task.etapaInstalaciones ? `📍 ${task.etapaInstalaciones}` : '⚙️ Seleccionar Etapa'}
+                </button>
 
                 {/* Botón para ver historial */}
                 <button
