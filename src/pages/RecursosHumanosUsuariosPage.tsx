@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
+import LegajoEmpleadoModal from '../components/LegajoEmpleadoModal'
 import './RecursosHumanosUsuariosPage.css'
 
 const RecursosHumanosUsuariosPage = () => {
@@ -10,6 +11,7 @@ const RecursosHumanosUsuariosPage = () => {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showLegajoModal, setShowLegajoModal] = useState(false)
   const [selectedUsuario, setSelectedUsuario] = useState<UsuarioRecord | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRol, setFilterRol] = useState<string>('todos')
@@ -82,36 +84,56 @@ const RecursosHumanosUsuariosPage = () => {
 
   const handleEdit = async () => {
     if (!selectedUsuario || !formData.nombre.trim()) {
+      alert('Por favor completa el nombre del usuario')
       return
     }
 
     try {
-      // Si hay nueva contraseña, actualizarla
-      if (formData.password.trim()) {
-        // Aquí necesitarías una función para actualizar contraseña
-        // Por ahora solo actualizamos nombre y rol
+      const updates: {
+        nombre?: string
+        rol?: UsuarioRecord['rol']
+        password?: string
+      } = {
+        nombre: formData.nombre.trim(),
+        rol: formData.rol
       }
 
-      setShowEditModal(false)
-      setSelectedUsuario(null)
-      setFormData({ nombre: '', password: '', rol: 'mostrador' })
-      await loadUsuarios()
-      alert('Usuario actualizado exitosamente')
+      // Solo incluir contraseña si se proporcionó una nueva
+      if (formData.password.trim()) {
+        updates.password = formData.password
+      }
+
+      const response = await apiService.updateUsuario(selectedUsuario.id, updates)
+
+      if (response.success) {
+        setShowEditModal(false)
+        setSelectedUsuario(null)
+        setFormData({ nombre: '', password: '', rol: 'mostrador' })
+        await loadUsuarios()
+        alert('Usuario actualizado exitosamente')
+      } else {
+        alert(`Error: ${response.error}`)
+      }
     } catch (error) {
       console.error('Error actualizando usuario:', error)
       alert('Error al actualizar usuario')
     }
   }
 
-  const handleDelete = async (_userId: number) => {
-    if (!confirm('¿Estás seguro de eliminar este usuario?')) {
+  const handleDelete = async (userId: number) => {
+    if (!confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
       return
     }
 
     try {
-      // Implementar función de eliminación si existe
-      await loadUsuarios()
-      alert('Usuario eliminado exitosamente')
+      const response = await apiService.deleteUsuario(userId)
+
+      if (response.success) {
+        await loadUsuarios()
+        alert('Usuario eliminado exitosamente')
+      } else {
+        alert(`Error: ${response.error}`)
+      }
     } catch (error) {
       console.error('Error eliminando usuario:', error)
       alert('Error al eliminar usuario')
@@ -210,6 +232,16 @@ const RecursosHumanosUsuariosPage = () => {
                   <td>Hoy</td>
                   <td>
                     <div className="rrhh-actions-buttons">
+                      <button
+                        className="btn-legajo"
+                        onClick={() => {
+                          setSelectedUsuario(user)
+                          setShowLegajoModal(true)
+                        }}
+                        title="Ver/Editar Legajo Completo"
+                      >
+                        📋 Legajo
+                      </button>
                       <button
                         className="btn-edit"
                         onClick={() => {
@@ -347,6 +379,21 @@ const RecursosHumanosUsuariosPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Legajo Completo */}
+      {showLegajoModal && selectedUsuario && (
+        <LegajoEmpleadoModal
+          usuario={selectedUsuario}
+          isOpen={showLegajoModal}
+          onClose={() => {
+            setShowLegajoModal(false)
+            setSelectedUsuario(null)
+          }}
+          onSave={() => {
+            loadUsuarios()
+          }}
+        />
       )}
     </div>
   )

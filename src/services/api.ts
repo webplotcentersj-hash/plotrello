@@ -13,7 +13,8 @@ import type {
   TareaSubitem,
   TareaRecord,
   UsuarioRecord,
-  UserRole
+  UserRole,
+  LegajoEmpleado
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -1147,6 +1148,100 @@ class ApiService {
   }
 
   // ========== USUARIOS ==========
+  async getLegajoEmpleado(idUsuario: number): Promise<ApiResponse<LegajoEmpleado | null>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('obtener_legajo_empleado', {
+        p_id_usuario: idUsuario
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        return { success: true, data: data[0] as LegajoEmpleado }
+      }
+
+      return { success: true, data: null }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearActualizarLegajo(
+    idUsuario: number,
+    legajo: Partial<LegajoEmpleado>
+  ): Promise<ApiResponse<LegajoEmpleado>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('crear_actualizar_legajo', {
+        p_id_usuario: idUsuario,
+        p_nombre: legajo.nombre || null,
+        p_apellido: legajo.apellido || null,
+        p_telefono: legajo.telefono || null,
+        p_ubicacion: legajo.ubicacion || null,
+        p_foto_url: legajo.foto_url || null,
+        p_sector: legajo.sector || null,
+        p_funciones: legajo.funciones || null,
+        p_fecha_ingreso: legajo.fecha_ingreso || null,
+        p_fecha_nacimiento: legajo.fecha_nacimiento || null,
+        p_dni: legajo.dni || null,
+        p_direccion: legajo.direccion || null,
+        p_email: legajo.email || null,
+        p_estado_civil: legajo.estado_civil || null,
+        p_contacto_emergencia_nombre: legajo.contacto_emergencia_nombre || null,
+        p_contacto_emergencia_telefono: legajo.contacto_emergencia_telefono || null,
+        p_observaciones: legajo.observaciones || null
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        return { success: true, data: data[0] as LegajoEmpleado }
+      }
+
+      return { success: false, error: 'No se recibieron datos del servidor' }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async uploadFotoEmpleado(file: File, idUsuario: number): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `empleados/${idUsuario}_${Date.now()}.${fileExt}`
+        
+        const { data, error } = await supabase.storage
+          .from('legajos')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        // Obtener URL pública
+        const { data: urlData } = supabase.storage
+          .from('legajos')
+          .getPublicUrl(fileName)
+
+        if (urlData?.publicUrl) {
+          return { success: true, data: urlData.publicUrl }
+        }
+
+        return { success: false, error: 'No se pudo obtener la URL de la imagen' }
+      } catch (error: any) {
+        return { success: false, error: error.message || 'Error al subir la foto' }
+      }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async getUsuarios(): Promise<ApiResponse<UsuarioRecord[]>> {
     if (supabase) {
       const { data, error } = await supabase
@@ -1284,6 +1379,60 @@ class ApiService {
     return usuario
       ? { success: true, data: usuario }
       : { success: false, error: 'Usuario no encontrado' }
+  }
+
+  async updateUsuario(
+    id: number,
+    updates: {
+      nombre?: string
+      rol?: UserRole
+      password?: string
+    }
+  ): Promise<ApiResponse<UsuarioRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_usuario', {
+          p_id: id,
+          p_nombre: updates.nombre || null,
+          p_rol: updates.rol || null,
+          p_password: updates.password || null
+        })
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        if (data && Array.isArray(data) && data.length > 0) {
+          return { success: true, data: data[0] as UsuarioRecord }
+        }
+
+        return { success: false, error: 'No se recibieron datos del servidor' }
+      } catch (error: any) {
+        return { success: false, error: error.message || 'Error al actualizar usuario' }
+      }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async deleteUsuario(id: number): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('eliminar_usuario', {
+          p_id: id
+        })
+
+        if (error) {
+          return { success: false, error: error.message }
+        }
+
+        return { success: true }
+      } catch (error: any) {
+        return { success: false, error: error.message || 'Error al eliminar usuario' }
+      }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
   }
 
   async createUsuario(usuario: {

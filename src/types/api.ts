@@ -149,6 +149,29 @@ export interface UsuarioRecord {
   rol: UserRole
 }
 
+export interface LegajoEmpleado {
+  id?: number
+  id_usuario: number
+  nombre?: string | null
+  apellido?: string | null
+  telefono?: string | null
+  ubicacion?: string | null
+  foto_url?: string | null
+  sector?: string | null
+  funciones?: string | null
+  fecha_ingreso?: string | null
+  fecha_nacimiento?: string | null
+  dni?: string | null
+  direccion?: string | null
+  email?: string | null
+  estado_civil?: string | null
+  contacto_emergencia_nombre?: string | null
+  contacto_emergencia_telefono?: string | null
+  observaciones?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
 export interface ClienteRecord {
   id: number
   nombre: string

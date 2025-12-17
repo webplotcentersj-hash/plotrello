@@ -151,6 +151,23 @@
   gap: 8px;
 }
 
+.btn-legajo {
+  padding: 6px 12px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 6px;
+  color: #8b5cf6;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-legajo:hover {
+  background: rgba(139, 92, 246, 0.3);
+  transform: scale(1.05);
+}
+
 .btn-delete {
   padding: 6px 12px;
   background: rgba(239, 68, 68, 0.2);
