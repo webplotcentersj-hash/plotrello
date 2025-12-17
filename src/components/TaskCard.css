@@ -14,7 +14,8 @@
   width: 100%;
   flex-shrink: 0;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
+  min-height: auto;
 }
 
 body.compact-mode .task-card {
@@ -535,9 +536,10 @@ body.compact-mode .task-actions {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-height: 600px;
+  max-height: none;
+  min-height: auto;
   opacity: 1;
-  transition: max-height 300ms ease, opacity 300ms ease;
+  transition: opacity 300ms ease;
   overflow: visible;
   padding-top: 4px;
 }
@@ -549,6 +551,7 @@ body.compact-mode .task-actions {
   pointer-events: none;
   margin: 0;
   padding: 0;
+  min-height: 0;
 }
 
 .task-card.is-dragging {
@@ -1158,5 +1161,28 @@ body.compact-mode .task-actions {
 .priority-baja .sector-pill {
   background: rgba(61, 213, 152, 0.15);
   border-color: rgba(61, 213, 152, 0.3);
+}
+
+.task-taller-grafico-section {
+  width: 100%;
+  overflow: visible;
+  margin-top: 8px;
+}
+
+.task-impresora-section {
+  width: 100%;
+  overflow: visible;
+}
+
+.etapa-pill-header {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
