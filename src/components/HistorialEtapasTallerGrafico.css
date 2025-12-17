@@ -1,0 +1,197 @@
+.historial-etapas-container {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.historial-etapas-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.historial-etapas-loading,
+.historial-etapas-error,
+.historial-etapas-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.historial-etapas-error {
+  color: #f87171;
+}
+
+.historial-etapas-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.historial-etapa-item {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding-left: 8px;
+}
+
+.historial-etapa-item.active {
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  margin: -4px;
+}
+
+.historial-etapa-line {
+  width: 3px;
+  background: currentColor;
+  border-radius: 2px;
+  flex-shrink: 0;
+  min-height: 60px;
+}
+
+.historial-etapa-item:last-child .historial-etapa-line {
+  min-height: auto;
+}
+
+.historial-etapa-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.historial-etapa-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.historial-etapa-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+}
+
+.historial-etapa-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.historial-etapa-etapa {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.historial-etapa-transition {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.historial-etapa-from {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.historial-etapa-arrow {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.historial-etapa-to {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.historial-etapa-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.historial-etapa-badge.active-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.historial-etapa-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 42px;
+  font-size: 0.8rem;
+}
+
+.historial-etapa-user,
+.historial-etapa-time,
+.historial-etapa-duration,
+.historial-etapa-comment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.historial-etapa-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.historial-etapa-value {
+  color: var(--text-secondary);
+}
+
+.historial-etapa-ago {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+.historial-etapa-duration .historial-etapa-value {
+  font-size: 0.85rem;
+}
+
+.historial-etapa-comment {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.historial-etapa-comment .historial-etapa-value {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .historial-etapa-details {
+    padding-left: 0;
+  }
+  
+  .historial-etapa-header {
+    flex-wrap: wrap;
+  }
+}
+

@@ -4,6 +4,35 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Colores por etapa */
+.etapa-button[data-etapa="Falta Material para Impresión o archivo"] {
+  border-left: 3px solid #ef4444;
+}
+
+.etapa-button[data-etapa="En Proceso"] {
+  border-left: 3px solid #3b82f6;
+}
+
+.etapa-button[data-etapa="Para Cortar o Pegar"] {
+  border-left: 3px solid #f59e0b;
+}
+
+.etapa-button[data-etapa="Para Rotular"] {
+  border-left: 3px solid #8b5cf6;
+}
+
+.etapa-button[data-etapa="Instalaciones/Ploteo"] {
+  border-left: 3px solid #10b981;
+}
+
+.etapa-button[data-etapa="Metalurgica Instalacion"] {
+  border-left: 3px solid #ec4899;
+}
+
+.etapa-button[data-etapa="laminas"] {
+  border-left: 3px solid #06b6d4;
+}
+
 .etapa-label {
   display: block;
   font-size: 0.75rem;
@@ -24,6 +53,7 @@
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.15);
+  border-left-width: 2px;
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   font-size: 0.85rem;
@@ -34,8 +64,18 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   min-height: 40px;
+}
+
+.etapa-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.etapa-text {
+  flex: 1;
+  text-align: left;
 }
 
 .etapa-button:hover:not(:disabled) {

@@ -7,6 +7,7 @@ import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import QRPrintView from './QRPrintView'
 import EtapaTallerGraficoSelector from './EtapaTallerGraficoSelector'
+import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
@@ -275,24 +276,70 @@ const TaskCard = ({
                   {task.assignedSector}
                 </span>
                 {/* Mostrar etapa actual de Taller Gráfico */}
-                {isTallerGrafico && task.etapaTallerGrafico && (
-                  <span 
-                    className="etapa-pill-header" 
-                    style={{ 
-                      backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                      borderColor: 'rgba(59, 130, 246, 0.5)',
-                      color: '#60a5fa',
-                      fontSize: '0.75rem',
-                      marginLeft: '8px',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      display: 'inline-block'
-                    }}
-                    title="Etapa actual en Taller Gráfico"
-                  >
-                    📍 {task.etapaTallerGrafico}
-                  </span>
-                )}
+                {isTallerGrafico && task.etapaTallerGrafico && (() => {
+                  const getEtapaColor = (etapa: string): string => {
+                    const colores: Record<string, string> = {
+                      'Falta Material para Impresión o archivo': '#ef4444',
+                      'En Proceso': '#3b82f6',
+                      'Para Cortar o Pegar': '#f59e0b',
+                      'Para Rotular': '#8b5cf6',
+                      'Instalaciones/Ploteo': '#10b981',
+                      'Metalurgica Instalacion': '#ec4899',
+                      'laminas': '#06b6d4'
+                    }
+                    return colores[etapa] || '#6b7280'
+                  }
+                  const getEtapaIcon = (etapa: string): string => {
+                    const iconos: Record<string, string> = {
+                      'Falta Material para Impresión o archivo': '⚠️',
+                      'En Proceso': '⚙️',
+                      'Para Cortar o Pegar': '✂️',
+                      'Para Rotular': '🏷️',
+                      'Instalaciones/Ploteo': '🚚',
+                      'Metalurgica Instalacion': '🔧',
+                      'laminas': '📄'
+                    }
+                    return iconos[etapa] || '📍'
+                  }
+                  const etapaColor = getEtapaColor(task.etapaTallerGrafico)
+                  const etapaIcon = getEtapaIcon(task.etapaTallerGrafico)
+                  const tiempoEnEtapa = task.etapaTallerGraficoFechaInicio 
+                    ? Math.floor((new Date().getTime() - new Date(task.etapaTallerGraficoFechaInicio).getTime()) / 1000)
+                    : null
+                  const tiempoFormateado = tiempoEnEtapa 
+                    ? tiempoEnEtapa < 60 
+                      ? `${tiempoEnEtapa} seg`
+                      : tiempoEnEtapa < 3600
+                      ? `${Math.floor(tiempoEnEtapa / 60)} min`
+                      : `${Math.floor(tiempoEnEtapa / 3600)} horas`
+                    : null
+                  
+                  return (
+                    <span 
+                      className="etapa-pill-header" 
+                      style={{ 
+                        backgroundColor: `${etapaColor}20`,
+                        borderColor: `${etapaColor}60`,
+                        color: etapaColor,
+                        fontSize: '0.75rem',
+                        marginLeft: '8px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontWeight: '600'
+                      }}
+                      title={`Etapa actual: ${task.etapaTallerGrafico}${tiempoFormateado ? ` (${tiempoFormateado})` : ''}`}
+                    >
+                      <span>{etapaIcon}</span>
+                      <span>{task.etapaTallerGrafico}</span>
+                      {tiempoFormateado && (
+                        <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({tiempoFormateado})</span>
+                      )}
+                    </span>
+                  )
+                })()}
               </div>
             )}
             {/* Ubicación física cuando está finalizado */}

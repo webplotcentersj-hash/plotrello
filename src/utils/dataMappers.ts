@@ -174,6 +174,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     entregado: orden.entregado ?? false,
     metrosCuadrados: orden.metros_cuadrados ?? undefined,
     etapaTallerGrafico: orden.etapa_taller_grafico ?? undefined,
+    etapaTallerGraficoFechaInicio: orden.etapa_taller_grafico_fecha_inicio ?? undefined,
     briefPublico: orden.brief_publico ?? undefined,
     objetivoProyecto: orden.objetivo_proyecto ?? undefined,
     publicoObjetivo: orden.publico_objetivo ?? undefined,

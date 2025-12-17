@@ -31,6 +31,7 @@ export interface OrdenTrabajo {
   etiquetas?: string[] | null // Etiquetas de colores
   metros_cuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
   etapa_taller_grafico?: string | null // Etapa actual dentro de Taller Gráfico
+  etapa_taller_grafico_fecha_inicio?: string | null // Fecha de inicio de la etapa actual
   brief_publico?: string | null // Brief público del proyecto
   objetivo_proyecto?: string | null // Objetivo principal del proyecto
   publico_objetivo?: string | null // Público objetivo del diseño
@@ -165,6 +166,21 @@ export interface MaterialRecord {
   codigo?: string | null
   descripcion: string
   stock?: number | null // Cantidad disponible en stock
+}
+
+export interface HistorialEtapaTallerGrafico {
+  id: number
+  id_orden: number
+  etapa_anterior?: string | null
+  etapa_nueva: string
+  id_usuario?: number | null
+  nombre_usuario?: string | null
+  comentario?: string | null
+  fecha_cambio: string
+  fecha_inicio_etapa: string
+  fecha_fin_etapa?: string | null
+  tiempo_en_etapa_seg?: number | null
+  tiempo_formateado?: string | null
 }
 
 export interface HistorialMovimiento {

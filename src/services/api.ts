@@ -2,6 +2,7 @@ import { BOARD_COLUMNS } from '../data/mockData'
 import type {
   ClienteRecord,
   HistorialMovimiento,
+  HistorialEtapaTallerGrafico,
   MaterialRecord,
   Notification,
   OrdenTrabajo,

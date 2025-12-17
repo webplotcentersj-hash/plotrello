@@ -12,6 +12,26 @@ const ETAPAS_TALLER_GRAFICO = [
   'laminas'
 ] as const
 
+const ETAPAS_ICONOS: Record<string, string> = {
+  'Falta Material para Impresión o archivo': '⚠️',
+  'En Proceso': '⚙️',
+  'Para Cortar o Pegar': '✂️',
+  'Para Rotular': '🏷️',
+  'Instalaciones/Ploteo': '🚚',
+  'Metalurgica Instalacion': '🔧',
+  'laminas': '📄'
+}
+
+const ETAPAS_COLORES: Record<string, string> = {
+  'Falta Material para Impresión o archivo': '#ef4444',
+  'En Proceso': '#3b82f6',
+  'Para Cortar o Pegar': '#f59e0b',
+  'Para Rotular': '#8b5cf6',
+  'Instalaciones/Ploteo': '#10b981',
+  'Metalurgica Instalacion': '#ec4899',
+  'laminas': '#06b6d4'
+}
+
 type EtapaTallerGrafico = typeof ETAPAS_TALLER_GRAFICO[number]
 
 interface EtapaTallerGraficoSelectorProps {
@@ -60,16 +80,28 @@ const EtapaTallerGraficoSelector = ({
       <div className="etapas-grid">
         {ETAPAS_TALLER_GRAFICO.map((etapa) => {
           const isActive = etapa === etapaActual
+          const color = ETAPAS_COLORES[etapa] || '#6b7280'
+          const icon = ETAPAS_ICONOS[etapa] || '📍'
           return (
             <button
               key={etapa}
               type="button"
               className={`etapa-button ${isActive ? 'active' : ''}`}
+              data-etapa={etapa}
               onClick={() => handleCambiarEtapa(etapa)}
               disabled={cambiando}
               title={isActive ? 'Etapa actual' : `Cambiar a: ${etapa}`}
+              style={isActive ? {
+                borderLeftColor: color,
+                borderLeftWidth: '3px'
+              } : {
+                borderLeftColor: color,
+                borderLeftWidth: '2px',
+                opacity: 0.7
+              }}
             >
-              {etapa}
+              <span className="etapa-icon">{icon}</span>
+              <span className="etapa-text">{etapa}</span>
               {isActive && <span className="etapa-check">✓</span>}
             </button>
           )
