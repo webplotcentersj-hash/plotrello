@@ -1213,15 +1213,15 @@ class ApiService {
         const fileExt = file.name.split('.').pop()
         const fileName = `empleados/${idUsuario}_${Date.now()}.${fileExt}`
         
-        const { data, error } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('legajos')
           .upload(fileName, file, {
             cacheControl: '3600',
             upsert: false
           })
 
-        if (error) {
-          return { success: false, error: error.message }
+        if (uploadError) {
+          return { success: false, error: uploadError.message }
         }
 
         // Obtener URL pública
