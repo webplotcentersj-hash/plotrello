@@ -6,6 +6,7 @@ import type { SectorRecord } from '../types/api'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import QRPrintView from './QRPrintView'
+import EtapaTallerGraficoSelector from './EtapaTallerGraficoSelector'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
@@ -273,6 +274,25 @@ const TaskCard = ({
                 >
                   {task.assignedSector}
                 </span>
+                {/* Mostrar etapa actual de Taller Gráfico */}
+                {isTallerGrafico && task.etapaTallerGrafico && (
+                  <span 
+                    className="etapa-pill-header" 
+                    style={{ 
+                      backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                      borderColor: 'rgba(59, 130, 246, 0.5)',
+                      color: '#60a5fa',
+                      fontSize: '0.75rem',
+                      marginLeft: '8px',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      display: 'inline-block'
+                    }}
+                    title="Etapa actual en Taller Gráfico"
+                  >
+                    📍 {task.etapaTallerGrafico}
+                  </span>
+                )}
               </div>
             )}
             {/* Ubicación física cuando está finalizado */}
@@ -565,39 +585,57 @@ const TaskCard = ({
               </div>
             )}
 
-            {/* Botón para asignar impresora cuando está en Taller Gráfico */}
-            {isTallerGrafico && canManageImpresoras && hasOrdenId && (
-              <div className="task-impresora-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
-                  <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
-                    Metros²: <strong style={{ color: '#10b981' }}>{task.metrosCuadrados.toFixed(2)} m²</strong>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="pill"
-                  style={{ 
-                    background: 'rgba(16, 185, 129, 0.2)', 
-                    borderColor: 'rgba(16, 185, 129, 0.5)', 
-                    color: '#10b981',
-                    fontSize: '12px',
-                    padding: '6px 12px'
-                  }}
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    setShowAsignarImpresora(true)
-                    setMetrosManuales(task.metrosCuadrados?.toString() || '')
-                    // Cargar impresoras disponibles
-                    const response = await apiService.getImpresoras()
-                    if (response.success && response.data) {
-                      setImpresorasDisponibles(response.data.filter((imp: any) => 
-                        imp.estado !== 'Mantenimiento' && imp.estado !== 'Fuera de Servicio' && imp.activa
-                      ))
+            {/* Sección específica de Taller Gráfico */}
+            {isTallerGrafico && hasOrdenId && (
+              <div className="task-taller-grafico-section">
+                {/* Selector de Etapas */}
+                <EtapaTallerGraficoSelector
+                  ordenId={ordenId}
+                  etapaActual={task.etapaTallerGrafico}
+                  onEtapaChange={() => {
+                    // Recargar datos si hay callback disponible
+                    if (onEdit) {
+                      // Trigger a reload through parent
+                      window.dispatchEvent(new CustomEvent('reload-tasks'))
                     }
                   }}
-                >
-                  🖨️ Asignar Impresora
-                </button>
+                />
+
+                {/* Botón para asignar impresora (solo para usuarios con permisos) */}
+                {canManageImpresoras && (
+                  <div className="task-impresora-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
+                      <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
+                        Metros²: <strong style={{ color: '#10b981' }}>{task.metrosCuadrados.toFixed(2)} m²</strong>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="pill"
+                      style={{ 
+                        background: 'rgba(16, 185, 129, 0.2)', 
+                        borderColor: 'rgba(16, 185, 129, 0.5)', 
+                        color: '#10b981',
+                        fontSize: '12px',
+                        padding: '6px 12px'
+                      }}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        setShowAsignarImpresora(true)
+                        setMetrosManuales(task.metrosCuadrados?.toString() || '')
+                        // Cargar impresoras disponibles
+                        const response = await apiService.getImpresoras()
+                        if (response.success && response.data) {
+                          setImpresorasDisponibles(response.data.filter((imp: any) => 
+                            imp.estado !== 'Mantenimiento' && imp.estado !== 'Fuera de Servicio' && imp.activa
+                          ))
+                        }
+                      }}
+                    >
+                      🖨️ Asignar Impresora
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

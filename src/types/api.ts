@@ -30,6 +30,7 @@ export interface OrdenTrabajo {
   entregado?: boolean | null // Indica si la ficha fue entregada y está archivada
   etiquetas?: string[] | null // Etiquetas de colores
   metros_cuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
+  etapa_taller_grafico?: string | null // Etapa actual dentro de Taller Gráfico
   brief_publico?: string | null // Brief público del proyecto
   objetivo_proyecto?: string | null // Objetivo principal del proyecto
   publico_objetivo?: string | null // Público objetivo del diseño

@@ -108,6 +108,7 @@ const TaskEditModal = ({
         locationUrl: task.locationUrl,
         driveUrl: task.driveUrl,
         metrosCuadrados: task.metrosCuadrados,
+        etapaTallerGrafico: task.etapaTallerGrafico,
         briefPublico: task.briefPublico,
         objetivoProyecto: task.objetivoProyecto,
         publicoObjetivo: task.publicoObjetivo,
@@ -763,25 +764,45 @@ const TaskEditModal = ({
             />
           </div>
 
-          {/* Campo de metros cuadrados cuando está en Taller Gráfico */}
+          {/* Campos específicos de Taller Gráfico */}
           {task.assignedSector === 'Taller Gráfico' && (
-            <div className="form-group">
-              <label>Metros Cuadrados (m²) - Para impresión</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.metrosCuadrados ?? ''}
-                onChange={(e) => {
-                  const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
-                  setFormData({ ...formData, metrosCuadrados: value ?? undefined })
-                }}
-                placeholder="Ej: 6.24 (se calcula automáticamente desde dimensiones si está vacío)"
-              />
-              <small style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                Si está vacío, se calculará automáticamente desde las dimensiones en la descripción (ej: "290CM X 215CM")
-              </small>
-            </div>
+            <>
+              <div className="form-group">
+                <label>Metros Cuadrados (m²) - Para impresión</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.metrosCuadrados ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
+                    setFormData({ ...formData, metrosCuadrados: value ?? undefined })
+                  }}
+                  placeholder="Ej: 6.24 (se calcula automáticamente desde dimensiones si está vacío)"
+                />
+                <small style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  Si está vacío, se calculará automáticamente desde las dimensiones en la descripción (ej: "290CM X 215CM")
+                </small>
+              </div>
+              <div className="form-group">
+                <label>Etapa en Taller Gráfico</label>
+                <select
+                  value={formData.etapaTallerGrafico || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, etapaTallerGrafico: e.target.value || undefined })
+                  }}
+                >
+                  <option value="">Sin etapa asignada</option>
+                  <option value="Falta Material para Impresión o archivo">Falta Material para Impresión o archivo</option>
+                  <option value="En Proceso">En Proceso</option>
+                  <option value="Para Cortar o Pegar">Para Cortar o Pegar</option>
+                  <option value="Para Rotular">Para Rotular</option>
+                  <option value="Instalaciones/Ploteo">Instalaciones/Ploteo</option>
+                  <option value="Metalurgica Instalacion">Metalurgica Instalacion</option>
+                  <option value="laminas">laminas</option>
+                </select>
+              </div>
+            </>
           )}
 
           <div className="form-group">

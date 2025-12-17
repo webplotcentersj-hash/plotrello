@@ -58,6 +58,7 @@ export interface Task {
   subtaskProgress?: number // porcentaje completado
   subtaskTimeSpentSec?: number // tiempo total invertido en subtareas
   metrosCuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
+  etapaTallerGrafico?: string | null // Etapa actual dentro de Taller Gráfico
   briefPublico?: string | null // Brief público del proyecto
   objetivoProyecto?: string | null // Objetivo principal del proyecto
   publicoObjetivo?: string | null // Público objetivo del diseño
