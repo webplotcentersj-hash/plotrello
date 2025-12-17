@@ -38,6 +38,8 @@ export interface OrdenTrabajo {
   etapa_taller_imprenta_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Taller de Imprenta
   etapa_metalurgica?: string | null // Etapa actual dentro de Metalúrgica
   etapa_metalurgica_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Metalúrgica
+  id_pedido_cliente?: number | null // ID del pedido web que originó esta OP
+  origen_pedido_web?: boolean | null // Indica si la OP viene de un pedido web
   brief_publico?: string | null // Brief público del proyecto
   objetivo_proyecto?: string | null // Objetivo principal del proyecto
   publico_objetivo?: string | null // Público objetivo del diseño
@@ -181,6 +183,89 @@ export interface ClienteRecord {
   direccion?: string | null
   ubicacion_link?: string | null
   drive_link?: string | null
+}
+
+// ============================================
+// SISTEMA DE PEDIDOS WEB
+// ============================================
+
+export interface ClienteWebRecord {
+  id: number
+  usuario: string
+  nombre: string
+  apellido?: string | null
+  empresa?: string | null
+  telefono?: string | null
+  email?: string | null
+  dni_cuit?: string | null
+  direccion?: string | null
+  activo: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ArticuloEmpresaRecord {
+  id: number
+  codigo: string
+  nombre: string
+  descripcion?: string | null
+  categoria?: string | null
+  precio_base?: number | null
+  activo: boolean
+  imagen_url?: string | null
+  tiempo_estimado_dias?: number | null
+  requiere_archivos: boolean
+  visible_clientes: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PedidoClienteRecord {
+  id: number
+  id_cliente: number
+  numero_pedido: string
+  estado: 'pendiente' | 'en_revision' | 'aprobado' | 'rechazado' | 'convertido_parcial' | 'convertido_completo' | 'cancelado'
+  id_op_asociada?: number | null
+  fecha_pedido: string
+  fecha_limite_deseada?: string | null
+  observaciones_cliente?: string | null
+  observaciones_internas?: string | null
+  precio_total: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PedidoClienteItemRecord {
+  id: number
+  id_pedido: number
+  id_articulo: number
+  cantidad: number
+  precio_unitario: number
+  precio_total: number
+  descripcion_personalizada?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PedidoClienteArchivoRecord {
+  id: number
+  id_pedido: number
+  id_item?: number | null
+  url: string
+  nombre_archivo: string
+  tipo?: string | null
+  tamaño?: number | null
+  uploaded_at?: string
+}
+
+export interface PedidoClienteDetalle {
+  pedido: PedidoClienteRecord & {
+    cliente: ClienteWebRecord
+  }
+  items: Array<PedidoClienteItemRecord & {
+    articulo: ArticuloEmpresaRecord
+  }>
+  archivos: PedidoClienteArchivoRecord[]
 }
 
 export interface SectorRecord {

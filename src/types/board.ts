@@ -48,6 +48,8 @@ export interface Task {
   updatedAt: string
   impact: 'alta' | 'media' | 'low'
   clientPhone?: string
+  idPedidoCliente?: number | null // ID del pedido web que originó esta tarea
+  origenPedidoWeb?: boolean | null // Indica si la tarea viene de un pedido web
   clientEmail?: string
   clientAddress?: string
   whatsappUrl?: string
