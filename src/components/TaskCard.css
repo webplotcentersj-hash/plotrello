@@ -748,39 +748,48 @@ body.compact-mode .task-actions {
   font-size: 0.85rem;
 }
 
-.task-tags {
-  display: flex;
-  flex-wrap: wrap;
+.btn-view-tags,
+.btn-view-historial {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
+  padding: 6px 12px;
   margin-top: 8px;
   margin-bottom: 4px;
-  max-width: 100%;
-  overflow: hidden;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  color: #60a5fa;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-view-tags:hover,
+.btn-view-historial:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+}
+
+.task-tags-modal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
 }
 
 .task-tag {
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.75rem;
+  padding: 8px 16px;
+  font-size: 0.9rem;
   display: inline-flex;
   align-items: center;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  flex-shrink: 1;
-  min-width: 0;
-}
-
-.task-tag:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  white-space: normal;
-  overflow: visible;
-  z-index: 10;
-  position: relative;
 }
 
 .task-progress {

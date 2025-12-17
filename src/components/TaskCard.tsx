@@ -94,6 +94,9 @@ const TaskCard = ({
   const [metrosManuales, setMetrosManuales] = useState<string>('')
   const [showQRPrint, setShowQRPrint] = useState(false)
   const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
+  const [showTagsModal, setShowTagsModal] = useState(false)
+  const [showHistorialTallerModal, setShowHistorialTallerModal] = useState(false)
+  const [showHistorialInstalacionesModal, setShowHistorialInstalacionesModal] = useState(false)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
@@ -361,25 +364,17 @@ const TaskCard = ({
             </div>
             <h4>{task.title}</h4>
             {task.tags.length > 0 && (
-              <div className="task-tags">
-                {task.tags.map((tag) => {
-                  const color = stringToColor(tag)
-                  return (
-                    <span
-                      key={tag}
-                      className="task-tag"
-                      style={{
-                        background: color,
-                        border: `1px solid ${color}`,
-                        color: '#ffffff',
-                        fontWeight: '600'
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  )
-                })}
-              </div>
+              <button
+                type="button"
+                className="btn-view-tags"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowTagsModal(true)
+                }}
+                title={`Ver ${task.tags.length} etiqueta${task.tags.length > 1 ? 's' : ''}`}
+              >
+                🏷️ {task.tags.length} etiqueta{task.tags.length > 1 ? 's' : ''}
+              </button>
             )}
             {task.dniCuit && (
               <div className="task-dni-cuit">
@@ -586,25 +581,17 @@ const TaskCard = ({
             </div>
 
             {task.tags.length > 0 && (
-              <div className="task-tags">
-                {task.tags.map((tag) => {
-                  const color = stringToColor(tag)
-                  return (
-                    <span
-                      key={tag}
-                      className="task-tag"
-                      style={{
-                        background: color,
-                        border: `1px solid ${color}`,
-                        color: '#ffffff',
-                        fontWeight: '600'
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  )
-                })}
-              </div>
+              <button
+                type="button"
+                className="btn-view-tags"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowTagsModal(true)
+                }}
+                title={`Ver ${task.tags.length} etiqueta${task.tags.length > 1 ? 's' : ''}`}
+              >
+                🏷️ {task.tags.length} etiqueta{task.tags.length > 1 ? 's' : ''}
+              </button>
             )}
 
             <div className="task-progress">
@@ -651,8 +638,18 @@ const TaskCard = ({
                   }}
                 />
 
-                {/* Historial de Etapas */}
-                <HistorialEtapasTallerGrafico ordenId={ordenId} />
+                {/* Botón para ver historial */}
+                <button
+                  type="button"
+                  className="btn-view-historial"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowHistorialTallerModal(true)
+                  }}
+                  title="Ver historial de etapas"
+                >
+                  📋 Ver Historial de Etapas
+                </button>
 
                 {/* Botón para asignar impresora (solo para usuarios con permisos) */}
                 {canManageImpresoras && (
@@ -708,8 +705,18 @@ const TaskCard = ({
                   }}
                 />
 
-                {/* Historial de Etapas */}
-                <HistorialEtapasInstalaciones ordenId={ordenId} />
+                {/* Botón para ver historial */}
+                <button
+                  type="button"
+                  className="btn-view-historial"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowHistorialInstalacionesModal(true)
+                  }}
+                  title="Ver historial de etapas"
+                >
+                  📋 Ver Historial de Etapas
+                </button>
               </div>
             )}
 
@@ -1032,6 +1039,116 @@ const TaskCard = ({
             setQrPrintData(null)
           }}
         />
+      )}
+      {/* Modal de Etiquetas */}
+      {showTagsModal && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowTagsModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="modal-header">
+              <h3>Etiquetas - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowTagsModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <div className="task-tags-modal">
+                {task.tags.map((tag) => {
+                  const color = stringToColor(tag)
+                  return (
+                    <span
+                      key={tag}
+                      className="task-tag"
+                      style={{
+                        background: color,
+                        border: `1px solid ${color}`,
+                        color: '#ffffff',
+                        fontWeight: '600',
+                        fontSize: '0.9rem',
+                        padding: '8px 16px',
+                        margin: '4px'
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Historial Taller Gráfico */}
+      {showHistorialTallerModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowHistorialTallerModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '800px' }}
+          >
+            <header className="modal-header">
+              <h3>Historial de Etapas - Taller Gráfico - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowHistorialTallerModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <HistorialEtapasTallerGrafico ordenId={ordenId} />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Historial Instalaciones */}
+      {showHistorialInstalacionesModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowHistorialInstalacionesModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '800px' }}
+          >
+            <header className="modal-header">
+              <h3>Historial de Etapas - Instalaciones - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowHistorialInstalacionesModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <HistorialEtapasInstalaciones ordenId={ordenId} />
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
