@@ -3,6 +3,7 @@ import type {
   ClienteRecord,
   HistorialMovimiento,
   HistorialEtapaTallerGrafico,
+  HistorialEtapaInstalaciones,
   MaterialRecord,
   Notification,
   OrdenTrabajo,
