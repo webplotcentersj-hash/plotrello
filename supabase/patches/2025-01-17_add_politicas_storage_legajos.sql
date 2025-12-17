@@ -28,13 +28,14 @@ USING (
 );
 
 -- Política para permitir subida de archivos a usuarios autenticados
+-- Permite subir archivos en la carpeta empleados/
 CREATE POLICY "Permitir subida de fotos de legajos"
 ON storage.objects
 FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'legajos' AND
-  (storage.foldername(name))[1] = 'empleados'
+  (name LIKE 'empleados/%' OR name LIKE 'empleados%')
 );
 
 -- Política para permitir actualización de archivos
@@ -44,11 +45,11 @@ FOR UPDATE
 TO authenticated
 USING (
   bucket_id = 'legajos' AND
-  (storage.foldername(name))[1] = 'empleados'
+  (name LIKE 'empleados/%' OR name LIKE 'empleados%')
 )
 WITH CHECK (
   bucket_id = 'legajos' AND
-  (storage.foldername(name))[1] = 'empleados'
+  (name LIKE 'empleados/%' OR name LIKE 'empleados%')
 );
 
 -- Política para permitir eliminación de archivos
@@ -58,7 +59,7 @@ FOR DELETE
 TO authenticated
 USING (
   bucket_id = 'legajos' AND
-  (storage.foldername(name))[1] = 'empleados'
+  (name LIKE 'empleados/%' OR name LIKE 'empleados%')
 );
 
 COMMIT;

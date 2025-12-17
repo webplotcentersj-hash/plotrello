@@ -32,7 +32,7 @@ BEGIN
       o.estado,
       o.fecha_creacion,
       o.fecha_entrega,
-      o.sector_asignado,
+      o.sector,
       CASE 
         WHEN o.estado = 'Finalizado en Taller' OR o.estado = 'Almacén de Entrega' THEN 1
         ELSE 0
@@ -69,10 +69,10 @@ BEGIN
     WHERE hm.id_usuario = p_id_usuario
   ),
   sector_principal_usuario AS (
-    SELECT sector_asignado, COUNT(*) as cantidad
+    SELECT sector, COUNT(*) as cantidad
     FROM ordenes_usuario
-    WHERE sector_asignado IS NOT NULL
-    GROUP BY sector_asignado
+    WHERE sector IS NOT NULL
+    GROUP BY sector
     ORDER BY cantidad DESC
     LIMIT 1
   )
@@ -96,7 +96,7 @@ BEGIN
         )
       ELSE NULL
     END AS promedio_dias_completar,
-    (SELECT sector_asignado FROM sector_principal_usuario) AS sector_principal
+    (SELECT sector FROM sector_principal_usuario) AS sector_principal
   FROM ordenes_usuario;
 END;
 $$;
@@ -136,14 +136,14 @@ BEGIN
         ELSE 0
       END as en_proceso
     FROM public.ordenes_trabajo o
-    WHERE o.sector_asignado = p_sector
+    WHERE o.sector = p_sector
       AND (p_fecha_desde IS NULL OR o.fecha_creacion::date >= p_fecha_desde)
       AND (p_fecha_hasta IS NULL OR o.fecha_creacion::date <= p_fecha_hasta)
   ),
   usuarios_sector AS (
     SELECT COUNT(DISTINCT o.usuario_trabajando_nombre) as total
     FROM public.ordenes_trabajo o
-    WHERE o.sector_asignado = p_sector
+    WHERE o.sector = p_sector
       AND o.usuario_trabajando_nombre IS NOT NULL
       AND (p_fecha_desde IS NULL OR o.fecha_creacion::date >= p_fecha_desde)
       AND (p_fecha_hasta IS NULL OR o.fecha_creacion::date <= p_fecha_hasta)
