@@ -365,17 +365,25 @@ const TaskCard = ({
             </div>
             <h4>{task.title}</h4>
             {task.tags.length > 0 && (
-              <button
-                type="button"
-                className="btn-view-tags"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowTagsModal(true)
-                }}
-                title={`Ver ${task.tags.length} etiqueta${task.tags.length > 1 ? 's' : ''}`}
-              >
-                🏷️ {task.tags.length} etiqueta{task.tags.length > 1 ? 's' : ''}
-              </button>
+              <div className="task-tags">
+                {task.tags.map((tag) => {
+                  const color = stringToColor(tag)
+                  return (
+                    <span
+                      key={tag}
+                      className="task-tag"
+                      style={{
+                        background: color,
+                        border: `1px solid ${color}`,
+                        color: '#ffffff',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  )
+                })}
+              </div>
             )}
             {task.dniCuit && (
               <div className="task-dni-cuit">
@@ -582,17 +590,25 @@ const TaskCard = ({
             </div>
 
             {task.tags.length > 0 && (
-              <button
-                type="button"
-                className="btn-view-tags"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowTagsModal(true)
-                }}
-                title={`Ver ${task.tags.length} etiqueta${task.tags.length > 1 ? 's' : ''}`}
-              >
-                🏷️ {task.tags.length} etiqueta{task.tags.length > 1 ? 's' : ''}
-              </button>
+              <div className="task-tags">
+                {task.tags.map((tag) => {
+                  const color = stringToColor(tag)
+                  return (
+                    <span
+                      key={tag}
+                      className="task-tag"
+                      style={{
+                        background: color,
+                        border: `1px solid ${color}`,
+                        color: '#ffffff',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  )
+                })}
+              </div>
             )}
 
             <div className="task-progress">
