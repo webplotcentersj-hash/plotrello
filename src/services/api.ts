@@ -4,6 +4,7 @@ import type {
   HistorialMovimiento,
   HistorialEtapaTallerGrafico,
   HistorialEtapaInstalaciones,
+  HistorialEtapaTallerImprenta,
   MaterialRecord,
   Notification,
   OrdenTrabajo,
