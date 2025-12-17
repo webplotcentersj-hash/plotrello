@@ -91,7 +91,7 @@ const TaskCard = ({
   const [metrosManuales, setMetrosManuales] = useState<string>('')
   const [showQRPrint, setShowQRPrint] = useState(false)
   const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
-  const { usuario, canManageImpresoras } = useAuth()
+  const { usuario, canManageImpresoras, isAdmin } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
@@ -585,8 +585,8 @@ const TaskCard = ({
               </div>
             )}
 
-            {/* Sección específica de Taller Gráfico */}
-            {isTallerGrafico && hasOrdenId && (
+            {/* Sección específica de Taller Gráfico - Visible para taller-grafico y admin */}
+            {isTallerGrafico && hasOrdenId && (isAdmin || canManageImpresoras) && (
               <div className="task-taller-grafico-section">
                 {/* Selector de Etapas */}
                 <EtapaTallerGraficoSelector
