@@ -255,6 +255,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     etiquetas: task.tags && Array.isArray(task.tags) && task.tags.length > 0 ? task.tags : null,
     metros_cuadrados: task.metrosCuadrados || null,
     etapa_taller_grafico: task.etapaTallerGrafico?.trim() || null,
+    etapa_taller_grafico_fecha_inicio: task.etapaTallerGraficoFechaInicio || null,
     brief_publico: task.briefPublico?.trim() || null,
     objetivo_proyecto: task.objetivoProyecto?.trim() || null,
     publico_objetivo: task.publicoObjetivo?.trim() || null,

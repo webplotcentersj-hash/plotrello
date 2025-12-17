@@ -648,6 +648,9 @@ const TaskCard = ({
                   }}
                 />
 
+                {/* Historial de Etapas */}
+                <HistorialEtapasTallerGrafico ordenId={ordenId} />
+
                 {/* Botón para asignar impresora (solo para usuarios con permisos) */}
                 {canManageImpresoras && (
                   <div className="task-impresora-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
