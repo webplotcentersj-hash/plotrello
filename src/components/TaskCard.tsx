@@ -99,7 +99,6 @@ const TaskCard = ({
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
   const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
-  const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'
