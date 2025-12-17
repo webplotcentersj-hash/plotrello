@@ -5,8 +5,6 @@ import type { UsuarioRecord } from '../types/api'
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -34,7 +32,6 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 const RecursosHumanosEstadisticasPage = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
-  const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [periodo, setPeriodo] = useState<'semana' | 'mes' | 'trimestre'>('mes')
   const [estadisticasUsuarios, setEstadisticasUsuarios] = useState<any[]>([])
   const [estadisticasSectores, setEstadisticasSectores] = useState<any[]>([])
@@ -62,7 +59,8 @@ const RecursosHumanosEstadisticasPage = () => {
   }
 
   const getFechaHasta = () => {
-    return new Date().toISOString().split('T')[0]
+    const hoy = new Date()
+    return hoy.toISOString().split('T')[0]
   }
 
   const loadData = async () => {
@@ -74,8 +72,6 @@ const RecursosHumanosEstadisticasPage = () => {
       // Cargar usuarios
       const usuariosResponse = await apiService.getUsuarios()
       if (usuariosResponse.success && usuariosResponse.data) {
-        setUsuarios(usuariosResponse.data)
-
         // Obtener estadísticas de todos los usuarios
         const statsPromises = usuariosResponse.data.map(async (usuario) => {
           const response = await apiService.getEstadisticasUsuario(
