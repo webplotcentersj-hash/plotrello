@@ -4917,7 +4917,7 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('actualizar_etapa_taller_grafico', {
+        const { error } = await supabase.rpc('actualizar_etapa_taller_grafico', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
           p_nombre_usuario: nombreUsuario
@@ -4948,7 +4948,7 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('actualizar_etapa_instalaciones', {
+        const { error } = await supabase.rpc('actualizar_etapa_instalaciones', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
           p_nombre_usuario: nombreUsuario
