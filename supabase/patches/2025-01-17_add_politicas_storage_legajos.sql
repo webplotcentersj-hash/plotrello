@@ -5,6 +5,7 @@ BEGIN;
 
 -- Eliminar políticas existentes si las hay (para evitar duplicados)
 DROP POLICY IF EXISTS "Permitir lectura de fotos de legajos" ON storage.objects;
+DROP POLICY IF EXISTS "Permitir lectura pública de fotos de legajos" ON storage.objects;
 DROP POLICY IF EXISTS "Permitir subida de fotos de legajos" ON storage.objects;
 DROP POLICY IF EXISTS "Permitir actualización de fotos de legajos" ON storage.objects;
 DROP POLICY IF EXISTS "Permitir eliminación de fotos de legajos" ON storage.objects;
@@ -34,8 +35,7 @@ ON storage.objects
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  bucket_id = 'legajos' AND
-  (name LIKE 'empleados/%' OR name LIKE 'empleados%')
+  bucket_id = 'legajos'
 );
 
 -- Política para permitir actualización de archivos
