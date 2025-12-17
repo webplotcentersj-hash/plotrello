@@ -183,101 +183,109 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  operario_id integer;
+  user_id_destino integer;
+  notification_title text;
+  notification_desc text;
+  usuarios_imprenta record;
   operario_nombre varchar(255);
-  admin_ids integer[];
-  usuario_cambio_nombre varchar(255);
 BEGIN
-  -- Solo procesar si cambió la etapa
-  IF OLD.etapa_taller_imprenta IS DISTINCT FROM NEW.etapa_taller_imprenta THEN
+  -- Solo notificar si cambió la etapa
+  IF OLD.etapa_taller_imprenta IS DISTINCT FROM NEW.etapa_taller_imprenta 
+     AND NEW.etapa_taller_imprenta IS NOT NULL THEN
     
-    -- Obtener nombre del usuario que hizo el cambio
+    -- Obtener nombre del operario (usar operario_asignado o usuario_trabajando_nombre como fallback)
+    -- Manejar el caso donde operario_asignado pueda no existir
     BEGIN
-      usuario_cambio_nombre := COALESCE(
-        current_setting('app.current_user_name', true),
+      operario_nombre := COALESCE(
         NULLIF(trim(NEW.operario_asignado), ''),
         NULLIF(trim(NEW.usuario_trabajando_nombre), ''),
-        NULLIF(trim(NEW.nombre_creador), ''),
-        'Sistema'
+        NULL
       );
     EXCEPTION WHEN undefined_column THEN
-      usuario_cambio_nombre := COALESCE(
-        current_setting('app.current_user_name', true),
+      -- Si operario_asignado no existe, usar solo usuario_trabajando_nombre
+      operario_nombre := COALESCE(
         NULLIF(trim(NEW.usuario_trabajando_nombre), ''),
-        NULLIF(trim(NEW.nombre_creador), ''),
-        'Sistema'
+        NULL
       );
     END;
     
-    -- Obtener ID del operario asignado (si existe)
-    IF NEW.operario_asignado IS NOT NULL AND trim(NEW.operario_asignado) != '' THEN
-      SELECT id INTO operario_id
+    -- Notificar al operario asignado si existe
+    IF operario_nombre IS NOT NULL THEN
+      SELECT id INTO user_id_destino
       FROM public.usuarios
-      WHERE nombre = trim(NEW.operario_asignado)
+      WHERE nombre = operario_nombre
       LIMIT 1;
       
-      operario_nombre := trim(NEW.operario_asignado);
-    ELSIF NEW.usuario_trabajando_nombre IS NOT NULL AND trim(NEW.usuario_trabajando_nombre) != '' THEN
-      SELECT id INTO operario_id
+      IF user_id_destino IS NOT NULL THEN
+        notification_title := 'Cambio de etapa en Taller de Imprenta';
+        notification_desc := format('La orden #%s (%s) cambió de etapa: "%s" → "%s"', 
+          NEW.numero_op, NEW.cliente, 
+          COALESCE(OLD.etapa_taller_imprenta, 'Sin etapa'), 
+          NEW.etapa_taller_imprenta);
+        
+        BEGIN
+          INSERT INTO public.user_notifications (
+            user_id, title, description, type, orden_id, is_read
+          ) VALUES (
+            user_id_destino, notification_title, notification_desc, 'info', NEW.id, false
+          );
+        EXCEPTION WHEN OTHERS THEN
+          RAISE WARNING 'Error creando notificación de cambio de etapa: %', SQLERRM;
+        END;
+      END IF;
+    END IF;
+    
+    -- Notificar a todos los usuarios de imprenta y administracion
+    FOR usuarios_imprenta IN 
+      SELECT id, nombre 
+      FROM public.usuarios 
+      WHERE rol IN ('imprenta', 'administracion', 'gerencia')
+        AND (operario_nombre IS NULL OR nombre != operario_nombre)
+    LOOP
+      BEGIN
+        notification_title := 'Cambio de etapa en Taller de Imprenta';
+        notification_desc := format('La orden #%s (%s) cambió de etapa: "%s" → "%s"', 
+          NEW.numero_op, NEW.cliente, 
+          COALESCE(OLD.etapa_taller_imprenta, 'Sin etapa'), 
+          NEW.etapa_taller_imprenta);
+        
+        INSERT INTO public.user_notifications (
+          user_id, title, description, type, orden_id, is_read
+        ) VALUES (
+          usuarios_imprenta.id, notification_title, notification_desc, 'info', NEW.id, false
+        );
+      EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'Error creando notificación para usuario %: %', usuarios_imprenta.nombre, SQLERRM;
+      END;
+    END LOOP;
+    
+    -- Notificar al creador si es diferente del operario
+    IF NEW.nombre_creador IS NOT NULL 
+       AND trim(NEW.nombre_creador) != '' 
+       AND (operario_nombre IS NULL OR trim(NEW.nombre_creador) != trim(operario_nombre)) THEN
+      SELECT id INTO user_id_destino
       FROM public.usuarios
-      WHERE nombre = trim(NEW.usuario_trabajando_nombre)
+      WHERE nombre = NEW.nombre_creador
       LIMIT 1;
       
-      operario_nombre := trim(NEW.usuario_trabajando_nombre);
+      IF user_id_destino IS NOT NULL THEN
+        notification_title := 'Cambio de etapa en tu orden';
+        notification_desc := format('La orden #%s (%s) cambió de etapa: "%s" → "%s"', 
+          NEW.numero_op, NEW.cliente, 
+          COALESCE(OLD.etapa_taller_imprenta, 'Sin etapa'), 
+          NEW.etapa_taller_imprenta);
+        
+        BEGIN
+          INSERT INTO public.user_notifications (
+            user_id, title, description, type, orden_id, is_read
+          ) VALUES (
+            user_id_destino, notification_title, notification_desc, 'info', NEW.id, false
+          );
+        EXCEPTION WHEN OTHERS THEN
+          RAISE WARNING 'Error creando notificación para creador: %', SQLERRM;
+        END;
+      END IF;
     END IF;
-    
-    -- Obtener IDs de administradores y gerencia
-    SELECT ARRAY_AGG(id) INTO admin_ids
-    FROM public.usuarios
-    WHERE rol IN ('administracion', 'gerencia');
-    
-    -- Crear notificación para el operario asignado (si existe y no es quien hizo el cambio)
-    IF operario_id IS NOT NULL AND operario_nombre != usuario_cambio_nombre THEN
-      INSERT INTO public.notificaciones (
-        id_usuario,
-        tipo,
-        titulo,
-        mensaje,
-        id_orden,
-        leida,
-        created_at
-      ) VALUES (
-        operario_id,
-        'cambio_etapa_taller_imprenta',
-        'Cambio de etapa en Taller de Imprenta',
-        format('La OP #%s cambió a la etapa "%s" en Taller de Imprenta', 
-               NEW.numero_op, 
-               COALESCE(NEW.etapa_taller_imprenta, 'Sin etapa')),
-        NEW.id,
-        false,
-        now()
-      );
-    END IF;
-    
-    -- Crear notificaciones para administradores y gerencia
-    IF admin_ids IS NOT NULL AND array_length(admin_ids, 1) > 0 THEN
-      INSERT INTO public.notificaciones (
-        id_usuario,
-        tipo,
-        titulo,
-        mensaje,
-        id_orden,
-        leida,
-        created_at
-      )
-      SELECT 
-        unnest(admin_ids),
-        'cambio_etapa_taller_imprenta',
-        'Cambio de etapa en Taller de Imprenta',
-        format('La OP #%s cambió a la etapa "%s" en Taller de Imprenta (por %s)', 
-               NEW.numero_op, 
-               COALESCE(NEW.etapa_taller_imprenta, 'Sin etapa'),
-               usuario_cambio_nombre),
-        NEW.id,
-        false,
-        now();
-    END IF;
-    
   END IF;
   
   RETURN NEW;
