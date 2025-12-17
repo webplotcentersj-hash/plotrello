@@ -91,9 +91,11 @@ const HistorialEtapasInstalaciones = ({ ordenId }: HistorialEtapasInstalacionesP
                     <span className="historial-hasta">{item.etapa_nueva}</span>
                   </div>
                 )}
-                <div className="historial-usuario">
-                  Por: <strong>{item.nombre_usuario}</strong>
-                </div>
+                {item.nombre_usuario && (
+                  <div className="historial-usuario">
+                    Por: <strong>{item.nombre_usuario}</strong>
+                  </div>
+                )}
                 {item.tiempo_en_etapa_seg !== null && item.tiempo_en_etapa_seg !== undefined && (
                   <div className="historial-tiempo">
                     Tiempo en etapa: <strong>{item.tiempo_formateado || formatTiempo(item.tiempo_en_etapa_seg)}</strong>

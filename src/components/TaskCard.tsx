@@ -99,6 +99,7 @@ const TaskCard = ({
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
   const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
+  const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'
@@ -653,9 +654,32 @@ const TaskCard = ({
 
                 {/* Historial de Etapas */}
                 <HistorialEtapasTallerGrafico ordenId={ordenId} />
+              </div>
+            )}
 
-                {/* Botón para asignar impresora (solo para usuarios con permisos) */}
-                {canManageImpresoras && (
+            {/* Sección específica de Instalaciones - Visible para instalaciones y admin */}
+            {isInstalaciones && hasOrdenId && (isAdmin || canManageInstalaciones) && (
+              <div className="task-instalaciones-section">
+                {/* Selector de Etapas */}
+                <EtapaInstalacionesSelector
+                  ordenId={ordenId}
+                  etapaActual={task.etapaInstalaciones}
+                  onEtapaChange={() => {
+                    // Recargar datos si hay callback disponible
+                    if (onEdit) {
+                      // Trigger a reload through parent
+                      window.dispatchEvent(new CustomEvent('reload-tasks'))
+                    }
+                  }}
+                />
+
+                {/* Historial de Etapas */}
+                <HistorialEtapasInstalaciones ordenId={ordenId} />
+              </div>
+            )}
+
+            {/* Botón para asignar impresora (solo para usuarios con permisos) */}
+            {isTallerGrafico && canManageImpresoras && (
                   <div className="task-impresora-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
                       <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
