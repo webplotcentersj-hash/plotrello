@@ -51,22 +51,27 @@ export function useAuth() {
   const isAdmin = !!usuario && adminRoles.includes(usuario.rol)
   const isMostrador = usuario?.rol === 'mostrador'
   const isTallerGrafico = usuario?.rol === 'taller-grafico'
+  const isInstalaciones = usuario?.rol === 'instalaciones'
   const isCompras = usuario?.rol === 'compras'
   const isDiseno = usuario?.rol === 'diseno'
   // Puede administrar impresoras: taller-grafico o administracion
   const canManageImpresoras = !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
   // Puede gestionar compras: compras o administracion
   const canManageCompras = !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion')
+  // Puede gestionar instalaciones: instalaciones o administracion
+  const canManageInstalaciones = !!usuario && (usuario.rol === 'instalaciones' || usuario.rol === 'administracion')
 
   return {
     usuario,
     isAdmin,
     isMostrador,
     isTallerGrafico,
+    isInstalaciones,
     isCompras,
     isDiseno,
     canManageImpresoras,
     canManageCompras,
+    canManageInstalaciones,
     loading,
     setUsuario
   }

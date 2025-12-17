@@ -1,0 +1,115 @@
+.etapa-instalaciones-selector {
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--bg-secondary, #1e293b);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #334155);
+}
+
+.etapa-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary, #f1f5f9);
+  font-size: 0.9rem;
+}
+
+.etapas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.etapa-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary, #0f172a);
+  border: 1px solid var(--border-color, #334155);
+  border-left: 2px solid;
+  border-radius: 6px;
+  color: var(--text-primary, #f1f5f9);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.etapa-button:hover:not(:disabled) {
+  background: var(--bg-hover, #1e293b);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.etapa-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.etapa-button.active {
+  background: var(--bg-active, #1e293b);
+  border-left-width: 3px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.etapa-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.etapa-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.etapa-check {
+  color: #10b981;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.etapa-loading {
+  margin-top: 12px;
+  padding: 8px;
+  text-align: center;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+}
+
+/* Colores específicos por etapa */
+.etapa-button[data-etapa="Falta Info o Material"] {
+  border-left-color: #ef4444;
+}
+
+.etapa-button[data-etapa="Coordinados para Instalaciones"] {
+  border-left-color: #3b82f6;
+}
+
+.etapa-button[data-etapa="Listos para instalar"] {
+  border-left-color: #10b981;
+}
+
+.etapa-button[data-etapa="Pausados"] {
+  border-left-color: #f59e0b;
+}
+
+.etapa-button[data-etapa="Rehacer"] {
+  border-left-color: #ec4899;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .etapas-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .etapa-button {
+    font-size: 0.8rem;
+    padding: 8px 10px;
+  }
+}
+

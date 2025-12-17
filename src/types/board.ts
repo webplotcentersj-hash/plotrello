@@ -60,6 +60,8 @@ export interface Task {
   metrosCuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
   etapaTallerGrafico?: string | null // Etapa actual dentro de Taller Gráfico
   etapaTallerGraficoFechaInicio?: string | null // Fecha de inicio de la etapa actual
+  etapaInstalaciones?: string | null // Etapa actual dentro de Instalaciones
+  etapaInstalacionesFechaInicio?: string | null // Fecha de inicio de la etapa actual en Instalaciones
   briefPublico?: string | null // Brief público del proyecto
   objetivoProyecto?: string | null // Objetivo principal del proyecto
   publicoObjetivo?: string | null // Público objetivo del diseño

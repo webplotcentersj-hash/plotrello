@@ -8,6 +8,8 @@ import { useAuth } from '../hooks/useAuth'
 import QRPrintView from './QRPrintView'
 import EtapaTallerGraficoSelector from './EtapaTallerGraficoSelector'
 import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
+import EtapaInstalacionesSelector from './EtapaInstalacionesSelector'
+import HistorialEtapasInstalaciones from './HistorialEtapasInstalaciones'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
@@ -92,10 +94,11 @@ const TaskCard = ({
   const [metrosManuales, setMetrosManuales] = useState<string>('')
   const [showQRPrint, setShowQRPrint] = useState(false)
   const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
-  const { usuario, canManageImpresoras, isAdmin } = useAuth()
+  const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
+  const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'

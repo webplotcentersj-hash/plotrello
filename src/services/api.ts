@@ -4876,6 +4876,23 @@ class ApiService {
   }
 
   // ===== HISTORIAL ETAPAS TALLER GRÁFICO =====
+  async obtenerHistorialEtapasInstalaciones(idOrden: number): Promise<ApiResponse<HistorialEtapaInstalaciones[]>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('obtener_historial_etapas_instalaciones', {
+        p_id_orden: idOrden
+      })
+
+      if (error) {
+        console.error('Error obteniendo historial de etapas de instalaciones:', error)
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: (data as HistorialEtapaInstalaciones[]) ?? [] }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async obtenerHistorialEtapasTallerGrafico(idOrden: number): Promise<ApiResponse<HistorialEtapaTallerGrafico[]>> {
     if (supabase) {
       try {
