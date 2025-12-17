@@ -13,27 +13,34 @@ DECLARE
   notification_title text;
   notification_desc text;
   usuarios_taller record;
+  operario_nombre varchar(255);
 BEGIN
   -- Solo notificar si cambió la etapa
   IF OLD.etapa_taller_grafico IS DISTINCT FROM NEW.etapa_taller_grafico 
-     AND NEW.etapa_taller_grafico IS NOT NULL 
-     AND NEW.sector = 'Taller Gráfico' THEN
+     AND NEW.etapa_taller_grafico IS NOT NULL THEN
     
-    -- Notificar al operario asignado si existe (usar operario_asignado o usuario_trabajando_nombre como fallback)
-    DECLARE
-      operario_nombre varchar(255);
+    -- Obtener nombre del operario (usar operario_asignado o usuario_trabajando_nombre como fallback)
+    -- Manejar el caso donde operario_asignado pueda no existir
     BEGIN
       operario_nombre := COALESCE(
         NULLIF(trim(NEW.operario_asignado), ''),
         NULLIF(trim(NEW.usuario_trabajando_nombre), ''),
         NULL
       );
-      
-      IF operario_nombre IS NOT NULL THEN
-        SELECT id INTO user_id_destino
-        FROM public.usuarios
-        WHERE nombre = operario_nombre
-        LIMIT 1;
+    EXCEPTION WHEN undefined_column THEN
+      -- Si operario_asignado no existe, usar solo usuario_trabajando_nombre
+      operario_nombre := COALESCE(
+        NULLIF(trim(NEW.usuario_trabajando_nombre), ''),
+        NULL
+      );
+    END;
+    
+    -- Notificar al operario asignado si existe
+    IF operario_nombre IS NOT NULL THEN
+      SELECT id INTO user_id_destino
+      FROM public.usuarios
+      WHERE nombre = operario_nombre
+      LIMIT 1;
       
       IF user_id_destino IS NOT NULL THEN
         notification_title := 'Cambio de etapa en Taller Gráfico';
@@ -120,4 +127,3 @@ CREATE TRIGGER trigger_notify_cambio_etapa_taller_grafico
   EXECUTE FUNCTION public.notify_cambio_etapa_taller_grafico();
 
 COMMIT;
-

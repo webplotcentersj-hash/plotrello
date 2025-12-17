@@ -50,7 +50,7 @@ BEGIN
     
     -- Obtener información del usuario actual (si está disponible)
     -- Intentar obtener desde el contexto de sesión o usar el operario asignado
-    -- Manejar el caso donde operario_asignado no exista
+    -- Manejar el caso donde operario_asignado pueda no existir
     BEGIN
       usuario_actual_nombre := COALESCE(
         current_setting('app.current_user_name', true),
@@ -184,4 +184,3 @@ END;
 $$;
 
 COMMIT;
-
