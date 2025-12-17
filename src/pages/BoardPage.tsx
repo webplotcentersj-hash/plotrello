@@ -76,6 +76,7 @@ const BoardPage = ({
   const { usuario, isAdmin, isMostrador, isDiseno } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
+  const [sectorFilter, setSectorFilter] = useState<string>('todos')
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
   const [checklistTask, setChecklistTask] = useState<Task | null>(null)
@@ -147,6 +148,20 @@ const BoardPage = ({
     }
   }
 
+  // Obtener sectores únicos de las tareas
+  const availableSectors = useMemo(() => {
+    const sectorsSet = new Set<string>()
+    tasks.forEach((task) => {
+      if (task.assignedSector) {
+        sectorsSet.add(task.assignedSector)
+      }
+      if (task.sectores && task.sectores.length > 0) {
+        task.sectores.forEach((sector) => sectorsSet.add(sector))
+      }
+    })
+    return Array.from(sectorsSet).sort()
+  }, [tasks])
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       // Excluir fichas entregadas/archivadas del board principal
@@ -154,13 +169,17 @@ const BoardPage = ({
       
       const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
+      const matchesSector = 
+        sectorFilter === 'todos' || 
+        task.assignedSector === sectorFilter ||
+        (task.sectores && task.sectores.includes(sectorFilter))
       const matchesSearch =
         task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.summary.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesStatus && matchesPriority && matchesSearch
+      return matchesStatus && matchesPriority && matchesSector && matchesSearch
     })
-  }, [tasks, statusFocus, priorityFilter, searchQuery])
+  }, [tasks, statusFocus, priorityFilter, sectorFilter, searchQuery])
 
   const toggleStatusFocus = (status: TaskStatus) => {
     setStatusFocus((prev) =>
@@ -560,7 +579,10 @@ const BoardPage = ({
           { id: 'baja', label: 'Baja' }
         ]}
         onPriorityChange={setPriorityFilter}
-      onAddNewOrder={() => setIsCreateModalOpen(true)}
+        sectorFilter={sectorFilter}
+        availableSectors={availableSectors}
+        onSectorChange={setSectorFilter}
+        onAddNewOrder={() => setIsCreateModalOpen(true)}
         onOpenLibrary={() => setIsLibraryModalOpen(true)}
       />
 

@@ -16,6 +16,9 @@ type FiltersBarProps = {
   priorityFilter: Priority | 'todas'
   priorityFilters: ReadonlyArray<{ id: Priority | 'todas'; label: string }>
   onPriorityChange: (value: Priority | 'todas') => void
+  sectorFilter?: string
+  availableSectors?: string[]
+  onSectorChange?: (value: string) => void
   onOpenLibrary?: () => void
   onAddNewOrder?: () => void
 }
@@ -31,6 +34,9 @@ const FiltersBar = ({
   priorityFilter,
   priorityFilters,
   onPriorityChange,
+  sectorFilter = 'todos',
+  availableSectors = [],
+  onSectorChange,
   onOpenLibrary,
   onAddNewOrder
 }: FiltersBarProps) => {
@@ -88,6 +94,23 @@ const FiltersBar = ({
             ))}
           </div>
         </div>
+        {onSectorChange && availableSectors.length > 0 && (
+          <div className="filter-control">
+            <label>Sector</label>
+            <select
+              value={sectorFilter}
+              onChange={(e) => onSectorChange(e.target.value)}
+              className="sector-select"
+            >
+              <option value="todos">Todos los sectores</option>
+              {availableSectors.map((sector) => (
+                <option key={sector} value={sector}>
+                  {sector}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="library-button-container">
           {onAddNewOrder && (
             <button

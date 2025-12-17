@@ -21,7 +21,7 @@
 
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(0, 200px) 1fr;
+  grid-template-columns: minmax(0, 200px) minmax(0, 200px) 1fr;
   gap: 16px;
   align-items: flex-end;
 }
@@ -60,6 +60,22 @@
   background: rgba(10, 12, 20, 0.9);
   color: var(--text-primary);
   padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-control select:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filter-control select:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(235, 103, 27, 0.1);
+}
+
+.sector-select {
+  font-size: 0.9rem;
 }
 
 .priority-group {
@@ -197,6 +213,12 @@
 
   .priority-group {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1024px) {
+  .filter-grid {
+    grid-template-columns: minmax(0, 200px) 1fr;
   }
 }
 
