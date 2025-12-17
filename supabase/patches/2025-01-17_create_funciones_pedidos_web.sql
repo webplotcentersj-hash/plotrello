@@ -23,20 +23,44 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  cliente_record RECORD;
+  cliente_id integer;
+  cliente_usuario varchar;
+  cliente_nombre varchar;
+  cliente_apellido varchar;
+  cliente_empresa varchar;
+  cliente_email varchar;
+  cliente_telefono varchar;
+  cliente_password_hash text;
   password_match boolean;
 BEGIN
-  -- Buscar cliente por usuario
-  SELECT * INTO cliente_record
-  FROM public.clientes_web
-  WHERE usuario = p_usuario AND activo = true;
+  -- Buscar cliente por usuario con alias explícito
+  SELECT 
+    c.id,
+    c.usuario,
+    c.nombre,
+    c.apellido,
+    c.empresa,
+    c.email,
+    c.telefono,
+    c.password_hash
+  INTO 
+    cliente_id,
+    cliente_usuario,
+    cliente_nombre,
+    cliente_apellido,
+    cliente_empresa,
+    cliente_email,
+    cliente_telefono,
+    cliente_password_hash
+  FROM public.clientes_web c
+  WHERE c.usuario = p_usuario AND c.activo = true;
 
-  IF NOT FOUND THEN
+  IF cliente_id IS NULL THEN
     RAISE EXCEPTION 'Usuario o contraseña incorrectos';
   END IF;
 
   -- Verificar contraseña
-  password_match := (cliente_record.password_hash = crypt(p_password, cliente_record.password_hash));
+  password_match := (cliente_password_hash = crypt(p_password, cliente_password_hash));
 
   IF NOT password_match THEN
     RAISE EXCEPTION 'Usuario o contraseña incorrectos';
@@ -45,13 +69,13 @@ BEGIN
   -- Retornar datos del cliente
   RETURN QUERY
   SELECT
-    cliente_record.id,
-    cliente_record.usuario,
-    cliente_record.nombre,
-    cliente_record.apellido,
-    cliente_record.empresa,
-    cliente_record.email,
-    cliente_record.telefono;
+    cliente_id,
+    cliente_usuario,
+    cliente_nombre,
+    cliente_apellido,
+    cliente_empresa,
+    cliente_email,
+    cliente_telefono;
 END;
 $$;
 
