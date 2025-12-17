@@ -12,6 +12,8 @@ import EtapaInstalacionesSelector from './EtapaInstalacionesSelector'
 import HistorialEtapasInstalaciones from './HistorialEtapasInstalaciones'
 import EtapaTallerImprentaSelector from './EtapaTallerImprentaSelector'
 import HistorialEtapasTallerImprenta from './HistorialEtapasTallerImprenta'
+import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
+import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
@@ -99,15 +101,18 @@ const TaskCard = ({
   const [showHistorialTallerModal, setShowHistorialTallerModal] = useState(false)
   const [showHistorialInstalacionesModal, setShowHistorialInstalacionesModal] = useState(false)
   const [showHistorialTallerImprentaModal, setShowHistorialTallerImprentaModal] = useState(false)
+  const [showHistorialMetalurgicaModal, setShowHistorialMetalurgicaModal] = useState(false)
   const [showEtapasTallerModal, setShowEtapasTallerModal] = useState(false)
   const [showEtapasInstalacionesModal, setShowEtapasInstalacionesModal] = useState(false)
   const [showEtapasTallerImprentaModal, setShowEtapasTallerImprentaModal] = useState(false)
-  const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta } = useAuth()
+  const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
+  const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
   const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
   const isTallerImprenta = task.assignedSector === 'Taller de Imprenta' || task.status === 'taller-imprenta'
+  const isMetalurgica = task.assignedSector === 'Metalúrgica' || task.status === 'metalurgica'
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'
@@ -773,6 +778,37 @@ const TaskCard = ({
               </div>
             )}
 
+            {/* Sección específica de Metalúrgica - Visible para metalurgica y admin */}
+            {isMetalurgica && hasOrdenId && (isAdmin || canManageMetalurgica) && (
+              <div className="task-metalurgica-section">
+                {/* Botón para cambiar etapa */}
+                <button
+                  type="button"
+                  className="btn-view-etapas"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowEtapasMetalurgicaModal(true)
+                  }}
+                  title="Cambiar etapa"
+                >
+                  {task.etapaMetalurgica ? `📍 ${task.etapaMetalurgica}` : '⚙️ Seleccionar Etapa'}
+                </button>
+
+                {/* Botón para ver historial */}
+                <button
+                  type="button"
+                  className="btn-view-historial"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowHistorialMetalurgicaModal(true)
+                  }}
+                  title="Ver historial de etapas"
+                >
+                  📋 Ver Historial de Etapas
+                </button>
+              </div>
+            )}
+
             <div className="task-timings">
               <div>
                 <span>Creado</span>
@@ -1302,6 +1338,77 @@ const TaskCard = ({
             </header>
             <div className="modal-body">
               <HistorialEtapasTallerImprenta ordenId={ordenId} />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Selector de Etapas Metalúrgica */}
+      {showEtapasMetalurgicaModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowEtapasMetalurgicaModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '600px' }}
+          >
+            <header className="modal-header">
+              <h3>Cambiar Etapa - Metalúrgica - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowEtapasMetalurgicaModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <EtapaMetalurgicaSelector
+                ordenId={ordenId}
+                etapaActual={task.etapaMetalurgica}
+                onEtapaChange={() => {
+                  setShowEtapasMetalurgicaModal(false)
+                  // Recargar datos si hay callback disponible
+                  if (onEdit) {
+                    // Trigger a reload through parent
+                    window.dispatchEvent(new CustomEvent('reload-tasks'))
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Historial Metalúrgica */}
+      {showHistorialMetalurgicaModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowHistorialMetalurgicaModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '800px' }}
+          >
+            <header className="modal-header">
+              <h3>Historial de Etapas - Metalúrgica - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowHistorialMetalurgicaModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <HistorialEtapasMetalurgica ordenId={ordenId} />
             </div>
           </div>
         </div>

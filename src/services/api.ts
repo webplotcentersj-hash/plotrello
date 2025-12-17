@@ -5,6 +5,7 @@ import type {
   HistorialEtapaTallerGrafico,
   HistorialEtapaInstalaciones,
   HistorialEtapaTallerImprenta,
+  HistorialEtapaMetalurgica,
   MaterialRecord,
   Notification,
   OrdenTrabajo,
@@ -4927,6 +4928,22 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async obtenerHistorialEtapasMetalurgica(idOrden: number): Promise<ApiResponse<HistorialEtapaMetalurgica[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_historial_etapas_metalurgica', {
+          p_id_orden: idOrden
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as HistorialEtapaMetalurgica[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async actualizarEtapaTallerGrafico(
     ordenId: number,
     nuevaEtapa: string,
@@ -4997,6 +5014,37 @@ class ApiService {
     if (supabase) {
       try {
         const { error } = await supabase.rpc('actualizar_etapa_taller_imprenta', {
+          p_id_orden: ordenId,
+          p_nueva_etapa: nuevaEtapa,
+          p_nombre_usuario: nombreUsuario
+        })
+
+        if (error) return { success: false, error: error.message }
+        
+        // Obtener la orden actualizada
+        const { data: orden, error: fetchError } = await supabase
+          .from('ordenes_trabajo')
+          .select('*')
+          .eq('id', ordenId)
+          .single()
+
+        if (fetchError) return { success: false, error: fetchError.message }
+        return { success: true, data: orden as OrdenTrabajo }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarEtapaMetalurgica(
+    ordenId: number,
+    nuevaEtapa: string,
+    nombreUsuario: string
+  ): Promise<ApiResponse<OrdenTrabajo>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('actualizar_etapa_metalurgica', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
           p_nombre_usuario: nombreUsuario

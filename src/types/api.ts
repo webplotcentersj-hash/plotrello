@@ -36,6 +36,8 @@ export interface OrdenTrabajo {
   etapa_instalaciones_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Instalaciones
   etapa_taller_imprenta?: string | null // Etapa actual dentro de Taller de Imprenta
   etapa_taller_imprenta_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Taller de Imprenta
+  etapa_metalurgica?: string | null // Etapa actual dentro de Metalúrgica
+  etapa_metalurgica_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Metalúrgica
   brief_publico?: string | null // Brief público del proyecto
   objetivo_proyecto?: string | null // Objetivo principal del proyecto
   publico_objetivo?: string | null // Público objetivo del diseño
@@ -188,6 +190,21 @@ export interface HistorialEtapaInstalaciones {
 }
 
 export interface HistorialEtapaTallerImprenta {
+  id: number
+  id_orden: number
+  etapa_anterior?: string | null
+  etapa_nueva: string
+  id_usuario?: number | null
+  nombre_usuario?: string | null
+  comentario?: string | null
+  fecha_cambio: string
+  fecha_inicio_etapa: string
+  fecha_fin_etapa?: string | null
+  tiempo_en_etapa_seg?: number | null
+  tiempo_formateado?: string | null
+}
+
+export interface HistorialEtapaMetalurgica {
   id: number
   id_orden: number
   etapa_anterior?: string | null

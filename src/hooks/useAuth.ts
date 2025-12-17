@@ -55,6 +55,7 @@ export function useAuth() {
   const isCompras = usuario?.rol === 'compras'
   const isDiseno = usuario?.rol === 'diseno'
   const isTallerImprenta = usuario?.rol === 'imprenta'
+  const isMetalurgica = usuario?.rol === 'metalurgica'
   // Puede administrar impresoras: taller-grafico o administracion
   const canManageImpresoras = !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
   // Puede gestionar compras: compras o administracion
@@ -63,6 +64,8 @@ export function useAuth() {
   const canManageInstalaciones = !!usuario && (usuario.rol === 'instalaciones' || usuario.rol === 'administracion')
   // Puede gestionar taller de imprenta: imprenta o administracion
   const canManageTallerImprenta = !!usuario && (usuario.rol === 'imprenta' || usuario.rol === 'administracion')
+  // Puede gestionar metalúrgica: metalurgica o administracion
+  const canManageMetalurgica = !!usuario && (usuario.rol === 'metalurgica' || usuario.rol === 'administracion')
 
   return {
     usuario,
@@ -73,10 +76,12 @@ export function useAuth() {
     isCompras,
     isDiseno,
     isTallerImprenta,
+    isMetalurgica,
     canManageImpresoras,
     canManageCompras,
     canManageInstalaciones,
     canManageTallerImprenta,
+    canManageMetalurgica,
     loading,
     setUsuario
   }
