@@ -1,0 +1,77 @@
+.etapa-taller-imprenta-selector {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.etapa-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.etapas-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.etapa-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 2px solid;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.etapa-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(4px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.etapa-button.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-left-width: 3px;
+  opacity: 1;
+  font-weight: 600;
+}
+
+.etapa-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.etapa-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.etapa-text {
+  flex: 1;
+}
+
+.etapa-changing {
+  margin-top: 12px;
+  padding: 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+

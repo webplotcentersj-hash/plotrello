@@ -185,6 +185,21 @@ export interface HistorialEtapaInstalaciones {
   tiempo_formateado?: string | null
 }
 
+export interface HistorialEtapaTallerImprenta {
+  id: number
+  id_orden: number
+  etapa_anterior?: string | null
+  etapa_nueva: string
+  id_usuario?: number | null
+  nombre_usuario?: string | null
+  comentario?: string | null
+  fecha_cambio: string
+  fecha_inicio_etapa: string
+  fecha_fin_etapa?: string | null
+  tiempo_en_etapa_seg?: number | null
+  tiempo_formateado?: string | null
+}
+
 export interface HistorialEtapaTallerGrafico {
   id: number
   id_orden: number

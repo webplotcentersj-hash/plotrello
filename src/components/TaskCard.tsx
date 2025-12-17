@@ -10,6 +10,8 @@ import EtapaTallerGraficoSelector from './EtapaTallerGraficoSelector'
 import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
 import EtapaInstalacionesSelector from './EtapaInstalacionesSelector'
 import HistorialEtapasInstalaciones from './HistorialEtapasInstalaciones'
+import EtapaTallerImprentaSelector from './EtapaTallerImprentaSelector'
+import HistorialEtapasTallerImprenta from './HistorialEtapasTallerImprenta'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
@@ -96,13 +98,16 @@ const TaskCard = ({
   const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
   const [showHistorialTallerModal, setShowHistorialTallerModal] = useState(false)
   const [showHistorialInstalacionesModal, setShowHistorialInstalacionesModal] = useState(false)
+  const [showHistorialTallerImprentaModal, setShowHistorialTallerImprentaModal] = useState(false)
   const [showEtapasTallerModal, setShowEtapasTallerModal] = useState(false)
   const [showEtapasInstalacionesModal, setShowEtapasInstalacionesModal] = useState(false)
-  const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones } = useAuth()
+  const [showEtapasTallerImprentaModal, setShowEtapasTallerImprentaModal] = useState(false)
+  const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
   const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
+  const isTallerImprenta = task.assignedSector === 'Taller de Imprenta' || task.status === 'taller-imprenta'
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'
@@ -737,6 +742,37 @@ const TaskCard = ({
               </div>
             )}
 
+            {/* Sección específica de Taller de Imprenta - Visible para imprenta y admin */}
+            {isTallerImprenta && hasOrdenId && (isAdmin || canManageTallerImprenta) && (
+              <div className="task-taller-imprenta-section">
+                {/* Botón para cambiar etapa */}
+                <button
+                  type="button"
+                  className="btn-view-etapas"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowEtapasTallerImprentaModal(true)
+                  }}
+                  title="Cambiar etapa"
+                >
+                  {task.etapaTallerImprenta ? `📍 ${task.etapaTallerImprenta}` : '⚙️ Seleccionar Etapa'}
+                </button>
+
+                {/* Botón para ver historial */}
+                <button
+                  type="button"
+                  className="btn-view-historial"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowHistorialTallerImprentaModal(true)
+                  }}
+                  title="Ver historial de etapas"
+                >
+                  📋 Ver Historial de Etapas
+                </button>
+              </div>
+            )}
+
             <div className="task-timings">
               <div>
                 <span>Creado</span>
@@ -1195,6 +1231,77 @@ const TaskCard = ({
             </header>
             <div className="modal-body">
               <HistorialEtapasInstalaciones ordenId={ordenId} />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Selector de Etapas Taller de Imprenta */}
+      {showEtapasTallerImprentaModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowEtapasTallerImprentaModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '600px' }}
+          >
+            <header className="modal-header">
+              <h3>Cambiar Etapa - Taller de Imprenta - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowEtapasTallerImprentaModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <EtapaTallerImprentaSelector
+                ordenId={ordenId}
+                etapaActual={task.etapaTallerImprenta}
+                onEtapaChange={() => {
+                  setShowEtapasTallerImprentaModal(false)
+                  // Recargar datos si hay callback disponible
+                  if (onEdit) {
+                    // Trigger a reload through parent
+                    window.dispatchEvent(new CustomEvent('reload-tasks'))
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Historial Taller de Imprenta */}
+      {showHistorialTallerImprentaModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowHistorialTallerImprentaModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '800px' }}
+          >
+            <header className="modal-header">
+              <h3>Historial de Etapas - Taller de Imprenta - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowHistorialTallerImprentaModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <HistorialEtapasTallerImprenta ordenId={ordenId} />
             </div>
           </div>
         </div>
