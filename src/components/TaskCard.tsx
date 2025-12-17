@@ -654,32 +654,9 @@ const TaskCard = ({
 
                 {/* Historial de Etapas */}
                 <HistorialEtapasTallerGrafico ordenId={ordenId} />
-              </div>
-            )}
 
-            {/* Sección específica de Instalaciones - Visible para instalaciones y admin */}
-            {isInstalaciones && hasOrdenId && (isAdmin || canManageInstalaciones) && (
-              <div className="task-instalaciones-section">
-                {/* Selector de Etapas */}
-                <EtapaInstalacionesSelector
-                  ordenId={ordenId}
-                  etapaActual={task.etapaInstalaciones}
-                  onEtapaChange={() => {
-                    // Recargar datos si hay callback disponible
-                    if (onEdit) {
-                      // Trigger a reload through parent
-                      window.dispatchEvent(new CustomEvent('reload-tasks'))
-                    }
-                  }}
-                />
-
-                {/* Historial de Etapas */}
-                <HistorialEtapasInstalaciones ordenId={ordenId} />
-              </div>
-            )}
-
-            {/* Botón para asignar impresora (solo para usuarios con permisos) */}
-            {isTallerGrafico && canManageImpresoras && (
+                {/* Botón para asignar impresora (solo para usuarios con permisos) */}
+                {canManageImpresoras && (
                   <div className="task-impresora-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
                       <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
@@ -713,6 +690,27 @@ const TaskCard = ({
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Sección específica de Instalaciones - Visible para instalaciones y admin */}
+            {isInstalaciones && hasOrdenId && (isAdmin || canManageInstalaciones) && (
+              <div className="task-instalaciones-section">
+                {/* Selector de Etapas */}
+                <EtapaInstalacionesSelector
+                  ordenId={ordenId}
+                  etapaActual={task.etapaInstalaciones}
+                  onEtapaChange={() => {
+                    // Recargar datos si hay callback disponible
+                    if (onEdit) {
+                      // Trigger a reload through parent
+                      window.dispatchEvent(new CustomEvent('reload-tasks'))
+                    }
+                  }}
+                />
+
+                {/* Historial de Etapas */}
+                <HistorialEtapasInstalaciones ordenId={ordenId} />
               </div>
             )}
 
