@@ -14,7 +14,13 @@ import type {
   TareaRecord,
   UsuarioRecord,
   UserRole,
-  LegajoEmpleado
+  LegajoEmpleado,
+  ClienteWebRecord,
+  ArticuloEmpresaRecord,
+  PedidoClienteRecord,
+  PedidoClienteItemRecord,
+  PedidoClienteArchivoRecord,
+  PedidoClienteDetalle
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -5286,6 +5292,648 @@ class ApiService {
 
         if (fetchError) return { success: false, error: fetchError.message }
         return { success: true, data: orden as OrdenTrabajo }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ============================================
+  // SISTEMA DE PEDIDOS WEB
+  // ============================================
+
+  /**
+   * Autenticar cliente web
+   */
+  async autenticarClienteWeb(usuario: string, password: string): Promise<ApiResponse<ClienteWebRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('autenticar_cliente', {
+          p_usuario: usuario,
+          p_password: password
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Usuario o contraseña incorrectos' }
+        }
+
+        return { success: true, data: data[0] as ClienteWebRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Crear cliente web (solo trabajadores)
+   */
+  async crearClienteWeb(cliente: {
+    usuario: string
+    password: string
+    nombre: string
+    apellido?: string
+    empresa?: string
+    telefono?: string
+    email?: string
+    dni_cuit?: string
+    direccion?: string
+  }): Promise<ApiResponse<ClienteWebRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_cliente', {
+          p_usuario: cliente.usuario,
+          p_password: cliente.password,
+          p_nombre: cliente.nombre,
+          p_apellido: cliente.apellido || null,
+          p_empresa: cliente.empresa || null,
+          p_telefono: cliente.telefono || null,
+          p_email: cliente.email || null,
+          p_dni_cuit: cliente.dni_cuit || null,
+          p_direccion: cliente.direccion || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo crear el cliente' }
+        }
+
+        return { success: true, data: data[0] as ClienteWebRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener artículos de empresa (catálogo)
+   */
+  async getArticulosEmpresa(visibleClientes?: boolean): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('articulos_empresa')
+          .select('*')
+          .eq('activo', true)
+          .order('nombre', { ascending: true })
+
+        if (visibleClientes !== undefined) {
+          query = query.eq('visible_clientes', visibleClientes)
+        }
+
+        const { data, error } = await query
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as ArticuloEmpresaRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Crear pedido de cliente
+   */
+  async crearPedidoCliente(pedido: {
+    id_cliente: number
+    fecha_limite_deseada?: string
+    observaciones_cliente?: string
+    items: Array<{
+      id_articulo: number
+      cantidad: number
+      precio_unitario: number
+      precio_total: number
+      descripcion_personalizada?: string
+    }>
+  }): Promise<ApiResponse<PedidoClienteRecord>> {
+    if (supabase) {
+      try {
+        const itemsJsonb = pedido.items.map(item => ({
+          id_articulo: item.id_articulo,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          precio_total: item.precio_total,
+          descripcion_personalizada: item.descripcion_personalizada || null
+        }))
+
+        const { data, error } = await supabase.rpc('crear_pedido_cliente', {
+          p_id_cliente: pedido.id_cliente,
+          p_fecha_limite_deseada: pedido.fecha_limite_deseada || null,
+          p_observaciones_cliente: pedido.observaciones_cliente || null,
+          p_items: itemsJsonb
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo crear el pedido' }
+        }
+
+        return { success: true, data: data[0] as PedidoClienteRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener pedidos de un cliente
+   */
+  async getPedidosCliente(idCliente: number): Promise<ApiResponse<PedidoClienteRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_pedidos_cliente', {
+          p_id_cliente: idCliente
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as PedidoClienteRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener detalle completo de un pedido
+   */
+  async getDetallePedidoCliente(idPedido: number): Promise<ApiResponse<PedidoClienteDetalle>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_detalle_pedido_cliente', {
+          p_id_pedido: idPedido
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Pedido no encontrado' }
+        }
+
+        const result = data[0]
+        return {
+          success: true,
+          data: {
+            pedido: result.pedido as PedidoClienteDetalle['pedido'],
+            items: result.items as PedidoClienteDetalle['items'],
+            archivos: result.archivos as PedidoClienteDetalle['archivos']
+          }
+        }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Convertir pedido a OP
+   */
+  async convertirPedidoAOp(params: {
+    id_pedido: number
+    id_usuario_convertidor: number
+    nombre_usuario_convertidor: string
+    sector_inicial?: string
+    observaciones?: string
+  }): Promise<ApiResponse<{ id_op: number; numero_op: string; mensaje: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('convertir_pedido_a_op', {
+          p_id_pedido: params.id_pedido,
+          p_id_usuario_convertidor: params.id_usuario_convertidor,
+          p_nombre_usuario_convertidor: params.nombre_usuario_convertidor,
+          p_sector_inicial: params.sector_inicial || 'Diseño Gráfico',
+          p_observaciones: params.observaciones || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo convertir el pedido' }
+        }
+
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Subir archivo de pedido cliente
+   */
+  async uploadArchivoPedidoCliente(
+    file: File,
+    idPedido: number,
+    idItem?: number
+  ): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${idPedido}_${Date.now()}.${fileExt}`
+        const filePath = idItem ? `${idPedido}/${idItem}/${fileName}` : `${idPedido}/${fileName}`
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('pedidos-clientes')
+          .upload(filePath, file)
+
+        if (uploadError) return { success: false, error: uploadError.message }
+
+        const { data: urlData } = supabase.storage
+          .from('pedidos-clientes')
+          .getPublicUrl(filePath)
+
+        // Guardar referencia en la base de datos
+        const { error: dbError } = await supabase.from('pedidos_clientes_archivos').insert({
+          id_pedido: idPedido,
+          id_item: idItem || null,
+          url: urlData.publicUrl,
+          nombre_archivo: file.name,
+          tipo: file.type,
+          tamaño: file.size
+        })
+
+        if (dbError) return { success: false, error: dbError.message }
+
+        return { success: true, data: urlData.publicUrl }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener todos los pedidos pendientes (para trabajadores)
+   */
+  async getPedidosPendientes(): Promise<ApiResponse<PedidoClienteRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('pedidos_clientes')
+          .select(`
+            *,
+            cliente:clientes_web(*)
+          `)
+          .in('estado', ['pendiente', 'en_revision', 'aprobado'])
+          .order('fecha_pedido', { ascending: false })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as PedidoClienteRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Actualizar estado de pedido
+   */
+  async actualizarEstadoPedido(
+    idPedido: number,
+    nuevoEstado: PedidoClienteRecord['estado'],
+    observacionesInternas?: string
+  ): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const updateData: any = { estado: nuevoEstado }
+        if (observacionesInternas) {
+          updateData.observaciones_internas = observacionesInternas
+        }
+
+        const { error } = await supabase
+          .from('pedidos_clientes')
+          .update(updateData)
+          .eq('id', idPedido)
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ============================================
+  // SISTEMA DE PEDIDOS WEB
+  // ============================================
+
+  /**
+   * Autenticar cliente web
+   */
+  async autenticarClienteWeb(usuario: string, password: string): Promise<ApiResponse<ClienteWebRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('autenticar_cliente', {
+          p_usuario: usuario,
+          p_password: password
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Usuario o contraseña incorrectos' }
+        }
+
+        return { success: true, data: data[0] as ClienteWebRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Crear cliente web (solo trabajadores)
+   */
+  async crearClienteWeb(cliente: {
+    usuario: string
+    password: string
+    nombre: string
+    apellido?: string
+    empresa?: string
+    telefono?: string
+    email?: string
+    dni_cuit?: string
+    direccion?: string
+  }): Promise<ApiResponse<ClienteWebRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_cliente', {
+          p_usuario: cliente.usuario,
+          p_password: cliente.password,
+          p_nombre: cliente.nombre,
+          p_apellido: cliente.apellido || null,
+          p_empresa: cliente.empresa || null,
+          p_telefono: cliente.telefono || null,
+          p_email: cliente.email || null,
+          p_dni_cuit: cliente.dni_cuit || null,
+          p_direccion: cliente.direccion || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo crear el cliente' }
+        }
+
+        return { success: true, data: data[0] as ClienteWebRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener artículos de empresa (catálogo)
+   */
+  async getArticulosEmpresa(visibleClientes?: boolean): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('articulos_empresa')
+          .select('*')
+          .eq('activo', true)
+          .order('nombre', { ascending: true })
+
+        if (visibleClientes !== undefined) {
+          query = query.eq('visible_clientes', visibleClientes)
+        }
+
+        const { data, error } = await query
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as ArticuloEmpresaRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Crear pedido de cliente
+   */
+  async crearPedidoCliente(pedido: {
+    id_cliente: number
+    fecha_limite_deseada?: string
+    observaciones_cliente?: string
+    items: Array<{
+      id_articulo: number
+      cantidad: number
+      precio_unitario: number
+      precio_total: number
+      descripcion_personalizada?: string
+    }>
+  }): Promise<ApiResponse<PedidoClienteRecord>> {
+    if (supabase) {
+      try {
+        const itemsJsonb = pedido.items.map(item => ({
+          id_articulo: item.id_articulo,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          precio_total: item.precio_total,
+          descripcion_personalizada: item.descripcion_personalizada || null
+        }))
+
+        const { data, error } = await supabase.rpc('crear_pedido_cliente', {
+          p_id_cliente: pedido.id_cliente,
+          p_fecha_limite_deseada: pedido.fecha_limite_deseada || null,
+          p_observaciones_cliente: pedido.observaciones_cliente || null,
+          p_items: itemsJsonb
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo crear el pedido' }
+        }
+
+        return { success: true, data: data[0] as PedidoClienteRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener pedidos de un cliente
+   */
+  async getPedidosCliente(idCliente: number): Promise<ApiResponse<PedidoClienteRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_pedidos_cliente', {
+          p_id_cliente: idCliente
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as PedidoClienteRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener detalle completo de un pedido
+   */
+  async getDetallePedidoCliente(idPedido: number): Promise<ApiResponse<PedidoClienteDetalle>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_detalle_pedido_cliente', {
+          p_id_pedido: idPedido
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Pedido no encontrado' }
+        }
+
+        const result = data[0]
+        return {
+          success: true,
+          data: {
+            pedido: result.pedido as PedidoClienteDetalle['pedido'],
+            items: result.items as PedidoClienteDetalle['items'],
+            archivos: result.archivos as PedidoClienteDetalle['archivos']
+          }
+        }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Convertir pedido a OP
+   */
+  async convertirPedidoAOp(params: {
+    id_pedido: number
+    id_usuario_convertidor: number
+    nombre_usuario_convertidor: string
+    sector_inicial?: string
+    observaciones?: string
+  }): Promise<ApiResponse<{ id_op: number; numero_op: string; mensaje: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('convertir_pedido_a_op', {
+          p_id_pedido: params.id_pedido,
+          p_id_usuario_convertidor: params.id_usuario_convertidor,
+          p_nombre_usuario_convertidor: params.nombre_usuario_convertidor,
+          p_sector_inicial: params.sector_inicial || 'Diseño Gráfico',
+          p_observaciones: params.observaciones || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo convertir el pedido' }
+        }
+
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Subir archivo de pedido cliente
+   */
+  async uploadArchivoPedidoCliente(
+    file: File,
+    idPedido: number,
+    idItem?: number
+  ): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${idPedido}_${Date.now()}.${fileExt}`
+        const filePath = idItem ? `${idPedido}/${idItem}/${fileName}` : `${idPedido}/${fileName}`
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('pedidos-clientes')
+          .upload(filePath, file)
+
+        if (uploadError) return { success: false, error: uploadError.message }
+
+        const { data: urlData } = supabase.storage
+          .from('pedidos-clientes')
+          .getPublicUrl(filePath)
+
+        // Guardar referencia en la base de datos
+        const { error: dbError } = await supabase.from('pedidos_clientes_archivos').insert({
+          id_pedido: idPedido,
+          id_item: idItem || null,
+          url: urlData.publicUrl,
+          nombre_archivo: file.name,
+          tipo: file.type,
+          tamaño: file.size
+        })
+
+        if (dbError) return { success: false, error: dbError.message }
+
+        return { success: true, data: urlData.publicUrl }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener todos los pedidos pendientes (para trabajadores)
+   */
+  async getPedidosPendientes(): Promise<ApiResponse<PedidoClienteRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('pedidos_clientes')
+          .select(`
+            *,
+            cliente:clientes_web(*)
+          `)
+          .in('estado', ['pendiente', 'en_revision', 'aprobado'])
+          .order('fecha_pedido', { ascending: false })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as PedidoClienteRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Actualizar estado de pedido
+   */
+  async actualizarEstadoPedido(
+    idPedido: number,
+    nuevoEstado: PedidoClienteRecord['estado'],
+    observacionesInternas?: string
+  ): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const updateData: any = { estado: nuevoEstado }
+        if (observacionesInternas) {
+          updateData.observaciones_internas = observacionesInternas
+        }
+
+        const { error } = await supabase
+          .from('pedidos_clientes')
+          .update(updateData)
+          .eq('id', idPedido)
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }

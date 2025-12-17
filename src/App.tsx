@@ -39,6 +39,8 @@ import RecursosHumanosHorariosPage from './pages/RecursosHumanosHorariosPage'
 import RecursosHumanosEvaluacionesPage from './pages/RecursosHumanosEvaluacionesPage'
 import RecursosHumanosEstadisticasPage from './pages/RecursosHumanosEstadisticasPage'
 import RecursosHumanosPermisosPage from './pages/RecursosHumanosPermisosPage'
+import ClienteLoginPage from './pages/ClienteLoginPage'
+import ClienteProtectedRoute from './components/ClienteProtectedRoute'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -365,6 +367,18 @@ function App() {
             path="/login"
             element={
               isAuthenticated ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
+            }
+          />
+
+          {/* Rutas de clientes web */}
+          <Route path="/cliente/login" element={<ClienteLoginPage />} />
+          <Route
+            path="/cliente/*"
+            element={
+              <ClienteProtectedRoute>
+                {/* Las rutas de cliente se agregarán aquí */}
+                <div>Cliente Dashboard - En construcción</div>
+              </ClienteProtectedRoute>
             }
           />
 

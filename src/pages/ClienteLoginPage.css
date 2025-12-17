@@ -1,0 +1,113 @@
+.cliente-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1d2e 0%, #2d3257 100%);
+  padding: 20px;
+}
+
+.cliente-login-container {
+  background: rgba(26, 29, 46, 0.95);
+  border-radius: 12px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cliente-login-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.cliente-login-header h1 {
+  color: #fff;
+  font-size: 32px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.cliente-login-header p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  margin: 0;
+}
+
+.cliente-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cliente-login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cliente-login-field label {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cliente-login-field input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #fff;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.cliente-login-field input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cliente-login-field input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.cliente-login-field input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cliente-login-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.cliente-login-button {
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 10px;
+}
+
+.cliente-login-button:hover:not(:disabled) {
+  background: #4f46e5;
+  transform: translateY(-1px);
+}
+
+.cliente-login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
