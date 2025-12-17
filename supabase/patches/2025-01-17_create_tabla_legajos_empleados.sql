@@ -199,16 +199,16 @@ BEGIN
   -- Retornar datos actualizados
   RETURN QUERY
   SELECT
-    l.id,
-    l.id_usuario,
-    l.nombre,
-    l.apellido,
-    l.telefono,
-    l.ubicacion,
-    l.foto_url,
-    l.sector,
-    l.funciones,
-    l.fecha_ingreso
+    l.id AS id,
+    l.id_usuario AS id_usuario,
+    l.nombre AS nombre,
+    l.apellido AS apellido,
+    l.telefono AS telefono,
+    l.ubicacion AS ubicacion,
+    l.foto_url AS foto_url,
+    l.sector AS sector,
+    l.funciones AS funciones,
+    l.fecha_ingreso AS fecha_ingreso
   FROM public.legajos_empleados l
   WHERE l.id = legajo_id;
 END;
