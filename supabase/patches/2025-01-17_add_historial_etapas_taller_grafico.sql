@@ -50,12 +50,24 @@ BEGIN
     
     -- Obtener información del usuario actual (si está disponible)
     -- Intentar obtener desde el contexto de sesión o usar el operario asignado
-    usuario_actual_nombre := COALESCE(
-      current_setting('app.current_user_name', true),
-      NEW.operario_asignado,
-      NEW.nombre_creador,
-      'Sistema'
-    );
+    -- Manejar el caso donde operario_asignado no exista
+    BEGIN
+      usuario_actual_nombre := COALESCE(
+        current_setting('app.current_user_name', true),
+        NULLIF(trim(NEW.operario_asignado), ''),
+        NULLIF(trim(NEW.usuario_trabajando_nombre), ''),
+        NULLIF(trim(NEW.nombre_creador), ''),
+        'Sistema'
+      );
+    EXCEPTION WHEN undefined_column THEN
+      -- Si operario_asignado no existe, usar solo usuario_trabajando_nombre
+      usuario_actual_nombre := COALESCE(
+        current_setting('app.current_user_name', true),
+        NULLIF(trim(NEW.usuario_trabajando_nombre), ''),
+        NULLIF(trim(NEW.nombre_creador), ''),
+        'Sistema'
+      );
+    END;
     
     -- Intentar obtener ID del usuario
     SELECT id INTO usuario_actual_id

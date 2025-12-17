@@ -19,12 +19,21 @@ BEGIN
      AND NEW.etapa_taller_grafico IS NOT NULL 
      AND NEW.sector = 'Taller Gráfico' THEN
     
-    -- Notificar al operario asignado si existe
-    IF NEW.operario_asignado IS NOT NULL AND trim(NEW.operario_asignado) != '' THEN
-      SELECT id INTO user_id_destino
-      FROM public.usuarios
-      WHERE nombre = NEW.operario_asignado
-      LIMIT 1;
+    -- Notificar al operario asignado si existe (usar operario_asignado o usuario_trabajando_nombre como fallback)
+    DECLARE
+      operario_nombre varchar(255);
+    BEGIN
+      operario_nombre := COALESCE(
+        NULLIF(trim(NEW.operario_asignado), ''),
+        NULLIF(trim(NEW.usuario_trabajando_nombre), ''),
+        NULL
+      );
+      
+      IF operario_nombre IS NOT NULL THEN
+        SELECT id INTO user_id_destino
+        FROM public.usuarios
+        WHERE nombre = operario_nombre
+        LIMIT 1;
       
       IF user_id_destino IS NOT NULL THEN
         notification_title := 'Cambio de etapa en Taller Gráfico';
@@ -50,7 +59,7 @@ BEGIN
       SELECT id, nombre 
       FROM public.usuarios 
       WHERE rol IN ('taller-grafico', 'administracion', 'gerencia')
-        AND (NEW.operario_asignado IS NULL OR nombre != NEW.operario_asignado)
+        AND (operario_nombre IS NULL OR nombre != operario_nombre)
     LOOP
       BEGIN
         notification_title := 'Cambio de etapa en Taller Gráfico';
@@ -72,7 +81,7 @@ BEGIN
     -- Notificar al creador si es diferente del operario
     IF NEW.nombre_creador IS NOT NULL 
        AND trim(NEW.nombre_creador) != '' 
-       AND (NEW.operario_asignado IS NULL OR trim(NEW.nombre_creador) != trim(NEW.operario_asignado)) THEN
+       AND (operario_nombre IS NULL OR trim(NEW.nombre_creador) != trim(operario_nombre)) THEN
       SELECT id INTO user_id_destino
       FROM public.usuarios
       WHERE nombre = NEW.nombre_creador
