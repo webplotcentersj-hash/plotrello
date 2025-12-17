@@ -1041,52 +1041,84 @@ const TaskCard = ({
           }}
         />
       )}
-      {/* Modal de Etiquetas */}
-      {showTagsModal && (
+      {/* Modal de Selector de Etapas Taller Gráfico */}
+      {showEtapasTallerModal && hasOrdenId && (
         <div
           className="modal-overlay subtasks-modal"
           onClick={(e) => {
             e.stopPropagation()
-            setShowTagsModal(false)
+            setShowEtapasTallerModal(false)
           }}
         >
           <div
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>Etiquetas - OP {task.opNumber}</h3>
+              <h3>Cambiar Etapa - Taller Gráfico - OP {task.opNumber}</h3>
               <button
                 type="button"
                 className="modal-close"
-                onClick={() => setShowTagsModal(false)}
+                onClick={() => setShowEtapasTallerModal(false)}
               >
                 ×
               </button>
             </header>
             <div className="modal-body">
-              <div className="task-tags-modal">
-                {task.tags.map((tag) => {
-                  const color = stringToColor(tag)
-                  return (
-                    <span
-                      key={tag}
-                      className="task-tag"
-                      style={{
-                        background: color,
-                        border: `1px solid ${color}`,
-                        color: '#ffffff',
-                        fontWeight: '600',
-                        fontSize: '0.9rem',
-                        padding: '8px 16px',
-                        margin: '4px'
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  )
-                })}
-              </div>
+              <EtapaTallerGraficoSelector
+                ordenId={ordenId}
+                etapaActual={task.etapaTallerGrafico}
+                onEtapaChange={() => {
+                  setShowEtapasTallerModal(false)
+                  // Recargar datos si hay callback disponible
+                  if (onEdit) {
+                    // Trigger a reload through parent
+                    window.dispatchEvent(new CustomEvent('reload-tasks'))
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Selector de Etapas Instalaciones */}
+      {showEtapasInstalacionesModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowEtapasInstalacionesModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '600px' }}
+          >
+            <header className="modal-header">
+              <h3>Cambiar Etapa - Instalaciones - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowEtapasInstalacionesModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <EtapaInstalacionesSelector
+                ordenId={ordenId}
+                etapaActual={task.etapaInstalaciones}
+                onEtapaChange={() => {
+                  setShowEtapasInstalacionesModal(false)
+                  // Recargar datos si hay callback disponible
+                  if (onEdit) {
+                    // Trigger a reload through parent
+                    window.dispatchEvent(new CustomEvent('reload-tasks'))
+                  }
+                }}
+              />
             </div>
           </div>
         </div>
