@@ -41,7 +41,6 @@ const RecursosHumanosEstadisticasPage = () => {
   }, [periodo])
 
   const getFechaDesde = () => {
-    const hoy = new Date()
     if (periodo === 'semana') {
       const hace7Dias = new Date()
       hace7Dias.setDate(hace7Dias.getDate() - 7)
