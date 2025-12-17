@@ -4910,6 +4910,22 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async obtenerHistorialEtapasTallerImprenta(idOrden: number): Promise<ApiResponse<HistorialEtapaTallerImprenta[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_historial_etapas_taller_imprenta', {
+          p_id_orden: idOrden
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as HistorialEtapaTallerImprenta[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async actualizarEtapaTallerGrafico(
     ordenId: number,
     nuevaEtapa: string,

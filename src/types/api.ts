@@ -34,6 +34,8 @@ export interface OrdenTrabajo {
   etapa_taller_grafico_fecha_inicio?: string | null // Fecha de inicio de la etapa actual
   etapa_instalaciones?: string | null // Etapa actual dentro de Instalaciones
   etapa_instalaciones_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Instalaciones
+  etapa_taller_imprenta?: string | null // Etapa actual dentro de Taller de Imprenta
+  etapa_taller_imprenta_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Taller de Imprenta
   brief_publico?: string | null // Brief público del proyecto
   objetivo_proyecto?: string | null // Objetivo principal del proyecto
   publico_objetivo?: string | null // Público objetivo del diseño
