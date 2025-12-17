@@ -118,6 +118,88 @@
   color: var(--text-muted);
 }
 
+.rrhh-error-message {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  color: #fca5a5;
+}
+
+.rrhh-error-message p {
+  margin: 0;
+  font-weight: 500;
+}
+
+.rrhh-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.rrhh-stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.rrhh-stat-card h3,
+.rrhh-stat-card h4 {
+  margin: 0 0 16px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 12px;
+}
+
+.rrhh-stat-card h4 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+}
+
+.rrhh-stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rrhh-stat-item:last-child {
+  border-bottom: none;
+}
+
+.rrhh-stat-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.rrhh-stat-value {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.rrhh-stat-value.success {
+  color: #10b981;
+}
+
+.rrhh-stat-value.warning {
+  color: #f59e0b;
+}
+
+.rrhh-usuarios-list h3 {
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 @media (max-width: 768px) {
   .rrhh-reporte-filters {
     grid-template-columns: 1fr;
@@ -126,6 +208,10 @@
   .rrhh-reporte-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .rrhh-stats-grid {
+    grid-template-columns: 1fr;
   }
 }
 

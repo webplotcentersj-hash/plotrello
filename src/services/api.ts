@@ -1242,6 +1242,82 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  async getEstadisticasUsuario(
+    idUsuario: number,
+    fechaDesde?: string,
+    fechaHasta?: string
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('obtener_estadisticas_usuario', {
+        p_id_usuario: idUsuario,
+        p_fecha_desde: fechaDesde || null,
+        p_fecha_hasta: fechaHasta || null
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        return { success: true, data: data[0] }
+      }
+
+      return { success: true, data: null }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getEstadisticasSector(
+    sector: string,
+    fechaDesde?: string,
+    fechaHasta?: string
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('obtener_estadisticas_sector', {
+        p_sector: sector,
+        p_fecha_desde: fechaDesde || null,
+        p_fecha_hasta: fechaHasta || null
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        return { success: true, data: data[0] }
+      }
+
+      return { success: true, data: null }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getEstadisticasPeriodo(
+    fechaDesde: string,
+    fechaHasta: string
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('obtener_estadisticas_periodo', {
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        return { success: true, data: data[0] }
+      }
+
+      return { success: true, data: null }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async getUsuarios(): Promise<ApiResponse<UsuarioRecord[]>> {
     if (supabase) {
       const { data, error } = await supabase
