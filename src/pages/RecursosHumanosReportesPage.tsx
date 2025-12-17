@@ -7,7 +7,6 @@ import './RecursosHumanosReportesPage.css'
 
 const RecursosHumanosReportesPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [reporteTipo, setReporteTipo] = useState<'usuario' | 'sector' | 'periodo'>('usuario')

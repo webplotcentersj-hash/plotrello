@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import apiService from '../services/api'
 import './RecursosHumanosPermisosPage.css'
 
 const RecursosHumanosPermisosPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

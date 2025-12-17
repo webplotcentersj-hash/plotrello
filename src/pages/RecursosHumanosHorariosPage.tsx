@@ -7,11 +7,7 @@ import './RecursosHumanosHorariosPage.css'
 
 const RecursosHumanosHorariosPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
-  const [horarios, setHorarios] = useState<any[]>([])
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -20,10 +16,8 @@ const RecursosHumanosHorariosPage = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const usuariosResponse = await apiService.getUsuarios()
-      if (usuariosResponse.success && usuariosResponse.data) {
-        setUsuarios(usuariosResponse.data)
-      }
+      // Cargar datos si es necesario
+      await apiService.getUsuarios()
     } catch (error) {
       console.error('Error cargando datos:', error)
     } finally {
@@ -49,7 +43,7 @@ const RecursosHumanosHorariosPage = () => {
             <button className="btn-back" onClick={() => navigate('/rrhh/dashboard')}>
               ← Volver
             </button>
-            <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+            <button className="btn-primary" onClick={() => {}}>
               + Crear Horario
             </button>
           </div>

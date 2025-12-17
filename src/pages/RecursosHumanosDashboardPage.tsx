@@ -7,7 +7,6 @@ import './RecursosHumanosDashboardPage.css'
 
 const RecursosHumanosDashboardPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [stats, setStats] = useState({
@@ -34,7 +33,7 @@ const RecursosHumanosDashboardPage = () => {
         
         // Calcular estadísticas
         const totalUsuarios = usuariosResponse.data.length
-        const usuariosActivos = usuariosResponse.data.filter(u => {
+        const usuariosActivos = usuariosResponse.data.filter(() => {
           // Considerar activo si ha estado activo en las últimas 24 horas
           // Esto se puede mejorar con last_seen si está disponible
           return true // Por ahora todos son activos

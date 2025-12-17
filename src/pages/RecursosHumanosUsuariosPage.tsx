@@ -7,8 +7,6 @@ import './RecursosHumanosUsuariosPage.css'
 
 const RecursosHumanosUsuariosPage = () => {
   const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
-  const { usuario: currentUser, isAdmin } = useAuth()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -63,11 +61,11 @@ const RecursosHumanosUsuariosPage = () => {
     }
 
     try {
-      const response = await apiService.createUsuario(
-        formData.nombre,
-        formData.password,
-        formData.rol
-      )
+      const response = await apiService.createUsuario({
+        nombre: formData.nombre,
+        password: formData.password,
+        rol: formData.rol
+      })
 
       if (response.success) {
         setShowCreateModal(false)
@@ -89,12 +87,6 @@ const RecursosHumanosUsuariosPage = () => {
     }
 
     try {
-      // Actualizar usuario
-      const updateData: Partial<UsuarioRecord> = {
-        nombre: formData.nombre,
-        rol: formData.rol
-      }
-
       // Si hay nueva contraseña, actualizarla
       if (formData.password.trim()) {
         // Aquí necesitarías una función para actualizar contraseña
@@ -112,7 +104,7 @@ const RecursosHumanosUsuariosPage = () => {
     }
   }
 
-  const handleDelete = async (userId: number) => {
+  const handleDelete = async (_userId: number) => {
     if (!confirm('¿Estás seguro de eliminar este usuario?')) {
       return
     }

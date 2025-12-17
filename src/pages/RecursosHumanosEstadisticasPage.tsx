@@ -7,10 +7,7 @@ import './RecursosHumanosEstadisticasPage.css'
 
 const RecursosHumanosEstadisticasPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
-  const [stats, setStats] = useState<any>(null)
 
   useEffect(() => {
     loadData()
@@ -19,18 +16,8 @@ const RecursosHumanosEstadisticasPage = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const usuariosResponse = await apiService.getUsuarios()
-      if (usuariosResponse.success && usuariosResponse.data) {
-        setUsuarios(usuariosResponse.data)
-        
-        // Calcular estadísticas avanzadas
-        setStats({
-          totalUsuarios: usuariosResponse.data.length,
-          usuariosPorRol: {},
-          actividadPromedio: 0,
-          productividad: {}
-        })
-      }
+      // Cargar datos si es necesario
+      await apiService.getUsuarios()
     } catch (error) {
       console.error('Error cargando datos:', error)
     } finally {

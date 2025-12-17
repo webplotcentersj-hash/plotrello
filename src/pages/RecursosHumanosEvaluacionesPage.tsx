@@ -7,11 +7,7 @@ import './RecursosHumanosEvaluacionesPage.css'
 
 const RecursosHumanosEvaluacionesPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
-  const [evaluaciones, setEvaluaciones] = useState<any[]>([])
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -20,10 +16,8 @@ const RecursosHumanosEvaluacionesPage = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const usuariosResponse = await apiService.getUsuarios()
-      if (usuariosResponse.success && usuariosResponse.data) {
-        setUsuarios(usuariosResponse.data)
-      }
+      // Cargar datos si es necesario
+      await apiService.getUsuarios()
     } catch (error) {
       console.error('Error cargando datos:', error)
     } finally {
@@ -49,7 +43,7 @@ const RecursosHumanosEvaluacionesPage = () => {
             <button className="btn-back" onClick={() => navigate('/rrhh/dashboard')}>
               ← Volver
             </button>
-            <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+            <button className="btn-primary" onClick={() => {}}>
               + Nueva Evaluación
             </button>
           </div>
