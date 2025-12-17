@@ -40,6 +40,7 @@ import RecursosHumanosEvaluacionesPage from './pages/RecursosHumanosEvaluaciones
 import RecursosHumanosEstadisticasPage from './pages/RecursosHumanosEstadisticasPage'
 import RecursosHumanosPermisosPage from './pages/RecursosHumanosPermisosPage'
 import ClienteLoginPage from './pages/ClienteLoginPage'
+import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteProtectedRoute from './components/ClienteProtectedRoute'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -376,8 +377,10 @@ function App() {
             path="/cliente/*"
             element={
               <ClienteProtectedRoute>
-                {/* Las rutas de cliente se agregarán aquí */}
-                <div>Cliente Dashboard - En construcción</div>
+                <Routes>
+                  <Route path="dashboard" element={<ClienteDashboardPage />} />
+                  <Route path="*" element={<Navigate to="/cliente/dashboard" replace />} />
+                </Routes>
               </ClienteProtectedRoute>
             }
           />
