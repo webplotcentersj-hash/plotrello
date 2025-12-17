@@ -28,7 +28,7 @@ DECLARE
 BEGIN
   -- Buscar cliente por usuario
   SELECT * INTO cliente_record
-  FROM public.clientes
+  FROM public.clientes_web
   WHERE usuario = p_usuario AND activo = true;
 
   IF NOT FOUND THEN
@@ -42,6 +42,7 @@ BEGIN
     RAISE EXCEPTION 'Usuario o contraseña incorrectos';
   END IF;
 
+  -- Retornar datos del cliente
   RETURN QUERY
   SELECT
     cliente_record.id,
@@ -50,9 +51,7 @@ BEGIN
     cliente_record.apellido,
     cliente_record.empresa,
     cliente_record.email,
-    cliente_record.telefono
-  FROM public.clientes
-  WHERE id = cliente_record.id;
+    cliente_record.telefono;
 END;
 $$;
 
@@ -84,12 +83,12 @@ DECLARE
   nuevo_cliente_id integer;
 BEGIN
   -- Validar usuario único
-  IF EXISTS (SELECT 1 FROM public.clientes WHERE usuario = p_usuario) THEN
+  IF EXISTS (SELECT 1 FROM public.clientes_web WHERE usuario = p_usuario) THEN
     RAISE EXCEPTION 'El usuario "%" ya existe', p_usuario;
   END IF;
 
   -- Validar email único si se proporciona
-  IF p_email IS NOT NULL AND EXISTS (SELECT 1 FROM public.clientes WHERE email = p_email) THEN
+  IF p_email IS NOT NULL AND EXISTS (SELECT 1 FROM public.clientes_web WHERE email = p_email) THEN
     RAISE EXCEPTION 'El email "%" ya está registrado', p_email;
   END IF;
 
@@ -102,7 +101,7 @@ BEGIN
   password_hash := crypt(p_password, gen_salt('bf'));
 
   -- Crear cliente
-  INSERT INTO public.clientes (
+  INSERT INTO public.clientes_web (
     usuario, password_hash, nombre, apellido, empresa,
     telefono, email, dni_cuit, direccion
   ) VALUES (
@@ -113,7 +112,7 @@ BEGIN
 
   RETURN QUERY
   SELECT c.id, c.usuario, c.nombre, c.email
-  FROM public.clientes c
+  FROM public.clientes_web c
   WHERE c.id = nuevo_cliente_id;
 END;
 $$;
@@ -143,7 +142,7 @@ DECLARE
   precio_total_calculado numeric(10,2) := 0;
 BEGIN
   -- Validar que el cliente existe y está activo
-  IF NOT EXISTS (SELECT 1 FROM public.clientes WHERE id = p_id_cliente AND activo = true) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.clientes_web WHERE id = p_id_cliente AND activo = true) THEN
     RAISE EXCEPTION 'Cliente no encontrado o inactivo';
   END IF;
 
@@ -278,7 +277,7 @@ BEGIN
   )
   INTO pedido_data
   FROM public.pedidos_clientes p
-  JOIN public.clientes c ON c.id = p.id_cliente
+  JOIN public.clientes_web c ON c.id = p.id_cliente
   WHERE p.id = p_id_pedido;
 
   -- Obtener items del pedido
@@ -369,7 +368,7 @@ BEGIN
 
   -- Obtener datos del cliente
   SELECT * INTO cliente_record
-  FROM public.clientes
+  FROM public.clientes_web
   WHERE id = pedido_record.id_cliente;
 
   -- Generar número de OP
