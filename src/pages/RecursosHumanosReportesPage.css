@@ -1,0 +1,125 @@
+.rrhh-reportes-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+}
+
+.rrhh-reportes-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 20px;
+}
+
+.rrhh-reportes-header {
+  margin-bottom: 30px;
+}
+
+.rrhh-reportes-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.rrhh-reporte-filters {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  align-items: end;
+}
+
+.rrhh-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rrhh-filter-section label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.rrhh-filter-select,
+.rrhh-date-input {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.rrhh-filter-select:focus,
+.rrhh-date-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-reporte-results {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.rrhh-reporte-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rrhh-reporte-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.rrhh-export-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-export {
+  padding: 10px 16px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  color: #3b82f6;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-export:hover {
+  background: rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.rrhh-reporte-content {
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  .rrhh-reporte-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .rrhh-reporte-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

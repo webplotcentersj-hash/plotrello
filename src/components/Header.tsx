@@ -19,6 +19,7 @@ type HeaderProps = {
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
   onNavigateToDiseno?: () => void
+  onNavigateToRecursosHumanos?: () => void
   onSolicitarProductos?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
@@ -43,6 +44,7 @@ const Header = ({
   onNavigateToMostrador,
   onNavigateToCompras,
   onNavigateToDiseno,
+  onNavigateToRecursosHumanos,
   onSolicitarProductos,
   onOpenChatAI,
   onNavigateToChat,
@@ -53,7 +55,7 @@ const Header = ({
   isCompact = false,
   onToggleCompact
 }: HeaderProps) => {
-  const { canManageCompras } = useAuth()
+  const { canManageCompras, canManageRecursosHumanos } = useAuth()
   const [actionsOpen, setActionsOpen] = useState(false)
   const today = new Date()
   const movesToday = activity.filter((event) => {
@@ -159,6 +161,11 @@ const Header = ({
             {(isDiseno || isAdmin) && onNavigateToDiseno && (
               <button className="brand-button" onClick={onNavigateToDiseno}>
                 🎨 Dashboard Diseño
+              </button>
+            )}
+            {canManageRecursosHumanos && onNavigateToRecursosHumanos && (
+              <button className="brand-button" onClick={onNavigateToRecursosHumanos}>
+                👥 Recursos Humanos
               </button>
             )}
             {(isDiseno || isAdmin) && (

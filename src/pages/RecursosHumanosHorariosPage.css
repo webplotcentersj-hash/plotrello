@@ -1,0 +1,41 @@
+.rrhh-horarios-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+}
+
+.rrhh-horarios-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 20px;
+}
+
+.rrhh-horarios-header {
+  margin-bottom: 30px;
+}
+
+.rrhh-horarios-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.rrhh-info-box {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.rrhh-info-box p {
+  margin: 0 0 12px 0;
+  color: var(--text-muted);
+}
+
+.rrhh-info-box p:last-child {
+  margin-bottom: 0;
+}
+

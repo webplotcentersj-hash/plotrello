@@ -32,6 +32,13 @@ import PresupuestosPage from './pages/PresupuestosPage'
 import ReportesComprasPage from './pages/ReportesComprasPage'
 import CrearPedidoCompraPage from './pages/CrearPedidoCompraPage'
 import ConciliacionBancariaPage from './pages/ConciliacionBancariaPage'
+import RecursosHumanosDashboardPage from './pages/RecursosHumanosDashboardPage'
+import RecursosHumanosUsuariosPage from './pages/RecursosHumanosUsuariosPage'
+import RecursosHumanosReportesPage from './pages/RecursosHumanosReportesPage'
+import RecursosHumanosHorariosPage from './pages/RecursosHumanosHorariosPage'
+import RecursosHumanosEvaluacionesPage from './pages/RecursosHumanosEvaluacionesPage'
+import RecursosHumanosEstadisticasPage from './pages/RecursosHumanosEstadisticasPage'
+import RecursosHumanosPermisosPage from './pages/RecursosHumanosPermisosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -480,6 +487,7 @@ function AppRoutes({
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onNavigateToCompras={() => navigate('/compras/dashboard')}
             onNavigateToDiseno={() => navigate('/diseno/dashboard')}
+            onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -633,6 +641,38 @@ function AppRoutes({
       <Route
         path="/briefs-pendientes"
         element={<BriefsPendientesPage />}
+      />
+      <Route
+        path="/rrhh/dashboard"
+        element={<RecursosHumanosDashboardPage />}
+      />
+      <Route
+        path="/rrhh"
+        element={<RecursosHumanosDashboardPage />}
+      />
+      <Route
+        path="/rrhh/usuarios"
+        element={<RecursosHumanosUsuariosPage />}
+      />
+      <Route
+        path="/rrhh/reportes"
+        element={<RecursosHumanosReportesPage />}
+      />
+      <Route
+        path="/rrhh/horarios"
+        element={<RecursosHumanosHorariosPage />}
+      />
+      <Route
+        path="/rrhh/evaluaciones"
+        element={<RecursosHumanosEvaluacionesPage />}
+      />
+      <Route
+        path="/rrhh/estadisticas"
+        element={<RecursosHumanosEstadisticasPage />}
+      />
+      <Route
+        path="/rrhh/permisos"
+        element={<RecursosHumanosPermisosPage />}
       />
     </Routes>
     </>
