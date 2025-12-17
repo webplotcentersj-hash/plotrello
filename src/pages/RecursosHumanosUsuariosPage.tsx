@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
 import './RecursosHumanosUsuariosPage.css'
