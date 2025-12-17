@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
 import LegajoEmpleadoModal from '../components/LegajoEmpleadoModal'
@@ -7,6 +8,7 @@ import './RecursosHumanosUsuariosPage.css'
 
 const RecursosHumanosUsuariosPage = () => {
   const navigate = useNavigate()
+  const { canManageRecursosHumanos, loading: authLoading } = useAuth()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -38,8 +40,13 @@ const RecursosHumanosUsuariosPage = () => {
   ]
 
   useEffect(() => {
+    if (authLoading) return
+    if (!canManageRecursosHumanos) {
+      navigate('/rrhh/dashboard')
+      return
+    }
     loadUsuarios()
-  }, [])
+  }, [canManageRecursosHumanos, navigate, authLoading])
 
   const loadUsuarios = async () => {
     setLoading(true)

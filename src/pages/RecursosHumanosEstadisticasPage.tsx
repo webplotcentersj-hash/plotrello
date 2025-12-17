@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import {
   BarChart,
@@ -30,6 +31,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const RecursosHumanosEstadisticasPage = () => {
   const navigate = useNavigate()
+  const { canManageRecursosHumanos, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState<'semana' | 'mes' | 'trimestre'>('mes')
   const [estadisticasUsuarios, setEstadisticasUsuarios] = useState<any[]>([])
@@ -37,8 +39,13 @@ const RecursosHumanosEstadisticasPage = () => {
   const [estadisticasPeriodo, setEstadisticasPeriodo] = useState<any>(null)
 
   useEffect(() => {
+    if (authLoading) return
+    if (!canManageRecursosHumanos) {
+      navigate('/rrhh/dashboard')
+      return
+    }
     loadData()
-  }, [periodo])
+  }, [periodo, canManageRecursosHumanos, navigate, authLoading])
 
   const getFechaDesde = () => {
     if (periodo === 'semana') {

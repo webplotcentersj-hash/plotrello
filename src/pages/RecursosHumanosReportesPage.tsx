@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
 import jsPDF from 'jspdf'
@@ -20,6 +21,7 @@ const SECTORES_DISPONIBLES = [
 
 const RecursosHumanosReportesPage = () => {
   const navigate = useNavigate()
+  const { canManageRecursosHumanos, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [reporteTipo, setReporteTipo] = useState<'usuario' | 'sector' | 'periodo'>('usuario')
@@ -31,6 +33,11 @@ const RecursosHumanosReportesPage = () => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (authLoading) return
+    if (!canManageRecursosHumanos) {
+      navigate('/rrhh/dashboard')
+      return
+    }
     loadUsuarios()
     // Establecer fechas por defecto (último mes)
     const hoy = new Date()
@@ -38,7 +45,7 @@ const RecursosHumanosReportesPage = () => {
     haceUnMes.setMonth(haceUnMes.getMonth() - 1)
     setFechaHasta(hoy.toISOString().split('T')[0])
     setFechaDesde(haceUnMes.toISOString().split('T')[0])
-  }, [])
+  }, [canManageRecursosHumanos, navigate, authLoading])
 
   const loadUsuarios = async () => {
     try {

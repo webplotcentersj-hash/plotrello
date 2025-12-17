@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import './RecursosHumanosEvaluacionesPage.css'
 
 const RecursosHumanosEvaluacionesPage = () => {
   const navigate = useNavigate()
+  const { canManageRecursosHumanos, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (authLoading) return
+    if (!canManageRecursosHumanos) {
+      navigate('/rrhh/dashboard')
+      return
+    }
     loadData()
-  }, [])
+  }, [canManageRecursosHumanos, navigate, authLoading])
 
   const loadData = async () => {
     setLoading(true)

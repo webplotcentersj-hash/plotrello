@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import './RecursosHumanosPermisosPage.css'
 
 const RecursosHumanosPermisosPage = () => {
   const navigate = useNavigate()
+  const { canManageRecursosHumanos, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (authLoading) return
+    if (!canManageRecursosHumanos) {
+      navigate('/rrhh/dashboard')
+      return
+    }
     setLoading(false)
-  }, [])
+  }, [canManageRecursosHumanos, navigate, authLoading])
 
   if (loading) {
     return (
