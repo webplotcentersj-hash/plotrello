@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import apiService from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 import './EtapaTallerGraficoSelector.css'
 
 const ETAPAS_TALLER_GRAFICO = [
@@ -46,15 +47,19 @@ const EtapaTallerGraficoSelector = ({
   onEtapaChange 
 }: EtapaTallerGraficoSelectorProps) => {
   const [cambiando, setCambiando] = useState(false)
+  const { usuario } = useAuth()
 
   const handleCambiarEtapa = async (nuevaEtapa: EtapaTallerGrafico) => {
     if (nuevaEtapa === etapaActual) return
 
     setCambiando(true)
     try {
-      const response = await apiService.updateOrden(ordenId, {
-        etapa_taller_grafico: nuevaEtapa
-      })
+      // Usar función RPC que acepta el nombre del usuario
+      const response = await apiService.actualizarEtapaTallerGrafico(
+        ordenId, 
+        nuevaEtapa,
+        usuario?.nombre || 'Sistema'
+      )
 
       if (response.success) {
         if (onEtapaChange) {

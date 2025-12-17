@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import apiService from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 import './EtapaInstalacionesSelector.css'
 
 const ETAPAS_INSTALACIONES = [
@@ -40,15 +41,19 @@ const EtapaInstalacionesSelector = ({
   onEtapaChange 
 }: EtapaInstalacionesSelectorProps) => {
   const [cambiando, setCambiando] = useState(false)
+  const { usuario } = useAuth()
 
   const handleCambiarEtapa = async (nuevaEtapa: EtapaInstalaciones) => {
     if (nuevaEtapa === etapaActual) return
 
     setCambiando(true)
     try {
-      const response = await apiService.updateOrden(ordenId, {
-        etapa_instalaciones: nuevaEtapa
-      })
+      // Usar función RPC que acepta el nombre del usuario
+      const response = await apiService.actualizarEtapaInstalaciones(
+        ordenId, 
+        nuevaEtapa,
+        usuario?.nombre || 'Sistema'
+      )
 
       if (response.success) {
         if (onEtapaChange) {

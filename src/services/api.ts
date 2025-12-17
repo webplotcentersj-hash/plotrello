@@ -4909,6 +4909,68 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  async actualizarEtapaTallerGrafico(
+    ordenId: number,
+    nuevaEtapa: string,
+    nombreUsuario: string
+  ): Promise<ApiResponse<OrdenTrabajo>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_etapa_taller_grafico', {
+          p_id_orden: ordenId,
+          p_nueva_etapa: nuevaEtapa,
+          p_nombre_usuario: nombreUsuario
+        })
+
+        if (error) return { success: false, error: error.message }
+        
+        // Obtener la orden actualizada
+        const { data: orden, error: fetchError } = await supabase
+          .from('ordenes_trabajo')
+          .select('*')
+          .eq('id', ordenId)
+          .single()
+
+        if (fetchError) return { success: false, error: fetchError.message }
+        return { success: true, data: orden as OrdenTrabajo }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarEtapaInstalaciones(
+    ordenId: number,
+    nuevaEtapa: string,
+    nombreUsuario: string
+  ): Promise<ApiResponse<OrdenTrabajo>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_etapa_instalaciones', {
+          p_id_orden: ordenId,
+          p_nueva_etapa: nuevaEtapa,
+          p_nombre_usuario: nombreUsuario
+        })
+
+        if (error) return { success: false, error: error.message }
+        
+        // Obtener la orden actualizada
+        const { data: orden, error: fetchError } = await supabase
+          .from('ordenes_trabajo')
+          .select('*')
+          .eq('id', ordenId)
+          .single()
+
+        if (fetchError) return { success: false, error: fetchError.message }
+        return { success: true, data: orden as OrdenTrabajo }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {
