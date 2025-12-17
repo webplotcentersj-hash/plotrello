@@ -94,24 +94,25 @@ const FiltersBar = ({
             ))}
           </div>
         </div>
-        {onSectorChange && availableSectors.length > 0 && (
-          <div className="filter-control">
-            <label>Sector</label>
-            <select
-              value={sectorFilter}
-              onChange={(e) => onSectorChange(e.target.value)}
-              className="sector-select"
-            >
-              <option value="todos">Todos los sectores</option>
-              {availableSectors.map((sector) => (
-                <option key={sector} value={sector}>
-                  {sector}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div className="library-button-container">
+        <div className="filter-right-section">
+          {onSectorChange && availableSectors.length > 0 && (
+            <div className="filter-control sector-filter-control">
+              <label>Sector</label>
+              <select
+                value={sectorFilter}
+                onChange={(e) => onSectorChange(e.target.value)}
+                className="sector-select"
+              >
+                <option value="todos">Todos los sectores</option>
+                {availableSectors.map((sector) => (
+                  <option key={sector} value={sector}>
+                    {sector}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="library-button-container">
           {onAddNewOrder && (
             <button
               type="button"
@@ -143,6 +144,7 @@ const FiltersBar = ({
               {copiandoBrief ? '⏳ Generando...' : '📋 Copiar Link Brief'}
             </button>
           )}
+          </div>
         </div>
       </div>
 

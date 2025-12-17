@@ -21,9 +21,22 @@
 
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(0, 200px) minmax(0, 200px) 1fr;
+  grid-template-columns: minmax(0, 200px) 1fr;
   gap: 16px;
   align-items: flex-end;
+}
+
+.filter-right-section {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sector-filter-control {
+  min-width: 200px;
+  max-width: 250px;
 }
 
 .library-button-container {
@@ -211,14 +224,18 @@
     grid-template-columns: 1fr;
   }
 
+  .filter-right-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sector-filter-control {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
   .priority-group {
     flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 1024px) {
-  .filter-grid {
-    grid-template-columns: minmax(0, 200px) 1fr;
   }
 }
 
