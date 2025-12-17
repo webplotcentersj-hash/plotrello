@@ -14,7 +14,8 @@
   width: 100%;
   flex-shrink: 0;
   box-sizing: border-box;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: visible;
   min-height: auto;
 }
 
@@ -753,20 +754,33 @@ body.compact-mode .task-actions {
   gap: 6px;
   margin-top: 8px;
   margin-bottom: 4px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .task-tag {
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 0.75rem;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .task-tag:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  white-space: normal;
+  overflow: visible;
+  z-index: 10;
+  position: relative;
 }
 
 .task-progress {
