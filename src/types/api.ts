@@ -262,6 +262,7 @@ export interface MensajePedidoClienteRecord {
   es_del_cliente: boolean
   leido: boolean
   fecha_creacion: string
+  nombre_usuario?: string | null
 }
 
 export interface PedidoClienteItemRecord {
