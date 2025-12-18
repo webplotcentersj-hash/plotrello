@@ -545,6 +545,12 @@ const ArticulosEmpresaPage = () => {
               ← Volver
             </button>
             <button 
+              className="btn-secondary"
+              onClick={() => navigate('/clientes-web/categorias')}
+            >
+              📁 Categorías
+            </button>
+            <button 
               className="btn-primary"
               onClick={abrirModalNuevo}
             >

@@ -5582,6 +5582,90 @@ class ApiService {
   }
 
   /**
+   * Eliminar categoría
+   */
+  async eliminarCategoriaArticulo(categoria: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('eliminar_categoria_articulo', {
+          p_categoria: categoria
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Actualizar nombre de categoría
+   */
+  async actualizarCategoriaArticulo(categoriaAntigua: string, categoriaNueva: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('actualizar_categoria_articulo', {
+          p_categoria_antigua: categoriaAntigua,
+          p_categoria_nueva: categoriaNueva
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Eliminar subcategoría
+   */
+  async eliminarSubcategoriaArticulo(categoria: string, subcategoria: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('eliminar_subcategoria_articulo', {
+          p_categoria: categoria,
+          p_subcategoria: subcategoria
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Actualizar nombre de subcategoría
+   */
+  async actualizarSubcategoriaArticulo(
+    categoria: string,
+    subcategoriaAntigua: string,
+    subcategoriaNueva: string
+  ): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('actualizar_subcategoria_articulo', {
+          p_categoria: categoria,
+          p_subcategoria_antigua: subcategoriaAntigua,
+          p_subcategoria_nueva: subcategoriaNueva
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Generar código automático para artículo
    */
   async generarCodigoArticulo(): Promise<ApiResponse<string>> {
