@@ -6,9 +6,12 @@ interface ClienteProtectedRouteProps {
 }
 
 export default function ClienteProtectedRoute({ children }: ClienteProtectedRouteProps) {
-  const { isAuthenticated, loading } = useClienteAuth()
+  const { isAuthenticated, loading, cliente } = useClienteAuth()
+
+  console.log('ClienteProtectedRoute - loading:', loading, 'isAuthenticated:', isAuthenticated, 'cliente:', cliente)
 
   if (loading) {
+    console.log('ClienteProtectedRoute - Mostrando loading...')
     return (
       <div className="loading-container">
         <div className="spinner"></div>
@@ -17,9 +20,11 @@ export default function ClienteProtectedRoute({ children }: ClienteProtectedRout
   }
 
   if (!isAuthenticated) {
+    console.log('ClienteProtectedRoute - No autenticado, redirigiendo a login')
     return <Navigate to="/cliente/login" replace />
   }
 
+  console.log('ClienteProtectedRoute - Acceso permitido, renderizando children')
   return <>{children}</>
 }
 
