@@ -543,7 +543,8 @@ INSTRUCCIONES AGÉNTICAS:
           responseText,
           {
             hasAttachments: attachments && attachments.length > 0,
-            hasImages: hasImages,
+            hasImages: hasImagesForVision || false,
+            hasPDFs: hasPDFsForVision || false,
             completeContext: completeContext !== null,
             memoryUsed: useMemory
           },
