@@ -469,6 +469,26 @@ const ArticulosEmpresaPage = () => {
           requiere_archivos: formData.requiere_archivos,
           visible_clientes: formData.visible_clientes
         })
+
+        // Si se creó exitosamente y hay imágenes para subir, subirlas a la galería
+        if (response.success && response.data && imagenFiles.length > 0) {
+          const nuevoArticuloId = response.data.id
+          for (let i = 0; i < imagenFiles.length; i++) {
+            const file = imagenFiles[i]
+            const uploadResponse = await apiService.uploadImagenArticuloEmpresa(
+              file,
+              nuevoArticuloId
+            )
+
+            if (uploadResponse.success && uploadResponse.data) {
+              await apiService.agregarImagenArticuloEmpresa(
+                nuevoArticuloId,
+                uploadResponse.data,
+                i
+              )
+            }
+          }
+        }
       }
 
       if (response.success) {
