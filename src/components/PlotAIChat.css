@@ -37,7 +37,7 @@
   border: 1px solid var(--surface-border);
   overflow: hidden;
   animation: plotai-chat-slide-up 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: bottom right;
+  transform-origin: bottom left;
 }
 
 @keyframes plotai-chat-slide-up {

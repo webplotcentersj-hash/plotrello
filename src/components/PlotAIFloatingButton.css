@@ -1,7 +1,7 @@
 .plotai-floating-button {
   position: fixed;
   bottom: 24px;
-  right: 24px;
+  left: 24px;
   width: 64px;
   height: 64px;
   border-radius: 50%;
@@ -92,7 +92,7 @@
 
 .plotai-button-tooltip {
   position: absolute;
-  right: 80px;
+  left: 80px;
   top: 50%;
   transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.9);
@@ -119,7 +119,7 @@
 @keyframes tooltip-fade-in {
   from {
     opacity: 0;
-    transform: translateY(-50%) translateX(-10px);
+    transform: translateY(-50%) translateX(10px);
   }
   to {
     opacity: 1;
@@ -158,13 +158,13 @@
 @media (max-width: 768px) {
   .plotai-floating-button {
     bottom: 16px;
-    right: 16px;
+    left: 16px;
     width: 56px;
     height: 56px;
   }
 
   .plotai-button-tooltip {
-    right: 70px;
+    left: 70px;
     font-size: 12px;
     padding: 10px 14px;
   }
