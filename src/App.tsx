@@ -728,6 +728,10 @@ function AppRoutes({
         path="/clientes-web/articulos"
         element={<ArticulosEmpresaPage />}
       />
+      <Route
+        path="/clientes-web/categorias"
+        element={<CategoriasArticulosPage />}
+      />
     </Routes>
     </>
   )
