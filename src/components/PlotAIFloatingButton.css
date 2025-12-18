@@ -1,0 +1,172 @@
+.plotai-floating-button {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+}
+
+.plotai-floating-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
+}
+
+.plotai-floating-button:active {
+  transform: scale(0.95);
+}
+
+.plotai-floating-button.open {
+  background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+  box-shadow: 0 8px 24px rgba(245, 101, 101, 0.4);
+}
+
+.plotai-floating-button.open:hover {
+  box-shadow: 0 12px 32px rgba(245, 101, 101, 0.6);
+}
+
+.plotai-floating-button.pulse {
+  animation: plotai-pulse 0.6s ease-in-out;
+}
+
+@keyframes plotai-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.plotai-floating-button.has-unread {
+  animation: plotai-unread-pulse 2s ease-in-out infinite;
+}
+
+@keyframes plotai-unread-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.8), 0 0 0 8px rgba(102, 126, 234, 0.2);
+  }
+}
+
+.plotai-button-icon {
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.plotai-floating-button.open .plotai-button-icon {
+  opacity: 0;
+  transform: rotate(90deg);
+}
+
+.plotai-button-close-icon {
+  position: absolute;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: rotate(-90deg);
+  transition: all 0.3s ease;
+}
+
+.plotai-floating-button.open .plotai-button-close-icon {
+  opacity: 1;
+  transform: rotate(0deg);
+}
+
+.plotai-button-tooltip {
+  position: absolute;
+  right: 80px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: tooltip-fade-in 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooltip-subtitle {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+.plotai-unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  background: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  animation: badge-bounce 0.5s ease;
+}
+
+@keyframes badge-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .plotai-floating-button {
+    bottom: 16px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+  }
+
+  .plotai-button-tooltip {
+    right: 70px;
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+}
+

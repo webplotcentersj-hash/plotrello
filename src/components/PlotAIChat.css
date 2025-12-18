@@ -9,6 +9,19 @@
   place-items: center;
   z-index: 2000;
   padding: 20px;
+  animation: plotai-overlay-fade-in 0.3s ease;
+  backdrop-filter: blur(4px);
+}
+
+@keyframes plotai-overlay-fade-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
 }
 
 .plotai-chat {
@@ -23,6 +36,19 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--surface-border);
   overflow: hidden;
+  animation: plotai-chat-slide-up 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: bottom right;
+}
+
+@keyframes plotai-chat-slide-up {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .plotai-header {
@@ -322,17 +348,31 @@
 .plotai-message {
   display: flex;
   gap: 12px;
-  animation: fadeIn 0.3s ease-in;
+  animation: message-slide-in 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  animation-fill-mode: forwards;
 }
 
-@keyframes fadeIn {
+.plotai-message:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.plotai-message:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.plotai-message:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+@keyframes message-slide-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 

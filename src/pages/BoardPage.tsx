@@ -8,6 +8,7 @@ import TaskEditModal from '../components/TaskEditModal'
 import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
 import PlotAIChat from '../components/PlotAIChat'
+import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 import TaskLibraryModal from '../components/TaskLibraryModal'
 import QRPrintView from '../components/QRPrintView'
 import SolicitarProductosModal from '../components/SolicitarProductosModal'
@@ -645,6 +646,12 @@ const BoardPage = ({
           onApplyOptimization={handleApplyOptimizations}
         />
       )}
+
+      <PlotAIFloatingButton
+        onClick={() => setIsChatAIOpen(!isChatAIOpen)}
+        isOpen={isChatAIOpen}
+        hasUnreadMessages={false}
+      />
 
       {isChatAIOpen && (
         <PlotAIChat
