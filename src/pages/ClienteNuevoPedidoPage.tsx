@@ -200,8 +200,13 @@ export default function ClienteNuevoPedidoPage() {
       if (response.success && response.data) {
         // Subir archivos si hay
         if (archivos.length > 0 && response.data.id) {
-          for (const archivo of archivos) {
-            await apiService.uploadArchivoPedidoCliente(response.data.id, archivo)
+          try {
+            for (const archivo of archivos) {
+              await apiService.uploadArchivoPedidoCliente(archivo, response.data.id)
+            }
+          } catch (uploadError) {
+            console.error('Error al subir archivos:', uploadError)
+            // Continuar aunque falle la subida de archivos
           }
         }
         navigate(`/cliente/pedido/${response.data.id}`)
