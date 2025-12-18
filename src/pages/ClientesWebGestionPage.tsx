@@ -40,9 +40,13 @@ const ClientesWebGestionPage = () => {
       const response = await apiService.getClientesWeb()
       if (response.success && response.data) {
         setClientes(response.data)
+      } else {
+        console.error('Error cargando clientes:', response.error)
+        alert(response.error || 'Error al cargar clientes')
       }
     } catch (error) {
       console.error('Error cargando clientes:', error)
+      alert('Error de conexión al cargar clientes')
     } finally {
       setLoading(false)
     }
@@ -50,9 +54,24 @@ const ClientesWebGestionPage = () => {
 
   const handleCreate = async () => {
     try {
+      // Validar campos requeridos
+      if (!formData.usuario && !editingCliente) {
+        alert('El usuario es requerido')
+        return
+      }
+      if (!formData.nombre) {
+        alert('El nombre es requerido')
+        return
+      }
+      if (!formData.password && !editingCliente) {
+        alert('La contraseña es requerida')
+        return
+      }
+
       let response
       if (editingCliente) {
         // Actualizar cliente existente
+        console.log('Actualizando cliente:', editingCliente.id, formData)
         response = await apiService.actualizarClienteWeb(editingCliente.id, {
           password: formData.password || undefined,
           nombre: formData.nombre,
@@ -65,18 +84,22 @@ const ClientesWebGestionPage = () => {
         })
       } else {
         // Crear nuevo cliente
+        console.log('Creando cliente:', formData)
         response = await apiService.crearClienteWeb(formData)
       }
       
+      console.log('Respuesta:', response)
       if (response.success) {
         setShowCreateModal(false)
         resetForm()
         loadClientes()
       } else {
+        console.error('Error en respuesta:', response.error)
         alert(response.error || `Error al ${editingCliente ? 'actualizar' : 'crear'} cliente`)
       }
     } catch (error) {
-      alert(`Error al ${editingCliente ? 'actualizar' : 'crear'} cliente`)
+      console.error('Error en handleCreate:', error)
+      alert(`Error al ${editingCliente ? 'actualizar' : 'crear'} cliente: ${error instanceof Error ? error.message : 'Error desconocido'}`)
     }
   }
 

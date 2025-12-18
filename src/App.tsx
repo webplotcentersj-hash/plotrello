@@ -702,7 +702,7 @@ function AppRoutes({
       />
       <Route
         path="/clientes-web"
-        element={<ClientesWebDashboardPage />}
+        element={<Navigate to="/clientes-web/dashboard" replace />}
       />
       <Route
         path="/clientes-web/gestion"
