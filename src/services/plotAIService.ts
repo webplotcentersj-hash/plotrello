@@ -537,16 +537,31 @@ INSTRUCCIONES AGÉNTICAS:
       
       console.log('📊 Total de parts:', parts.length, 'imágenes:', imageAttachmentsForVision.length)
       
+      // El formato correcto para @google/genai es un array de objetos con role y parts
+      // Cada objeto debe tener { role: 'user', parts: [...] }
+      const contents = [{
+        role: 'user' as const,
+        parts: parts
+      }]
+      
+      console.log('📤 Enviando a Gemini:', {
+        model: 'gemini-2.5-flash',
+        contentsCount: contents.length,
+        partsCount: parts.length,
+        partsTypes: parts.map(p => p.text ? 'text' : 'inlineData')
+      })
+      
       // Usar el modelo con capacidad de visión (gemini-2.5-flash tiene visión integrada)
       const visionModel = 'gemini-2.5-flash'
       
       try {
         const response = await ai.models.generateContent({
           model: visionModel,
-          contents: parts
+          contents: contents
         })
         
         responseText = response.text || ''
+        console.log('✅ Respuesta recibida de Gemini:', responseText.substring(0, 100))
       } catch (error: any) {
         // Si hay error con imágenes, intentar solo con texto
         if (error?.error?.code === 400 && error?.error?.message?.includes('image')) {
