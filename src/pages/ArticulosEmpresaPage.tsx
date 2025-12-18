@@ -113,13 +113,19 @@ const ArticulosEmpresaPage = () => {
     return matchBusqueda && matchCategoria
   })
 
-  const abrirModalNuevo = () => {
+  const abrirModalNuevo = async () => {
     setEditingArticulo(null)
+    
+    // Generar código automático
+    const codigoResponse = await apiService.generarCodigoArticulo()
+    const codigoGenerado = codigoResponse.success ? codigoResponse.data! : ''
+    
     setFormData({
-      codigo: '',
+      codigo: codigoGenerado,
       nombre: '',
       descripcion: '',
       categoria: '',
+      subcategoria: '',
       precio_base: '',
       imagen_url: '',
       tiempo_estimado_dias: '',
@@ -127,6 +133,8 @@ const ArticulosEmpresaPage = () => {
       visible_clientes: true,
       activo: true
     })
+    setCategoriaInputValue('')
+    setSubcategoriaInputValue('')
     setImagenFile(null)
     setImagenPreview(null)
     setError('')
