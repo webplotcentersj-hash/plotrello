@@ -537,7 +537,7 @@ INSTRUCCIONES AGÉNTICAS:
       
       console.log('📊 Total de parts:', parts.length, 'imágenes:', imageAttachmentsForVision.length)
       
-      // El formato correcto para @google/genai es un array de objetos con role y parts
+      // El formato correcto para @google/genai con imágenes es un array de objetos con role y parts
       // Cada objeto debe tener { role: 'user', parts: [...] }
       const contents = [{
         role: 'user' as const,
@@ -545,14 +545,14 @@ INSTRUCCIONES AGÉNTICAS:
       }]
       
       console.log('📤 Enviando a Gemini:', {
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         contentsCount: contents.length,
         partsCount: parts.length,
         partsTypes: parts.map(p => p.text ? 'text' : 'inlineData')
       })
       
-      // Usar el modelo con capacidad de visión (gemini-2.0-flash-exp tiene visión integrada)
-      const visionModel = 'gemini-2.0-flash-exp'
+      // Usar el modelo con capacidad de visión (gemini-2.5-flash tiene visión integrada)
+      const visionModel = 'gemini-2.5-flash'
       
       try {
         const response = await ai.models.generateContent({
@@ -568,7 +568,7 @@ INSTRUCCIONES AGÉNTICAS:
           console.warn('Error procesando imagen, intentando solo con texto...', error)
           const textOnlyPrompt = prompt + (hasPDFsForText ? '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas o en formato JPG/PNG.' : '')
           const response = await ai.models.generateContent({
-            model,
+            model: model || 'gemini-2.5-flash',
             contents: textOnlyPrompt
           })
           responseText = response.text || ''
@@ -598,15 +598,15 @@ INSTRUCCIONES AGÉNTICAS:
       }
       
       const response = await ai.models.generateContent({
-        model,
+        model: model || 'gemini-2.5-flash',
         contents: textPrompt
       })
       
       responseText = response.text || ''
     } else {
-      // Sin imágenes ni PDFs, usar el método normal
+      // Sin imágenes ni PDFs, usar el método normal (contents puede ser string directamente)
       const response = await ai.models.generateContent({
-        model,
+        model: model || 'gemini-2.5-flash',
         contents: prompt
       })
       
