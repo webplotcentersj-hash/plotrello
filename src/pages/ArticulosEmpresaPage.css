@@ -409,10 +409,15 @@
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px;
-  color: #fff;
+  color: #ffffff;
   font-size: 14px;
   font-family: inherit;
   transition: all 0.3s;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .form-group input:focus,
@@ -440,7 +445,7 @@
 
 .readonly-input {
   background: rgba(26, 29, 46, 0.4) !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
   cursor: not-allowed;
 }
 
@@ -448,7 +453,7 @@
   display: block;
   margin-top: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7);
   font-style: italic;
 }
 
