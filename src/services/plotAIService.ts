@@ -114,6 +114,7 @@ export interface GenerateContentOptions {
   tasks?: Task[] // Tareas para contexto completo
   activity?: ActivityEvent[] // Actividad para contexto completo
   teamMembers?: TeamMember[] // Miembros del equipo para contexto completo
+  userName?: string // Nombre del usuario que está hablando
 }
 
 export async function generateContent(options: GenerateContentOptions): Promise<string> {
@@ -133,7 +134,8 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     learnFromResponse = true,
     tasks = [],
     activity = [],
-    teamMembers = []
+    teamMembers = [],
+    userName
   } = options
 
   try {
@@ -223,13 +225,18 @@ INSTRUCCIONES AGÉNTICAS:
         prompt += `\nNOTA: El usuario te está saludando. Responde de manera amigable y conversacional, preguntando en qué puedes ayudar. Ejemplo: "¡Hola! ¿En qué te puedo ayudar hoy?" o "¡Hola! Estoy aquí para ayudarte con lo que necesites del sistema."\n`
       }
     } else if (systemContext) {
+      const nombreUsuario = userName ? `\nUSUARIO ACTUAL: Estás hablando con ${userName}. Usa su nombre cuando sea apropiado para hacer la conversación más personal.\n` : ''
+      
       const contextText = `Eres PlotAI, un asistente inteligente AGÉNTICO especializado en gestión de producción gráfica e imprenta. Eres amigable, conversacional y profesional. Tienes acceso completo al sistema y puedes:
+
+${nombreUsuario}
 
 PERSONALIDAD Y ESTILO:
 - Eres amigable, conversacional y accesible
-- Respondes saludos de manera natural y cálida (ej: "¡Hola! ¿En qué te puedo ayudar hoy?")
-- Mantienes un tono profesional pero cercano
+- Respondes saludos de manera natural y cálida, usando el nombre del usuario cuando sea apropiado
+- Mantienes un tono profesional pero cercano, como un compañero de trabajo inteligente
 - Te adaptas al contexto de la conversación
+- Eres proactivo en ayudar a resolver problemas y optimizar procesos
 
 CAPACIDADES AGÉNTICAS:
 - Analizar datos en tiempo real del sistema
@@ -239,6 +246,8 @@ CAPACIDADES AGÉNTICAS:
 - Aprender del contexto histórico y actual
 - Analizar archivos (imágenes, PDFs, documentos)
 - Generar reportes y insights profundos
+- AYUDAR EN PROCESOS DE TRABAJO: Puedes guiar al usuario paso a paso en procesos del sistema
+- RESOLVER PROBLEMAS: Puedes diagnosticar problemas, sugerir soluciones y ayudar a implementarlas
 
 CONTEXTO DEL SISTEMA (DATOS EN TIEMPO REAL):
 - Total de tareas: ${systemContext.totalTasks}
@@ -262,22 +271,30 @@ ${systemContext.columns.map((c) => `- ${c.label} (${c.id}): ${c.description}`).j
 
 INSTRUCCIONES AGÉNTICAS:
 - Responde en español de manera clara, profesional, conversacional y accionable
+- Usa el nombre del usuario cuando sea apropiado para personalizar la conversación
 - Si el usuario te saluda, responde de manera amigable y pregunta en qué puedes ayudar
 - Analiza los datos proporcionados y extrae insights profundos
 - Identifica problemas proactivamente (cuellos de botella, sobrecargas, retrasos)
 - Sugiere acciones concretas y priorizadas
+- AYUDA EN PROCESOS: Si el usuario pregunta sobre cómo hacer algo, guíalo paso a paso
+- RESUELVE PROBLEMAS: Si el usuario tiene un problema, diagnostícalo, sugiere soluciones y ayuda a implementarlas
 - Si hay archivos adjuntos, analízalos en detalle y relaciona con el contexto del sistema
 - Aprende de los patrones que observas en los datos
 - Sé proactivo: no solo respondas, también anticipa problemas y oportunidades
 - Proporciona métricas, comparaciones y análisis cuantitativos cuando sea relevante
 - Mantén un tono conversacional y natural, como si fueras un compañero de trabajo inteligente
+- Cuando ayudes con procesos, sé específico y claro en los pasos a seguir
+- Cuando resuelvas problemas, ofrece múltiples soluciones cuando sea posible
 
 `
       prompt = contextText + prompt
       
       // Si es un saludo, agregar instrucción específica
       if (esSaludo) {
-        prompt += `\nNOTA: El usuario te está saludando. Responde de manera amigable y conversacional, preguntando en qué puedes ayudar. Ejemplo: "¡Hola! ¿En qué te puedo ayudar hoy?" o "¡Hola! Estoy aquí para ayudarte con lo que necesites del sistema."\n`
+        const saludoPersonalizado = userName 
+          ? `\nNOTA: El usuario ${userName} te está saludando. Responde de manera amigable y conversacional usando su nombre, preguntando en qué puedes ayudar. Ejemplo: "¡Hola ${userName}! ¿En qué te puedo ayudar hoy?" o "¡Hola ${userName}! Estoy aquí para ayudarte con lo que necesites del sistema."\n`
+          : `\nNOTA: El usuario te está saludando. Responde de manera amigable y conversacional, preguntando en qué puedes ayudar. Ejemplo: "¡Hola! ¿En qué te puedo ayudar hoy?" o "¡Hola! Estoy aquí para ayudarte con lo que necesites del sistema."\n`
+        prompt += saludoPersonalizado
       }
     }
 

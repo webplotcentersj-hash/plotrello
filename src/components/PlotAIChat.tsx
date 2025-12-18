@@ -329,6 +329,9 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
       const userPrompt = `PREGUNTA DEL USUARIO:\n${userMessage.content}`
 
+      // Obtener nombre del usuario
+      const nombreUsuario = usuario?.nombre || stripEmailDomain(usuario?.nombre) || undefined
+
       const response = await generateContent({
         model: modelName,
         contents: userPrompt,
@@ -341,7 +344,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         learnFromResponse: true, // Aprender de esta interacción
         tasks, // Pasar tasks para contexto completo
         activity, // Pasar activity para contexto completo
-        teamMembers // Pasar teamMembers para contexto completo
+        teamMembers, // Pasar teamMembers para contexto completo
+        userName: nombreUsuario // Pasar nombre del usuario
       })
 
       const assistantMessage: Message = {
