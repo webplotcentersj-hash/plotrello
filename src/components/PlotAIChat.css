@@ -464,32 +464,40 @@
 
 .loading-dots {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   padding: 12px 16px;
+  align-items: center;
 }
 
 .loading-dots span {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--text-muted);
-  animation: bounce 1.4s infinite ease-in-out both;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  animation: loading-bounce 1.4s ease-in-out infinite;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .loading-dots span:nth-child(1) {
-  animation-delay: -0.32s;
+  animation-delay: 0s;
 }
 
 .loading-dots span:nth-child(2) {
-  animation-delay: -0.16s;
+  animation-delay: 0.2s;
 }
 
-@keyframes bounce {
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes loading-bounce {
   0%, 80%, 100% {
-    transform: scale(0);
+    transform: scale(0.8) translateY(0);
+    opacity: 0.6;
   }
   40% {
-    transform: scale(1);
+    transform: scale(1.2) translateY(-4px);
+    opacity: 1;
   }
 }
 
@@ -497,6 +505,18 @@
   padding: 16px 24px;
   background: var(--surface-card);
   border-top: 1px solid var(--surface-border);
+  animation: input-area-slide-up 0.3s ease;
+}
+
+@keyframes input-area-slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .uploaded-files {
