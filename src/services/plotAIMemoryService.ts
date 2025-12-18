@@ -64,7 +64,9 @@ export async function saveConversationMemory(
     
     // Intentar guardar en Supabase si está disponible
     try {
-      await supabase.from('plotai_memoria').insert(memoria)
+      if (supabase) {
+        await supabase.from('plotai_memoria').insert(memoria)
+      }
     } catch (error) {
       console.warn('No se pudo guardar en Supabase, usando solo localStorage:', error)
     }
@@ -108,7 +110,9 @@ export async function savePatternMemory(
     
     // Intentar guardar en Supabase
     try {
-      await supabase.from('plotai_memoria').insert(memoria)
+      if (supabase) {
+        await supabase.from('plotai_memoria').insert(memoria)
+      }
     } catch (error) {
       console.warn('No se pudo guardar patrón en Supabase:', error)
     }
@@ -152,7 +156,9 @@ export async function saveKnowledgeMemory(
     
     // Intentar guardar en Supabase
     try {
-      await supabase.from('plotai_memoria').insert(memoria)
+      if (supabase) {
+        await supabase.from('plotai_memoria').insert(memoria)
+      }
     } catch (error) {
       console.warn('No se pudo guardar conocimiento en Supabase:', error)
     }
@@ -169,12 +175,12 @@ export function getRelevantConversations(pregunta: string, limit: number = 5): C
     const conversaciones = getLocalConversations()
     
     // Buscar conversaciones similares (búsqueda simple por palabras clave)
-    const palabrasClave = pregunta.toLowerCase().split(/\s+/).filter(p => p.length > 3)
+    const palabrasClave = pregunta.toLowerCase().split(/\s+/).filter((p: string) => p.length > 3)
     
     const relevantes = conversaciones
-      .map(conv => {
+      .map((conv: ConversationMemory) => {
         const textoCompleto = `${conv.pregunta} ${conv.respuesta}`.toLowerCase()
-        const coincidencias = palabrasClave.filter(palabra => textoCompleto.includes(palabra)).length
+        const coincidencias = palabrasClave.filter((palabra: string) => textoCompleto.includes(palabra)).length
         return { ...conv, score: coincidencias * conv.utilidad }
       })
       .filter(conv => conv.score > 0)
@@ -265,7 +271,7 @@ export function getRelevantKnowledge(categoria?: string, limit: number = 5): Arr
  * Formatea la memoria para el prompt de PlotAI
  */
 export function formatMemoryForPrompt(
-  pregunta: string,
+  _pregunta: string,
   conversaciones: ConversationMemory[],
   patrones: Array<{ patron: string; categoria: string; importancia: number }>,
   conocimientos: Array<{ conocimiento: string; categoria: string; importancia: number }>

@@ -9,9 +9,7 @@ import {
   getRelevantPatterns,
   getRelevantKnowledge,
   formatMemoryForPrompt,
-  saveConversationMemory,
-  savePatternMemory,
-  saveKnowledgeMemory
+  saveConversationMemory
 } from './plotAIMemoryService'
 
 // El nuevo SDK de Google GenAI puede usar la API key desde variable de entorno
@@ -148,7 +146,13 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         const activityToUse = activity.length > 0 ? activity : []
         const teamMembersToUse = teamMembers.length > 0 
           ? teamMembers 
-          : systemContext?.teamMembers.map(m => ({ id: m.name, name: m.name, role: m.role })) || []
+          : systemContext?.teamMembers.map(m => ({ 
+              id: m.name, 
+              name: m.name, 
+              role: m.role,
+              avatar: '',
+              productivity: 0
+            })) || []
         
         completeContext = await getCompleteSystemContext(
           tasksToUse,

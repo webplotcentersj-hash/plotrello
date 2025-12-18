@@ -317,7 +317,6 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
     try {
       const systemContext = getSystemContext(tasks, activity, teamMembers)
-      const hasImages = userMessage.attachments?.some((att) => att.type.startsWith('image/'))
       
       // Usar gemini-2.5-flash (tiene capacidad de visión integrada)
       const modelName = 'gemini-2.5-flash'

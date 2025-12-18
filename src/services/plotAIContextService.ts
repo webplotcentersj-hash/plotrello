@@ -101,10 +101,14 @@ export interface CompleteSystemContext {
  */
 export async function getCompleteSystemContext(
   tasks: Task[],
-  activity: ActivityEvent[],
+  _activity: ActivityEvent[],
   teamMembers: TeamMember[]
 ): Promise<CompleteSystemContext> {
   try {
+    if (!supabase) {
+      throw new Error('Supabase no está configurado')
+    }
+    
     const now = new Date()
     const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1)
     
@@ -125,7 +129,7 @@ export async function getCompleteSystemContext(
       // Órdenes de Trabajo
       supabase
         .from('ordenes_trabajo')
-        .select('id, estado, prioridad, sector, fecha_entrega, fecha_creacion, entregado, fecha_entrega_efectiva')
+        .select('id, estado, prioridad, sector, fecha_entrega, fecha_creacion, entregado, fecha_entrega_efectiva, usuario_trabajando_id')
         .then(r => r.data || []),
       
       // Clientes
@@ -393,7 +397,7 @@ export async function getCompleteSystemContext(
     }
     
     // Contar usuarios trabajando
-    const usuariosTrabajando = ordenesData.filter(o => o.usuario_trabajando_id).length
+    const usuariosTrabajando = ordenesData.filter((o: any) => o.usuario_trabajando_id).length
     
     return {
       ordenes: {
