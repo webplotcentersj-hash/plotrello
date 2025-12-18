@@ -5393,18 +5393,23 @@ class ApiService {
   ): Promise<ApiResponse<ClienteWebRecord>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('actualizar_cliente', {
-          p_id: id,
-          p_password: cliente.password || null,
-          p_nombre: cliente.nombre || null,
-          p_apellido: cliente.apellido || null,
-          p_empresa: cliente.empresa || null,
-          p_telefono: cliente.telefono || null,
-          p_email: cliente.email || null,
-          p_dni_cuit: cliente.dni_cuit || null,
-          p_direccion: cliente.direccion || null,
-          p_activo: cliente.activo !== undefined ? cliente.activo : null
-        })
+        // Construir objeto de parámetros solo con los campos que se proporcionaron
+        const params: Record<string, any> = {
+          p_id: id
+        }
+        
+        if (cliente.password !== undefined) params.p_password = cliente.password || null
+        if (cliente.nombre !== undefined) params.p_nombre = cliente.nombre || null
+        if (cliente.apellido !== undefined) params.p_apellido = cliente.apellido || null
+        if (cliente.empresa !== undefined) params.p_empresa = cliente.empresa || null
+        if (cliente.telefono !== undefined) params.p_telefono = cliente.telefono || null
+        if (cliente.email !== undefined) params.p_email = cliente.email || null
+        if (cliente.dni_cuit !== undefined) params.p_dni_cuit = cliente.dni_cuit || null
+        if (cliente.direccion !== undefined) params.p_direccion = cliente.direccion || null
+        if (cliente.activo !== undefined) params.p_activo = cliente.activo
+
+        console.log('Llamando a actualizar_cliente con params:', params)
+        const { data, error } = await supabase.rpc('actualizar_cliente', params)
 
         if (error) return { success: false, error: error.message }
         if (!data || data.length === 0) {
