@@ -5634,6 +5634,94 @@ class ApiService {
   }
 
   /**
+   * Actualizar pedido cliente (solo campos editables)
+   */
+  async actualizarPedidoCliente(
+    idPedido: number,
+    idCliente: number,
+    datos: {
+      fecha_limite_deseada?: string
+      observaciones_cliente?: string
+      es_urgente?: boolean
+      requiere_delivery?: boolean
+      direccion_delivery?: string
+      brief_publico?: string
+      objetivo_proyecto?: string
+      estilo_diseno?: string
+      referencias?: string
+      referencias_links?: string
+    }
+  ): Promise<ApiResponse<PedidoClienteRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_pedido_cliente', {
+          p_id_pedido: idPedido,
+          p_id_cliente: idCliente,
+          p_fecha_limite_deseada: datos.fecha_limite_deseada || null,
+          p_observaciones_cliente: datos.observaciones_cliente || null,
+          p_es_urgente: datos.es_urgente !== undefined ? datos.es_urgente : null,
+          p_requiere_delivery: datos.requiere_delivery !== undefined ? datos.requiere_delivery : null,
+          p_direccion_delivery: datos.direccion_delivery || null,
+          p_brief_publico: datos.brief_publico || null,
+          p_objetivo_proyecto: datos.objetivo_proyecto || null,
+          p_estilo_diseno: datos.estilo_diseno || null,
+          p_referencias: datos.referencias || null,
+          p_referencias_links: datos.referencias_links || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo actualizar el pedido' }
+        }
+
+        // Obtener el pedido completo actualizado
+        const detalleResponse = await this.getDetallePedidoCliente(idPedido)
+        if (detalleResponse.success && detalleResponse.data) {
+          return { success: true, data: detalleResponse.data.pedido as PedidoClienteRecord }
+        }
+
+        return { success: true, data: data[0] as PedidoClienteRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Cancelar pedido cliente
+   */
+  async cancelarPedidoCliente(
+    idPedido: number,
+    idCliente: number
+  ): Promise<ApiResponse<PedidoClienteRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('cancelar_pedido_cliente', {
+          p_id_pedido: idPedido,
+          p_id_cliente: idCliente
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo cancelar el pedido' }
+        }
+
+        // Obtener el pedido completo actualizado
+        const detalleResponse = await this.getDetallePedidoCliente(idPedido)
+        if (detalleResponse.success && detalleResponse.data) {
+          return { success: true, data: detalleResponse.data.pedido as PedidoClienteRecord }
+        }
+
+        return { success: true, data: data[0] as PedidoClienteRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Convertir pedido a OP
    */
   async convertirPedidoAOp(params: {
