@@ -1,0 +1,192 @@
+.pedidos-clientes {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+}
+
+.pedidos-clientes-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 20px;
+}
+
+.pedidos-clientes-header {
+  margin-bottom: 30px;
+}
+
+.pedidos-clientes-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.pedidos-clientes-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.pedidos-clientes-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.pedidos-clientes-filters {
+  margin-bottom: 24px;
+}
+
+.pedidos-clientes-filter-select {
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.pedidos-clientes-filter-select:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.pedidos-clientes-table-container {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pedidos-clientes-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pedidos-clientes-table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pedidos-clientes-table th {
+  padding: 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pedidos-clientes-table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.pedidos-clientes-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pedidos-clientes-empty {
+  text-align: center;
+  padding: 40px !important;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pedidos-clientes-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.pedidos-clientes-status-badge.pendiente {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.pedidos-clientes-status-badge.en_revision {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.pedidos-clientes-status-badge.aprobado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.pedidos-clientes-status-badge.rechazado {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.pedidos-clientes-status-badge.convertido_completo {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.pedidos-clientes-op-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.pedidos-clientes-op-link:hover {
+  text-decoration: underline;
+}
+
+.btn-view {
+  padding: 6px 16px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  color: #3b82f6;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 8px;
+}
+
+.btn-view:hover {
+  background: rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-convert {
+  padding: 6px 16px;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 6px;
+  color: #10b981;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-convert:hover {
+  background: rgba(16, 185, 129, 0.3);
+  transform: translateY(-1px);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

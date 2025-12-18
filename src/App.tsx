@@ -33,6 +33,9 @@ import ReportesComprasPage from './pages/ReportesComprasPage'
 import CrearPedidoCompraPage from './pages/CrearPedidoCompraPage'
 import ConciliacionBancariaPage from './pages/ConciliacionBancariaPage'
 import RecursosHumanosDashboardPage from './pages/RecursosHumanosDashboardPage'
+import ClientesWebDashboardPage from './pages/ClientesWebDashboardPage'
+import ClientesWebGestionPage from './pages/ClientesWebGestionPage'
+import PedidosClientesPage from './pages/PedidosClientesPage'
 import RecursosHumanosUsuariosPage from './pages/RecursosHumanosUsuariosPage'
 import RecursosHumanosReportesPage from './pages/RecursosHumanosReportesPage'
 import RecursosHumanosHorariosPage from './pages/RecursosHumanosHorariosPage'
@@ -505,6 +508,7 @@ function AppRoutes({
             onNavigateToCompras={() => navigate('/compras/dashboard')}
             onNavigateToDiseno={() => navigate('/diseno/dashboard')}
             onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
+            onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -690,6 +694,23 @@ function AppRoutes({
       <Route
         path="/rrhh/permisos"
         element={<RecursosHumanosPermisosPage />}
+      />
+      {/* Rutas de Gestión de Clientes Web */}
+      <Route
+        path="/clientes-web/dashboard"
+        element={<ClientesWebDashboardPage />}
+      />
+      <Route
+        path="/clientes-web"
+        element={<ClientesWebDashboardPage />}
+      />
+      <Route
+        path="/clientes-web/gestion"
+        element={<ClientesWebGestionPage />}
+      />
+      <Route
+        path="/clientes-web/pedidos"
+        element={<PedidosClientesPage />}
       />
     </Routes>
     </>

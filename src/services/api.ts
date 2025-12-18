@@ -5375,6 +5375,26 @@ class ApiService {
   }
 
   /**
+   * Obtener todos los clientes web (solo trabajadores)
+   */
+  async getClientesWeb(): Promise<ApiResponse<ClienteWebRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('clientes_web')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as ClienteWebRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Obtener artículos de empresa (catálogo)
    */
   async getArticulosEmpresa(visibleClientes?: boolean): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
