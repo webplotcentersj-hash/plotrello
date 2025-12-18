@@ -21,8 +21,10 @@ export function useClienteAuth() {
   }, [])
 
   const login = (clienteData: ClienteWebRecord) => {
+    console.log('useClienteAuth.login llamado con:', clienteData)
     setCliente(clienteData)
     localStorage.setItem('cliente_web', JSON.stringify(clienteData))
+    console.log('Cliente guardado en localStorage')
   }
 
   const logout = () => {

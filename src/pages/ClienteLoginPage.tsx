@@ -18,10 +18,14 @@ export default function ClienteLoginPage() {
     setLoading(true)
 
     try {
+      console.log('Iniciando autenticación para usuario:', usuario)
       const response = await apiService.autenticarClienteWeb(usuario, password)
+      console.log('Respuesta completa:', response)
       
       if (response.success && response.data) {
+        console.log('Autenticación exitosa, datos del cliente:', response.data)
         login(response.data)
+        console.log('Navegando a dashboard...')
         navigate('/cliente/dashboard')
       } else {
         console.error('Error de autenticación:', response.error)

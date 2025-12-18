@@ -13,10 +13,13 @@ export default function ClienteDashboardPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    console.log('ClienteDashboardPage - cliente:', cliente)
     if (!cliente) {
+      console.log('No hay cliente, redirigiendo a login')
       navigate('/cliente/login')
       return
     }
+    console.log('Cliente encontrado, cargando pedidos...')
     loadPedidos()
   }, [cliente, navigate])
 
