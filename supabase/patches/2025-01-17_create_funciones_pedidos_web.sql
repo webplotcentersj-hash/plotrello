@@ -106,13 +106,13 @@ DECLARE
   password_hash text;
   nuevo_cliente_id integer;
 BEGIN
-  -- Validar usuario único
-  IF EXISTS (SELECT 1 FROM public.clientes_web WHERE usuario = p_usuario) THEN
+  -- Validar usuario único (usando alias explícito)
+  IF EXISTS (SELECT 1 FROM public.clientes_web c WHERE c.usuario = p_usuario) THEN
     RAISE EXCEPTION 'El usuario "%" ya existe', p_usuario;
   END IF;
 
-  -- Validar email único si se proporciona
-  IF p_email IS NOT NULL AND EXISTS (SELECT 1 FROM public.clientes_web WHERE email = p_email) THEN
+  -- Validar email único si se proporciona (usando alias explícito)
+  IF p_email IS NOT NULL AND EXISTS (SELECT 1 FROM public.clientes_web c WHERE c.email = p_email) THEN
     RAISE EXCEPTION 'El email "%" ya está registrado', p_email;
   END IF;
 
