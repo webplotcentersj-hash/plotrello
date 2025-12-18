@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { Task, TeamMember, TaskStatus } from '../types/board'
-import type { ClienteRecord, MaterialRecord, SectorRecord } from '../types/api'
+import type { ClienteRecord, MaterialRecord, SectorRecord, PedidoClienteRecord } from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { useAuth } from '../hooks/useAuth'
 import { filterOperariosBySector } from '../utils/dataMappers'
@@ -48,6 +48,10 @@ const TaskCreateModal = ({
   const [briefsPendientes, setBriefsPendientes] = useState<any[]>([])
   const [loadingBriefs, setLoadingBriefs] = useState(false)
   const [mostrarSelectorBrief, setMostrarSelectorBrief] = useState(false)
+  const [pedidoWebSeleccionado, setPedidoWebSeleccionado] = useState<PedidoClienteRecord | null>(null)
+  const [pedidosWebPendientes, setPedidosWebPendientes] = useState<PedidoClienteRecord[]>([])
+  const [loadingPedidosWeb, setLoadingPedidosWeb] = useState(false)
+  const [mostrarSelectorPedidoWeb, setMostrarSelectorPedidoWeb] = useState(false)
   
   // Sectores válidos que coinciden con las columnas del Kanban
   const sectoresKanban = [
@@ -216,6 +220,13 @@ const TaskCreateModal = ({
     }
   }, [isAdmin, isDiseno, mostrarSelectorBrief])
 
+  // Cargar pedidos web pendientes si se muestra el selector
+  useEffect(() => {
+    if (mostrarSelectorPedidoWeb) {
+      cargarPedidosWebPendientes()
+    }
+  }, [mostrarSelectorPedidoWeb])
+
   const cargarBriefsPendientes = async () => {
     setLoadingBriefs(true)
     try {
@@ -273,6 +284,77 @@ const TaskCreateModal = ({
     setBriefTokenSeleccionado(brief.token)
     await cargarBriefDesdeToken(brief.token)
     setMostrarSelectorBrief(false)
+  }
+
+  const cargarPedidosWebPendientes = async () => {
+    setLoadingPedidosWeb(true)
+    try {
+      const response = await apiService.getPedidosPendientes()
+      if (response.success && response.data) {
+        setPedidosWebPendientes(response.data)
+      }
+    } catch (error) {
+      console.error('Error cargando pedidos web pendientes:', error)
+    } finally {
+      setLoadingPedidosWeb(false)
+    }
+  }
+
+  const cargarPedidoWebCompleto = async (idPedido: number) => {
+    try {
+      const response = await apiService.getDetallePedidoCliente(idPedido)
+      if (response.success && response.data) {
+        const detalle = response.data
+        const pedido = detalle.pedido as any
+        const clienteData = pedido.cliente as any
+
+        // Autocompletar datos del cliente
+        if (clienteData) {
+          const nombreCompleto = clienteData.apellido 
+            ? `${clienteData.nombre} ${clienteData.apellido}`
+            : clienteData.nombre
+          setCliente(nombreCompleto)
+          setDniCuit(clienteData.dni_cuit || '')
+          setTelefonoCliente(clienteData.telefono || '')
+          setEmailCliente(clienteData.email || '')
+          setDireccionCliente(clienteData.direccion || '')
+        }
+
+        // Autocompletar datos del pedido
+        if (pedido.fecha_limite_deseada) {
+          setFechaEntrega(pedido.fecha_limite_deseada)
+        }
+        if (pedido.observaciones_cliente) {
+          setDescripcion(pedido.observaciones_cliente)
+        }
+        if (pedido.brief_publico) {
+          setBriefPublico(pedido.brief_publico)
+        }
+        if (pedido.objetivo_proyecto) {
+          setObjetivoProyecto(pedido.objetivo_proyecto)
+        }
+        if (pedido.estilo_diseno) {
+          setEstiloDiseno(pedido.estilo_diseno)
+        }
+        if (pedido.referencias) {
+          setReferencias(pedido.referencias)
+        }
+        if (pedido.es_urgente) {
+          setPrioridad('Alta')
+        }
+        if (pedido.requiere_delivery && pedido.direccion_delivery) {
+          setDireccionCliente(pedido.direccion_delivery)
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando detalle del pedido web:', error)
+    }
+  }
+
+  const handleSeleccionarPedidoWeb = async (pedido: PedidoClienteRecord) => {
+    setPedidoWebSeleccionado(pedido)
+    await cargarPedidoWebCompleto(pedido.id)
+    setMostrarSelectorPedidoWeb(false)
   }
 
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
@@ -384,12 +466,70 @@ const TaskCreateModal = ({
     if (briefTokenSeleccionado) {
       (newTask as any).briefToken = briefTokenSeleccionado
     }
+
+    // Si hay un pedido web seleccionado, guardarlo para asociarlo después de crear la OP
+    if (pedidoWebSeleccionado) {
+      (newTask as any).idPedidoCliente = pedidoWebSeleccionado.id
+    }
     
     await onCreate(newTask, { openChecklist })
     
     // Asociar brief a la OP si hay token
-    if (briefTokenSeleccionado && (newTask as any).createdOrdenId) {
-      await apiService.asociarBriefAOrden(briefTokenSeleccionado, (newTask as any).createdOrdenId)
+    if (briefTokenSeleccionado && opNumber) {
+      try {
+        // Buscar la OP por número para obtener su ID
+        const opResponse = await apiService.getOrdenByOpNumber(opNumber)
+        if (opResponse.success && opResponse.data) {
+          const ordenId = opResponse.data.id
+          await apiService.asociarBriefAOrden(briefTokenSeleccionado, ordenId)
+          console.log('✅ Brief asociado a la OP:', ordenId)
+        }
+      } catch (error) {
+        console.error('Error asociando brief a la OP:', error)
+      }
+    }
+
+    // Asociar pedido web con la OP creada
+    if (pedidoWebSeleccionado && opNumber) {
+      try {
+        // Buscar la OP por número para obtener su ID
+        const opResponse = await apiService.getOrdenByOpNumber(opNumber)
+        if (opResponse.success && opResponse.data) {
+          const ordenId = opResponse.data.id
+          // Actualizar el pedido para asociarlo con la OP usando apiService
+          // Primero actualizar el pedido
+          const { createClient } = await import('@supabase/supabase-js')
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+          
+          if (supabaseUrl && supabaseAnonKey) {
+            const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+            
+            await supabaseClient
+              .from('pedidos_clientes')
+              .update({
+                id_op_asociada: ordenId,
+                estado: 'convertido_completo',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', pedidoWebSeleccionado.id)
+
+            // También actualizar la OP para asociarla con el pedido
+            await supabaseClient
+              .from('ordenes_trabajo')
+              .update({
+                id_pedido_cliente: pedidoWebSeleccionado.id,
+                origen_pedido_web: true
+              })
+              .eq('id', ordenId)
+
+            console.log('✅ Pedido web asociado con la OP:', ordenId)
+          }
+        }
+      } catch (error) {
+        console.error('Error asociando pedido web con la OP:', error)
+        // No bloquear la creación de la OP si falla la asociación
+      }
     }
     
     onClose()
@@ -848,6 +988,144 @@ const TaskCreateModal = ({
                 )}
               </div>
             )}
+
+            {/* Selector de Pedido Web - Para todos los usuarios */}
+            <div className="form-group">
+              <label>🛒 Pedido Web (Opcional)</label>
+              {pedidoWebSeleccionado ? (
+                <div style={{ 
+                  padding: '12px', 
+                  background: 'rgba(235, 103, 27, 0.1)', 
+                  borderRadius: '8px',
+                  border: '1px solid rgba(235, 103, 27, 0.3)',
+                  marginBottom: '8px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ color: '#eb671b', fontWeight: 600 }}>
+                        ✓ Pedido seleccionado: {pedidoWebSeleccionado.numero_pedido}
+                      </span>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        Estado: {pedidoWebSeleccionado.estado} • Precio: ${pedidoWebSeleccionado.precio_total}
+                        {pedidoWebSeleccionado.es_urgente && ' • ⚠️ Urgente'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPedidoWebSeleccionado(null)
+                      }}
+                      style={{
+                        padding: '4px 12px',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        color: '#ef4444',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      ✕ Quitar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setMostrarSelectorPedidoWeb(!mostrarSelectorPedidoWeb)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: 'rgba(235, 103, 27, 0.1)',
+                    color: '#eb671b',
+                    border: '1px dashed rgba(235, 103, 27, 0.4)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  {mostrarSelectorPedidoWeb ? '✕ Cerrar selector' : '🛒 Seleccionar Pedido Web Pendiente'}
+                </button>
+              )}
+              
+              {mostrarSelectorPedidoWeb && !pedidoWebSeleccionado && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '12px',
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--surface-border)',
+                  borderRadius: '8px',
+                  maxHeight: '300px',
+                  overflowY: 'auto'
+                }}>
+                  {loadingPedidosWeb ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                      Cargando pedidos...
+                    </div>
+                  ) : pedidosWebPendientes.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                      No hay pedidos web pendientes
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {pedidosWebPendientes.map((pedido) => {
+                        const cliente = (pedido as any).cliente
+                        const nombreCliente = cliente 
+                          ? (cliente.apellido ? `${cliente.nombre} ${cliente.apellido}` : cliente.nombre)
+                          : 'Cliente desconocido'
+                        return (
+                          <button
+                            key={pedido.id}
+                            type="button"
+                            onClick={() => handleSeleccionarPedidoWeb(pedido)}
+                            style={{
+                              padding: '12px',
+                              background: pedido.es_urgente 
+                                ? 'rgba(239, 68, 68, 0.1)' 
+                                : pedido.estado === 'aprobado' 
+                                  ? 'rgba(16, 185, 129, 0.1)' 
+                                  : 'rgba(251, 191, 36, 0.1)',
+                              border: `1px solid ${
+                                pedido.es_urgente 
+                                  ? 'rgba(239, 68, 68, 0.3)' 
+                                  : pedido.estado === 'aprobado' 
+                                    ? 'rgba(16, 185, 129, 0.3)' 
+                                    : 'rgba(251, 191, 36, 0.3)'
+                              }`,
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-2px)'
+                              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)'
+                              e.currentTarget.style.boxShadow = 'none'
+                            }}
+                          >
+                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                              {pedido.numero_pedido} - {nombreCliente}
+                              {cliente?.empresa && ` (${cliente.empresa})`}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                              Precio: ${pedido.precio_total} • Estado: {pedido.estado}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                              {pedido.es_urgente && '⚠️ Urgente • '}
+                              {pedido.requiere_delivery && '🚚 Delivery • '}
+                              {pedido.fecha_limite_deseada && `📅 ${new Date(pedido.fecha_limite_deseada).toLocaleDateString('es-AR')}`}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="form-group">
               <label>DNI / CUIT</label>
