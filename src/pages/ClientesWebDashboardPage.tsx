@@ -154,10 +154,7 @@ const ClientesWebDashboardPage = () => {
 
             <button
               className="clientes-web-action-card"
-              onClick={() => {
-                // TODO: Crear página de gestión de artículos
-                alert('Página de gestión de artículos pendiente de implementar')
-              }}
+              onClick={() => navigate('/clientes-web/articulos')}
             >
               <div className="clientes-web-action-icon">📦</div>
               <h3>Artículos de Empresa</h3>
