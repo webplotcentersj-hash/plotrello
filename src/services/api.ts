@@ -5629,6 +5629,45 @@ class ApiService {
   }
 
   /**
+   * Subir imagen de artículo de empresa
+   */
+  async uploadImagenArticuloEmpresa(file: File, articuloId?: number): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const fileExt = file.name.split('.').pop() || 'jpg'
+        const fileName = articuloId 
+          ? `articulos-empresa/${articuloId}_${Date.now()}.${fileExt}`
+          : `articulos-empresa/temp_${Date.now()}.${fileExt}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('archivos')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true,
+            contentType: file.type || 'image/jpeg'
+          })
+
+        if (uploadError) {
+          return { success: false, error: uploadError.message }
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('archivos')
+          .getPublicUrl(fileName)
+
+        if (!urlData?.publicUrl) {
+          return { success: false, error: 'No se pudo obtener la URL pública' }
+        }
+
+        return { success: true, data: urlData.publicUrl }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Crear pedido de cliente
    */
   async crearPedidoCliente(pedido: {

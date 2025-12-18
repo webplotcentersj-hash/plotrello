@@ -26,6 +26,9 @@ const ArticulosEmpresaPage = () => {
     visible_clientes: true,
     activo: true
   })
+  const [imagenFile, setImagenFile] = useState<File | null>(null)
+  const [imagenPreview, setImagenPreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -79,6 +82,8 @@ const ArticulosEmpresaPage = () => {
       visible_clientes: true,
       activo: true
     })
+    setImagenFile(null)
+    setImagenPreview(null)
     setError('')
     setShowCreateModal(true)
   }
@@ -97,6 +102,8 @@ const ArticulosEmpresaPage = () => {
       visible_clientes: articulo.visible_clientes,
       activo: articulo.activo
     })
+    setImagenFile(null)
+    setImagenPreview(articulo.imagen_url || null)
     setError('')
     setShowCreateModal(true)
   }
@@ -104,13 +111,94 @@ const ArticulosEmpresaPage = () => {
   const cerrarModal = () => {
     setShowCreateModal(false)
     setEditingArticulo(null)
+    setImagenFile(null)
+    setImagenPreview(null)
     setError('')
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        setError('Por favor selecciona un archivo de imagen')
+        return
+      }
+
+      // Validar tamaño (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('La imagen no debe superar los 5MB')
+        return
+      }
+
+      setImagenFile(file)
+      setError('')
+
+      // Crear preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagenPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleSubirImagen = async () => {
+    if (!imagenFile) return
+
+    setUploadingImage(true)
+    setError('')
+
+    try {
+      const response = await apiService.uploadImagenArticuloEmpresa(
+        imagenFile,
+        editingArticulo?.id
+      )
+
+      if (response.success && response.data) {
+        setFormData({ ...formData, imagen_url: response.data })
+        setImagenFile(null)
+        setError('')
+      } else {
+        setError(response.error || 'Error al subir la imagen')
+      }
+    } catch (err) {
+      setError('Error al subir la imagen')
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   const handleGuardar = async () => {
     if (!formData.codigo.trim() || !formData.nombre.trim()) {
       setError('Código y nombre son obligatorios')
       return
+    }
+
+    // Si hay una imagen nueva sin subir, subirla primero
+    let imagenUrlFinal = formData.imagen_url
+    if (imagenFile && !formData.imagen_url) {
+      setUploadingImage(true)
+      try {
+        const uploadResponse = await apiService.uploadImagenArticuloEmpresa(
+          imagenFile,
+          editingArticulo?.id
+        )
+        if (uploadResponse.success && uploadResponse.data) {
+          imagenUrlFinal = uploadResponse.data
+        } else {
+          setError(uploadResponse.error || 'Error al subir la imagen')
+          setUploadingImage(false)
+          return
+        }
+      } catch (err) {
+        setError('Error al subir la imagen')
+        setUploadingImage(false)
+        return
+      } finally {
+        setUploadingImage(false)
+      }
     }
 
     setSaving(true)
@@ -126,7 +214,7 @@ const ArticulosEmpresaPage = () => {
           descripcion: formData.descripcion.trim() || undefined,
           categoria: formData.categoria.trim() || undefined,
           precio_base: formData.precio_base ? parseFloat(formData.precio_base) : undefined,
-          imagen_url: formData.imagen_url.trim() || undefined,
+          imagen_url: imagenUrlFinal.trim() || undefined,
           tiempo_estimado_dias: formData.tiempo_estimado_dias ? parseInt(formData.tiempo_estimado_dias) : undefined,
           requiere_archivos: formData.requiere_archivos,
           visible_clientes: formData.visible_clientes,
@@ -140,7 +228,7 @@ const ArticulosEmpresaPage = () => {
           descripcion: formData.descripcion.trim() || undefined,
           categoria: formData.categoria.trim() || undefined,
           precio_base: formData.precio_base ? parseFloat(formData.precio_base) : undefined,
-          imagen_url: formData.imagen_url.trim() || undefined,
+          imagen_url: imagenUrlFinal.trim() || undefined,
           tiempo_estimado_dias: formData.tiempo_estimado_dias ? parseInt(formData.tiempo_estimado_dias) : undefined,
           requiere_archivos: formData.requiere_archivos,
           visible_clientes: formData.visible_clientes
