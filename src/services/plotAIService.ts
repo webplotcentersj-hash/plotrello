@@ -203,7 +203,9 @@ CAPACIDADES AGÉNTICAS:
 - Detectar problemas y cuellos de botella proactivamente
 - Sugerir acciones concretas y optimizaciones basadas en datos reales
 - Aprender del contexto histórico y actual
-- Analizar archivos (imágenes, PDFs, documentos) con visión avanzada
+- Analizar archivos (imágenes, PDFs, documentos) con visión avanzada y análisis profundo
+- ANALIZAR IMÁGENES: Puedes analizar fotos, diseños, gráficos, textos en imágenes con detalle
+- ANALIZAR PDFs: Puedes leer y analizar documentos PDF completos, extrayendo texto, imágenes y estructura
 - Generar reportes y insights profundos
 - Acceder a información de clientes, pedidos web, artículos, proveedores, compras, etc.
 - AYUDAR EN PROCESOS DE TRABAJO: Puedes guiar al usuario paso a paso en procesos del sistema
@@ -323,40 +325,102 @@ INSTRUCCIONES AGÉNTICAS:
     }
 
     if (attachments && attachments.length > 0) {
-      const hasImages = attachments.some((att) => att.type.startsWith('image/'))
+      const hasImages = attachments.some((att) => att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:'))
+      const hasPDFs = attachments.some((att) => att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:') || att.content.startsWith('[PDF_TEXT:'))
       
-      if (hasImages) {
-        // Para imágenes, usar modelo con capacidad de visión
-        const imageAttachments = attachments.filter((att) => att.type.startsWith('image/'))
-        const textAttachments = attachments.filter((att) => !att.type.startsWith('image/'))
+      if (hasImages || hasPDFs) {
+        // Separar por tipo de archivo
+        const imageAttachments = attachments.filter((att) => 
+          att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:')
+        )
+        const pdfAttachments = attachments.filter((att) => 
+          att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:') || att.content.startsWith('[PDF_TEXT:')
+        )
+        const textAttachments = attachments.filter((att) => 
+          !att.type.startsWith('image/') && 
+          att.type !== 'application/pdf' && 
+          !att.content.startsWith('[IMAGEN_BASE64:') &&
+          !att.content.startsWith('[PDF_BASE64:') &&
+          !att.content.startsWith('[PDF_TEXT:')
+        )
         
         if (textAttachments.length > 0) {
           prompt += `\nARCHIVOS DE TEXTO ADJUNTOS:\n`
           textAttachments.forEach((att, idx) => {
             prompt += `\nArchivo ${idx + 1}: ${att.name} (${att.type})\n`
-            prompt += `Contenido:\n${att.content.substring(0, 5000)}\n`
+            prompt += `Contenido:\n${att.content.substring(0, 10000)}\n`
           })
         }
 
-        // Para imágenes, usar el formato adecuado para Gemini Vision
-        prompt += `\nIMÁGENES ADJUNTAS PARA ANÁLISIS:\n`
-        imageAttachments.forEach((att, idx) => {
-          prompt += `\nImagen ${idx + 1}: ${att.name}\n`
-          prompt += `Por favor, analiza esta imagen en detalle. Identifica:\n`
-          prompt += `- Contenido visual (textos, gráficos, diseños, materiales)\n`
-          prompt += `- Calidad y características técnicas\n`
-          prompt += `- Relación con el contexto del sistema de producción gráfica\n`
-          prompt += `- Sugerencias o problemas detectados\n`
-          // El contenido base64 se incluirá en el payload de la API
-        })
-        
-        // Nota: Las imágenes se enviarán como partes separadas en el payload
+        // Análisis de imágenes
+        if (imageAttachments.length > 0) {
+          prompt += `\n📸 IMÁGENES ADJUNTAS PARA ANÁLISIS VISUAL DETALLADO:\n`
+          prompt += `Tienes ${imageAttachments.length} imagen(es) para analizar. Por favor, analiza cada una en detalle:\n\n`
+          imageAttachments.forEach((att, idx) => {
+            prompt += `IMAGEN ${idx + 1}: ${att.name}\n`
+            prompt += `Analiza esta imagen completamente y proporciona:\n`
+            prompt += `1. CONTENIDO VISUAL:\n`
+            prompt += `   - Textos visibles (lee todo el texto que veas)\n`
+            prompt += `   - Gráficos, logos, diseños, ilustraciones\n`
+            prompt += `   - Colores, tipografías, estilos\n`
+            prompt += `   - Elementos de diseño (formas, líneas, composición)\n`
+            prompt += `2. CARACTERÍSTICAS TÉCNICAS:\n`
+            prompt += `   - Calidad de la imagen (resolución, nitidez)\n`
+            prompt += `   - Formato y características técnicas\n`
+            prompt += `   - Problemas técnicos detectados (píxeles, compresión, etc.)\n`
+            prompt += `3. CONTEXTO DE PRODUCCIÓN GRÁFICA:\n`
+            prompt += `   - Tipo de trabajo (impresión, digital, señalética, etc.)\n`
+            prompt += `   - Materiales sugeridos según el diseño\n`
+            prompt += `   - Procesos de producción necesarios\n`
+            prompt += `   - Tiempos estimados de producción\n`
+            prompt += `4. SUGERENCIAS Y PROBLEMAS:\n`
+            prompt += `   - Problemas detectados (calidad, formato, diseño)\n`
+            prompt += `   - Sugerencias de mejora\n`
+            prompt += `   - Compatibilidad con procesos de producción\n`
+            prompt += `   - Recomendaciones específicas\n\n`
+          })
+        }
+
+        // Análisis de PDFs
+        if (pdfAttachments.length > 0) {
+          prompt += `\n📄 PDFs ADJUNTOS PARA ANÁLISIS DETALLADO:\n`
+          prompt += `Tienes ${pdfAttachments.length} PDF(s) para analizar. Por favor, analiza cada uno completamente:\n\n`
+          pdfAttachments.forEach((att, idx) => {
+            prompt += `PDF ${idx + 1}: ${att.name}\n`
+            if (att.content.startsWith('[PDF_TEXT:')) {
+              // PDF con texto extraído
+              const textMatch = att.content.match(/\[PDF_TEXT:[^:]+:(.+)\]/s)
+              if (textMatch && textMatch[1]) {
+                prompt += `CONTENIDO DEL PDF:\n${textMatch[1]}\n\n`
+              }
+            }
+            prompt += `Analiza este PDF completamente y proporciona:\n`
+            prompt += `1. CONTENIDO DEL DOCUMENTO:\n`
+            prompt += `   - Texto completo (lee y extrae todo el texto)\n`
+            prompt += `   - Estructura del documento (páginas, secciones)\n`
+            prompt += `   - Información clave (números, fechas, nombres, etc.)\n`
+            prompt += `2. ELEMENTOS VISUALES:\n`
+            prompt += `   - Imágenes, gráficos, tablas, diagramas\n`
+            prompt += `   - Diseño y formato del documento\n`
+            prompt += `   - Logos, marcas, elementos gráficos\n`
+            prompt += `3. CONTEXTO DE PRODUCCIÓN:\n`
+            prompt += `   - Tipo de trabajo requerido\n`
+            prompt += `   - Especificaciones técnicas mencionadas\n`
+            prompt += `   - Materiales o procesos indicados\n`
+            prompt += `   - Cantidades, medidas, dimensiones\n`
+            prompt += `4. ANÁLISIS Y RECOMENDACIONES:\n`
+            prompt += `   - Problemas detectados en el documento\n`
+            prompt += `   - Sugerencias de mejora\n`
+            prompt += `   - Compatibilidad con procesos de producción\n`
+            prompt += `   - Acciones recomendadas\n\n`
+          })
+        }
       } else {
         // Solo archivos de texto
         prompt += `\nARCHIVOS ADJUNTOS:\n`
         attachments.forEach((att, idx) => {
           prompt += `\nArchivo ${idx + 1}: ${att.name} (${att.type})\n`
-          prompt += `Contenido:\n${att.content.substring(0, 5000)}\n`
+          prompt += `Contenido:\n${att.content.substring(0, 10000)}\n`
         })
         prompt += `\nPor favor, analiza estos archivos en el contexto del sistema de producción gráfica.\n`
       }
@@ -374,9 +438,17 @@ INSTRUCCIONES AGÉNTICAS:
     
     let responseText = ''
     
-    if (hasImages && attachments) {
-      // Para imágenes, construir el payload con partes de texto e imagen
-      const imageAttachments = attachments.filter((att) => att.type.startsWith('image/'))
+    const hasImages = attachments?.some((att) => att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:'))
+    const hasPDFs = attachments?.some((att) => att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:') || att.content.startsWith('[PDF_TEXT:'))
+    
+    if ((hasImages || hasPDFs) && attachments) {
+      // Para imágenes y PDFs, construir el payload con partes de texto e imagen
+      const imageAttachments = attachments.filter((att) => 
+        att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:')
+      )
+      const pdfAttachments = attachments.filter((att) => 
+        att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:')
+      )
       const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
       
       // Agregar el prompt de texto primero
@@ -384,16 +456,13 @@ INSTRUCCIONES AGÉNTICAS:
       
       // Agregar cada imagen
       for (const att of imageAttachments) {
-        // El contenido viene como [IMAGEN_BASE64:data:nombre] o directamente como base64
         let base64Data = ''
         let mimeType = att.type || 'image/jpeg'
         
         if (att.content.startsWith('[IMAGEN_BASE64:')) {
-          // Formato: [IMAGEN_BASE64:base64data:nombre]
           const match = att.content.match(/\[IMAGEN_BASE64:(.+?):/)
           if (match && match[1]) {
             base64Data = match[1]
-            // Si el base64 incluye el prefijo data:image/..., extraerlo
             if (base64Data.includes('data:')) {
               const dataMatch = base64Data.match(/data:([^;]+);base64,(.+)/)
               if (dataMatch) {
@@ -403,14 +472,12 @@ INSTRUCCIONES AGÉNTICAS:
             }
           }
         } else if (att.content.startsWith('data:')) {
-          // Formato directo: data:image/...;base64,...
           const dataMatch = att.content.match(/data:([^;]+);base64,(.+)/)
           if (dataMatch) {
             mimeType = dataMatch[1]
             base64Data = dataMatch[2]
           }
         } else {
-          // Asumir que es base64 puro
           base64Data = att.content
         }
         
@@ -424,6 +491,34 @@ INSTRUCCIONES AGÉNTICAS:
         }
       }
       
+      // Agregar cada PDF como imagen (Gemini puede analizar PDFs mejor como imágenes)
+      for (const att of pdfAttachments) {
+        if (att.content.startsWith('[PDF_BASE64:')) {
+          const match = att.content.match(/\[PDF_BASE64:(.+?):/)
+          if (match && match[1]) {
+            let base64Data = match[1]
+            let mimeType = 'application/pdf'
+            
+            if (base64Data.includes('data:')) {
+              const dataMatch = base64Data.match(/data:([^;]+);base64,(.+)/)
+              if (dataMatch) {
+                mimeType = dataMatch[1]
+                base64Data = dataMatch[2]
+              }
+            }
+            
+            if (base64Data) {
+              parts.push({
+                inlineData: {
+                  mimeType,
+                  data: base64Data
+                }
+              })
+            }
+          }
+        }
+      }
+      
       // Usar el modelo con capacidad de visión (gemini-2.5-flash tiene visión integrada)
       const visionModel = 'gemini-2.5-flash'
       const response = await ai.models.generateContent({
@@ -433,7 +528,7 @@ INSTRUCCIONES AGÉNTICAS:
       
       responseText = response.text || ''
     } else {
-      // Sin imágenes, usar el método normal
+      // Sin imágenes ni PDFs, usar el método normal
       const response = await ai.models.generateContent({
         model,
         contents: prompt

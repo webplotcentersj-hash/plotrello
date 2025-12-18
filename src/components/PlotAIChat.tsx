@@ -256,22 +256,41 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         const reader = new FileReader()
         reader.onload = (e) => {
           const dataUrl = e.target?.result as string
-          // Guardar el data URL completo para que el servicio pueda extraerlo correctamente
+          // Guardar el data URL completo para análisis visual con Gemini Vision
           resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
         }
         reader.onerror = reject
         reader.readAsDataURL(file)
       } else if (file.type === 'application/pdf') {
-        // Para PDFs, leemos como texto si es posible
+        // Para PDFs, convertimos a imagen para análisis visual
+        // Gemini puede analizar PDFs mejor si los convertimos a imágenes
         const reader = new FileReader()
-        reader.onload = (e) => {
-          const content = e.target?.result as string
-          resolve(`[PDF: ${file.name}, Tamaño: ${file.size} bytes, Contenido parcial: ${content.substring(0, 1000)}]`)
+        reader.onload = async (e) => {
+          try {
+            // Intentar leer como ArrayBuffer para convertir a imagen
+            const arrayBuffer = await file.arrayBuffer()
+            // Convertir PDF a imagen usando canvas (si es posible)
+            // Por ahora, guardamos como base64 para que Gemini lo procese
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+            const dataUrl = `data:application/pdf;base64,${base64}`
+            resolve(`[PDF_BASE64:${dataUrl}:${file.name}]`)
+          } catch (error) {
+            // Fallback: intentar leer como texto
+            const textReader = new FileReader()
+            textReader.onload = (e) => {
+              const content = e.target?.result as string
+              resolve(`[PDF_TEXT:${file.name}:${content.substring(0, 10000)}]`)
+            }
+            textReader.onerror = () => {
+              resolve(`[PDF: ${file.name}, Tamaño: ${file.size} bytes - Archivo PDF para análisis]`)
+            }
+            textReader.readAsText(file)
+          }
         }
         reader.onerror = () => {
-          resolve(`[PDF: ${file.name}, Tamaño: ${file.size} bytes - No se pudo leer el contenido]`)
+          resolve(`[PDF: ${file.name}, Tamaño: ${file.size} bytes - Archivo PDF para análisis]`)
         }
-        reader.readAsText(file)
+        reader.readAsArrayBuffer(file)
       } else if (file.type.startsWith('text/')) {
         const reader = new FileReader()
         reader.onload = (e) => {
