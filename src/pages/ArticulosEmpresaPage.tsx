@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ArticuloEmpresaRecord } from '../types/api'
+import type { ArticuloEmpresaRecord, ArticuloEmpresaImagenRecord } from '../types/api'
 import './ArticulosEmpresaPage.css'
 
 const ArticulosEmpresaPage = () => {
@@ -145,7 +145,7 @@ const ArticulosEmpresaPage = () => {
     setShowCreateModal(true)
   }
 
-  const abrirModalEditar = (articulo: ArticuloEmpresaRecord) => {
+  const abrirModalEditar = async (articulo: ArticuloEmpresaRecord) => {
     setEditingArticulo(articulo)
     setFormData({
       codigo: articulo.codigo,
@@ -163,9 +163,21 @@ const ArticulosEmpresaPage = () => {
     setCategoriaInputValue(articulo.categoria || '')
     setSubcategoriaInputValue(articulo.subcategoria || '')
     setImagenFile(null)
+    setImagenFiles([])
     setImagenPreview(articulo.imagen_url || null)
+    setImagenPreviews([])
     setError('')
     setShowCreateModal(true)
+    
+    // Cargar imágenes del artículo
+    const imagenesResponse = await apiService.obtenerImagenesArticuloEmpresa(articulo.id)
+    if (imagenesResponse.success && imagenesResponse.data) {
+      setImagenesArticulo(imagenesResponse.data)
+      setImagenPreviews(imagenesResponse.data.map(img => img.imagen_url))
+    } else {
+      setImagenesArticulo([])
+      setImagenPreviews([])
+    }
   }
 
   const cerrarModal = () => {
@@ -260,6 +272,110 @@ const ArticulosEmpresaPage = () => {
       setError('Error al subir la imagen')
     } finally {
       setUploadingImage(false)
+    }
+  }
+
+  const handleMultipleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files)
+      const validFiles: File[] = []
+      const newPreviews: string[] = []
+
+      files.forEach((file) => {
+        // Validar tipo de archivo
+        if (!file.type.startsWith('image/')) {
+          setError(`El archivo ${file.name} no es una imagen válida`)
+          return
+        }
+
+        // Validar tamaño (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          setError(`La imagen ${file.name} no debe superar los 5MB`)
+          return
+        }
+
+        validFiles.push(file)
+
+        // Crear preview
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          newPreviews.push(reader.result as string)
+          if (newPreviews.length === validFiles.length) {
+            setImagenPreviews([...imagenPreviews, ...newPreviews])
+          }
+        }
+        reader.readAsDataURL(file)
+      })
+
+      setImagenFiles([...imagenFiles, ...validFiles])
+      setError('')
+    }
+  }
+
+  const handleEliminarImagenPreview = (index: number) => {
+    const nuevasPreviews = [...imagenPreviews]
+    const nuevosFiles = [...imagenFiles]
+    nuevasPreviews.splice(index, 1)
+    nuevosFiles.splice(index, 1)
+    setImagenPreviews(nuevasPreviews)
+    setImagenFiles(nuevosFiles)
+  }
+
+  const handleEliminarImagenArticulo = async (idImagen: number, index: number) => {
+    const response = await apiService.eliminarImagenArticuloEmpresa(idImagen)
+    if (response.success) {
+      const nuevasImagenes = [...imagenesArticulo]
+      nuevasImagenes.splice(index, 1)
+      setImagenesArticulo(nuevasImagenes)
+      
+      const nuevasPreviews = [...imagenPreviews]
+      if (nuevasPreviews.length > index) {
+        nuevasPreviews.splice(index, 1)
+        setImagenPreviews(nuevasPreviews)
+      }
+    } else {
+      setError(response.error || 'Error al eliminar la imagen')
+    }
+  }
+
+  const handleSubirGaleriaImagenes = async () => {
+    if (imagenFiles.length === 0 || !editingArticulo) return
+
+    setUploadingImages(true)
+    setError('')
+
+    try {
+      for (let i = 0; i < imagenFiles.length; i++) {
+        const file = imagenFiles[i]
+        const uploadResponse = await apiService.uploadImagenArticuloEmpresa(
+          file,
+          editingArticulo.id
+        )
+
+        if (uploadResponse.success && uploadResponse.data) {
+          const agregarResponse = await apiService.agregarImagenArticuloEmpresa(
+            editingArticulo.id,
+            uploadResponse.data,
+            imagenesArticulo.length + i
+          )
+
+          if (agregarResponse.success && agregarResponse.data) {
+            setImagenesArticulo([...imagenesArticulo, agregarResponse.data])
+          }
+        } else {
+          setError(uploadResponse.error || 'Error al subir imagen')
+          setUploadingImages(false)
+          return
+        }
+      }
+
+      setImagenFiles([])
+      setImagenPreviews([])
+      setError('')
+    } catch (err) {
+      setError('Error al subir las imágenes')
+    } finally {
+      setUploadingImages(false)
     }
   }
 
