@@ -64,7 +64,19 @@ const ArticulosEmpresaPage = () => {
     try {
       const response = await apiService.getArticulosEmpresa(undefined, true) // Incluir inactivos
       if (response.success && response.data) {
-        setArticulos(response.data)
+        // Cargar imágenes de galería para cada artículo
+        const articulosConImagenes = await Promise.all(
+          response.data.map(async (articulo) => {
+            const imagenesResponse = await apiService.obtenerImagenesArticuloEmpresa(articulo.id)
+            return {
+              ...articulo,
+              imagenesGaleria: imagenesResponse.success && imagenesResponse.data 
+                ? imagenesResponse.data 
+                : []
+            }
+          })
+        )
+        setArticulos(articulosConImagenes)
       } else {
         setError(response.error || 'Error al cargar artículos')
       }
@@ -603,11 +615,35 @@ const ArticulosEmpresaPage = () => {
         <div className="articulos-grid">
           {articulosFiltrados.map((articulo) => (
             <div key={articulo.id} className={`articulo-card ${!articulo.activo ? 'inactivo' : ''}`}>
-              {articulo.imagen_url && (
+              {((articulo as any).imagenesGaleria && (articulo as any).imagenesGaleria.length > 0) ? (
                 <div className="articulo-imagen">
-                  <img src={articulo.imagen_url} alt={articulo.nombre} />
+                  <img 
+                    src={(articulo as any).imagenesGaleria[0].imagen_url} 
+                    alt={articulo.nombre}
+                    onError={(e) => {
+                      // Si falla la primera imagen, intentar con imagen_url
+                      if (articulo.imagen_url) {
+                        (e.target as HTMLImageElement).src = articulo.imagen_url || ''
+                      }
+                    }}
+                  />
+                  {(articulo as any).imagenesGaleria.length > 1 && (
+                    <div className="imagen-count-badge">
+                      +{(articulo as any).imagenesGaleria.length - 1}
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : articulo.imagen_url ? (
+                <div className="articulo-imagen">
+                  <img 
+                    src={articulo.imagen_url} 
+                    alt={articulo.nombre}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                </div>
+              ) : null}
               <div className="articulo-content">
                 <div className="articulo-header">
                   <div>
