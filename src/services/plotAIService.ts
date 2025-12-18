@@ -330,13 +330,13 @@ INSTRUCCIONES AGÉNTICAS:
       
       if (hasImages || hasPDFs) {
         // Separar por tipo de archivo
-        const imageAttachments = attachments.filter((att) => 
+        const imageAttachmentsFiltered = attachments.filter((att) => 
           att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:')
         )
-        const pdfAttachments = attachments.filter((att) => 
+        const pdfAttachmentsFiltered = attachments.filter((att) => 
           att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:') || att.content.startsWith('[PDF_TEXT:')
         )
-        const textAttachments = attachments.filter((att) => 
+        const textAttachmentsFiltered = attachments.filter((att) => 
           !att.type.startsWith('image/') && 
           att.type !== 'application/pdf' && 
           !att.content.startsWith('[IMAGEN_BASE64:') &&
@@ -344,19 +344,19 @@ INSTRUCCIONES AGÉNTICAS:
           !att.content.startsWith('[PDF_TEXT:')
         )
         
-        if (textAttachments.length > 0) {
+        if (textAttachmentsFiltered.length > 0) {
           prompt += `\nARCHIVOS DE TEXTO ADJUNTOS:\n`
-          textAttachments.forEach((att, idx) => {
+          textAttachmentsFiltered.forEach((att, idx) => {
             prompt += `\nArchivo ${idx + 1}: ${att.name} (${att.type})\n`
             prompt += `Contenido:\n${att.content.substring(0, 10000)}\n`
           })
         }
 
         // Análisis de imágenes
-        if (imageAttachments.length > 0) {
+        if (imageAttachmentsFiltered.length > 0) {
           prompt += `\n📸 IMÁGENES ADJUNTAS PARA ANÁLISIS VISUAL DETALLADO:\n`
-          prompt += `Tienes ${imageAttachments.length} imagen(es) para analizar. Por favor, analiza cada una en detalle:\n\n`
-          imageAttachments.forEach((att, idx) => {
+          prompt += `Tienes ${imageAttachmentsFiltered.length} imagen(es) para analizar. Por favor, analiza cada una en detalle:\n\n`
+          imageAttachmentsFiltered.forEach((att, idx) => {
             prompt += `IMAGEN ${idx + 1}: ${att.name}\n`
             prompt += `Analiza esta imagen completamente y proporciona:\n`
             prompt += `1. CONTENIDO VISUAL:\n`
@@ -382,10 +382,10 @@ INSTRUCCIONES AGÉNTICAS:
         }
 
         // Análisis de PDFs
-        if (pdfAttachments.length > 0) {
+        if (pdfAttachmentsFiltered.length > 0) {
           prompt += `\n📄 PDFs ADJUNTOS PARA ANÁLISIS DETALLADO:\n`
-          prompt += `Tienes ${pdfAttachments.length} PDF(s) para analizar. Por favor, analiza cada uno completamente:\n\n`
-          pdfAttachments.forEach((att, idx) => {
+          prompt += `Tienes ${pdfAttachmentsFiltered.length} PDF(s) para analizar. Por favor, analiza cada uno completamente:\n\n`
+          pdfAttachmentsFiltered.forEach((att, idx) => {
             prompt += `PDF ${idx + 1}: ${att.name}\n`
             if (att.content.startsWith('[PDF_TEXT:')) {
               // PDF con texto extraído
@@ -438,15 +438,15 @@ INSTRUCCIONES AGÉNTICAS:
     
     let responseText = ''
     
-    const hasImages = attachments?.some((att) => att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:'))
-    const hasPDFs = attachments?.some((att) => att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:') || att.content.startsWith('[PDF_TEXT:'))
+    const hasImagesForVision = attachments?.some((att) => att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:'))
+    const hasPDFsForVision = attachments?.some((att) => att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:') || att.content.startsWith('[PDF_TEXT:'))
     
-    if ((hasImages || hasPDFs) && attachments) {
+    if ((hasImagesForVision || hasPDFsForVision) && attachments) {
       // Para imágenes y PDFs, construir el payload con partes de texto e imagen
-      const imageAttachments = attachments.filter((att) => 
+      const imageAttachmentsForVision = attachments.filter((att) => 
         att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:')
       )
-      const pdfAttachments = attachments.filter((att) => 
+      const pdfAttachmentsForVision = attachments.filter((att) => 
         att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:')
       )
       const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
@@ -455,7 +455,7 @@ INSTRUCCIONES AGÉNTICAS:
       parts.push({ text: prompt })
       
       // Agregar cada imagen
-      for (const att of imageAttachments) {
+      for (const att of imageAttachmentsForVision) {
         let base64Data = ''
         let mimeType = att.type || 'image/jpeg'
         
@@ -492,7 +492,7 @@ INSTRUCCIONES AGÉNTICAS:
       }
       
       // Agregar cada PDF como imagen (Gemini puede analizar PDFs mejor como imágenes)
-      for (const att of pdfAttachments) {
+      for (const att of pdfAttachmentsForVision) {
         if (att.content.startsWith('[PDF_BASE64:')) {
           const match = att.content.match(/\[PDF_BASE64:(.+?):/)
           if (match && match[1]) {

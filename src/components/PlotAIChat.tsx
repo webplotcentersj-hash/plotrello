@@ -265,7 +265,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         // Para PDFs, convertimos a imagen para análisis visual
         // Gemini puede analizar PDFs mejor si los convertimos a imágenes
         const reader = new FileReader()
-        reader.onload = async (e) => {
+        reader.onload = async () => {
           try {
             // Intentar leer como ArrayBuffer para convertir a imagen
             const arrayBuffer = await file.arrayBuffer()
