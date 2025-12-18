@@ -36,6 +36,7 @@ import RecursosHumanosDashboardPage from './pages/RecursosHumanosDashboardPage'
 import ClientesWebDashboardPage from './pages/ClientesWebDashboardPage'
 import ClientesWebGestionPage from './pages/ClientesWebGestionPage'
 import PedidosClientesPage from './pages/PedidosClientesPage'
+import ArticulosEmpresaPage from './pages/ArticulosEmpresaPage'
 import RecursosHumanosUsuariosPage from './pages/RecursosHumanosUsuariosPage'
 import RecursosHumanosReportesPage from './pages/RecursosHumanosReportesPage'
 import RecursosHumanosHorariosPage from './pages/RecursosHumanosHorariosPage'
@@ -721,6 +722,10 @@ function AppRoutes({
       <Route
         path="/clientes-web/pedidos"
         element={<PedidosClientesPage />}
+      />
+      <Route
+        path="/clientes-web/articulos"
+        element={<ArticulosEmpresaPage />}
       />
     </Routes>
     </>

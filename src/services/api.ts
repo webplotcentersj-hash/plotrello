@@ -5478,14 +5478,17 @@ class ApiService {
   /**
    * Obtener artículos de empresa (catálogo)
    */
-  async getArticulosEmpresa(visibleClientes?: boolean): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
+  async getArticulosEmpresa(visibleClientes?: boolean, incluirInactivos?: boolean): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
     if (supabase) {
       try {
         let query = supabase
           .from('articulos_empresa')
           .select('*')
-          .eq('activo', true)
           .order('nombre', { ascending: true })
+
+        if (!incluirInactivos) {
+          query = query.eq('activo', true)
+        }
 
         if (visibleClientes !== undefined) {
           query = query.eq('visible_clientes', visibleClientes)
@@ -5495,6 +5498,129 @@ class ApiService {
 
         if (error) return { success: false, error: error.message }
         return { success: true, data: data as ArticuloEmpresaRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Crear artículo de empresa
+   */
+  async crearArticuloEmpresa(articulo: {
+    codigo: string
+    nombre: string
+    descripcion?: string
+    categoria?: string
+    precio_base?: number
+    imagen_url?: string
+    tiempo_estimado_dias?: number
+    requiere_archivos?: boolean
+    visible_clientes?: boolean
+  }): Promise<ApiResponse<ArticuloEmpresaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_articulo_empresa', {
+          p_codigo: articulo.codigo,
+          p_nombre: articulo.nombre,
+          p_descripcion: articulo.descripcion || null,
+          p_categoria: articulo.categoria || null,
+          p_precio_base: articulo.precio_base || null,
+          p_imagen_url: articulo.imagen_url || null,
+          p_tiempo_estimado_dias: articulo.tiempo_estimado_dias || null,
+          p_requiere_archivos: articulo.requiere_archivos || false,
+          p_visible_clientes: articulo.visible_clientes !== undefined ? articulo.visible_clientes : true
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo crear el artículo' }
+        }
+
+        // Obtener el artículo completo
+        const { data: articuloCompleto, error: errorCompleto } = await supabase
+          .from('articulos_empresa')
+          .select('*')
+          .eq('id', data[0].id)
+          .single()
+
+        if (errorCompleto) return { success: false, error: errorCompleto.message }
+        return { success: true, data: articuloCompleto as ArticuloEmpresaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Actualizar artículo de empresa
+   */
+  async actualizarArticuloEmpresa(
+    id: number,
+    articulo: {
+      codigo?: string
+      nombre?: string
+      descripcion?: string
+      categoria?: string
+      precio_base?: number
+      imagen_url?: string
+      tiempo_estimado_dias?: number
+      requiere_archivos?: boolean
+      visible_clientes?: boolean
+      activo?: boolean
+    }
+  ): Promise<ApiResponse<ArticuloEmpresaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_articulo_empresa', {
+          p_id: id,
+          p_codigo: articulo.codigo || null,
+          p_nombre: articulo.nombre || null,
+          p_descripcion: articulo.descripcion || null,
+          p_categoria: articulo.categoria || null,
+          p_precio_base: articulo.precio_base || null,
+          p_imagen_url: articulo.imagen_url || null,
+          p_tiempo_estimado_dias: articulo.tiempo_estimado_dias || null,
+          p_requiere_archivos: articulo.requiere_archivos !== undefined ? articulo.requiere_archivos : null,
+          p_visible_clientes: articulo.visible_clientes !== undefined ? articulo.visible_clientes : null,
+          p_activo: articulo.activo !== undefined ? articulo.activo : null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo actualizar el artículo' }
+        }
+
+        // Obtener el artículo completo
+        const { data: articuloCompleto, error: errorCompleto } = await supabase
+          .from('articulos_empresa')
+          .select('*')
+          .eq('id', id)
+          .single()
+
+        if (errorCompleto) return { success: false, error: errorCompleto.message }
+        return { success: true, data: articuloCompleto as ArticuloEmpresaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Eliminar artículo de empresa (marcar como inactivo)
+   */
+  async eliminarArticuloEmpresa(id: number): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('eliminar_articulo_empresa', {
+          p_id: id
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
