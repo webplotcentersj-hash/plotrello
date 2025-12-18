@@ -839,8 +839,8 @@ const ArticulosEmpresaPage = () => {
                     </div>
                   )}
 
-                  {/* Preview de imagen única (para compatibilidad) */}
-                  {(imagenPreview || formData.imagen_url) && !editingArticulo && (
+                  {/* Preview de imagen única (solo si no hay galería) */}
+                  {(imagenPreview || formData.imagen_url) && imagenPreviews.length === 0 && (
                     <div className="imagen-preview-container">
                       <img 
                         src={imagenPreview || formData.imagen_url} 
@@ -862,74 +862,74 @@ const ArticulosEmpresaPage = () => {
                     </div>
                   )}
 
-                  {/* Input para subir múltiples archivos */}
-                  {editingArticulo ? (
-                    <div className="file-upload-section">
+                  {/* Input para subir múltiples archivos (siempre disponible) */}
+                  <div className="file-upload-section">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleMultipleImagesChange}
+                      className="file-input"
+                      id="galeria-articulo"
+                    />
+                    <label htmlFor="galeria-articulo" className="file-input-label">
+                      📷 {imagenFiles.length > 0 ? `${imagenFiles.length} imagen(es) seleccionada(s)` : 'Seleccionar múltiples imágenes'}
+                    </label>
+                    {editingArticulo && imagenFiles.length > 0 && (
+                      <button
+                        type="button"
+                        className="btn-upload-image"
+                        onClick={handleSubirGaleriaImagenes}
+                        disabled={uploadingImages}
+                      >
+                        {uploadingImages ? 'Subiendo...' : `⬆️ Subir ${imagenFiles.length} Imagen(es)`}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Input para subir archivo único (alternativa) */}
+                  {!editingArticulo && (
+                    <div className="file-upload-section" style={{ marginTop: '12px' }}>
                       <input
                         type="file"
                         accept="image/*"
-                        multiple
-                        onChange={handleMultipleImagesChange}
+                        onChange={handleImageChange}
                         className="file-input"
-                        id="galeria-articulo"
+                        id="imagen-articulo"
                       />
-                      <label htmlFor="galeria-articulo" className="file-input-label">
-                        📷 {imagenFiles.length > 0 ? `${imagenFiles.length} imagen(es) seleccionada(s)` : 'Seleccionar múltiples imágenes'}
+                      <label htmlFor="imagen-articulo" className="file-input-label">
+                        📷 {imagenFile ? imagenFile.name : 'O seleccionar una sola imagen'}
                       </label>
-                      {imagenFiles.length > 0 && (
+                      {imagenFile && !formData.imagen_url && (
                         <button
                           type="button"
                           className="btn-upload-image"
-                          onClick={handleSubirGaleriaImagenes}
-                          disabled={uploadingImages}
+                          onClick={handleSubirImagen}
+                          disabled={uploadingImage}
                         >
-                          {uploadingImages ? 'Subiendo...' : `⬆️ Subir ${imagenFiles.length} Imagen(es)`}
+                          {uploadingImage ? 'Subiendo...' : '⬆️ Subir Imagen'}
                         </button>
                       )}
                     </div>
-                  ) : (
-                    <>
-                      {/* Input para subir archivo único (crear nuevo) */}
-                      <div className="file-upload-section">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="file-input"
-                          id="imagen-articulo"
-                        />
-                        <label htmlFor="imagen-articulo" className="file-input-label">
-                          📷 {imagenFile ? imagenFile.name : 'Seleccionar imagen'}
-                        </label>
-                        {imagenFile && !formData.imagen_url && (
-                          <button
-                            type="button"
-                            className="btn-upload-image"
-                            onClick={handleSubirImagen}
-                            disabled={uploadingImage}
-                          >
-                            {uploadingImage ? 'Subiendo...' : '⬆️ Subir Imagen'}
-                          </button>
-                        )}
-                      </div>
+                  )}
 
-                      {/* O usar URL */}
-                      <div className="url-alternative">
-                        <p className="url-label">O ingresa una URL:</p>
-                        <input
-                          type="url"
-                          value={formData.imagen_url}
-                          onChange={(e) => {
-                            setFormData({ ...formData, imagen_url: e.target.value })
-                            if (!imagenFile) {
-                              setImagenPreview(e.target.value || null)
-                            }
-                          }}
-                          placeholder="https://..."
-                          disabled={!!imagenFile}
-                        />
-                      </div>
-                    </>
+                  {/* O usar URL */}
+                  {!editingArticulo && (
+                    <div className="url-alternative">
+                      <p className="url-label">O ingresa una URL:</p>
+                      <input
+                        type="url"
+                        value={formData.imagen_url}
+                        onChange={(e) => {
+                          setFormData({ ...formData, imagen_url: e.target.value })
+                          if (!imagenFile && imagenPreviews.length === 0) {
+                            setImagenPreview(e.target.value || null)
+                          }
+                        }}
+                        placeholder="https://..."
+                        disabled={!!imagenFile || imagenPreviews.length > 0}
+                      />
+                    </div>
                   )}
                 </div>
 
