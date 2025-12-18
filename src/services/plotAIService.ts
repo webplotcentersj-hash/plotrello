@@ -563,6 +563,16 @@ INSTRUCCIONES AGÉNTICAS:
         responseText = response.text || ''
         console.log('✅ Respuesta recibida de Gemini:', responseText.substring(0, 100))
       } catch (error: any) {
+        // Manejar error de cuota (429)
+        if (error?.error?.code === 429 || error?.error?.status === 'RESOURCE_EXHAUSTED') {
+          const quotaInfo = error?.error?.details?.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.QuotaFailure')
+          const limit = quotaInfo?.violations?.[0]?.quotaValue || 'desconocido'
+          const retryInfo = error?.error?.details?.find((d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo')
+          const retryDelay = retryInfo?.retryDelay || '30 segundos'
+          
+          throw new Error(`Cuota de API excedida. Has alcanzado el límite de ${limit} solicitudes del plan gratuito. Por favor, espera ${retryDelay} antes de intentar nuevamente, o considera actualizar tu plan de Gemini API. Detalles: ${error?.error?.message || 'Cuota excedida'}`)
+        }
+        
         // Si hay error con imágenes, intentar solo con texto
         if (error?.error?.code === 400 && error?.error?.message?.includes('image')) {
           console.warn('Error procesando imagen, intentando solo con texto...', error)

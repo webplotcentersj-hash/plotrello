@@ -487,12 +487,24 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       setMessages((prev) => [...prev, assistantMessage])
     } catch (error) {
       console.error('Error en PlotAI:', error)
+      
+      let errorContent = 'Lo siento, hubo un error al procesar tu mensaje.'
+      
+      if (error instanceof Error) {
+        // Mensaje de error más amigable para cuota excedida
+        if (error.message.includes('Cuota de API excedida') || error.message.includes('quota')) {
+          errorContent = `⚠️ **Cuota de API excedida**\n\n${error.message}\n\n💡 **Sugerencias:**\n- Espera unos minutos antes de intentar nuevamente\n- Considera actualizar tu plan de Gemini API en https://ai.google.dev\n- El plan gratuito tiene límites de uso diarios`
+        } else if (error.message.includes('API key')) {
+          errorContent = `🔑 **Error de API Key**\n\n${error.message}\n\nPor favor, verifica que tu API key de Gemini esté configurada correctamente.`
+        } else {
+          errorContent = `Error: ${error.message}`
+        }
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: error instanceof Error 
-          ? `Error: ${error.message}`
-          : 'Lo siento, hubo un error al procesar tu mensaje. Por favor, verifica tu API key de Gemini o intenta nuevamente.',
+        content: errorContent,
         timestamp: new Date()
       }
       setMessages((prev) => [...prev, errorMessage])
