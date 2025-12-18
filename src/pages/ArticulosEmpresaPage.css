@@ -75,7 +75,7 @@
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px 16px;
-  color: #fff;
+  color: #ffffff;
   font-size: 14px;
   transition: all 0.3s;
 }
@@ -398,7 +398,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: #ffffff;
   font-size: 14px;
 }
 
