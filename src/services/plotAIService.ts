@@ -433,9 +433,7 @@ INSTRUCCIONES AGÉNTICAS:
     prompt += `\nPlotAI: Responde de manera útil y contextualizada usando toda la información disponible.`
 
     // Preparar el payload para Gemini
-    // Si hay imágenes, necesitamos enviarlas como partes separadas
-    const hasImages = attachments?.some((att) => att.type.startsWith('image/'))
-    
+    // Si hay imágenes o PDFs, necesitamos enviarlas como partes separadas
     let responseText = ''
     
     const hasImagesForVision = attachments?.some((att) => att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:'))
