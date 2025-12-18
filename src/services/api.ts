@@ -5516,6 +5516,24 @@ class ApiService {
       precio_total: number
       descripcion_personalizada?: string
     }>
+    es_urgente?: boolean
+    requiere_delivery?: boolean
+    direccion_delivery?: string
+    tipo_producto_servicio?: string[]
+    tipo_producto_otro?: string
+    necesita_asesoramiento?: boolean
+    donde_colocados?: string
+    digital_o_impresion?: string
+    cantidades?: string
+    objetivo_proyecto?: string
+    material_logo?: string
+    material_textos?: string
+    material_imagenes?: string
+    tiene_referencias?: boolean
+    referencias_links?: string
+    brief_publico?: string
+    estilo_diseno?: string
+    referencias?: string
   }): Promise<ApiResponse<PedidoClienteRecord>> {
     if (supabase) {
       try {
@@ -5531,7 +5549,25 @@ class ApiService {
           p_id_cliente: pedido.id_cliente,
           p_fecha_limite_deseada: pedido.fecha_limite_deseada || null,
           p_observaciones_cliente: pedido.observaciones_cliente || null,
-          p_items: itemsJsonb
+          p_items: itemsJsonb,
+          p_es_urgente: pedido.es_urgente || false,
+          p_requiere_delivery: pedido.requiere_delivery || false,
+          p_direccion_delivery: pedido.direccion_delivery || null,
+          p_tipo_producto_servicio: pedido.tipo_producto_servicio || null,
+          p_tipo_producto_otro: pedido.tipo_producto_otro || null,
+          p_necesita_asesoramiento: pedido.necesita_asesoramiento || false,
+          p_donde_colocados: pedido.donde_colocados || null,
+          p_digital_o_impresion: pedido.digital_o_impresion || null,
+          p_cantidades: pedido.cantidades || null,
+          p_objetivo_proyecto: pedido.objetivo_proyecto || null,
+          p_material_logo: pedido.material_logo || null,
+          p_material_textos: pedido.material_textos || null,
+          p_material_imagenes: pedido.material_imagenes || null,
+          p_tiene_referencias: pedido.tiene_referencias || false,
+          p_referencias_links: pedido.referencias_links || null,
+          p_brief_publico: pedido.brief_publico || null,
+          p_estilo_diseno: pedido.estilo_diseno || null,
+          p_referencias: pedido.referencias || null
         })
 
         if (error) return { success: false, error: error.message }
