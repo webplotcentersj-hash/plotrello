@@ -132,7 +132,7 @@ BEGIN
     p_usuario, password_hash, p_nombre, p_apellido, p_empresa,
     p_telefono, p_email, p_dni_cuit, p_direccion
   )
-  RETURNING id INTO nuevo_cliente_id;
+  RETURNING clientes_web.id INTO nuevo_cliente_id;
 
   RETURN QUERY
   SELECT c.id, c.usuario, c.nombre, c.email
