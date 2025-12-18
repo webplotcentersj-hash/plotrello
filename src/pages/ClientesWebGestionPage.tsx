@@ -7,7 +7,7 @@ import './ClientesWebGestionPage.css'
 
 const ClientesWebGestionPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin, isMostrador } = useAuth()
+  const { isAdmin, isMostrador } = useAuth()
   const [loading, setLoading] = useState(true)
   const [clientes, setClientes] = useState<ClienteWebRecord[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -62,7 +62,7 @@ const ClientesWebGestionPage = () => {
     }
   }
 
-  const handleToggleActivo = async (cliente: ClienteWebRecord) => {
+  const handleToggleActivo = async (_cliente: ClienteWebRecord) => {
     // TODO: Implementar función para actualizar estado activo
     alert('Función de actualizar estado pendiente de implementar')
   }

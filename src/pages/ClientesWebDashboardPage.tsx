@@ -7,9 +7,8 @@ import './ClientesWebDashboardPage.css'
 
 const ClientesWebDashboardPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin, isMostrador } = useAuth()
+  const { isAdmin, isMostrador } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [clientes, setClientes] = useState<ClienteWebRecord[]>([])
   const [pedidosPendientes, setPedidosPendientes] = useState<PedidoClienteRecord[]>([])
   const [stats, setStats] = useState({
     totalClientes: 0,
@@ -37,7 +36,7 @@ const ClientesWebDashboardPage = () => {
         setPedidosPendientes(pedidosResponse.data)
         
         const pendientes = pedidosResponse.data.filter(p => p.estado === 'pendiente').length
-        const convertidos = pedidosResponse.data.filter(p => p.estado === 'convertido').length
+        const convertidos = pedidosResponse.data.filter(p => p.estado === 'convertido_completo' || p.estado === 'convertido_parcial').length
         const rechazados = pedidosResponse.data.filter(p => p.estado === 'rechazado').length
 
         setStats(prev => ({
@@ -51,11 +50,11 @@ const ClientesWebDashboardPage = () => {
       // Cargar clientes
       const clientesResponse = await apiService.getClientesWeb()
       if (clientesResponse.success && clientesResponse.data) {
-        setClientes(clientesResponse.data)
-        const activos = clientesResponse.data.filter(c => c.activo).length
+        const clientes = clientesResponse.data
+        const activos = clientes.filter(c => c.activo).length
         setStats(prev => ({
           ...prev,
-          totalClientes: clientesResponse.data.length,
+          totalClientes: clientes.length,
           clientesActivos: activos
         }))
       }
@@ -184,13 +183,13 @@ const ClientesWebDashboardPage = () => {
                     <tr key={pedido.id}>
                       <td>{pedido.numero_pedido}</td>
                       <td>Cliente #{pedido.id_cliente}</td>
-                      <td>{new Date(pedido.fecha_creacion).toLocaleDateString('es-AR')}</td>
-                      <td>
-                        <span className={`clientes-web-status-badge ${pedido.estado}`}>
-                          {pedido.estado}
-                        </span>
-                      </td>
-                      <td>${pedido.total?.toFixed(2) || '0.00'}</td>
+                    <td>{new Date(pedido.fecha_pedido).toLocaleDateString('es-AR')}</td>
+                    <td>
+                      <span className={`clientes-web-status-badge ${pedido.estado}`}>
+                        {pedido.estado.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>${pedido.precio_total?.toFixed(2) || '0.00'}</td>
                       <td>
                         <button
                           className="btn-view"

@@ -7,7 +7,7 @@ import './PedidosClientesPage.css'
 
 const PedidosClientesPage = () => {
   const navigate = useNavigate()
-  const { usuario, isAdmin, isMostrador } = useAuth()
+  const { isAdmin, isMostrador } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoClienteRecord[]>([])
   const [filterEstado, setFilterEstado] = useState<string>('todos')
