@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ClienteWebRecord, PedidoClienteRecord } from '../types/api'
+import type { PedidoClienteRecord } from '../types/api'
 import './ClientesWebDashboardPage.css'
 
 const ClientesWebDashboardPage = () => {
