@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, type Part } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { formatAgenticContextForPrompt } from '../utils/agentInsights'
@@ -12,18 +12,24 @@ import {
   saveConversationMemory
 } from './plotAIMemoryService'
 
-// Usar el SDK estable de Google Generative AI
+// El nuevo SDK de Google GenAI puede usar la API key desde variable de entorno
+// o se puede pasar en el constructor si es necesario
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
 
-// Inicializar el cliente de Google Generative AI
-let genAI: GoogleGenerativeAI | null = null
+// Inicializar el cliente de Google GenAI
+// El constructor puede recibir { apiKey } o usar la variable de entorno automáticamente
+let ai: GoogleGenAI | null = null
 try {
   if (GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
+    // Intentar con API key explícita primero
+    ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+  } else {
+    // Si no hay API key, intentar sin parámetros (usará variable de entorno si existe)
+    ai = new GoogleGenAI({})
   }
 } catch (error) {
-  console.warn('No se pudo inicializar GoogleGenerativeAI:', error)
-  genAI = null
+  console.warn('No se pudo inicializar GoogleGenAI:', error)
+  ai = null
 }
 
 export interface SystemContext {
@@ -112,7 +118,7 @@ export interface GenerateContentOptions {
 }
 
 export async function generateContent(options: GenerateContentOptions): Promise<string> {
-  if (!genAI) {
+  if (!ai) {
     throw new Error('API key de Gemini no configurada. Por favor, configura VITE_GEMINI_API_KEY en tu archivo .env')
   }
 
@@ -446,7 +452,7 @@ INSTRUCCIONES AGÉNTICAS:
       const imageAttachmentsForVision = attachments.filter((att) => 
         att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:')
       )
-      const parts: Part[] = []
+      const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
       
       // Agregar el prompt de texto primero
       let textPrompt = prompt
@@ -520,10 +526,10 @@ INSTRUCCIONES AGÉNTICAS:
           console.log('✅ Agregando imagen a parts:', att.name, mimeType)
           parts.push({
             inlineData: {
-              mimeType: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+              mimeType,
               data: base64Data
             }
-          } as Part)
+          })
         } else {
           console.error('❌ Base64 vacío o inválido para:', att.name)
         }
@@ -531,32 +537,41 @@ INSTRUCCIONES AGÉNTICAS:
       
       console.log('📊 Total de parts:', parts.length, 'imágenes:', imageAttachmentsForVision.length)
       
+      // El formato correcto para @google/genai es un array de objetos con role y parts
+      // Cada objeto debe tener { role: 'user', parts: [...] }
+      const contents = [{
+        role: 'user' as const,
+        parts: parts
+      }]
+      
       console.log('📤 Enviando a Gemini:', {
         model: 'gemini-2.0-flash-exp',
+        contentsCount: contents.length,
         partsCount: parts.length,
         partsTypes: parts.map(p => p.text ? 'text' : 'inlineData')
       })
       
-      // Usar el modelo con capacidad de visión
-      // gemini-2.0-flash-exp o gemini-1.5-flash tienen visión integrada
-      const visionModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      // Usar el modelo con capacidad de visión (gemini-2.0-flash-exp tiene visión integrada)
+      const visionModel = 'gemini-2.0-flash-exp'
       
       try {
-        // El formato correcto para @google/generative-ai es pasar parts directamente
-        const result = await visionModel.generateContent(parts)
-        const response = await result.response
+        const response = await ai.models.generateContent({
+          model: visionModel,
+          contents: contents
+        })
         
-        responseText = response.text() || ''
+        responseText = response.text || ''
         console.log('✅ Respuesta recibida de Gemini:', responseText.substring(0, 100))
       } catch (error: any) {
         // Si hay error con imágenes, intentar solo con texto
         if (error?.error?.code === 400 && error?.error?.message?.includes('image')) {
           console.warn('Error procesando imagen, intentando solo con texto...', error)
           const textOnlyPrompt = prompt + (hasPDFsForText ? '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas o en formato JPG/PNG.' : '')
-          const textModel = genAI.getGenerativeModel({ model: model })
-          const result = await textModel.generateContent(textOnlyPrompt)
-          const response = await result.response
-          responseText = response.text() || ''
+          const response = await ai.models.generateContent({
+            model,
+            contents: textOnlyPrompt
+          })
+          responseText = response.text || ''
         } else {
           throw error
         }
@@ -582,16 +597,20 @@ INSTRUCCIONES AGÉNTICAS:
         }
       }
       
-      const textModel = genAI.getGenerativeModel({ model: model })
-      const result = await textModel.generateContent(textPrompt)
-      const response = await result.response
-      responseText = response.text() || ''
+      const response = await ai.models.generateContent({
+        model,
+        contents: textPrompt
+      })
+      
+      responseText = response.text || ''
     } else {
       // Sin imágenes ni PDFs, usar el método normal
-      const textModel = genAI.getGenerativeModel({ model: model })
-      const result = await textModel.generateContent(prompt)
-      const response = await result.response
-      responseText = response.text() || ''
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt
+      })
+      
+      responseText = response.text || ''
     }
 
     // Aprender de la respuesta si está habilitado
