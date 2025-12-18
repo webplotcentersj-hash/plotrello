@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
@@ -6,24 +6,13 @@ import type { PedidoClienteRecord } from '../types/api'
 import './ClienteDashboardPage.css'
 
 export default function ClienteDashboardPage() {
-  const { cliente, logout } = useClienteAuth()
+  const { cliente, logout, loading: authLoading } = useClienteAuth()
   const navigate = useNavigate()
   const [pedidos, setPedidos] = useState<PedidoClienteRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    console.log('ClienteDashboardPage - cliente:', cliente)
-    if (!cliente) {
-      console.log('No hay cliente, redirigiendo a login')
-      navigate('/cliente/login')
-      return
-    }
-    console.log('Cliente encontrado, cargando pedidos...')
-    loadPedidos()
-  }, [cliente, navigate])
-
-  const loadPedidos = async () => {
+  const loadPedidos = useCallback(async () => {
     if (!cliente) return
     
     setLoading(true)
@@ -41,7 +30,24 @@ export default function ClienteDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [cliente])
+
+  useEffect(() => {
+    // Esperar a que termine la carga de autenticación antes de verificar
+    if (authLoading) {
+      console.log('ClienteDashboardPage - Esperando carga de autenticación...')
+      return
+    }
+
+    console.log('ClienteDashboardPage - cliente:', cliente, 'authLoading:', authLoading)
+    if (!cliente) {
+      console.log('No hay cliente, redirigiendo a login')
+      navigate('/cliente/login')
+      return
+    }
+    console.log('Cliente encontrado, cargando pedidos...')
+    loadPedidos()
+  }, [cliente, authLoading, navigate, loadPedidos])
 
   const getEstadoColor = (estado: PedidoClienteRecord['estado']) => {
     const colors: Record<string, string> = {
