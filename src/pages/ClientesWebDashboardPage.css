@@ -123,6 +123,8 @@
   cursor: pointer;
   transition: all 0.3s ease;
   color: var(--text-primary);
+  width: 100%;
+  font-family: inherit;
 }
 
 .clientes-web-action-card:hover {

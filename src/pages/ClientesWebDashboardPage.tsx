@@ -7,7 +7,7 @@ import './ClientesWebDashboardPage.css'
 
 const ClientesWebDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador } = useAuth()
+  const { isAdmin, isMostrador, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedidosPendientes, setPedidosPendientes] = useState<PedidoClienteRecord[]>([])
   const [stats, setStats] = useState({
@@ -19,13 +19,14 @@ const ClientesWebDashboardPage = () => {
   })
 
   useEffect(() => {
+    if (authLoading) return
     // Permitir acceso a admin y mostrador
     if (!isAdmin && !isMostrador) {
       navigate('/')
       return
     }
     loadDashboardData()
-  }, [navigate, isAdmin, isMostrador])
+  }, [navigate, isAdmin, isMostrador, authLoading])
 
   const loadDashboardData = async () => {
     setLoading(true)
@@ -153,7 +154,10 @@ const ClientesWebDashboardPage = () => {
 
             <button
               className="clientes-web-action-card"
-              onClick={() => navigate('/clientes-web/articulos')}
+              onClick={() => {
+                // TODO: Crear página de gestión de artículos
+                alert('Página de gestión de artículos pendiente de implementar')
+              }}
             >
               <div className="clientes-web-action-icon">📦</div>
               <h3>Artículos de Empresa</h3>

@@ -7,18 +7,19 @@ import './PedidosClientesPage.css'
 
 const PedidosClientesPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador } = useAuth()
+  const { isAdmin, isMostrador, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoClienteRecord[]>([])
   const [filterEstado, setFilterEstado] = useState<string>('todos')
 
   useEffect(() => {
+    if (authLoading) return
     if (!isAdmin && !isMostrador) {
       navigate('/')
       return
     }
     loadPedidos()
-  }, [navigate, isAdmin, isMostrador])
+  }, [navigate, isAdmin, isMostrador, authLoading])
 
   const loadPedidos = async () => {
     setLoading(true)

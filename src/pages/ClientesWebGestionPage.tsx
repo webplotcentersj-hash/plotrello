@@ -7,7 +7,7 @@ import './ClientesWebGestionPage.css'
 
 const ClientesWebGestionPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador } = useAuth()
+  const { isAdmin, isMostrador, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [clientes, setClientes] = useState<ClienteWebRecord[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -26,12 +26,13 @@ const ClientesWebGestionPage = () => {
   })
 
   useEffect(() => {
+    if (authLoading) return
     if (!isAdmin && !isMostrador) {
       navigate('/')
       return
     }
     loadClientes()
-  }, [navigate, isAdmin, isMostrador])
+  }, [navigate, isAdmin, isMostrador, authLoading])
 
   const loadClientes = async () => {
     setLoading(true)
