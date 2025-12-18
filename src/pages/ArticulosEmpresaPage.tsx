@@ -480,14 +480,72 @@ const ArticulosEmpresaPage = () => {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>URL de Imagen</label>
-                  <input
-                    type="url"
-                    value={formData.imagen_url}
-                    onChange={(e) => setFormData({ ...formData, imagen_url: e.target.value })}
-                    placeholder="https://..."
-                  />
+                <div className="form-group full-width">
+                  <label>Imagen del Artículo</label>
+                  
+                  {/* Preview de imagen */}
+                  {(imagenPreview || formData.imagen_url) && (
+                    <div className="imagen-preview-container">
+                      <img 
+                        src={imagenPreview || formData.imagen_url} 
+                        alt="Preview" 
+                        className="imagen-preview"
+                      />
+                      {imagenFile && (
+                        <button
+                          type="button"
+                          className="btn-remove-image"
+                          onClick={() => {
+                            setImagenFile(null)
+                            setImagenPreview(formData.imagen_url || null)
+                          }}
+                        >
+                          ✕ Remover imagen nueva
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Input para subir archivo */}
+                  <div className="file-upload-section">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="file-input"
+                      id="imagen-articulo"
+                    />
+                    <label htmlFor="imagen-articulo" className="file-input-label">
+                      📷 {imagenFile ? imagenFile.name : 'Seleccionar imagen'}
+                    </label>
+                    {imagenFile && !formData.imagen_url && (
+                      <button
+                        type="button"
+                        className="btn-upload-image"
+                        onClick={handleSubirImagen}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? 'Subiendo...' : '⬆️ Subir Imagen'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* O usar URL */}
+                  <div className="url-alternative">
+                    <p className="url-label">O ingresa una URL:</p>
+                    <input
+                      type="url"
+                      value={formData.imagen_url}
+                      onChange={(e) => {
+                        setFormData({ ...formData, imagen_url: e.target.value })
+                        if (!imagenFile) {
+                          setImagenPreview(e.target.value || null)
+                        }
+                      }}
+                      placeholder="https://..."
+                      disabled={!!imagenFile}
+                    />
+                  </div>
                 </div>
 
                 <div className="form-group">
