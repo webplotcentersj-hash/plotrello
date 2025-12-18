@@ -33,7 +33,7 @@
 
 .header-content p {
   margin: 4px 0 0 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 14px;
 }
 
@@ -219,7 +219,7 @@
 
 .articulo-descripcion {
   margin: 0 0 12px 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.95);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -227,7 +227,7 @@
 .articulo-categoria {
   margin: 0 0 12px 0;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .articulo-info {
@@ -246,7 +246,7 @@
 
 .info-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
 }
 
@@ -306,7 +306,7 @@
 }
 
 .empty-state p {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.95);
   margin-bottom: 20px;
   font-size: 16px;
 }
@@ -356,7 +356,7 @@
 .btn-close {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -417,7 +417,7 @@
 
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .form-group input:focus,
@@ -436,6 +436,12 @@
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  color: #ffffff;
+}
+
+.checkbox-label span {
+  color: #ffffff;
+  font-weight: 500;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -453,7 +459,7 @@
   display: block;
   margin-top: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.85);
   font-style: italic;
 }
 
