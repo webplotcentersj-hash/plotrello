@@ -210,6 +210,7 @@ export interface ArticuloEmpresaRecord {
   nombre: string
   descripcion?: string | null
   categoria?: string | null
+  subcategoria?: string | null
   precio_base?: number | null
   activo: boolean
   imagen_url?: string | null

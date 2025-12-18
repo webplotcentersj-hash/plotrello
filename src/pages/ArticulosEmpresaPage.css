@@ -438,6 +438,28 @@
   cursor: pointer;
 }
 
+.readonly-input {
+  background: rgba(26, 29, 46, 0.4) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  cursor: not-allowed;
+}
+
+.input-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+.autocomplete-input {
+  position: relative;
+}
+
+.autocomplete-input:focus {
+  border-color: #6366f1;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;

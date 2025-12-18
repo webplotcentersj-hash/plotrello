@@ -19,6 +19,7 @@ const ArticulosEmpresaPage = () => {
     nombre: '',
     descripcion: '',
     categoria: '',
+    subcategoria: '',
     precio_base: '',
     imagen_url: '',
     tiempo_estimado_dias: '',
@@ -26,6 +27,10 @@ const ArticulosEmpresaPage = () => {
     visible_clientes: true,
     activo: true
   })
+  const [categoriasDisponibles, setCategoriasDisponibles] = useState<string[]>([])
+  const [subcategoriasDisponibles, setSubcategoriasDisponibles] = useState<string[]>([])
+  const [categoriaInputValue, setCategoriaInputValue] = useState('')
+  const [subcategoriaInputValue, setSubcategoriaInputValue] = useState('')
   const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -39,7 +44,16 @@ const ArticulosEmpresaPage = () => {
       return
     }
     loadArticulos()
+    loadCategorias()
   }, [navigate, isAdmin, isMostrador, authLoading])
+
+  useEffect(() => {
+    if (formData.categoria) {
+      loadSubcategorias(formData.categoria)
+    } else {
+      setSubcategoriasDisponibles([])
+    }
+  }, [formData.categoria])
 
   const loadArticulos = async () => {
     setLoading(true)
@@ -57,7 +71,38 @@ const ArticulosEmpresaPage = () => {
     }
   }
 
+  const loadCategorias = async () => {
+    try {
+      const response = await apiService.obtenerCategoriasArticulos()
+      if (response.success && response.data) {
+        setCategoriasDisponibles(response.data)
+      }
+    } catch (err) {
+      console.error('Error cargando categorías:', err)
+    }
+  }
+
+  const loadSubcategorias = async (categoria: string) => {
+    try {
+      const response = await apiService.obtenerSubcategoriasArticulos(categoria)
+      if (response.success && response.data) {
+        setSubcategoriasDisponibles(response.data)
+      }
+    } catch (err) {
+      console.error('Error cargando subcategorías:', err)
+    }
+  }
+
   const categorias = Array.from(new Set(articulos.map(a => a.categoria).filter(Boolean))) as string[]
+  
+  // Actualizar categorías disponibles cuando cambian los artículos
+  useEffect(() => {
+    const categoriasArticulos = Array.from(new Set(articulos.map(a => a.categoria).filter(Boolean))) as string[]
+    setCategoriasDisponibles(prev => {
+      const todas = [...new Set([...prev, ...categoriasArticulos])]
+      return todas.sort()
+    })
+  }, [articulos])
 
   const articulosFiltrados = articulos.filter(articulo => {
     const matchBusqueda = !searchQuery || 
@@ -95,6 +140,7 @@ const ArticulosEmpresaPage = () => {
       nombre: articulo.nombre,
       descripcion: articulo.descripcion || '',
       categoria: articulo.categoria || '',
+      subcategoria: articulo.subcategoria || '',
       precio_base: articulo.precio_base?.toString() || '',
       imagen_url: articulo.imagen_url || '',
       tiempo_estimado_dias: articulo.tiempo_estimado_dias?.toString() || '',
@@ -102,6 +148,8 @@ const ArticulosEmpresaPage = () => {
       visible_clientes: articulo.visible_clientes,
       activo: articulo.activo
     })
+    setCategoriaInputValue(articulo.categoria || '')
+    setSubcategoriaInputValue(articulo.subcategoria || '')
     setImagenFile(null)
     setImagenPreview(articulo.imagen_url || null)
     setError('')
@@ -111,9 +159,39 @@ const ArticulosEmpresaPage = () => {
   const cerrarModal = () => {
     setShowCreateModal(false)
     setEditingArticulo(null)
+    setCategoriaInputValue('')
+    setSubcategoriaInputValue('')
     setImagenFile(null)
     setImagenPreview(null)
     setError('')
+  }
+
+  const handleCategoriaChange = async (value: string) => {
+    setCategoriaInputValue(value)
+    setFormData({ ...formData, categoria: value, subcategoria: '' }) // Limpiar subcategoría al cambiar categoría
+    setSubcategoriaInputValue('')
+    
+    // Guardar categoría automáticamente si no está en la lista
+    if (value && !categoriasDisponibles.includes(value)) {
+      await apiService.guardarCategoriaArticulo(value)
+      loadCategorias() // Recargar lista
+    }
+    
+    // Cargar subcategorías si hay categoría seleccionada
+    if (value) {
+      loadSubcategorias(value)
+    }
+  }
+
+  const handleSubcategoriaChange = async (value: string) => {
+    setSubcategoriaInputValue(value)
+    setFormData({ ...formData, subcategoria: value })
+    
+    // Guardar subcategoría automáticamente si no está en la lista
+    if (value && formData.categoria && !subcategoriasDisponibles.includes(value)) {
+      await apiService.guardarSubcategoriaArticulo(formData.categoria, value)
+      loadSubcategorias(formData.categoria) // Recargar lista
+    }
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,9 +249,20 @@ const ArticulosEmpresaPage = () => {
   }
 
   const handleGuardar = async () => {
-    if (!formData.codigo.trim() || !formData.nombre.trim()) {
-      setError('Código y nombre son obligatorios')
+    if (!formData.nombre.trim()) {
+      setError('El nombre es obligatorio')
       return
+    }
+    
+    // Asegurar que el código esté generado si no existe
+    if (!formData.codigo.trim() && !editingArticulo) {
+      const codigoResponse = await apiService.generarCodigoArticulo()
+      if (codigoResponse.success && codigoResponse.data) {
+        setFormData({ ...formData, codigo: codigoResponse.data })
+      } else {
+        setError('Error al generar código automático')
+        return
+      }
     }
 
     // Si hay una imagen nueva sin subir, subirla primero
@@ -213,6 +302,7 @@ const ArticulosEmpresaPage = () => {
           nombre: formData.nombre.trim(),
           descripcion: formData.descripcion.trim() || undefined,
           categoria: formData.categoria.trim() || undefined,
+          subcategoria: formData.subcategoria.trim() || undefined,
           precio_base: formData.precio_base ? parseFloat(formData.precio_base) : undefined,
           imagen_url: imagenUrlFinal.trim() || undefined,
           tiempo_estimado_dias: formData.tiempo_estimado_dias ? parseInt(formData.tiempo_estimado_dias) : undefined,
@@ -221,12 +311,13 @@ const ArticulosEmpresaPage = () => {
           activo: formData.activo
         })
       } else {
-        // Crear
+        // Crear (código se genera automáticamente si no se proporciona)
         response = await apiService.crearArticuloEmpresa({
-          codigo: formData.codigo.trim(),
+          codigo: formData.codigo.trim() || undefined, // Si está vacío, se genera automático
           nombre: formData.nombre.trim(),
           descripcion: formData.descripcion.trim() || undefined,
           categoria: formData.categoria.trim() || undefined,
+          subcategoria: formData.subcategoria.trim() || undefined,
           precio_base: formData.precio_base ? parseFloat(formData.precio_base) : undefined,
           imagen_url: imagenUrlFinal.trim() || undefined,
           tiempo_estimado_dias: formData.tiempo_estimado_dias ? parseInt(formData.tiempo_estimado_dias) : undefined,
@@ -361,8 +452,11 @@ const ArticulosEmpresaPage = () => {
                 {articulo.descripcion && (
                   <p className="articulo-descripcion">{articulo.descripcion}</p>
                 )}
-                {articulo.categoria && (
-                  <p className="articulo-categoria">Categoría: {articulo.categoria}</p>
+                {(articulo.categoria || articulo.subcategoria) && (
+                  <p className="articulo-categoria">
+                    {articulo.categoria}
+                    {articulo.subcategoria && ` → ${articulo.subcategoria}`}
+                  </p>
                 )}
                 <div className="articulo-info">
                   {articulo.precio_base && (
@@ -432,9 +526,14 @@ const ArticulosEmpresaPage = () => {
                     type="text"
                     value={formData.codigo}
                     onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-                    placeholder="Código único del artículo"
+                    placeholder="Se genera automáticamente"
+                    readOnly={!editingArticulo}
+                    className={!editingArticulo ? 'readonly-input' : ''}
                     required
                   />
+                  {!editingArticulo && (
+                    <small className="input-hint">El código se genera automáticamente</small>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -462,11 +561,51 @@ const ArticulosEmpresaPage = () => {
                   <label>Categoría</label>
                   <input
                     type="text"
-                    value={formData.categoria}
-                    onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                    placeholder="Ej: Diseño, Impresión, etc."
+                    list="categorias-list"
+                    value={categoriaInputValue}
+                    onChange={(e) => handleCategoriaChange(e.target.value)}
+                    onBlur={(e) => {
+                      // Guardar automáticamente al perder foco si hay valor
+                      if (e.target.value.trim()) {
+                        handleCategoriaChange(e.target.value.trim())
+                      }
+                    }}
+                    placeholder="Escribe o selecciona una categoría"
+                    className="autocomplete-input"
                   />
+                  <datalist id="categorias-list">
+                    {categoriasDisponibles.map((cat) => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                  <small className="input-hint">Se guarda automáticamente al escribir</small>
                 </div>
+
+                {formData.categoria && (
+                  <div className="form-group">
+                    <label>Subcategoría</label>
+                    <input
+                      type="text"
+                      list="subcategorias-list"
+                      value={subcategoriaInputValue}
+                      onChange={(e) => handleSubcategoriaChange(e.target.value)}
+                      onBlur={(e) => {
+                        // Guardar automáticamente al perder foco si hay valor
+                        if (e.target.value.trim() && formData.categoria) {
+                          handleSubcategoriaChange(e.target.value.trim())
+                        }
+                      }}
+                      placeholder="Escribe o selecciona una subcategoría"
+                      className="autocomplete-input"
+                    />
+                    <datalist id="subcategorias-list">
+                      {subcategoriasDisponibles.map((subcat) => (
+                        <option key={subcat} value={subcat} />
+                      ))}
+                    </datalist>
+                    <small className="input-hint">Se guarda automáticamente al escribir</small>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label>Precio Base</label>

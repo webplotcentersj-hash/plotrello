@@ -5506,13 +5506,106 @@ class ApiService {
   }
 
   /**
+   * Obtener categorías de artículos
+   */
+  async obtenerCategoriasArticulos(): Promise<ApiResponse<string[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_categorias_articulos')
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []).map((item: any) => item.categoria) }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener subcategorías de una categoría
+   */
+  async obtenerSubcategoriasArticulos(categoria: string): Promise<ApiResponse<string[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_subcategorias_articulos', {
+          p_categoria: categoria
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []).map((item: any) => item.subcategoria) }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Guardar categoría automáticamente
+   */
+  async guardarCategoriaArticulo(categoria: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('guardar_categoria_articulo', {
+          p_categoria: categoria
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Guardar subcategoría automáticamente
+   */
+  async guardarSubcategoriaArticulo(categoria: string, subcategoria: string): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('guardar_subcategoria_articulo', {
+          p_categoria: categoria,
+          p_subcategoria: subcategoria
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Generar código automático para artículo
+   */
+  async generarCodigoArticulo(): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('generar_codigo_articulo_empresa')
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as string }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Crear artículo de empresa
    */
   async crearArticuloEmpresa(articulo: {
-    codigo: string
+    codigo?: string
     nombre: string
     descripcion?: string
     categoria?: string
+    subcategoria?: string
     precio_base?: number
     imagen_url?: string
     tiempo_estimado_dias?: number
@@ -5521,8 +5614,28 @@ class ApiService {
   }): Promise<ApiResponse<ArticuloEmpresaRecord>> {
     if (supabase) {
       try {
+        // Generar código automático si no se proporciona
+        let codigoFinal = articulo.codigo
+        if (!codigoFinal) {
+          const codigoResponse = await this.generarCodigoArticulo()
+          if (!codigoResponse.success) {
+            return { success: false, error: codigoResponse.error || 'Error al generar código' }
+          }
+          codigoFinal = codigoResponse.data!
+        }
+
+        // Guardar categoría automáticamente si se proporciona
+        if (articulo.categoria) {
+          await this.guardarCategoriaArticulo(articulo.categoria)
+        }
+
+        // Guardar subcategoría automáticamente si se proporciona
+        if (articulo.categoria && articulo.subcategoria) {
+          await this.guardarSubcategoriaArticulo(articulo.categoria, articulo.subcategoria)
+        }
+
         const { data, error } = await supabase.rpc('crear_articulo_empresa', {
-          p_codigo: articulo.codigo,
+          p_codigo: codigoFinal,
           p_nombre: articulo.nombre,
           p_descripcion: articulo.descripcion || null,
           p_categoria: articulo.categoria || null,
@@ -5564,6 +5677,7 @@ class ApiService {
       nombre?: string
       descripcion?: string
       categoria?: string
+      subcategoria?: string
       precio_base?: number
       imagen_url?: string
       tiempo_estimado_dias?: number
@@ -5574,12 +5688,23 @@ class ApiService {
   ): Promise<ApiResponse<ArticuloEmpresaRecord>> {
     if (supabase) {
       try {
+        // Guardar categoría automáticamente si se proporciona
+        if (articulo.categoria) {
+          await this.guardarCategoriaArticulo(articulo.categoria)
+        }
+
+        // Guardar subcategoría automáticamente si se proporciona
+        if (articulo.categoria && articulo.subcategoria) {
+          await this.guardarSubcategoriaArticulo(articulo.categoria, articulo.subcategoria)
+        }
+
         const { data, error } = await supabase.rpc('actualizar_articulo_empresa', {
           p_id: id,
           p_codigo: articulo.codigo || null,
           p_nombre: articulo.nombre || null,
           p_descripcion: articulo.descripcion || null,
           p_categoria: articulo.categoria || null,
+          p_subcategoria: articulo.subcategoria || null,
           p_precio_base: articulo.precio_base || null,
           p_imagen_url: articulo.imagen_url || null,
           p_tiempo_estimado_dias: articulo.tiempo_estimado_dias || null,
