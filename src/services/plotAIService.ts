@@ -439,7 +439,15 @@ INSTRUCCIONES AGÉNTICAS:
     const hasImagesForVision = attachments?.some((att) => att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:'))
     const hasPDFsForText = attachments?.some((att) => att.type === 'application/pdf' || att.content.startsWith('[PDF_TEXT:') || att.content.startsWith('[PDF_INFO:'))
     
+    console.log('🔍 Verificando adjuntos:', {
+      total: attachments?.length || 0,
+      hasImages: hasImagesForVision,
+      hasPDFs: hasPDFsForText,
+      attachments: attachments?.map(a => ({ name: a.name, type: a.type, contentPrefix: a.content.substring(0, 50) }))
+    })
+    
     if (hasImagesForVision && attachments) {
+      console.log('🖼️ Procesando imágenes con Gemini Vision...')
       // Para imágenes, construir el payload con partes de texto e imagen
       const imageAttachmentsForVision = attachments.filter((att) => 
         att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:')
@@ -473,6 +481,7 @@ INSTRUCCIONES AGÉNTICAS:
       
       // Agregar cada imagen
       for (const att of imageAttachmentsForVision) {
+        console.log('🖼️ Procesando imagen:', att.name)
         let base64Data = ''
         let mimeType = att.type || 'image/jpeg'
         
@@ -480,41 +489,53 @@ INSTRUCCIONES AGÉNTICAS:
           const match = att.content.match(/\[IMAGEN_BASE64:(.+?):/)
           if (match && match[1]) {
             base64Data = match[1]
+            console.log('📦 Base64 extraído, tamaño:', `${(base64Data.length * 3 / 4 / 1024).toFixed(2)}KB`)
             if (base64Data.includes('data:')) {
               const dataMatch = base64Data.match(/data:([^;]+);base64,(.+)/)
               if (dataMatch) {
                 mimeType = dataMatch[1]
                 base64Data = dataMatch[2]
+                console.log('✅ MIME type extraído:', mimeType)
               }
             }
+          } else {
+            console.warn('⚠️ No se pudo extraer base64 del formato [IMAGEN_BASE64:...]')
           }
         } else if (att.content.startsWith('data:')) {
           const dataMatch = att.content.match(/data:([^;]+);base64,(.+)/)
           if (dataMatch) {
             mimeType = dataMatch[1]
             base64Data = dataMatch[2]
+            console.log('✅ Base64 extraído de data URL, MIME:', mimeType)
           }
         } else {
           base64Data = att.content
+          console.log('⚠️ Usando contenido directo como base64')
         }
         
         // Validar que el base64 no esté vacío y tenga un tamaño razonable
         if (base64Data && base64Data.length > 0) {
           // Verificar tamaño (máximo ~20MB en base64)
           const base64Size = (base64Data.length * 3) / 4
+          console.log('📏 Tamaño base64:', `${(base64Size / 1024 / 1024).toFixed(2)}MB`)
           if (base64Size > 20 * 1024 * 1024) {
-            console.warn(`Imagen ${att.name || 'sin nombre'} es demasiado grande (${(base64Size / 1024 / 1024).toFixed(2)}MB), omitiendo...`)
+            console.warn(`❌ Imagen ${att.name || 'sin nombre'} es demasiado grande (${(base64Size / 1024 / 1024).toFixed(2)}MB), omitiendo...`)
             continue
           }
           
+          console.log('✅ Agregando imagen a parts:', att.name, mimeType)
           parts.push({
             inlineData: {
               mimeType,
               data: base64Data
             }
           })
+        } else {
+          console.error('❌ Base64 vacío o inválido para:', att.name)
         }
       }
+      
+      console.log('📊 Total de parts:', parts.length, 'imágenes:', imageAttachmentsForVision.length)
       
       // Usar el modelo con capacidad de visión (gemini-2.5-flash tiene visión integrada)
       const visionModel = 'gemini-2.5-flash'

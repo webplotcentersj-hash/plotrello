@@ -313,31 +313,42 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   }
 
   const analyzeFile = async (file: File): Promise<string> => {
+    console.log('🔍 Analizando archivo:', file.name, file.type, `${(file.size / 1024).toFixed(2)}KB`)
     return new Promise((resolve, reject) => {
       if (file.type.startsWith('image/')) {
         // Validar tamaño (máximo 20MB para imágenes)
         const maxFileSize = 20 * 1024 * 1024
         if (file.size > maxFileSize) {
-          reject(new Error(`La imagen es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 20MB. Por favor, reduce el tamaño de la imagen.`))
+          const errorMsg = `La imagen es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 20MB. Por favor, reduce el tamaño de la imagen.`
+          console.error('❌ Error de tamaño:', errorMsg)
+          reject(new Error(errorMsg))
           return
         }
         
+        console.log('✅ Imagen válida, optimizando...')
         // Optimizar imagen si es necesario (máximo 4MB en base64)
         optimizeImage(file, 4 * 1024 * 1024)
           .then((dataUrl) => {
+            console.log('✅ Imagen optimizada, tamaño base64:', `${(dataUrl.length * 3 / 4 / 1024).toFixed(2)}KB`)
             resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
           })
           .catch((error) => {
+            console.warn('⚠️ Error en optimización, intentando sin optimizar:', error)
             // Si falla la optimización, intentar sin optimizar
             const reader = new FileReader()
             reader.onload = (e) => {
               const dataUrl = e.target?.result as string
+              console.log('✅ Imagen leída sin optimizar, tamaño base64:', `${(dataUrl.length * 3 / 4 / 1024).toFixed(2)}KB`)
               resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
             }
-            reader.onerror = () => reject(error)
+            reader.onerror = () => {
+              console.error('❌ Error leyendo archivo:', error)
+              reject(error)
+            }
             reader.readAsDataURL(file)
           })
       } else if (file.type === 'application/pdf') {
+        console.log('📄 Procesando PDF:', file.name)
         // Para PDFs, extraer texto primero (Gemini no puede procesar PDFs directamente)
         const reader = new FileReader()
         reader.onload = async () => {
@@ -346,23 +357,30 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
             const textReader = new FileReader()
             textReader.onload = (e) => {
               const textContent = e.target?.result as string
+              console.log('📄 Texto extraído del PDF:', textContent ? `${textContent.length} caracteres` : 'vacío')
               if (textContent && textContent.trim().length > 0) {
                 // Extraer texto del PDF (si es texto extraíble)
-                resolve(`[PDF_TEXT:${file.name}:${textContent.substring(0, 50000)}]`)
+                const extractedText = textContent.substring(0, 50000)
+                console.log('✅ PDF procesado con texto:', extractedText.length, 'caracteres')
+                resolve(`[PDF_TEXT:${file.name}:${extractedText}]`)
               } else {
                 // Si no hay texto extraíble, informar al usuario
+                console.warn('⚠️ PDF sin texto extraíble')
                 resolve(`[PDF_INFO:${file.name}:Este PDF no contiene texto extraíble. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
               }
             }
             textReader.onerror = () => {
+              console.error('❌ Error extrayendo texto del PDF')
               resolve(`[PDF_INFO:${file.name}:No se pudo extraer texto del PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
             }
             textReader.readAsText(file)
           } catch (error) {
+            console.error('❌ Error procesando PDF:', error)
             resolve(`[PDF_INFO:${file.name}:Error al procesar el PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
           }
         }
         reader.onerror = () => {
+          console.error('❌ Error leyendo PDF como ArrayBuffer')
           resolve(`[PDF_INFO:${file.name}:No se pudo leer el PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
         }
         reader.readAsArrayBuffer(file)
@@ -385,21 +403,38 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
     if (!messageText.trim() && filesToSend.length === 0) return
 
+    console.log('📤 Enviando mensaje con', filesToSend.length, 'archivos')
+    
+    let attachments: Array<{ name: string; type: string; content: string }> | undefined = undefined
+    
+    if (filesToSend.length > 0) {
+      console.log('📎 Procesando archivos adjuntos...')
+      try {
+        attachments = await Promise.all(
+          filesToSend.map(async (file) => {
+            console.log('📎 Procesando:', file.name)
+            const content = await analyzeFile(file)
+            console.log('✅ Archivo procesado:', file.name, 'tipo:', content.substring(0, 50))
+            return {
+              name: file.name,
+              type: file.type,
+              content: content
+            }
+          })
+        )
+        console.log('✅ Todos los archivos procesados:', attachments.length)
+      } catch (error) {
+        console.error('❌ Error procesando archivos:', error)
+        throw error
+      }
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: messageText,
       timestamp: new Date(),
-      attachments:
-        filesToSend.length > 0
-          ? await Promise.all(
-              filesToSend.map(async (file) => ({
-                name: file.name,
-                type: file.type,
-                content: await analyzeFile(file)
-              }))
-            )
-          : undefined
+      attachments
     }
 
     setMessages((prev) => [...prev, userMessage])
@@ -469,7 +504,14 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
-    setUploadedFiles((prev) => [...prev, ...files])
+    console.log('📎 Archivos seleccionados:', files.map(f => ({ name: f.name, type: f.type, size: f.size })))
+    if (files.length > 0) {
+      setUploadedFiles((prev) => [...prev, ...files])
+      // Limpiar el input para permitir seleccionar el mismo archivo nuevamente
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
   }
 
   const removeFile = (index: number) => {
