@@ -17,6 +17,7 @@ import type {
   LegajoEmpleado,
   ClienteWebRecord,
   ArticuloEmpresaRecord,
+  ArticuloEmpresaImagenRecord,
   PedidoClienteRecord,
   PedidoClienteDetalle,
   MensajePedidoClienteRecord
