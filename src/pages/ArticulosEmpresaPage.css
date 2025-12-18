@@ -162,6 +162,23 @@
   display: block;
 }
 
+.no-imagen-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 48px;
+  gap: 8px;
+}
+
+.no-imagen-placeholder span:last-child {
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .imagen-count-badge {
   position: absolute;
   bottom: 8px;

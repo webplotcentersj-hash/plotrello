@@ -615,26 +615,30 @@ const ArticulosEmpresaPage = () => {
         <div className="articulos-grid">
           {articulosFiltrados.map((articulo) => (
             <div key={articulo.id} className={`articulo-card ${!articulo.activo ? 'inactivo' : ''}`}>
-              {((articulo as any).imagenesGaleria && (articulo as any).imagenesGaleria.length > 0) ? (
-                <div className="articulo-imagen">
-                  <img 
-                    src={(articulo as any).imagenesGaleria[0].imagen_url} 
-                    alt={articulo.nombre}
-                    onError={(e) => {
-                      // Si falla la primera imagen, intentar con imagen_url
-                      if (articulo.imagen_url) {
-                        (e.target as HTMLImageElement).src = articulo.imagen_url || ''
-                      }
-                    }}
-                  />
-                  {(articulo as any).imagenesGaleria.length > 1 && (
-                    <div className="imagen-count-badge">
-                      +{(articulo as any).imagenesGaleria.length - 1}
-                    </div>
-                  )}
-                </div>
-              ) : articulo.imagen_url ? (
-                <div className="articulo-imagen">
+              <div className="articulo-imagen">
+                {((articulo as any).imagenesGaleria && (articulo as any).imagenesGaleria.length > 0) ? (
+                  <>
+                    <img 
+                      src={(articulo as any).imagenesGaleria[0].imagen_url} 
+                      alt={articulo.nombre}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        // Si falla la primera imagen de galería, intentar con imagen_url
+                        if (articulo.imagen_url && target.src !== articulo.imagen_url) {
+                          target.src = articulo.imagen_url
+                        } else {
+                          // Si también falla imagen_url, ocultar
+                          target.style.display = 'none'
+                        }
+                      }}
+                    />
+                    {(articulo as any).imagenesGaleria.length > 1 && (
+                      <div className="imagen-count-badge">
+                        +{(articulo as any).imagenesGaleria.length - 1}
+                      </div>
+                    )}
+                  </>
+                ) : articulo.imagen_url ? (
                   <img 
                     src={articulo.imagen_url} 
                     alt={articulo.nombre}
@@ -642,8 +646,13 @@ const ArticulosEmpresaPage = () => {
                       (e.target as HTMLImageElement).style.display = 'none'
                     }}
                   />
-                </div>
-              ) : null}
+                ) : (
+                  <div className="no-imagen-placeholder">
+                    <span>📷</span>
+                    <span>Sin imagen</span>
+                  </div>
+                )}
+              </div>
               <div className="articulo-content">
                 <div className="articulo-header">
                   <div>
