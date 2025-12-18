@@ -683,7 +683,7 @@ const ArticulosEmpresaPage = () => {
 
         {/* Lista de Artículos */}
         <div className="articulos-grid">
-          {articulosFiltrados.map((articulo) => (
+          {articulosFiltradosYOrdenados.map((articulo: ArticuloEmpresaRecord & { imagenesGaleria?: ArticuloEmpresaImagenRecord[] }) => (
             <div key={articulo.id} className={`articulo-card ${!articulo.activo ? 'inactivo' : ''}`}>
               <div className="articulo-imagen">
                 {((articulo as any).imagenesGaleria && (articulo as any).imagenesGaleria.length > 0) ? (

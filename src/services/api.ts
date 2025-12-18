@@ -6296,7 +6296,7 @@ class ApiService {
    */
   async obtenerMensajesPedido(
     idPedido: number,
-    idCliente: number
+    _idCliente: number
   ): Promise<ApiResponse<MensajePedidoClienteRecord[]>> {
     if (supabase) {
       try {
