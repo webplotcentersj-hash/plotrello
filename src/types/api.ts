@@ -231,8 +231,37 @@ export interface PedidoClienteRecord {
   observaciones_cliente?: string | null
   observaciones_internas?: string | null
   precio_total: number
+  es_urgente?: boolean
+  requiere_delivery?: boolean
+  direccion_delivery?: string | null
+  tipo_producto_servicio?: string[] | null
+  tipo_producto_otro?: string | null
+  necesita_asesoramiento?: boolean
+  donde_colocados?: string | null
+  digital_o_impresion?: string | null
+  cantidades?: string | null
+  objetivo_proyecto?: string | null
+  material_logo?: string | null
+  material_textos?: string | null
+  material_imagenes?: string | null
+  tiene_referencias?: boolean
+  referencias_links?: string | null
+  brief_publico?: string | null
+  estilo_diseno?: string | null
+  referencias?: string | null
   created_at?: string
   updated_at?: string
+}
+
+export interface MensajePedidoClienteRecord {
+  id: number
+  id_pedido_cliente: number
+  id_cliente: number
+  id_usuario?: number | null
+  mensaje: string
+  es_del_cliente: boolean
+  leido: boolean
+  fecha_creacion: string
 }
 
 export interface PedidoClienteItemRecord {

@@ -44,6 +44,8 @@ import RecursosHumanosEstadisticasPage from './pages/RecursosHumanosEstadisticas
 import RecursosHumanosPermisosPage from './pages/RecursosHumanosPermisosPage'
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
+import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
+import ClienteMensajesPage from './pages/ClienteMensajesPage'
 import ClienteProtectedRoute from './components/ClienteProtectedRoute'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -382,6 +384,8 @@ function App() {
               <ClienteProtectedRoute>
                 <Routes>
                   <Route path="dashboard" element={<ClienteDashboardPage />} />
+                  <Route path="buscar-op/:numeroOp?" element={<ClienteBuscarOpPage />} />
+                  <Route path="mensajes/:idPedido?" element={<ClienteMensajesPage />} />
                   <Route path="*" element={<Navigate to="/cliente/dashboard" replace />} />
                 </Routes>
               </ClienteProtectedRoute>

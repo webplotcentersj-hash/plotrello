@@ -18,7 +18,8 @@ import type {
   ClienteWebRecord,
   ArticuloEmpresaRecord,
   PedidoClienteRecord,
-  PedidoClienteDetalle
+  PedidoClienteDetalle,
+  MensajePedidoClienteRecord
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -5690,6 +5691,85 @@ class ApiService {
 
         if (error) return { success: false, error: error.message }
         return { success: true, data: data as PedidoClienteRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener OP por número (para clientes)
+   */
+  async obtenerOpPorNumeroCliente(
+    numeroOp: string,
+    idCliente: number
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_op_por_numero_cliente', {
+          p_numero_op: numeroOp,
+          p_id_cliente: idCliente
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'OP no encontrada' }
+        }
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener mensajes de un pedido
+   */
+  async obtenerMensajesPedido(
+    idPedido: number,
+    idCliente: number
+  ): Promise<ApiResponse<MensajePedidoClienteRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_mensajes_pedido', {
+          p_id_pedido_cliente: idPedido,
+          p_id_cliente: idCliente
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []) as MensajePedidoClienteRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Crear mensaje en un pedido
+   */
+  async crearMensajePedido(
+    idPedido: number,
+    idCliente: number,
+    mensaje: string,
+    esDelCliente: boolean = true
+  ): Promise<ApiResponse<MensajePedidoClienteRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_mensaje_pedido', {
+          p_id_pedido_cliente: idPedido,
+          p_id_cliente: idCliente,
+          p_mensaje: mensaje,
+          p_es_del_cliente: esDelCliente
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Error al crear mensaje' }
+        }
+        return { success: true, data: data[0] as MensajePedidoClienteRecord }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
