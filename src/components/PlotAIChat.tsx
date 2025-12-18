@@ -250,45 +250,120 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     }
   }
 
+  // Función para optimizar imagen si es muy grande
+  const optimizeImage = (file: File, maxSize: number = 4 * 1024 * 1024): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+          
+          // Calcular el tamaño base64 aproximado (base64 es ~33% más grande que el binario)
+          const estimatedSize = (width * height * 4) * 1.33
+          
+          // Si es muy grande, redimensionar
+          if (estimatedSize > maxSize) {
+            const ratio = Math.sqrt(maxSize / estimatedSize)
+            width = Math.floor(width * ratio)
+            height = Math.floor(height * ratio)
+          }
+          
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            reject(new Error('No se pudo crear el contexto del canvas'))
+            return
+          }
+          
+          ctx.drawImage(img, 0, 0, width, height)
+          
+          // Convertir a JPEG con calidad 0.85 para reducir tamaño
+          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+          const quality = mimeType === 'image/png' ? 1.0 : 0.85
+          const dataUrl = canvas.toDataURL(mimeType, quality)
+          
+          // Verificar tamaño final
+          const base64Size = (dataUrl.length * 3) / 4
+          if (base64Size > maxSize * 1.5) {
+            // Si aún es muy grande, reducir más
+            const newMaxSize = maxSize * 0.7
+            optimizeImage(file, newMaxSize).then(resolve).catch(reject)
+          } else {
+            resolve(dataUrl)
+          }
+        }
+        img.onerror = () => {
+          // Si falla la optimización, intentar con el original
+          const originalReader = new FileReader()
+          originalReader.onload = (e) => {
+            resolve(e.target?.result as string)
+          }
+          originalReader.onerror = reject
+          originalReader.readAsDataURL(file)
+        }
+        img.src = e.target?.result as string
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
   const analyzeFile = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const dataUrl = e.target?.result as string
-          // Guardar el data URL completo para análisis visual con Gemini Vision
-          resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
+        // Validar tamaño (máximo 20MB para imágenes)
+        const maxFileSize = 20 * 1024 * 1024
+        if (file.size > maxFileSize) {
+          reject(new Error(`La imagen es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 20MB. Por favor, reduce el tamaño de la imagen.`))
+          return
         }
-        reader.onerror = reject
-        reader.readAsDataURL(file)
+        
+        // Optimizar imagen si es necesario (máximo 4MB en base64)
+        optimizeImage(file, 4 * 1024 * 1024)
+          .then((dataUrl) => {
+            resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
+          })
+          .catch((error) => {
+            // Si falla la optimización, intentar sin optimizar
+            const reader = new FileReader()
+            reader.onload = (e) => {
+              const dataUrl = e.target?.result as string
+              resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
+            }
+            reader.onerror = () => reject(error)
+            reader.readAsDataURL(file)
+          })
       } else if (file.type === 'application/pdf') {
-        // Para PDFs, convertimos a imagen para análisis visual
-        // Gemini puede analizar PDFs mejor si los convertimos a imágenes
+        // Para PDFs, extraer texto primero (Gemini no puede procesar PDFs directamente)
         const reader = new FileReader()
         reader.onload = async () => {
           try {
-            // Intentar leer como ArrayBuffer para convertir a imagen
-            const arrayBuffer = await file.arrayBuffer()
-            // Convertir PDF a imagen usando canvas (si es posible)
-            // Por ahora, guardamos como base64 para que Gemini lo procese
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
-            const dataUrl = `data:application/pdf;base64,${base64}`
-            resolve(`[PDF_BASE64:${dataUrl}:${file.name}]`)
-          } catch (error) {
-            // Fallback: intentar leer como texto
+            // Intentar leer como texto primero
             const textReader = new FileReader()
             textReader.onload = (e) => {
-              const content = e.target?.result as string
-              resolve(`[PDF_TEXT:${file.name}:${content.substring(0, 10000)}]`)
+              const textContent = e.target?.result as string
+              if (textContent && textContent.trim().length > 0) {
+                // Extraer texto del PDF (si es texto extraíble)
+                resolve(`[PDF_TEXT:${file.name}:${textContent.substring(0, 50000)}]`)
+              } else {
+                // Si no hay texto extraíble, informar al usuario
+                resolve(`[PDF_INFO:${file.name}:Este PDF no contiene texto extraíble. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
+              }
             }
             textReader.onerror = () => {
-              resolve(`[PDF: ${file.name}, Tamaño: ${file.size} bytes - Archivo PDF para análisis]`)
+              resolve(`[PDF_INFO:${file.name}:No se pudo extraer texto del PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
             }
             textReader.readAsText(file)
+          } catch (error) {
+            resolve(`[PDF_INFO:${file.name}:Error al procesar el PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
           }
         }
         reader.onerror = () => {
-          resolve(`[PDF: ${file.name}, Tamaño: ${file.size} bytes - Archivo PDF para análisis]`)
+          resolve(`[PDF_INFO:${file.name}:No se pudo leer el PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
         }
         reader.readAsArrayBuffer(file)
       } else if (file.type.startsWith('text/')) {

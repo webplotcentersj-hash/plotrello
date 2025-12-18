@@ -437,20 +437,39 @@ INSTRUCCIONES AGÉNTICAS:
     let responseText = ''
     
     const hasImagesForVision = attachments?.some((att) => att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:'))
-    const hasPDFsForVision = attachments?.some((att) => att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:') || att.content.startsWith('[PDF_TEXT:'))
+    const hasPDFsForText = attachments?.some((att) => att.type === 'application/pdf' || att.content.startsWith('[PDF_TEXT:') || att.content.startsWith('[PDF_INFO:'))
     
-    if ((hasImagesForVision || hasPDFsForVision) && attachments) {
-      // Para imágenes y PDFs, construir el payload con partes de texto e imagen
+    if (hasImagesForVision && attachments) {
+      // Para imágenes, construir el payload con partes de texto e imagen
       const imageAttachmentsForVision = attachments.filter((att) => 
         att.type.startsWith('image/') || att.content.startsWith('[IMAGEN_BASE64:')
-      )
-      const pdfAttachmentsForVision = attachments.filter((att) => 
-        att.type === 'application/pdf' || att.content.startsWith('[PDF_BASE64:')
       )
       const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
       
       // Agregar el prompt de texto primero
-      parts.push({ text: prompt })
+      let textPrompt = prompt
+      
+      // Si hay PDFs con texto o información, agregarlos al prompt
+      if (hasPDFsForText) {
+        const pdfAttachments = attachments.filter((att) => 
+          att.content.startsWith('[PDF_TEXT:') || att.content.startsWith('[PDF_INFO:')
+        )
+        for (const pdfAtt of pdfAttachments) {
+          if (pdfAtt.content.startsWith('[PDF_TEXT:')) {
+            const match = pdfAtt.content.match(/\[PDF_TEXT:(.+?):(.+)\]/)
+            if (match && match[2]) {
+              textPrompt += `\n\n--- Contenido del PDF "${match[1]}": ---\n${match[2]}`
+            }
+          } else if (pdfAtt.content.startsWith('[PDF_INFO:')) {
+            const match = pdfAtt.content.match(/\[PDF_INFO:(.+?):(.+)\]/)
+            if (match && match[2]) {
+              textPrompt += `\n\n--- Información sobre el PDF "${match[1]}": ---\n${match[2]}`
+            }
+          }
+        }
+      }
+      
+      parts.push({ text: textPrompt })
       
       // Agregar cada imagen
       for (const att of imageAttachmentsForVision) {
@@ -479,7 +498,15 @@ INSTRUCCIONES AGÉNTICAS:
           base64Data = att.content
         }
         
-        if (base64Data) {
+        // Validar que el base64 no esté vacío y tenga un tamaño razonable
+        if (base64Data && base64Data.length > 0) {
+          // Verificar tamaño (máximo ~20MB en base64)
+          const base64Size = (base64Data.length * 3) / 4
+          if (base64Size > 20 * 1024 * 1024) {
+            console.warn(`Imagen ${att.name || 'sin nombre'} es demasiado grande (${(base64Size / 1024 / 1024).toFixed(2)}MB), omitiendo...`)
+            continue
+          }
+          
           parts.push({
             inlineData: {
               mimeType,
@@ -489,39 +516,54 @@ INSTRUCCIONES AGÉNTICAS:
         }
       }
       
-      // Agregar cada PDF como imagen (Gemini puede analizar PDFs mejor como imágenes)
-      for (const att of pdfAttachmentsForVision) {
-        if (att.content.startsWith('[PDF_BASE64:')) {
-          const match = att.content.match(/\[PDF_BASE64:(.+?):/)
-          if (match && match[1]) {
-            let base64Data = match[1]
-            let mimeType = 'application/pdf'
-            
-            if (base64Data.includes('data:')) {
-              const dataMatch = base64Data.match(/data:([^;]+);base64,(.+)/)
-              if (dataMatch) {
-                mimeType = dataMatch[1]
-                base64Data = dataMatch[2]
-              }
-            }
-            
-            if (base64Data) {
-              parts.push({
-                inlineData: {
-                  mimeType,
-                  data: base64Data
-                }
-              })
-            }
+      // Usar el modelo con capacidad de visión (gemini-2.5-flash tiene visión integrada)
+      const visionModel = 'gemini-2.5-flash'
+      
+      try {
+        const response = await ai.models.generateContent({
+          model: visionModel,
+          contents: parts
+        })
+        
+        responseText = response.text || ''
+      } catch (error: any) {
+        // Si hay error con imágenes, intentar solo con texto
+        if (error?.error?.code === 400 && error?.error?.message?.includes('image')) {
+          console.warn('Error procesando imagen, intentando solo con texto...', error)
+          const textOnlyPrompt = prompt + (hasPDFsForText ? '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas o en formato JPG/PNG.' : '')
+          const response = await ai.models.generateContent({
+            model,
+            contents: textOnlyPrompt
+          })
+          responseText = response.text || ''
+        } else {
+          throw error
+        }
+      }
+    } else if (hasPDFsForText && attachments) {
+      // Solo PDFs con texto, sin imágenes
+      const pdfAttachments = attachments.filter((att) => 
+        att.content.startsWith('[PDF_TEXT:') || att.content.startsWith('[PDF_INFO:')
+      )
+      let textPrompt = prompt
+      
+      for (const pdfAtt of pdfAttachments) {
+        if (pdfAtt.content.startsWith('[PDF_TEXT:')) {
+          const match = pdfAtt.content.match(/\[PDF_TEXT:(.+?):(.+)\]/)
+          if (match && match[2]) {
+            textPrompt += `\n\n--- Contenido del PDF "${match[1]}": ---\n${match[2]}`
+          }
+        } else if (pdfAtt.content.startsWith('[PDF_INFO:')) {
+          const match = pdfAtt.content.match(/\[PDF_INFO:(.+?):(.+)\]/)
+          if (match && match[2]) {
+            textPrompt += `\n\n--- Información sobre el PDF "${match[1]}": ---\n${match[2]}`
           }
         }
       }
       
-      // Usar el modelo con capacidad de visión (gemini-2.5-flash tiene visión integrada)
-      const visionModel = 'gemini-2.5-flash'
       const response = await ai.models.generateContent({
-        model: visionModel,
-        contents: parts
+        model,
+        contents: textPrompt
       })
       
       responseText = response.text || ''
@@ -544,7 +586,7 @@ INSTRUCCIONES AGÉNTICAS:
           {
             hasAttachments: attachments && attachments.length > 0,
             hasImages: hasImagesForVision || false,
-            hasPDFs: hasPDFsForVision || false,
+            hasPDFs: hasPDFsForText || false,
             completeContext: completeContext !== null,
             memoryUsed: useMemory
           },
