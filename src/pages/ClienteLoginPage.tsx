@@ -39,6 +39,11 @@ export default function ClienteLoginPage() {
     <div className="cliente-login-page">
       <div className="cliente-login-container">
         <div className="cliente-login-header">
+          <img
+            src="https://trello.plotcenter.com.ar/Group%20187.png"
+            alt="Plot Center Logo"
+            className="cliente-login-logo"
+          />
           <h1>Plot Center</h1>
           <p>Portal de Clientes</p>
         </div>

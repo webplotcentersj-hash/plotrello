@@ -5,6 +5,7 @@
   justify-content: center;
   background: linear-gradient(135deg, #1a1d2e 0%, #2d3257 100%);
   padding: 20px;
+  position: relative;
 }
 
 .cliente-login-container {
@@ -20,6 +21,15 @@
 .cliente-login-header {
   text-align: center;
   margin-bottom: 30px;
+}
+
+.cliente-login-logo {
+  width: 120px;
+  height: auto;
+  margin-bottom: 20px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .cliente-login-header h1 {
@@ -65,8 +75,9 @@
 
 .cliente-login-field input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: #eb671b;
   background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(235, 103, 27, 0.1);
 }
 
 .cliente-login-field input::placeholder {
@@ -89,7 +100,7 @@
 }
 
 .cliente-login-button {
-  background: #6366f1;
+  background: #eb671b;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -99,11 +110,13 @@
   cursor: pointer;
   transition: all 0.2s;
   margin-top: 10px;
+  box-shadow: 0 4px 12px rgba(235, 103, 27, 0.3);
 }
 
 .cliente-login-button:hover:not(:disabled) {
-  background: #4f46e5;
+  background: #d45a17;
   transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(235, 103, 27, 0.4);
 }
 
 .cliente-login-button:disabled {
