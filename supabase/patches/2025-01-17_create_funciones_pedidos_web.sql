@@ -205,7 +205,10 @@ BEGIN
   -- Actualizar cliente (usando nombre completo de tabla para evitar ambigüedad)
   UPDATE public.clientes_web
   SET
-    password_hash = COALESCE(password_hash, clientes_web.password_hash),
+    password_hash = CASE 
+      WHEN password_hash IS NOT NULL THEN password_hash 
+      ELSE clientes_web.password_hash 
+    END,
     nombre = COALESCE(p_nombre, clientes_web.nombre),
     apellido = COALESCE(p_apellido, clientes_web.apellido),
     empresa = COALESCE(p_empresa, clientes_web.empresa),
