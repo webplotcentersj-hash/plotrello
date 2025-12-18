@@ -5324,7 +5324,37 @@ class ApiService {
           return { success: false, error: 'Usuario o contraseña incorrectos' }
         }
 
-        return { success: true, data: data[0] as ClienteWebRecord }
+        // La función SQL retorna campos limitados, necesitamos obtener el registro completo
+        const clienteData = data[0]
+        console.log('Datos recibidos de autenticar_cliente:', clienteData)
+        
+        // Obtener el registro completo con todos los campos incluyendo 'activo'
+        if (supabase && clienteData.id) {
+          const { data: clienteCompleto, error: errorCompleto } = await supabase
+            .from('clientes_web')
+            .select('*')
+            .eq('id', clienteData.id)
+            .single()
+          
+          if (errorCompleto) {
+            console.error('Error obteniendo cliente completo:', errorCompleto)
+            // Si falla, usar los datos básicos y asumir activo=true
+            return { 
+              success: true, 
+              data: { ...clienteData, activo: true } as ClienteWebRecord 
+            }
+          }
+          
+          if (clienteCompleto) {
+            return { success: true, data: clienteCompleto as ClienteWebRecord }
+          }
+        }
+
+        // Fallback: usar datos básicos con activo=true
+        return { 
+          success: true, 
+          data: { ...clienteData, activo: true } as ClienteWebRecord 
+        }
       } catch (error) {
         console.error('Excepción en autenticarClienteWeb:', error)
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
