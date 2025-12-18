@@ -187,9 +187,9 @@ BEGIN
     RAISE EXCEPTION 'Cliente no encontrado';
   END IF;
 
-  -- Validar email único si se proporciona y es diferente
-  IF p_email IS NOT NULL AND p_email != (SELECT email FROM public.clientes_web WHERE id = p_id) THEN
-    IF EXISTS (SELECT 1 FROM public.clientes_web WHERE email = p_email AND id != p_id) THEN
+  -- Validar email único si se proporciona y es diferente (usando alias explícitos)
+  IF p_email IS NOT NULL AND p_email != (SELECT c2.email FROM public.clientes_web c2 WHERE c2.id = p_id) THEN
+    IF EXISTS (SELECT 1 FROM public.clientes_web c3 WHERE c3.email = p_email AND c3.id != p_id) THEN
       RAISE EXCEPTION 'El email "%" ya está registrado', p_email;
     END IF;
   END IF;
@@ -202,20 +202,20 @@ BEGIN
     password_hash := crypt(p_password, gen_salt('bf'));
   END IF;
 
-  -- Actualizar cliente
+  -- Actualizar cliente (usando nombre completo de tabla para evitar ambigüedad)
   UPDATE public.clientes_web
   SET
     password_hash = COALESCE(password_hash, clientes_web.password_hash),
-    nombre = COALESCE(p_nombre, nombre),
-    apellido = COALESCE(p_apellido, apellido),
-    empresa = COALESCE(p_empresa, empresa),
-    telefono = COALESCE(p_telefono, telefono),
-    email = COALESCE(p_email, email),
-    dni_cuit = COALESCE(p_dni_cuit, dni_cuit),
-    direccion = COALESCE(p_direccion, direccion),
-    activo = COALESCE(p_activo, activo),
+    nombre = COALESCE(p_nombre, clientes_web.nombre),
+    apellido = COALESCE(p_apellido, clientes_web.apellido),
+    empresa = COALESCE(p_empresa, clientes_web.empresa),
+    telefono = COALESCE(p_telefono, clientes_web.telefono),
+    email = COALESCE(p_email, clientes_web.email),
+    dni_cuit = COALESCE(p_dni_cuit, clientes_web.dni_cuit),
+    direccion = COALESCE(p_direccion, clientes_web.direccion),
+    activo = COALESCE(p_activo, clientes_web.activo),
     updated_at = now()
-  WHERE id = p_id;
+  WHERE clientes_web.id = p_id;
 
   -- Retornar datos actualizados
   SELECT 
