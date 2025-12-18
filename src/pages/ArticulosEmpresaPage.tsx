@@ -32,8 +32,12 @@ const ArticulosEmpresaPage = () => {
   const [categoriaInputValue, setCategoriaInputValue] = useState('')
   const [subcategoriaInputValue, setSubcategoriaInputValue] = useState('')
   const [imagenFile, setImagenFile] = useState<File | null>(null)
+  const [imagenFiles, setImagenFiles] = useState<File[]>([])
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
+  const [imagenPreviews, setImagenPreviews] = useState<string[]>([])
+  const [imagenesArticulo, setImagenesArticulo] = useState<ArticuloEmpresaImagenRecord[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadingImages, setUploadingImages] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -170,7 +174,10 @@ const ArticulosEmpresaPage = () => {
     setCategoriaInputValue('')
     setSubcategoriaInputValue('')
     setImagenFile(null)
+    setImagenFiles([])
     setImagenPreview(null)
+    setImagenPreviews([])
+    setImagenesArticulo([])
     setError('')
   }
 
@@ -628,10 +635,62 @@ const ArticulosEmpresaPage = () => {
                 </div>
 
                 <div className="form-group full-width">
-                  <label>Imagen del Artículo</label>
+                  <label>Galería de Imágenes del Artículo</label>
                   
-                  {/* Preview de imagen */}
-                  {(imagenPreview || formData.imagen_url) && (
+                  {/* Galería de imágenes existentes */}
+                  {editingArticulo && imagenesArticulo.length > 0 && (
+                    <div className="galeria-imagenes-container">
+                      <h4 className="galeria-title">Imágenes actuales:</h4>
+                      <div className="galeria-grid">
+                        {imagenesArticulo.map((imagen, index) => (
+                          <div key={imagen.id} className="galeria-item">
+                            <img 
+                              src={imagen.imagen_url} 
+                              alt={`Imagen ${index + 1}`} 
+                              className="galeria-imagen"
+                            />
+                            <button
+                              type="button"
+                              className="btn-remove-galeria-image"
+                              onClick={() => handleEliminarImagenArticulo(imagen.id, index)}
+                              title="Eliminar imagen"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview de nuevas imágenes */}
+                  {imagenPreviews.length > 0 && (
+                    <div className="galeria-imagenes-container">
+                      <h4 className="galeria-title">Nuevas imágenes a subir:</h4>
+                      <div className="galeria-grid">
+                        {imagenPreviews.map((preview, index) => (
+                          <div key={index} className="galeria-item">
+                            <img 
+                              src={preview} 
+                              alt={`Preview ${index + 1}`} 
+                              className="galeria-imagen"
+                            />
+                            <button
+                              type="button"
+                              className="btn-remove-galeria-image"
+                              onClick={() => handleEliminarImagenPreview(index)}
+                              title="Remover de la lista"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview de imagen única (para compatibilidad) */}
+                  {(imagenPreview || formData.imagen_url) && !editingArticulo && (
                     <div className="imagen-preview-container">
                       <img 
                         src={imagenPreview || formData.imagen_url} 
@@ -653,46 +712,75 @@ const ArticulosEmpresaPage = () => {
                     </div>
                   )}
 
-                  {/* Input para subir archivo */}
-                  <div className="file-upload-section">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="file-input"
-                      id="imagen-articulo"
-                    />
-                    <label htmlFor="imagen-articulo" className="file-input-label">
-                      📷 {imagenFile ? imagenFile.name : 'Seleccionar imagen'}
-                    </label>
-                    {imagenFile && !formData.imagen_url && (
-                      <button
-                        type="button"
-                        className="btn-upload-image"
-                        onClick={handleSubirImagen}
-                        disabled={uploadingImage}
-                      >
-                        {uploadingImage ? 'Subiendo...' : '⬆️ Subir Imagen'}
-                      </button>
-                    )}
-                  </div>
+                  {/* Input para subir múltiples archivos */}
+                  {editingArticulo ? (
+                    <div className="file-upload-section">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleMultipleImagesChange}
+                        className="file-input"
+                        id="galeria-articulo"
+                      />
+                      <label htmlFor="galeria-articulo" className="file-input-label">
+                        📷 {imagenFiles.length > 0 ? `${imagenFiles.length} imagen(es) seleccionada(s)` : 'Seleccionar múltiples imágenes'}
+                      </label>
+                      {imagenFiles.length > 0 && (
+                        <button
+                          type="button"
+                          className="btn-upload-image"
+                          onClick={handleSubirGaleriaImagenes}
+                          disabled={uploadingImages}
+                        >
+                          {uploadingImages ? 'Subiendo...' : `⬆️ Subir ${imagenFiles.length} Imagen(es)`}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {/* Input para subir archivo único (crear nuevo) */}
+                      <div className="file-upload-section">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="file-input"
+                          id="imagen-articulo"
+                        />
+                        <label htmlFor="imagen-articulo" className="file-input-label">
+                          📷 {imagenFile ? imagenFile.name : 'Seleccionar imagen'}
+                        </label>
+                        {imagenFile && !formData.imagen_url && (
+                          <button
+                            type="button"
+                            className="btn-upload-image"
+                            onClick={handleSubirImagen}
+                            disabled={uploadingImage}
+                          >
+                            {uploadingImage ? 'Subiendo...' : '⬆️ Subir Imagen'}
+                          </button>
+                        )}
+                      </div>
 
-                  {/* O usar URL */}
-                  <div className="url-alternative">
-                    <p className="url-label">O ingresa una URL:</p>
-                    <input
-                      type="url"
-                      value={formData.imagen_url}
-                      onChange={(e) => {
-                        setFormData({ ...formData, imagen_url: e.target.value })
-                        if (!imagenFile) {
-                          setImagenPreview(e.target.value || null)
-                        }
-                      }}
-                      placeholder="https://..."
-                      disabled={!!imagenFile}
-                    />
-                  </div>
+                      {/* O usar URL */}
+                      <div className="url-alternative">
+                        <p className="url-label">O ingresa una URL:</p>
+                        <input
+                          type="url"
+                          value={formData.imagen_url}
+                          onChange={(e) => {
+                            setFormData({ ...formData, imagen_url: e.target.value })
+                            if (!imagenFile) {
+                              setImagenPreview(e.target.value || null)
+                            }
+                          }}
+                          placeholder="https://..."
+                          disabled={!!imagenFile}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="form-group">

@@ -221,6 +221,14 @@ export interface ArticuloEmpresaRecord {
   updated_at?: string
 }
 
+export interface ArticuloEmpresaImagenRecord {
+  id: number
+  id_articulo: number
+  imagen_url: string
+  orden: number
+  created_at?: string
+}
+
 export interface PedidoClienteRecord {
   id: number
   id_cliente: number

@@ -5754,6 +5754,72 @@ class ApiService {
   }
 
   /**
+   * Obtener imágenes de un artículo
+   */
+  async obtenerImagenesArticuloEmpresa(idArticulo: number): Promise<ApiResponse<ArticuloEmpresaImagenRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_imagenes_articulo_empresa', {
+          p_id_articulo: idArticulo
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data || [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Agregar imagen a un artículo
+   */
+  async agregarImagenArticuloEmpresa(
+    idArticulo: number,
+    imagenUrl: string,
+    orden?: number
+  ): Promise<ApiResponse<ArticuloEmpresaImagenRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('agregar_imagen_articulo_empresa', {
+          p_id_articulo: idArticulo,
+          p_imagen_url: imagenUrl,
+          p_orden: orden || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo agregar la imagen' }
+        }
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Eliminar imagen de un artículo
+   */
+  async eliminarImagenArticuloEmpresa(idImagen: number): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('eliminar_imagen_articulo_empresa', {
+          p_id_imagen: idImagen
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Subir imagen de artículo de empresa
    */
   async uploadImagenArticuloEmpresa(file: File, articuloId?: number): Promise<ApiResponse<string>> {
