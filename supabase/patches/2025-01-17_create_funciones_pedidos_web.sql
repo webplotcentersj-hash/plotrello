@@ -124,15 +124,18 @@ BEGIN
   -- Hashear contraseña
   password_hash := crypt(p_password, gen_salt('bf'));
 
-  -- Crear cliente
-  INSERT INTO public.clientes_web (
-    usuario, password_hash, nombre, apellido, empresa,
-    telefono, email, dni_cuit, direccion
-  ) VALUES (
-    p_usuario, password_hash, p_nombre, p_apellido, p_empresa,
-    p_telefono, p_email, p_dni_cuit, p_direccion
+  -- Crear cliente usando CTE para evitar ambigüedad
+  WITH nuevo_cliente AS (
+    INSERT INTO public.clientes_web (
+      usuario, password_hash, nombre, apellido, empresa,
+      telefono, email, dni_cuit, direccion
+    ) VALUES (
+      p_usuario, password_hash, p_nombre, p_apellido, p_empresa,
+      p_telefono, p_email, p_dni_cuit, p_direccion
+    )
+    RETURNING public.clientes_web.id AS cliente_id
   )
-  RETURNING clientes_web.id INTO nuevo_cliente_id;
+  SELECT cliente_id INTO nuevo_cliente_id FROM nuevo_cliente;
 
   RETURN QUERY
   SELECT c.id, c.usuario, c.nombre, c.email
