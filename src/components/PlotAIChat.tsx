@@ -58,7 +58,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! Soy PlotAI, tu asistente inteligente para el sistema Trello Plot. Puedo ayudarte a:\n\n- Analizar el estado de las tareas y órdenes\n- Identificar cuellos de botella y problemas\n- Generar reportes y estadísticas\n- Analizar archivos que subas\n- Responder preguntas sobre el sistema\n- Sugerir optimizaciones\n\n¿En qué puedo ayudarte hoy?',
+      content: '¡Hola! ¿En qué te puedo ayudar hoy?',
       timestamp: new Date()
     }
   ])
