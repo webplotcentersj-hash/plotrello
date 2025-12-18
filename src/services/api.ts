@@ -5375,6 +5375,51 @@ class ApiService {
   }
 
   /**
+   * Actualizar cliente web (solo trabajadores)
+   */
+  async actualizarClienteWeb(
+    id: number,
+    cliente: {
+      password?: string
+      nombre?: string
+      apellido?: string
+      empresa?: string
+      telefono?: string
+      email?: string
+      dni_cuit?: string
+      direccion?: string
+      activo?: boolean
+    }
+  ): Promise<ApiResponse<ClienteWebRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_cliente', {
+          p_id: id,
+          p_password: cliente.password || null,
+          p_nombre: cliente.nombre || null,
+          p_apellido: cliente.apellido || null,
+          p_empresa: cliente.empresa || null,
+          p_telefono: cliente.telefono || null,
+          p_email: cliente.email || null,
+          p_dni_cuit: cliente.dni_cuit || null,
+          p_direccion: cliente.direccion || null,
+          p_activo: cliente.activo !== undefined ? cliente.activo : null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo actualizar el cliente' }
+        }
+
+        return { success: true, data: data[0] as ClienteWebRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Obtener todos los clientes web (solo trabajadores)
    */
   async getClientesWeb(): Promise<ApiResponse<ClienteWebRecord[]>> {

@@ -50,22 +50,49 @@ const ClientesWebGestionPage = () => {
 
   const handleCreate = async () => {
     try {
-      const response = await apiService.crearClienteWeb(formData)
+      let response
+      if (editingCliente) {
+        // Actualizar cliente existente
+        response = await apiService.actualizarClienteWeb(editingCliente.id, {
+          password: formData.password || undefined,
+          nombre: formData.nombre,
+          apellido: formData.apellido || undefined,
+          empresa: formData.empresa || undefined,
+          telefono: formData.telefono || undefined,
+          email: formData.email || undefined,
+          dni_cuit: formData.dni_cuit || undefined,
+          direccion: formData.direccion || undefined
+        })
+      } else {
+        // Crear nuevo cliente
+        response = await apiService.crearClienteWeb(formData)
+      }
+      
       if (response.success) {
         setShowCreateModal(false)
         resetForm()
         loadClientes()
       } else {
-        alert(response.error || 'Error al crear cliente')
+        alert(response.error || `Error al ${editingCliente ? 'actualizar' : 'crear'} cliente`)
       }
     } catch (error) {
-      alert('Error al crear cliente')
+      alert(`Error al ${editingCliente ? 'actualizar' : 'crear'} cliente`)
     }
   }
 
-  const handleToggleActivo = async (_cliente: ClienteWebRecord) => {
-    // TODO: Implementar función para actualizar estado activo
-    alert('Función de actualizar estado pendiente de implementar')
+  const handleToggleActivo = async (cliente: ClienteWebRecord) => {
+    try {
+      const response = await apiService.actualizarClienteWeb(cliente.id, {
+        activo: !cliente.activo
+      })
+      if (response.success) {
+        loadClientes()
+      } else {
+        alert(response.error || 'Error al actualizar estado del cliente')
+      }
+    } catch (error) {
+      alert('Error al actualizar estado del cliente')
+    }
   }
 
   const resetForm = () => {

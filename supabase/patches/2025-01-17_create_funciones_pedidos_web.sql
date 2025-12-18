@@ -142,6 +142,114 @@ END;
 $$;
 
 -- ============================================
+-- 2.1. FUNCIÓN PARA ACTUALIZAR CLIENTE (solo trabajadores)
+-- ============================================
+CREATE OR REPLACE FUNCTION public.actualizar_cliente(
+  p_id integer,
+  p_password text DEFAULT NULL,
+  p_nombre varchar(255) DEFAULT NULL,
+  p_apellido varchar(255) DEFAULT NULL,
+  p_empresa varchar(255) DEFAULT NULL,
+  p_telefono varchar(50) DEFAULT NULL,
+  p_email varchar(255) DEFAULT NULL,
+  p_dni_cuit varchar(50) DEFAULT NULL,
+  p_direccion text DEFAULT NULL,
+  p_activo boolean DEFAULT NULL
+)
+RETURNS TABLE (
+  id integer,
+  usuario varchar,
+  nombre varchar,
+  apellido varchar,
+  empresa varchar,
+  email varchar,
+  telefono varchar
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  cliente_id integer;
+  cliente_usuario varchar;
+  cliente_nombre varchar;
+  cliente_apellido varchar;
+  cliente_empresa varchar;
+  cliente_email varchar;
+  cliente_telefono varchar;
+  password_hash text;
+BEGIN
+  -- Verificar que el cliente existe
+  SELECT c.id, c.usuario INTO cliente_id, cliente_usuario
+  FROM public.clientes_web c
+  WHERE c.id = p_id;
+
+  IF cliente_id IS NULL THEN
+    RAISE EXCEPTION 'Cliente no encontrado';
+  END IF;
+
+  -- Validar email único si se proporciona y es diferente
+  IF p_email IS NOT NULL AND p_email != (SELECT email FROM public.clientes_web WHERE id = p_id) THEN
+    IF EXISTS (SELECT 1 FROM public.clientes_web WHERE email = p_email AND id != p_id) THEN
+      RAISE EXCEPTION 'El email "%" ya está registrado', p_email;
+    END IF;
+  END IF;
+
+  -- Hashear contraseña si se proporciona
+  IF p_password IS NOT NULL AND length(p_password) > 0 THEN
+    IF length(p_password) < 6 THEN
+      RAISE EXCEPTION 'La contraseña debe tener al menos 6 caracteres';
+    END IF;
+    password_hash := crypt(p_password, gen_salt('bf'));
+  END IF;
+
+  -- Actualizar cliente
+  UPDATE public.clientes_web
+  SET
+    password_hash = COALESCE(password_hash, clientes_web.password_hash),
+    nombre = COALESCE(p_nombre, nombre),
+    apellido = COALESCE(p_apellido, apellido),
+    empresa = COALESCE(p_empresa, empresa),
+    telefono = COALESCE(p_telefono, telefono),
+    email = COALESCE(p_email, email),
+    dni_cuit = COALESCE(p_dni_cuit, dni_cuit),
+    direccion = COALESCE(p_direccion, direccion),
+    activo = COALESCE(p_activo, activo),
+    updated_at = now()
+  WHERE id = p_id;
+
+  -- Retornar datos actualizados
+  SELECT 
+    c.id,
+    c.usuario,
+    c.nombre,
+    c.apellido,
+    c.empresa,
+    c.email,
+    c.telefono
+  INTO 
+    cliente_id,
+    cliente_usuario,
+    cliente_nombre,
+    cliente_apellido,
+    cliente_empresa,
+    cliente_email,
+    cliente_telefono
+  FROM public.clientes_web c
+  WHERE c.id = p_id;
+
+  RETURN QUERY
+  SELECT
+    cliente_id,
+    cliente_usuario,
+    cliente_nombre,
+    cliente_apellido,
+    cliente_empresa,
+    cliente_email,
+    cliente_telefono;
+END;
+$$;
+
+-- ============================================
 -- 3. FUNCIÓN PARA CREAR PEDIDO
 -- ============================================
 CREATE OR REPLACE FUNCTION public.crear_pedido_cliente(
