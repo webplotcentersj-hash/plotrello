@@ -24,10 +24,12 @@ export default function ClienteLoginPage() {
         login(response.data)
         navigate('/cliente/dashboard')
       } else {
-        setError(response.error || 'Error al iniciar sesión')
+        console.error('Error de autenticación:', response.error)
+        setError(response.error || 'Usuario o contraseña incorrectos')
       }
     } catch (err) {
-      setError('Error de conexión. Intenta nuevamente.')
+      console.error('Error al iniciar sesión:', err)
+      setError(err instanceof Error ? err.message : 'Error de conexión. Intenta nuevamente.')
     } finally {
       setLoading(false)
     }

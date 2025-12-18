@@ -5307,18 +5307,26 @@ class ApiService {
   async autenticarClienteWeb(usuario: string, password: string): Promise<ApiResponse<ClienteWebRecord>> {
     if (supabase) {
       try {
+        console.log('Intentando autenticar cliente:', usuario)
         const { data, error } = await supabase.rpc('autenticar_cliente', {
           p_usuario: usuario,
           p_password: password
         })
 
-        if (error) return { success: false, error: error.message }
+        console.log('Respuesta RPC:', { data, error })
+
+        if (error) {
+          console.error('Error en RPC:', error)
+          return { success: false, error: error.message || 'Error al autenticar' }
+        }
+        
         if (!data || data.length === 0) {
           return { success: false, error: 'Usuario o contraseña incorrectos' }
         }
 
         return { success: true, data: data[0] as ClienteWebRecord }
       } catch (error) {
+        console.error('Excepción en autenticarClienteWeb:', error)
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
     }
