@@ -31,6 +31,8 @@ const ArticulosEmpresaPage = () => {
   const [subcategoriasDisponibles, setSubcategoriasDisponibles] = useState<string[]>([])
   const [categoriaInputValue, setCategoriaInputValue] = useState('')
   const [subcategoriaInputValue, setSubcategoriaInputValue] = useState('')
+  const [sortField, setSortField] = useState<keyof ArticuloEmpresaRecord | ''>('')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [imagenFiles, setImagenFiles] = useState<File[]>([])
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
@@ -120,14 +122,49 @@ const ArticulosEmpresaPage = () => {
     })
   }, [articulos])
 
-  const articulosFiltrados = articulos.filter(articulo => {
-    const matchBusqueda = !searchQuery || 
-      articulo.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      articulo.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      articulo.descripcion?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchCategoria = !categoriaFiltro || articulo.categoria === categoriaFiltro
-    return matchBusqueda && matchCategoria
-  })
+  const handleSort = (field: keyof ArticuloEmpresaRecord) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const articulosFiltradosYOrdenados = articulos
+    .filter(articulo => {
+      const matchBusqueda = !searchQuery || 
+        articulo.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        articulo.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        articulo.descripcion?.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchCategoria = !categoriaFiltro || articulo.categoria === categoriaFiltro
+      return matchBusqueda && matchCategoria
+    })
+    .sort((a, b) => {
+      if (!sortField) return 0
+      
+      const aValue = a[sortField]
+      const bValue = b[sortField]
+      
+      // Manejar valores null/undefined
+      if (aValue == null && bValue == null) return 0
+      if (aValue == null) return sortDirection === 'asc' ? 1 : -1
+      if (bValue == null) return sortDirection === 'asc' ? -1 : 1
+      
+      // Comparar valores
+      let comparison = 0
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' })
+      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        comparison = aValue - bValue
+      } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+        comparison = aValue === bValue ? 0 : aValue ? 1 : -1
+      } else {
+        comparison = String(aValue).localeCompare(String(bValue), 'es', { sensitivity: 'base' })
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
 
   const abrirModalNuevo = async () => {
     setEditingArticulo(null)
@@ -590,25 +627,58 @@ const ArticulosEmpresaPage = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          {categorias.length > 0 && (
-            <div className="categorias-filtros">
-              <button
-                className={`categoria-btn ${!categoriaFiltro ? 'active' : ''}`}
-                onClick={() => setCategoriaFiltro('')}
-              >
-                Todas
-              </button>
-              {categorias.map((categoria) => (
+          <div className="filtros-y-ordenamiento">
+            {categorias.length > 0 && (
+              <div className="categorias-filtros">
                 <button
-                  key={categoria}
-                  className={`categoria-btn ${categoriaFiltro === categoria ? 'active' : ''}`}
-                  onClick={() => setCategoriaFiltro(categoria)}
+                  className={`categoria-btn ${!categoriaFiltro ? 'active' : ''}`}
+                  onClick={() => setCategoriaFiltro('')}
                 >
-                  {categoria}
+                  Todas
                 </button>
-              ))}
+                {categorias.map((categoria) => (
+                  <button
+                    key={categoria}
+                    className={`categoria-btn ${categoriaFiltro === categoria ? 'active' : ''}`}
+                    onClick={() => setCategoriaFiltro(categoria)}
+                  >
+                    {categoria}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="ordenamiento-controls">
+              <label>Ordenar por:</label>
+              <select
+                value={sortField}
+                onChange={(e) => {
+                  const field = e.target.value as keyof ArticuloEmpresaRecord | ''
+                  if (field) {
+                    handleSort(field)
+                  } else {
+                    setSortField('')
+                  }
+                }}
+                className="sort-select"
+              >
+                <option value="">Sin ordenar</option>
+                <option value="codigo">Código</option>
+                <option value="nombre">Nombre</option>
+                <option value="categoria">Categoría</option>
+                <option value="precio_base">Precio</option>
+                <option value="activo">Estado</option>
+              </select>
+              {sortField && (
+                <button
+                  className="sort-direction-btn"
+                  onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                  title={`Orden ${sortDirection === 'asc' ? 'ascendente' : 'descendente'}`}
+                >
+                  {sortDirection === 'asc' ? '↑' : '↓'}
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Lista de Artículos */}
@@ -709,7 +779,7 @@ const ArticulosEmpresaPage = () => {
           ))}
         </div>
 
-        {articulosFiltrados.length === 0 && (
+        {articulosFiltradosYOrdenados.length === 0 && (
           <div className="empty-state">
             <p>No se encontraron artículos</p>
             <button className="btn-primary" onClick={abrirModalNuevo}>

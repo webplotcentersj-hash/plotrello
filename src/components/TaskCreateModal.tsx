@@ -159,6 +159,46 @@ const TaskCreateModal = ({
     setIsClienteDropdownOpen(false)
   }
 
+  // Autocompletar cuando se escribe el nombre exacto de un cliente
+  const handleClienteBlur = () => {
+    setTimeout(() => {
+      setIsClienteDropdownOpen(false)
+      // Si hay exactamente un cliente encontrado y coincide con el texto escrito, autocompletar
+      if (clientesEncontrados.length === 1 && cliente.trim()) {
+        const clienteExacto = clientesEncontrados.find(
+          c => c.nombre.toLowerCase() === cliente.trim().toLowerCase()
+        )
+        if (clienteExacto) {
+          handleSelectCliente(clienteExacto)
+        }
+      }
+    }, 200)
+  }
+
+  // Autocompletar cuando se presiona Enter en el campo cliente
+  const handleClienteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && clientesEncontrados.length > 0) {
+      e.preventDefault()
+      // Si hay un solo resultado, seleccionarlo automáticamente
+      if (clientesEncontrados.length === 1) {
+        handleSelectCliente(clientesEncontrados[0])
+      } else if (clientesEncontrados.length > 1) {
+        // Si hay múltiples resultados, seleccionar el primero que coincida exactamente
+        const clienteExacto = clientesEncontrados.find(
+          c => c.nombre.toLowerCase() === cliente.trim().toLowerCase()
+        )
+        if (clienteExacto) {
+          handleSelectCliente(clienteExacto)
+        } else {
+          // Si no hay coincidencia exacta, seleccionar el primero
+          handleSelectCliente(clientesEncontrados[0])
+        }
+      }
+    } else if (e.key === 'Escape') {
+      setIsClienteDropdownOpen(false)
+    }
+  }
+
   // Cargar brief token desde localStorage si existe
   useEffect(() => {
     const tokenGuardado = localStorage.getItem('brief_token_seleccionado')
@@ -609,37 +649,73 @@ const TaskCreateModal = ({
                 onFocus={() => {
                   if (clientesEncontrados.length > 0) setIsClienteDropdownOpen(true)
                 }}
-                onBlur={() => setTimeout(() => setIsClienteDropdownOpen(false), 200)}
-                placeholder="Buscar cliente existente..."
+                onBlur={handleClienteBlur}
+                onKeyDown={handleClienteKeyDown}
+                placeholder="Buscar cliente existente... (los datos se autocompletarán)"
               />
               {isClienteDropdownOpen && clientesEncontrados.length > 0 && (
                 <div className="dropdown-list">
                   {buscandoClientes && (
                     <div className="dropdown-item" style={{ color: 'var(--text-muted)' }}>
-                      Buscando...
+                      🔍 Buscando...
                     </div>
                   )}
-                  {!buscandoClientes &&
-                    clientesEncontrados.map((c) => (
-                      <div
-                        key={c.id}
-                        className="dropdown-item"
-                        onMouseDown={(event) => {
-                          event.preventDefault()
-                          handleSelectCliente(c)
-                        }}
-                      >
-                        <div>
-                          <strong>{c.nombre}</strong>
-                          {c.dni_cuit && (
-                            <div className="dropdown-subtext">DNI/CUIT: {c.dni_cuit}</div>
-                          )}
-                          {c.telefono && (
-                            <div className="dropdown-subtext">Tel: {c.telefono}</div>
-                          )}
-                        </div>
+                  {!buscandoClientes && (
+                    <>
+                      <div className="dropdown-header" style={{ 
+                        padding: '8px 12px', 
+                        fontSize: '0.75rem', 
+                        color: 'var(--text-muted)',
+                        borderBottom: '1px solid var(--surface-border)',
+                        fontWeight: 600
+                      }}>
+                        💡 Selecciona un cliente para autocompletar datos
                       </div>
-                    ))}
+                      {clientesEncontrados.map((c) => (
+                        <div
+                          key={c.id}
+                          className="dropdown-item"
+                          style={{ cursor: 'pointer' }}
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            handleSelectCliente(c)
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--surface-hover)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent'
+                          }}
+                        >
+                          <div>
+                            <strong>{c.nombre}</strong>
+                            {c.dni_cuit && (
+                              <div className="dropdown-subtext">📄 DNI/CUIT: {c.dni_cuit}</div>
+                            )}
+                            {c.telefono && (
+                              <div className="dropdown-subtext">📞 Tel: {c.telefono}</div>
+                            )}
+                            {c.email && (
+                              <div className="dropdown-subtext">✉️ Email: {c.email}</div>
+                            )}
+                            {c.direccion && (
+                              <div className="dropdown-subtext">📍 {c.direccion}</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+              {cliente && clientesEncontrados.length === 0 && !buscandoClientes && cliente.trim().length >= 2 && (
+                <div style={{ 
+                  marginTop: '4px', 
+                  fontSize: '0.75rem', 
+                  color: 'var(--text-muted)',
+                  fontStyle: 'italic'
+                }}>
+                  💡 Cliente no encontrado. Se creará uno nuevo al guardar.
                 </div>
               )}
             </div>

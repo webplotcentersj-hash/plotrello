@@ -5332,11 +5332,12 @@ class ApiService {
         
         // Obtener el registro completo con todos los campos incluyendo 'activo'
         if (supabase && clienteData.id) {
-          const { data: clienteCompleto, error: errorCompleto } = await supabase
-            .from('clientes_web')
-            .select('*')
-            .eq('id', clienteData.id)
-            .single()
+        const { data: clienteCompleto, error: errorCompleto } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('id', clienteData.id)
+          .eq('es_cliente_web', true)
+          .single()
           
           if (errorCompleto) {
             console.error('Error obteniendo cliente completo:', errorCompleto)
@@ -5463,8 +5464,9 @@ class ApiService {
     if (supabase) {
       try {
         const { data, error } = await supabase
-          .from('clientes_web')
+          .from('clientes')
           .select('*')
+          .eq('es_cliente_web', true)
           .order('created_at', { ascending: false })
 
         if (error) return { success: false, error: error.message }
@@ -6249,7 +6251,7 @@ class ApiService {
           .from('pedidos_clientes')
           .select(`
             *,
-            cliente:clientes_web(*)
+            cliente:clientes!pedidos_clientes_id_cliente_fkey(*)
           `)
           .in('estado', ['pendiente', 'en_revision', 'aprobado'])
           .order('fecha_pedido', { ascending: false })
@@ -6298,9 +6300,8 @@ class ApiService {
   ): Promise<ApiResponse<MensajePedidoClienteRecord[]>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('obtener_mensajes_pedido', {
-          p_id_pedido_cliente: idPedido,
-          p_id_cliente: idCliente
+        const { data, error } = await supabase.rpc('obtener_mensajes_pedido_cliente', {
+          p_id_pedido: idPedido
         })
 
         if (error) return { success: false, error: error.message }
@@ -6323,11 +6324,15 @@ class ApiService {
   ): Promise<ApiResponse<MensajePedidoClienteRecord>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('crear_mensaje_pedido', {
-          p_id_pedido_cliente: idPedido,
+        const usuarioStr = localStorage.getItem('usuario')
+        const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+        
+        const { data, error } = await supabase.rpc('crear_mensaje_pedido_cliente', {
+          p_id_pedido: idPedido,
           p_id_cliente: idCliente,
           p_mensaje: mensaje,
-          p_es_del_cliente: esDelCliente
+          p_es_del_cliente: esDelCliente,
+          p_id_usuario: esDelCliente ? null : (usuario?.id || null)
         })
 
         if (error) return { success: false, error: error.message }

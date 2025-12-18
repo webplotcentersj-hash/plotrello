@@ -183,6 +183,12 @@ export interface ClienteRecord {
   direccion?: string | null
   ubicacion_link?: string | null
   drive_link?: string | null
+  usuario?: string | null
+  password_hash?: string | null
+  apellido?: string | null
+  empresa?: string | null
+  activo?: boolean | null
+  es_cliente_web?: boolean | null
 }
 
 // ============================================

@@ -13,6 +13,8 @@ const ClientesWebGestionPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingCliente, setEditingCliente] = useState<ClienteWebRecord | null>(null)
+  const [sortField, setSortField] = useState<keyof ClienteWebRecord | ''>('')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [formData, setFormData] = useState({
     usuario: '',
     password: '',
@@ -133,15 +135,50 @@ const ClientesWebGestionPage = () => {
     setEditingCliente(null)
   }
 
-  const filteredClientes = clientes.filter(cliente => {
-    const query = searchQuery.toLowerCase()
-    return (
-      cliente.usuario.toLowerCase().includes(query) ||
-      cliente.nombre.toLowerCase().includes(query) ||
-      cliente.email?.toLowerCase().includes(query) ||
-      cliente.empresa?.toLowerCase().includes(query)
-    )
-  })
+  const handleSort = (field: keyof ClienteWebRecord) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const filteredAndSortedClientes = clientes
+    .filter(cliente => {
+      const query = searchQuery.toLowerCase()
+      return (
+        cliente.usuario.toLowerCase().includes(query) ||
+        cliente.nombre.toLowerCase().includes(query) ||
+        cliente.email?.toLowerCase().includes(query) ||
+        cliente.empresa?.toLowerCase().includes(query)
+      )
+    })
+    .sort((a, b) => {
+      if (!sortField) return 0
+      
+      const aValue = a[sortField]
+      const bValue = b[sortField]
+      
+      // Manejar valores null/undefined
+      if (aValue == null && bValue == null) return 0
+      if (aValue == null) return sortDirection === 'asc' ? 1 : -1
+      if (bValue == null) return sortDirection === 'asc' ? -1 : 1
+      
+      // Comparar valores
+      let comparison = 0
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' })
+      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        comparison = aValue - bValue
+      } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+        comparison = aValue === bValue ? 0 : aValue ? 1 : -1
+      } else {
+        comparison = String(aValue).localeCompare(String(bValue), 'es', { sensitivity: 'base' })
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
 
   if (loading) {
     return (
@@ -185,25 +222,60 @@ const ClientesWebGestionPage = () => {
           <table className="clientes-web-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Usuario</th>
-                <th>Nombre</th>
-                <th>Empresa</th>
-                <th>Email</th>
-                <th>Teléfono</th>
-                <th>Estado</th>
+                <th className="sortable" onClick={() => handleSort('id')}>
+                  ID
+                  {sortField === 'id' && (
+                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('usuario')}>
+                  Usuario
+                  {sortField === 'usuario' && (
+                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('nombre')}>
+                  Nombre
+                  {sortField === 'nombre' && (
+                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('empresa')}>
+                  Empresa
+                  {sortField === 'empresa' && (
+                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('email')}>
+                  Email
+                  {sortField === 'email' && (
+                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('telefono')}>
+                  Teléfono
+                  {sortField === 'telefono' && (
+                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </th>
+                <th className="sortable" onClick={() => handleSort('activo')}>
+                  Estado
+                  {sortField === 'activo' && (
+                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {filteredClientes.length === 0 ? (
+              {filteredAndSortedClientes.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="clientes-web-empty">
                     {searchQuery ? 'No se encontraron clientes' : 'No hay clientes registrados'}
                   </td>
                 </tr>
               ) : (
-                filteredClientes.map((cliente) => (
+                filteredAndSortedClientes.map((cliente) => (
                   <tr key={cliente.id}>
                     <td>{cliente.id}</td>
                     <td>{cliente.usuario}</td>
