@@ -279,36 +279,50 @@ const ArticulosEmpresaPage = () => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files)
       const validFiles: File[] = []
-      const newPreviews: string[] = []
+      let errorFound = false
 
+      // Primero validar todos los archivos
       files.forEach((file) => {
         // Validar tipo de archivo
         if (!file.type.startsWith('image/')) {
           setError(`El archivo ${file.name} no es una imagen válida`)
+          errorFound = true
           return
         }
 
         // Validar tamaño (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
           setError(`La imagen ${file.name} no debe superar los 5MB`)
+          errorFound = true
           return
         }
 
         validFiles.push(file)
-
-        // Crear preview
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          newPreviews.push(reader.result as string)
-          if (newPreviews.length === validFiles.length) {
-            setImagenPreviews([...imagenPreviews, ...newPreviews])
-          }
-        }
-        reader.readAsDataURL(file)
       })
 
-      setImagenFiles([...imagenFiles, ...validFiles])
-      setError('')
+      if (errorFound) {
+        return
+      }
+
+      // Si todos los archivos son válidos, crear previews
+      const previewPromises = validFiles.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            resolve(reader.result as string)
+          }
+          reader.readAsDataURL(file)
+        })
+      })
+
+      Promise.all(previewPromises).then((previews) => {
+        setImagenPreviews((prev) => [...prev, ...previews])
+        setImagenFiles((prev) => [...prev, ...validFiles])
+        setError('')
+      })
+
+      // Limpiar el input para permitir seleccionar los mismos archivos de nuevo si es necesario
+      e.target.value = ''
     }
   }
 
