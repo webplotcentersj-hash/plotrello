@@ -1,0 +1,363 @@
+.rrhh-notificaciones-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 24px;
+}
+
+.rrhh-notificaciones-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 16px;
+}
+
+.rrhh-notificaciones-header {
+  margin-bottom: 32px;
+}
+
+.rrhh-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rrhh-header-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.rrhh-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-back {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.rrhh-notificaciones-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Estadísticas */
+.rrhh-stats-section {
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.rrhh-stats-section h2 {
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.rrhh-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.rrhh-stat-card {
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.2s;
+}
+
+.rrhh-stat-card:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.rrhh-stat-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.rrhh-stat-info h3 {
+  margin: 0 0 4px 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.rrhh-stat-value {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Formulario */
+.rrhh-notificacion-form {
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.rrhh-notificacion-form h2 {
+  margin: 0 0 24px 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.rrhh-mensaje {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+.rrhh-mensaje.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.rrhh-mensaje.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.rrhh-form-group {
+  margin-bottom: 24px;
+}
+
+.rrhh-form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.rrhh-form-group input[type="text"],
+.rrhh-form-group textarea,
+.rrhh-form-group select {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.rrhh-form-group input[type="text"]:focus,
+.rrhh-form-group textarea:focus,
+.rrhh-form-group select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.rrhh-form-group textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.rrhh-tipos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.rrhh-tipo-btn {
+  padding: 12px 16px;
+  background: var(--surface-muted);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.rrhh-tipo-btn:hover {
+  background: var(--surface-elevated);
+  transform: translateY(-2px);
+}
+
+.rrhh-tipo-btn.active {
+  background: var(--surface-elevated);
+  font-weight: 600;
+}
+
+.rrhh-destino-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rrhh-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rrhh-radio-option:hover {
+  background: var(--surface-elevated);
+  border-color: var(--accent-primary);
+}
+
+.rrhh-radio-option input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.rrhh-radio-option span {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.rrhh-usuarios-list {
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rrhh-usuario-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--surface-elevated);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rrhh-usuario-checkbox:hover {
+  background: var(--bg-primary);
+}
+
+.rrhh-usuario-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.rrhh-usuario-checkbox span {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.rrhh-usuario-checkbox small {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.rrhh-form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-border);
+  color: var(--text-primary);
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--surface-elevated);
+  border-color: var(--accent-primary);
+}
+
+/* Scrollbar personalizado */
+.rrhh-usuarios-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rrhh-usuarios-list::-webkit-scrollbar-track {
+  background: var(--surface-muted);
+  border-radius: 4px;
+}
+
+.rrhh-usuarios-list::-webkit-scrollbar-thumb {
+  background: var(--surface-border);
+  border-radius: 4px;
+}
+
+.rrhh-usuarios-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+

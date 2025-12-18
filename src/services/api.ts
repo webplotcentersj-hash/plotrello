@@ -2435,6 +2435,84 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  /**
+   * Enviar notificación masiva a usuarios
+   */
+  async enviarNotificacionMasiva(params: {
+    titulo: string
+    descripcion: string
+    tipo?: 'info' | 'success' | 'warning' | 'error' | 'mention'
+    rol_filtro?: string
+    sector_filtro?: string
+    enviar_a_todos?: boolean
+    id_usuario_emisor?: number
+  }): Promise<ApiResponse<{ notificaciones_creadas: number; usuarios_notificados: number; mensaje: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('enviar_notificacion_masiva', {
+          p_titulo: params.titulo,
+          p_descripcion: params.descripcion,
+          p_tipo: params.tipo || 'info',
+          p_rol_filtro: params.rol_filtro || null,
+          p_sector_filtro: params.sector_filtro || null,
+          p_enviar_a_todos: params.enviar_a_todos || false,
+          p_id_usuario_emisor: params.id_usuario_emisor || null
+        })
+
+        if (error) {
+          console.error('Error enviando notificación masiva:', error)
+          return { success: false, error: error.message }
+        }
+
+        if (data && typeof data === 'object' && 'success' in data) {
+          const result = data as any
+          if (result.success) {
+            return {
+              success: true,
+              data: {
+                notificaciones_creadas: result.notificaciones_creadas || 0,
+                usuarios_notificados: result.usuarios_notificados || 0,
+                mensaje: result.mensaje || 'Notificaciones enviadas'
+              }
+            }
+          } else {
+            return { success: false, error: result.error || 'Error desconocido' }
+          }
+        }
+
+        return { success: false, error: 'Respuesta inválida del servidor' }
+      } catch (error: any) {
+        console.error('Error en enviarNotificacionMasiva:', error)
+        return { success: false, error: error.message || 'Error al enviar notificaciones' }
+      }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /**
+   * Obtener estadísticas de notificaciones
+   */
+  async obtenerEstadisticasNotificaciones(): Promise<ApiResponse<any>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_estadisticas_notificaciones')
+
+        if (error) {
+          console.error('Error obteniendo estadísticas:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: data || {} }
+      } catch (error: any) {
+        console.error('Error en obtenerEstadisticasNotificaciones:', error)
+        return { success: false, error: error.message || 'Error al obtener estadísticas' }
+      }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   // Helper para obtener usuarios de compras y administración
   private async getUsuariosComprasAdmin(): Promise<number[]> {
     if (!supabase) {

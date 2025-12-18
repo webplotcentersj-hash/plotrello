@@ -44,6 +44,7 @@ import RecursosHumanosHorariosPage from './pages/RecursosHumanosHorariosPage'
 import RecursosHumanosEvaluacionesPage from './pages/RecursosHumanosEvaluacionesPage'
 import RecursosHumanosEstadisticasPage from './pages/RecursosHumanosEstadisticasPage'
 import RecursosHumanosPermisosPage from './pages/RecursosHumanosPermisosPage'
+import RecursosHumanosNotificacionesPage from './pages/RecursosHumanosNotificacionesPage'
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -706,6 +707,10 @@ function AppRoutes({
       <Route
         path="/rrhh/permisos"
         element={<RecursosHumanosPermisosPage />}
+      />
+      <Route
+        path="/rrhh/notificaciones"
+        element={<RecursosHumanosNotificacionesPage />}
       />
       {/* Rutas de Gestión de Clientes Web */}
       <Route

@@ -181,6 +181,15 @@ const RecursosHumanosDashboardPage = () => {
               <h3>Permisos y Roles</h3>
               <p>Gestionar permisos y asignación de roles</p>
             </button>
+
+            <button
+              className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/notificaciones')}
+            >
+              <div className="rrhh-action-icon">📢</div>
+              <h3>Notificador Masivo</h3>
+              <p>Enviar notificaciones a todos los usuarios o grupos específicos</p>
+            </button>
           </div>
         </div>
 
