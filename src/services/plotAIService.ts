@@ -3,6 +3,16 @@ import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { formatAgenticContextForPrompt } from '../utils/agentInsights'
 import type { AgenticContextPayload } from '../utils/agentInsights'
+import { getCompleteSystemContext, formatCompleteContextForPrompt, type CompleteSystemContext } from './plotAIContextService'
+import {
+  getRelevantConversations,
+  getRelevantPatterns,
+  getRelevantKnowledge,
+  formatMemoryForPrompt,
+  saveConversationMemory,
+  savePatternMemory,
+  saveKnowledgeMemory
+} from './plotAIMemoryService'
 
 // El nuevo SDK de Google GenAI puede usar la API key desde variable de entorno
 // o se puede pasar en el constructor si es necesario
@@ -100,6 +110,12 @@ export interface GenerateContentOptions {
   conversationHistory?: string
   attachments?: Array<{ name: string; type: string; content: string }>
   agenticContext?: AgenticContextPayload
+  useCompleteContext?: boolean // Usar contexto completo de todas las tablas
+  useMemory?: boolean // Usar sistema de memoria/aprendizaje
+  learnFromResponse?: boolean // Aprender de esta interacción
+  tasks?: Task[] // Tareas para contexto completo
+  activity?: ActivityEvent[] // Actividad para contexto completo
+  teamMembers?: TeamMember[] // Miembros del equipo para contexto completo
 }
 
 export async function generateContent(options: GenerateContentOptions): Promise<string> {
@@ -113,14 +129,79 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     systemContext,
     conversationHistory,
     attachments,
-    agenticContext
+    agenticContext,
+    useCompleteContext = true,
+    useMemory = true,
+    learnFromResponse = true,
+    tasks = [],
+    activity = [],
+    teamMembers = []
   } = options
 
   try {
+    // Obtener contexto completo si está habilitado
+    let completeContext: CompleteSystemContext | null = null
+    if (useCompleteContext) {
+      try {
+        // Usar tasks, activity y teamMembers pasados, o convertir desde systemContext
+        const tasksToUse = tasks.length > 0 ? tasks : []
+        const activityToUse = activity.length > 0 ? activity : []
+        const teamMembersToUse = teamMembers.length > 0 
+          ? teamMembers 
+          : systemContext?.teamMembers.map(m => ({ id: m.name, name: m.name, role: m.role })) || []
+        
+        completeContext = await getCompleteSystemContext(
+          tasksToUse,
+          activityToUse,
+          teamMembersToUse
+        )
+      } catch (error) {
+        console.warn('Error obteniendo contexto completo, usando contexto básico:', error)
+      }
+    }
+
+    // Obtener memoria relevante si está habilitado
+    let memoriaTexto = ''
+    if (useMemory) {
+      const conversacionesRelevantes = getRelevantConversations(contents)
+      const patronesRelevantes = getRelevantPatterns()
+      const conocimientosRelevantes = getRelevantKnowledge()
+      memoriaTexto = formatMemoryForPrompt(contents, conversacionesRelevantes, patronesRelevantes, conocimientosRelevantes)
+    }
+
     // Construir el prompt completo
     let prompt = contents
 
-    if (systemContext) {
+    // Contexto del sistema mejorado
+    if (completeContext) {
+      const contextText = `Eres PlotAI, un asistente inteligente AGÉNTICO especializado en gestión de producción gráfica e imprenta. Tienes acceso completo al sistema y puedes:
+
+CAPACIDADES AGÉNTICAS:
+- Analizar datos en tiempo real del sistema desde TODAS las tablas de la base de datos
+- Identificar patrones y tendencias en órdenes, clientes, pedidos web, materiales, etc.
+- Detectar problemas y cuellos de botella proactivamente
+- Sugerir acciones concretas y optimizaciones basadas en datos reales
+- Aprender del contexto histórico y actual
+- Analizar archivos (imágenes, PDFs, documentos) con visión avanzada
+- Generar reportes y insights profundos
+- Acceder a información de clientes, pedidos web, artículos, proveedores, compras, etc.
+
+${formatCompleteContextForPrompt(completeContext)}
+
+INSTRUCCIONES AGÉNTICAS:
+- Responde en español de manera clara, profesional y accionable
+- Analiza los datos proporcionados y extrae insights profundos
+- Identifica problemas proactivamente (cuellos de botella, sobrecargas, retrasos)
+- Sugiere acciones concretas y priorizadas basadas en los datos reales
+- Si hay archivos adjuntos, analízalos en detalle y relaciona con el contexto del sistema
+- Aprende de los patrones que observas en los datos
+- Sé proactivo: no solo respondas, también anticipa problemas y oportunidades
+- Proporciona métricas, comparaciones y análisis cuantitativos cuando sea relevante
+- Usa la información de todas las tablas para dar respuestas más completas y precisas
+
+`
+      prompt = contextText + prompt
+    } else if (systemContext) {
       const contextText = `Eres PlotAI, un asistente inteligente AGÉNTICO especializado en gestión de producción gráfica e imprenta. Tienes acceso completo al sistema y puedes:
 
 CAPACIDADES AGÉNTICAS:
@@ -166,6 +247,11 @@ INSTRUCCIONES AGÉNTICAS:
       prompt = contextText + prompt
     }
 
+    // Agregar memoria si está disponible
+    if (memoriaTexto) {
+      prompt += memoriaTexto
+    }
+
     if (agenticContext) {
       prompt += `\nINTELIGENCIA AGÉNTICA DERIVADA:\n${formatAgenticContextForPrompt(agenticContext)}\n`
       prompt += `\nConsidera estas señales para priorizar tu respuesta.\n`
@@ -175,8 +261,7 @@ INSTRUCCIONES AGÉNTICAS:
       const hasImages = attachments.some((att) => att.type.startsWith('image/'))
       
       if (hasImages) {
-        // Para imágenes, necesitamos procesarlas de manera especial
-        // El nuevo SDK puede manejar imágenes de forma diferente
+        // Para imágenes, usar modelo con capacidad de visión
         const imageAttachments = attachments.filter((att) => att.type.startsWith('image/'))
         const textAttachments = attachments.filter((att) => !att.type.startsWith('image/'))
         
@@ -184,23 +269,29 @@ INSTRUCCIONES AGÉNTICAS:
           prompt += `\nARCHIVOS DE TEXTO ADJUNTOS:\n`
           textAttachments.forEach((att, idx) => {
             prompt += `\nArchivo ${idx + 1}: ${att.name} (${att.type})\n`
-            prompt += `Contenido:\n${att.content}\n`
+            prompt += `Contenido:\n${att.content.substring(0, 5000)}\n`
           })
         }
 
-        // Para imágenes, agregamos información sobre ellas al prompt
-        prompt += `\nIMÁGENES ADJUNTAS:\n`
+        // Para imágenes, usar el formato adecuado para Gemini Vision
+        prompt += `\nIMÁGENES ADJUNTAS PARA ANÁLISIS:\n`
         imageAttachments.forEach((att, idx) => {
           prompt += `\nImagen ${idx + 1}: ${att.name}\n`
-          // El contenido de la imagen está en base64, lo incluimos en el prompt
-          prompt += `Datos de imagen: ${att.content}\n`
+          prompt += `Por favor, analiza esta imagen en detalle. Identifica:\n`
+          prompt += `- Contenido visual (textos, gráficos, diseños, materiales)\n`
+          prompt += `- Calidad y características técnicas\n`
+          prompt += `- Relación con el contexto del sistema de producción gráfica\n`
+          prompt += `- Sugerencias o problemas detectados\n`
+          // El contenido base64 se incluirá en el payload de la API
         })
+        
+        // Nota: Las imágenes se enviarán como partes separadas en el payload
       } else {
         // Solo archivos de texto
         prompt += `\nARCHIVOS ADJUNTOS:\n`
         attachments.forEach((att, idx) => {
           prompt += `\nArchivo ${idx + 1}: ${att.name} (${att.type})\n`
-          prompt += `Contenido:\n${att.content}\n`
+          prompt += `Contenido:\n${att.content.substring(0, 5000)}\n`
         })
         prompt += `\nPor favor, analiza estos archivos en el contexto del sistema de producción gráfica.\n`
       }
@@ -210,16 +301,102 @@ INSTRUCCIONES AGÉNTICAS:
       prompt += `\nHISTORIAL DE CONVERSACIÓN:\n${conversationHistory}\n\n`
     }
 
-    prompt += `\nPlotAI: Responde de manera útil y contextualizada.`
+    prompt += `\nPlotAI: Responde de manera útil y contextualizada usando toda la información disponible.`
 
-    // Usar el nuevo SDK
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt
-    })
+    // Preparar el payload para Gemini
+    // Si hay imágenes, necesitamos enviarlas como partes separadas
+    const hasImages = attachments?.some((att) => att.type.startsWith('image/'))
+    
+    let responseText = ''
+    
+    if (hasImages && attachments) {
+      // Para imágenes, construir el payload con partes de texto e imagen
+      const imageAttachments = attachments.filter((att) => att.type.startsWith('image/'))
+      const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
+      
+      // Agregar el prompt de texto primero
+      parts.push({ text: prompt })
+      
+      // Agregar cada imagen
+      for (const att of imageAttachments) {
+        // El contenido viene como [IMAGEN_BASE64:data:nombre] o directamente como base64
+        let base64Data = ''
+        let mimeType = att.type || 'image/jpeg'
+        
+        if (att.content.startsWith('[IMAGEN_BASE64:')) {
+          // Formato: [IMAGEN_BASE64:base64data:nombre]
+          const match = att.content.match(/\[IMAGEN_BASE64:(.+?):/)
+          if (match && match[1]) {
+            base64Data = match[1]
+            // Si el base64 incluye el prefijo data:image/..., extraerlo
+            if (base64Data.includes('data:')) {
+              const dataMatch = base64Data.match(/data:([^;]+);base64,(.+)/)
+              if (dataMatch) {
+                mimeType = dataMatch[1]
+                base64Data = dataMatch[2]
+              }
+            }
+          }
+        } else if (att.content.startsWith('data:')) {
+          // Formato directo: data:image/...;base64,...
+          const dataMatch = att.content.match(/data:([^;]+);base64,(.+)/)
+          if (dataMatch) {
+            mimeType = dataMatch[1]
+            base64Data = dataMatch[2]
+          }
+        } else {
+          // Asumir que es base64 puro
+          base64Data = att.content
+        }
+        
+        if (base64Data) {
+          parts.push({
+            inlineData: {
+              mimeType,
+              data: base64Data
+            }
+          })
+        }
+      }
+      
+      // Usar el modelo con capacidad de visión (gemini-2.5-flash tiene visión integrada)
+      const visionModel = 'gemini-2.5-flash'
+      const response = await ai.models.generateContent({
+        model: visionModel,
+        contents: parts
+      })
+      
+      responseText = response.text || ''
+    } else {
+      // Sin imágenes, usar el método normal
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt
+      })
+      
+      responseText = response.text || ''
+    }
 
-    // El nuevo SDK devuelve response.text directamente
-    return response.text || ''
+    // Aprender de la respuesta si está habilitado
+    if (learnFromResponse && responseText) {
+      try {
+        await saveConversationMemory(
+          contents,
+          responseText,
+          {
+            hasAttachments: attachments && attachments.length > 0,
+            hasImages: hasImages,
+            completeContext: completeContext !== null,
+            memoryUsed: useMemory
+          },
+          3 // Utilidad por defecto
+        )
+      } catch (error) {
+        console.warn('No se pudo guardar la conversación en memoria:', error)
+      }
+    }
+
+    return responseText
   } catch (error) {
     console.error('Error generando contenido con PlotAI:', error)
     throw new Error(

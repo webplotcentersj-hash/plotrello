@@ -255,8 +255,9 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       if (file.type.startsWith('image/')) {
         const reader = new FileReader()
         reader.onload = (e) => {
-          const base64 = (e.target?.result as string).split(',')[1]
-          resolve(`[IMAGEN_BASE64:${base64}:${file.name}]`)
+          const dataUrl = e.target?.result as string
+          // Guardar el data URL completo para que el servicio pueda extraerlo correctamente
+          resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
         }
         reader.onerror = reject
         reader.readAsDataURL(file)
@@ -318,8 +319,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       const systemContext = getSystemContext(tasks, activity, teamMembers)
       const hasImages = userMessage.attachments?.some((att) => att.type.startsWith('image/'))
       
-      // Usar gemini-2.5-flash (o gemini-pro-vision si hay imágenes)
-      const modelName = hasImages ? 'gemini-2.5-flash' : 'gemini-2.5-flash'
+      // Usar gemini-2.5-flash (tiene capacidad de visión integrada)
+      const modelName = 'gemini-2.5-flash'
 
       // Mantener historial de conversación (últimos 5 mensajes)
       const recentMessages = messages.slice(-5)
@@ -335,7 +336,13 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         systemContext,
         conversationHistory,
         attachments: userMessage.attachments,
-        agenticContext
+        agenticContext,
+        useCompleteContext: true, // Usar contexto completo de todas las tablas
+        useMemory: true, // Usar sistema de memoria/aprendizaje
+        learnFromResponse: true, // Aprender de esta interacción
+        tasks, // Pasar tasks para contexto completo
+        activity, // Pasar activity para contexto completo
+        teamMembers // Pasar teamMembers para contexto completo
       })
 
       const assistantMessage: Message = {
