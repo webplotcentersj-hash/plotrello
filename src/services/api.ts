@@ -4090,11 +4090,23 @@ class ApiService {
   async finalizarTiempoTrabajo(idRegistro: number, horaFin?: string, descripcion?: string): Promise<ApiResponse<number>> {
     if (supabase) {
       try {
-        const { data: result, error } = await supabase.rpc('finalizar_tiempo_trabajo', {
-          p_id_registro: idRegistro,
-          p_hora_fin: horaFin || null,
-          p_descripcion: descripcion || null
-        })
+        // Construir parámetros dinámicamente - no pasar p_hora_fin si no está definido
+        // para que use el valor por defecto (CURRENT_TIME) en la función SQL
+        const rpcParams: any = {
+          p_id_registro: idRegistro
+        }
+        
+        // Solo agregar p_hora_fin si está definido
+        if (horaFin) {
+          rpcParams.p_hora_fin = horaFin
+        }
+        
+        // Solo agregar p_descripcion si está definido
+        if (descripcion) {
+          rpcParams.p_descripcion = descripcion
+        }
+        
+        const { data: result, error } = await supabase.rpc('finalizar_tiempo_trabajo', rpcParams)
 
         if (error) {
           console.error('Error finalizando tiempo de trabajo:', error)

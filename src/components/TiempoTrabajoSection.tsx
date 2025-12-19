@@ -174,7 +174,7 @@ const TiempoTrabajoSection = ({ ordenId, onTiempoActualizado }: TiempoTrabajoSec
           <div className="registro-activo">
             <div className="activo-info">
               <span className="activo-indicator">●</span>
-              <span>Registro activo desde {registroActivo.hora_inicio}</span>
+              <span>Registro activo desde {registroActivo.hora_inicio} por {registroActivo.usuario_nombre || 'Usuario'}</span>
             </div>
             <button
               className="btn-finalizar"
