@@ -14,6 +14,7 @@ SECURITY DEFINER
 AS $$
 DECLARE
   table_exists boolean;
+  query_result record;
 BEGIN
   -- Verificar si la tabla usuario_sectores existe
   SELECT EXISTS (
@@ -22,16 +23,24 @@ BEGIN
       AND table_name = 'usuario_sectores'
   ) INTO table_exists;
   
-  -- Si la tabla existe, intentar usarla
+  -- Si la tabla existe, intentar usarla con SQL dinámico
   IF table_exists THEN
     BEGIN
-      RETURN QUERY
-      SELECT DISTINCT u.id AS user_id, u.nombre AS user_nombre
-      FROM public.usuarios u
-      INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
-      INNER JOIN public.sectores s ON us.sector_id = s.id
-      WHERE s.nombre = sector_nombre
-      ORDER BY u.nombre;
+      -- Usar SQL dinámico para evitar errores de compilación si la tabla no existe
+      FOR query_result IN
+        EXECUTE '
+          SELECT DISTINCT u.id AS user_id, u.nombre::text AS user_nombre
+          FROM public.usuarios u
+          INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
+          INNER JOIN public.sectores s ON us.sector_id = s.id
+          WHERE s.nombre = $1
+          ORDER BY u.nombre
+        ' USING sector_nombre
+      LOOP
+        user_id := query_result.user_id;
+        user_nombre := query_result.user_nombre;
+        RETURN NEXT;
+      END LOOP;
     EXCEPTION WHEN OTHERS THEN
       -- Si hay error (tabla no existe o no tiene datos), usar fallback
       RAISE WARNING 'Error usando usuario_sectores, usando fallback: %', SQLERRM;
@@ -42,7 +51,7 @@ BEGIN
   -- Fallback: mapeo de sectores a roles (si la tabla no existe o hubo error)
   IF NOT table_exists THEN
     RETURN QUERY
-    SELECT u.id AS user_id, u.nombre AS user_nombre
+    SELECT u.id::integer AS user_id, u.nombre::text AS user_nombre
     FROM public.usuarios u
     WHERE 
       -- Mapeo de sectores a roles
