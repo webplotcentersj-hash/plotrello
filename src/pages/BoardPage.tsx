@@ -70,6 +70,7 @@ const BoardPage = ({
   onNavigateToDiseno,
   onNavigateToRecursosHumanos,
   onNavigateToClientesWeb,
+  onNavigateToAsesorPresupuestos,
   onLogout,
   onReloadData,
   isSyncing,
