@@ -196,7 +196,7 @@
 
 .registro-header {
   display: grid;
-  grid-template-columns: 100px 120px 100px 100px 100px 100px minmax(120px, 1fr);
+  grid-template-columns: 100px 120px 100px 100px 100px 100px minmax(150px, auto);
   gap: 12px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.05);
@@ -208,7 +208,7 @@
 
 .registro-item {
   display: grid;
-  grid-template-columns: 100px 120px 100px 100px 100px 100px minmax(120px, 1fr);
+  grid-template-columns: 100px 120px 100px 100px 100px 100px minmax(150px, auto);
   gap: 12px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.03);
@@ -216,7 +216,6 @@
   border-left: 3px solid transparent;
   font-size: 0.875rem;
   color: var(--text-secondary);
-  overflow: hidden;
 }
 
 .registro-item.activo {
@@ -227,12 +226,15 @@
 .registro-item span {
   display: flex;
   align-items: center;
-  overflow: hidden;
+}
+
+.registro-item span:last-of-type {
+  justify-content: flex-start;
   min-width: 0;
 }
 
 .tipo-badge {
-  padding: 4px 8px;
+  padding: 4px 10px;
   background: rgba(249, 115, 22, 0.2);
   color: #f97316;
   border-radius: 12px;
@@ -240,10 +242,10 @@
   font-weight: 600;
   text-transform: capitalize;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: fit-content;
 }
 
 .registro-descripcion {
