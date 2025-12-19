@@ -30,14 +30,37 @@ RETURNS TABLE (user_id integer, user_nombre text)
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  table_exists boolean;
 BEGIN
-  RETURN QUERY
-  SELECT DISTINCT u.id, u.nombre
-  FROM public.usuarios u
-  INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
-  INNER JOIN public.sectores s ON us.sector_id = s.id
-  WHERE s.nombre = sector_nombre
-  ORDER BY u.nombre;
+  -- Verificar si la tabla usuario_sectores existe
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'usuario_sectores'
+  ) INTO table_exists;
+  
+  -- Si la tabla existe, intentar usarla con SQL dinámico
+  IF table_exists THEN
+    BEGIN
+      RETURN QUERY
+      EXECUTE '
+        SELECT DISTINCT u.id::integer AS user_id, u.nombre::text AS user_nombre
+        FROM public.usuarios u
+        INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
+        INNER JOIN public.sectores s ON us.sector_id = s.id
+        WHERE s.nombre = $1
+        ORDER BY u.nombre
+      ' USING sector_nombre;
+    EXCEPTION WHEN OTHERS THEN
+      -- Si hay error, retornar vacío (la tabla no existe o hay problema)
+      RAISE WARNING 'Error usando usuario_sectores en get_users_by_sector_name: %', SQLERRM;
+      RETURN;
+    END;
+  ELSE
+    -- Si la tabla no existe, retornar vacío
+    RETURN;
+  END IF;
 END;
 $$;
 

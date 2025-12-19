@@ -79,73 +79,92 @@ DECLARE
   user_record record;
   notification_count integer := 0;
 BEGIN
-  -- Si hay un sector asignado, notificar a todos los usuarios de ese sector
-  IF NEW.sector IS NOT NULL AND trim(NEW.sector) != '' THEN
-    FOR user_record IN 
-      SELECT * FROM public.get_users_by_sector(NEW.sector)
-    LOOP
+  -- Envolver toda la lógica en un bloque de excepción para que no falle la inserción
+  BEGIN
+    -- Si hay un sector asignado, notificar a todos los usuarios de ese sector
+    IF NEW.sector IS NOT NULL AND trim(NEW.sector) != '' THEN
       BEGIN
-        INSERT INTO public.user_notifications (
-          user_id, title, description, type, orden_id, is_read
-        ) VALUES (
-          user_record.user_id,
-          '📋 Nueva orden en tu sector',
-          format('Se creó la orden #%s (%s) en el sector "%s"', 
-            NEW.numero_op, NEW.cliente, NEW.sector),
-          'success',
-          NEW.id,
-          false
-        );
-        notification_count := notification_count + 1;
-      EXCEPTION WHEN OTHERS THEN
-        RAISE WARNING 'Error creando notificación para usuario % (sector %): %', 
-          user_record.user_nombre, NEW.sector, SQLERRM;
-      END;
-    END LOOP;
-    
-    IF notification_count > 0 THEN
-      RAISE NOTICE '✅ Notificaciones enviadas a % usuarios del sector "%s"', notification_count, NEW.sector;
-    ELSE
-      RAISE NOTICE '⚠️ No se encontraron usuarios para el sector "%s"', NEW.sector;
-    END IF;
-  END IF;
-  
-  -- También notificar al operario asignado específicamente (si es diferente de los usuarios del sector)
-  IF NEW.operario_asignado IS NOT NULL AND trim(NEW.operario_asignado) != '' THEN
-    DECLARE
-      user_id_destino integer;
-      already_notified boolean := false;
-    BEGIN
-      -- Verificar si ya fue notificado como parte del sector
-      SELECT EXISTS (
-        SELECT 1 FROM public.get_users_by_sector(NEW.sector) g
-        WHERE g.user_nombre = NEW.operario_asignado
-      ) INTO already_notified;
-      
-      -- Si no fue notificado como parte del sector, notificar específicamente
-      IF NOT already_notified THEN
-        user_id_destino := public.get_user_id_from_nombre(NEW.operario_asignado);
-        
-        IF user_id_destino IS NOT NULL THEN
+        FOR user_record IN 
+          SELECT * FROM public.get_users_by_sector(NEW.sector)
+        LOOP
           BEGIN
             INSERT INTO public.user_notifications (
               user_id, title, description, type, orden_id, is_read
             ) VALUES (
-              user_id_destino,
-              'Nueva orden asignada',
-              format('Te asignaron la orden #%s: %s', NEW.numero_op, NEW.cliente),
+              user_record.user_id,
+              '📋 Nueva orden en tu sector',
+              format('Se creó la orden #%s (%s) en el sector "%s"', 
+                NEW.numero_op, NEW.cliente, NEW.sector),
               'success',
               NEW.id,
               false
             );
+            notification_count := notification_count + 1;
           EXCEPTION WHEN OTHERS THEN
-            RAISE WARNING 'Error creando notificación para operario asignado: %', SQLERRM;
+            RAISE WARNING 'Error creando notificación para usuario % (sector %): %', 
+              user_record.user_nombre, NEW.sector, SQLERRM;
           END;
-        END IF;
+        END LOOP;
+      EXCEPTION WHEN OTHERS THEN
+        -- Si get_users_by_sector falla, solo registrar el warning y continuar
+        RAISE WARNING 'Error obteniendo usuarios del sector "%s" para notificaciones: %', NEW.sector, SQLERRM;
+      END;
+      
+      IF notification_count > 0 THEN
+        RAISE NOTICE '✅ Notificaciones enviadas a % usuarios del sector "%s"', notification_count, NEW.sector;
       END IF;
-    END;
-  END IF;
+    END IF;
+    
+    -- También notificar al operario asignado específicamente (si es diferente de los usuarios del sector)
+    IF NEW.operario_asignado IS NOT NULL AND trim(NEW.operario_asignado) != '' THEN
+      BEGIN
+        DECLARE
+          user_id_destino integer;
+          already_notified boolean := false;
+        BEGIN
+          -- Verificar si ya fue notificado como parte del sector
+          BEGIN
+            SELECT EXISTS (
+              SELECT 1 FROM public.get_users_by_sector(NEW.sector) g
+              WHERE g.user_nombre = NEW.operario_asignado
+            ) INTO already_notified;
+          EXCEPTION WHEN OTHERS THEN
+            -- Si falla, asumir que no fue notificado
+            already_notified := false;
+          END;
+          
+          -- Si no fue notificado como parte del sector, notificar específicamente
+          IF NOT already_notified THEN
+            user_id_destino := public.get_user_id_from_nombre(NEW.operario_asignado);
+            
+            IF user_id_destino IS NOT NULL THEN
+              BEGIN
+                INSERT INTO public.user_notifications (
+                  user_id, title, description, type, orden_id, is_read
+                ) VALUES (
+                  user_id_destino,
+                  'Nueva orden asignada',
+                  format('Te asignaron la orden #%s: %s', NEW.numero_op, NEW.cliente),
+                  'success',
+                  NEW.id,
+                  false
+                );
+              EXCEPTION WHEN OTHERS THEN
+                RAISE WARNING 'Error creando notificación para operario asignado: %', SQLERRM;
+              END;
+            END IF;
+          END IF;
+        END;
+      EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'Error en lógica de notificación para operario asignado: %', SQLERRM;
+      END;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- Si hay un error crítico, solo registrar el warning pero NO fallar la inserción
+    RAISE WARNING 'Error en trigger notify_new_orden (no se bloquea la inserción): %', SQLERRM;
+  END;
   
+  -- Siempre retornar NEW para que la inserción continúe
   RETURN NEW;
 END;
 $$;
