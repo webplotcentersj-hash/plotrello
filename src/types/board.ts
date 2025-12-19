@@ -9,6 +9,8 @@ export type TaskStatus =
   | 'metalurgica'
   | 'finalizado-taller'
   | 'almacen-entrega'
+  | 'asesor-tecnico'
+  | 'presupuestos'
 export type Priority = 'alta' | 'media' | 'baja'
 
 export interface TeamMember {

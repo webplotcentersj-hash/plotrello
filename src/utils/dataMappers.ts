@@ -11,7 +11,9 @@ const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   instalaciones: 'Instalaciones',
   metalurgica: 'Metalúrgica',
   'finalizado-taller': 'Finalizado en Taller',
-  'almacen-entrega': 'Almacén de Entrega'
+  'almacen-entrega': 'Almacén de Entrega',
+  'asesor-tecnico': 'Asesor Técnico',
+  presupuestos: 'Presupuestos'
 }
 
 const ESTADO_TO_STATUS: Record<string, TaskStatus> = Object.entries(STATUS_TO_ESTADO).reduce(
@@ -58,7 +60,9 @@ const STATUS_TO_PROGRESS: Record<TaskStatus, number> = {
   'instalaciones': 60,
   'metalurgica': 60,
   'finalizado-taller': 80,
-  'almacen-entrega': 90
+  'almacen-entrega': 90,
+  'asesor-tecnico': 15,
+  presupuestos: 25
 }
 
 // Función para calcular el progreso basado en el estado
@@ -303,11 +307,17 @@ export const tareaToTask = (tarea: TareaRecord, orden: OrdenTrabajo): Task => {
     if (!sector) return 'diseno-grafico'
     const sectorMap: Record<string, TaskStatus> = {
       'Diseño Gráfico': 'diseno-grafico',
+      'Diseño en Proceso': 'diseno-proceso',
+      'En Espera': 'en-espera',
       'Taller de Imprenta': 'taller-imprenta',
       'Taller Gráfico': 'taller-grafico',
       'Instalaciones': 'instalaciones',
       'Metalúrgica': 'metalurgica',
       'Imprenta (Área de Impresión)': 'imprenta',
+      'Finalizado en Taller': 'finalizado-taller',
+      'Almacén de Entrega': 'almacen-entrega',
+      'Asesor Técnico': 'asesor-tecnico',
+      'Presupuestos': 'presupuestos',
       'Mostrador': 'diseno-grafico',
       'Caja': 'diseno-grafico'
     }

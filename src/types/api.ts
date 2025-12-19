@@ -144,6 +144,8 @@ export type UserRole =
   | 'caja'
   | 'mostrador'
   | 'compras'
+  | 'asesor-tecnico'
+  | 'presupuestos'
 
 export interface UsuarioRecord {
   id: number
