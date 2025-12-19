@@ -13,7 +13,8 @@ const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   'finalizado-taller': 'Finalizado en Taller',
   'almacen-entrega': 'Almacén de Entrega',
   'asesor-tecnico': 'Asesor Técnico',
-  presupuestos: 'Presupuestos'
+  presupuestos: 'Presupuestos',
+  'finalizado-asesor-presupuestos': 'Finalizado'
 }
 
 const ESTADO_TO_STATUS: Record<string, TaskStatus> = Object.entries(STATUS_TO_ESTADO).reduce(
