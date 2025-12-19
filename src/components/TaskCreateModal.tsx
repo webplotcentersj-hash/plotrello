@@ -561,25 +561,32 @@ const TaskCreateModal = ({
     setMaterials(materials.filter((_, i) => i !== index))
   }
 
-  // Cargar etiquetas disponibles al montar el componente
+  // Cargar etiquetas disponibles al montar el componente (precarga rápida)
   useEffect(() => {
+    let cancelled = false
     const loadEtiquetasDisponibles = async () => {
       try {
         const response = await apiService.getEtiquetasDisponibles()
-        if (response.success && response.data) {
+        if (!cancelled && response.success && response.data) {
           setEtiquetasDisponibles(response.data)
           // Crear mapa de colores
           const colorsMap = new Map<string, string>()
           response.data.forEach(etiqueta => {
-            colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
+            colorsMap.set(etiqueta.nombre.toLowerCase(), etiqueta.color || '#6B7280')
           })
           setTagColors(colorsMap)
         }
       } catch (error) {
-        console.error('Error cargando etiquetas disponibles:', error)
+        if (!cancelled) {
+          console.error('Error cargando etiquetas disponibles:', error)
+        }
       }
     }
+    // Cargar inmediatamente sin delay
     loadEtiquetasDisponibles()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Filtrar sugerencias basadas en el input
@@ -603,55 +610,99 @@ const TaskCreateModal = ({
     if (!value) return
     if (tags.includes(value)) return
     
-    // Guardar etiqueta en la base de datos
-    try {
-      await apiService.guardarEtiquetaDisponible(value)
-      
-      // Recargar etiquetas disponibles para obtener el color asignado
-      const response = await apiService.getEtiquetasDisponibles()
-      if (response.success && response.data) {
-        setEtiquetasDisponibles(response.data)
-        // Actualizar mapa de colores
-        const colorsMap = new Map<string, string>()
-        response.data.forEach(etiqueta => {
-          colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
-        })
-        setTagColors(colorsMap)
-      }
-    } catch (error) {
-      console.error('Error guardando etiqueta:', error)
-    }
-    
+    // Agregar inmediatamente a la UI para respuesta rápida
     setTags((prev) => [...prev, value])
     setTagInput('')
     setIsTagDropdownOpen(false)
+    
+    // Obtener color de la etiqueta (puede ser nueva o existente)
+    const etiquetaExistente = etiquetasDisponibles.find(
+      e => e.nombre.toLowerCase() === value.toLowerCase()
+    )
+    
+    if (etiquetaExistente) {
+      // Si ya existe, usar su color
+      setTagColors(prev => {
+        const newMap = new Map(prev)
+        newMap.set(value.toLowerCase(), etiquetaExistente.color || '#6B7280')
+        return newMap
+      })
+    } else {
+      // Si es nueva, obtener color después de guardar
+      try {
+        await apiService.guardarEtiquetaDisponible(value)
+        const colorResponse = await apiService.obtenerColorEtiqueta(value)
+        const color = colorResponse.success && colorResponse.data ? colorResponse.data : '#6B7280'
+        setTagColors(prev => {
+          const newMap = new Map(prev)
+          newMap.set(value.toLowerCase(), color)
+          return newMap
+        })
+        // Actualizar lista de etiquetas disponibles
+        setEtiquetasDisponibles(prev => [
+          ...prev,
+          { nombre: value.toLowerCase(), veces_usada: 1, color: color }
+        ])
+      } catch (error) {
+        console.error('Error guardando etiqueta:', error)
+        // Usar color por defecto si falla
+        setTagColors(prev => {
+          const newMap = new Map(prev)
+          newMap.set(value.toLowerCase(), '#6B7280')
+          return newMap
+        })
+      }
+    }
   }
 
   const handleSelectTagSuggestion = async (suggestion: string) => {
     if (tags.includes(suggestion)) return
     
-    // Guardar etiqueta en la base de datos
-    try {
-      await apiService.guardarEtiquetaDisponible(suggestion)
-      
-      // Recargar etiquetas disponibles para obtener el color asignado
-      const response = await apiService.getEtiquetasDisponibles()
-      if (response.success && response.data) {
-        setEtiquetasDisponibles(response.data)
-        // Actualizar mapa de colores
-        const colorsMap = new Map<string, string>()
-        response.data.forEach(etiqueta => {
-          colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
-        })
-        setTagColors(colorsMap)
-      }
-    } catch (error) {
-      console.error('Error guardando etiqueta:', error)
-    }
-    
+    // Agregar inmediatamente a la UI para respuesta rápida
     setTags((prev) => [...prev, suggestion])
     setTagInput('')
     setIsTagDropdownOpen(false)
+    
+    // Obtener color de la etiqueta existente
+    const etiquetaExistente = etiquetasDisponibles.find(
+      e => e.nombre.toLowerCase() === suggestion.toLowerCase()
+    )
+    
+    if (etiquetaExistente) {
+      // Usar color existente inmediatamente
+      setTagColors(prev => {
+        const newMap = new Map(prev)
+        newMap.set(suggestion.toLowerCase(), etiquetaExistente.color || '#6B7280')
+        return newMap
+      })
+      // Incrementar contador de uso en background
+      apiService.guardarEtiquetaDisponible(suggestion).catch(err => 
+        console.error('Error actualizando uso de etiqueta:', err)
+      )
+    } else {
+      // Si no existe, obtener color después de guardar
+      try {
+        await apiService.guardarEtiquetaDisponible(suggestion)
+        const colorResponse = await apiService.obtenerColorEtiqueta(suggestion)
+        const color = colorResponse.success && colorResponse.data ? colorResponse.data : '#6B7280'
+        setTagColors(prev => {
+          const newMap = new Map(prev)
+          newMap.set(suggestion.toLowerCase(), color)
+          return newMap
+        })
+        setEtiquetasDisponibles(prev => [
+          ...prev,
+          { nombre: suggestion.toLowerCase(), veces_usada: 1, color: color }
+        ])
+      } catch (error) {
+        console.error('Error guardando etiqueta:', error)
+        setTagColors(prev => {
+          const newMap = new Map(prev)
+          newMap.set(suggestion.toLowerCase(), '#6B7280')
+          return newMap
+        })
+      }
+    }
   }
 
   const handleRemoveTag = (value: string) => {

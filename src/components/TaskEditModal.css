@@ -268,30 +268,67 @@
 }
 
 .tag.selected {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  border: 1px solid var(--surface-border);
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 2px solid;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 
+              0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+              0 1px 2px rgba(255, 255, 255, 0.2) inset;
+  transition: all 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.02em;
+  position: relative;
+  overflow: hidden;
+}
+
+.tag.selected::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.tag.selected:hover::before {
+  left: 100%;
+}
+
+.tag.selected:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 
+              0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+              0 2px 4px rgba(255, 255, 255, 0.25) inset;
 }
 
 .tag.selected button {
-  background: none;
+  background: rgba(0, 0, 0, 0.2);
   border: none;
-  color: var(--text-muted);
+  color: #ffffff;
   cursor: pointer;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   line-height: 1;
-  padding: 0;
-  width: 18px;
-  height: 18px;
+  padding: 2px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  margin-left: 4px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .tag.selected button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
 }
 
 .materials-list {

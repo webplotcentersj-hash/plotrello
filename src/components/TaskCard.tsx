@@ -388,9 +388,10 @@ const TaskCard = ({
                       className="task-tag"
                       style={{
                         background: color,
-                        border: `1px solid ${color}`,
+                        border: `2px solid ${color}`,
                         color: '#ffffff',
-                        fontWeight: '600'
+                        fontWeight: '600',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
                       }}
                     >
                       {tag}
@@ -623,9 +624,10 @@ const TaskCard = ({
                       className="task-tag"
                       style={{
                         background: color,
-                        border: `1px solid ${color}`,
+                        border: `2px solid ${color}`,
                         color: '#ffffff',
-                        fontWeight: '600'
+                        fontWeight: '600',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
                       }}
                     >
                       {tag}
