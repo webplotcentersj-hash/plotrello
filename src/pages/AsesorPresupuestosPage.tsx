@@ -11,8 +11,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import {
   parseTaskIdToOrdenId,
-  taskToOrdenPayload,
-  mapStatusToEstado
+  taskToOrdenPayload
 } from '../utils/dataMappers'
 import './AsesorPresupuestosPage.css'
 
@@ -35,9 +34,7 @@ type AsesorPresupuestosPageProps = {
 
 const AsesorPresupuestosPage = ({
   tasks,
-  setTasks,
   activity,
-  setActivity,
   teamMembers,
   sectores,
   materialesCatalog,
@@ -45,11 +42,9 @@ const AsesorPresupuestosPage = ({
   onNavigateToUsuarios,
   onNavigateToChat,
   onLogout,
-  onReloadData,
-  isSyncing,
-  syncError
+  onReloadData
 }: AsesorPresupuestosPageProps) => {
-  const { usuario, isAdmin, isAsesorTecnico, isPresupuestos } = useAuth()
+  const { isAdmin, isAsesorTecnico, isPresupuestos } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')

@@ -697,6 +697,23 @@ function AppRoutes({
         element={<DisenoDashboardPage />}
       />
       <Route
+        path="/asesor-presupuestos"
+        element={
+          <AsesorPresupuestosPage
+            tasks={tasks}
+            activity={activity}
+            teamMembers={teamMembers}
+            sectores={sectores}
+            materialesCatalog={materiales}
+            onNavigateToStats={() => navigate('/statistics')}
+            onNavigateToUsuarios={() => navigate('/usuarios')}
+            onNavigateToChat={() => navigate('/chat')}
+            onLogout={onLogout}
+            onReloadData={onReloadData}
+          />
+        }
+      />
+      <Route
         path="/galeria"
         element={<GaleriaTrabajosPage />}
       />

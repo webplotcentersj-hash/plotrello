@@ -40,7 +40,10 @@ const Board = ({
     instalaciones: null,
     metalurgica: null,
     'finalizado-taller': null,
-    'almacen-entrega': null
+    'almacen-entrega': null,
+    'asesor-tecnico': null,
+    presupuestos: null,
+    'finalizado-asesor-presupuestos': null
   })
 
   const groupedByStatus = useMemo(() => {
