@@ -29,12 +29,19 @@ const RevisionesSection = ({ ordenId, estadoRevisionActual, onEstadoCambiado }: 
   const loadRevisiones = async () => {
     setLoading(true)
     try {
+      console.log('🔄 Cargando revisiones para orden:', ordenId)
       const response = await apiService.obtenerRevisionesOrden(ordenId)
+      console.log('📊 Respuesta de revisiones:', response)
       if (response.success && response.data) {
         setRevisiones(response.data)
+        console.log('✅ Revisiones cargadas:', response.data.length)
+      } else {
+        console.error('❌ Error cargando revisiones:', response.error)
+        setRevisiones([])
       }
     } catch (error) {
-      console.error('Error cargando revisiones:', error)
+      console.error('❌ Error cargando revisiones:', error)
+      setRevisiones([])
     } finally {
       setLoading(false)
     }
@@ -56,13 +63,25 @@ const RevisionesSection = ({ ordenId, estadoRevisionActual, onEstadoCambiado }: 
   }
 
   const handleSolicitarRevision = async () => {
-    if (!revisorSeleccionado || !usuario) return
+    if (!revisorSeleccionado || !usuario) {
+      alert('Debes seleccionar un revisor')
+      return
+    }
 
     const revisor = usuarios.find(u => u.id === revisorSeleccionado)
-    if (!revisor) return
+    if (!revisor) {
+      alert('Revisor no encontrado')
+      return
+    }
 
     setLoading(true)
     try {
+      console.log('🔄 Solicitando revisión:', {
+        ordenId,
+        revisorId: revisorSeleccionado,
+        revisorNombre: revisor.nombre
+      })
+      
       const response = await apiService.solicitarRevisionOrden({
         id_orden: ordenId,
         usuario_revisor_id: revisorSeleccionado,
@@ -70,18 +89,22 @@ const RevisionesSection = ({ ordenId, estadoRevisionActual, onEstadoCambiado }: 
         comentarios: comentariosSolicitud.trim() || undefined
       })
 
+      console.log('📊 Respuesta solicitar revisión:', response)
+
       if (response.success) {
         setMostrarFormulario(false)
         setComentariosSolicitud('')
         setRevisorSeleccionado(null)
         await loadRevisiones()
         onEstadoCambiado?.()
+        alert('✅ Revisión solicitada correctamente')
       } else {
-        alert(`Error: ${response.error}`)
+        console.error('❌ Error solicitando revisión:', response.error)
+        alert(`Error: ${response.error || 'Error desconocido'}`)
       }
     } catch (error) {
-      console.error('Error solicitando revisión:', error)
-      alert('Error al solicitar revisión')
+      console.error('❌ Error solicitando revisión:', error)
+      alert(`Error al solicitar revisión: ${error instanceof Error ? error.message : 'Error desconocido'}`)
     } finally {
       setLoading(false)
     }
@@ -90,17 +113,22 @@ const RevisionesSection = ({ ordenId, estadoRevisionActual, onEstadoCambiado }: 
   const handleAprobar = async (idRevision: number) => {
     setLoading(true)
     try {
+      console.log('🔄 Aprobando revisión:', idRevision)
       const response = await apiService.aprobarRevisionOrden(idRevision, comentariosAprobacion.trim() || undefined)
+      console.log('📊 Respuesta aprobar revisión:', response)
+      
       if (response.success) {
         setComentariosAprobacion('')
         await loadRevisiones()
         onEstadoCambiado?.()
+        alert('✅ Revisión aprobada correctamente')
       } else {
-        alert(`Error: ${response.error}`)
+        console.error('❌ Error aprobando revisión:', response.error)
+        alert(`Error: ${response.error || 'Error desconocido'}`)
       }
     } catch (error) {
-      console.error('Error aprobando:', error)
-      alert('Error al aprobar revisión')
+      console.error('❌ Error aprobando:', error)
+      alert(`Error al aprobar revisión: ${error instanceof Error ? error.message : 'Error desconocido'}`)
     } finally {
       setLoading(false)
     }
@@ -114,17 +142,22 @@ const RevisionesSection = ({ ordenId, estadoRevisionActual, onEstadoCambiado }: 
 
     setLoading(true)
     try {
+      console.log('🔄 Rechazando revisión:', idRevision)
       const response = await apiService.rechazarRevisionOrden(idRevision, comentariosRechazo.trim())
+      console.log('📊 Respuesta rechazar revisión:', response)
+      
       if (response.success) {
         setComentariosRechazo('')
         await loadRevisiones()
         onEstadoCambiado?.()
+        alert('✅ Revisión rechazada correctamente')
       } else {
-        alert(`Error: ${response.error}`)
+        console.error('❌ Error rechazando revisión:', response.error)
+        alert(`Error: ${response.error || 'Error desconocido'}`)
       }
     } catch (error) {
-      console.error('Error rechazando:', error)
-      alert('Error al rechazar revisión')
+      console.error('❌ Error rechazando:', error)
+      alert(`Error al rechazar revisión: ${error instanceof Error ? error.message : 'Error desconocido'}`)
     } finally {
       setLoading(false)
     }
