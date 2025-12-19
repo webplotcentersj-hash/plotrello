@@ -99,7 +99,8 @@ const TaskCreateModal = ({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
-  const [etiquetasDisponibles, setEtiquetasDisponibles] = useState<Array<{ nombre: string; veces_usada: number }>>([])
+  const [etiquetasDisponibles, setEtiquetasDisponibles] = useState<Array<{ nombre: string; veces_usada: number; color: string }>>([])
+  const [tagColors, setTagColors] = useState<Map<string, string>>(new Map())
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([])
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false)
@@ -567,6 +568,12 @@ const TaskCreateModal = ({
         const response = await apiService.getEtiquetasDisponibles()
         if (response.success && response.data) {
           setEtiquetasDisponibles(response.data)
+          // Crear mapa de colores
+          const colorsMap = new Map<string, string>()
+          response.data.forEach(etiqueta => {
+            colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
+          })
+          setTagColors(colorsMap)
         }
       } catch (error) {
         console.error('Error cargando etiquetas disponibles:', error)
@@ -599,17 +606,17 @@ const TaskCreateModal = ({
     // Guardar etiqueta en la base de datos
     try {
       await apiService.guardarEtiquetaDisponible(value)
-      // Actualizar la lista local
-      const existingIndex = etiquetasDisponibles.findIndex(e => e.nombre.toLowerCase() === value.toLowerCase())
-      if (existingIndex >= 0) {
-        const updated = [...etiquetasDisponibles]
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          veces_usada: updated[existingIndex].veces_usada + 1
-        }
-        setEtiquetasDisponibles(updated)
-      } else {
-        setEtiquetasDisponibles([...etiquetasDisponibles, { nombre: value.toLowerCase(), veces_usada: 1 }])
+      
+      // Recargar etiquetas disponibles para obtener el color asignado
+      const response = await apiService.getEtiquetasDisponibles()
+      if (response.success && response.data) {
+        setEtiquetasDisponibles(response.data)
+        // Actualizar mapa de colores
+        const colorsMap = new Map<string, string>()
+        response.data.forEach(etiqueta => {
+          colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
+        })
+        setTagColors(colorsMap)
       }
     } catch (error) {
       console.error('Error guardando etiqueta:', error)
@@ -626,17 +633,17 @@ const TaskCreateModal = ({
     // Guardar etiqueta en la base de datos
     try {
       await apiService.guardarEtiquetaDisponible(suggestion)
-      // Actualizar la lista local
-      const existingIndex = etiquetasDisponibles.findIndex(e => e.nombre.toLowerCase() === suggestion.toLowerCase())
-      if (existingIndex >= 0) {
-        const updated = [...etiquetasDisponibles]
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          veces_usada: updated[existingIndex].veces_usada + 1
-        }
-        setEtiquetasDisponibles(updated)
-      } else {
-        setEtiquetasDisponibles([...etiquetasDisponibles, { nombre: suggestion.toLowerCase(), veces_usada: 1 }])
+      
+      // Recargar etiquetas disponibles para obtener el color asignado
+      const response = await apiService.getEtiquetasDisponibles()
+      if (response.success && response.data) {
+        setEtiquetasDisponibles(response.data)
+        // Actualizar mapa de colores
+        const colorsMap = new Map<string, string>()
+        response.data.forEach(etiqueta => {
+          colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
+        })
+        setTagColors(colorsMap)
       }
     } catch (error) {
       console.error('Error guardando etiqueta:', error)
@@ -1455,14 +1462,27 @@ const TaskCreateModal = ({
             </div>
             {tags.length > 0 && (
               <div className="selected-tags" style={{ marginTop: '8px' }}>
-                {tags.map((tag) => (
-                  <span key={tag} className="tag selected">
-                    {tag}
-                    <button type="button" onClick={() => handleRemoveTag(tag)}>
-                      ×
-                    </button>
-                  </span>
-                ))}
+                {tags.map((tag) => {
+                  const tagColor = tagColors.get(tag.toLowerCase()) || 
+                    etiquetasDisponibles.find(e => e.nombre.toLowerCase() === tag.toLowerCase())?.color || 
+                    '#6B7280'
+                  return (
+                    <span 
+                      key={tag} 
+                      className="tag selected"
+                      style={{
+                        backgroundColor: tagColor,
+                        borderColor: tagColor,
+                        color: '#ffffff'
+                      }}
+                    >
+                      {tag}
+                      <button type="button" onClick={() => handleRemoveTag(tag)}>
+                        ×
+                      </button>
+                    </span>
+                  )
+                })}
               </div>
             )}
           </div>

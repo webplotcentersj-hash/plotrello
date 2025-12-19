@@ -3765,7 +3765,7 @@ class ApiService {
   }
 
   // ===== ETIQUETAS DISPONIBLES =====
-  async getEtiquetasDisponibles(): Promise<ApiResponse<Array<{ nombre: string; veces_usada: number }>>> {
+  async getEtiquetasDisponibles(): Promise<ApiResponse<Array<{ nombre: string; veces_usada: number; color: string }>>> {
     if (supabase) {
       try {
         const { data, error } = await supabase.rpc('obtener_etiquetas_disponibles')
@@ -3778,6 +3778,30 @@ class ApiService {
         return { success: true, data: data || [] }
       } catch (error) {
         console.error('Excepción obteniendo etiquetas disponibles:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener el color de una etiqueta específica
+   */
+  async obtenerColorEtiqueta(nombre: string): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_color_etiqueta', {
+          p_nombre: nombre.trim()
+        })
+        
+        if (error) {
+          console.error('Error obteniendo color de etiqueta:', error)
+          return { success: false, error: error.message }
+        }
+        
+        return { success: true, data: data || '#6B7280' }
+      } catch (error) {
+        console.error('Excepción obteniendo color de etiqueta:', error)
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
     }
