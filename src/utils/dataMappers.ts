@@ -62,7 +62,8 @@ const STATUS_TO_PROGRESS: Record<TaskStatus, number> = {
   'finalizado-taller': 80,
   'almacen-entrega': 90,
   'asesor-tecnico': 15,
-  presupuestos: 25
+  presupuestos: 25,
+  'finalizado-asesor-presupuestos': 100
 }
 
 // Función para calcular el progreso basado en el estado
@@ -318,6 +319,7 @@ export const tareaToTask = (tarea: TareaRecord, orden: OrdenTrabajo): Task => {
       'Almacén de Entrega': 'almacen-entrega',
       'Asesor Técnico': 'asesor-tecnico',
       'Presupuestos': 'presupuestos',
+      'Finalizado': 'finalizado-asesor-presupuestos',
       'Mostrador': 'diseno-grafico',
       'Caja': 'diseno-grafico'
     }

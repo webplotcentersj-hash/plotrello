@@ -21,6 +21,7 @@ type HeaderProps = {
   onNavigateToDiseno?: () => void
   onNavigateToRecursosHumanos?: () => void
   onNavigateToClientesWeb?: () => void
+  onNavigateToAsesorPresupuestos?: () => void
   onSolicitarProductos?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
@@ -47,17 +48,20 @@ const Header = ({
   onNavigateToDiseno,
   onNavigateToRecursosHumanos,
   onNavigateToClientesWeb,
+  onNavigateToAsesorPresupuestos,
   onSolicitarProductos,
   onOpenChatAI,
   onNavigateToChat,
   onLogout,
-  isAdmin = false,
+  isAdmin: isAdminProp = false,
   isMostrador = false,
   isDiseno = false,
   isCompact = false,
   onToggleCompact
 }: HeaderProps) => {
-  const { canManageCompras, canManageRecursosHumanos } = useAuth()
+  const { canManageCompras, canManageRecursosHumanos, isAdmin: isAdminFromAuth, isAsesorTecnico, isPresupuestos } = useAuth()
+  const isAdmin = isAdminProp || isAdminFromAuth
+  const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
   const today = new Date()
   const movesToday = activity.filter((event) => {
@@ -173,6 +177,11 @@ const Header = ({
             {(isAdmin || isMostrador) && onNavigateToClientesWeb && (
               <button className="brand-button" onClick={onNavigateToClientesWeb}>
                 🌐 Clientes Web
+              </button>
+            )}
+            {canAccessAsesorPresupuestos && onNavigateToAsesorPresupuestos && (
+              <button className="brand-button" onClick={onNavigateToAsesorPresupuestos}>
+                📐 Asesor Técnico / Presupuestos
               </button>
             )}
             {(isDiseno || isAdmin) && (

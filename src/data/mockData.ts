@@ -60,18 +60,6 @@ export const BOARD_COLUMNS: ColumnConfig[] = [
     label: 'Almacén de Entrega',
     description: 'Pedidos embalados esperando retiro/entrega',
     accent: '#a3e635' // lima
-  },
-  {
-    id: 'asesor-tecnico',
-    label: 'Asesor Técnico',
-    description: 'Mediciones y evaluación de factibilidad de proyectos',
-    accent: '#06b6d4' // cyan
-  },
-  {
-    id: 'presupuestos',
-    label: 'Presupuestos',
-    description: 'Cotizaciones y presupuestos de proyectos',
-    accent: '#f59e0b' // amber
   }
 ]
 

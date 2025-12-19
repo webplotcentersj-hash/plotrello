@@ -11,6 +11,7 @@ export type TaskStatus =
   | 'almacen-entrega'
   | 'asesor-tecnico'
   | 'presupuestos'
+  | 'finalizado-asesor-presupuestos'
 export type Priority = 'alta' | 'media' | 'baja'
 
 export interface TeamMember {

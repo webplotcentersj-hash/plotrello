@@ -42,6 +42,7 @@ type BoardPageProps = {
   onNavigateToDiseno?: () => void
   onNavigateToRecursosHumanos?: () => void
   onNavigateToClientesWeb?: () => void
+  onNavigateToAsesorPresupuestos?: () => void
   onLogout?: () => void
   onReloadData?: () => Promise<void>
   isSyncing?: boolean
