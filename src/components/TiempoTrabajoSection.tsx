@@ -15,6 +15,7 @@ const TiempoTrabajoSection = ({ ordenId, onTiempoActualizado }: TiempoTrabajoSec
   const [registroActivo, setRegistroActivo] = useState<RegistroTiempo | null>(null)
   const [loading, setLoading] = useState(false)
   const [mostrarFormularioManual, setMostrarFormularioManual] = useState(false)
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState<string>('00:00:00')
   const [formularioManual, setFormularioManual] = useState({
     fecha: new Date().toISOString().split('T')[0],
     hora_inicio: '',
