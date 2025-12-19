@@ -118,9 +118,9 @@ const FiltersBar = ({
               type="button"
               className="brand-button"
               onClick={onAddNewOrder}
-              title="Agregar Nueva Orden"
+              title="Agregar Ficha"
             >
-              + Agregar Nueva Orden
+              + Agregar Ficha
             </button>
           )}
           {onOpenLibrary && (

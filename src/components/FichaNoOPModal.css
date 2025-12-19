@@ -12,52 +12,59 @@
 }
 
 .ficha-no-op-modal {
-  background: white;
-  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 16px;
   width: 90%;
-  max-width: 600px;
+  max-width: 650px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.2);
 }
 
 .ficha-no-op-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 24px 28px;
+  border-bottom: 2px solid rgba(249, 115, 22, 0.15);
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  border-radius: 16px 16px 0 0;
 }
 
 .ficha-no-op-modal-header h2 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #111827;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .close-button {
-  background: none;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
-  font-size: 28px;
-  color: #6b7280;
+  font-size: 24px;
+  color: #ffffff;
   cursor: pointer;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s;
+  font-weight: 600;
 }
 
 .close-button:hover {
-  background: #f3f4f6;
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
 }
 
 .ficha-no-op-modal-body {
-  padding: 24px;
+  padding: 28px;
+  background: #ffffff;
 }
 
 .form-group {
@@ -66,22 +73,25 @@
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #374151;
-  font-size: 0.875rem;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 0.875rem;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.9rem;
   font-family: inherit;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  background: #ffffff;
+  color: #1f2937;
 }
 
 .form-group input:focus,
@@ -89,6 +99,8 @@
 .form-group select:focus {
   outline: none;
   border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  transform: translateY(-1px);
 }
 
 .form-group textarea {
@@ -103,21 +115,24 @@
 }
 
 .select-file-button {
-  padding: 10px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: white;
-  color: #374151;
+  padding: 12px 20px;
+  border: 2px solid #f97316;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
+  color: #f97316;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 600;
   transition: all 0.2s;
   align-self: flex-start;
+  box-shadow: 0 2px 4px rgba(249, 115, 22, 0.1);
 }
 
 .select-file-button:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border-color: #ea580c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(249, 115, 22, 0.2);
 }
 
 .file-name {
@@ -127,20 +142,23 @@
 }
 
 .upload-button {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 6px;
-  background: #f97316;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
   color: white;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 600;
   align-self: flex-start;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
 }
 
 .upload-button:hover:not(:disabled) {
-  background: #ea580c;
+  background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
 }
 
 .upload-button:disabled {
@@ -161,58 +179,80 @@
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   cursor: pointer;
   user-select: none;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 10px;
+  border: 2px solid #fbbf24;
+  transition: all 0.2s;
+}
+
+.checkbox-label:hover {
+  background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+  border-color: #f59e0b;
+  transform: translateX(4px);
 }
 
 .checkbox-label input[type="checkbox"] {
   width: auto;
   margin: 0;
   cursor: pointer;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  accent-color: #f59e0b;
 }
 
 .checkbox-label span {
-  font-size: 0.875rem;
-  color: #374151;
+  font-size: 0.95rem;
+  color: #78350f;
+  font-weight: 600;
 }
 
 .ficha-no-op-modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid #e5e7eb;
+  padding: 24px 28px;
+  border-top: 2px solid rgba(249, 115, 22, 0.15);
+  background: #fafafa;
+  border-radius: 0 0 16px 16px;
 }
 
 .cancel-button,
 .create-button {
-  padding: 10px 20px;
+  padding: 12px 24px;
   border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 120px;
 }
 
 .cancel-button {
   background: #f3f4f6;
   color: #374151;
+  border: 2px solid #e5e7eb;
 }
 
 .cancel-button:hover {
   background: #e5e7eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .create-button {
-  background: #f97316;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
   color: white;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
 }
 
 .create-button:hover {
-  background: #ea580c;
+  background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
 }
 
