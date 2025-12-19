@@ -5,6 +5,7 @@ import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { useTagColors } from '../hooks/useTagColors'
 import QRPrintView from './QRPrintView'
 import EtapaTallerGraficoSelector from './EtapaTallerGraficoSelector'
 import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
@@ -16,15 +17,6 @@ import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
 import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
-
-const stringToColor = (str: string) => {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const h = hash % 360
-  return `hsl(${h}, 70%, 60%)`
-}
 
 type TaskCardProps = {
   task: Task
@@ -83,6 +75,8 @@ const TaskCard = ({
   activity = [],
   members = []
 }: TaskCardProps) => {
+  const { getTagColor, loadTagColor } = useTagColors()
+  const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
   const [isExpanded, setIsExpanded] = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
   const [showAudit, setShowAudit] = useState(false)
@@ -377,7 +371,17 @@ const TaskCard = ({
             {task.tags.length > 0 && (
               <div className="task-tags">
                 {task.tags.map((tag) => {
-                  const color = stringToColor(tag)
+                  const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
+                  // Cargar color si no está en cache
+                  if (!tagColorsCache.has(tag.toLowerCase())) {
+                    loadTagColor(tag).then(loadedColor => {
+                      setTagColorsCache(prev => {
+                        const newMap = new Map(prev)
+                        newMap.set(tag.toLowerCase(), loadedColor)
+                        return newMap
+                      })
+                    })
+                  }
                   return (
                     <span
                       key={tag}
@@ -602,7 +606,17 @@ const TaskCard = ({
             {task.tags.length > 0 && (
               <div className="task-tags">
                 {task.tags.map((tag) => {
-                  const color = stringToColor(tag)
+                  const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
+                  // Cargar color si no está en cache
+                  if (!tagColorsCache.has(tag.toLowerCase())) {
+                    loadTagColor(tag).then(loadedColor => {
+                      setTagColorsCache(prev => {
+                        const newMap = new Map(prev)
+                        newMap.set(tag.toLowerCase(), loadedColor)
+                        return newMap
+                      })
+                    })
+                  }
                   return (
                     <span
                       key={tag}

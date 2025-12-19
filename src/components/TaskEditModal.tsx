@@ -51,6 +51,10 @@ const TaskEditModal = ({
   const [materialSearch, setMaterialSearch] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [etiquetasDisponibles, setEtiquetasDisponibles] = useState<Array<{ nombre: string; veces_usada: number; color: string }>>([])
+  const [tagColors, setTagColors] = useState<Map<string, string>>(new Map())
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([])
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
   const [sectorSearch, setSectorSearch] = useState('')
   const [briefPublico, setBriefPublico] = useState('')
   const [objetivoProyecto, setObjetivoProyecto] = useState('')
@@ -122,6 +126,10 @@ const TaskEditModal = ({
         setSelectedSectors(task.assignedSector ? [task.assignedSector] : [])
       }
       setTags(task.tags || [])
+      // Cargar colores de las etiquetas existentes
+      if (task.tags && task.tags.length > 0) {
+        loadTagColors(task.tags)
+      }
       setBriefPublico(task.briefPublico || '')
       setObjetivoProyecto(task.objetivoProyecto || '')
       setPublicoObjetivo(task.publicoObjetivo || '')
@@ -312,12 +320,121 @@ const TaskEditModal = ({
     setMaterials(materials.filter((_, i) => i !== index))
   }
 
-  const handleAddTag = () => {
+  // Cargar etiquetas disponibles al montar el componente
+  useEffect(() => {
+    const loadEtiquetasDisponibles = async () => {
+      try {
+        const response = await apiService.getEtiquetasDisponibles()
+        if (response.success && response.data) {
+          setEtiquetasDisponibles(response.data)
+          // Crear mapa de colores
+          const colorsMap = new Map<string, string>()
+          response.data.forEach(etiqueta => {
+            colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
+          })
+          setTagColors(colorsMap)
+        }
+      } catch (error) {
+        console.error('Error cargando etiquetas disponibles:', error)
+      }
+    }
+    loadEtiquetasDisponibles()
+  }, [])
+
+  // Cargar colores de etiquetas específicas
+  const loadTagColors = async (tagNames: string[]) => {
+    try {
+      const colorsMap = new Map<string, string>()
+      for (const tagName of tagNames) {
+        const colorResponse = await apiService.obtenerColorEtiqueta(tagName)
+        if (colorResponse.success && colorResponse.data) {
+          colorsMap.set(tagName.toLowerCase(), colorResponse.data)
+        } else {
+          colorsMap.set(tagName.toLowerCase(), '#6B7280')
+        }
+      }
+      setTagColors(prev => {
+        const newMap = new Map(prev)
+        colorsMap.forEach((color, tag) => {
+          newMap.set(tag, color)
+        })
+        return newMap
+      })
+    } catch (error) {
+      console.error('Error cargando colores de etiquetas:', error)
+    }
+  }
+
+  // Filtrar sugerencias basadas en el input
+  useEffect(() => {
+    if (tagInput.trim().length > 0) {
+      const filtered = etiquetasDisponibles
+        .filter(e => e.nombre.toLowerCase().includes(tagInput.toLowerCase()))
+        .map(e => e.nombre)
+        .filter(nombre => !tags.includes(nombre))
+        .slice(0, 5) // Máximo 5 sugerencias
+      setTagSuggestions(filtered)
+      setIsTagDropdownOpen(filtered.length > 0)
+    } else {
+      setTagSuggestions([])
+      setIsTagDropdownOpen(false)
+    }
+  }, [tagInput, etiquetasDisponibles, tags])
+
+  const handleAddTag = async () => {
     const value = tagInput.trim()
     if (!value) return
     if (tags.includes(value)) return
+    
+    // Guardar etiqueta en la base de datos
+    try {
+      await apiService.guardarEtiquetaDisponible(value)
+      
+      // Recargar etiquetas disponibles para obtener el color asignado
+      const response = await apiService.getEtiquetasDisponibles()
+      if (response.success && response.data) {
+        setEtiquetasDisponibles(response.data)
+        // Actualizar mapa de colores
+        const colorsMap = new Map<string, string>()
+        response.data.forEach(etiqueta => {
+          colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
+        })
+        setTagColors(colorsMap)
+      }
+    } catch (error) {
+      console.error('Error guardando etiqueta:', error)
+    }
+    
     setTags((prev) => [...prev, value])
     setTagInput('')
+    setIsTagDropdownOpen(false)
+  }
+
+  const handleSelectTagSuggestion = async (suggestion: string) => {
+    if (tags.includes(suggestion)) return
+    
+    // Guardar etiqueta en la base de datos
+    try {
+      await apiService.guardarEtiquetaDisponible(suggestion)
+      
+      // Recargar etiquetas disponibles para obtener el color asignado
+      const response = await apiService.getEtiquetasDisponibles()
+      if (response.success && response.data) {
+        setEtiquetasDisponibles(response.data)
+        // Actualizar mapa de colores
+        const colorsMap = new Map<string, string>()
+        response.data.forEach(etiqueta => {
+          colorsMap.set(etiqueta.nombre, etiqueta.color || '#6B7280')
+        })
+        setTagColors(colorsMap)
+      }
+    } catch (error) {
+      console.error('Error guardando etiqueta:', error)
+    }
+    
+    setTags((prev) => [...prev, suggestion])
+    setTagInput('')
+    setIsTagDropdownOpen(false)
   }
 
   const handleRemoveTag = (value: string) => {
@@ -812,28 +929,75 @@ const TaskEditModal = ({
                 type="text"
                 placeholder="Ej: Urgente, Cliente VIP..."
                 value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
+                onChange={(e) => {
+                  setTagInput(e.target.value)
+                  setIsTagDropdownOpen(e.target.value.trim().length > 0)
+                }}
+                onFocus={() => {
+                  if (tagInput.trim().length > 0 && tagSuggestions.length > 0) {
+                    setIsTagDropdownOpen(true)
+                  }
+                }}
+                onBlur={() => {
+                  // Delay para permitir click en sugerencias
+                  setTimeout(() => setIsTagDropdownOpen(false), 200)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    handleAddTag()
+                    if (tagSuggestions.length > 0) {
+                      handleSelectTagSuggestion(tagSuggestions[0])
+                    } else {
+                      handleAddTag()
+                    }
+                  } else if (e.key === 'Escape') {
+                    setIsTagDropdownOpen(false)
                   }
                 }}
               />
               <button type="button" className="btn-secondary" onClick={handleAddTag}>
                 + Agregar
               </button>
+              {isTagDropdownOpen && tagSuggestions.length > 0 && (
+                <div className="tag-suggestions-dropdown">
+                  {tagSuggestions.map((suggestion) => (
+                    <div
+                      key={suggestion}
+                      onClick={() => handleSelectTagSuggestion(suggestion)}
+                      onMouseDown={(e) => {
+                        // Prevenir que el blur del input cierre el dropdown
+                        e.preventDefault()
+                      }}
+                    >
+                      {suggestion}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {tags.length > 0 && (
               <div className="selected-tags" style={{ marginTop: '8px' }}>
-                {tags.map((tag) => (
-                  <span key={tag} className="tag selected">
-                    {tag}
-                    <button type="button" onClick={() => handleRemoveTag(tag)}>
-                      ×
-                    </button>
-                  </span>
-                ))}
+                {tags.map((tag) => {
+                  const tagColor = tagColors.get(tag.toLowerCase()) || 
+                    etiquetasDisponibles.find(e => e.nombre.toLowerCase() === tag.toLowerCase())?.color || 
+                    '#6B7280'
+                  return (
+                    <span 
+                      key={tag} 
+                      className="tag selected"
+                      style={{
+                        backgroundColor: tagColor,
+                        borderColor: tagColor,
+                        color: '#ffffff'
+                      }}
+                    >
+                      {tag}
+                      <button type="button" onClick={() => handleRemoveTag(tag)}>
+                        ×
+                      </button>
+                    </span>
+                  )
+                })}
               </div>
             )}
           </div>
