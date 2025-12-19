@@ -95,6 +95,9 @@ export interface Task {
   referenciasLinks?: string | null
   fechaLimiteBrief?: string | null
   esUrgencia?: boolean | null
+  esFichaNoOP?: boolean | null
+  planillaPreliminar?: boolean | null
+  fichaTecnicaPdfUrl?: string | null
 }
 
 export interface Subtask {

@@ -4,6 +4,7 @@ import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
 import TaskEditModal from '../components/TaskEditModal'
 import TaskCreateModal from '../components/TaskCreateModal'
+import FichaNoOPModal from '../components/FichaNoOPModal'
 import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
@@ -46,6 +47,7 @@ const AsesorPresupuestosPage = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isFichaNoOPModalOpen, setIsFichaNoOPModalOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -308,17 +310,14 @@ const AsesorPresupuestosPage = ({
           />
         )}
 
-        {isCreateModalOpen && (
-          <TaskCreateModal
-            teamMembers={teamMembers}
-            onClose={() => setIsCreateModalOpen(false)}
-            onCreate={async (newTask) => {
-              await handleTaskCreate(newTask)
+        {isFichaNoOPModalOpen && (
+          <FichaNoOPModal
+            onClose={() => setIsFichaNoOPModalOpen(false)}
+            onSuccess={() => {
+              if (onReloadData) {
+                onReloadData()
+              }
             }}
-            sectores={sectores.filter(s => 
-              s.nombre === 'Asesor Técnico' || s.nombre === 'Presupuestos'
-            )}
-            materiales={materialesCatalog}
           />
         )}
       </div>

@@ -63,6 +63,9 @@ export interface OrdenTrabajo {
   referencias_links?: string | null // Links o descripción de referencias
   fecha_limite_brief?: string | null // Fecha límite del proyecto
   es_urgencia?: boolean | null // Si es un pedido urgente
+  es_ficha_no_op?: boolean | null // Indica si es una ficha No OP (sin número de OP real)
+  planilla_preliminar?: boolean | null // Indica si es una planilla preliminar
+  ficha_tecnica_pdf_url?: string | null // URL del PDF de la ficha técnica
 }
 
 export interface RevisionOrden {
