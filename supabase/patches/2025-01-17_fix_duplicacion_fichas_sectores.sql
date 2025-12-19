@@ -28,12 +28,17 @@ BEGIN
   -- ⚠️ CRÍTICO: Solo procesar si:
   -- 1. Es un INSERT (no UPDATE) - el trigger ya está configurado así
   -- 2. NO es una ficha duplicada (para evitar que las duplicadas creen más duplicadas)
-  -- 3. Tiene sectores requeridos
-  -- 4. NO está en "Finalizado en Taller"
+  -- 3. Tiene sectores requeridos (más de 1)
   IF NEW.es_duplicado = false 
      AND NEW.sectores IS NOT NULL 
-     AND array_length(NEW.sectores, 1) > 1
-     AND NEW.estado != 'Finalizado en Taller' THEN
+     AND array_length(NEW.sectores, 1) > 1 THEN
+    
+    -- ⚠️ VERIFICACIÓN: Si está en "Finalizado en Taller", NO crear fichas duplicadas
+    -- (ya pasó por todos los sectores y se unificó)
+    IF NEW.estado = 'Finalizado en Taller' THEN
+      RAISE NOTICE '⏭️ OP % creada en "Finalizado en Taller" - NO crear fichas duplicadas (ya unificada)', NEW.numero_op;
+      RETURN NEW;
+    END IF;
     
     -- ⚠️ VERIFICACIÓN ADICIONAL: Verificar que NO hay fichas unificadas para este OP
     -- Si ya hay una ficha unificada (es_duplicado = false y estado = 'Finalizado en Taller'),
@@ -42,7 +47,8 @@ BEGIN
     FROM public.ordenes_trabajo
     WHERE numero_op = NEW.numero_op
       AND es_duplicado = false
-      AND estado = 'Finalizado en Taller';
+      AND estado = 'Finalizado en Taller'
+      AND id != NEW.id;  -- Excluir la ficha actual
     
     IF fichas_existentes > 0 THEN
       RAISE NOTICE '⏭️ OP % ya tiene fichas unificadas - NO crear nuevas fichas', NEW.numero_op;
@@ -56,7 +62,7 @@ BEGIN
     UPDATE public.ordenes_trabajo
     SET 
       sector = sectores_a_crear[1],
-      estado = sectores_a_crear[1],
+      estado = COALESCE(NEW.estado, sectores_a_crear[1]),  -- Mantener estado si existe, sino usar sector
       sector_inicial = sectores_a_crear[1],
       es_duplicado = false
     WHERE id = NEW.id;
@@ -129,6 +135,13 @@ BEGIN
       RAISE NOTICE '✅ Ficha creada para 1 sector: % (ID: %, OP: %)', 
         sectores_a_crear[1], NEW.id, NEW.numero_op;
     END IF;
+  ELSE
+    -- No cumple condiciones: no crear duplicados
+    IF NEW.es_duplicado = true THEN
+      RAISE NOTICE '⏭️ Ficha duplicada - NO crear más duplicados (ID: %, OP: %)', NEW.id, NEW.numero_op;
+    ELSIF NEW.sectores IS NULL OR array_length(NEW.sectores, 1) <= 1 THEN
+      RAISE NOTICE '⏭️ Ficha con 1 o menos sectores - NO crear duplicados (ID: %, OP: %)', NEW.id, NEW.numero_op;
+    END IF;
   END IF;
   
   RETURN NEW;
@@ -171,6 +184,9 @@ END $$;
 
 COMMIT;
 
+-- Comentario actualizado
+COMMENT ON FUNCTION public.crear_fichas_por_sector IS 'Crea fichas duplicadas para cada sector cuando se crea una orden con múltiples sectores. Solo se ejecuta en INSERT y si la ficha no está en "Finalizado en Taller".';
+
 -- ============================================
 -- Verificación
 -- ============================================
@@ -182,6 +198,8 @@ BEGIN
   RAISE NOTICE '   - Verificación mejorada para evitar duplicaciones';
   RAISE NOTICE '   - Solo se crean N fichas para N sectores';
   RAISE NOTICE '   - Verificación por id_orden_original y numero_op + sector';
+  RAISE NOTICE '   - No crea duplicados si la ficha está en "Finalizado en Taller"';
+  RAISE NOTICE '   - Mejor logging para diagnóstico';
   RAISE NOTICE '   - Trigger configurado para ejecutarse solo una vez';
   RAISE NOTICE '========================================';
   RAISE NOTICE '';
