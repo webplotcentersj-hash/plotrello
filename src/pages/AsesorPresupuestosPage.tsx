@@ -17,9 +17,7 @@ import './AsesorPresupuestosPage.css'
 
 type AsesorPresupuestosPageProps = {
   tasks: Task[]
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>
   activity: ActivityEvent[]
-  setActivity: React.Dispatch<React.SetStateAction<ActivityEvent[]>>
   teamMembers: TeamMember[]
   sectores: SectorRecord[]
   materialesCatalog: MaterialRecord[]
@@ -28,8 +26,6 @@ type AsesorPresupuestosPageProps = {
   onNavigateToChat?: () => void
   onLogout?: () => void
   onReloadData?: () => Promise<void>
-  isSyncing?: boolean
-  syncError?: string | null
 }
 
 const AsesorPresupuestosPage = ({
