@@ -4052,14 +4052,26 @@ class ApiService {
   }): Promise<ApiResponse<number>> {
     if (supabase) {
       try {
-        const { data: result, error } = await supabase.rpc('iniciar_tiempo_trabajo', {
+        // Construir parámetros dinámicamente - no pasar p_hora_inicio si no está definido
+        // para que use el valor por defecto (CURRENT_TIME) en la función SQL
+        const rpcParams: any = {
           p_id_orden: data.id_orden,
           p_usuario_id: data.usuario_id,
           p_usuario_nombre: data.usuario_nombre,
-          p_hora_inicio: data.hora_inicio || null,
-          p_descripcion: data.descripcion || null,
           p_tipo_trabajo: data.tipo_trabajo || 'diseno'
-        })
+        }
+        
+        // Solo agregar p_hora_inicio si está definido
+        if (data.hora_inicio) {
+          rpcParams.p_hora_inicio = data.hora_inicio
+        }
+        
+        // Solo agregar p_descripcion si está definido
+        if (data.descripcion) {
+          rpcParams.p_descripcion = data.descripcion
+        }
+        
+        const { data: result, error } = await supabase.rpc('iniciar_tiempo_trabajo', rpcParams)
 
         if (error) {
           console.error('Error iniciando tiempo de trabajo:', error)
