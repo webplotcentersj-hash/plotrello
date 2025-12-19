@@ -181,49 +181,6 @@ const AsesorPresupuestosPage = ({
     }
   }
 
-  const handleTaskCreate = async (newTask: Partial<Task>) => {
-    try {
-      const sectorInicial = 'Asesor Técnico' // Por defecto empieza en Asesor Técnico
-      const taskWithDefaults: Task = {
-        ...newTask,
-        id: 'temp',
-        opNumber: newTask.opNumber || '',
-        title: newTask.title || '',
-        summary: newTask.summary || '',
-        status: 'asesor-tecnico',
-        priority: newTask.priority || 'media',
-        ownerId: newTask.ownerId || '',
-        createdBy: newTask.createdBy || '',
-        tags: newTask.tags || [],
-        materials: newTask.materials || [],
-        assignedSector: sectorInicial,
-        photoUrl: newTask.photoUrl || '',
-        storyPoints: newTask.storyPoints || 0,
-        progress: newTask.progress || 0,
-        createdAt: newTask.createdAt || new Date().toISOString(),
-        dueDate: newTask.dueDate || new Date().toISOString(),
-        updatedAt: newTask.updatedAt || new Date().toISOString(),
-        impact: newTask.impact || 'media'
-      } as Task
-      const payload = taskToOrdenPayload(taskWithDefaults)
-
-      const response = await apiService.createOrden(payload)
-      if (!response.success) {
-        setActionError(response.error || 'Error al crear la orden')
-        return
-      }
-
-      setActionSuccess('Orden creada correctamente')
-      setIsCreateModalOpen(false)
-      if (onReloadData) {
-        await onReloadData()
-      }
-    } catch (error) {
-      console.error('Error creando tarea:', error)
-      setActionError('Error al crear la orden')
-    }
-  }
-
   if (!canAccess) {
     return (
       <div className="asesor-presupuestos-page">
@@ -280,7 +237,7 @@ const AsesorPresupuestosPage = ({
             { id: 'baja', label: 'Baja' }
           ]}
           onPriorityChange={setPriorityFilter}
-          onAddNewOrder={() => setIsCreateModalOpen(true)}
+          onAddNewOrder={() => setIsFichaNoOPModalOpen(true)}
         />
 
         <div className="board-container">
