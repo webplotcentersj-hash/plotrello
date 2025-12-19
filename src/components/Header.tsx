@@ -181,7 +181,7 @@ const Header = ({
             )}
             {canAccessAsesorPresupuestos && onNavigateToAsesorPresupuestos && (
               <button className="brand-button" onClick={onNavigateToAsesorPresupuestos}>
-                📐 Asesor Técnico / Presupuestos
+                📐 DT
               </button>
             )}
             {(isDiseno || isAdmin) && (
