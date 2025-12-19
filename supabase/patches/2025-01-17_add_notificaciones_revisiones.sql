@@ -19,8 +19,8 @@ DECLARE
   v_usuario_solicitante_id integer;
   v_usuario_solicitante_nombre text;
 BEGIN
-  -- Obtener datos de la orden
-  SELECT numero_op, cliente, operario_asignado, nombre_creador
+  -- Obtener datos de la orden (sin restricciones de sector - funciona en todos los sectores)
+  SELECT numero_op, cliente, operario_asignado, nombre_creador, sector
   INTO v_orden_data
   FROM public.ordenes_trabajo
   WHERE id = p_id_orden;
@@ -68,9 +68,10 @@ BEGIN
     ) VALUES (
       p_usuario_revisor_id,
       '📋 Nueva revisión solicitada',
-      format('Se solicitó tu revisión para la orden #%s (%s)%s', 
+      format('Se solicitó tu revisión para la orden #%s (%s) del sector %s%s', 
         v_orden_data.numero_op, 
         v_orden_data.cliente,
+        COALESCE(v_orden_data.sector, 'Sin sector'),
         CASE WHEN p_comentarios IS NOT NULL AND trim(p_comentarios) != '' 
           THEN format(E'\n\nComentarios: %s', p_comentarios)
           ELSE ''
@@ -170,9 +171,10 @@ BEGIN
       ) VALUES (
         v_usuario_notificar_id,
         '✅ Revisión aprobada',
-        format('La orden #%s (%s) fue aprobada por %s%s', 
+        format('La orden #%s (%s) del sector %s fue aprobada por %s%s', 
           v_orden_data.numero_op, 
           v_orden_data.cliente,
+          COALESCE(v_orden_data.sector, 'Sin sector'),
           v_revision_data.usuario_revisor_nombre,
           CASE WHEN p_comentarios IS NOT NULL AND trim(p_comentarios) != '' 
             THEN format(E'\n\nComentarios: %s', p_comentarios)
@@ -194,9 +196,10 @@ BEGIN
     ) VALUES (
       v_revision_data.usuario_revisor_id,
       '✅ Revisión aprobada',
-      format('Aprobaste la revisión de la orden #%s (%s)', 
+      format('Aprobaste la revisión de la orden #%s (%s) del sector %s', 
         v_orden_data.numero_op, 
-        v_orden_data.cliente),
+        v_orden_data.cliente,
+        COALESCE(v_orden_data.sector, 'Sin sector')),
       'success',
       v_id_orden,
       false
@@ -272,9 +275,10 @@ BEGIN
       ) VALUES (
         v_usuario_notificar_id,
         '⚠️ Revisión requiere cambios',
-        format('La orden #%s (%s) requiere cambios según %s\n\nCambios solicitados:\n%s', 
+        format('La orden #%s (%s) del sector %s requiere cambios según %s\n\nCambios solicitados:\n%s', 
           v_orden_data.numero_op, 
           v_orden_data.cliente,
+          COALESCE(v_orden_data.sector, 'Sin sector'),
           v_revision_data.usuario_revisor_nombre,
           p_comentarios),
         'warning',
@@ -293,9 +297,10 @@ BEGIN
     ) VALUES (
       v_revision_data.usuario_revisor_id,
       '⚠️ Revisión rechazada',
-      format('Rechazaste la revisión de la orden #%s (%s) solicitando cambios', 
+      format('Rechazaste la revisión de la orden #%s (%s) del sector %s solicitando cambios', 
         v_orden_data.numero_op, 
-        v_orden_data.cliente),
+        v_orden_data.cliente,
+        COALESCE(v_orden_data.sector, 'Sin sector')),
       'warning',
       v_id_orden,
       false
@@ -307,7 +312,7 @@ END;
 $$;
 
 -- Comentarios actualizados
-COMMENT ON FUNCTION public.solicitar_revision_orden IS 'Solicita una revisión para una orden y notifica al revisor y al solicitante';
-COMMENT ON FUNCTION public.aprobar_revision_orden IS 'Aprueba una revisión y notifica al operario/creador de la orden';
-COMMENT ON FUNCTION public.rechazar_revision_orden IS 'Rechaza una revisión solicitando cambios y notifica al operario/creador de la orden';
+COMMENT ON FUNCTION public.solicitar_revision_orden IS 'Solicita una revisión para una orden (funciona en todos los sectores) y notifica al revisor y al solicitante';
+COMMENT ON FUNCTION public.aprobar_revision_orden IS 'Aprueba una revisión (funciona en todos los sectores) y notifica al operario/creador de la orden y al revisor';
+COMMENT ON FUNCTION public.rechazar_revision_orden IS 'Rechaza una revisión solicitando cambios (funciona en todos los sectores) y notifica al operario/creador de la orden y al revisor';
 
