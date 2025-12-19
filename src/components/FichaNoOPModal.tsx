@@ -32,18 +32,19 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     }
   }
 
-  const handleUploadFichaTecnica = async () => {
-    if (!fichaTecnicaFile) return
+  const handleUploadFichaTecnica = async (): Promise<string | null> => {
+    if (!fichaTecnicaFile) return null
 
     setUploading(true)
     try {
       const url = await uploadAttachmentAndGetUrl(fichaTecnicaFile, 'fichas-tecnicas')
       setFichaTecnicaUrl(url)
       setUploading(false)
+      return url
     } catch (error) {
       console.error('Error subiendo ficha técnica:', error)
-      alert('Error al subir el archivo PDF')
       setUploading(false)
+      throw error // Re-lanzar el error para que handleCreate lo maneje
     }
   }
 
@@ -54,9 +55,15 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     }
 
     // Si hay archivo seleccionado pero no se ha subido, subirlo primero
+    let finalFichaTecnicaUrl = fichaTecnicaUrl
     if (fichaTecnicaFile && !fichaTecnicaUrl) {
-      await handleUploadFichaTecnica()
-      if (!fichaTecnicaUrl) {
+      try {
+        finalFichaTecnicaUrl = await handleUploadFichaTecnica()
+        if (!finalFichaTecnicaUrl) {
+          alert('Error al subir la ficha técnica. Intenta nuevamente.')
+          return
+        }
+      } catch (error) {
         alert('Error al subir la ficha técnica. Intenta nuevamente.')
         return
       }
@@ -82,7 +89,7 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       ubicacion_link: ubicacionLink.trim() || null,
       es_ficha_no_op: true,
       planilla_preliminar: planillaPreliminar,
-      ficha_tecnica_pdf_url: fichaTecnicaUrl || null
+      ficha_tecnica_pdf_url: finalFichaTecnicaUrl || null
     }
 
     try {
