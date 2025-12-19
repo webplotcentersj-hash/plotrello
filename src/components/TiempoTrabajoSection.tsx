@@ -28,6 +28,42 @@ const TiempoTrabajoSection = ({ ordenId, onTiempoActualizado }: TiempoTrabajoSec
     loadRegistros()
   }, [ordenId])
 
+  // Temporizador en tiempo real
+  useEffect(() => {
+    if (!registroActivo || !registroActivo.hora_inicio) {
+      setTiempoTranscurrido('00:00:00')
+      return
+    }
+
+    const calcularTiempoTranscurrido = () => {
+      const ahora = new Date()
+      const horaInicio = new Date()
+      const [horas, minutos, segundos] = registroActivo.hora_inicio.split(':').map(Number)
+      horaInicio.setHours(horas, minutos, segundos || 0, 0)
+      
+      // Si la hora de inicio es del día anterior, ajustar
+      if (horaInicio > ahora) {
+        horaInicio.setDate(horaInicio.getDate() - 1)
+      }
+
+      const diferencia = ahora.getTime() - horaInicio.getTime()
+      const horasTrans = Math.floor(diferencia / (1000 * 60 * 60))
+      const minutosTrans = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60))
+      const segundosTrans = Math.floor((diferencia % (1000 * 60)) / 1000)
+
+      const formato = (num: number) => String(num).padStart(2, '0')
+      setTiempoTranscurrido(`${formato(horasTrans)}:${formato(minutosTrans)}:${formato(segundosTrans)}`)
+    }
+
+    // Calcular inmediatamente
+    calcularTiempoTranscurrido()
+
+    // Actualizar cada segundo
+    const intervalo = setInterval(calcularTiempoTranscurrido, 1000)
+
+    return () => clearInterval(intervalo)
+  }, [registroActivo])
+
   const loadRegistros = async () => {
     setLoading(true)
     try {
@@ -174,7 +210,10 @@ const TiempoTrabajoSection = ({ ordenId, onTiempoActualizado }: TiempoTrabajoSec
           <div className="registro-activo">
             <div className="activo-info">
               <span className="activo-indicator">●</span>
-              <span>Registro activo desde {registroActivo.hora_inicio} por {registroActivo.usuario_nombre || 'Usuario'}</span>
+              <div className="activo-details">
+                <span className="activo-usuario">{registroActivo.usuario_nombre || 'Usuario'}</span>
+                <span className="activo-tiempo">{tiempoTranscurrido}</span>
+              </div>
             </div>
             <button
               className="btn-finalizar"
