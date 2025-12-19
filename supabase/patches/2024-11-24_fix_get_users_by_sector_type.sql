@@ -13,24 +13,37 @@ RETURNS TABLE (user_id integer, user_nombre text)
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  table_exists boolean;
 BEGIN
-  -- Primero intentar usar la tabla usuario_sectores si existe
-  IF EXISTS (
+  -- Verificar si la tabla usuario_sectores existe
+  SELECT EXISTS (
     SELECT 1 FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_name = 'usuario_sectores'
-  ) THEN
-    RETURN QUERY
-    SELECT DISTINCT 
-      u.id::integer AS user_id, 
-      u.nombre::text AS user_nombre  -- ⚠️ Conversión explícita a text
-    FROM public.usuarios u
-    INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
-    INNER JOIN public.sectores s ON us.sector_id = s.id
-    WHERE s.nombre = sector_nombre
-    ORDER BY u.nombre;
-  ELSE
-    -- Fallback: mapeo de sectores a roles
+  ) INTO table_exists;
+  
+  -- Si la tabla existe, intentar usarla
+  IF table_exists THEN
+    BEGIN
+      RETURN QUERY
+      SELECT DISTINCT 
+        u.id::integer AS user_id, 
+        u.nombre::text AS user_nombre  -- ⚠️ Conversión explícita a text
+      FROM public.usuarios u
+      INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
+      INNER JOIN public.sectores s ON us.sector_id = s.id
+      WHERE s.nombre = sector_nombre
+      ORDER BY u.nombre;
+    EXCEPTION WHEN OTHERS THEN
+      -- Si hay error (tabla no existe o no tiene datos), usar fallback
+      RAISE WARNING 'Error usando usuario_sectores, usando fallback: %', SQLERRM;
+      table_exists := false;
+    END;
+  END IF;
+  
+  -- Fallback: mapeo de sectores a roles (si la tabla no existe o hubo error)
+  IF NOT table_exists THEN
     RETURN QUERY
     SELECT 
       u.id::integer AS user_id, 
@@ -39,13 +52,15 @@ BEGIN
     WHERE 
       -- Mapeo de sectores a roles
       (
-        (sector_nombre = 'Taller de Imprenta' AND u.rol = 'taller') OR
-        (sector_nombre = 'Taller Gráfico' AND u.rol = 'taller') OR
-        (sector_nombre = 'Metalúrgica' AND u.rol = 'taller') OR
+        (sector_nombre = 'Taller de Imprenta' AND (u.rol = 'imprenta' OR u.rol = 'taller-grafico')) OR
+        (sector_nombre = 'Taller Gráfico' AND u.rol = 'taller-grafico') OR
+        (sector_nombre = 'Metalúrgica' AND u.rol = 'metalurgica') OR
         (sector_nombre = 'Mostrador' AND u.rol = 'mostrador') OR
-        (sector_nombre = 'Caja' AND u.rol = 'mostrador') OR
-        (sector_nombre = 'Diseño Gráfico' AND (u.rol = 'administracion' OR u.rol = 'taller')) OR
-        (sector_nombre = 'Instalaciones' AND u.rol = 'taller')
+        (sector_nombre = 'Caja' AND u.rol = 'caja') OR
+        (sector_nombre = 'Diseño Gráfico' AND (u.rol = 'diseno' OR u.rol = 'administracion')) OR
+        (sector_nombre = 'Instalaciones' AND u.rol = 'instalaciones') OR
+        (sector_nombre = 'Asesor Técnico' AND (u.rol = 'asesor-tecnico' OR u.rol = 'administracion')) OR
+        (sector_nombre = 'Presupuestos' AND (u.rol = 'presupuestos' OR u.rol = 'asesor-tecnico' OR u.rol = 'administracion'))
       )
     ORDER BY u.nombre;
   END IF;
