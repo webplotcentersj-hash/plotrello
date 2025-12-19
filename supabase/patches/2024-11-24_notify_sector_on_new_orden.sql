@@ -27,20 +27,15 @@ BEGIN
   IF table_exists THEN
     BEGIN
       -- Usar SQL dinámico para evitar errores de compilación si la tabla no existe
-      FOR query_result IN
-        EXECUTE '
-          SELECT DISTINCT u.id AS user_id, u.nombre::text AS user_nombre
-          FROM public.usuarios u
-          INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
-          INNER JOIN public.sectores s ON us.sector_id = s.id
-          WHERE s.nombre = $1
-          ORDER BY u.nombre
-        ' USING sector_nombre
-      LOOP
-        user_id := query_result.user_id;
-        user_nombre := query_result.user_nombre;
-        RETURN NEXT;
-      END LOOP;
+      RETURN QUERY
+      EXECUTE '
+        SELECT DISTINCT u.id::integer AS user_id, u.nombre::text AS user_nombre
+        FROM public.usuarios u
+        INNER JOIN public.usuario_sectores us ON u.id = us.usuario_id
+        INNER JOIN public.sectores s ON us.sector_id = s.id
+        WHERE s.nombre = $1
+        ORDER BY u.nombre
+      ' USING sector_nombre;
     EXCEPTION WHEN OTHERS THEN
       -- Si hay error (tabla no existe o no tiene datos), usar fallback
       RAISE WARNING 'Error usando usuario_sectores, usando fallback: %', SQLERRM;
