@@ -562,6 +562,7 @@ const BoardPage = ({
         onNavigateToDiseno={onNavigateToDiseno}
             onNavigateToRecursosHumanos={onNavigateToRecursosHumanos}
             onNavigateToClientesWeb={onNavigateToClientesWeb}
+            onNavigateToAsesorPresupuestos={onNavigateToAsesorPresupuestos}
         onSolicitarProductos={() => setIsSolicitarProductosOpen(true)}
         onOpenChatAI={() => setIsChatAIOpen(true)}
         onLogout={onLogout}

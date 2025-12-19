@@ -554,6 +554,7 @@ function AppRoutes({
             onNavigateToDiseno={() => navigate('/diseno/dashboard')}
             onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
             onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
+            onNavigateToAsesorPresupuestos={() => navigate('/asesor-presupuestos')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
