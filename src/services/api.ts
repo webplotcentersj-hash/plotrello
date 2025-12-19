@@ -175,30 +175,46 @@ class ApiService {
 
   async getOrdenes(): Promise<ApiResponse<OrdenTrabajo[]>> {
     if (supabase) {
-      // Usar select('*') para obtener todas las columnas disponibles automáticamente
-      const { data, error } = await supabase
-        .from('ordenes_trabajo')
-        .select('*')
-        .order('fecha_creacion', { ascending: false })
+      try {
+        // Usar select('*') para obtener todas las columnas disponibles automáticamente
+        const { data, error } = await supabase
+          .from('ordenes_trabajo')
+          .select('*')
+          .order('fecha_creacion', { ascending: false })
 
-      if (error) {
-        console.error('Supabase getOrdenes error:', error)
-        return { success: false, error: error.message }
+        if (error) {
+          console.error('Supabase getOrdenes error:', error)
+          return { success: false, error: error.message }
+        }
+
+        // Si hay datos, asegurarse de que los campos opcionales estén definidos (aunque sean null)
+        const normalizedData = (data || []).map((orden: any) => ({
+          ...orden,
+          foto_url: orden.foto_url || null,
+          telefono_cliente: orden.telefono_cliente || null,
+          email_cliente: orden.email_cliente || null,
+          direccion_cliente: orden.direccion_cliente || null,
+          whatsapp_link: orden.whatsapp_link || null,
+          ubicacion_link: orden.ubicacion_link || null,
+          drive_link: orden.drive_link || null
+        }))
+
+        return { success: true, data: normalizedData as OrdenTrabajo[] }
+      } catch (err: any) {
+        // Capturar errores de red (Failed to fetch, CORS, etc.)
+        console.error('Error de conexión en getOrdenes:', err)
+        const errorMessage = err?.message || 'Error de conexión con la base de datos'
+        
+        // Verificar si es un error de red
+        if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
+          return { 
+            success: false, 
+            error: 'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración de VITE_SUPABASE_URL.' 
+          }
+        }
+        
+        return { success: false, error: errorMessage }
       }
-
-      // Si hay datos, asegurarse de que los campos opcionales estén definidos (aunque sean null)
-      const normalizedData = (data || []).map((orden: any) => ({
-        ...orden,
-        foto_url: orden.foto_url || null,
-        telefono_cliente: orden.telefono_cliente || null,
-        email_cliente: orden.email_cliente || null,
-        direccion_cliente: orden.direccion_cliente || null,
-        whatsapp_link: orden.whatsapp_link || null,
-        ubicacion_link: orden.ubicacion_link || null,
-        drive_link: orden.drive_link || null
-      }))
-
-      return { success: true, data: normalizedData as OrdenTrabajo[] }
     }
 
     if (hasLegacyBackend) {

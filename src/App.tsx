@@ -160,7 +160,9 @@ function App() {
     try {
       if (!supabase) {
         setDataLoading(false)
-        setDataError('Supabase no está configurado. Define las variables VITE_SUPABASE_* y vuelve a intentar.')
+        const errorMsg = 'Supabase no está configurado. Define las variables VITE_SUPABASE_* y vuelve a intentar.'
+        setDataError(errorMsg)
+        console.error('❌', errorMsg)
         setTasks([])
         setActivity([])
         setTeamMembers([])
@@ -169,6 +171,20 @@ function App() {
         return
       }
 
+      // Verificar que Supabase esté realmente disponible
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      
+      if (!supabaseUrl || !supabaseKey) {
+        const errorMsg = 'Variables de entorno de Supabase no configuradas. Verifica VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.'
+        setDataError(errorMsg)
+        setDataLoading(false)
+        console.error('❌', errorMsg)
+        return
+      }
+
+      console.log('🔄 Intentando cargar datos de Supabase...')
+      
       const [ordenesResp, historialResp] = await Promise.all([
         apiService.getOrdenes(),
         apiService.getHistorialMovimientos({ limit: 100 })
@@ -178,14 +194,20 @@ function App() {
         // Solo fichas principales: las sub-tareas no se muestran en el tablero
         const tasksWithCorrectStatus = ordenesResp.data.map((orden) => ordenToTask(orden))
         setTasks(tasksWithCorrectStatus)
+        console.log('✅ Órdenes cargadas:', tasksWithCorrectStatus.length)
       } else {
-        setDataError(ordenesResp.error || 'No se pudieron cargar las órdenes')
+        const errorMsg = ordenesResp.error || 'No se pudieron cargar las órdenes'
+        setDataError(errorMsg)
+        console.error('❌ Error cargando órdenes:', errorMsg)
       }
 
       if (historialResp.success && historialResp.data) {
         setActivity(historialResp.data.map((registro) => historialToActivity(registro)))
+        console.log('✅ Historial cargado:', historialResp.data.length, 'movimientos')
       } else {
-        setDataError((prev) => prev ?? historialResp.error ?? 'No se pudo cargar el historial')
+        const errorMsg = historialResp.error ?? 'No se pudo cargar el historial'
+        setDataError((prev) => prev ?? errorMsg)
+        console.error('❌ Error cargando historial:', errorMsg)
       }
 
       const [usuariosResp, sectoresResp, materialesResp] = await Promise.all([
@@ -214,9 +236,18 @@ function App() {
         setMateriales([])
         setDataError((prev) => prev ?? materialesResp.error ?? 'No se pudieron cargar los materiales')
       }
-    } catch (error) {
-      console.error('Error cargando datos desde Supabase:', error)
-      setDataError('No se pudieron sincronizar los datos con Supabase.')
+    } catch (error: any) {
+      console.error('❌ Error cargando datos desde Supabase:', error)
+      const errorMessage = error?.message || 'Error desconocido'
+      
+      // Detectar errores específicos
+      if (errorMessage.includes('Failed to fetch') || error?.name === 'TypeError') {
+        setDataError('Error de conexión: No se pudo conectar con Supabase. Verifica tu conexión a internet y que las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY estén correctamente configuradas.')
+      } else if (errorMessage.includes('CORS')) {
+        setDataError('Error de CORS: Verifica la configuración de Supabase y que el dominio esté permitido.')
+      } else {
+        setDataError(`No se pudieron sincronizar los datos con Supabase: ${errorMessage}`)
+      }
     } finally {
       setDataLoading(false)
     }
