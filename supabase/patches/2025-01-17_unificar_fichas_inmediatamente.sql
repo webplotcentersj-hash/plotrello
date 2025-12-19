@@ -1,6 +1,5 @@
--- Unificar fichas INMEDIATAMENTE cuando CUALQUIERA llega a "Finalizado en Taller"
--- Cambio: En lugar de esperar a que todas las fichas estén completadas,
--- se unifican inmediatamente cuando la primera ficha llega a "Finalizado en Taller"
+-- Unificar fichas solo cuando TODAS llegan a "Finalizado en Taller"
+-- Se unifican cuando todas las fichas relacionadas están en "Finalizado en Taller"
 
 BEGIN;
 
@@ -15,6 +14,7 @@ AS $$
 DECLARE
   ficha_original_id integer;
   total_fichas integer;
+  fichas_completadas integer;
   fichas_duplicadas integer[];
   ficha_id integer;
   numero_op_comun text;
@@ -45,10 +45,15 @@ BEGIN
       ficha_original_id := NEW.id;
     END IF;
     
-    -- Si no encontramos la original, usar la actual como original
-    IF ficha_original_id IS NULL THEN
-      ficha_original_id := NEW.id;
+    -- Si la OP tiene 0 o 1 sector, NO unificar (debe quedarse la ficha)
+    IF NEW.sectores IS NULL OR array_length(NEW.sectores, 1) <= 1 THEN
+      RETURN NEW;
     END IF;
+
+    -- Obtener el número OP común de la ficha original
+    SELECT numero_op INTO numero_op_comun
+    FROM public.ordenes_trabajo
+    WHERE id = ficha_original_id;
 
     -- Contar total de fichas relacionadas (original + duplicadas)
     SELECT COUNT(*) INTO total_fichas
@@ -59,10 +64,20 @@ BEGIN
       OR (id_orden_original IS NULL AND numero_op = numero_op_comun AND id != ficha_original_id)
     );
 
-    -- ⚠️ CAMBIO: Unificar INMEDIATAMENTE si hay más de 1 ficha
-    -- (no esperar a que todas estén en "Finalizado en Taller")
-    IF total_fichas > 1 THEN
-      RAISE NOTICE '🔄 Iniciando unificación inmediata para OP: % (Total fichas: %)', numero_op_comun, total_fichas;
+    -- Contar fichas completadas (que están en "Finalizado en Taller")
+    SELECT COUNT(*) INTO fichas_completadas
+    FROM public.ordenes_trabajo
+    WHERE (
+      id = ficha_original_id
+      OR id_orden_original = ficha_original_id
+      OR (id_orden_original IS NULL AND numero_op = numero_op_comun AND id != ficha_original_id)
+    )
+    AND estado = 'Finalizado en Taller';
+
+    -- ⚠️ CAMBIO: Unificar SOLO cuando TODAS están completadas y hay más de 1 ficha
+    IF fichas_completadas = total_fichas AND total_fichas > 1 THEN
+      RAISE NOTICE '🔄 Iniciando unificación para OP: % (Total: %, Completadas: %)', 
+        numero_op_comun, total_fichas, fichas_completadas;
       
       -- Consolidar trazabilidad (historial, comentarios, archivos, etc.)
       -- Mover datos de todas las fichas duplicadas a la original
@@ -74,8 +89,7 @@ BEGIN
           id_orden_original = ficha_original_id
           OR (id_orden_original IS NULL AND numero_op = numero_op_comun AND id != ficha_original_id)
         )
-        AND (es_duplicado = true OR id = NEW.id)
-        AND id != ficha_original_id
+        AND es_duplicado = true
       );
 
       UPDATE public.comentarios_orden
@@ -86,8 +100,7 @@ BEGIN
           id_orden_original = ficha_original_id
           OR (id_orden_original IS NULL AND numero_op = numero_op_comun AND id != ficha_original_id)
         )
-        AND (es_duplicado = true OR id = NEW.id)
-        AND id != ficha_original_id
+        AND es_duplicado = true
       );
 
       UPDATE public.archivos_adjuntos
@@ -98,8 +111,7 @@ BEGIN
           id_orden_original = ficha_original_id
           OR (id_orden_original IS NULL AND numero_op = numero_op_comun AND id != ficha_original_id)
         )
-        AND (es_duplicado = true OR id = NEW.id)
-        AND id != ficha_original_id
+        AND es_duplicado = true
       );
 
       UPDATE public.enlaces_adjuntos
@@ -110,8 +122,7 @@ BEGIN
           id_orden_original = ficha_original_id
           OR (id_orden_original IS NULL AND numero_op = numero_op_comun AND id != ficha_original_id)
         )
-        AND (es_duplicado = true OR id = NEW.id)
-        AND id != ficha_original_id
+        AND es_duplicado = true
       );
 
       UPDATE public.orden_materiales
@@ -122,8 +133,7 @@ BEGIN
           id_orden_original = ficha_original_id
           OR (id_orden_original IS NULL AND numero_op = numero_op_comun AND id != ficha_original_id)
         )
-        AND (es_duplicado = true OR id = NEW.id)
-        AND id != ficha_original_id
+        AND es_duplicado = true
       )
       AND NOT EXISTS (
         SELECT 1 FROM public.orden_materiales om2
@@ -185,11 +195,12 @@ BEGIN
         deadline_brief = COALESCE(NEW.deadline_brief, deadline_brief)
       WHERE id = ficha_original_id;
 
-      RAISE NOTICE '✅ Fichas unificadas INMEDIATAMENTE para OP: % (Total: %, Ubicación: %)',
-        numero_op_comun, total_fichas, COALESCE(NEW.ubicacion_final, ubicacion_previa);
+      RAISE NOTICE '✅ Fichas unificadas para OP: % (Total: %, Completadas: %, Ubicación: %)',
+        numero_op_comun, total_fichas, fichas_completadas, COALESCE(NEW.ubicacion_final, ubicacion_previa);
     ELSE
-      -- Solo 1 ficha: solo actualizar estado
-      RAISE NOTICE 'ℹ️ OP % tiene solo 1 ficha - no se requiere unificación', numero_op_comun;
+      -- No todas están completadas: solo registrar el cambio
+      RAISE NOTICE '⏳ OP %: % de % fichas en "Finalizado en Taller" - esperando que todas estén completadas',
+        numero_op_comun, fichas_completadas, total_fichas;
     END IF;
   END IF;
 
@@ -198,7 +209,7 @@ END;
 $$;
 
 -- Comentario actualizado
-COMMENT ON FUNCTION public.unificar_fichas_completadas IS 'Unifica fichas duplicadas INMEDIATAMENTE cuando CUALQUIERA de las fichas llega a "Finalizado en Taller". Elimina duplicadas y mantiene solo la ficha original unificada.';
+COMMENT ON FUNCTION public.unificar_fichas_completadas IS 'Unifica fichas duplicadas solo cuando TODAS las fichas relacionadas llegan a "Finalizado en Taller". Elimina duplicadas y mantiene solo la ficha original unificada.';
 
 COMMIT;
 
@@ -209,10 +220,10 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '========================================';
-  RAISE NOTICE '✅ UNIFICACIÓN INMEDIATA IMPLEMENTADA';
-  RAISE NOTICE '   - Se unifican cuando CUALQUIERA llega a "Finalizado en Taller"';
-  RAISE NOTICE '   - NO espera a que todas estén completadas';
-  RAISE NOTICE '   - Elimina duplicadas inmediatamente';
+  RAISE NOTICE '✅ UNIFICACIÓN IMPLEMENTADA';
+  RAISE NOTICE '   - Se unifican cuando TODAS llegan a "Finalizado en Taller"';
+  RAISE NOTICE '   - Espera a que todas las fichas estén completadas';
+  RAISE NOTICE '   - Elimina duplicadas cuando todas están listas';
   RAISE NOTICE '   - Consolida toda la trazabilidad';
   RAISE NOTICE '========================================';
   RAISE NOTICE '';
