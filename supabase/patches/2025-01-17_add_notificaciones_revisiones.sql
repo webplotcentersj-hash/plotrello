@@ -138,8 +138,8 @@ BEGIN
   
   v_id_orden := v_revision_data.id_orden;
 
-  -- Obtener datos de la orden
-  SELECT numero_op, cliente, operario_asignado, nombre_creador
+  -- Obtener datos de la orden (sin restricciones de sector - funciona en todos los sectores)
+  SELECT numero_op, cliente, operario_asignado, nombre_creador, sector
   INTO v_orden_data
   FROM public.ordenes_trabajo
   WHERE id = v_id_orden;
@@ -156,7 +156,7 @@ BEGIN
   SET estado_revision = 'aprobado'
   WHERE id = v_id_orden;
 
-  -- 🔔 NOTIFICAR AL OPERARIO/CREADOR DE LA ORDEN
+  -- 🔔 NOTIFICAR AL OPERARIO/CREADOR DE LA ORDEN (la otra parte)
   -- Priorizar operario, si no existe, notificar al creador
   IF v_orden_data.operario_asignado IS NOT NULL AND trim(v_orden_data.operario_asignado) != '' THEN
     v_usuario_notificar_id := public.get_user_id_from_nombre(v_orden_data.operario_asignado);
@@ -164,7 +164,8 @@ BEGIN
     v_usuario_notificar_id := public.get_user_id_from_nombre(v_orden_data.nombre_creador);
   END IF;
 
-  IF v_usuario_notificar_id IS NOT NULL THEN
+  -- Notificar al operario/creador (si existe y es diferente del revisor)
+  IF v_usuario_notificar_id IS NOT NULL AND v_usuario_notificar_id != v_revision_data.usuario_revisor_id THEN
     BEGIN
       INSERT INTO public.user_notifications (
         user_id, title, description, type, orden_id, is_read
@@ -243,8 +244,8 @@ BEGIN
   
   v_id_orden := v_revision_data.id_orden;
 
-  -- Obtener datos de la orden
-  SELECT numero_op, cliente, operario_asignado, nombre_creador
+  -- Obtener datos de la orden (sin restricciones de sector - funciona en todos los sectores)
+  SELECT numero_op, cliente, operario_asignado, nombre_creador, sector
   INTO v_orden_data
   FROM public.ordenes_trabajo
   WHERE id = v_id_orden;
@@ -260,7 +261,7 @@ BEGIN
   SET estado_revision = 'requiere_cambios'
   WHERE id = v_id_orden;
 
-  -- 🔔 NOTIFICAR AL OPERARIO/CREADOR DE LA ORDEN (requiere cambios)
+  -- 🔔 NOTIFICAR AL OPERARIO/CREADOR DE LA ORDEN (la otra parte - requiere cambios)
   -- Priorizar operario, si no existe, notificar al creador
   IF v_orden_data.operario_asignado IS NOT NULL AND trim(v_orden_data.operario_asignado) != '' THEN
     v_usuario_notificar_id := public.get_user_id_from_nombre(v_orden_data.operario_asignado);
@@ -268,7 +269,8 @@ BEGIN
     v_usuario_notificar_id := public.get_user_id_from_nombre(v_orden_data.nombre_creador);
   END IF;
 
-  IF v_usuario_notificar_id IS NOT NULL THEN
+  -- Notificar al operario/creador (si existe y es diferente del revisor)
+  IF v_usuario_notificar_id IS NOT NULL AND v_usuario_notificar_id != v_revision_data.usuario_revisor_id THEN
     BEGIN
       INSERT INTO public.user_notifications (
         user_id, title, description, type, orden_id, is_read
