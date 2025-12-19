@@ -379,19 +379,24 @@ const TaskEditModal = ({
 
   // Filtrar sugerencias basadas en el input
   useEffect(() => {
-    if (tagInput.trim().length > 0) {
-      const filtered = etiquetasDisponibles
-        .filter(e => e.nombre.toLowerCase().includes(tagInput.toLowerCase()))
-        .map(e => e.nombre)
-        .filter(nombre => !tags.includes(nombre))
-        .slice(0, 5) // Máximo 5 sugerencias
-      setTagSuggestions(filtered)
-      setIsTagDropdownOpen(filtered.length > 0)
-    } else {
-      setTagSuggestions([])
-      setIsTagDropdownOpen(false)
-    }
-  }, [tagInput, etiquetasDisponibles, tags])
+    // Mostrar todas las etiquetas disponibles cuando no hay texto o cuando hay texto que coincide
+    const filtered = etiquetasDisponibles
+      .filter(e => {
+        // Si no hay texto, mostrar todas (excepto las ya seleccionadas)
+        if (tagInput.trim().length === 0) {
+          return !tags.includes(e.nombre)
+        }
+        // Si hay texto, filtrar por coincidencia
+        return e.nombre.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(e.nombre)
+      })
+      .sort((a, b) => b.veces_usada - a.veces_usada) // Ordenar por uso (más usadas primero)
+      .slice(0, 10) // Mostrar hasta 10 sugerencias
+      .map(e => e.nombre)
+    
+    setTagSuggestions(filtered)
+    // Abrir dropdown si hay sugerencias y el input tiene focus o hay texto
+    setIsTagDropdownOpen(filtered.length > 0 && (tagInput.trim().length > 0 || isTagDropdownOpen))
+  }, [tagInput, etiquetasDisponibles, tags, isTagDropdownOpen])
 
   const handleAddTag = async () => {
     const value = tagInput.trim()
@@ -984,11 +989,18 @@ const TaskEditModal = ({
                 placeholder="Ej: Urgente, Cliente VIP..."
                 value={tagInput}
                 onChange={(e) => {
-                  setTagInput(e.target.value)
-                  setIsTagDropdownOpen(e.target.value.trim().length > 0)
+                  const value = e.target.value
+                  setTagInput(value)
+                  // Mantener dropdown abierto si hay sugerencias
+                  const hasSuggestions = etiquetasDisponibles.some(etiqueta => 
+                    etiqueta.nombre.toLowerCase().includes(value.toLowerCase()) && 
+                    !tags.includes(etiqueta.nombre)
+                  ) || value.trim().length === 0
+                  setIsTagDropdownOpen(hasSuggestions)
                 }}
                 onFocus={() => {
-                  if (tagInput.trim().length > 0 && tagSuggestions.length > 0) {
+                  // Mostrar todas las etiquetas disponibles cuando hace focus
+                  if (etiquetasDisponibles.length > 0) {
                     setIsTagDropdownOpen(true)
                   }
                 }}
@@ -1014,18 +1026,37 @@ const TaskEditModal = ({
               </button>
               {isTagDropdownOpen && tagSuggestions.length > 0 && (
                 <div className="tag-suggestions-dropdown">
-                  {tagSuggestions.map((suggestion) => (
-                    <div
-                      key={suggestion}
-                      onClick={() => handleSelectTagSuggestion(suggestion)}
-                      onMouseDown={(e) => {
-                        // Prevenir que el blur del input cierre el dropdown
-                        e.preventDefault()
-                      }}
-                    >
-                      {suggestion}
-                    </div>
-                  ))}
+                  {tagSuggestions.map((suggestion) => {
+                    const etiqueta = etiquetasDisponibles.find(e => e.nombre === suggestion)
+                    const tagColor = etiqueta?.color || tagColors.get(suggestion.toLowerCase()) || '#6B7280'
+                    return (
+                      <div
+                        key={suggestion}
+                        onClick={() => handleSelectTagSuggestion(suggestion)}
+                        onMouseDown={(e) => {
+                          // Prevenir que el blur del input cierre el dropdown
+                          e.preventDefault()
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '3px',
+                            backgroundColor: tagColor,
+                            flexShrink: 0
+                          }}
+                        />
+                        <span>{suggestion}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
