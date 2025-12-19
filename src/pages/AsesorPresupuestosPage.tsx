@@ -3,7 +3,6 @@ import Board from '../components/Board'
 import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
 import TaskEditModal from '../components/TaskEditModal'
-import TaskCreateModal from '../components/TaskCreateModal'
 import FichaNoOPModal from '../components/FichaNoOPModal'
 import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
@@ -46,7 +45,6 @@ const AsesorPresupuestosPage = ({
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isFichaNoOPModalOpen, setIsFichaNoOPModalOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
