@@ -8,6 +8,7 @@ import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
 import BriefLinkSection from './BriefLinkSection'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../services/supabaseClient'
 import './TaskEditModal.css'
 
 type TaskEditModalProps = {
@@ -251,6 +252,39 @@ const TaskEditModal = ({
   }, [teamMembers, task])
 
   if (!task) return null
+
+  // Función para verificar si la ficha relacionada tiene planilla preliminar
+  const checkFichaRelacionadaPlanillaPreliminar = async (numeroOP: string, sectorActual: string) => {
+    try {
+      const sectorRelacionado = sectorActual === 'Asesor Técnico' ? 'Presupuestos' : 
+                                sectorActual === 'Presupuestos' ? 'Asesor Técnico' : null
+      
+      if (!sectorRelacionado) {
+        setFichaRelacionadaTienePlanillaPreliminar(false)
+        return
+      }
+      
+      // Buscar la ficha relacionada usando Supabase directamente
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('ordenes_trabajo')
+          .select('id, planilla_preliminar')
+          .eq('numero_op', numeroOP)
+          .eq('sector', sectorRelacionado)
+          .eq('es_ficha_no_op', true)
+          .limit(1)
+        
+        if (!error && data && data.length > 0) {
+          setFichaRelacionadaTienePlanillaPreliminar(data[0].planilla_preliminar ?? false)
+        } else {
+          setFichaRelacionadaTienePlanillaPreliminar(false)
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando ficha relacionada:', error)
+      setFichaRelacionadaTienePlanillaPreliminar(false)
+    }
+  }
 
   const handleSave = async () => {
     if (hasPendingUploads) {
