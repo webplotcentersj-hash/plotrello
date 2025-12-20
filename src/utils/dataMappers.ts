@@ -282,7 +282,10 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     publico_objetivo: task.publicoObjetivo?.trim() || null,
     estilo_diseno: task.estiloDiseno?.trim() || null,
     referencias: task.referencias?.trim() || null,
-    deadline_brief: task.deadlineBrief ? toDateOnly(task.deadlineBrief) : null
+    deadline_brief: task.deadlineBrief ? toDateOnly(task.deadlineBrief) : null,
+    es_ficha_no_op: task.esFichaNoOP ?? false,
+    planilla_preliminar: task.planillaPreliminar ?? false,
+    ficha_tecnica_pdf_url: task.fichaTecnicaPdfUrl?.trim() || null
   }
   
   console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)

@@ -76,6 +76,10 @@ const TaskEditModal = ({
   const attachmentsRef = useRef<LocalAttachment[]>([])
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
   const [previewAttachment, setPreviewAttachment] = useState<LocalAttachment | null>(null)
+  const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null)
+  const [fichaTecnicaUrl, setFichaTecnicaUrl] = useState<string | null>(null)
+  const [uploadingFichaTecnica, setUploadingFichaTecnica] = useState(false)
+  const fichaTecnicaInputRef = useRef<HTMLInputElement>(null)
 
   const taskHistory = useMemo(() => {
     if (!task) return []
@@ -142,6 +146,8 @@ const TaskEditModal = ({
           quantity: 1
         }))
       )
+      // Cargar ficha técnica si existe
+      setFichaTecnicaUrl(task.fichaTecnicaPdfUrl || null)
       setAttachments(
         task.photoUrl
           ? [
@@ -251,7 +257,8 @@ const TaskEditModal = ({
       publicoObjetivo: publicoObjetivo.trim() || undefined,
       estiloDiseno: estiloDiseno.trim() || undefined,
       referencias: referencias.trim() || undefined,
-      deadlineBrief: deadlineBrief || undefined
+      deadlineBrief: deadlineBrief || undefined,
+      fichaTecnicaPdfUrl: fichaTecnicaUrl || undefined
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
@@ -1236,6 +1243,119 @@ const TaskEditModal = ({
               </button>
             </div>
           </div>
+
+          {/* Sección de Ficha Técnica (solo para fichas No OP) */}
+          {task?.esFichaNoOP && (
+            <div className="form-group">
+              <label>Ficha Técnica</label>
+              {fichaTecnicaUrl ? (
+                <div className="ficha-tecnica-section">
+                  <div className="ficha-tecnica-info">
+                    <span className="ficha-tecnica-icon">📄</span>
+                    <span className="ficha-tecnica-text">Ficha técnica cargada</span>
+                    <div className="ficha-tecnica-actions">
+                      <button
+                        type="button"
+                        className="btn-view-pdf"
+                        onClick={() => {
+                          if (fichaTecnicaUrl) {
+                            window.open(fichaTecnicaUrl, '_blank')
+                          }
+                        }}
+                      >
+                        Ver PDF
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-download-pdf"
+                        onClick={() => {
+                          if (fichaTecnicaUrl) {
+                            const link = document.createElement('a')
+                            link.href = fichaTecnicaUrl
+                            link.download = `Ficha-Tecnica-${task.opNumber || 'sin-op'}.pdf`
+                            link.target = '_blank'
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                          }
+                        }}
+                      >
+                        Descargar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-replace-pdf"
+                        onClick={() => {
+                          setFichaTecnicaUrl(null)
+                          setFichaTecnicaFile(null)
+                          if (fichaTecnicaInputRef.current) {
+                            fichaTecnicaInputRef.current.value = ''
+                          }
+                        }}
+                      >
+                        Reemplazar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="ficha-tecnica-upload-section">
+                  <input
+                    ref={fichaTecnicaInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file && file.type === 'application/pdf') {
+                        setFichaTecnicaFile(file)
+                      } else {
+                        alert('Por favor selecciona un archivo PDF')
+                        if (fichaTecnicaInputRef.current) {
+                          fichaTecnicaInputRef.current.value = ''
+                        }
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    className="select-file-button"
+                    onClick={() => fichaTecnicaInputRef.current?.click()}
+                  >
+                    Seleccionar archivo
+                  </button>
+                  <span className="file-name">
+                    {fichaTecnicaFile ? fichaTecnicaFile.name : 'Ningún archivo seleccionado'}
+                  </span>
+                  {fichaTecnicaFile && !fichaTecnicaUrl && (
+                    <button
+                      type="button"
+                      className="upload-button"
+                      onClick={async () => {
+                        if (!fichaTecnicaFile) return
+                        setUploadingFichaTecnica(true)
+                        try {
+                          const url = await uploadAttachmentAndGetUrl(fichaTecnicaFile, 'fichas-tecnicas')
+                          setFichaTecnicaUrl(url)
+                        } catch (error) {
+                          console.error('Error subiendo ficha técnica:', error)
+                          alert('Error al subir el archivo PDF')
+                        } finally {
+                          setUploadingFichaTecnica(false)
+                        }
+                      }}
+                      disabled={uploadingFichaTecnica}
+                    >
+                      {uploadingFichaTecnica ? 'Subiendo...' : 'Subir'}
+                    </button>
+                  )}
+                  {fichaTecnicaUrl && (
+                    <span className="upload-success">✓ Archivo subido</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Sección de Revisiones y Aprobaciones */}
           {task && (() => {
