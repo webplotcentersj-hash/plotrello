@@ -54,7 +54,12 @@ const ClientesWebGestionPage = () => {
     }
   }
 
-  const handleCreate = async () => {
+  const handleCreate = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     try {
       // Validar campos requeridos
       if (!formData.usuario && !editingCliente) {
@@ -94,7 +99,7 @@ const ClientesWebGestionPage = () => {
       if (response.success) {
         setShowCreateModal(false)
         resetForm()
-        loadClientes()
+        await loadClientes()
       } else {
         console.error('Error en respuesta:', response.error)
         alert(response.error || `Error al ${editingCliente ? 'actualizar' : 'crear'} cliente`)
@@ -332,7 +337,7 @@ const ClientesWebGestionPage = () => {
         }}>
           <div className="clientes-web-modal" onClick={(e) => e.stopPropagation()}>
             <h2>{editingCliente ? 'Editar Cliente' : 'Nuevo Cliente'}</h2>
-            <div className="clientes-web-modal-form">
+            <form className="clientes-web-modal-form" onSubmit={handleCreate}>
               <div className="clientes-web-form-row">
                 <div className="clientes-web-form-group">
                   <label>Usuario *</label>
@@ -418,17 +423,24 @@ const ClientesWebGestionPage = () => {
                 />
               </div>
               <div className="clientes-web-modal-actions">
-                <button className="btn-secondary" onClick={() => {
-                  setShowCreateModal(false)
-                  resetForm()
-                }}>
+                <button 
+                  type="button"
+                  className="btn-secondary" 
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    resetForm()
+                  }}
+                >
                   Cancelar
                 </button>
-                <button className="btn-primary" onClick={handleCreate}>
+                <button 
+                  type="submit"
+                  className="btn-primary"
+                >
                   {editingCliente ? 'Guardar' : 'Crear'}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
