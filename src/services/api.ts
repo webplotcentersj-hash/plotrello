@@ -5604,6 +5604,7 @@ class ApiService {
 
   /**
    * Obtener todos los clientes web (solo trabajadores)
+   * Ahora usa la tabla unificada clientes con es_cliente_web = true
    */
   async getClientesWeb(): Promise<ApiResponse<ClienteWebRecord[]>> {
     if (supabase) {
