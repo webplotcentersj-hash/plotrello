@@ -6551,7 +6551,7 @@ class ApiService {
   async transformarFichaNoOPAOP(idOrden: number): Promise<ApiResponse<{ nuevo_numero_op: string }>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('transformar_ficha_no_op_a_op', {
+        const { error } = await supabase.rpc('transformar_ficha_no_op_a_op', {
           p_id_orden: idOrden
         })
 
