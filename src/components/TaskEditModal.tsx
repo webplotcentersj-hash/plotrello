@@ -82,6 +82,8 @@ const TaskEditModal = ({
   const fichaTecnicaInputRef = useRef<HTMLInputElement>(null)
   const [fichaTecnicaCargada, setFichaTecnicaCargada] = useState(false)
   const [presupuestoEnviado, setPresupuestoEnviado] = useState(false)
+  const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
+  const [fichaRelacionadaTienePlanillaPreliminar, setFichaRelacionadaTienePlanillaPreliminar] = useState(false)
 
   const taskHistory = useMemo(() => {
     if (!task) return []
@@ -153,6 +155,12 @@ const TaskEditModal = ({
       // Cargar estados de checklist
       setFichaTecnicaCargada(task.fichaTecnicaCargada ?? false)
       setPresupuestoEnviado(task.presupuestoEnviadoCliente ?? false)
+      setPlanillaPreliminar(task.planillaPreliminar ?? false)
+      
+      // Verificar si la ficha relacionada tiene planilla preliminar
+      if (task.esFichaNoOP && task.opNumber) {
+        checkFichaRelacionadaPlanillaPreliminar(task.opNumber, task.assignedSector || '')
+      }
       setAttachments(
         task.photoUrl
           ? [
@@ -265,7 +273,8 @@ const TaskEditModal = ({
       deadlineBrief: deadlineBrief || undefined,
       fichaTecnicaPdfUrl: fichaTecnicaUrl || undefined,
       fichaTecnicaCargada: fichaTecnicaCargada,
-      presupuestoEnviadoCliente: presupuestoEnviado
+      presupuestoEnviadoCliente: presupuestoEnviado,
+      planillaPreliminar: planillaPreliminar
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
@@ -1364,8 +1373,54 @@ const TaskEditModal = ({
             </div>
           )}
 
-          {/* Sección de Checklists (solo para fichas No OP) */}
+          {/* Sección de Planilla Preliminar (solo para fichas No OP) */}
           {task?.esFichaNoOP && (
+            <div className="form-group">
+              <label>Estado Planilla Preliminar</label>
+              <div className="planilla-preliminar-section">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={planillaPreliminar}
+                    onChange={async (e) => {
+                      const nuevoValor = e.target.checked
+                      setPlanillaPreliminar(nuevoValor)
+                      
+                      // Guardar inmediatamente
+                      const ordenId = parseTaskIdToOrdenId(task.id)
+                      if (ordenId) {
+                        await apiService.updateOrden(ordenId, {
+                          planilla_preliminar: nuevoValor
+                        })
+                        
+                        // Verificar ficha relacionada después de actualizar
+                        if (task.opNumber) {
+                          await checkFichaRelacionadaPlanillaPreliminar(task.opNumber, task.assignedSector || '')
+                        }
+                      }
+                    }}
+                  />
+                  <span>Marcar como Planilla Preliminar</span>
+                </label>
+                {fichaRelacionadaTienePlanillaPreliminar && (
+                  <div className="info-message" style={{ 
+                    marginTop: '12px', 
+                    padding: '8px 12px', 
+                    background: 'rgba(6, 182, 212, 0.1)', 
+                    border: '1px solid rgba(6, 182, 212, 0.3)', 
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    color: '#06b6d4'
+                  }}>
+                    ℹ️ La ficha relacionada está marcada como Planilla Preliminar. Puedes avanzar con los checklists.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sección de Checklists (solo para fichas No OP y si hay planilla preliminar) */}
+          {task?.esFichaNoOP && (planillaPreliminar || fichaRelacionadaTienePlanillaPreliminar) && (
             <div className="form-group">
               <label>Checklist</label>
               <div className="checklist-section">
