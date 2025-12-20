@@ -133,13 +133,21 @@ const AsesorPresupuestosPage = ({
 
       // Si se mueve a Finalizado y es una ficha No OP, transformarla en OP
       if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
-        // Primero actualizar el estado a Finalizado
+        // Primero actualizar el estado a Finalizado (manteniendo el sector actual válido)
+        const sectorActual = taskToUpdate.assignedSector || taskToUpdate.sectorInicial || 
+                            (taskToUpdate.sectores && taskToUpdate.sectores[0]) || 'Asesor Técnico'
+        
         const updatedTask = {
           ...taskToUpdate,
           status: destination,
-          assignedSector: destinationColumn.label
+          // Mantener el sector actual en lugar de usar "Finalizado" que no es válido
+          assignedSector: sectorActual
         }
         const payload = taskToOrdenPayload(updatedTask)
+        // Establecer estado explícitamente a "Finalizado" para la transformación
+        payload.estado = 'Finalizado'
+        // Asegurar que el sector sea válido (no "Finalizado")
+        payload.sector = sectorActual
 
         const updateResponse = await apiService.updateOrden(ordenId, payload)
         if (!updateResponse.success) {
@@ -159,12 +167,24 @@ const AsesorPresupuestosPage = ({
         )
       } else {
         // Movimiento normal (no es ficha No OP o no se mueve a Finalizado)
+        const sectorActual = taskToUpdate.assignedSector || taskToUpdate.sectorInicial || 
+                            (taskToUpdate.sectores && taskToUpdate.sectores[0]) || 'Asesor Técnico'
+        
         const updatedTask = {
           ...taskToUpdate,
           status: destination,
-          assignedSector: destinationColumn.label
+          // Si es Finalizado, mantener el sector actual en lugar de usar "Finalizado"
+          assignedSector: destination === 'finalizado-asesor-presupuestos' 
+            ? sectorActual
+            : destinationColumn.label
         }
         const payload = taskToOrdenPayload(updatedTask)
+        
+        // Si es Finalizado, establecer estado pero mantener sector válido
+        if (destination === 'finalizado-asesor-presupuestos') {
+          payload.estado = 'Finalizado'
+          payload.sector = sectorActual // Asegurar sector válido
+        }
 
         const response = await apiService.updateOrden(ordenId, payload)
         if (!response.success) {
