@@ -71,11 +71,10 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
 
     const creatorName = usuario?.nombre?.split('@')[0] || usuario?.nombre || 'Usuario'
     
-    // Generar un número único para la ficha (sin OP)
-    const fichaNumber = `FICHA-${Date.now().toString().slice(-6)}`
-
+    // El número de ficha se generará automáticamente en la base de datos
+    // Solo enviamos 'FICHA-' como prefijo para que la función lo detecte
     const payload = {
-      numero_op: fichaNumber,
+      numero_op: 'FICHA-', // La base de datos generará el número completo automáticamente
       cliente: nombreCliente.trim(),
       descripcion: especificaciones.trim() || null,
       estado: 'Asesor Técnico',
