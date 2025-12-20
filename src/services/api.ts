@@ -6546,6 +6546,38 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  // Transformar ficha No OP en OP real cuando se finaliza
+  async transformarFichaNoOPAOP(idOrden: number): Promise<ApiResponse<{ nuevo_numero_op: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('transformar_ficha_no_op_a_op', {
+          p_id_orden: idOrden
+        })
+
+        if (error) {
+          console.error('Error transformando ficha No OP a OP:', error)
+          return { success: false, error: error.message }
+        }
+
+        // Obtener el nuevo número de OP
+        const { data: ordenData, error: ordenError } = await supabase
+          .from('ordenes_trabajo')
+          .select('numero_op')
+          .eq('id', idOrden)
+          .single()
+
+        if (ordenError || !ordenData) {
+          return { success: false, error: 'No se pudo obtener el nuevo número de OP' }
+        }
+
+        return { success: true, data: { nuevo_numero_op: ordenData.numero_op } }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {

@@ -131,20 +131,50 @@ const AsesorPresupuestosPage = ({
         return
       }
 
-      const updatedTask = {
-        ...taskToUpdate,
-        status: destination,
-        assignedSector: destinationColumn.label
-      }
-      const payload = taskToOrdenPayload(updatedTask)
+      // Si se mueve a Finalizado y es una ficha No OP, transformarla en OP
+      if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
+        // Primero actualizar el estado a Finalizado
+        const updatedTask = {
+          ...taskToUpdate,
+          status: destination,
+          assignedSector: destinationColumn.label
+        }
+        const payload = taskToOrdenPayload(updatedTask)
 
-      const response = await apiService.updateOrden(ordenId, payload)
-      if (!response.success) {
-        setActionError(response.error || 'Error al mover la orden')
-        return
+        const updateResponse = await apiService.updateOrden(ordenId, payload)
+        if (!updateResponse.success) {
+          setActionError(updateResponse.error || 'Error al mover la orden')
+          return
+        }
+
+        // Luego transformar la ficha No OP en OP
+        const transformResponse = await apiService.transformarFichaNoOPAOP(ordenId)
+        if (!transformResponse.success) {
+          setActionError(transformResponse.error || 'Error al transformar ficha en OP')
+          return
+        }
+
+        setActionSuccess(
+          `Ficha transformada en OP: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
+        )
+      } else {
+        // Movimiento normal (no es ficha No OP o no se mueve a Finalizado)
+        const updatedTask = {
+          ...taskToUpdate,
+          status: destination,
+          assignedSector: destinationColumn.label
+        }
+        const payload = taskToOrdenPayload(updatedTask)
+
+        const response = await apiService.updateOrden(ordenId, payload)
+        if (!response.success) {
+          setActionError(response.error || 'Error al mover la orden')
+          return
+        }
+
+        setActionSuccess('Orden movida correctamente')
       }
 
-      setActionSuccess('Orden movida correctamente')
       if (onReloadData) {
         await onReloadData()
       }
