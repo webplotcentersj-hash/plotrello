@@ -6520,6 +6520,32 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  // Notificar cambios en checklists de fichas No OP
+  async notificarChecklistFichaNoOP(
+    idOrden: number,
+    tipoChecklist: 'ficha_tecnica_cargada' | 'presupuesto_enviado',
+    numeroOP: string
+  ): Promise<ApiResponse<void>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('notificar_checklist_ficha_no_op', {
+          p_id_orden: idOrden,
+          p_tipo_checklist: tipoChecklist,
+          p_numero_op: numeroOP
+        })
+
+        if (error) {
+          console.error('Error notificando checklist:', error)
+          return { success: false, error: error.message }
+        }
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {

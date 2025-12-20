@@ -98,6 +98,8 @@ export interface Task {
   esFichaNoOP?: boolean | null
   planillaPreliminar?: boolean | null
   fichaTecnicaPdfUrl?: string | null
+  fichaTecnicaCargada?: boolean | null // Indica si la ficha técnica fue cargada (checklist)
+  presupuestoEnviadoCliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
 }
 
 export interface Subtask {

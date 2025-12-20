@@ -182,6 +182,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     esFichaNoOP: orden.es_ficha_no_op ?? false,
     planillaPreliminar: orden.planilla_preliminar ?? false,
     fichaTecnicaPdfUrl: orden.ficha_tecnica_pdf_url ?? undefined,
+    fichaTecnicaCargada: orden.ficha_tecnica_cargada ?? false,
+    presupuestoEnviadoCliente: orden.presupuesto_enviado_cliente ?? false,
     etapaTallerGrafico: orden.etapa_taller_grafico ?? undefined,
     etapaTallerGraficoFechaInicio: orden.etapa_taller_grafico_fecha_inicio ?? undefined,
     etapaInstalaciones: orden.etapa_instalaciones ?? undefined,
@@ -285,7 +287,9 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     deadline_brief: task.deadlineBrief ? toDateOnly(task.deadlineBrief) : null,
     es_ficha_no_op: task.esFichaNoOP ?? false,
     planilla_preliminar: task.planillaPreliminar ?? false,
-    ficha_tecnica_pdf_url: task.fichaTecnicaPdfUrl?.trim() || null
+    ficha_tecnica_pdf_url: task.fichaTecnicaPdfUrl?.trim() || null,
+    ficha_tecnica_cargada: task.fichaTecnicaCargada ?? false,
+    presupuesto_enviado_cliente: task.presupuestoEnviadoCliente ?? false
   }
   
   console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)

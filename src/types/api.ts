@@ -66,6 +66,8 @@ export interface OrdenTrabajo {
   es_ficha_no_op?: boolean | null // Indica si es una ficha No OP (sin número de OP real)
   planilla_preliminar?: boolean | null // Indica si es una planilla preliminar
   ficha_tecnica_pdf_url?: string | null // URL del PDF de la ficha técnica
+  ficha_tecnica_cargada?: boolean | null // Indica si la ficha técnica fue cargada (checklist)
+  presupuesto_enviado_cliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
 }
 
 export interface RevisionOrden {

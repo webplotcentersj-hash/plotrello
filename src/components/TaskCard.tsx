@@ -151,6 +151,8 @@ const TaskCard = ({
         <article
           className={clsx('task-card', `priority-${task.priority}`, {
             'planilla-preliminar': task.planillaPreliminar,
+            'ficha-tecnica-cargada': task.fichaTecnicaCargada,
+            'presupuesto-enviado': task.presupuestoEnviadoCliente,
             'is-collapsed': !isExpanded
           }, extraClassName)}
           ref={ref}

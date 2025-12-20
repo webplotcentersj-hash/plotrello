@@ -80,6 +80,8 @@ const TaskEditModal = ({
   const [fichaTecnicaUrl, setFichaTecnicaUrl] = useState<string | null>(null)
   const [uploadingFichaTecnica, setUploadingFichaTecnica] = useState(false)
   const fichaTecnicaInputRef = useRef<HTMLInputElement>(null)
+  const [fichaTecnicaCargada, setFichaTecnicaCargada] = useState(false)
+  const [presupuestoEnviado, setPresupuestoEnviado] = useState(false)
 
   const taskHistory = useMemo(() => {
     if (!task) return []
@@ -148,6 +150,9 @@ const TaskEditModal = ({
       )
       // Cargar ficha técnica si existe
       setFichaTecnicaUrl(task.fichaTecnicaPdfUrl || null)
+      // Cargar estados de checklist
+      setFichaTecnicaCargada(task.fichaTecnicaCargada ?? false)
+      setPresupuestoEnviado(task.presupuestoEnviadoCliente ?? false)
       setAttachments(
         task.photoUrl
           ? [
@@ -258,7 +263,9 @@ const TaskEditModal = ({
       estiloDiseno: estiloDiseno.trim() || undefined,
       referencias: referencias.trim() || undefined,
       deadlineBrief: deadlineBrief || undefined,
-      fichaTecnicaPdfUrl: fichaTecnicaUrl || undefined
+      fichaTecnicaPdfUrl: fichaTecnicaUrl || undefined,
+      fichaTecnicaCargada: fichaTecnicaCargada,
+      presupuestoEnviadoCliente: presupuestoEnviado
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
@@ -1354,6 +1361,63 @@ const TaskEditModal = ({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Sección de Checklists (solo para fichas No OP) */}
+          {task?.esFichaNoOP && (
+            <div className="form-group">
+              <label>Checklist</label>
+              <div className="checklist-section">
+                <label className="checklist-item">
+                  <input
+                    type="checkbox"
+                    checked={fichaTecnicaCargada}
+                    onChange={async (e) => {
+                      const nuevoValor = e.target.checked
+                      setFichaTecnicaCargada(nuevoValor)
+                      
+                      // Guardar inmediatamente
+                      const ordenId = parseTaskIdToOrdenId(task.id)
+                      if (ordenId) {
+                        await apiService.updateOrden(ordenId, {
+                          ficha_tecnica_cargada: nuevoValor
+                        })
+                        
+                        // Notificar a Presupuestos si se marca
+                        if (nuevoValor) {
+                          await apiService.notificarChecklistFichaNoOP(ordenId, 'ficha_tecnica_cargada', task.opNumber || 'Sin OP')
+                        }
+                      }
+                    }}
+                  />
+                  <span>FICHA TECNICA CARGADA</span>
+                </label>
+                <label className="checklist-item">
+                  <input
+                    type="checkbox"
+                    checked={presupuestoEnviado}
+                    onChange={async (e) => {
+                      const nuevoValor = e.target.checked
+                      setPresupuestoEnviado(nuevoValor)
+                      
+                      // Guardar inmediatamente
+                      const ordenId = parseTaskIdToOrdenId(task.id)
+                      if (ordenId) {
+                        await apiService.updateOrden(ordenId, {
+                          presupuesto_enviado_cliente: nuevoValor
+                        })
+                        
+                        // Notificar a Asesor Técnico si se marca
+                        if (nuevoValor) {
+                          await apiService.notificarChecklistFichaNoOP(ordenId, 'presupuesto_enviado', task.opNumber || 'Sin OP')
+                        }
+                      }
+                    }}
+                  />
+                  <span>PRESUPUESTO ENVIADO AL CLIENTE</span>
+                </label>
+              </div>
             </div>
           )}
 
