@@ -153,17 +153,24 @@
   }
 }
 
+.descripcion-section {
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border-left: 4px solid #f97316;
+}
+
 .descripcion-section h3 {
   font-size: 18px;
   font-weight: 700;
   color: #1f2937;
-  margin: 0 0 8px 0;
+  margin: 0 0 10px 0;
 }
 
 .descripcion-section p {
   font-size: 14px;
   color: #4b5563;
-  line-height: 1.5;
+  line-height: 1.6;
   margin: 0;
 }
 
