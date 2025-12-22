@@ -121,16 +121,16 @@
   display: inline-block;
 }
 
-/* Asegurar que todos los valores sean visibles, incluso guiones */
-.info-value:empty,
-.info-value:empty::before {
-  color: #6b7280 !important;
-  font-style: italic;
+/* Asegurar que todos los valores sean visibles */
+.info-section .info-item .info-value {
+  color: #111827 !important;
 }
 
-/* Cuando el contenido es solo un guion */
-.info-value:has-text("-") {
-  color: #111827 !important;
+/* Valores vacíos o con guiones */
+.info-value:empty::before {
+  content: '-';
+  color: #6b7280 !important;
+  font-style: italic;
 }
 
 .link-pedido {
