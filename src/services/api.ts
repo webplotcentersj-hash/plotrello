@@ -22,7 +22,9 @@ import type {
   PedidoClienteDetalle,
   MensajePedidoClienteRecord,
   PresupuestoClienteRecord,
-  PresupuestoClienteItemRecord
+  PresupuestoClienteItemRecord,
+  ActaSectorRecord,
+  TipoNovedad
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -1375,6 +1377,143 @@ class ApiService {
     }
 
     return this.handleFallback(fallbackSectores)
+  }
+
+  /**
+   * Libro de Actas por Sector
+   */
+  async crearActaSector(params: {
+    id_sector: number
+    usuario_id: number
+    usuario_nombre: string
+    titulo: string
+    contenido: string
+    tipo_novedad?: TipoNovedad
+    fecha?: string
+  }): Promise<ApiResponse<{ id: number; mensaje: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_acta_sector', {
+          p_id_sector: params.id_sector,
+          p_usuario_id: params.usuario_id,
+          p_usuario_nombre: params.usuario_nombre,
+          p_titulo: params.titulo,
+          p_contenido: params.contenido,
+          p_tipo_novedad: params.tipo_novedad || 'general',
+          p_fecha: params.fecha || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo crear la acta' }
+        }
+
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async listarActasSector(params?: {
+    id_sector?: number
+    sector_nombre?: string
+    fecha_desde?: string
+    fecha_hasta?: string
+    tipo_novedad?: TipoNovedad
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<ActaSectorRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_actas_sector', {
+          p_id_sector: params?.id_sector || null,
+          p_sector_nombre: params?.sector_nombre || null,
+          p_fecha_desde: params?.fecha_desde || null,
+          p_fecha_hasta: params?.fecha_hasta || null,
+          p_tipo_novedad: params?.tipo_novedad || null,
+          p_limit: params?.limit || 100,
+          p_offset: params?.offset || 0
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as ActaSectorRecord[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerActaSector(idActa: number): Promise<ApiResponse<ActaSectorRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_acta_sector', {
+          p_id_acta: idActa
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Acta no encontrada' }
+        }
+
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async actualizarActaSector(params: {
+    id_acta: number
+    titulo?: string
+    contenido?: string
+    tipo_novedad?: TipoNovedad
+    fecha?: string
+  }): Promise<ApiResponse<{ id: number; mensaje: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_acta_sector', {
+          p_id_acta: params.id_acta,
+          p_titulo: params.titulo || null,
+          p_contenido: params.contenido || null,
+          p_tipo_novedad: params.tipo_novedad || null,
+          p_fecha: params.fecha || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo actualizar la acta' }
+        }
+
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async eliminarActaSector(idActa: number): Promise<ApiResponse<{ id: number; mensaje: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('eliminar_acta_sector', {
+          p_id_acta: idActa
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo eliminar la acta' }
+        }
+
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
   }
 
   async getSubTareas(ordenId?: number): Promise<ApiResponse<TareaRecord[]>> {

@@ -60,6 +60,7 @@ import PresupuestosClientesAdminPage from './pages/PresupuestosClientesAdminPage
 import PresupuestoClienteDetalleAdminPage from './pages/PresupuestoClienteDetalleAdminPage'
 import PedidoClienteDetalleAdminPage from './pages/PedidoClienteDetalleAdminPage'
 import ConvertirPedidoAOpPage from './pages/ConvertirPedidoAOpPage'
+import LibroActasSectorPage from './pages/LibroActasSectorPage'
 import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -813,6 +814,10 @@ function AppRoutes({
       <Route
         path="/clientes-web/presupuestos/:id"
         element={<PresupuestoClienteDetalleAdminPage />}
+      />
+      <Route
+        path="/libro-actas/sector/:sectorId"
+        element={<LibroActasSectorPage />}
       />
     </Routes>
     </>

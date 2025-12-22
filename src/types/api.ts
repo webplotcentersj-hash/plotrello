@@ -360,6 +360,22 @@ export interface SectorRecord {
   activo?: boolean | null
 }
 
+export type TipoNovedad = 'general' | 'problema' | 'mejora' | 'incidente' | 'reunion' | 'capacitacion' | 'otro'
+
+export interface ActaSectorRecord {
+  id: number
+  id_sector: number
+  sector_nombre: string
+  fecha: string
+  usuario_id: number | null
+  usuario_nombre: string
+  titulo: string
+  contenido: string
+  tipo_novedad: TipoNovedad
+  created_at: string
+  updated_at: string
+}
+
 export interface MaterialRecord {
   id: number
   codigo?: string | null
