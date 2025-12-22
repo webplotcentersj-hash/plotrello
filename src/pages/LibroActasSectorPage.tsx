@@ -152,7 +152,8 @@ export default function LibroActasSectorPage() {
         }
       }
     }
-  }, [sectorId, usuario, navigate, authLoading, campoGrabando, grabando])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectorId, usuario, navigate, authLoading])
 
   const loadSector = async () => {
     if (!sectorId) return
