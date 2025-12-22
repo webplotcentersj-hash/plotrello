@@ -258,7 +258,12 @@ export default function LibroActasSectorPage() {
     if (!actaEditando || !usuario || !sector) return
 
     // Verificar permisos: solo el creador o admin puede editar
-    if (usuario.rol !== 'administracion' && usuario.rol !== 'gerencia' && usuario.id !== actaEditando.usuario_id) {
+    const puedeEditar = 
+      usuario.rol === 'administracion' || 
+      usuario.rol === 'gerencia' || 
+      (actaEditando.usuario_id !== null && usuario.id === actaEditando.usuario_id)
+    
+    if (!puedeEditar) {
       alert('No tienes permiso para editar esta acta')
       return
     }
@@ -306,7 +311,12 @@ export default function LibroActasSectorPage() {
     if (!usuario) return
 
     // Verificar permisos: solo el creador o admin puede eliminar
-    if (usuario.rol !== 'administracion' && usuario.rol !== 'gerencia' && usuario.id !== acta.usuario_id) {
+    const puedeEliminar = 
+      usuario.rol === 'administracion' || 
+      usuario.rol === 'gerencia' || 
+      (acta.usuario_id !== null && usuario.id === acta.usuario_id)
+    
+    if (!puedeEliminar) {
       alert('No tienes permiso para eliminar esta acta')
       return
     }
@@ -328,6 +338,19 @@ export default function LibroActasSectorPage() {
   }
 
   const abrirEditar = (acta: ActaSectorRecord) => {
+    if (!usuario) return
+    
+    // Verificar permisos antes de abrir el formulario de edición
+    const puedeEditar = 
+      usuario.rol === 'administracion' || 
+      usuario.rol === 'gerencia' || 
+      (acta.usuario_id !== null && usuario.id === acta.usuario_id)
+    
+    if (!puedeEditar) {
+      alert('No tienes permiso para editar esta acta')
+      return
+    }
+    
     setActaEditando(acta)
     setFormData({
       titulo: acta.titulo,
@@ -592,8 +615,9 @@ export default function LibroActasSectorPage() {
             <div className="actas-list">
               {actas.map((acta) => {
                 const tipoInfo = getTipoNovedadInfo(acta.tipo_novedad)
+                // Verificar permisos: el creador, admin o gerencia pueden editar/eliminar
                 const puedeEditar = usuario && (
-                  usuario.id === acta.usuario_id || 
+                  (acta.usuario_id !== null && usuario.id === acta.usuario_id) || 
                   usuario.rol === 'administracion' || 
                   usuario.rol === 'gerencia'
                 )
