@@ -99,45 +99,101 @@ export default function LibroActasSectorPage() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
       const recognition = new SpeechRecognition()
-      recognition.continuous = true
-      recognition.interimResults = true
+      recognition.continuous = false
+      recognition.interimResults = false
       recognition.lang = 'es-AR'
 
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let textoCompleto = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          textoCompleto += event.results[i][0].transcript
-        }
+      recognition.onresult = (event: any) => {
+        try {
+          console.log('Resultado de reconocimiento de voz recibido:', event)
+          
+          let transcript = ''
+          
+          // Intentar diferentes formas de acceder a los resultados
+          if (event.results && event.results.length > 0) {
+            // Método 1: Acceso directo con índice
+            for (let i = 0; i < event.results.length; i++) {
+              const result = event.results[i]
+              
+              // Intentar acceder al transcript de diferentes formas
+              if (result && result[0] && result[0].transcript) {
+                transcript += result[0].transcript + ' '
+              } else if (result && typeof result.transcript === 'string') {
+                transcript += result.transcript + ' '
+              } else if (result && result[0] && typeof result[0] === 'object' && 'transcript' in result[0]) {
+                transcript += (result[0] as any).transcript + ' '
+              }
+            }
+          }
+          
+          // Si no se obtuvo transcript, intentar método alternativo
+          if (!transcript.trim() && event.results) {
+            const resultsArray = Array.from(event.results as any)
+            transcript = resultsArray
+              .map((result: any) => {
+                if (result && result[0]) {
+                  return result[0].transcript || ''
+                }
+                if (result && result.transcript) {
+                  return result.transcript
+                }
+                return ''
+              })
+              .filter((text: string) => text && text.trim().length > 0)
+              .join(' ')
+          }
 
-        if (campoGrabando === 'titulo') {
-          setFormData(prev => ({ ...prev, titulo: prev.titulo + textoCompleto }))
-        } else if (campoGrabando === 'contenido') {
-          setFormData(prev => ({ ...prev, contenido: prev.contenido + textoCompleto }))
+          transcript = transcript.trim()
+
+          if (transcript) {
+            console.log('Texto transcrito:', transcript, 'Campo:', campoGrabando)
+            
+            if (campoGrabando === 'titulo') {
+              setFormData(prev => ({ 
+                ...prev, 
+                titulo: prev.titulo ? `${prev.titulo} ${transcript}` : transcript 
+              }))
+            } else if (campoGrabando === 'contenido') {
+              setFormData(prev => ({ 
+                ...prev, 
+                contenido: prev.contenido ? `${prev.contenido} ${transcript}` : transcript 
+              }))
+            }
+          } else {
+            console.warn('No se pudo extraer texto del resultado de voz')
+          }
+        } catch (error) {
+          console.error('Error al procesar resultado de voz:', error)
         }
       }
 
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('Error en reconocimiento de voz:', event.error)
-        if (event.error === 'no-speech') {
+      recognition.onerror = (event: any) => {
+        const errorCode = event.error || 'unknown'
+        console.error('Error en reconocimiento de voz:', errorCode)
+        
+        if (errorCode === 'no-speech') {
           // No es un error crítico, solo no se detectó voz
+          console.log('No se detectó voz, intenta hablar más fuerte o verifica el micrófono')
           return
         }
-        alert(`Error en reconocimiento de voz: ${event.error}`)
+        
+        if (errorCode === 'not-allowed') {
+          alert('Permiso de micrófono denegado. Por favor, permite el acceso al micrófono en la configuración del navegador.')
+        } else if (errorCode === 'aborted') {
+          // Grabación cancelada, no es un error
+          return
+        } else {
+          console.warn(`Error en reconocimiento de voz: ${errorCode}`)
+        }
+        
         setGrabando(false)
         setCampoGrabando(null)
       }
 
       recognition.onend = () => {
-        if (grabando) {
-          // Si aún está grabando, reiniciar
-          try {
-            recognition.start()
-          } catch (e) {
-            // Ya está iniciado o hay un error
-            setGrabando(false)
-            setCampoGrabando(null)
-          }
-        }
+        // Cuando termina, simplemente detener el estado
+        setGrabando(false)
+        setCampoGrabando(null)
       }
 
       setReconocimientoVoz(recognition)
@@ -398,24 +454,67 @@ export default function LibroActasSectorPage() {
       return
     }
 
+    // Si ya está grabando otro campo, detener primero
+    if (grabando && campoGrabando !== campo) {
+      detenerGrabacion()
+      // Esperar un momento antes de iniciar la nueva grabación
+      setTimeout(() => {
+        iniciarGrabacion(campo)
+      }, 300)
+      return
+    }
+
+    // Si ya está grabando el mismo campo, detener
+    if (grabando && campoGrabando === campo) {
+      detenerGrabacion()
+      return
+    }
+
     try {
       setCampoGrabando(campo)
       setGrabando(true)
       reconocimientoVoz.start()
-    } catch (error) {
+      console.log('Grabación iniciada para:', campo)
+    } catch (error: any) {
       console.error('Error al iniciar grabación:', error)
-      alert('Error al iniciar la grabación de voz')
-      setGrabando(false)
-      setCampoGrabando(null)
+      
+      // Si el error es que ya está iniciado, intentar detener y reiniciar
+      if (error.message && error.message.includes('already started')) {
+        try {
+          reconocimientoVoz.stop()
+          setTimeout(() => {
+            try {
+              reconocimientoVoz.start()
+              setCampoGrabando(campo)
+              setGrabando(true)
+            } catch (retryError) {
+              console.error('Error al reintentar:', retryError)
+              alert('Error al iniciar la grabación. Intenta nuevamente.')
+              setGrabando(false)
+              setCampoGrabando(null)
+            }
+          }, 500)
+        } catch (stopError) {
+          console.error('Error al detener:', stopError)
+          alert('Error al iniciar la grabación de voz')
+          setGrabando(false)
+          setCampoGrabando(null)
+        }
+      } else {
+        alert('Error al iniciar la grabación de voz. Verifica que el micrófono esté conectado y permitido.')
+        setGrabando(false)
+        setCampoGrabando(null)
+      }
     }
   }
 
   const detenerGrabacion = () => {
-    if (reconocimientoVoz) {
+    if (reconocimientoVoz && grabando) {
       try {
         reconocimientoVoz.stop()
+        console.log('Grabación detenida')
       } catch (e) {
-        // Ignorar errores
+        console.warn('Error al detener grabación (puede que ya esté detenida):', e)
       }
     }
     setGrabando(false)
@@ -719,4 +818,5 @@ export default function LibroActasSectorPage() {
     </div>
   )
 }
+
 
