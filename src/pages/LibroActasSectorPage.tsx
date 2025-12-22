@@ -258,13 +258,14 @@ export default function LibroActasSectorPage() {
     if (!actaEditando || !usuario || !sector) return
 
     // Verificar permisos: solo el creador o admin puede editar
-    const puedeEditar = 
-      usuario.rol === 'administracion' || 
-      usuario.rol === 'gerencia' || 
-      (actaEditando.usuario_id !== null && usuario.id === actaEditando.usuario_id)
+    const actaUsuarioId = actaEditando.usuario_id !== null ? Number(actaEditando.usuario_id) : null
+    const usuarioId = Number(usuario.id)
+    const esCreador = actaUsuarioId !== null && actaUsuarioId === usuarioId
+    const esAdmin = usuario.rol === 'administracion' || usuario.rol === 'gerencia'
+    const puedeEditar = esCreador || esAdmin
     
     if (!puedeEditar) {
-      alert('No tienes permiso para editar esta acta')
+      alert(`No tienes permiso para editar esta acta. Creador: ${actaUsuarioId}, Tu ID: ${usuarioId}, Rol: ${usuario.rol}`)
       return
     }
 
@@ -308,16 +309,30 @@ export default function LibroActasSectorPage() {
   }
 
   const handleEliminar = async (id: number, acta: ActaSectorRecord) => {
-    if (!usuario) return
+    if (!usuario) {
+      alert('No hay usuario autenticado')
+      return
+    }
 
     // Verificar permisos: solo el creador o admin puede eliminar
-    const puedeEliminar = 
-      usuario.rol === 'administracion' || 
-      usuario.rol === 'gerencia' || 
-      (acta.usuario_id !== null && usuario.id === acta.usuario_id)
+    const actaUsuarioId = acta.usuario_id !== null ? Number(acta.usuario_id) : null
+    const usuarioId = Number(usuario.id)
+    const esCreador = actaUsuarioId !== null && actaUsuarioId === usuarioId
+    const esAdmin = usuario.rol === 'administracion' || usuario.rol === 'gerencia'
+    const puedeEliminar = esCreador || esAdmin
+    
+    console.log('handleEliminar:', {
+      actaId: id,
+      actaUsuarioId,
+      usuarioId,
+      esCreador,
+      esAdmin,
+      puedeEliminar,
+      usuarioRol: usuario.rol
+    })
     
     if (!puedeEliminar) {
-      alert('No tienes permiso para eliminar esta acta')
+      alert(`No tienes permiso para eliminar esta acta. Creador: ${actaUsuarioId}, Tu ID: ${usuarioId}, Rol: ${usuario.rol}`)
       return
     }
 
@@ -341,13 +356,14 @@ export default function LibroActasSectorPage() {
     if (!usuario) return
     
     // Verificar permisos antes de abrir el formulario de edición
-    const puedeEditar = 
-      usuario.rol === 'administracion' || 
-      usuario.rol === 'gerencia' || 
-      (acta.usuario_id !== null && usuario.id === acta.usuario_id)
+    const actaUsuarioId = acta.usuario_id !== null ? Number(acta.usuario_id) : null
+    const usuarioId = Number(usuario.id)
+    const esCreador = actaUsuarioId !== null && actaUsuarioId === usuarioId
+    const esAdmin = usuario.rol === 'administracion' || usuario.rol === 'gerencia'
+    const puedeEditar = esCreador || esAdmin
     
     if (!puedeEditar) {
-      alert('No tienes permiso para editar esta acta')
+      alert(`No tienes permiso para editar esta acta. Creador: ${actaUsuarioId}, Tu ID: ${usuarioId}, Rol: ${usuario.rol}`)
       return
     }
     
@@ -616,12 +632,28 @@ export default function LibroActasSectorPage() {
               {actas.map((acta) => {
                 const tipoInfo = getTipoNovedadInfo(acta.tipo_novedad)
                 // Verificar permisos: el creador, admin o gerencia pueden editar/eliminar
-                const puedeEditar = usuario && (
-                  (acta.usuario_id !== null && usuario.id === acta.usuario_id) || 
-                  usuario.rol === 'administracion' || 
-                  usuario.rol === 'gerencia'
-                )
+                // Convertir ambos a number para comparación segura
+                const actaUsuarioId = acta.usuario_id !== null ? Number(acta.usuario_id) : null
+                const usuarioId = usuario ? Number(usuario.id) : null
+                const esCreador = actaUsuarioId !== null && usuarioId !== null && actaUsuarioId === usuarioId
+                const esAdmin = usuario && (usuario.rol === 'administracion' || usuario.rol === 'gerencia')
+                const puedeEditar = usuario && (esCreador || esAdmin)
                 const puedeEliminar = puedeEditar
+                
+                // Debug: mostrar en consola
+                if (usuario) {
+                  console.log('Acta:', {
+                    id: acta.id,
+                    actaUsuarioId,
+                    usuarioId,
+                    esCreador,
+                    esAdmin,
+                    puedeEditar,
+                    puedeEliminar,
+                    usuarioRol: usuario.rol
+                  })
+                }
+                
                 return (
                   <div key={acta.id} className="acta-card">
                     <div className="acta-header">
@@ -639,6 +671,7 @@ export default function LibroActasSectorPage() {
                           <button
                             className="btn-edit"
                             onClick={() => abrirEditar(acta)}
+                            title="Editar acta"
                           >
                             ✏️ Editar
                           </button>
@@ -646,10 +679,22 @@ export default function LibroActasSectorPage() {
                         {puedeEliminar && (
                           <button
                             className="btn-delete"
-                            onClick={() => handleEliminar(acta.id, acta)}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              console.log('Click en eliminar, acta:', acta.id, 'usuario:', usuario?.id)
+                              handleEliminar(acta.id, acta)
+                            }}
+                            title="Eliminar acta"
                           >
                             🗑️ Eliminar
                           </button>
+                        )}
+                        {/* Debug: mostrar siempre si no hay permisos */}
+                        {!puedeEliminar && usuario && (
+                          <span style={{ fontSize: '10px', color: '#999', marginLeft: '10px' }}>
+                            (Sin permiso: Creador={acta.usuario_id}, Tu ID={usuario.id}, Rol={usuario.rol})
+                          </span>
                         )}
                       </div>
                     </div>
