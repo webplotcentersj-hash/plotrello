@@ -203,6 +203,9 @@ const ClientesWebGestionPage = () => {
             <button className="btn-back" onClick={() => navigate('/clientes-web/dashboard')}>
               ← Volver
             </button>
+            <button className="btn-secondary" onClick={() => navigate('/clientes-web/presupuestos')}>
+              💰 Presupuestos
+            </button>
             <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
               + Nuevo Cliente
             </button>

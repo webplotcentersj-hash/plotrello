@@ -287,6 +287,39 @@ export interface MensajePedidoClienteRecord {
   nombre_usuario?: string | null
 }
 
+export type EstadoPresupuestoCliente = 'borrador' | 'enviado' | 'aceptado' | 'rechazado' | 'cancelado' | 'convertido'
+
+export interface PresupuestoClienteRecord {
+  id: number
+  id_cliente: number
+  numero_presupuesto: string
+  estado: EstadoPresupuestoCliente
+  fecha_creacion: string
+  fecha_envio?: string | null
+  fecha_respuesta?: string | null
+  fecha_vencimiento?: string | null
+  observaciones_cliente?: string | null
+  observaciones_internas?: string | null
+  precio_total: number
+  id_pedido_asociado?: number | null
+  id_op_asociada?: number | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PresupuestoClienteItemRecord {
+  id: number
+  id_presupuesto: number
+  id_articulo: number
+  cantidad: number
+  precio_unitario: number
+  precio_total: number
+  descripcion_personalizada?: string | null
+  created_at?: string
+  updated_at?: string
+  articulo?: ArticuloEmpresaRecord
+}
+
 export interface PedidoClienteItemRecord {
   id: number
   id_pedido: number

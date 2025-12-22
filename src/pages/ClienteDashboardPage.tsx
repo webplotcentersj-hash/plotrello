@@ -140,6 +140,12 @@ export default function ClienteDashboardPage() {
             </button>
             <button 
               className="btn-secondary"
+              onClick={() => navigate('/cliente/presupuestos')}
+            >
+              💰 Presupuestos
+            </button>
+            <button 
+              className="btn-secondary"
               onClick={() => navigate('/cliente/mensajes')}
             >
               💬 Mensajes

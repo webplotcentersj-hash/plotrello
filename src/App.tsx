@@ -52,7 +52,12 @@ import ClienteMensajesPage from './pages/ClienteMensajesPage'
 import ClienteNuevoPedidoPage from './pages/ClienteNuevoPedidoPage'
 import ClientePedidoDetallePage from './pages/ClientePedidoDetallePage'
 import ClienteCatalogoPage from './pages/ClienteCatalogoPage'
+import ClientePresupuestosPage from './pages/ClientePresupuestosPage'
+import ClientePresupuestoFormPage from './pages/ClientePresupuestoFormPage'
+import ClientePresupuestoDetallePage from './pages/ClientePresupuestoDetallePage'
 import ClienteProtectedRoute from './components/ClienteProtectedRoute'
+import PresupuestosClientesAdminPage from './pages/PresupuestosClientesAdminPage'
+import PresupuestoClienteDetalleAdminPage from './pages/PresupuestoClienteDetalleAdminPage'
 import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -425,6 +430,10 @@ function App() {
                   <Route path="catalogo" element={<ClienteCatalogoPage />} />
                   <Route path="nuevo-pedido" element={<ClienteNuevoPedidoPage />} />
                   <Route path="pedido/:id" element={<ClientePedidoDetallePage />} />
+                  <Route path="presupuestos" element={<ClientePresupuestosPage />} />
+                  <Route path="presupuesto/nuevo" element={<ClientePresupuestoFormPage />} />
+                  <Route path="presupuesto/:id" element={<ClientePresupuestoDetallePage />} />
+                  <Route path="presupuesto/:id/editar" element={<ClientePresupuestoFormPage />} />
                   <Route path="buscar-op/:numeroOp?" element={<ClienteBuscarOpPage />} />
                   <Route path="mensajes/:idPedido?" element={<ClienteMensajesPage />} />
                   <Route path="*" element={<Navigate to="/cliente/dashboard" replace />} />
@@ -786,6 +795,14 @@ function AppRoutes({
       <Route
         path="/clientes-web/categorias"
         element={<CategoriasArticulosPage />}
+      />
+      <Route
+        path="/clientes-web/presupuestos"
+        element={<PresupuestosClientesAdminPage />}
+      />
+      <Route
+        path="/clientes-web/presupuestos/:id"
+        element={<PresupuestoClienteDetalleAdminPage />}
       />
     </Routes>
     </>
