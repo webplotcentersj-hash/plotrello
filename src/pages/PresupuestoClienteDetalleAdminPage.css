@@ -179,14 +179,18 @@
 }
 
 .items-table thead {
-  background: #1a1a2e;
-  color: #fff;
+  background: #f97316;
+  color: #ffffff;
 }
 
 .items-table th {
   padding: 12px 15px;
   text-align: left;
   font-weight: 600;
+  color: #ffffff;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
 }
 
 .items-table td {
