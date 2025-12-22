@@ -220,10 +220,15 @@ const ClientesWebDashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pedidosPendientes.slice(0, 10).map((pedido) => (
+                  {pedidosPendientes.slice(0, 10).map((pedido) => {
+                    const cliente = (pedido as any).cliente
+                    const nombreCliente = cliente?.nombre 
+                      ? `${cliente.nombre}${cliente.apellido ? ' ' + cliente.apellido : ''}${cliente.empresa ? ' - ' + cliente.empresa : ''}`
+                      : `Cliente #${pedido.id_cliente}`
+                    return (
                     <tr key={pedido.id}>
                       <td>{pedido.numero_pedido}</td>
-                      <td>Cliente #{pedido.id_cliente}</td>
+                      <td>{nombreCliente}</td>
                     <td>{new Date(pedido.fecha_pedido).toLocaleDateString('es-AR')}</td>
                     <td>
                       <span className={`clientes-web-status-badge ${pedido.estado}`}>
@@ -240,7 +245,7 @@ const ClientesWebDashboardPage = () => {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

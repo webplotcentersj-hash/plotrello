@@ -789,6 +789,10 @@ function AppRoutes({
         element={<PedidosClientesPage />}
       />
       <Route
+        path="/clientes-web/pedidos/:id"
+        element={<ClientePedidoDetallePage />}
+      />
+      <Route
         path="/clientes-web/articulos"
         element={<ArticulosEmpresaPage />}
       />

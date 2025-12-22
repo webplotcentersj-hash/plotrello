@@ -101,10 +101,15 @@ const PedidosClientesPage = () => {
                   </td>
                 </tr>
               ) : (
-                filteredPedidos.map((pedido) => (
+                filteredPedidos.map((pedido) => {
+                  const cliente = (pedido as any).cliente
+                  const nombreCliente = cliente?.nombre 
+                    ? `${cliente.nombre}${cliente.apellido ? ' ' + cliente.apellido : ''}${cliente.empresa ? ' - ' + cliente.empresa : ''}`
+                    : `Cliente #${pedido.id_cliente}`
+                  return (
                   <tr key={pedido.id}>
                     <td>{pedido.numero_pedido}</td>
-                    <td>Cliente #{pedido.id_cliente}</td>
+                    <td>{nombreCliente}</td>
                     <td>{new Date(pedido.fecha_pedido).toLocaleDateString('es-AR')}</td>
                     <td>
                       <span className={`pedidos-clientes-status-badge ${pedido.estado}`}>
@@ -145,7 +150,7 @@ const PedidosClientesPage = () => {
                       )}
                     </td>
                   </tr>
-                ))
+                )})
               )}
             </tbody>
           </table>
