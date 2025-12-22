@@ -59,6 +59,7 @@ import ClienteProtectedRoute from './components/ClienteProtectedRoute'
 import PresupuestosClientesAdminPage from './pages/PresupuestosClientesAdminPage'
 import PresupuestoClienteDetalleAdminPage from './pages/PresupuestoClienteDetalleAdminPage'
 import PedidoClienteDetalleAdminPage from './pages/PedidoClienteDetalleAdminPage'
+import ConvertirPedidoAOpPage from './pages/ConvertirPedidoAOpPage'
 import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -792,6 +793,10 @@ function AppRoutes({
       <Route
         path="/clientes-web/pedidos/:id/detalle"
         element={<PedidoClienteDetalleAdminPage />}
+      />
+      <Route
+        path="/clientes-web/pedidos/:id/convertir"
+        element={<ConvertirPedidoAOpPage />}
       />
       <Route
         path="/clientes-web/articulos"
