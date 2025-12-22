@@ -411,15 +411,17 @@ export default function LibroActasSectorPage() {
             >
               ← Volver
             </button>
-            <button
-              className="btn-primary"
-              onClick={() => {
-                cancelarFormulario()
-                setMostrarFormulario(true)
-              }}
-            >
-              + Nueva Acta
-            </button>
+            {sector && usuario && canAccessSector(usuario.rol, sector.nombre) && (
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  cancelarFormulario()
+                  setMostrarFormulario(true)
+                }}
+              >
+                + Nueva Acta
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -478,7 +480,7 @@ export default function LibroActasSectorPage() {
         </section>
 
         {/* Formulario de creación/edición */}
-        {mostrarFormulario && (
+        {mostrarFormulario && sector && usuario && canAccessSector(usuario.rol, sector.nombre) && (
           <section className="formulario-section">
             <h2>{actaEditando ? 'Editar Acta' : 'Nueva Acta'}</h2>
             <div className="form-grid">
@@ -590,7 +592,12 @@ export default function LibroActasSectorPage() {
             <div className="actas-list">
               {actas.map((acta) => {
                 const tipoInfo = getTipoNovedadInfo(acta.tipo_novedad)
-                const puedeEditar = usuario && (usuario.id === acta.usuario_id || usuario.rol === 'administracion' || usuario.rol === 'gerencia')
+                const puedeEditar = usuario && (
+                  usuario.id === acta.usuario_id || 
+                  usuario.rol === 'administracion' || 
+                  usuario.rol === 'gerencia'
+                )
+                const puedeEliminar = puedeEditar
                 return (
                   <div key={acta.id} className="acta-card">
                     <div className="acta-header">
