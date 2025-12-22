@@ -46,14 +46,6 @@ const getRoomIdForChannel = (channel: string): number => {
   return chatChannelToRoom[channel] ?? 1
 }
 
-// Mapeo inverso: room_id -> canal
-const roomToChatChannel: Record<number, string> = {
-  1: 'recursos-humanos',
-  2: 'metalurgica',
-  3: 'mostrador',
-  4: 'taller-grafico'
-}
-
 type FileAttachment = {
   id: string
   file: File
@@ -188,6 +180,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     if (!usuario?.id || !supabase) return
 
     const markOnline = async () => {
+      if (!supabase) return
       try {
         await supabase.rpc('marcar_usuario_online', {
           p_user_id: usuario.id,
@@ -202,6 +195,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     const interval = setInterval(markOnline, 30000) // Cada 30 segundos
 
     const loadOnlineUsers = async () => {
+      if (!supabase) return
       try {
         const { data, error } = await supabase.rpc('obtener_usuarios_online')
         if (!error && data) {
@@ -369,7 +363,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
 
     try {
       if (savedFiles.length > 0) {
-        console.log('📎 Archivos adjuntos:', savedFiles.map((f) => f.name))
+        console.log('📎 Archivos adjuntos:', savedFiles.map((f) => f.file.name))
       }
 
       // Enviar mensaje con URLs de archivos
