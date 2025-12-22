@@ -107,23 +107,34 @@
 
 .info-label {
   font-size: 0.9rem;
-  color: #4b5563;
-  font-weight: 600;
+  color: #374151 !important;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .info-value {
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: #111827 !important;
   font-weight: 600;
   min-height: 1.5rem;
   display: inline-block;
 }
 
-/* Asegurar que todos los valores sean visibles */
-.info-section .info-item .info-value {
+/* Asegurar que todos los valores sean visibles con máxima especificidad */
+.info-section .info-item .info-value,
+.info-section .info-grid .info-item .info-value,
+.presupuesto-detalle-admin-main .info-section .info-item .info-value {
   color: #111827 !important;
+  font-weight: 600 !important;
+}
+
+/* Asegurar que los labels también sean visibles */
+.info-section .info-item .info-label,
+.info-section .info-grid .info-item .info-label,
+.presupuesto-detalle-admin-main .info-section .info-item .info-label {
+  color: #374151 !important;
+  font-weight: 700 !important;
 }
 
 /* Valores vacíos o con guiones */
