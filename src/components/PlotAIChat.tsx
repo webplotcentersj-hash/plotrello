@@ -115,9 +115,9 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         recognition.lang = 'es-AR'
         recognition.continuous = false
         recognition.interimResults = false
-        recognition.onresult = (event) => {
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
           const transcript = Array.from(event.results)
-            .map((result) => result[0]?.transcript ?? '')
+            .map((result: SpeechRecognitionResult) => result[0]?.transcript ?? '')
             .join(' ')
           setInput((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript))
         }
