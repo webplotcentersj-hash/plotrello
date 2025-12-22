@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { SectorRecord } from '../types/api'
+import { getSectoresPermitidos } from '../utils/sectorPermissions'
 import './LibroActasPage.css'
 
 export default function LibroActasPage() {
@@ -22,13 +23,25 @@ export default function LibroActasPage() {
   }, [usuario, navigate, authLoading])
 
   const loadSectores = async () => {
+    if (!usuario) return
+    
     setLoading(true)
     setError('')
     try {
       const response = await apiService.getSectores()
       if (response.success && response.data) {
-        // Filtrar solo sectores activos
-        setSectores(response.data.filter(s => s.activo !== false))
+        // Filtrar sectores activos
+        let sectoresActivos = response.data.filter(s => s.activo !== false)
+        
+        // Si no es admin, filtrar solo los sectores permitidos para su rol
+        if (usuario.rol !== 'administracion' && usuario.rol !== 'gerencia') {
+          const sectoresPermitidos = getSectoresPermitidos(usuario.rol)
+          sectoresActivos = sectoresActivos.filter(s => 
+            sectoresPermitidos.includes(s.nombre)
+          )
+        }
+        
+        setSectores(sectoresActivos)
       } else {
         setError(response.error || 'Error al cargar los sectores')
       }

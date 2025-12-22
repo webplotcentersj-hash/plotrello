@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { ActaSectorRecord, SectorRecord, TipoNovedad } from '../types/api'
+import { canAccessSector } from '../utils/sectorPermissions'
 import './LibroActasSectorPage.css'
 
 // Tipos para reconocimiento de voz
@@ -92,7 +93,6 @@ export default function LibroActasSectorPage() {
     }
     if (sectorId) {
       loadSector()
-      loadActas()
     }
 
     // Inicializar reconocimiento de voz
@@ -156,19 +156,27 @@ export default function LibroActasSectorPage() {
   }, [sectorId, usuario, navigate, authLoading])
 
   const loadSector = async () => {
-    if (!sectorId) return
+    if (!sectorId || !usuario) return
     try {
       const response = await apiService.getSectores()
       if (response.success && response.data) {
         const sectorEncontrado = response.data.find(s => s.id === parseInt(sectorId))
         if (sectorEncontrado) {
+          // Verificar permisos de acceso
+          if (!canAccessSector(usuario.rol, sectorEncontrado.nombre)) {
+            setError('No tienes permiso para acceder a este sector')
+            setSector(null)
+            return
+          }
           setSector(sectorEncontrado)
+          loadActas()
         } else {
           setError('Sector no encontrado')
         }
       }
     } catch (err) {
       console.error(err)
+      setError('Error al cargar el sector')
     }
   }
 
@@ -247,7 +255,13 @@ export default function LibroActasSectorPage() {
   }
 
   const handleActualizar = async () => {
-    if (!actaEditando) return
+    if (!actaEditando || !usuario || !sector) return
+
+    // Verificar permisos: solo el creador o admin puede editar
+    if (usuario.rol !== 'administracion' && usuario.rol !== 'gerencia' && usuario.id !== actaEditando.usuario_id) {
+      alert('No tienes permiso para editar esta acta')
+      return
+    }
 
     if (!formData.titulo.trim()) {
       alert('El título es requerido')
@@ -288,7 +302,15 @@ export default function LibroActasSectorPage() {
     }
   }
 
-  const handleEliminar = async (id: number) => {
+  const handleEliminar = async (id: number, acta: ActaSectorRecord) => {
+    if (!usuario) return
+
+    // Verificar permisos: solo el creador o admin puede eliminar
+    if (usuario.rol !== 'administracion' && usuario.rol !== 'gerencia' && usuario.id !== acta.usuario_id) {
+      alert('No tienes permiso para eliminar esta acta')
+      return
+    }
+
     if (!confirm('¿Estás seguro de eliminar esta acta?')) return
 
     try {
@@ -552,15 +574,17 @@ export default function LibroActasSectorPage() {
           {actas.length === 0 ? (
             <div className="empty-state">
               <p>No hay actas registradas para este sector.</p>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  cancelarFormulario()
-                  setMostrarFormulario(true)
-                }}
-              >
-                Crear Primera Acta
-              </button>
+              {sector && usuario && canAccessSector(usuario.rol, sector.nombre) && (
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    cancelarFormulario()
+                    setMostrarFormulario(true)
+                  }}
+                >
+                  Crear Primera Acta
+                </button>
+              )}
             </div>
           ) : (
             <div className="actas-list">
@@ -581,20 +605,20 @@ export default function LibroActasSectorPage() {
                       </div>
                       <div className="acta-header-right">
                         {puedeEditar && (
-                          <>
-                            <button
-                              className="btn-edit"
-                              onClick={() => abrirEditar(acta)}
-                            >
-                              ✏️ Editar
-                            </button>
-                            <button
-                              className="btn-delete"
-                              onClick={() => handleEliminar(acta.id)}
-                            >
-                              🗑️ Eliminar
-                            </button>
-                          </>
+                          <button
+                            className="btn-edit"
+                            onClick={() => abrirEditar(acta)}
+                          >
+                            ✏️ Editar
+                          </button>
+                        )}
+                        {puedeEliminar && (
+                          <button
+                            className="btn-delete"
+                            onClick={() => handleEliminar(acta.id, acta)}
+                          >
+                            🗑️ Eliminar
+                          </button>
                         )}
                       </div>
                     </div>
