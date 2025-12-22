@@ -203,6 +203,90 @@
   min-height: 120px;
 }
 
+.input-with-voice,
+.textarea-with-voice {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.input-with-voice .form-input {
+  flex: 1;
+}
+
+.textarea-with-voice .form-textarea {
+  flex: 1;
+}
+
+.btn-voice {
+  padding: 10px 14px;
+  background: #f97316;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex-shrink: 0;
+  min-width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-voice:hover {
+  background: #ea580c;
+  transform: scale(1.05);
+}
+
+.btn-voice.recording {
+  background: #ef4444;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.btn-voice.recording:hover {
+  background: #dc2626;
+}
+
+.btn-voice-textarea {
+  align-self: flex-start;
+  margin-top: 0;
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.recording-dot {
+  width: 12px;
+  height: 12px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;

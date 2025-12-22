@@ -37,6 +37,9 @@ export default function LibroActasSectorPage() {
     tipo_novedad: 'general' as TipoNovedad,
     fecha: new Date().toISOString().slice(0, 16)
   })
+  const [grabando, setGrabando] = useState(false)
+  const [reconocimientoVoz, setReconocimientoVoz] = useState<SpeechRecognition | null>(null)
+  const [campoGrabando, setCampoGrabando] = useState<'titulo' | 'contenido' | null>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -48,7 +51,65 @@ export default function LibroActasSectorPage() {
       loadSector()
       loadActas()
     }
-  }, [sectorId, usuario, navigate, authLoading])
+
+    // Inicializar reconocimiento de voz
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
+      const recognition = new SpeechRecognition()
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'es-AR'
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let textoCompleto = ''
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          textoCompleto += event.results[i][0].transcript
+        }
+
+        if (campoGrabando === 'titulo') {
+          setFormData(prev => ({ ...prev, titulo: prev.titulo + textoCompleto }))
+        } else if (campoGrabando === 'contenido') {
+          setFormData(prev => ({ ...prev, contenido: prev.contenido + textoCompleto }))
+        }
+      }
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Error en reconocimiento de voz:', event.error)
+        if (event.error === 'no-speech') {
+          // No es un error crítico, solo no se detectó voz
+          return
+        }
+        alert(`Error en reconocimiento de voz: ${event.error}`)
+        setGrabando(false)
+        setCampoGrabando(null)
+      }
+
+      recognition.onend = () => {
+        if (grabando) {
+          // Si aún está grabando, reiniciar
+          try {
+            recognition.start()
+          } catch (e) {
+            // Ya está iniciado o hay un error
+            setGrabando(false)
+            setCampoGrabando(null)
+          }
+        }
+      }
+
+      setReconocimientoVoz(recognition)
+    }
+
+    return () => {
+      if (reconocimientoVoz) {
+        try {
+          reconocimientoVoz.stop()
+        } catch (e) {
+          // Ignorar errores al detener
+        }
+      }
+    }
+  }, [sectorId, usuario, navigate, authLoading, campoGrabando, grabando])
 
   const loadSector = async () => {
     if (!sectorId) return
@@ -226,6 +287,38 @@ export default function LibroActasSectorPage() {
     return TIPOS_NOVEDAD.find(t => t.value === tipo) || TIPOS_NOVEDAD[0]
   }
 
+  const iniciarGrabacion = (campo: 'titulo' | 'contenido') => {
+    if (!reconocimientoVoz) {
+      alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome, Edge o Safari.')
+      return
+    }
+
+    try {
+      setCampoGrabando(campo)
+      setGrabando(true)
+      reconocimientoVoz.start()
+    } catch (error) {
+      console.error('Error al iniciar grabación:', error)
+      alert('Error al iniciar la grabación de voz')
+      setGrabando(false)
+      setCampoGrabando(null)
+    }
+  }
+
+  const detenerGrabacion = () => {
+    if (reconocimientoVoz) {
+      try {
+        reconocimientoVoz.stop()
+      } catch (e) {
+        // Ignorar errores
+      }
+    }
+    setGrabando(false)
+    setCampoGrabando(null)
+  }
+
+  const soportaVoz = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window
+
   if (authLoading || loading) {
     return (
       <div className="libro-actas-page">
@@ -325,13 +418,25 @@ export default function LibroActasSectorPage() {
             <div className="form-grid">
               <div className="form-item">
                 <label>Título: *</label>
-                <input
-                  type="text"
-                  value={formData.titulo}
-                  onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                  className="form-input"
-                  placeholder="Ej: Problema con la impresora"
-                />
+                <div className="input-with-voice">
+                  <input
+                    type="text"
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+                    className="form-input"
+                    placeholder="Ej: Problema con la impresora"
+                  />
+                  {soportaVoz && (
+                    <button
+                      type="button"
+                      className={`btn-voice ${grabando && campoGrabando === 'titulo' ? 'recording' : ''}`}
+                      onClick={() => grabando && campoGrabando === 'titulo' ? detenerGrabacion() : iniciarGrabacion('titulo')}
+                      title={grabando && campoGrabando === 'titulo' ? 'Detener grabación' : 'Grabar por voz'}
+                    >
+                      {grabando && campoGrabando === 'titulo' ? '⏹️' : '🎤'}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="form-item">
                 <label>Tipo de Novedad:</label>
@@ -356,13 +461,31 @@ export default function LibroActasSectorPage() {
               </div>
               <div className="form-item full-width">
                 <label>Contenido: *</label>
-                <textarea
-                  value={formData.contenido}
-                  onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
-                  className="form-textarea"
-                  placeholder="Describe la novedad, problema, mejora, etc..."
-                  rows={6}
-                />
+                <div className="textarea-with-voice">
+                  <textarea
+                    value={formData.contenido}
+                    onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
+                    className="form-textarea"
+                    placeholder="Describe la novedad, problema, mejora, etc..."
+                    rows={6}
+                  />
+                  {soportaVoz && (
+                    <button
+                      type="button"
+                      className={`btn-voice btn-voice-textarea ${grabando && campoGrabando === 'contenido' ? 'recording' : ''}`}
+                      onClick={() => grabando && campoGrabando === 'contenido' ? detenerGrabacion() : iniciarGrabacion('contenido')}
+                      title={grabando && campoGrabando === 'contenido' ? 'Detener grabación' : 'Grabar por voz'}
+                    >
+                      {grabando && campoGrabando === 'contenido' ? '⏹️' : '🎤'}
+                    </button>
+                  )}
+                </div>
+                {grabando && (
+                  <div className="recording-indicator">
+                    <span className="recording-dot"></span>
+                    Grabando... {campoGrabando === 'titulo' ? 'Título' : 'Contenido'}
+                  </div>
+                )}
               </div>
             </div>
             <div className="form-actions">
