@@ -15,7 +15,9 @@ const ClientesWebDashboardPage = () => {
     clientesActivos: 0,
     pedidosPendientes: 0,
     pedidosConvertidos: 0,
-    pedidosRechazados: 0
+    pedidosRechazados: 0,
+    presupuestosEnviados: 0,
+    presupuestosPendientes: 0
   })
 
   useEffect(() => {
@@ -57,6 +59,19 @@ const ClientesWebDashboardPage = () => {
           ...prev,
           totalClientes: clientes.length,
           clientesActivos: activos
+        }))
+      }
+
+      // Cargar presupuestos
+      const presupuestosResponse = await apiService.getPresupuestosClientesAdmin()
+      if (presupuestosResponse.success && presupuestosResponse.data) {
+        const presupuestos = presupuestosResponse.data
+        const enviados = presupuestos.filter(p => p.estado === 'enviado').length
+        const pendientes = presupuestos.filter(p => p.estado === 'borrador').length
+        setStats(prev => ({
+          ...prev,
+          presupuestosEnviados: enviados,
+          presupuestosPendientes: pendientes
         }))
       }
     } catch (error) {
@@ -128,6 +143,22 @@ const ClientesWebDashboardPage = () => {
               <p className="clientes-web-stat-value error">{stats.pedidosRechazados}</p>
             </div>
           </div>
+
+          <div className="clientes-web-stat-card">
+            <div className="clientes-web-stat-icon">💰</div>
+            <div className="clientes-web-stat-info">
+              <h3>Presupuestos Enviados</h3>
+              <p className="clientes-web-stat-value warning">{stats.presupuestosEnviados}</p>
+            </div>
+          </div>
+
+          <div className="clientes-web-stat-card">
+            <div className="clientes-web-stat-icon">📝</div>
+            <div className="clientes-web-stat-info">
+              <h3>Presupuestos Borradores</h3>
+              <p className="clientes-web-stat-value">{stats.presupuestosPendientes}</p>
+            </div>
+          </div>
         </div>
 
         {/* Sección de acciones rápidas */}
@@ -159,6 +190,15 @@ const ClientesWebDashboardPage = () => {
               <div className="clientes-web-action-icon">📦</div>
               <h3>Artículos de Empresa</h3>
               <p>Gestionar catálogo de artículos y servicios</p>
+            </button>
+
+            <button
+              className="clientes-web-action-card"
+              onClick={() => navigate('/clientes-web/presupuestos')}
+            >
+              <div className="clientes-web-action-icon">💰</div>
+              <h3>Presupuestos de Clientes</h3>
+              <p>Ver y gestionar presupuestos enviados por clientes</p>
             </button>
           </div>
         </div>
