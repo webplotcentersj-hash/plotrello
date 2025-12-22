@@ -193,6 +193,12 @@ const Header = ({
               </a>
             )}
             <a
+              href="/libro-actas"
+              className="brand-button"
+            >
+              📝 Libro de Actas
+            </a>
+            <a
               href="/galeria"
               className="brand-button"
             >
