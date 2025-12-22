@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
-import { toDataURL } from 'qrcode'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
 import './OpPublicPage.css'
@@ -10,7 +9,6 @@ const OpPublicPage = () => {
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const loadOrden = async () => {
@@ -25,12 +23,6 @@ const OpPublicPage = () => {
         if (response.success && response.data) {
           const ordenData = response.data as OrdenTrabajo
           setOrden(ordenData)
-          
-          // Generar QR
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-          const qrUrl = `${baseUrl}/op-public/${opNumber}`
-          const qrData = await toDataURL(qrUrl, { width: 250, margin: 2 })
-          setQrDataUrl(qrData)
         } else {
           setError('No se encontró la orden de trabajo')
         }
