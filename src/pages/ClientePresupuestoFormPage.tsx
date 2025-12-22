@@ -101,10 +101,16 @@ export default function ClientePresupuestoFormPage() {
 
   const actualizarItem = (index: number, campo: keyof PresupuestoItem, valor: any) => {
     const nuevosItems = [...items]
+    
+    // No permitir modificar precio_unitario - siempre usar el precio del artículo
+    if (campo === 'precio_unitario') {
+      return // Ignorar cambios al precio unitario
+    }
+    
     nuevosItems[index] = { ...nuevosItems[index], [campo]: valor }
     
-    // Recalcular precio_total si cambia cantidad o precio_unitario
-    if (campo === 'cantidad' || campo === 'precio_unitario') {
+    // Recalcular precio_total si cambia cantidad
+    if (campo === 'cantidad') {
       nuevosItems[index].precio_total = nuevosItems[index].cantidad * nuevosItems[index].precio_unitario
     }
     
@@ -314,17 +320,7 @@ export default function ClientePresupuestoFormPage() {
                   </div>
                   <div className="item-precio">
                     <label>Precio unitario:</label>
-                    {puedeEditar ? (
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={item.precio_unitario}
-                        onChange={(e) => actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
-                      />
-                    ) : (
-                      <span>${item.precio_unitario.toFixed(2)}</span>
-                    )}
+                    <span className="precio-readonly">${item.precio_unitario.toFixed(2)}</span>
                   </div>
                   <div className="item-total">
                     <strong>${item.precio_total.toFixed(2)}</strong>

@@ -248,6 +248,16 @@
   padding: 8px;
 }
 
+.precio-readonly {
+  color: #eb671b;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 8px;
+  background: rgba(235, 103, 27, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(235, 103, 27, 0.3);
+}
+
 .item-total {
   align-items: flex-end;
 }
