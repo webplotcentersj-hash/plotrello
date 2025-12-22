@@ -66,32 +66,62 @@ const OpPublicPage = () => {
     return estadosMap[orden.estado] || orden.estado
   }, [orden])
 
+  // Mapeo de estados a colores de sectores (igual que en el programa)
   const estadoColor = useMemo(() => {
-    if (!orden) return '#6b7280'
+    if (!orden) return '#6B7280'
     
     const colorMap: Record<string, string> = {
-      'Pendiente': '#9ca3af',
-      'Diseño Gráfico': '#3b82f6',
-      'Diseño en Proceso': '#3b82f6',
-      'En Espera': '#f59e0b',
-      'Imprenta (Área de Impresión)': '#8b5cf6',
-      'Taller de Imprenta': '#8b5cf6',
-      'Taller Gráfico': '#10b981',
-      'Instalaciones': '#f97316',
-      'Metalúrgica': '#06b6d4',
-      'Finalizado en Taller': '#22c55e',
-      'Almacén de Entrega': '#22c55e',
-      'Entregado o Instalado': '#16a34a'
+      'Pendiente': '#6B7280',
+      'Diseño Gráfico': '#f97316', // Naranja
+      'Diseño en Proceso': '#f97316',
+      'En Espera': '#6B7280',
+      'Imprenta (Área de Impresión)': '#0ea5e9', // Azul claro
+      'Taller de Imprenta': '#0ea5e9',
+      'Taller Gráfico': '#6366f1', // Índigo
+      'Instalaciones': '#a855f7', // Púrpura
+      'Metalúrgica': '#ec4899', // Rosa
+      'Finalizado en Taller': '#10b981', // Verde
+      'Almacén de Entrega': '#10b981',
+      'Mostrador': '#10b981',
+      'Caja': '#facc15', // Amarillo
+      'Entregado o Instalado': '#16a34a' // Verde oscuro
     }
     
-    return colorMap[orden.estado] || '#6b7280'
+    return colorMap[orden.estado] || '#6B7280'
+  }, [orden])
+
+  // Descripción del estado/sector
+  const estadoDescripcion = useMemo(() => {
+    if (!orden) return ''
+    
+    const descripcionesMap: Record<string, string> = {
+      'Pendiente': 'La orden está pendiente de asignación',
+      'Diseño Gráfico': 'La orden está en el sector de Diseño Gráfico',
+      'Diseño en Proceso': 'La orden está siendo diseñada',
+      'En Espera': 'La orden está en espera',
+      'Imprenta (Área de Impresión)': 'La orden está en el área de Imprenta',
+      'Taller de Imprenta': 'La orden está en el Taller de Imprenta',
+      'Taller Gráfico': 'La orden está en el Taller Gráfico',
+      'Instalaciones': 'La orden está en el sector de Instalaciones',
+      'Metalúrgica': 'La orden está en el sector Metalúrgica',
+      'Finalizado en Taller': 'La orden ha sido finalizada en el taller',
+      'Almacén de Entrega': 'La orden está lista para entrega',
+      'Mostrador': 'La orden está en Mostrador',
+      'Caja': 'La orden está en Caja',
+      'Entregado o Instalado': 'La orden ha sido entregada o instalada'
+    }
+    
+    return descripcionesMap[orden.estado] || 'Estado de la orden'
   }, [orden])
 
   if (loading) {
     return (
       <div className="op-public-page">
         <div className="op-public-container">
-          <div className="loading-spinner">Cargando...</div>
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Cargando información de la orden...</p>
+          </div>
         </div>
       </div>
     )
@@ -129,10 +159,13 @@ const OpPublicPage = () => {
 
         <div className="op-public-content">
           <div className="estado-section">
-            <div className="estado-badge" style={{ backgroundColor: `${estadoColor}20`, color: estadoColor, borderColor: estadoColor }}>
-              <span className="estado-label">Estado:</span>
-              <span className="estado-value">{estadoDisplay}</span>
+            <div className="estado-badge" style={{ backgroundColor: `${estadoColor}20`, borderColor: estadoColor }}>
+              <span className="estado-label" style={{ color: '#1f2937' }}>Estado:</span>
+              <span className="estado-value" style={{ color: estadoColor, fontWeight: '700' }}>{estadoDisplay}</span>
             </div>
+            {estadoDescripcion && (
+              <p className="estado-descripcion">{estadoDescripcion}</p>
+            )}
           </div>
 
           {orden.descripcion && (
@@ -157,33 +190,10 @@ const OpPublicPage = () => {
             )}
           </div>
 
-          <div className="qr-section">
-            <p className="qr-instructions">Escaneá el código QR para consultar el estado de tu orden</p>
-            <div className="qr-code-container">
-              {qrDataUrl ? (
-                <img src={qrDataUrl} alt="Código QR" style={{ maxWidth: '100%', height: 'auto' }} />
-              ) : (
-                <div style={{ padding: '20px', color: '#6b7280' }}>Generando QR...</div>
-              )}
-            </div>
-            <button 
-              onClick={() => window.print()} 
-              className="print-button"
-              style={{
-                marginTop: '20px',
-                padding: '12px 24px',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)'
-              }}
-            >
-              🖨️ Imprimir Tarjeta
-            </button>
+          <div className="footer-link">
+            <a href="https://plotcenter.com.ar/" target="_blank" rel="noopener noreferrer" className="plotcenter-link">
+              Visita nuestro sitio web: plotcenter.com.ar
+            </a>
           </div>
         </div>
       </div>
