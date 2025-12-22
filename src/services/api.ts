@@ -85,26 +85,18 @@ const fallbackMensajes: ChatMessageUI[] = []
 
 // Mapeo de canales a room_id - cada canal tiene su propio room
 const chatChannelToRoom: Record<string, number> = {
-  general: 1,
-  produccion: 2,
-  diseno: 3,
-  imprenta: 4,
-  instalaciones: 5,
-  random: 6,
-  'taller-grafico': 7,
-  mostrador: 8
+  'recursos-humanos': 1,
+  'metalurgica': 2,
+  'mostrador': 3,
+  'taller-grafico': 4
 }
 
 // Mapeo inverso: room_id -> canal
 const roomToChatChannel: Record<number, string> = {
-  1: 'general',
-  2: 'produccion',
-  3: 'diseno',
-  4: 'imprenta',
-  5: 'instalaciones',
-  6: 'random',
-  7: 'taller-grafico',
-  8: 'mostrador'
+  1: 'recursos-humanos',
+  2: 'metalurgica',
+  3: 'mostrador',
+  4: 'taller-grafico'
 }
 
 class ApiService {
@@ -1838,7 +1830,7 @@ class ApiService {
 
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('id, room_id, id_usuario, nombre_usuario, mensaje, timestamp')
+        .select('id, room_id, id_usuario, nombre_usuario, mensaje, timestamp, archivos_urls')
         .eq('room_id', roomId)
         .order('timestamp', { ascending: false })
         .limit(limit)
@@ -1871,6 +1863,7 @@ class ApiService {
     contenido: string
     usuario_id: number
     tipo?: string
+    archivosUrls?: string[]
   }): Promise<ApiResponse<ChatMessageUI>> {
     if (supabase) {
       const roomId = chatChannelToRoom[mensaje.canal] ?? 1
@@ -1878,7 +1871,7 @@ class ApiService {
       // Asegurar que el room existe antes de insertar
       await this.ensureChatRoomExists(roomId, mensaje.canal)
 
-      const payload = {
+      const payload: any = {
         room_id: roomId,
         id_usuario: mensaje.usuario_id,
         nombre_usuario: localStorage.getItem('usuario')
@@ -1890,6 +1883,11 @@ class ApiService {
             : mensaje.tipo === 'alert'
               ? '¡Atención! Revisar esto de inmediato.'
               : mensaje.contenido
+      }
+
+      // Agregar URLs de archivos si existen
+      if (mensaje.archivosUrls && mensaje.archivosUrls.length > 0) {
+        payload.archivos_urls = mensaje.archivosUrls
       }
 
       const { data, error } = await supabase.from('chat_messages').insert(payload).select().single()

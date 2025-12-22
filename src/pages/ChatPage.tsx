@@ -3,6 +3,7 @@ import type { TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { apiService } from '../services/api'
 import { supabase } from '../services/supabaseClient'
+import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import './ChatPage.css'
 
 type ChatMessage = {
@@ -15,6 +16,7 @@ type ChatMessage = {
   channel: string
   type?: 'message' | 'buzz' | 'alert'
   status?: 'sending' | 'error' | 'sent'
+  archivosUrls?: string[]
 }
 
 type Channel = {
@@ -25,29 +27,39 @@ type Channel = {
 }
 
 const CHANNELS: Channel[] = [
-  { id: 'general', name: '# general', description: 'Canal general del equipo' },
-  { id: 'produccion', name: '# producción', description: 'Coordinación de producción' },
-  { id: 'diseno', name: '# diseño', description: 'Diseño gráfico y creativo' },
-  { id: 'imprenta', name: '# imprenta', description: 'Área de imprenta' },
-  { id: 'instalaciones', name: '# instalaciones', description: 'Equipo de instalaciones' },
-  { id: 'random', name: '# random', description: 'Conversaciones casuales' }
+  { id: 'recursos-humanos', name: '# Recursos Humanos', description: 'Canal de Recursos Humanos' },
+  { id: 'metalurgica', name: '# Metalurgica', description: 'Canal de Metalúrgica' },
+  { id: 'mostrador', name: '# Mostrador', description: 'Canal de Mostrador' },
+  { id: 'taller-grafico', name: '# TG', description: 'Canal de Taller Gráfico' }
 ]
 
 // Mapeo de canales a room_id - cada canal tiene su propio room
 const chatChannelToRoom: Record<string, number> = {
-  general: 1,
-  produccion: 2,
-  diseno: 3,
-  imprenta: 4,
-  instalaciones: 5,
-  random: 6,
-  'taller-grafico': 7,
-  mostrador: 8
+  'recursos-humanos': 1,
+  'metalurgica': 2,
+  'mostrador': 3,
+  'taller-grafico': 4
 }
 
 // Mapeo de canales a room_id (usando los mismos IDs que la API)
 const getRoomIdForChannel = (channel: string): number => {
   return chatChannelToRoom[channel] ?? 1
+}
+
+// Mapeo inverso: room_id -> canal
+const roomToChatChannel: Record<number, string> = {
+  1: 'recursos-humanos',
+  2: 'metalurgica',
+  3: 'mostrador',
+  4: 'taller-grafico'
+}
+
+type FileAttachment = {
+  id: string
+  file: File
+  previewUrl?: string
+  uploadedUrl?: string
+  uploading?: boolean
 }
 
 const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: TeamMember[] }) => {
@@ -64,18 +76,23 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
             productivity: 0
           }
         ]
-  const [currentChannel, setCurrentChannel] = useState<string>('general')
+  const [currentChannel, setCurrentChannel] = useState<string>('recursos-humanos')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isShaking, setIsShaking] = useState(false)
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [attachedFiles, setAttachedFiles] = useState<FileAttachment[]>([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [mentionSuggestions, setMentionSuggestions] = useState<TeamMember[]>([])
   const [mentionQuery, setMentionQuery] = useState('')
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
   const [mentionStartIndex, setMentionStartIndex] = useState(-1)
   const [isSending, setIsSending] = useState(false)
+  const [onlineUsers, setOnlineUsers] = useState<Array<{ user_id: number; user_nombre: string; last_seen: string }>>([])
+  const [channelMessageCounts, setChannelMessageCounts] = useState<Record<string, number>>({})
+  const [showChannelInfo, setShowChannelInfo] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showMoreOptions, setShowMoreOptions] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -125,7 +142,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
             content: msg.contenido,
             timestamp: new Date(msg.timestamp),
             channel: msg.canal || currentChannel,
-            type: msg.tipo || 'message'
+            type: msg.tipo || 'message',
+            archivosUrls: (msg as any).archivos_urls ? JSON.parse(JSON.stringify((msg as any).archivos_urls)) : undefined
           }))
           setMessages(chatMessages)
         } else {
@@ -142,6 +160,66 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
 
     loadMessages()
   }, [currentChannel, usuario?.id])
+
+  // Cargar contadores de mensajes por canal
+  useEffect(() => {
+    const loadMessageCounts = async () => {
+      if (!supabase) return
+      
+      try {
+        const counts: Record<string, number> = {}
+        for (const channel of CHANNELS) {
+          const roomId = getRoomIdForChannel(channel.id)
+          const { data, error } = await supabase.rpc('contar_mensajes_canal', { p_room_id: roomId })
+          if (!error && typeof data === 'number') {
+            counts[channel.id] = data
+          }
+        }
+        setChannelMessageCounts(counts)
+      } catch (error) {
+        console.error('Error cargando contadores:', error)
+      }
+    }
+    loadMessageCounts()
+  }, [messages])
+
+  // Marcar usuario como en línea y cargar usuarios en línea
+  useEffect(() => {
+    if (!usuario?.id || !supabase) return
+
+    const markOnline = async () => {
+      try {
+        await supabase.rpc('marcar_usuario_online', {
+          p_user_id: usuario.id,
+          p_user_nombre: usuario.nombre || 'Usuario'
+        })
+      } catch (error) {
+        console.error('Error marcando usuario online:', error)
+      }
+    }
+
+    markOnline()
+    const interval = setInterval(markOnline, 30000) // Cada 30 segundos
+
+    const loadOnlineUsers = async () => {
+      try {
+        const { data, error } = await supabase.rpc('obtener_usuarios_online')
+        if (!error && data) {
+          setOnlineUsers(data)
+        }
+      } catch (error) {
+        console.error('Error cargando usuarios online:', error)
+      }
+    }
+
+    loadOnlineUsers()
+    const onlineInterval = setInterval(loadOnlineUsers, 10000) // Cada 10 segundos
+
+    return () => {
+      clearInterval(interval)
+      clearInterval(onlineInterval)
+    }
+  }, [usuario?.id])
 
   // Suscripción a Supabase Realtime para mensajes nuevos
   useEffect(() => {
@@ -195,7 +273,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
               content: newMsg.mensaje,
               timestamp: new Date(newMsg.timestamp),
               channel: currentChannel,
-              type: newMsg.mensaje?.includes('zumbido') || newMsg.mensaje?.includes('Zumbido') ? 'buzz' : newMsg.mensaje?.includes('Atención') || newMsg.mensaje?.includes('ALERTA') ? 'alert' : 'message'
+              type: newMsg.mensaje?.includes('zumbido') || newMsg.mensaje?.includes('Zumbido') ? 'buzz' : newMsg.mensaje?.includes('Atención') || newMsg.mensaje?.includes('ALERTA') ? 'alert' : 'message',
+              archivosUrls: newMsg.archivos_urls ? JSON.parse(JSON.stringify(newMsg.archivos_urls)) : undefined
             }
             console.log('✅ Mensaje agregado:', chatMessage)
             return [...prev, chatMessage]
@@ -229,17 +308,42 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     }
 
     const content = input.trim()
-    let finalContent = content
-
-    if (attachedFiles.length > 0) {
-      const fileInfo = attachedFiles
-        .map((f) => `📎 ${f.name} (${(f.size / 1024).toFixed(1)} KB)`)
-        .join('\n')
-      finalContent = content ? `${content}\n\n${fileInfo}` : fileInfo
-    }
-
     const savedContent = content
     const savedFiles = [...attachedFiles]
+
+    // Subir archivos primero
+    const uploadedUrls: string[] = []
+    if (savedFiles.length > 0) {
+      setIsSending(true)
+      try {
+        for (const attachment of savedFiles) {
+          if (!attachment.uploadedUrl) {
+            setAttachedFiles((prev) =>
+              prev.map((f) => (f.id === attachment.id ? { ...f, uploading: true } : f))
+            )
+            const url = await uploadAttachmentAndGetUrl(attachment.file, 'chat')
+            uploadedUrls.push(url)
+            setAttachedFiles((prev) =>
+              prev.map((f) => (f.id === attachment.id ? { ...f, uploading: false, uploadedUrl: url } : f))
+            )
+          } else {
+            uploadedUrls.push(attachment.uploadedUrl)
+          }
+        }
+      } catch (error) {
+        console.error('Error subiendo archivos:', error)
+        alert('Error al subir archivos. Intenta nuevamente.')
+        setIsSending(false)
+        return
+      }
+    }
+
+    let finalContent = content
+    if (uploadedUrls.length > 0 && content) {
+      finalContent = content
+    } else if (uploadedUrls.length > 0) {
+      finalContent = `📎 ${savedFiles.length} archivo(s) adjunto(s)`
+    }
 
     setInput('')
     setAttachedFiles([])
@@ -268,11 +372,13 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
         console.log('📎 Archivos adjuntos:', savedFiles.map((f) => f.name))
       }
 
+      // Enviar mensaje con URLs de archivos
       const response = await apiService.enviarMensajeChat({
         canal: currentChannel,
         contenido: finalContent || (mode === 'alert' ? '¡Atención! Revisar esto de inmediato.' : ''),
         usuario_id: usuario.id,
-        tipo: mode === 'alert' ? 'alert' : 'message'
+        tipo: mode === 'alert' ? 'alert' : 'message',
+        archivosUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined
       })
 
       if (!response.success || !response.data) {
@@ -294,11 +400,21 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                 ...m,
                 id: response.data!.id.toString(),
                 content: response.data!.contenido || finalContent,
-                status: 'sent'
+                status: 'sent',
+                archivosUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined
               }
             : m
         )
       )
+
+      // Limpiar archivos adjuntos después de enviar
+      setAttachedFiles([])
+      // Limpiar URLs de preview
+      savedFiles.forEach((f) => {
+        if (f.previewUrl && f.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(f.previewUrl)
+        }
+      })
 
       if (mentions.length > 0) {
         for (const member of mentions) {
@@ -454,10 +570,20 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     }
   }
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     if (files.length > 0) {
-      setAttachedFiles((prev) => [...prev, ...files])
+      const newAttachments: FileAttachment[] = files.map((file) => {
+        const id = `file-${Date.now()}-${Math.random()}`
+        const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+        return {
+          id,
+          file,
+          previewUrl,
+          uploading: false
+        }
+      })
+      setAttachedFiles((prev) => [...prev, ...newAttachments])
       console.log('📎 Archivos seleccionados:', files.map(f => f.name))
     }
     // Resetear el input para permitir seleccionar el mismo archivo de nuevo
@@ -466,8 +592,14 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     }
   }
 
-  const removeFile = (index: number) => {
-    setAttachedFiles((prev) => prev.filter((_, i) => i !== index))
+  const removeFile = (id: string) => {
+    setAttachedFiles((prev) => {
+      const fileToRemove = prev.find(f => f.id === id)
+      if (fileToRemove?.previewUrl && fileToRemove.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(fileToRemove.previewUrl)
+      }
+      return prev.filter((f) => f.id !== id)
+    })
   }
 
   const emojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '👋', '🤚', '🖐', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁️', '👅', '👄', '💋', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '👋', '🤚', '🖐', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁️', '👅', '👄', '💋', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤']
@@ -640,8 +772,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                 onClick={() => setCurrentChannel(channel.id)}
               >
                 <span className="channel-name">{channel.name}</span>
-                {channel.unread && channel.unread > 0 && (
-                  <span className="unread-badge">{channel.unread}</span>
+                {channelMessageCounts[channel.id] !== undefined && channelMessageCounts[channel.id] > 0 && (
+                  <span className="unread-badge">{channelMessageCounts[channel.id]}</span>
                 )}
               </button>
             ))}
@@ -650,21 +782,27 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
 
         <div className="sidebar-section">
           <div className="section-header">
-            <span>MIEMBROS EN LÍNEA ({resolvedMembers.length})</span>
+            <span>MIEMBROS EN LÍNEA ({onlineUsers.length})</span>
           </div>
           <div className="members-list">
-            {resolvedMembers.map((member) => (
-              <div key={member.id} className="member-item">
-                <div className="member-avatar">
-                  <span>{member.avatar}</span>
-                  <span className="online-indicator"></span>
+            {onlineUsers.length > 0 ? (
+              onlineUsers.map((user) => (
+                <div key={user.user_id} className="member-item">
+                  <div className="member-avatar">
+                    <span>{(user.user_nombre || 'U').charAt(0).toUpperCase()}</span>
+                    <span className="online-indicator"></span>
+                  </div>
+                  <div className="member-info">
+                    <span className="member-name">{user.user_nombre}</span>
+                    <span className="member-role">En línea</span>
+                  </div>
                 </div>
-                <div className="member-info">
-                  <span className="member-name">{member.name}</span>
-                  <span className="member-role">{member.role}</span>
-                </div>
+              ))
+            ) : (
+              <div style={{ padding: '8px 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                No hay usuarios en línea
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -676,16 +814,74 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
             <p>{CHANNELS.find((c) => c.id === currentChannel)?.description}</p>
           </div>
           <div className="header-actions">
-            <button className="header-action-btn" title="Información del canal">
+            <button 
+              className={`header-action-btn ${showChannelInfo ? 'active' : ''}`}
+              onClick={() => {
+                setShowChannelInfo(!showChannelInfo)
+                setShowNotifications(false)
+                setShowMoreOptions(false)
+              }}
+              title="Información del canal"
+            >
               ℹ️
             </button>
-            <button className="header-action-btn" title="Notificaciones">
+            <button 
+              className={`header-action-btn ${showNotifications ? 'active' : ''}`}
+              onClick={() => {
+                setShowNotifications(!showNotifications)
+                setShowChannelInfo(false)
+                setShowMoreOptions(false)
+              }}
+              title="Notificaciones"
+            >
               🔔
             </button>
-            <button className="header-action-btn" title="Más opciones">
+            <button 
+              className={`header-action-btn ${showMoreOptions ? 'active' : ''}`}
+              onClick={() => {
+                setShowMoreOptions(!showMoreOptions)
+                setShowChannelInfo(false)
+                setShowNotifications(false)
+              }}
+              title="Más opciones"
+            >
               ⋮
             </button>
           </div>
+          {showChannelInfo && (
+            <div className="channel-info-popup">
+              <h4>{CHANNELS.find((c) => c.id === currentChannel)?.name}</h4>
+              <p>{CHANNELS.find((c) => c.id === currentChannel)?.description}</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                Mensajes: {channelMessageCounts[currentChannel] || 0}
+              </p>
+            </div>
+          )}
+          {showNotifications && (
+            <div className="notifications-popup">
+              <h4>Notificaciones</h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Sistema de notificaciones próximamente
+              </p>
+            </div>
+          )}
+          {showMoreOptions && (
+            <div className="more-options-popup">
+              <button onClick={() => {
+                if (confirm('¿Limpiar todos los mensajes de este canal?')) {
+                  setMessages([])
+                }
+              }}>
+                Limpiar mensajes
+              </button>
+              <button onClick={() => {
+                navigator.clipboard.writeText(window.location.href)
+                alert('URL copiada al portapapeles')
+              }}>
+                Copiar URL del canal
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="messages-container">
@@ -741,6 +937,26 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                       )}
                       <div className={`message-text ${message.type === 'buzz' ? 'buzz-text' : ''} ${message.type === 'alert' ? 'alert-text' : ''}`}>
                         {renderMessageWithMentions(message.content)}
+                        {message.archivosUrls && message.archivosUrls.length > 0 && (
+                          <div className="message-files">
+                            {message.archivosUrls.map((url, idx) => {
+                              const isImage = url.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                              return (
+                                <div key={idx} className="message-file-item">
+                                  {isImage ? (
+                                    <a href={url} target="_blank" rel="noopener noreferrer">
+                                      <img src={url} alt={`Archivo ${idx + 1}`} className="message-file-image" />
+                                    </a>
+                                  ) : (
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="message-file-link">
+                                      📎 Ver archivo {idx + 1}
+                                    </a>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                         {message.status === 'sending' && <span className="message-status">Enviando…</span>}
                         {message.status === 'error' && <span className="message-status error">Error</span>}
                       </div>
@@ -756,12 +972,30 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
         <div className="chat-input-area">
           {attachedFiles.length > 0 && (
             <div className="attached-files-preview">
-              {attachedFiles.map((file, index) => (
-                <div key={index} className="attached-file-item">
-                  <span>📎 {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
-                  <button onClick={() => removeFile(index)} className="remove-file-btn">×</button>
-                </div>
-              ))}
+              {attachedFiles.map((attachment) => {
+                const isImage = attachment.file.type.startsWith('image/')
+                return (
+                  <div key={attachment.id} className="attached-file-item">
+                    {isImage && attachment.previewUrl ? (
+                      <div className="file-preview-image">
+                        <img src={attachment.previewUrl} alt={attachment.file.name} />
+                        <div className="file-preview-overlay">
+                          <span>{attachment.file.name}</span>
+                          <span>{(attachment.file.size / 1024).toFixed(1)} KB</span>
+                          {attachment.uploading && <span className="uploading-indicator">Subiendo...</span>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="file-preview-info">
+                        <span>📎 {attachment.file.name}</span>
+                        <span>{(attachment.file.size / 1024).toFixed(1)} KB</span>
+                        {attachment.uploading && <span className="uploading-indicator">Subiendo...</span>}
+                      </div>
+                    )}
+                    <button onClick={() => removeFile(attachment.id)} className="remove-file-btn">×</button>
+                  </div>
+                )
+              })}
             </div>
           )}
           <div className="input-wrapper">
