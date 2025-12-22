@@ -27,18 +27,24 @@ type Channel = {
 }
 
 const CHANNELS: Channel[] = [
+  { id: 'general', name: '# General', description: 'Canal general del equipo' },
+  { id: 'diseno', name: '# Diseño', description: 'Canal de Diseño Gráfico' },
   { id: 'recursos-humanos', name: '# Recursos Humanos', description: 'Canal de Recursos Humanos' },
   { id: 'metalurgica', name: '# Metalurgica', description: 'Canal de Metalúrgica' },
   { id: 'mostrador', name: '# Mostrador', description: 'Canal de Mostrador' },
-  { id: 'taller-grafico', name: '# TG', description: 'Canal de Taller Gráfico' }
+  { id: 'taller-grafico', name: '# TG', description: 'Canal de Taller Gráfico' },
+  { id: 'random', name: '# Random', description: 'Conversaciones casuales' }
 ]
 
 // Mapeo de canales a room_id - cada canal tiene su propio room
 const chatChannelToRoom: Record<string, number> = {
-  'recursos-humanos': 1,
-  'metalurgica': 2,
-  'mostrador': 3,
-  'taller-grafico': 4
+  'general': 1,
+  'diseno': 2,
+  'recursos-humanos': 3,
+  'metalurgica': 4,
+  'mostrador': 5,
+  'taller-grafico': 6,
+  'random': 7
 }
 
 // Mapeo de canales a room_id (usando los mismos IDs que la API)
@@ -68,7 +74,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
             productivity: 0
           }
         ]
-  const [currentChannel, setCurrentChannel] = useState<string>('recursos-humanos')
+  const [currentChannel, setCurrentChannel] = useState<string>('general')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
@@ -135,7 +141,20 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
             timestamp: new Date(msg.timestamp),
             channel: msg.canal || currentChannel,
             type: msg.tipo || 'message',
-            archivosUrls: (msg as any).archivos_urls ? JSON.parse(JSON.stringify((msg as any).archivos_urls)) : undefined
+            archivosUrls: (() => {
+              const archivos = (msg as any).archivos_urls
+              if (!archivos) return undefined
+              try {
+                if (typeof archivos === 'string') {
+                  return JSON.parse(archivos)
+                } else if (Array.isArray(archivos)) {
+                  return archivos
+                }
+              } catch (e) {
+                console.error('Error parseando archivos_urls:', e)
+              }
+              return undefined
+            })()
           }))
           setMessages(chatMessages)
         } else {
@@ -259,6 +278,32 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
               return prev
             }
 
+            // Obtener el canal correcto desde el room_id
+            const roomToChannelMap: Record<number, string> = {
+              1: 'general',
+              2: 'diseno',
+              3: 'recursos-humanos',
+              4: 'metalurgica',
+              5: 'mostrador',
+              6: 'taller-grafico',
+              7: 'random'
+            }
+            const msgChannel = roomToChannelMap[newMsg.room_id] || currentChannel
+            
+            // Parsear archivos_urls si existe
+            let archivosUrls: string[] | undefined = undefined
+            if (newMsg.archivos_urls) {
+              try {
+                if (typeof newMsg.archivos_urls === 'string') {
+                  archivosUrls = JSON.parse(newMsg.archivos_urls)
+                } else if (Array.isArray(newMsg.archivos_urls)) {
+                  archivosUrls = newMsg.archivos_urls
+                }
+              } catch (e) {
+                console.error('Error parseando archivos_urls:', e)
+              }
+            }
+
             const chatMessage: ChatMessage = {
               id: newMsg.id.toString(),
               userId: newMsg.id_usuario.toString(),
@@ -266,9 +311,9 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
               userAvatar: (newMsg.nombre_usuario || 'U').charAt(0).toUpperCase(),
               content: newMsg.mensaje,
               timestamp: new Date(newMsg.timestamp),
-              channel: currentChannel,
+              channel: msgChannel,
               type: newMsg.mensaje?.includes('zumbido') || newMsg.mensaje?.includes('Zumbido') ? 'buzz' : newMsg.mensaje?.includes('Atención') || newMsg.mensaje?.includes('ALERTA') ? 'alert' : 'message',
-              archivosUrls: newMsg.archivos_urls ? JSON.parse(JSON.stringify(newMsg.archivos_urls)) : undefined
+              archivosUrls: archivosUrls
             }
             console.log('✅ Mensaje agregado:', chatMessage)
             return [...prev, chatMessage]

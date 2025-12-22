@@ -65,6 +65,7 @@ type ChatMessageUI = {
   contenido: string
   tipo: 'message' | 'alert' | 'buzz'
   timestamp: string
+  archivos_urls?: string[]
 }
 
 const fallbackOrdenes: OrdenTrabajo[] = []
@@ -85,18 +86,24 @@ const fallbackMensajes: ChatMessageUI[] = []
 
 // Mapeo de canales a room_id - cada canal tiene su propio room
 const chatChannelToRoom: Record<string, number> = {
-  'recursos-humanos': 1,
-  'metalurgica': 2,
-  'mostrador': 3,
-  'taller-grafico': 4
+  'general': 1,
+  'diseno': 2,
+  'recursos-humanos': 3,
+  'metalurgica': 4,
+  'mostrador': 5,
+  'taller-grafico': 6,
+  'random': 7
 }
 
 // Mapeo inverso: room_id -> canal
 const roomToChatChannel: Record<number, string> = {
-  1: 'recursos-humanos',
-  2: 'metalurgica',
-  3: 'mostrador',
-  4: 'taller-grafico'
+  1: 'general',
+  2: 'diseno',
+  3: 'recursos-humanos',
+  4: 'metalurgica',
+  5: 'mostrador',
+  6: 'taller-grafico',
+  7: 'random'
 }
 
 class ApiService {
@@ -1838,15 +1845,32 @@ class ApiService {
       if (error) return { success: false, error: error.message }
 
       const mensajes =
-        data?.map((msg: any) => ({
-          id: msg.id,
-          canal: roomToChatChannel[msg.room_id] ?? canal,
-          usuario_id: msg.id_usuario,
-          nombre_usuario: msg.nombre_usuario,
-          contenido: msg.mensaje,
-          tipo: inferChatType(msg.mensaje),
-          timestamp: msg.timestamp
-        })) ?? []
+        data?.map((msg: any) => {
+          // Parsear archivos_urls si existe
+          let archivosUrls: string[] | undefined = undefined
+          if (msg.archivos_urls) {
+            try {
+              if (typeof msg.archivos_urls === 'string') {
+                archivosUrls = JSON.parse(msg.archivos_urls)
+              } else if (Array.isArray(msg.archivos_urls)) {
+                archivosUrls = msg.archivos_urls
+              }
+            } catch (e) {
+              console.error('Error parseando archivos_urls:', e)
+            }
+          }
+          
+          return {
+            id: msg.id,
+            canal: roomToChatChannel[msg.room_id] ?? canal,
+            usuario_id: msg.id_usuario,
+            nombre_usuario: msg.nombre_usuario,
+            contenido: msg.mensaje,
+            tipo: inferChatType(msg.mensaje),
+            timestamp: msg.timestamp,
+            archivos_urls: archivosUrls
+          }
+        }) ?? []
 
       return { success: true, data: (mensajes.reverse() as ChatMessageUI[]) }
     }
