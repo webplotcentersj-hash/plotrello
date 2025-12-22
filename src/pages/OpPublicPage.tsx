@@ -82,25 +82,25 @@ const OpPublicPage = () => {
     return colorMap[orden.estado] || '#6B7280'
   }, [orden])
 
-  // Descripción del estado/sector
+  // Descripción del estado/sector - explica qué función cumple cada sector
   const estadoDescripcion = useMemo(() => {
     if (!orden) return ''
     
     const descripcionesMap: Record<string, string> = {
-      'Pendiente': 'La orden está pendiente de asignación',
-      'Diseño Gráfico': 'La orden está en el sector de Diseño Gráfico',
-      'Diseño en Proceso': 'La orden está siendo diseñada',
-      'En Espera': 'La orden está en espera',
-      'Imprenta (Área de Impresión)': 'La orden está en el área de Imprenta',
-      'Taller de Imprenta': 'La orden está en el Taller de Imprenta',
-      'Taller Gráfico': 'La orden está en el Taller Gráfico',
-      'Instalaciones': 'La orden está en el sector de Instalaciones',
-      'Metalúrgica': 'La orden está en el sector Metalúrgica',
-      'Finalizado en Taller': 'La orden ha sido finalizada en el taller',
-      'Almacén de Entrega': 'La orden está lista para entrega',
-      'Mostrador': 'La orden está en Mostrador',
-      'Caja': 'La orden está en Caja',
-      'Entregado o Instalado': 'La orden ha sido entregada o instalada'
+      'Pendiente': 'La orden está pendiente de asignación a un sector',
+      'Diseño Gráfico': 'Se está diseñando la pieza gráfica, creando la identidad visual y preparando los archivos para producción',
+      'Diseño en Proceso': 'El diseño está siendo desarrollado y revisado',
+      'En Espera': 'La orden está en espera de ser procesada',
+      'Imprenta (Área de Impresión)': 'Se está imprimiendo en equipos digitales de alta calidad',
+      'Taller de Imprenta': 'Se están realizando trabajos de impresión offset, acabados y post-impresión',
+      'Taller Gráfico': 'Se están realizando trabajos de corte, ploteo, laminado, termoformado y acabados especiales en materiales gráficos',
+      'Instalaciones': 'Se están realizando trabajos de instalación, montaje y colocación de piezas gráficas en el lugar de destino',
+      'Metalúrgica': 'Se están fabricando estructuras metálicas, marcos, soportes y elementos de herrería para las piezas gráficas',
+      'Finalizado en Taller': 'Los trabajos de taller han sido completados',
+      'Almacén de Entrega': 'La orden está lista y disponible para ser retirada o entregada',
+      'Mostrador': 'La orden está en el área de atención al cliente, lista para consultas o retiro',
+      'Caja': 'La orden está en el área de facturación y cobro',
+      'Entregado o Instalado': 'La orden ha sido entregada al cliente o instalada en su ubicación final'
     }
     
     return descripcionesMap[orden.estado] || 'Estado de la orden'
