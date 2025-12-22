@@ -132,7 +132,16 @@ const Header = ({
               </button>
             )}
             {onToggleCompact && (
-              <button className="brand-button" onClick={onToggleCompact}>
+              <button 
+                className="brand-button" 
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  console.log('Botón Vista expandida/Modo compacto clickeado. Estado actual:', isCompact)
+                  onToggleCompact()
+                }}
+                title={isCompact ? 'Cambiar a vista expandida' : 'Cambiar a modo compacto'}
+              >
                 {isCompact ? '🪄 Vista expandida' : '🧊 Modo compacto'}
               </button>
             )}

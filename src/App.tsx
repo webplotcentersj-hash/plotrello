@@ -139,10 +139,18 @@ function App() {
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.body.classList.toggle('compact-mode', isCompact)
+      const body = document.body
+      if (isCompact) {
+        body.classList.add('compact-mode')
+        console.log('✅ Modo compacto activado - clase agregada al body')
+      } else {
+        body.classList.remove('compact-mode')
+        console.log('✅ Modo expandido activado - clase removida del body')
+      }
     }
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('compactMode', isCompact ? '1' : '0')
+      console.log('💾 Estado guardado en localStorage:', isCompact ? 'compacto' : 'expandido')
     }
   }, [isCompact])
 
