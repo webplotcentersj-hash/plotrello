@@ -136,7 +136,7 @@ const PedidosClientesPage = () => {
                     <td>
                       <button
                         className="btn-view"
-                        onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}`)}
+                        onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)}
                       >
                         Ver Detalle
                       </button>
