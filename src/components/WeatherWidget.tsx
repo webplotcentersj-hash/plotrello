@@ -22,9 +22,10 @@ const WeatherWidget = () => {
     const fetchWeather = async () => {
       try {
         // Usar wttr.in API (pública y gratuita, sin API key)
-        // San Juan, Argentina
+        // San Juan, Argentina - Usar coordenadas específicas para evitar ambigüedad
+        // Coordenadas: -31.5375° S, -68.5364° W (San Juan Capital, Argentina)
         const response = await fetch(
-          'https://wttr.in/San%20Juan,Argentina?format=j1&lang=es',
+          'https://wttr.in/-31.5375,-68.5364?format=j1&lang=es',
           {
             headers: {
               'Accept': 'application/json'
