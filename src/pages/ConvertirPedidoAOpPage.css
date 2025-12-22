@@ -71,6 +71,26 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.info-section.info-warning {
+  background: #fef3c7 !important;
+  border-color: #f59e0b;
+}
+
+.info-list {
+  margin: 15px 0 0 0;
+  padding-left: 25px;
+  color: #374151;
+}
+
+.info-list li {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.info-list li strong {
+  color: #111827;
+}
+
 .info-section h2 {
   margin: 0 0 20px 0;
   font-size: 1.5rem;
@@ -144,6 +164,13 @@
 
 .form-textarea::placeholder {
   color: #9ca3af;
+}
+
+.form-help-text {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
 }
 
 .items-table-container {

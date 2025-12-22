@@ -18,6 +18,20 @@ export default function ConvertirPedidoAOpPage() {
     observaciones: ''
   })
 
+  // Sectores válidos según el sistema
+  const sectoresValidos = [
+    'Diseño Gráfico',
+    'Diseño en Proceso',
+    'En Espera',
+    'Imprenta (Área de Impresión)',
+    'Taller de Imprenta',
+    'Taller Gráfico',
+    'Instalaciones',
+    'Metalúrgica',
+    'Finalizado en Taller',
+    'Almacén de Entrega'
+  ]
+
   useEffect(() => {
     if (authLoading) return
     if (!isAdmin && !isMostrador) {
@@ -126,13 +140,25 @@ export default function ConvertirPedidoAOpPage() {
       <main className="convertir-pedido-op-main">
         {error && (
           <div className="error-message">
-            {error}
+            <strong>⚠️ Error:</strong> {error}
           </div>
         )}
 
+        {/* Información importante */}
+        <section className="info-section info-warning">
+          <h2>ℹ️ ¿Qué hace esta conversión?</h2>
+          <ul className="info-list">
+            <li>Se creará una nueva <strong>Orden de Trabajo (OP)</strong> en el sistema</li>
+            <li>La OP aparecerá en el tablero Kanban en el sector inicial seleccionado</li>
+            <li>El pedido quedará marcado como <strong>"Convertido"</strong> y asociado a la OP</li>
+            <li>Los artículos del pedido se incluirán en la descripción de la OP</li>
+            <li>La fecha límite del pedido se transferirá a la OP</li>
+          </ul>
+        </section>
+
         {/* Información del pedido */}
         <section className="info-section">
-          <h2>Información del Pedido</h2>
+          <h2>📋 Información del Pedido</h2>
           <div className="info-grid">
             <div className="info-item">
               <span className="info-label">Cliente:</span>
@@ -166,20 +192,23 @@ export default function ConvertirPedidoAOpPage() {
 
         {/* Formulario de conversión */}
         <section className="info-section">
-          <h2>Configuración de la OP</h2>
+          <h2>⚙️ Configuración de la OP</h2>
           <div className="form-group">
-            <label>Sector Inicial:</label>
+            <label>Sector Inicial (donde comenzará la OP):</label>
             <select
               value={formData.sector_inicial}
               onChange={(e) => setFormData({ ...formData, sector_inicial: e.target.value })}
               className="form-select"
             >
-              <option value="Diseño Gráfico">Diseño Gráfico</option>
-              <option value="Impresión">Impresión</option>
-              <option value="Corte">Corte</option>
-              <option value="Terminación">Terminación</option>
-              <option value="Instalación">Instalación</option>
+              {sectoresValidos.map((sector) => (
+                <option key={sector} value={sector}>
+                  {sector}
+                </option>
+              ))}
             </select>
+            <p className="form-help-text">
+              Selecciona el sector donde comenzará el trabajo. La OP aparecerá en este sector del tablero Kanban.
+            </p>
           </div>
           <div className="form-group">
             <label>Observaciones Adicionales (opcional):</label>
