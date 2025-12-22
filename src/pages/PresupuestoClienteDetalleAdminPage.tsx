@@ -184,19 +184,27 @@ export default function PresupuestoClienteDetalleAdminPage() {
           <div className="info-grid">
             <div className="info-item">
               <span className="info-label">Nombre:</span>
-              <span className="info-value">{presupuesto.cliente?.nombre || '-'} {presupuesto.cliente?.apellido || ''}</span>
+              <span className="info-value" style={{ color: '#111827' }}>
+                {presupuesto.cliente?.nombre || '-'} {presupuesto.cliente?.apellido || ''}
+              </span>
             </div>
             <div className="info-item">
               <span className="info-label">Empresa:</span>
-              <span className="info-value">{presupuesto.cliente?.empresa || '-'}</span>
+              <span className="info-value" style={{ color: '#111827' }}>
+                {presupuesto.cliente?.empresa || '-'}
+              </span>
             </div>
             <div className="info-item">
               <span className="info-label">Email:</span>
-              <span className="info-value">{presupuesto.cliente?.email || '-'}</span>
+              <span className="info-value" style={{ color: '#111827' }}>
+                {presupuesto.cliente?.email || '-'}
+              </span>
             </div>
             <div className="info-item">
               <span className="info-label">Teléfono:</span>
-              <span className="info-value">{presupuesto.cliente?.telefono || '-'}</span>
+              <span className="info-value" style={{ color: '#111827' }}>
+                {presupuesto.cliente?.telefono || '-'}
+              </span>
             </div>
           </div>
         </section>
@@ -207,7 +215,7 @@ export default function PresupuestoClienteDetalleAdminPage() {
           <div className="info-grid">
             <div className="info-item">
               <span className="info-label">Fecha de creación:</span>
-              <span className="info-value">
+              <span className="info-value" style={{ color: '#111827' }}>
                 {new Date(presupuesto.fecha_creacion).toLocaleDateString('es-AR', {
                   year: 'numeric',
                   month: 'long',
@@ -220,7 +228,7 @@ export default function PresupuestoClienteDetalleAdminPage() {
             {presupuesto.fecha_envio && (
               <div className="info-item">
                 <span className="info-label">Fecha de envío:</span>
-                <span className="info-value">
+                <span className="info-value" style={{ color: '#111827' }}>
                   {new Date(presupuesto.fecha_envio).toLocaleDateString('es-AR', {
                     year: 'numeric',
                     month: 'long',
@@ -234,7 +242,7 @@ export default function PresupuestoClienteDetalleAdminPage() {
             {presupuesto.fecha_vencimiento && (
               <div className="info-item">
                 <span className="info-label">Válido hasta:</span>
-                <span className="info-value">
+                <span className="info-value" style={{ color: '#111827' }}>
                   {new Date(presupuesto.fecha_vencimiento).toLocaleDateString('es-AR')}
                 </span>
               </div>
