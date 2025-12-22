@@ -5,6 +5,49 @@ import apiService from '../services/api'
 import type { ActaSectorRecord, SectorRecord, TipoNovedad } from '../types/api'
 import './LibroActasSectorPage.css'
 
+// Tipos para reconocimiento de voz
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any
+    SpeechRecognition: any
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start(): void
+  stop(): void
+  onresult: (event: SpeechRecognitionEvent) => void
+  onerror: (event: SpeechRecognitionErrorEvent) => void
+  onend: () => void
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number
+  results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionResultList {
+  length: number
+  [index: number]: SpeechRecognitionResult
+}
+
+interface SpeechRecognitionResult {
+  [index: number]: SpeechRecognitionAlternative
+  isFinal: boolean
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string
+  confidence: number
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string
+}
+
 const TIPOS_NOVEDAD: { value: TipoNovedad; label: string; color: string }[] = [
   { value: 'general', label: 'General', color: '#6b7280' },
   { value: 'problema', label: 'Problema', color: '#ef4444' },
