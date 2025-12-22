@@ -22,8 +22,7 @@ import type {
   PedidoClienteDetalle,
   MensajePedidoClienteRecord,
   PresupuestoClienteRecord,
-  PresupuestoClienteItemRecord,
-  EstadoPresupuestoCliente
+  PresupuestoClienteItemRecord
 } from '../types/api'
 import type {
   PedidoCompra,
