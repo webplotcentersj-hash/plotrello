@@ -56,29 +56,28 @@
 .presupuesto-detalle-admin-main {
   max-width: 1200px;
   margin: 0 auto;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%);
+  background: #ffffff;
   border-radius: 16px;
   padding: 30px;
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(249, 115, 22, 0.1);
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.15);
 }
 
 .info-section {
   margin-bottom: 30px;
   padding: 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(248, 250, 252, 0.8) 100%);
+  background: #ffffff;
   border-radius: 12px;
-  border: 1px solid rgba(249, 115, 22, 0.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
 }
 
 .info-section:hover {
-  border-color: rgba(249, 115, 22, 0.3);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.1);
+  border-color: rgba(249, 115, 22, 0.4);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
 }
 
 .info-section:last-of-type {
@@ -88,7 +87,8 @@
 .info-section h2 {
   margin: 0 0 20px 0;
   font-size: 1.5rem;
-  color: #1a1a2e;
+  color: #111827;
+  font-weight: 700;
   padding-bottom: 10px;
   border-bottom: 2px solid #f97316;
 }
@@ -107,13 +107,16 @@
 
 .info-label {
   font-size: 0.9rem;
-  color: #666;
+  color: #4b5563;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .info-value {
   font-size: 1rem;
-  color: #333;
+  color: #1f2937;
+  font-weight: 500;
 }
 
 .link-pedido {
@@ -129,25 +132,26 @@
 .observaciones-box {
   margin-top: 20px;
   padding: 15px;
-  background: #f9f9f9;
+  background: #f9fafb;
   border-radius: 8px;
   border-left: 4px solid #f97316;
 }
 
 .observaciones-internas {
-  background: #fff3e0;
-  border-left-color: #ff9800;
+  background: #fff7ed;
+  border-left-color: #f97316;
 }
 
 .observaciones-box h3 {
   margin: 0 0 10px 0;
   font-size: 1rem;
-  color: #1a1a2e;
+  color: #111827;
+  font-weight: 600;
 }
 
 .observaciones-box p {
   margin: 0;
-  color: #555;
+  color: #374151;
   line-height: 1.6;
 }
 
@@ -173,21 +177,23 @@
 
 .items-table td {
   padding: 15px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937;
 }
 
 .items-table tbody tr:hover {
-  background: #f9f9f9;
+  background: #f9fafb;
 }
 
 .item-name strong {
-  color: #333;
+  color: #111827;
   font-size: 16px;
+  font-weight: 600;
 }
 
 .item-description {
   margin: 8px 0 0 0;
-  color: #666;
+  color: #6b7280;
   font-size: 14px;
 }
 
@@ -198,7 +204,7 @@
 }
 
 .items-table tfoot {
-  background: #f9f9f9;
+  background: #f9fafb;
 }
 
 .items-table tfoot td {
@@ -209,11 +215,14 @@
 .total-label {
   text-align: right;
   font-size: 18px;
+  color: #374151;
+  font-weight: 600;
 }
 
 .total-value {
   font-size: 24px;
-  color: #1a1a2e;
+  color: #111827;
+  font-weight: 700;
 }
 
 .actions-section {
@@ -229,7 +238,8 @@
 .actions-group h3 {
   margin: 0 0 15px 0;
   font-size: 1.2rem;
-  color: #1a1a2e;
+  color: #111827;
+  font-weight: 600;
 }
 
 .actions-buttons {
@@ -247,16 +257,23 @@
 .observaciones-input {
   width: 100%;
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #d1d5db;
   border-radius: 8px;
   font-size: 1rem;
   font-family: inherit;
   resize: vertical;
+  color: #1f2937;
+  background: #ffffff;
 }
 
 .observaciones-input:focus {
   outline: none;
   border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.observaciones-input::placeholder {
+  color: #9ca3af;
 }
 
 .btn-accept,
@@ -330,7 +347,7 @@
 .error-container p {
   font-size: 1.2rem;
   margin-bottom: 20px;
-  color: #666;
+  color: #374151;
 }
 
 .loading-container {
