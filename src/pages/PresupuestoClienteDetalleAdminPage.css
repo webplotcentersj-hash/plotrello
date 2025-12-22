@@ -68,7 +68,7 @@
 .info-section {
   margin-bottom: 30px;
   padding: 24px;
-  background: #ffffff;
+  background: #ffffff !important;
   border-radius: 12px;
   border: 1px solid rgba(249, 115, 22, 0.2);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -78,6 +78,11 @@
 .info-section:hover {
   border-color: rgba(249, 115, 22, 0.4);
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
+}
+
+/* Asegurar que el contenido dentro de info-section tenga buen contraste */
+.info-section h2 {
+  color: #111827 !important;
 }
 
 .info-section:last-of-type {
