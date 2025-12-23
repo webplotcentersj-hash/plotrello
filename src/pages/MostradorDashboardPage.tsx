@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -22,8 +22,10 @@ type Atencion = {
 
 const MostradorDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { isAdmin, usuario } = useAuth()
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
+  const [showFabMenu, setShowFabMenu] = useState(false)
+  const [registrandoRapido, setRegistrandoRapido] = useState(false)
   
   const handleRegistrarAtencionSuccess = async () => {
     await loadAtencionesHoy()
@@ -135,6 +137,57 @@ const MostradorDashboardPage = () => {
       setLoading(false)
     }
   }
+
+  const registrarAtencionRapida = useCallback(
+    async (tipo: TipoAtencion) => {
+      if (!usuario) {
+        alert('Debes estar autenticado para registrar la atención')
+        return
+      }
+      setRegistrandoRapido(true)
+      try {
+        const resp = await apiService.crearAtencionMostrador({
+          cliente_nombre: 'Cliente mostrador',
+          tipo,
+          usuario_id: Number(usuario.id),
+          usuario_nombre: usuario.nombre || 'Mostrador',
+          notas: 'Registro rápido'
+        })
+        if (!resp.success) {
+          throw new Error(resp.error || 'No se pudo registrar')
+        }
+        await handleRegistrarAtencionSuccess()
+        setShowFabMenu(false)
+      } catch (error) {
+        console.error('Error en registro rápido:', error)
+        alert('No se pudo registrar la atención rápida')
+      } finally {
+        setRegistrandoRapido(false)
+      }
+    },
+    [usuario, handleRegistrarAtencionSuccess]
+  )
+
+  // Atajos de teclado para registro rápido
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!usuario) return
+      if (e.altKey && e.key === '1') {
+        e.preventDefault()
+        registrarAtencionRapida('virtual')
+      }
+      if (e.altKey && e.key === '2') {
+        e.preventDefault()
+        registrarAtencionRapida('consulta')
+      }
+      if (e.altKey && e.key === '3') {
+        e.preventDefault()
+        registrarAtencionRapida('venta')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [usuario, registrarAtencionRapida])
 
   const loadAtencionesHoy = async () => {
     try {
@@ -564,13 +617,6 @@ const MostradorDashboardPage = () => {
         <div className="acciones-grid">
           <button 
             className="accion-card"
-            onClick={() => setShowRegistrarAtencion(true)}
-          >
-            <div className="accion-icon">📝</div>
-            <div className="accion-label">Registrar Atención</div>
-          </button>
-          <button 
-            className="accion-card"
             onClick={() => navigate('/')}
           >
             <div className="accion-icon">➕</div>
@@ -725,6 +771,43 @@ const MostradorDashboardPage = () => {
           onSuccess={handleRegistrarAtencionSuccess}
         />
       )}
+
+      {/* Botón flotante para registrar atención */}
+      <div className="fab-container">
+        <button
+          className="fab-button"
+          onClick={() => setShowFabMenu((prev) => !prev)}
+          title="Registrar Atención (Alt+1 Virtual, Alt+2 Consulta, Alt+3 Venta)"
+        >
+          {registrandoRapido ? '...' : '📝'}
+        </button>
+        {showFabMenu && (
+          <div className="fab-menu" onMouseLeave={() => setShowFabMenu(false)}>
+            <p className="fab-hint">Atajos: Alt+1 / Alt+2 / Alt+3</p>
+            <button
+              className="fab-option virtual"
+              onClick={() => registrarAtencionRapida('virtual')}
+              disabled={registrandoRapido}
+            >
+              💻 Virtual
+            </button>
+            <button
+              className="fab-option consulta"
+              onClick={() => registrarAtencionRapida('consulta')}
+              disabled={registrandoRapido}
+            >
+              ❓ Consulta
+            </button>
+            <button
+              className="fab-option venta"
+              onClick={() => registrarAtencionRapida('venta')}
+              disabled={registrandoRapido}
+            >
+              💰 Venta Concretada
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
