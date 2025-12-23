@@ -18,6 +18,7 @@ import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import './StatisticsPage.css'
 import jsPDF from 'jspdf'
+import { apiService } from '../services/api'
 
 type StatisticsPageProps = {
   tasks: Task[]
@@ -51,6 +52,10 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
   const [dateTo, setDateTo] = useState<string>('')
   const [sectorFilter, setSectorFilter] = useState<string>('all')
   const [operatorFilter, setOperatorFilter] = useState<string>('all')
+  const [backendPeriodStats, setBackendPeriodStats] = useState<any>(null)
+  const [backendUserStats, setBackendUserStats] = useState<any[]>([])
+  const [backendLoading, setBackendLoading] = useState<boolean>(false)
+  const [backendError, setBackendError] = useState<string | null>(null)
   const { isAdmin, loading } = useAuth()
   const navigate = useNavigate()
 
@@ -62,10 +67,75 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     }
   }, [isAdmin, loading, navigate])
 
+  // Rango por defecto: últimos 30 días
+  useEffect(() => {
+    if (dateFrom && dateTo) return
+    const today = new Date()
+    const from = new Date()
+    from.setDate(today.getDate() - 30)
+    const toStr = today.toISOString().slice(0, 10)
+    const fromStr = from.toISOString().slice(0, 10)
+    setDateFrom((prev) => prev || fromStr)
+    setDateTo((prev) => prev || toStr)
+  }, [dateFrom, dateTo])
+
   // Validar que los datos sean arrays válidos
   const safeTasks = Array.isArray(tasks) ? tasks : []
   const safeActivity = Array.isArray(activity) ? activity : []
   const safeTeamMembers = Array.isArray(teamMembers) ? teamMembers : []
+
+  // Cargar estadísticas reales desde Supabase
+  useEffect(() => {
+    const shouldFetch = dateFrom && dateTo
+    if (!shouldFetch) return
+
+    let cancelled = false
+    const fetchStats = async () => {
+      setBackendLoading(true)
+      setBackendError(null)
+      try {
+        const periodResp = await apiService.getEstadisticasPeriodo(dateFrom, dateTo)
+        if (!cancelled) {
+          if (periodResp.success) {
+            setBackendPeriodStats(periodResp.data)
+          } else {
+            setBackendError(periodResp.error || 'Error al obtener estadísticas del período')
+          }
+        }
+
+        // Estadísticas por usuario (solo ids numéricos válidos)
+        const numericIds = Array.from(
+          new Set(
+            safeTeamMembers
+              .map((m) => Number(m.id))
+              .filter((n) => !Number.isNaN(n))
+          )
+        )
+        const userResults: any[] = []
+        for (const userId of numericIds) {
+          const userResp = await apiService.getEstadisticasUsuario(userId, dateFrom, dateTo)
+          if (userResp.success && userResp.data) {
+            userResults.push({ userId, ...userResp.data })
+          }
+        }
+        if (!cancelled) {
+          setBackendUserStats(userResults)
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          setBackendError(error?.message || 'Error obteniendo estadísticas')
+        }
+      } finally {
+        if (!cancelled) setBackendLoading(false)
+      }
+    }
+
+    fetchStats()
+
+    return () => {
+      cancelled = true
+    }
+  }, [dateFrom, dateTo, safeTeamMembers])
 
   const filteredTasks = useMemo(() => {
     return safeTasks.filter((task) => {
@@ -346,6 +416,12 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     const sorted = [...values].sort((a, b) => a - b)
     const index = Math.ceil((percentile / 100) * sorted.length) - 1
     return sorted[Math.max(0, index)] || 0
+  }
+
+  const formatNumber = (n: any, digits: number = 0) => {
+    const num = Number(n)
+    if (Number.isNaN(num)) return '0'
+    return num.toLocaleString('es-AR', { maximumFractionDigits: digits, minimumFractionDigits: digits })
   }
 
   // 9. Fichas Estancadas (> 3 días en el mismo estado)
@@ -833,6 +909,108 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
       </header>
 
       <div className="stats-container">
+        {backendError && (
+          <div className="stat-card error-card">
+            <h3>⚠️ Error cargando datos reales</h3>
+            <p className="stat-subtitle">{backendError}</p>
+          </div>
+        )}
+
+        {backendLoading && (
+          <div className="stat-card">
+            <h3>Sincronizando datos reales...</h3>
+            <p className="stat-subtitle">Consultando Supabase con el rango seleccionado.</p>
+          </div>
+        )}
+
+        {backendPeriodStats && (
+          <div className="stats-row">
+            <div className="stat-card">
+              <h3>Totales reales (período)</h3>
+              <p className="stat-subtitle">Supabase • {dateFrom} → {dateTo}</p>
+              <div className="stat-grid-2">
+                <div>
+                  <div className="stat-value">{formatNumber(backendPeriodStats.total_ordenes)}</div>
+                  <div className="stat-label">Órdenes totales</div>
+                </div>
+                <div>
+                  <div className="stat-value success">{formatNumber(backendPeriodStats.ordenes_completadas)}</div>
+                  <div className="stat-label">Completadas</div>
+                </div>
+                <div>
+                  <div className="stat-value warning">{formatNumber(backendPeriodStats.ordenes_en_proceso)}</div>
+                  <div className="stat-label">En proceso</div>
+                </div>
+                <div>
+                  <div className="stat-value">{formatNumber(backendPeriodStats.usuarios_activos)}</div>
+                  <div className="stat-label">Usuarios activos</div>
+                </div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <h3>Ritmo y tiempos</h3>
+              <p className="stat-subtitle">KPI reales del período</p>
+              <div className="stat-grid-2">
+                <div>
+                  <div className="stat-value">{formatNumber(backendPeriodStats.ordenes_por_dia, 1)}</div>
+                  <div className="stat-label">Órdenes por día</div>
+                </div>
+                <div>
+                  <div className="stat-value">{formatNumber(backendPeriodStats.promedio_dias_completar, 1)}</div>
+                  <div className="stat-label">Promedio días por orden</div>
+                </div>
+                <div>
+                  <div className="stat-value">{formatNumber(backendPeriodStats.movimientos_totales)}</div>
+                  <div className="stat-label">Movimientos registrados</div>
+                </div>
+                <div>
+                  <div className="stat-value">{formatNumber(backendPeriodStats.ordenes_atrasadas)}</div>
+                  <div className="stat-label">Atrasadas</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {backendUserStats && backendUserStats.length > 0 && (
+          <div className="stat-card full-width">
+            <h3>Productividad por usuario (datos reales)</h3>
+            <p className="stat-subtitle">Supabase • {dateFrom} → {dateTo}</p>
+            <div className="table-container">
+              <table className="activity-table compact">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Órdenes totales</th>
+                    <th>Completadas</th>
+                    <th>En proceso</th>
+                    <th>Movimientos</th>
+                    <th>Órdenes/día</th>
+                    <th>Prom. días/orden</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backendUserStats.map((row, idx) => {
+                    const member = safeTeamMembers.find((m) => Number(m.id) === Number(row.userId))
+                    const name = sanitizeName(member?.name) || `Usuario ${row.userId}`
+                    return (
+                      <tr key={`${row.userId}-${idx}`}>
+                        <td>{name}</td>
+                        <td>{formatNumber(row.total_ordenes)}</td>
+                        <td className="success">{formatNumber(row.ordenes_completadas)}</td>
+                        <td className="warning">{formatNumber(row.ordenes_en_proceso)}</td>
+                        <td>{formatNumber(row.movimientos_totales || row.movimientos)}</td>
+                        <td>{formatNumber(row.ordenes_por_dia, 1)}</td>
+                        <td>{formatNumber(row.promedio_dias_completar, 1)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Primera fila: Gráficos circulares */}
         <div className="stats-row">
           <div className="stat-card">
