@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import type { TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { apiService } from '../services/api'
@@ -110,6 +110,11 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
   const typingTimeoutRef = useRef<number | null>(null)
   const typingCleanupTimers = useRef<Record<string, number>>({})
   const currentUser = resolvedMembers[0]
+  const channelMessages = useMemo(
+    () => messages.filter((msg) => msg.channel === currentChannel),
+    [messages, currentChannel]
+  )
+  const lastSeenDate = lastSeenOthers[currentChannel]
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -954,20 +959,19 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     )
   }
 
-  const channelMessages = messages.filter((msg) => msg.channel === currentChannel)
-  const lastSeenDate = lastSeenOthers[currentChannel]
-
-  const filteredMessages = channelMessages.filter((msg) => {
-    const textMatch =
-      !searchText ||
-      msg.content.toLowerCase().includes(searchText.toLowerCase()) ||
-      (msg.userName && msg.userName.toLowerCase().includes(searchText.toLowerCase()))
-    const userMatch = !filterUser || msg.userId === filterUser
-    const filesMatch = !filterHasFiles || (msg.archivosUrls && msg.archivosUrls.length > 0)
-    const fromMatch = !filterFromDate || msg.timestamp >= new Date(filterFromDate)
-    const toMatch = !filterToDate || msg.timestamp <= new Date(filterToDate)
-    return textMatch && userMatch && filesMatch && fromMatch && toMatch
-  })
+  const filteredMessages = useMemo(() => {
+    return channelMessages.filter((msg) => {
+      const textMatch =
+        !searchText ||
+        msg.content.toLowerCase().includes(searchText.toLowerCase()) ||
+        (msg.userName && msg.userName.toLowerCase().includes(searchText.toLowerCase()))
+      const userMatch = !filterUser || msg.userId === filterUser
+      const filesMatch = !filterHasFiles || (msg.archivosUrls && msg.archivosUrls.length > 0)
+      const fromMatch = !filterFromDate || msg.timestamp >= new Date(filterFromDate)
+      const toMatch = !filterToDate || msg.timestamp <= new Date(filterToDate)
+      return textMatch && userMatch && filesMatch && fromMatch && toMatch
+    })
+  }, [channelMessages, searchText, filterUser, filterHasFiles, filterFromDate, filterToDate])
 
   useEffect(() => {
     setTypingUsers([])
