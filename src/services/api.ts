@@ -57,6 +57,8 @@ type ApiResponse<T> = {
   message?: string
 }
 
+type ReaccionesMap = Record<string, number[]>
+
 type ChatMessageUI = {
   id: number
   canal: string
@@ -66,6 +68,9 @@ type ChatMessageUI = {
   tipo: 'message' | 'alert' | 'buzz'
   timestamp: string
   archivos_urls?: string[]
+  reply_to_id?: number | null
+  reacciones?: ReaccionesMap
+  estado_entrega?: 'sent' | 'read'
 }
 
 const fallbackOrdenes: OrdenTrabajo[] = []
@@ -1837,7 +1842,7 @@ class ApiService {
 
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('id, room_id, id_usuario, nombre_usuario, mensaje, timestamp, archivos_urls')
+        .select('id, room_id, id_usuario, nombre_usuario, mensaje, timestamp, archivos_urls, reply_to_id, reacciones, estado_entrega')
         .eq('room_id', roomId)
         .order('timestamp', { ascending: false })
         .limit(limit)
@@ -1860,6 +1865,20 @@ class ApiService {
             }
           }
           
+          let reacciones: ReaccionesMap | undefined = undefined
+          const rawReacciones = msg.reacciones
+          if (rawReacciones) {
+            try {
+              if (typeof rawReacciones === 'string') {
+                reacciones = JSON.parse(rawReacciones)
+              } else {
+                reacciones = rawReacciones as ReaccionesMap
+              }
+            } catch (e) {
+              console.error('Error parseando reacciones:', e)
+            }
+          }
+
           return {
             id: msg.id,
             canal: roomToChatChannel[msg.room_id] ?? canal,
@@ -1868,7 +1887,10 @@ class ApiService {
             contenido: msg.mensaje,
             tipo: inferChatType(msg.mensaje),
             timestamp: msg.timestamp,
-            archivos_urls: archivosUrls
+            archivos_urls: archivosUrls,
+            reply_to_id: msg.reply_to_id,
+            reacciones,
+            estado_entrega: (msg.estado_entrega as ChatMessageUI['estado_entrega']) ?? 'sent'
           }
         }) ?? []
 
@@ -1882,12 +1904,54 @@ class ApiService {
     return this.handleFallback(fallbackMensajes)
   }
 
+  async marcarChatLeido(canal: string, usuarioId: number): Promise<void> {
+    if (!supabase) return
+    const roomId = chatChannelToRoom[canal] ?? 1
+    try {
+      await supabase.rpc('chat_marcar_leido', { p_user_id: usuarioId, p_room_id: roomId })
+    } catch (e) {
+      console.error('Error marcando chat como leído', e)
+    }
+  }
+
+  async obtenerLastSeenOtros(canal: string, usuarioId: number): Promise<ApiResponse<string | null>> {
+    if (!supabase) return { success: true, data: null }
+    const roomId = chatChannelToRoom[canal] ?? 1
+    try {
+      const { data, error } = await supabase.rpc('chat_last_seen_otros', { p_room_id: roomId, p_user_id: usuarioId })
+      if (error) {
+        return { success: false, error: error.message }
+      }
+      return { success: true, data: data as string | null }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al obtener last_seen' }
+    }
+  }
+
+  async toggleReaccionChat(params: { canal: string; messageId: number; usuarioId: number; emoji: string }): Promise<ApiResponse<ReaccionesMap>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const roomId = chatChannelToRoom[params.canal] ?? 1
+    try {
+      const { data, error } = await supabase.rpc('chat_toggle_reaccion', {
+        p_room_id: roomId,
+        p_message_id: params.messageId,
+        p_user_id: params.usuarioId,
+        p_emoji: params.emoji
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as ReaccionesMap }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al reaccionar' }
+    }
+  }
+
   async enviarMensajeChat(mensaje: {
     canal: string
     contenido: string
     usuario_id: number
     tipo?: string
     archivosUrls?: string[]
+    replyToId?: number | null
   }): Promise<ApiResponse<ChatMessageUI>> {
     if (supabase) {
       const roomId = chatChannelToRoom[mensaje.canal] ?? 1
@@ -1906,7 +1970,9 @@ class ApiService {
             ? 'Te ha enviado un zumbido!'
             : mensaje.tipo === 'alert'
               ? '¡Atención! Revisar esto de inmediato.'
-              : mensaje.contenido
+              : mensaje.contenido,
+        reply_to_id: mensaje.replyToId ?? null,
+        estado_entrega: 'sent'
       }
 
       // Agregar URLs de archivos si existen
@@ -1927,7 +1993,11 @@ class ApiService {
           nombre_usuario: payload.nombre_usuario,
           contenido: payload.mensaje,
           tipo: mensaje.tipo === 'alert' ? 'alert' : mensaje.tipo === 'buzz' ? 'buzz' : 'message',
-          timestamp: data.timestamp
+          timestamp: data.timestamp,
+          archivos_urls: mensaje.archivosUrls,
+          reply_to_id: mensaje.replyToId ?? null,
+          reacciones: {},
+          estado_entrega: 'sent'
         } as ChatMessageUI
       }
     }

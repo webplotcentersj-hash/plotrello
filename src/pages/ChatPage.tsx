@@ -15,8 +15,10 @@ type ChatMessage = {
   timestamp: Date
   channel: string
   type?: 'message' | 'buzz' | 'alert'
-  status?: 'sending' | 'error' | 'sent'
+  status?: 'sending' | 'error' | 'sent' | 'read'
   archivosUrls?: string[]
+  replyToId?: string | null
+  reacciones?: Record<string, string[]>
 }
 
 type Channel = {
@@ -91,12 +93,22 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
   const [showChannelInfo, setShowChannelInfo] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showMoreOptions, setShowMoreOptions] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const [filterUser, setFilterUser] = useState<string>('')
+  const [filterHasFiles, setFilterHasFiles] = useState(false)
+  const [filterFromDate, setFilterFromDate] = useState<string>('')
+  const [filterToDate, setFilterToDate] = useState<string>('')
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [lastSeenOthers, setLastSeenOthers] = useState<Record<string, Date | null>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const mentionSuggestionsRef = useRef<HTMLDivElement>(null)
   const realtimeSubscriptionRef = useRef<any>(null)
+  const typingTimeoutRef = useRef<number | null>(null)
+  const typingCleanupTimers = useRef<Record<string, number>>({})
   const currentUser = resolvedMembers[0]
 
   useEffect(() => {
@@ -132,16 +144,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
 
         if (response.data && response.data.length > 0) {
           console.log(`✅ Cargados ${response.data.length} mensajes`)
-          const chatMessages: ChatMessage[] = response.data.map((msg) => ({
-            id: msg.id.toString(),
-            userId: msg.usuario_id.toString(),
-            userName: msg.nombre_usuario || 'Usuario',
-            userAvatar: (msg.nombre_usuario || 'U').charAt(0).toUpperCase(),
-            content: msg.contenido,
-            timestamp: new Date(msg.timestamp),
-            channel: msg.canal || currentChannel,
-            type: msg.tipo || 'message',
-            archivosUrls: (() => {
+          const chatMessages: ChatMessage[] = response.data.map((msg) => {
+            const archivosUrls = (() => {
               const archivos = (msg as any).archivos_urls
               if (!archivos) return undefined
               try {
@@ -155,7 +159,40 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
               }
               return undefined
             })()
-          }))
+
+            const reacciones = (() => {
+              const raw = (msg as any).reacciones
+              if (!raw) return undefined
+              const parsed: Record<string, string[]> = {}
+              try {
+                const obj = typeof raw === 'string' ? JSON.parse(raw) : raw
+                Object.entries(obj).forEach(([emoji, users]) => {
+                  if (Array.isArray(users)) {
+                    parsed[emoji] = (users as any[]).map((u) => u?.toString?.() ?? '')
+                  }
+                })
+                return parsed
+              } catch (e) {
+                console.error('Error parseando reacciones:', e)
+                return undefined
+              }
+            })()
+
+            return {
+              id: msg.id.toString(),
+              userId: msg.usuario_id.toString(),
+              userName: msg.nombre_usuario || 'Usuario',
+              userAvatar: (msg.nombre_usuario || 'U').charAt(0).toUpperCase(),
+              content: msg.contenido,
+              timestamp: new Date(msg.timestamp),
+              channel: msg.canal || currentChannel,
+              type: msg.tipo || 'message',
+              archivosUrls,
+              replyToId: msg.reply_to_id ? msg.reply_to_id.toString() : undefined,
+              reacciones,
+              status: msg.estado_entrega === 'read' ? 'read' : 'sent'
+            }
+          })
           setMessages(chatMessages)
         } else {
           console.log('ℹ️ No hay mensajes en este canal')
@@ -171,6 +208,40 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
 
     loadMessages()
   }, [currentChannel, usuario?.id])
+
+  // Marcar canal como leído y traer última lectura de otros
+  useEffect(() => {
+    const markAndFetch = async () => {
+      if (!usuario?.id) return
+      try {
+        await apiService.marcarChatLeido(currentChannel, usuario.id)
+        const lastSeenResp = await apiService.obtenerLastSeenOtros(currentChannel, usuario.id)
+        if (lastSeenResp.success) {
+          setLastSeenOthers((prev) => ({
+            ...prev,
+            [currentChannel]: lastSeenResp.data ? new Date(lastSeenResp.data) : null
+          }))
+        }
+      } catch (error) {
+        console.error('Error marcando leído/obteniendo last seen:', error)
+      }
+    }
+    markAndFetch()
+  }, [currentChannel, usuario?.id, messages.length])
+
+  // Actualizar estado de lectura de mis mensajes cuando hay nueva marca de lectura
+  useEffect(() => {
+    if (!lastSeenDate) return
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.channel === currentChannel &&
+        m.userId === currentUser.id &&
+        m.timestamp <= lastSeenDate
+          ? { ...m, status: 'read' }
+          : m
+      )
+    )
+  }, [lastSeenDate?.getTime(), currentChannel, currentUser.id])
 
   // Cargar contadores de mensajes por canal
   useEffect(() => {
@@ -260,6 +331,27 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     const channel = supabase
       .channel(`chat:${roomId}:${Date.now()}`)
       .on(
+        'broadcast',
+        { event: 'typing' },
+        (payload) => {
+          const data = payload.payload as any
+          if (!data || !data.userId || data.userId === usuario.id) return
+          const name = data.userName || 'Usuario'
+          setTypingUsers((prev) => {
+            if (prev.includes(name)) return prev
+            return [...prev, name]
+          })
+          // Limpiar después de unos segundos
+          if (typingCleanupTimers.current[name]) {
+            window.clearTimeout(typingCleanupTimers.current[name])
+          }
+          typingCleanupTimers.current[name] = window.setTimeout(() => {
+            setTypingUsers((prev) => prev.filter((n) => n !== name))
+            delete typingCleanupTimers.current[name]
+          }, 3000)
+        }
+      )
+      .on(
         'postgres_changes',
         {
           event: 'INSERT',
@@ -304,6 +396,24 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
               }
             }
 
+            const reacciones = (() => {
+              const raw = newMsg.reacciones
+              if (!raw) return undefined
+              const parsed: Record<string, string[]> = {}
+              try {
+                const obj = typeof raw === 'string' ? JSON.parse(raw) : raw
+                Object.entries(obj).forEach(([emoji, users]) => {
+                  if (Array.isArray(users)) {
+                    parsed[emoji] = (users as any[]).map((u) => u?.toString?.() ?? '')
+                  }
+                })
+                return parsed
+              } catch (e) {
+                console.error('Error parseando reacciones (realtime):', e)
+                return undefined
+              }
+            })()
+
             const chatMessage: ChatMessage = {
               id: newMsg.id.toString(),
               userId: newMsg.id_usuario.toString(),
@@ -313,7 +423,10 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
               timestamp: new Date(newMsg.timestamp),
               channel: msgChannel,
               type: newMsg.mensaje?.includes('zumbido') || newMsg.mensaje?.includes('Zumbido') ? 'buzz' : newMsg.mensaje?.includes('Atención') || newMsg.mensaje?.includes('ALERTA') ? 'alert' : 'message',
-              archivosUrls: archivosUrls
+              archivosUrls: archivosUrls,
+              replyToId: newMsg.reply_to_id ? newMsg.reply_to_id.toString() : undefined,
+              reacciones,
+              status: newMsg.estado_entrega === 'read' ? 'read' : 'sent'
             }
             console.log('✅ Mensaje agregado:', chatMessage)
             return [...prev, chatMessage]
@@ -332,6 +445,11 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
         supabase.removeChannel(realtimeSubscriptionRef.current)
         realtimeSubscriptionRef.current = null
       }
+    Object.values(typingCleanupTimers.current).forEach((timerId) => {
+      window.clearTimeout(timerId)
+    })
+    typingCleanupTimers.current = {}
+    setTypingUsers([])
     }
   }, [currentChannel, usuario?.id])
 
@@ -401,7 +519,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
       timestamp: new Date(),
       channel: currentChannel,
       type: mode === 'alert' ? 'alert' : 'message',
-      status: 'sending'
+      status: 'sending',
+      replyToId: replyingTo?.id || undefined
     }
     setMessages((prev) => [...prev, optimistic])
     setIsSending(true)
@@ -417,7 +536,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
         contenido: finalContent || (mode === 'alert' ? '¡Atención! Revisar esto de inmediato.' : ''),
         usuario_id: usuario.id,
         tipo: mode === 'alert' ? 'alert' : 'message',
-        archivosUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined
+        archivosUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+        replyToId: replyingTo ? Number(replyingTo.id) : undefined
       })
 
       if (!response.success || !response.data) {
@@ -440,7 +560,8 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                 id: response.data!.id.toString(),
                 content: response.data!.contenido || finalContent,
                 status: 'sent',
-                archivosUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined
+                archivosUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+                replyToId: replyingTo?.id || undefined
               }
             : m
         )
@@ -448,6 +569,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
 
       // Limpiar archivos adjuntos después de enviar
       setAttachedFiles([])
+      setReplyingTo(null)
       // Limpiar URLs de preview
       savedFiles.forEach((f) => {
         if (f.previewUrl && f.previewUrl.startsWith('blob:')) {
@@ -494,10 +616,27 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     }
   }
 
+  const sendTypingSignal = () => {
+    if (!usuario?.id || !realtimeSubscriptionRef.current) return
+    realtimeSubscriptionRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: usuario.id, userName: usuario.nombre || 'Usuario', channel: currentChannel }
+    })
+  }
+
   // Detectar menciones @usuario mientras se escribe
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     setInput(value)
+
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current)
+    }
+    sendTypingSignal()
+    typingTimeoutRef.current = window.setTimeout(() => {
+      typingTimeoutRef.current = null
+    }, 2000)
     
     // Auto-resize
     e.target.style.height = 'auto'
@@ -553,6 +692,41 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
         inputRef.current.setSelectionRange(cursorPos, cursorPos)
       }
     }, 0)
+  }
+
+  const handleToggleReaction = async (message: ChatMessage, emoji: string) => {
+    if (!usuario?.id) {
+      alert('Debes estar autenticado para reaccionar')
+      return
+    }
+    const msgIdNumber = Number(message.id)
+    if (Number.isNaN(msgIdNumber)) {
+      console.warn('No se puede reaccionar a un mensaje temporal')
+      return
+    }
+    try {
+      const response = await apiService.toggleReaccionChat({
+        canal: currentChannel,
+        messageId: msgIdNumber,
+        usuarioId: usuario.id,
+        emoji
+      })
+      if (response.success && response.data) {
+        const parsed: Record<string, string[]> = {}
+        Object.entries(response.data).forEach(([emo, users]) => {
+          if (Array.isArray(users)) {
+            parsed[emo] = (users as any[]).map((u) => u?.toString?.() ?? '')
+          }
+        })
+        setMessages((prev) =>
+          prev.map((m) => (m.id === message.id ? { ...m, reacciones: parsed } : m))
+        )
+      } else {
+        console.error('Error toggling reaction:', response.error)
+      }
+    } catch (error) {
+      console.error('Error toggling reaction:', error)
+    }
   }
 
   // Renderizar mensaje con menciones resaltadas
@@ -781,6 +955,23 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
   }
 
   const channelMessages = messages.filter((msg) => msg.channel === currentChannel)
+  const lastSeenDate = lastSeenOthers[currentChannel]
+
+  const filteredMessages = channelMessages.filter((msg) => {
+    const textMatch =
+      !searchText ||
+      msg.content.toLowerCase().includes(searchText.toLowerCase()) ||
+      (msg.userName && msg.userName.toLowerCase().includes(searchText.toLowerCase()))
+    const userMatch = !filterUser || msg.userId === filterUser
+    const filesMatch = !filterHasFiles || (msg.archivosUrls && msg.archivosUrls.length > 0)
+    const fromMatch = !filterFromDate || msg.timestamp >= new Date(filterFromDate)
+    const toMatch = !filterToDate || msg.timestamp <= new Date(filterToDate)
+    return textMatch && userMatch && filesMatch && fromMatch && toMatch
+  })
+
+  useEffect(() => {
+    setTypingUsers([])
+  }, [currentChannel])
 
   return (
     <div className={`chat-page ${isShaking ? 'shaking' : ''}`}>
@@ -923,6 +1114,48 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
           )}
         </div>
 
+        <div className="chat-filters">
+          <input
+            type="text"
+            placeholder="Buscar mensaje o usuario"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <select value={filterUser} onChange={(e) => setFilterUser(e.target.value)}>
+            <option value="">Todos</option>
+            {resolvedMembers.map((member) => (
+              <option key={member.id} value={member.id.toString()}>
+                {member.name}
+              </option>
+            ))}
+          </select>
+          <label className="filter-inline">
+            <input
+              type="checkbox"
+              checked={filterHasFiles}
+              onChange={(e) => setFilterHasFiles(e.target.checked)}
+            />
+            Solo con archivos
+          </label>
+          <label className="filter-inline">
+            Desde
+            <input type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} />
+          </label>
+          <label className="filter-inline">
+            Hasta
+            <input type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} />
+          </label>
+          <button className="filter-clear" onClick={() => {
+            setSearchText('')
+            setFilterUser('')
+            setFilterHasFiles(false)
+            setFilterFromDate('')
+            setFilterToDate('')
+          }}>
+            Limpiar filtros
+          </button>
+        </div>
+
         <div className="messages-container">
           {!usuario?.id && (
             <div style={{ 
@@ -951,10 +1184,21 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                   </p>
                 )}
               </div>
+            ) : filteredMessages.length === 0 ? (
+              <div className="empty-state">
+                <p>No hay mensajes que coincidan con el filtro.</p>
+                <p className="empty-hint">Prueba limpiando la búsqueda o fechas.</p>
+              </div>
             ) : (
-              channelMessages.map((message, index) => {
+              filteredMessages.map((message, index) => {
                 const showAvatar = shouldShowAvatar(index)
                 const isCurrentUser = message.userId === currentUser.id
+                const parentMessage = message.replyToId
+                  ? messages.find((m) => m.id === message.replyToId)
+                  : undefined
+                const computedStatus =
+                  message.status ||
+                  (isCurrentUser && lastSeenDate && message.timestamp <= lastSeenDate ? 'read' : isCurrentUser ? 'sent' : undefined)
 
                 return (
                   <div
@@ -972,6 +1216,12 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                         <div className="message-header">
                           <span className="message-author">{message.userName}</span>
                           <span className="message-time">{formatMessageTime(message.timestamp)}</span>
+                        </div>
+                      )}
+                      {parentMessage && (
+                        <div className="reply-context">
+                          <span className="reply-author">{parentMessage.userName}</span>
+                          <span className="reply-text">{parentMessage.content.slice(0, 120)}{parentMessage.content.length > 120 ? '…' : ''}</span>
                         </div>
                       )}
                       <div className={`message-text ${message.type === 'buzz' ? 'buzz-text' : ''} ${message.type === 'alert' ? 'alert-text' : ''}`}>
@@ -996,19 +1246,58 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
                             })}
                           </div>
                         )}
-                        {message.status === 'sending' && <span className="message-status">Enviando…</span>}
-                        {message.status === 'error' && <span className="message-status error">Error</span>}
+                        <div className="message-meta">
+                          {message.status === 'sending' && <span className="message-status">Enviando…</span>}
+                          {message.status === 'error' && <span className="message-status error">Error</span>}
+                          {computedStatus === 'sent' && <span className="message-status">Enviado</span>}
+                          {computedStatus === 'read' && <span className="message-status read">Leído</span>}
+                        </div>
+                        <div className="message-actions-inline">
+                          <button className="message-action" onClick={() => setReplyingTo(message)}>
+                            ↩ Responder
+                          </button>
+                          <div className="reactions-bar">
+                            {['👍', '✅', '⚠️', '❤️', '🔥', '😀'].map((emoji) => {
+                              const users = message.reacciones?.[emoji] || []
+                              const reacted = usuario?.id ? users.includes(usuario.id.toString()) : false
+                              return (
+                                <button
+                                  key={emoji}
+                                  className={`reaction-btn ${reacted ? 'active' : ''}`}
+                                  onClick={() => handleToggleReaction(message, emoji)}
+                                  title={users.length > 0 ? `${emoji} ${users.length}` : emoji}
+                                >
+                                  {emoji} {users.length > 0 ? users.length : ''}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )
               })
             )}
+            {typingUsers.length > 0 && (
+              <div className="typing-indicator">
+                {typingUsers.join(', ')} escribiendo…
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         </div>
 
         <div className="chat-input-area">
+          {replyingTo && (
+            <div className="replying-bar">
+              <div className="replying-text">
+                Respondiendo a {replyingTo.userName}: {replyingTo.content.slice(0, 140)}
+                {replyingTo.content.length > 140 ? '…' : ''}
+              </div>
+              <button className="replying-cancel" onClick={() => setReplyingTo(null)}>×</button>
+            </div>
+          )}
           {attachedFiles.length > 0 && (
             <div className="attached-files-preview">
               {attachedFiles.map((attachment) => {
