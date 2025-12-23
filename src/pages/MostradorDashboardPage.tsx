@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
 import type { OrdenTrabajo } from '../types/api'
+import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './MostradorDashboardPage.css'
 
@@ -75,11 +76,149 @@ const MostradorDashboardPage = () => {
     ordenesEntregadas: 0
   })
 
-  useEffect(() => {
-    loadDashboardData()
+  const loadAtencionesHoy = useCallback(async () => {
+    try {
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      const hoyInicio = hoy.toISOString()
+      const hoyFin = new Date(hoy)
+      hoyFin.setHours(23, 59, 59, 999)
+      const hoyFinISO = hoyFin.toISOString()
+
+      const response = await apiService.obtenerAtencionesMostrador(hoyInicio, hoyFinISO)
+      
+      if (response.success && response.data) {
+        const atencionesHoy: Atencion[] = response.data.map((atencion) => ({
+          id: atencion.id,
+          cliente_id: atencion.cliente_id || undefined,
+          cliente_nombre: atencion.cliente_nombre,
+          tipo: atencion.tipo,
+          orden_id: atencion.orden_id || undefined,
+          usuario_id: atencion.usuario_id,
+          usuario_nombre: atencion.usuario_nombre,
+          timestamp: atencion.fecha_atencion,
+          notas: atencion.notas || undefined
+        }))
+        setAtencionesHoy(atencionesHoy)
+      } else {
+        console.error('Error obteniendo atenciones:', response.error)
+        setAtencionesHoy([])
+      }
+    } catch (error) {
+      console.error('Error cargando atenciones:', error)
+      setAtencionesHoy([])
+    }
   }, [])
 
-  const loadDashboardData = async () => {
+  const loadMetricas = useCallback(async (ordenesCreadasCountParam: number = 0) => {
+    try {
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      
+      const hoyInicio = hoy.toISOString()
+      const hoyFin = new Date(hoy)
+      hoyFin.setHours(23, 59, 59, 999)
+      const hoyFinISO = hoyFin.toISOString()
+
+      const atencionesResponse = await apiService.obtenerAtencionesMostrador(hoyInicio, hoyFinISO)
+      let atencionesHoy: Atencion[] = []
+      
+      if (atencionesResponse.success && atencionesResponse.data) {
+        atencionesHoy = atencionesResponse.data.map((atencion) => ({
+          id: atencion.id,
+          cliente_id: atencion.cliente_id || undefined,
+          cliente_nombre: atencion.cliente_nombre,
+          tipo: atencion.tipo,
+          orden_id: atencion.orden_id || undefined,
+          usuario_id: atencion.usuario_id,
+          usuario_nombre: atencion.usuario_nombre,
+          timestamp: atencion.fecha_atencion,
+          notas: atencion.notas || undefined
+        }))
+      }
+
+      const sieteDiasAtras = new Date()
+      sieteDiasAtras.setDate(sieteDiasAtras.getDate() - 7)
+      sieteDiasAtras.setHours(0, 0, 0, 0)
+      const todasAtencionesResponse = await apiService.obtenerAtencionesMostrador(
+        sieteDiasAtras.toISOString(),
+        undefined
+      )
+      let todasAtenciones: Atencion[] = []
+      
+      if (todasAtencionesResponse.success && todasAtencionesResponse.data) {
+        todasAtenciones = todasAtencionesResponse.data.map((atencion) => ({
+          id: atencion.id,
+          cliente_id: atencion.cliente_id || undefined,
+          cliente_nombre: atencion.cliente_nombre,
+          tipo: atencion.tipo,
+          orden_id: atencion.orden_id || undefined,
+          usuario_id: atencion.usuario_id,
+          usuario_nombre: atencion.usuario_nombre,
+          timestamp: atencion.fecha_atencion,
+          notas: atencion.notas || undefined
+        }))
+      }
+
+      const fechas = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        d.setHours(0, 0, 0, 0)
+        return d
+      }).reverse()
+
+      const atencionesPorDia = fechas.map((fecha) => {
+        const fechaISO = fecha.toISOString().slice(0, 10)
+        const items = todasAtenciones.filter((a) => a.timestamp.slice(0, 10) === fechaISO)
+        const virtual = items.filter((a) => a.tipo === 'virtual').length
+        const consulta = items.filter((a) => a.tipo === 'consulta').length
+        const venta = items.filter((a) => a.tipo === 'venta').length
+        return {
+          fecha: fechaISO,
+          virtual,
+          consulta,
+          venta,
+          total: virtual + consulta + venta
+        }
+      })
+
+      const distribucionTipos = [
+        { name: 'Virtual', value: atencionesHoy.filter((a) => a.tipo === 'virtual').length, color: '#8b5cf6' },
+        { name: 'Consulta', value: atencionesHoy.filter((a) => a.tipo === 'consulta').length, color: '#f59e0b' },
+        { name: 'Venta', value: atencionesHoy.filter((a) => a.tipo === 'venta').length, color: '#10b981' }
+      ].filter((item) => item.value > 0)
+
+      const ordenesPorDia = fechas.map((fecha) => {
+        const fechaISO = fecha.toISOString().slice(0, 10)
+        return {
+          fecha: fechaISO,
+          creadas: 0,
+          entregadas: 0
+        }
+      })
+
+      setDatosGraficos({
+        atencionesPorDia,
+        distribucionTipos,
+        ordenesPorDia
+      })
+
+      const metricasHoy = {
+        totalAtenciones: atencionesHoy.length,
+        atencionesVirtuales: atencionesHoy.filter((a) => a.tipo === 'virtual').length,
+        consultas: atencionesHoy.filter((a) => a.tipo === 'consulta').length,
+        ventasConcretadas: atencionesHoy.filter((a) => a.tipo === 'venta').length,
+        ordenesCreadas: ordenesCreadasCountParam,
+        ordenesEntregadas: ordenesListas.length
+      }
+
+      setMetricas(metricasHoy)
+    } catch (error) {
+      console.error('Error cargando métricas:', error)
+    }
+  }, [ordenesListas.length])
+
+  const loadDashboardData = useCallback(async () => {
     setLoading(true)
     try {
       // Cargar órdenes listas para retirar
@@ -136,7 +275,11 @@ const MostradorDashboardPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isAdmin, loadAtencionesHoy, loadMetricas])
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [loadDashboardData])
 
   const registrarAtencionRapida = useCallback(
     async (tipo: TipoAtencion) => {
@@ -189,43 +332,30 @@ const MostradorDashboardPage = () => {
     return () => window.removeEventListener('keydown', onKey)
   }, [usuario, registrarAtencionRapida])
 
-  const loadAtencionesHoy = async () => {
-    try {
-      // Obtener atenciones de hoy desde la base de datos
-      const hoy = new Date()
-      hoy.setHours(0, 0, 0, 0)
-      const hoyInicio = hoy.toISOString()
-      const hoyFin = new Date(hoy)
-      hoyFin.setHours(23, 59, 59, 999)
-      const hoyFinISO = hoyFin.toISOString()
+  // Suscripción en tiempo real a atenciones_mostrador
+  useEffect(() => {
+    if (!supabase) return
+    const channel = supabase
+      .channel(`realtime:atenciones_mostrador`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'atenciones_mostrador' },
+        async () => {
+          await loadAtencionesHoy()
+          if (isAdmin) {
+            await loadMetricas(ordenesCreadasCount)
+          }
+        }
+      )
+      .subscribe()
 
-      const response = await apiService.obtenerAtencionesMostrador(hoyInicio, hoyFinISO)
-      
-      if (response.success && response.data) {
-        // Convertir formato de base de datos a formato de componente
-        const atencionesHoy: Atencion[] = response.data.map((atencion) => ({
-          id: atencion.id,
-          cliente_id: atencion.cliente_id || undefined,
-          cliente_nombre: atencion.cliente_nombre,
-          tipo: atencion.tipo,
-          orden_id: atencion.orden_id || undefined,
-          usuario_id: atencion.usuario_id,
-          usuario_nombre: atencion.usuario_nombre,
-          timestamp: atencion.fecha_atencion,
-          notas: atencion.notas || undefined
-        }))
-        setAtencionesHoy(atencionesHoy)
-      } else {
-        console.error('Error obteniendo atenciones:', response.error)
-        setAtencionesHoy([])
-      }
-    } catch (error) {
-      console.error('Error cargando atenciones:', error)
-      setAtencionesHoy([])
+    return () => {
+      if (channel) supabase?.removeChannel(channel)
     }
-  }
+  }, [isAdmin, loadAtencionesHoy, loadMetricas, ordenesCreadasCount])
 
-  const loadMetricas = async (ordenesCreadasCount: number = 0) => {
+  /*
+  const loadMetricasLegacy = async (ordenesCreadasCount: number = 0) => {
     try {
       const hoy = new Date()
       hoy.setHours(0, 0, 0, 0)
@@ -413,6 +543,7 @@ const MostradorDashboardPage = () => {
       console.error('Error cargando métricas:', error)
     }
   }
+  */
 
   // Función para registrar atenciones (se usará cuando implementemos el registro)
   // Se exportará o usará cuando se implemente el formulario de registro

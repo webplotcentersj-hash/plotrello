@@ -97,7 +97,7 @@ BEGIN
     a.orden_id,
     a.usuario_id,
     a.usuario_nombre,
-    a.timestamp,
+    a.fecha_atencion,
     a.notas
   FROM public.atenciones_mostrador a
   WHERE 
