@@ -99,7 +99,12 @@ section h2 {
 }
 
 .orden-info-section h2 {
-  color: #f1f5f9 !important;
+  color: #ffffff !important;
+  font-size: 1.75rem !important;
+  font-weight: 800 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 24px !important;
 }
 
 /* Información de la Orden */
