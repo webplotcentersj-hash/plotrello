@@ -1,6 +1,6 @@
 .entrega-page {
   min-height: 100vh;
-  background: var(--surface-base);
+  background: #f8fafc;
   padding: 24px;
 }
 
@@ -42,7 +42,7 @@
 .page-header h1 {
   margin: 0 0 8px 0;
   font-size: 2rem;
-  color: #1f2937;
+  color: #000000;
   font-weight: 700;
 }
 
@@ -54,17 +54,18 @@
 
 .btn-secondary {
   padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 8px;
-  color: #1f2937;
+  color: #000000;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .entrega-content {
@@ -74,17 +75,17 @@
 }
 
 section {
-  background: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   border-radius: 12px;
   padding: 24px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 section h2 {
   margin: 0 0 20px 0;
   font-size: 1.5rem;
-  color: #1f2937;
+  color: #000000;
   font-weight: 700;
 }
 
@@ -114,10 +115,10 @@ section h2 {
 
 .info-item span {
   font-size: 1rem;
-  color: #1f2937;
+  color: #000000;
   font-weight: 700;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.95);
+  background: #f1f5f9;
   border-radius: 6px;
   border-left: 3px solid #3b82f6;
 }
@@ -135,7 +136,7 @@ section h2 {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #1f2937;
+  color: #000000;
 }
 
 .form-group input,
@@ -144,8 +145,8 @@ section h2 {
   padding: 12px;
   border: 2px solid rgba(0, 0, 0, 0.15);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  color: #1f2937;
+  background: #ffffff;
+  color: #000000;
   font-size: 1rem;
   font-family: inherit;
 }
@@ -167,7 +168,7 @@ section h2 {
   border: 2px dashed rgba(0, 0, 0, 0.2);
   border-radius: 8px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   margin-bottom: 12px;
 }
 
