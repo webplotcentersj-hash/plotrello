@@ -179,7 +179,7 @@
 
 .metrica-label {
   font-size: 0.875rem;
-  color: #ffffff;
+  color: #ffffff !important;
   font-weight: 600;
 }
 
