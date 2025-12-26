@@ -360,17 +360,17 @@ section h2 {
 .cantidad-input {
   width: 100px;
   padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 4px;
-  background: var(--surface-base);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #000000;
   font-size: 0.875rem;
 }
 
 .unidad-small {
   margin-left: 4px;
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: #000000;
 }
 
 /* Acciones */
