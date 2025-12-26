@@ -107,13 +107,13 @@ section h2 {
 
 .info-item label {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: #000000;
   font-weight: 600;
 }
 
 .info-item span {
   font-size: 1rem;
-  color: var(--text-primary);
+  color: #000000;
 }
 
 /* Tracking Section */
