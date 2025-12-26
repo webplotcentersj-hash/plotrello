@@ -55,62 +55,82 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
 
     // Validar tipo de archivo
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona un archivo de imagen')
+      alert('Por favor selecciona un archivo de imagen válido (JPG, PNG, etc.)')
       e.target.value = '' // Limpiar input
       return
     }
 
-    // Validar tamaño (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen no debe superar los 5MB')
+    // Validar tamaño (máximo 10MB para fotos de legajos)
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (file.size > maxSize) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2)
+      alert(`La imagen es demasiado grande (${sizeMB}MB). El tamaño máximo permitido es 10MB. Por favor, comprime la imagen o selecciona otra.`)
       e.target.value = '' // Limpiar input
       return
     }
+
+    // Mostrar información del archivo
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2)
+    console.log(`📸 Archivo seleccionado: ${file.name}, Tamaño: ${sizeMB}MB, Tipo: ${file.type}`)
 
     // Mostrar preview
     const reader = new FileReader()
     reader.onloadend = () => {
       setFotoPreview(reader.result as string)
     }
+    reader.onerror = () => {
+      alert('Error al leer el archivo. Por favor, intenta con otra imagen.')
+      e.target.value = ''
+    }
     reader.readAsDataURL(file)
 
     // Subir foto
     setSaving(true)
     try {
+      console.log('📤 Iniciando subida de foto...')
       const uploadResponse = await apiService.uploadFotoEmpleado(file, usuario.id)
+      
       if (uploadResponse.success && uploadResponse.data) {
         setLegajo({ ...legajo, foto_url: uploadResponse.data })
-        alert('Foto subida exitosamente')
+        alert('✅ Foto subida exitosamente')
+        console.log('✅ Foto guardada en:', uploadResponse.data)
       } else {
         const errorMsg = uploadResponse.error || 'Error desconocido'
         let userMessage = `Error al subir foto: ${errorMsg}`
         
         // Mensajes de error más descriptivos
-        if (errorMsg.includes('row-level security') || errorMsg.includes('RLS')) {
-          userMessage = 'Error de permisos. Verifica que las políticas de Storage estén configuradas correctamente.'
+        if (errorMsg.includes('row-level security') || errorMsg.includes('RLS') || errorMsg.includes('permisos')) {
+          userMessage = 'Error de permisos. Verifica que estés autenticado correctamente. Si el problema persiste, contacta al administrador.'
         } else if (errorMsg.includes('Bucket not found') || errorMsg.includes('not found')) {
-          userMessage = 'El bucket "legajos" no existe. Créalo en Supabase → Storage → New bucket'
-        } else if (errorMsg.includes('permission denied')) {
-          userMessage = 'Error de permisos. El bucket debe tener políticas RLS configuradas para usuarios autenticados.'
+          userMessage = 'El bucket "legajos" no existe. Contacta al administrador del sistema.'
+        } else if (errorMsg.includes('permission denied') || errorMsg.includes('denied')) {
+          userMessage = 'Error de permisos. No tienes permisos para subir archivos. Contacta al administrador.'
+        } else if (errorMsg.includes('size') || errorMsg.includes('tamaño')) {
+          userMessage = `El archivo es demasiado grande. Tamaño máximo: 10MB. Tu archivo: ${(file.size / (1024 * 1024)).toFixed(2)}MB`
         }
         
+        console.error('❌ Error al subir foto:', errorMsg)
         alert(userMessage)
         setFotoPreview(null) // Limpiar preview en caso de error
       }
     } catch (error) {
-      console.error('Error subiendo foto:', error)
+      console.error('❌ Error subiendo foto:', error)
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
       let userMessage = `Error al subir la foto: ${errorMessage}`
       
-      if (errorMessage.includes('row-level security') || errorMessage.includes('RLS')) {
-        userMessage = 'Error de permisos. Verifica que las políticas de Storage estén configuradas correctamente.'
+      if (errorMessage.includes('row-level security') || errorMessage.includes('RLS') || errorMessage.includes('permisos')) {
+        userMessage = 'Error de permisos. Verifica que estés autenticado correctamente.'
+      } else if (errorMessage.includes('Network') || errorMessage.includes('network')) {
+        userMessage = 'Error de conexión. Verifica tu conexión a internet e intenta nuevamente.'
       }
       
       alert(userMessage)
       setFotoPreview(null) // Limpiar preview en caso de error
     } finally {
       setSaving(false)
-      e.target.value = '' // Limpiar input después de procesar
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '' // Limpiar input después de procesar
+      }
     }
   }
 
