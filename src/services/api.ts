@@ -1241,56 +1241,60 @@ class ApiService {
   }
 
   async uploadFotoEmpleado(file: File, idUsuario: number): Promise<ApiResponse<string>> {
-    if (supabase) {
-      try {
-        const fileExt = file.name.split('.').pop()
-        const fileName = `empleados/${idUsuario}_${Date.now()}.${fileExt}`
-        
-        // Primero, intentar eliminar la foto anterior si existe
-        const { data: listData } = await supabase.storage
-          .from('legajos')
-          .list(`empleados/`, {
-            limit: 100,
-            offset: 0,
-            sortBy: { column: 'created_at', order: 'desc' }
-          })
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
+    }
 
-        if (listData) {
-          const existingFiles = listData.filter(f => f.name.startsWith(`${idUsuario}_`))
-          for (const oldFile of existingFiles) {
-            await supabase.storage
-              .from('legajos')
-              .remove([`empleados/${oldFile.name}`])
+    try {
+      // Verificar que el usuario esté autenticado
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        return { success: false, error: 'Usuario no autenticado. Por favor, inicia sesión nuevamente.' }
+      }
+
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      // Usar un nombre único basado en el ID del usuario para permitir reemplazo
+      const fileName = `empleados/${idUsuario}.${fileExt}`
+      
+      console.log('📤 Subiendo foto:', fileName, 'Usuario:', idUsuario, 'Autenticado:', !!session)
+      
+      // Subir la nueva foto con upsert habilitado (reemplaza si existe)
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('legajos')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true // Reemplazar si existe
+        })
+
+      if (uploadError) {
+        console.error('❌ Error de upload:', uploadError)
+        // Mensaje de error más descriptivo
+        if (uploadError.message.includes('new row violates row-level security policy')) {
+          return { 
+            success: false, 
+            error: 'Error de permisos. Verifica que estés autenticado y que las políticas de Storage estén configuradas correctamente.' 
           }
         }
-        
-        // Subir la nueva foto con upsert habilitado
-        const { error: uploadError } = await supabase.storage
-          .from('legajos')
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: true // Permitir reemplazar si existe
-          })
-
-        if (uploadError) {
-          console.error('Error de upload:', uploadError)
-          return { success: false, error: uploadError.message }
-        }
-
-        // Obtener URL pública
-        const { data: urlData } = supabase.storage
-          .from('legajos')
-          .getPublicUrl(fileName)
-
-        if (urlData?.publicUrl) {
-          return { success: true, data: urlData.publicUrl }
-        }
-
-        return { success: false, error: 'No se pudo obtener la URL de la imagen' }
-      } catch (error: any) {
-        console.error('Error en uploadFotoEmpleado:', error)
-        return { success: false, error: error.message || 'Error al subir la foto' }
+        return { success: false, error: uploadError.message }
       }
+
+      console.log('✅ Foto subida exitosamente:', uploadData?.path)
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('legajos')
+        .getPublicUrl(fileName)
+
+      if (urlData?.publicUrl) {
+        console.log('✅ URL pública obtenida:', urlData.publicUrl)
+        return { success: true, data: urlData.publicUrl }
+      }
+
+      return { success: false, error: 'No se pudo obtener la URL de la imagen' }
+    } catch (error: any) {
+      console.error('❌ Error en uploadFotoEmpleado:', error)
+      return { success: false, error: error.message || 'Error al subir la foto' }
+    }
     }
 
     return { success: false, error: 'Supabase no configurado' }
