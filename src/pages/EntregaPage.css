@@ -94,15 +94,14 @@ section h2 {
 }
 
 .orden-info-section {
-  background: rgba(30, 41, 59, 0.9) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
 .orden-info-section h2 {
-  color: #ffffff !important;
+  color: #000000 !important;
   font-size: 1.75rem !important;
   font-weight: 800 !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
   letter-spacing: 0.5px !important;
   margin-bottom: 24px !important;
 }
@@ -142,12 +141,12 @@ section h2 {
 }
 
 .orden-info-section .info-item label {
-  color: #cbd5e1;
+  color: #4b5563;
 }
 
 .orden-info-section .info-item span {
-  color: #f1f5f9;
-  background: rgba(59, 130, 246, 0.2);
+  color: #000000;
+  background: #f1f5f9;
 }
 
 /* Formulario de Entrega */
