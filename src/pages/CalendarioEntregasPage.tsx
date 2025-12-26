@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
+import type { PedidoCompra } from '../types/pedidos'
 import './CalendarioEntregasPage.css'
 
 const CalendarioEntregasPage = () => {
@@ -10,6 +11,7 @@ const CalendarioEntregasPage = () => {
   const { loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
+  const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(new Date())
   const [vista, setVista] = useState<'mes' | 'semana' | 'dia'>('mes')
   const [entregasAtrasadas, setEntregasAtrasadas] = useState<OrdenTrabajo[]>([])
@@ -23,10 +25,11 @@ const CalendarioEntregasPage = () => {
   const loadOrdenes = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getOrdenes()
-      if (response.success && response.data) {
+      // Cargar órdenes de trabajo
+      const ordenesResponse = await apiService.getOrdenes()
+      if (ordenesResponse.success && ordenesResponse.data) {
         // Filtrar solo órdenes con fecha de entrega
-        const ordenesConEntrega = response.data.filter(o => o.fecha_entrega)
+        const ordenesConEntrega = ordenesResponse.data.filter(o => o.fecha_entrega)
         setOrdenes(ordenesConEntrega)
         
         // Filtrar entregas atrasadas
@@ -52,8 +55,18 @@ const CalendarioEntregasPage = () => {
         })
         setEntregasProximas(proximas)
       }
+
+      // Cargar pedidos de compra
+      const pedidosResponse = await apiService.getPedidosCompra()
+      if (pedidosResponse.success && pedidosResponse.data) {
+        // Filtrar solo pedidos con fecha de entrega estimada
+        const pedidosConEntrega = pedidosResponse.data.filter(p => 
+          p.fecha_entrega_estimada || p.fecha_entrega_real
+        )
+        setPedidos(pedidosConEntrega)
+      }
     } catch (error) {
-      console.error('Error cargando órdenes:', error)
+      console.error('Error cargando datos:', error)
     } finally {
       setLoading(false)
     }
@@ -61,14 +74,31 @@ const CalendarioEntregasPage = () => {
 
   const getEntregasPorFecha = (fecha: Date) => {
     const fechaStr = fecha.toISOString().split('T')[0]
-    return ordenes.filter(o => {
+    const fechaComparar = new Date(fechaStr)
+    fechaComparar.setHours(0, 0, 0, 0)
+    
+    // Filtrar órdenes de trabajo
+    const ordenesDelDia = ordenes.filter(o => {
       if (!o.fecha_entrega) return false
       const fechaEntrega = new Date(o.fecha_entrega)
       fechaEntrega.setHours(0, 0, 0, 0)
-      const fechaComparar = new Date(fechaStr)
-      fechaComparar.setHours(0, 0, 0, 0)
       return fechaEntrega.getTime() === fechaComparar.getTime()
     })
+    
+    // Filtrar pedidos de compra
+    const pedidosDelDia = pedidos.filter(p => {
+      const fechaEntrega = p.fecha_entrega_real || p.fecha_entrega_estimada
+      if (!fechaEntrega) return false
+      const fechaPedido = new Date(fechaEntrega)
+      fechaPedido.setHours(0, 0, 0, 0)
+      return fechaPedido.getTime() === fechaComparar.getTime()
+    })
+    
+    return {
+      ordenes: ordenesDelDia,
+      pedidos: pedidosDelDia,
+      total: ordenesDelDia.length + pedidosDelDia.length
+    }
   }
 
   const getDiasRestantes = (fechaEntrega: string) => {
@@ -138,11 +168,17 @@ const CalendarioEntregasPage = () => {
           {dias.map((dia, idx) => {
             const entregas = getEntregasPorFecha(dia.fecha)
             const esHoy = dia.fecha.toDateString() === new Date().toDateString()
-            const esAtrasado = entregas.some(e => {
+            const esAtrasado = entregas.ordenes.some(e => {
               if (!e.fecha_entrega) return false
               const fechaEntrega = new Date(e.fecha_entrega)
               fechaEntrega.setHours(0, 0, 0, 0)
               return fechaEntrega < new Date() && e.estado !== 'Entregado o Instalado'
+            }) || entregas.pedidos.some(p => {
+              const fechaEntrega = p.fecha_entrega_real || p.fecha_entrega_estimada
+              if (!fechaEntrega) return false
+              const fechaPedido = new Date(fechaEntrega)
+              fechaPedido.setHours(0, 0, 0, 0)
+              return fechaPedido < new Date() && p.estado !== 'Completado'
             })
 
             return (
@@ -152,9 +188,9 @@ const CalendarioEntregasPage = () => {
                 onClick={() => setFechaSeleccionada(dia.fecha)}
               >
                 <div className="dia-numero">{dia.fecha.getDate()}</div>
-                {entregas.length > 0 && (
+                {entregas.total > 0 && (
                   <div className="entregas-indicador">
-                    <span className="entregas-count">{entregas.length}</span>
+                    <span className="entregas-count">{entregas.total}</span>
                   </div>
                 )}
               </div>
@@ -182,11 +218,17 @@ const CalendarioEntregasPage = () => {
         {diasSemana.map((dia, idx) => {
           const entregas = getEntregasPorFecha(dia)
           const esHoy = dia.toDateString() === new Date().toDateString()
-          const esAtrasado = entregas.some(e => {
+          const esAtrasado = entregas.ordenes.some(e => {
             if (!e.fecha_entrega) return false
             const fechaEntrega = new Date(e.fecha_entrega)
             fechaEntrega.setHours(0, 0, 0, 0)
             return fechaEntrega < new Date() && e.estado !== 'Entregado o Instalado'
+          }) || entregas.pedidos.some(p => {
+            const fechaEntrega = p.fecha_entrega_real || p.fecha_entrega_estimada
+            if (!fechaEntrega) return false
+            const fechaPedido = new Date(fechaEntrega)
+            fechaPedido.setHours(0, 0, 0, 0)
+            return fechaPedido < new Date() && p.estado !== 'Completado'
           })
 
           return (
@@ -196,34 +238,64 @@ const CalendarioEntregasPage = () => {
                 <div className="dia-fecha">{dia.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</div>
               </div>
               <div className="entregas-lista">
-                {entregas.length === 0 ? (
+                {entregas.total === 0 ? (
                   <div className="sin-entregas">Sin entregas programadas</div>
                 ) : (
-                  entregas.map(entrega => (
-                    <div
-                      key={entrega.id}
-                      className="entrega-item"
-                      onClick={() => navigate(`/op/${entrega.numero_op}`)}
-                    >
-                      <div className="entrega-numero">OP #{entrega.numero_op}</div>
-                      <div className="entrega-info">
-                        <div>{entrega.cliente}</div>
-                        {entrega.fecha_entrega && (
-                          <div className="entrega-tiempo">
-                            {getDiasRestantes(entrega.fecha_entrega) < 0 ? (
-                              <span className="atrasado-text">
-                                {getDiasAtrasados(entrega.fecha_entrega)} día(s) atrasado
-                              </span>
-                            ) : getDiasRestantes(entrega.fecha_entrega) === 0 ? (
-                              <span className="hoy-text">Hoy</span>
-                            ) : (
-                              <span>{getDiasRestantes(entrega.fecha_entrega)} día(s)</span>
+                  <>
+                    {entregas.ordenes.map(entrega => (
+                      <div
+                        key={entrega.id}
+                        className="entrega-item"
+                        onClick={() => navigate(`/op/${entrega.numero_op}`)}
+                      >
+                        <div className="entrega-numero">OP #{entrega.numero_op}</div>
+                        <div className="entrega-info">
+                          <div>{entrega.cliente}</div>
+                          {entrega.fecha_entrega && (
+                            <div className="entrega-tiempo">
+                              {getDiasRestantes(entrega.fecha_entrega) < 0 ? (
+                                <span className="atrasado-text">
+                                  {getDiasAtrasados(entrega.fecha_entrega)} día(s) atrasado
+                                </span>
+                              ) : getDiasRestantes(entrega.fecha_entrega) === 0 ? (
+                                <span className="hoy-text">Hoy</span>
+                              ) : (
+                                <span>{getDiasRestantes(entrega.fecha_entrega)} día(s)</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {entregas.pedidos.map(pedido => {
+                      const fechaEntrega = pedido.fecha_entrega_real || pedido.fecha_entrega_estimada
+                      return (
+                        <div
+                          key={pedido.id}
+                          className="entrega-item pedido-item"
+                          onClick={() => navigate(`/compras/pedidos/${pedido.id}`)}
+                        >
+                          <div className="entrega-numero">📦 {pedido.numero_pedido}</div>
+                          <div className="entrega-info">
+                            <div>{pedido.nombre_solicitante}</div>
+                            {fechaEntrega && (
+                              <div className="entrega-tiempo">
+                                {getDiasRestantes(fechaEntrega) < 0 ? (
+                                  <span className="atrasado-text">
+                                    {getDiasAtrasados(fechaEntrega)} día(s) atrasado
+                                  </span>
+                                ) : getDiasRestantes(fechaEntrega) === 0 ? (
+                                  <span className="hoy-text">Hoy</span>
+                                ) : (
+                                  <span>{getDiasRestantes(fechaEntrega)} día(s)</span>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                        </div>
+                      )
+                    })}
+                  </>
                 )}
               </div>
             </div>
@@ -236,11 +308,17 @@ const CalendarioEntregasPage = () => {
   const renderVistaDia = () => {
     const entregas = getEntregasPorFecha(fechaSeleccionada)
     const esHoy = fechaSeleccionada.toDateString() === new Date().toDateString()
-    const esAtrasado = entregas.some(e => {
+    const esAtrasado = entregas.ordenes.some(e => {
       if (!e.fecha_entrega) return false
       const fechaEntrega = new Date(e.fecha_entrega)
       fechaEntrega.setHours(0, 0, 0, 0)
       return fechaEntrega < new Date() && e.estado !== 'Entregado o Instalado'
+    }) || entregas.pedidos.some(p => {
+      const fechaEntrega = p.fecha_entrega_real || p.fecha_entrega_estimada
+      if (!fechaEntrega) return false
+      const fechaPedido = new Date(fechaEntrega)
+      fechaPedido.setHours(0, 0, 0, 0)
+      return fechaPedido < new Date() && p.estado !== 'Completado'
     })
 
     return (
@@ -250,52 +328,100 @@ const CalendarioEntregasPage = () => {
           {esAtrasado && <span className="badge-atrasado">⚠️ Entregas Atrasadas</span>}
         </div>
         <div className="entregas-lista-detalle">
-          {entregas.length === 0 ? (
+          {entregas.total === 0 ? (
             <div className="sin-entregas">No hay entregas programadas para este día</div>
           ) : (
-            entregas.map(entrega => (
-              <div
-                key={entrega.id}
-                className="entrega-card-detalle"
-                onClick={() => navigate(`/op/${entrega.numero_op}`)}
-              >
-                <div className="entrega-header-detalle">
-                  <div className="entrega-numero-detalle">OP #{entrega.numero_op}</div>
-                  <div className={`entrega-estado estado-${entrega.estado?.toLowerCase().replace(/\s+/g, '-') || ''}`}>
-                    {entrega.estado}
+            <>
+              {entregas.ordenes.map(entrega => (
+                <div
+                  key={entrega.id}
+                  className="entrega-card-detalle"
+                  onClick={() => navigate(`/op/${entrega.numero_op}`)}
+                >
+                  <div className="entrega-header-detalle">
+                    <div className="entrega-numero-detalle">OP #{entrega.numero_op}</div>
+                    <div className={`entrega-estado estado-${entrega.estado?.toLowerCase().replace(/\s+/g, '-') || ''}`}>
+                      {entrega.estado}
+                    </div>
                   </div>
+                  <div className="entrega-info-detalle">
+                    <div className="info-item-detalle">
+                      <span className="label">Cliente:</span>
+                      <span>{entrega.cliente}</span>
+                    </div>
+                    {entrega.sector && (
+                      <div className="info-item-detalle">
+                        <span className="label">Sector:</span>
+                        <span>{entrega.sector}</span>
+                      </div>
+                    )}
+                    {entrega.fecha_entrega && (
+                      <div className="info-item-detalle">
+                        <span className="label">Fecha Entrega:</span>
+                        <span>{new Date(entrega.fecha_entrega).toLocaleDateString('es-AR')}</span>
+                      </div>
+                    )}
+                    {entrega.descripcion && (
+                      <div className="info-item-detalle">
+                        <span className="label">Descripción:</span>
+                        <span>{entrega.descripcion.substring(0, 50)}{entrega.descripcion.length > 50 ? '...' : ''}</span>
+                      </div>
+                    )}
+                  </div>
+                  {entrega.fecha_entrega && getDiasRestantes(entrega.fecha_entrega) < 0 && (
+                    <div className="alerta-atrasado">
+                      ⚠️ Esta entrega está {getDiasAtrasados(entrega.fecha_entrega)} día(s) atrasada
+                    </div>
+                  )}
                 </div>
-                <div className="entrega-info-detalle">
-                  <div className="info-item-detalle">
-                    <span className="label">Cliente:</span>
-                    <span>{entrega.cliente}</span>
+              ))}
+              {entregas.pedidos.map(pedido => {
+                const fechaEntrega = pedido.fecha_entrega_real || pedido.fecha_entrega_estimada
+                return (
+                  <div
+                    key={pedido.id}
+                    className="entrega-card-detalle pedido-card-detalle"
+                    onClick={() => navigate(`/compras/pedidos/${pedido.id}`)}
+                  >
+                    <div className="entrega-header-detalle">
+                      <div className="entrega-numero-detalle">📦 {pedido.numero_pedido}</div>
+                      <div className={`entrega-estado estado-${pedido.estado?.toLowerCase().replace(/\s+/g, '-') || ''}`}>
+                        {pedido.estado}
+                      </div>
+                    </div>
+                    <div className="entrega-info-detalle">
+                      <div className="info-item-detalle">
+                        <span className="label">Solicitante:</span>
+                        <span>{pedido.nombre_solicitante}</span>
+                      </div>
+                      {pedido.sector_solicitante && (
+                        <div className="info-item-detalle">
+                          <span className="label">Sector:</span>
+                          <span>{pedido.sector_solicitante}</span>
+                        </div>
+                      )}
+                      {fechaEntrega && (
+                        <div className="info-item-detalle">
+                          <span className="label">Fecha Entrega:</span>
+                          <span>{new Date(fechaEntrega).toLocaleDateString('es-AR')}</span>
+                        </div>
+                      )}
+                      {pedido.motivo && (
+                        <div className="info-item-detalle">
+                          <span className="label">Motivo:</span>
+                          <span>{pedido.motivo.substring(0, 50)}{pedido.motivo.length > 50 ? '...' : ''}</span>
+                        </div>
+                      )}
+                    </div>
+                    {fechaEntrega && getDiasRestantes(fechaEntrega) < 0 && (
+                      <div className="alerta-atrasado">
+                        ⚠️ Este pedido está {getDiasAtrasados(fechaEntrega)} día(s) atrasado
+                      </div>
+                    )}
                   </div>
-                  {entrega.sector && (
-                    <div className="info-item-detalle">
-                      <span className="label">Sector:</span>
-                      <span>{entrega.sector}</span>
-                    </div>
-                  )}
-                  {entrega.fecha_entrega && (
-                    <div className="info-item-detalle">
-                      <span className="label">Fecha Entrega:</span>
-                      <span>{new Date(entrega.fecha_entrega).toLocaleDateString('es-AR')}</span>
-                    </div>
-                  )}
-                  {entrega.descripcion && (
-                    <div className="info-item-detalle">
-                      <span className="label">Descripción:</span>
-                      <span>{entrega.descripcion.substring(0, 50)}{entrega.descripcion.length > 50 ? '...' : ''}</span>
-                    </div>
-                  )}
-                </div>
-                {entrega.fecha_entrega && getDiasRestantes(entrega.fecha_entrega) < 0 && (
-                  <div className="alerta-atrasado">
-                    ⚠️ Esta entrega está {getDiasAtrasados(entrega.fecha_entrega)} día(s) atrasada
-                  </div>
-                )}
-              </div>
-            ))
+                )
+              })}
+            </>
           )}
         </div>
       </div>

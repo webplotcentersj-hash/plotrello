@@ -393,6 +393,14 @@
   border-color: #3b82f6;
 }
 
+.entrega-item.pedido-item {
+  border-left: 3px solid #f59e0b;
+}
+
+.entrega-item.pedido-item:hover {
+  border-color: #f59e0b;
+}
+
 .entrega-numero {
   font-weight: 700;
   font-size: 0.875rem;
@@ -479,6 +487,15 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-color: #3b82f6;
+}
+
+.entrega-card-detalle.pedido-card-detalle {
+  border-left: 4px solid #f59e0b;
+}
+
+.entrega-card-detalle.pedido-card-detalle:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
 }
 
 .entrega-header-detalle {
