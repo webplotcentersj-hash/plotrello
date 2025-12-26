@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
 import LegajoEmpleadoModal from '../components/LegajoEmpleadoModal'
+import VerLegajoModal from '../components/VerLegajoModal'
 import './RecursosHumanosUsuariosPage.css'
 
 const RecursosHumanosUsuariosPage = () => {
@@ -14,6 +15,7 @@ const RecursosHumanosUsuariosPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLegajoModal, setShowLegajoModal] = useState(false)
+  const [showVerLegajoModal, setShowVerLegajoModal] = useState(false)
   const [selectedUsuario, setSelectedUsuario] = useState<UsuarioRecord | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRol, setFilterRol] = useState<string>('todos')
@@ -240,14 +242,24 @@ const RecursosHumanosUsuariosPage = () => {
                   <td>
                     <div className="rrhh-actions-buttons">
                       <button
+                        className="btn-ver-legajo"
+                        onClick={() => {
+                          setSelectedUsuario(user)
+                          setShowVerLegajoModal(true)
+                        }}
+                        title="Ver Legajo Completo"
+                      >
+                        👁️ Ver Legajo
+                      </button>
+                      <button
                         className="btn-legajo"
                         onClick={() => {
                           setSelectedUsuario(user)
                           setShowLegajoModal(true)
                         }}
-                        title="Ver/Editar Legajo Completo"
+                        title="Editar Legajo Completo"
                       >
-                        📋 Legajo
+                        📝 Editar Legajo
                       </button>
                       <button
                         className="btn-edit"
@@ -388,7 +400,19 @@ const RecursosHumanosUsuariosPage = () => {
         </div>
       )}
 
-      {/* Modal de Legajo Completo */}
+      {/* Modal Ver Legajo (Solo Lectura) */}
+      {showVerLegajoModal && selectedUsuario && (
+        <VerLegajoModal
+          usuario={selectedUsuario}
+          isOpen={showVerLegajoModal}
+          onClose={() => {
+            setShowVerLegajoModal(false)
+            setSelectedUsuario(null)
+          }}
+        />
+      )}
+
+      {/* Modal Editar Legajo */}
       {showLegajoModal && selectedUsuario && (
         <LegajoEmpleadoModal
           usuario={selectedUsuario}
