@@ -333,19 +333,28 @@ section h2 {
 .items-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .items-table th {
-  background: rgba(255, 255, 255, 0.05);
+  background: #f3f4f6;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #000000;
   font-size: 0.875rem;
   text-transform: uppercase;
 }
 
 .items-table td {
-  color: var(--text-secondary);
+  color: #000000;
+  background: #ffffff;
+}
+
+.items-table tbody tr {
+  background: #ffffff;
+}
+
+.items-table tbody tr:hover {
+  background: #ffffff;
 }
 
 .cantidad-input {
