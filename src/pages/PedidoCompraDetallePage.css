@@ -337,9 +337,9 @@ section h2 {
 }
 
 .items-table th {
-  background: #f3f4f6;
+  background: #eb671b;
   font-weight: 600;
-  color: #000000;
+  color: #ffffff;
   font-size: 0.875rem;
   text-transform: uppercase;
 }
@@ -360,17 +360,17 @@ section h2 {
 .cantidad-input {
   width: 100px;
   padding: 6px 8px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
-  background: #ffffff;
-  color: #000000;
+  background: var(--surface-base);
+  color: var(--text-primary);
   font-size: 0.875rem;
 }
 
 .unidad-small {
   margin-left: 4px;
   font-size: 0.75rem;
-  color: #000000;
+  color: var(--text-muted);
 }
 
 /* Acciones */
