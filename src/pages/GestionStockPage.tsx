@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ArticuloStock } from '../types/pedidos'
+import type { ArticuloStock, Proveedor } from '../types/pedidos'
 import './GestionStockPage.css'
 
 const GestionStockPage = () => {
@@ -27,6 +27,8 @@ const GestionStockPage = () => {
   })
   const [mostrarStockBajo, setMostrarStockBajo] = useState(false)
   const [filtroSector, setFiltroSector] = useState<string>('Todos')
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [loadingProveedores, setLoadingProveedores] = useState(false)
   
   const sectores = ['Todos', 'Gral', 'Imprenta', 'Mostrador', 'Taller', 'Compras']
 
@@ -75,6 +77,20 @@ const GestionStockPage = () => {
     }
   }
 
+  const loadProveedores = async () => {
+    setLoadingProveedores(true)
+    try {
+      const response = await apiService.getProveedores(true) // Solo activos
+      if (response.success && response.data) {
+        setProveedores(response.data)
+      }
+    } catch (error) {
+      console.error('Error cargando proveedores:', error)
+    } finally {
+      setLoadingProveedores(false)
+    }
+  }
+
   const abrirModalNuevo = () => {
     setArticuloEditando(null)
     setFormData({
@@ -88,6 +104,7 @@ const GestionStockPage = () => {
       proveedor: '',
       sector: 'Gral'
     })
+    loadProveedores()
     setMostrarModal(true)
   }
 
@@ -104,6 +121,7 @@ const GestionStockPage = () => {
       proveedor: articulo.proveedor || '',
       sector: articulo.sector || 'Gral'
     })
+    loadProveedores()
     setMostrarModal(true)
   }
 
@@ -469,12 +487,27 @@ const GestionStockPage = () => {
                 </div>
                 <div className="form-group">
                   <label>Proveedor:</label>
-                  <input
-                    type="text"
-                    value={formData.proveedor}
-                    onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
-                    placeholder="Proveedor (opcional)"
-                  />
+                  {loadingProveedores ? (
+                    <input
+                      type="text"
+                      value="Cargando proveedores..."
+                      disabled
+                      className="form-select"
+                    />
+                  ) : (
+                    <select
+                      value={formData.proveedor}
+                      onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
+                      className="form-select"
+                    >
+                      <option value="">Seleccionar proveedor (opcional)</option>
+                      {proveedores.map((proveedor) => (
+                        <option key={proveedor.id} value={proveedor.nombre}>
+                          {proveedor.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
               <div className="form-group">
