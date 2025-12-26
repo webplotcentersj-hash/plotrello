@@ -2,44 +2,41 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { PedidoCompra } from '../types/pedidos'
+import type { OrdenTrabajo } from '../types/api'
 import './CalendarioEntregasPage.css'
 
 const CalendarioEntregasPage = () => {
   const navigate = useNavigate()
-  const { canManageCompras, loading: authLoading } = useAuth()
+  const { loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
+  const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date>(new Date())
   const [vista, setVista] = useState<'mes' | 'semana' | 'dia'>('mes')
-  const [entregasAtrasadas, setEntregasAtrasadas] = useState<PedidoCompra[]>([])
-  const [entregasProximas, setEntregasProximas] = useState<PedidoCompra[]>([])
+  const [entregasAtrasadas, setEntregasAtrasadas] = useState<OrdenTrabajo[]>([])
+  const [entregasProximas, setEntregasProximas] = useState<OrdenTrabajo[]>([])
 
   useEffect(() => {
     if (authLoading) return
-    if (!canManageCompras) {
-      navigate('/compras/dashboard')
-      return
-    }
-    loadPedidos()
-  }, [canManageCompras, navigate, authLoading])
+    loadOrdenes()
+  }, [authLoading])
 
-  const loadPedidos = async () => {
+  const loadOrdenes = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getPedidosCompra({ estado: 'Aprobado' })
+      const response = await apiService.getOrdenes()
       if (response.success && response.data) {
-        const pedidosConEntrega = response.data.filter(p => p.fecha_entrega_estimada)
-        setPedidos(pedidosConEntrega)
+        // Filtrar solo órdenes con fecha de entrega
+        const ordenesConEntrega = response.data.filter(o => o.fecha_entrega)
+        setOrdenes(ordenesConEntrega)
         
         // Filtrar entregas atrasadas
         const ahora = new Date()
         ahora.setHours(0, 0, 0, 0)
-        const atrasadas = pedidosConEntrega.filter(p => {
-          if (!p.fecha_entrega_estimada) return false
-          const fechaEntrega = new Date(p.fecha_entrega_estimada)
+        const atrasadas = ordenesConEntrega.filter(o => {
+          if (!o.fecha_entrega) return false
+          const fechaEntrega = new Date(o.fecha_entrega)
           fechaEntrega.setHours(0, 0, 0, 0)
-          return fechaEntrega < ahora && p.estado !== 'Completado'
+          return fechaEntrega < ahora && o.estado !== 'Entregado o Instalado'
         })
         setEntregasAtrasadas(atrasadas)
 
@@ -47,15 +44,16 @@ const CalendarioEntregasPage = () => {
         const en7Dias = new Date()
         en7Dias.setDate(en7Dias.getDate() + 7)
         en7Dias.setHours(23, 59, 59, 999)
-        const proximas = pedidosConEntrega.filter(p => {
-          if (!p.fecha_entrega_estimada) return false
-          const fechaEntrega = new Date(p.fecha_entrega_estimada)
-          return fechaEntrega >= ahora && fechaEntrega <= en7Dias && p.estado !== 'Completado'
+        const proximas = ordenesConEntrega.filter(o => {
+          if (!o.fecha_entrega) return false
+          const fechaEntrega = new Date(o.fecha_entrega)
+          fechaEntrega.setHours(0, 0, 0, 0)
+          return fechaEntrega >= ahora && fechaEntrega <= en7Dias && o.estado !== 'Entregado o Instalado'
         })
         setEntregasProximas(proximas)
       }
     } catch (error) {
-      console.error('Error cargando pedidos:', error)
+      console.error('Error cargando órdenes:', error)
     } finally {
       setLoading(false)
     }
@@ -63,9 +61,9 @@ const CalendarioEntregasPage = () => {
 
   const getEntregasPorFecha = (fecha: Date) => {
     const fechaStr = fecha.toISOString().split('T')[0]
-    return pedidos.filter(p => {
-      if (!p.fecha_entrega_estimada) return false
-      const fechaEntrega = new Date(p.fecha_entrega_estimada)
+    return ordenes.filter(o => {
+      if (!o.fecha_entrega) return false
+      const fechaEntrega = new Date(o.fecha_entrega)
       fechaEntrega.setHours(0, 0, 0, 0)
       const fechaComparar = new Date(fechaStr)
       fechaComparar.setHours(0, 0, 0, 0)
@@ -141,10 +139,10 @@ const CalendarioEntregasPage = () => {
             const entregas = getEntregasPorFecha(dia.fecha)
             const esHoy = dia.fecha.toDateString() === new Date().toDateString()
             const esAtrasado = entregas.some(e => {
-              if (!e.fecha_entrega_estimada) return false
-              const fechaEntrega = new Date(e.fecha_entrega_estimada)
+              if (!e.fecha_entrega) return false
+              const fechaEntrega = new Date(e.fecha_entrega)
               fechaEntrega.setHours(0, 0, 0, 0)
-              return fechaEntrega < new Date() && e.estado !== 'Completado'
+              return fechaEntrega < new Date() && e.estado !== 'Entregado o Instalado'
             })
 
             return (
@@ -185,10 +183,10 @@ const CalendarioEntregasPage = () => {
           const entregas = getEntregasPorFecha(dia)
           const esHoy = dia.toDateString() === new Date().toDateString()
           const esAtrasado = entregas.some(e => {
-            if (!e.fecha_entrega_estimada) return false
-            const fechaEntrega = new Date(e.fecha_entrega_estimada)
+            if (!e.fecha_entrega) return false
+            const fechaEntrega = new Date(e.fecha_entrega)
             fechaEntrega.setHours(0, 0, 0, 0)
-            return fechaEntrega < new Date() && e.estado !== 'Completado'
+            return fechaEntrega < new Date() && e.estado !== 'Entregado o Instalado'
           })
 
           return (
@@ -205,21 +203,21 @@ const CalendarioEntregasPage = () => {
                     <div
                       key={entrega.id}
                       className="entrega-item"
-                      onClick={() => navigate(`/compras/pedidos/${entrega.id}`)}
+                      onClick={() => navigate(`/op/${entrega.numero_op}`)}
                     >
-                      <div className="entrega-numero">{entrega.numero_pedido}</div>
+                      <div className="entrega-numero">OP #{entrega.numero_op}</div>
                       <div className="entrega-info">
-                        <div>{entrega.nombre_solicitante}</div>
-                        {entrega.fecha_entrega_estimada && (
+                        <div>{entrega.cliente}</div>
+                        {entrega.fecha_entrega && (
                           <div className="entrega-tiempo">
-                            {getDiasRestantes(entrega.fecha_entrega_estimada) < 0 ? (
+                            {getDiasRestantes(entrega.fecha_entrega) < 0 ? (
                               <span className="atrasado-text">
-                                {getDiasAtrasados(entrega.fecha_entrega_estimada)} día(s) atrasado
+                                {getDiasAtrasados(entrega.fecha_entrega)} día(s) atrasado
                               </span>
-                            ) : getDiasRestantes(entrega.fecha_entrega_estimada) === 0 ? (
+                            ) : getDiasRestantes(entrega.fecha_entrega) === 0 ? (
                               <span className="hoy-text">Hoy</span>
                             ) : (
-                              <span>{getDiasRestantes(entrega.fecha_entrega_estimada)} día(s)</span>
+                              <span>{getDiasRestantes(entrega.fecha_entrega)} día(s)</span>
                             )}
                           </div>
                         )}
@@ -239,10 +237,10 @@ const CalendarioEntregasPage = () => {
     const entregas = getEntregasPorFecha(fechaSeleccionada)
     const esHoy = fechaSeleccionada.toDateString() === new Date().toDateString()
     const esAtrasado = entregas.some(e => {
-      if (!e.fecha_entrega_estimada) return false
-      const fechaEntrega = new Date(e.fecha_entrega_estimada)
+      if (!e.fecha_entrega) return false
+      const fechaEntrega = new Date(e.fecha_entrega)
       fechaEntrega.setHours(0, 0, 0, 0)
-      return fechaEntrega < new Date() && e.estado !== 'Completado'
+      return fechaEntrega < new Date() && e.estado !== 'Entregado o Instalado'
     })
 
     return (
@@ -259,41 +257,41 @@ const CalendarioEntregasPage = () => {
               <div
                 key={entrega.id}
                 className="entrega-card-detalle"
-                onClick={() => navigate(`/compras/pedidos/${entrega.id}`)}
+                onClick={() => navigate(`/op/${entrega.numero_op}`)}
               >
                 <div className="entrega-header-detalle">
-                  <div className="entrega-numero-detalle">{entrega.numero_pedido}</div>
-                  <div className={`entrega-estado estado-${entrega.estado.toLowerCase().replace(' ', '-')}`}>
+                  <div className="entrega-numero-detalle">OP #{entrega.numero_op}</div>
+                  <div className={`entrega-estado estado-${entrega.estado?.toLowerCase().replace(/\s+/g, '-') || ''}`}>
                     {entrega.estado}
                   </div>
                 </div>
                 <div className="entrega-info-detalle">
                   <div className="info-item-detalle">
-                    <span className="label">Solicitante:</span>
-                    <span>{entrega.nombre_solicitante}</span>
+                    <span className="label">Cliente:</span>
+                    <span>{entrega.cliente}</span>
                   </div>
-                  {entrega.sector_solicitante && (
+                  {entrega.sector && (
                     <div className="info-item-detalle">
                       <span className="label">Sector:</span>
-                      <span>{entrega.sector_solicitante}</span>
+                      <span>{entrega.sector}</span>
                     </div>
                   )}
-                  {entrega.fecha_entrega_estimada && (
+                  {entrega.fecha_entrega && (
                     <div className="info-item-detalle">
                       <span className="label">Fecha Entrega:</span>
-                      <span>{new Date(entrega.fecha_entrega_estimada).toLocaleDateString('es-AR')}</span>
+                      <span>{new Date(entrega.fecha_entrega).toLocaleDateString('es-AR')}</span>
                     </div>
                   )}
-                  {entrega.items && (
+                  {entrega.descripcion && (
                     <div className="info-item-detalle">
-                      <span className="label">Items:</span>
-                      <span>{entrega.items.length}</span>
+                      <span className="label">Descripción:</span>
+                      <span>{entrega.descripcion.substring(0, 50)}{entrega.descripcion.length > 50 ? '...' : ''}</span>
                     </div>
                   )}
                 </div>
-                {entrega.fecha_entrega_estimada && getDiasRestantes(entrega.fecha_entrega_estimada) < 0 && (
+                {entrega.fecha_entrega && getDiasRestantes(entrega.fecha_entrega) < 0 && (
                   <div className="alerta-atrasado">
-                    ⚠️ Esta entrega está {getDiasAtrasados(entrega.fecha_entrega_estimada)} día(s) atrasada
+                    ⚠️ Esta entrega está {getDiasAtrasados(entrega.fecha_entrega)} día(s) atrasada
                   </div>
                 )}
               </div>
@@ -315,18 +313,6 @@ const CalendarioEntregasPage = () => {
     )
   }
 
-  if (!canManageCompras) {
-    return (
-      <div className="calendario-entregas-page">
-        <div className="error-container">
-          <p>No tienes permiso para acceder a esta página.</p>
-          <button className="btn-primary" onClick={() => navigate('/compras/dashboard')}>
-            Volver al Dashboard
-          </button>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="calendario-entregas-page">
@@ -337,7 +323,7 @@ const CalendarioEntregasPage = () => {
             <p className="subtitle">Planificación y seguimiento de entregas</p>
           </div>
           <div className="header-actions">
-            <button className="btn-secondary" onClick={() => navigate('/compras/dashboard')}>
+            <button className="btn-secondary" onClick={() => navigate('/mostrador/dashboard')}>
               ← Volver
             </button>
           </div>
@@ -353,21 +339,21 @@ const CalendarioEntregasPage = () => {
               <div
                 key={entrega.id}
                 className="entrega-alerta-card"
-                onClick={() => navigate(`/compras/pedidos/${entrega.id}`)}
+                onClick={() => navigate(`/op/${entrega.numero_op}`)}
               >
                 <div className="alerta-header-card">
-                  <strong>{entrega.numero_pedido}</strong>
-                  {entrega.fecha_entrega_estimada && (
+                  <strong>OP #{entrega.numero_op}</strong>
+                  {entrega.fecha_entrega && (
                     <span className="dias-atrasado">
-                      {getDiasAtrasados(entrega.fecha_entrega_estimada)} día(s)
+                      {getDiasAtrasados(entrega.fecha_entrega)} día(s)
                     </span>
                   )}
                 </div>
                 <div className="alerta-info">
-                  <div>{entrega.nombre_solicitante}</div>
-                  {entrega.fecha_entrega_estimada && (
+                  <div>{entrega.cliente}</div>
+                  {entrega.fecha_entrega && (
                     <div className="fecha-estimada">
-                      Estimada: {new Date(entrega.fecha_entrega_estimada).toLocaleDateString('es-AR')}
+                      Estimada: {new Date(entrega.fecha_entrega).toLocaleDateString('es-AR')}
                     </div>
                   )}
                 </div>
@@ -386,21 +372,21 @@ const CalendarioEntregasPage = () => {
               <div
                 key={entrega.id}
                 className="entrega-proxima-card"
-                onClick={() => navigate(`/compras/pedidos/${entrega.id}`)}
+                onClick={() => navigate(`/op/${entrega.numero_op}`)}
               >
                 <div className="proxima-header-card">
-                  <strong>{entrega.numero_pedido}</strong>
-                  {entrega.fecha_entrega_estimada && (
+                  <strong>OP #{entrega.numero_op}</strong>
+                  {entrega.fecha_entrega && (
                     <span className="dias-restantes">
-                      {getDiasRestantes(entrega.fecha_entrega_estimada) === 0 ? 'Hoy' : `${getDiasRestantes(entrega.fecha_entrega_estimada)} día(s)`}
+                      {getDiasRestantes(entrega.fecha_entrega) === 0 ? 'Hoy' : `${getDiasRestantes(entrega.fecha_entrega)} día(s)`}
                     </span>
                   )}
                 </div>
                 <div className="proxima-info">
-                  <div>{entrega.nombre_solicitante}</div>
-                  {entrega.fecha_entrega_estimada && (
+                  <div>{entrega.cliente}</div>
+                  {entrega.fecha_entrega && (
                     <div className="fecha-estimada">
-                      {new Date(entrega.fecha_entrega_estimada).toLocaleDateString('es-AR')}
+                      {new Date(entrega.fecha_entrega).toLocaleDateString('es-AR')}
                     </div>
                   )}
                 </div>

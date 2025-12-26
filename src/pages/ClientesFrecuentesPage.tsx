@@ -75,17 +75,26 @@ const ClientesFrecuentesPage = () => {
         }
       })
 
-      // Cargar preferencias guardadas desde localStorage
-      const preferenciasGuardadas = localStorage.getItem('preferencias_clientes')
-      const preferenciasMap: Record<string, { preferencias?: string; notas?: string; esVIP?: boolean }> = 
-        preferenciasGuardadas ? JSON.parse(preferenciasGuardadas) : {}
+      // Cargar preferencias desde la base de datos
+      const preferenciasResponse = await apiService.obtenerTodasPreferenciasClientes()
+      const preferenciasMap: Record<string, { preferencias?: string; notas?: string; esVIP?: boolean }> = {}
+      
+      if (preferenciasResponse.success && preferenciasResponse.data) {
+        preferenciasResponse.data.forEach((pref) => {
+          preferenciasMap[pref.dni_cuit.toUpperCase()] = {
+            preferencias: pref.preferencias || undefined,
+            notas: pref.notas_internas || undefined,
+            esVIP: pref.es_vip
+          }
+        })
+      }
 
       // Aplicar preferencias y marcar VIP
       clientesMap.forEach((cliente, dni) => {
         const prefs = preferenciasMap[dni] || {}
         cliente.preferencias = prefs.preferencias
         cliente.notas = prefs.notas
-        cliente.esVIP = prefs.esVIP || cliente.totalOrdenes >= 10
+        cliente.esVIP = prefs.esVIP !== undefined ? prefs.esVIP : cliente.totalOrdenes >= 10
       })
 
       // Convertir a array y ordenar por total de órdenes
@@ -131,57 +140,72 @@ const ClientesFrecuentesPage = () => {
     }
   }
 
-  const guardarPreferencias = () => {
-    if (!clienteSeleccionado) return
+  const guardarPreferencias = async () => {
+    if (!clienteSeleccionado || !clienteSeleccionado.dni_cuit) return
 
-    const preferenciasGuardadas = localStorage.getItem('preferencias_clientes')
-    const preferenciasMap: Record<string, { preferencias?: string; notas?: string; esVIP?: boolean }> = 
-      preferenciasGuardadas ? JSON.parse(preferenciasGuardadas) : {}
-
-    preferenciasMap[clienteSeleccionado.dni_cuit!.toUpperCase()] = {
-      preferencias,
-      notas,
-      esVIP: clienteSeleccionado.esVIP
-    }
-
-    localStorage.setItem('preferencias_clientes', JSON.stringify(preferenciasMap))
-
-    // Actualizar cliente en la lista
-    setClientes((prev) =>
-      prev.map((c) =>
-        c.dni_cuit === clienteSeleccionado.dni_cuit
-          ? { ...c, preferencias, notas }
-          : c
+    try {
+      const response = await apiService.guardarPreferenciasCliente(
+        clienteSeleccionado.dni_cuit,
+        preferencias || null,
+        notas || null,
+        clienteSeleccionado.esVIP
       )
-    )
 
-    setEditandoPreferencias(false)
-    alert('Preferencias guardadas exitosamente')
+      if (!response.success) {
+        alert(`Error al guardar: ${response.error}`)
+        return
+      }
+
+      // Actualizar cliente en la lista
+      setClientes((prev) =>
+        prev.map((c) =>
+          c.dni_cuit === clienteSeleccionado.dni_cuit
+            ? { ...c, preferencias, notas }
+            : c
+        )
+      )
+
+      // Actualizar cliente seleccionado
+      setClienteSeleccionado({ ...clienteSeleccionado, preferencias, notas })
+
+      setEditandoPreferencias(false)
+      alert('Preferencias guardadas exitosamente')
+    } catch (error) {
+      console.error('Error guardando preferencias:', error)
+      alert('Error al guardar las preferencias')
+    }
   }
 
-  const toggleVIP = () => {
-    if (!clienteSeleccionado) return
+  const toggleVIP = async () => {
+    if (!clienteSeleccionado || !clienteSeleccionado.dni_cuit) return
 
     const nuevoEstadoVIP = !clienteSeleccionado.esVIP
-    const preferenciasGuardadas = localStorage.getItem('preferencias_clientes')
-    const preferenciasMap: Record<string, { preferencias?: string; notas?: string; esVIP?: boolean }> = 
-      preferenciasGuardadas ? JSON.parse(preferenciasGuardadas) : {}
 
-    preferenciasMap[clienteSeleccionado.dni_cuit!.toUpperCase()] = {
-      ...preferenciasMap[clienteSeleccionado.dni_cuit!.toUpperCase()],
-      esVIP: nuevoEstadoVIP
-    }
-
-    localStorage.setItem('preferencias_clientes', JSON.stringify(preferenciasMap))
-
-    setClienteSeleccionado({ ...clienteSeleccionado, esVIP: nuevoEstadoVIP })
-    setClientes((prev) =>
-      prev.map((c) =>
-        c.dni_cuit === clienteSeleccionado.dni_cuit
-          ? { ...c, esVIP: nuevoEstadoVIP }
-          : c
+    try {
+      const response = await apiService.guardarPreferenciasCliente(
+        clienteSeleccionado.dni_cuit,
+        clienteSeleccionado.preferencias || null,
+        clienteSeleccionado.notas || null,
+        nuevoEstadoVIP
       )
-    )
+
+      if (!response.success) {
+        alert(`Error al actualizar VIP: ${response.error}`)
+        return
+      }
+
+      setClienteSeleccionado({ ...clienteSeleccionado, esVIP: nuevoEstadoVIP })
+      setClientes((prev) =>
+        prev.map((c) =>
+          c.dni_cuit === clienteSeleccionado.dni_cuit
+            ? { ...c, esVIP: nuevoEstadoVIP }
+            : c
+        )
+      )
+    } catch (error) {
+      console.error('Error actualizando VIP:', error)
+      alert('Error al actualizar el estado VIP')
+    }
   }
 
   const clientesFiltrados = clientes.filter((cliente) => {

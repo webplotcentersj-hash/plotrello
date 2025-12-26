@@ -7050,6 +7050,108 @@ class ApiService {
     }
     return { success: false, error: 'No hay conexión a Supabase' }
   }
+
+  /**
+   * Obtener preferencias de un cliente por DNI/CUIT
+   */
+  async obtenerPreferenciasCliente(dniCuit: string): Promise<ApiResponse<{
+    id: number
+    dni_cuit: string
+    preferencias: string | null
+    notas_internas: string | null
+    es_vip: boolean
+    created_at: string
+    updated_at: string
+  } | null>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_preferencias_cliente', {
+        p_dni_cuit: dniCuit
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (!data || data.length === 0) {
+        return { success: true, data: null }
+      }
+
+      return { success: true, data: data[0] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Guardar/actualizar preferencias de un cliente
+   */
+  async guardarPreferenciasCliente(
+    dniCuit: string,
+    preferencias?: string | null,
+    notasInternas?: string | null,
+    esVIP?: boolean
+  ): Promise<ApiResponse<{
+    id: number
+    dni_cuit: string
+    preferencias: string | null
+    notas_internas: string | null
+    es_vip: boolean
+  }>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('guardar_preferencias_cliente', {
+        p_dni_cuit: dniCuit,
+        p_preferencias: preferencias || null,
+        p_notas_internas: notasInternas || null,
+        p_es_vip: esVIP || false
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      if (!data || data.length === 0) {
+        return { success: false, error: 'No se pudo guardar las preferencias' }
+      }
+
+      return { success: true, data: data[0] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Obtener todas las preferencias de clientes
+   */
+  async obtenerTodasPreferenciasClientes(): Promise<ApiResponse<Array<{
+    dni_cuit: string
+    preferencias: string | null
+    notas_internas: string | null
+    es_vip: boolean
+  }>>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_todas_preferencias_clientes')
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data || [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {
