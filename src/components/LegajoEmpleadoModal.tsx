@@ -128,13 +128,35 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
 
     setSaving(true)
     try {
-      const response = await apiService.crearActualizarLegajo(usuario.id, legajo)
+      // Asegurar que todos los campos se envíen, incluso si están vacíos
+      const legajoCompleto: Partial<LegajoEmpleado> = {
+        id_usuario: usuario.id,
+        nombre: legajo.nombre || null,
+        apellido: legajo.apellido || null,
+        telefono: legajo.telefono || null,
+        ubicacion: legajo.ubicacion || null,
+        foto_url: legajo.foto_url || null,
+        sector: legajo.sector || null,
+        funciones: legajo.funciones || null,
+        fecha_ingreso: legajo.fecha_ingreso || null,
+        fecha_nacimiento: legajo.fecha_nacimiento || null,
+        dni: legajo.dni || null,
+        direccion: legajo.direccion || null,
+        email: legajo.email || null,
+        estado_civil: legajo.estado_civil || null,
+        contacto_emergencia_nombre: legajo.contacto_emergencia_nombre || null,
+        contacto_emergencia_telefono: legajo.contacto_emergencia_telefono || null,
+        observaciones: legajo.observaciones || null
+      }
+
+      const response = await apiService.crearActualizarLegajo(usuario.id, legajoCompleto)
       if (response.success) {
-        alert('Legajo guardado exitosamente')
+        alert('Legajo guardado exitosamente en la base de datos')
         onSave()
         onClose()
       } else {
-        alert(`Error: ${response.error}`)
+        console.error('Error del servidor:', response.error)
+        alert(`Error al guardar: ${response.error}`)
       }
     } catch (error) {
       console.error('Error guardando legajo:', error)

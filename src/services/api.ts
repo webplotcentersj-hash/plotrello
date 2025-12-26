@@ -1246,14 +1246,34 @@ class ApiService {
         const fileExt = file.name.split('.').pop()
         const fileName = `empleados/${idUsuario}_${Date.now()}.${fileExt}`
         
+        // Primero, intentar eliminar la foto anterior si existe
+        const { data: listData } = await supabase.storage
+          .from('legajos')
+          .list(`empleados/`, {
+            limit: 100,
+            offset: 0,
+            sortBy: { column: 'created_at', order: 'desc' }
+          })
+
+        if (listData) {
+          const existingFiles = listData.filter(f => f.name.startsWith(`${idUsuario}_`))
+          for (const oldFile of existingFiles) {
+            await supabase.storage
+              .from('legajos')
+              .remove([`empleados/${oldFile.name}`])
+          }
+        }
+        
+        // Subir la nueva foto con upsert habilitado
         const { error: uploadError } = await supabase.storage
           .from('legajos')
           .upload(fileName, file, {
             cacheControl: '3600',
-            upsert: false
+            upsert: true // Permitir reemplazar si existe
           })
 
         if (uploadError) {
+          console.error('Error de upload:', uploadError)
           return { success: false, error: uploadError.message }
         }
 
@@ -1268,6 +1288,7 @@ class ApiService {
 
         return { success: false, error: 'No se pudo obtener la URL de la imagen' }
       } catch (error: any) {
+        console.error('Error en uploadFotoEmpleado:', error)
         return { success: false, error: error.message || 'Error al subir la foto' }
       }
     }
