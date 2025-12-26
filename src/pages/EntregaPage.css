@@ -48,7 +48,7 @@
 
 .subtitle {
   margin: 0;
-  color: var(--text-muted);
+  color: #cbd5e1;
   font-size: 1.1rem;
 }
 
@@ -57,7 +57,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  color: var(--text-primary);
+  color: #f1f5f9;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -107,14 +107,19 @@ section h2 {
 
 .info-item label {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: #cbd5e1;
   font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .info-item span {
   font-size: 1rem;
-  color: #e2e8f0;
-  font-weight: 600;
+  color: #f1f5f9;
+  font-weight: 700;
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
 }
 
 /* Formulario de Entrega */
