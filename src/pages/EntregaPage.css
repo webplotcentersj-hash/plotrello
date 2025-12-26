@@ -42,7 +42,7 @@
 .page-header h1 {
   margin: 0 0 8px 0;
   font-size: 2rem;
-  color: #f1f5f9;
+  color: #e2e8f0;
   font-weight: 700;
 }
 
@@ -57,7 +57,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  color: #f1f5f9;
+  color: #cbd5e1;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -84,7 +84,7 @@ section {
 section h2 {
   margin: 0 0 20px 0;
   font-size: 1.5rem;
-  color: #f1f5f9;
+  color: #e2e8f0;
   font-weight: 700;
 }
 
@@ -114,7 +114,7 @@ section h2 {
 
 .info-item span {
   font-size: 1rem;
-  color: #f1f5f9;
+  color: #cbd5e1;
   font-weight: 700;
   padding: 8px 12px;
   background: rgba(59, 130, 246, 0.2);
@@ -135,7 +135,7 @@ section h2 {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: #cbd5e1;
 }
 
 .form-group input,
@@ -145,7 +145,7 @@ section h2 {
   border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.6);
-  color: #e2e8f0;
+  color: #cbd5e1;
   font-size: 1rem;
   font-family: inherit;
 }
