@@ -218,8 +218,14 @@
 
 .metrica-label {
   font-size: 0.875rem;
-  color: #000000;
+  color: #000000 !important;
   font-weight: 600;
+}
+
+/* Asegurar que los labels de métricas sean negros */
+.metricas-reporte .metrica-label,
+.metrica-reporte .metrica-label {
+  color: #000000 !important;
 }
 
 /* Tabla de Detalle */
@@ -320,7 +326,13 @@
 
 .stat-label {
   font-weight: 600;
-  color: #000000;
+  color: #000000 !important;
+}
+
+/* Asegurar que los labels del resumen sean negros */
+.resumen-section .stat-label,
+.resumen-stats .stat-label {
+  color: #000000 !important;
 }
 
 .stat-value {
