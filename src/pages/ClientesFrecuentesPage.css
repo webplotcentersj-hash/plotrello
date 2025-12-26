@@ -333,6 +333,11 @@
   font-weight: 600;
 }
 
+/* Asegurar que los labels dentro de cliente-stats sean negros */
+.cliente-stats .stat-item .stat-label {
+  color: #000000 !important;
+}
+
 .stat-value {
   font-size: 1.25rem;
   font-weight: 700;
