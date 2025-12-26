@@ -531,9 +531,11 @@ const PedidoCompraDetallePage = () => {
           <section className="tracking-section">
             <div className="section-header">
               <h2>📦 Tracking de Entrega</h2>
-              <button className="btn-action" onClick={() => setMostrarTracking(true)}>
-                {pedido.estado_entrega ? '✏️ Editar Tracking' : '➕ Agregar Tracking'}
-              </button>
+              <div className="tracking-actions-bar">
+                <button className="btn-action" onClick={() => setMostrarTracking(true)}>
+                  {pedido.estado_entrega ? '✏️ Editar Tracking' : '➕ Agregar Tracking'}
+                </button>
+              </div>
             </div>
             {pedido.estado_entrega ? (
               <div className="tracking-info">
