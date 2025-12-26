@@ -1246,9 +1246,9 @@ class ApiService {
     }
 
     try {
-      // Verificar que el usuario esté autenticado
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      // Verificar que hay un usuario en localStorage (nuestro sistema de auth personalizado)
+      const usuarioStr = localStorage.getItem('usuario')
+      if (!usuarioStr) {
         return { success: false, error: 'Usuario no autenticado. Por favor, inicia sesión nuevamente.' }
       }
 
@@ -1256,9 +1256,10 @@ class ApiService {
       // Usar un nombre único basado en el ID del usuario para permitir reemplazo
       const fileName = `empleados/${idUsuario}.${fileExt}`
       
-      console.log('📤 Subiendo foto:', fileName, 'Usuario:', idUsuario, 'Autenticado:', !!session)
+      console.log('📤 Subiendo foto:', fileName, 'Usuario ID:', idUsuario)
       
       // Subir la nueva foto con upsert habilitado (reemplaza si existe)
+      // Las políticas ahora permiten subida pública en la carpeta empleados/
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('legajos')
         .upload(fileName, file, {
@@ -1268,14 +1269,45 @@ class ApiService {
 
       if (uploadError) {
         console.error('❌ Error de upload:', uploadError)
-        // Mensaje de error más descriptivo
-        if (uploadError.message.includes('new row violates row-level security policy')) {
+        
+        // Mensajes de error más descriptivos
+        if (uploadError.message.includes('new row violates row-level security policy') || 
+            uploadError.message.includes('row-level security') ||
+            uploadError.message.includes('RLS')) {
           return { 
             success: false, 
-            error: 'Error de permisos. Verifica que estés autenticado y que las políticas de Storage estén configuradas correctamente.' 
+            error: 'Error de permisos. Las políticas de Storage están bloqueando la subida. Contacta al administrador.' 
           }
         }
-        return { success: false, error: uploadError.message }
+        
+        if (uploadError.message.includes('JWT') || uploadError.message.includes('token') || uploadError.message.includes('Unauthorized')) {
+          return { 
+            success: false, 
+            error: 'Error de autenticación. Por favor, recarga la página e intenta nuevamente.' 
+          }
+        }
+        
+        if (uploadError.message.includes('duplicate') || uploadError.message.includes('already exists')) {
+          // Si ya existe, intentar eliminar y volver a subir
+          console.log('⚠️ Archivo ya existe, intentando eliminar y volver a subir...')
+          await supabase.storage.from('legajos').remove([fileName])
+          
+          // Reintentar subida
+          const { data: retryData, error: retryError } = await supabase.storage
+            .from('legajos')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: true
+            })
+          
+          if (retryError) {
+            return { success: false, error: retryError.message }
+          }
+          
+          uploadData = retryData
+        } else {
+          return { success: false, error: uploadError.message }
+        }
       }
 
       console.log('✅ Foto subida exitosamente:', uploadData?.path)
