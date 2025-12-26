@@ -329,14 +329,14 @@
 
 .stat-label {
   font-size: 0.875rem;
-  color: #000000;
+  color: #000000 !important;
   font-weight: 600;
 }
 
 .stat-value {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #000000;
+  color: #000000 !important;
 }
 
 .header-actions {
