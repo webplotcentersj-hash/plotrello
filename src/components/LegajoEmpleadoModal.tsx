@@ -35,11 +35,9 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
           setFotoPreview(response.data.foto_url)
         }
       } else {
-        // Si no existe legajo, inicializar con datos básicos del usuario
+        // Si no existe legajo, inicializar vacío (el nombre de usuario se muestra aparte en el header)
         setLegajo({
-          id_usuario: usuario.id,
-          nombre: usuario.nombre.split(' ')[0] || '',
-          apellido: usuario.nombre.split(' ').slice(1).join(' ') || ''
+          id_usuario: usuario.id
         })
       }
     } catch (error) {
