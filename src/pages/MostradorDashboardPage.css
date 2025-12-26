@@ -183,6 +183,11 @@
   font-weight: 600;
 }
 
+.metrica-card .metrica-label,
+.metrica-content .metrica-label {
+  color: #ffffff !important;
+}
+
 /* Acciones Rápidas */
 .acciones-rapidas-section {
   margin-bottom: 32px;
