@@ -1295,9 +1295,6 @@ class ApiService {
       console.error('❌ Error en uploadFotoEmpleado:', error)
       return { success: false, error: error.message || 'Error al subir la foto' }
     }
-    }
-
-    return { success: false, error: 'Supabase no configurado' }
   }
 
   async getEstadisticasUsuario(
