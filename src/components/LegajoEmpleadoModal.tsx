@@ -56,12 +56,14 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
     // Validar tipo de archivo
     if (!file.type.startsWith('image/')) {
       alert('Por favor selecciona un archivo de imagen')
+      e.target.value = '' // Limpiar input
       return
     }
 
     // Validar tamaño (máximo 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('La imagen no debe superar los 5MB')
+      e.target.value = '' // Limpiar input
       return
     }
 
@@ -78,18 +80,52 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
       const uploadResponse = await apiService.uploadFotoEmpleado(file, usuario.id)
       if (uploadResponse.success && uploadResponse.data) {
         setLegajo({ ...legajo, foto_url: uploadResponse.data })
+        alert('Foto subida exitosamente')
       } else {
-        alert(`Error al subir foto: ${uploadResponse.error}`)
+        const errorMsg = uploadResponse.error || 'Error desconocido'
+        let userMessage = `Error al subir foto: ${errorMsg}`
+        
+        // Mensajes de error más descriptivos
+        if (errorMsg.includes('row-level security') || errorMsg.includes('RLS')) {
+          userMessage = 'Error de permisos. Verifica que las políticas de Storage estén configuradas correctamente.'
+        } else if (errorMsg.includes('Bucket not found') || errorMsg.includes('not found')) {
+          userMessage = 'El bucket "legajos" no existe. Créalo en Supabase → Storage → New bucket'
+        } else if (errorMsg.includes('permission denied')) {
+          userMessage = 'Error de permisos. El bucket debe tener políticas RLS configuradas para usuarios autenticados.'
+        }
+        
+        alert(userMessage)
+        setFotoPreview(null) // Limpiar preview en caso de error
       }
     } catch (error) {
       console.error('Error subiendo foto:', error)
-      alert('Error al subir la foto')
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      let userMessage = `Error al subir la foto: ${errorMessage}`
+      
+      if (errorMessage.includes('row-level security') || errorMessage.includes('RLS')) {
+        userMessage = 'Error de permisos. Verifica que las políticas de Storage estén configuradas correctamente.'
+      }
+      
+      alert(userMessage)
+      setFotoPreview(null) // Limpiar preview en caso de error
     } finally {
       setSaving(false)
+      e.target.value = '' // Limpiar input después de procesar
     }
   }
 
   const handleSave = async () => {
+    // Validar campos requeridos
+    if (!legajo.nombre || legajo.nombre.trim() === '') {
+      alert('El nombre es obligatorio')
+      return
+    }
+
+    if (!legajo.fecha_ingreso) {
+      alert('La fecha de ingreso es obligatoria')
+      return
+    }
+
     setSaving(true)
     try {
       const response = await apiService.crearActualizarLegajo(usuario.id, legajo)
@@ -102,7 +138,8 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
       }
     } catch (error) {
       console.error('Error guardando legajo:', error)
-      alert('Error al guardar el legajo')
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      alert(`Error al guardar el legajo: ${errorMessage}`)
     } finally {
       setSaving(false)
     }
