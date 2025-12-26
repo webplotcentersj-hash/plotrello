@@ -1260,12 +1260,18 @@ class ApiService {
       
       // Subir la nueva foto con upsert habilitado (reemplaza si existe)
       // Las políticas ahora permiten subida pública en la carpeta empleados/
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      let uploadData = null
+      let uploadError = null
+      
+      const uploadResult = await supabase.storage
         .from('legajos')
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: true // Reemplazar si existe
         })
+      
+      uploadData = uploadResult.data
+      uploadError = uploadResult.error
 
       if (uploadError) {
         console.error('❌ Error de upload:', uploadError)
@@ -1293,24 +1299,28 @@ class ApiService {
           await supabase.storage.from('legajos').remove([fileName])
           
           // Reintentar subida
-          const { data: retryData, error: retryError } = await supabase.storage
+          const retryResult = await supabase.storage
             .from('legajos')
             .upload(fileName, file, {
               cacheControl: '3600',
               upsert: true
             })
           
-          if (retryError) {
-            return { success: false, error: retryError.message }
+          if (retryResult.error) {
+            return { success: false, error: retryResult.error.message }
           }
           
-          uploadData = retryData
+          uploadData = retryResult.data
         } else {
           return { success: false, error: uploadError.message }
         }
       }
 
-      console.log('✅ Foto subida exitosamente:', uploadData?.path)
+      if (!uploadData) {
+        return { success: false, error: 'No se recibieron datos del servidor después de subir la foto' }
+      }
+
+      console.log('✅ Foto subida exitosamente:', uploadData.path)
 
       // Obtener URL pública
       const { data: urlData } = supabase.storage
