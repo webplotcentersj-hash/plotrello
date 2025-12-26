@@ -235,15 +235,16 @@ section h2 {
 }
 
 .btn-action {
-  padding: 8px 16px;
+  padding: 4px 12px;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  min-height: 44px;
+  min-height: 28px;
+  font-size: 0.75rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
