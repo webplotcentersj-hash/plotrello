@@ -69,6 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_inscripciones_estado ON public.capacitaciones_ins
 CREATE OR REPLACE FUNCTION public.crear_capacitacion(
   p_titulo varchar,
   p_descripcion text,
+  p_creado_por integer,
   p_tipo_capacitacion varchar DEFAULT 'presencial',
   p_categoria varchar DEFAULT NULL,
   p_duracion_horas numeric DEFAULT NULL,
@@ -82,8 +83,7 @@ CREATE OR REPLACE FUNCTION public.crear_capacitacion(
   p_es_obligatoria boolean DEFAULT false,
   p_requiere_aprobacion boolean DEFAULT true,
   p_material_adjunto_url text DEFAULT NULL,
-  p_observaciones text DEFAULT NULL,
-  p_creado_por integer
+  p_observaciones text DEFAULT NULL
 )
 RETURNS public.capacitaciones
 LANGUAGE plpgsql

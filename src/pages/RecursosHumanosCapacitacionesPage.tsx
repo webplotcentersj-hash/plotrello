@@ -158,6 +158,7 @@ const RecursosHumanosCapacitacionesPage = () => {
         response = await apiService.crearCapacitacion(
           formData.titulo,
           formData.descripcion || null,
+          usuario.id,
           formData.tipo_capacitacion,
           formData.categoria || null,
           formData.duracion_horas,
@@ -171,8 +172,7 @@ const RecursosHumanosCapacitacionesPage = () => {
           formData.es_obligatoria,
           formData.requiere_aprobacion,
           formData.material_adjunto_url || null,
-          formData.observaciones || null,
-          usuario.id
+          formData.observaciones || null
         )
       }
 

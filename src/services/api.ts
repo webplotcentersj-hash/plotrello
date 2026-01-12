@@ -8135,6 +8135,7 @@ class ApiService {
   async crearCapacitacion(
     titulo: string,
     descripcion: string | null = null,
+    creadoPor: number,
     tipoCapacitacion: 'presencial' | 'virtual' | 'mixta' | 'online' = 'presencial',
     categoria: string | null = null,
     duracionHoras: number | null = null,
@@ -8148,8 +8149,7 @@ class ApiService {
     esObligatoria: boolean = false,
     requiereAprobacion: boolean = true,
     materialAdjuntoUrl: string | null = null,
-    observaciones: string | null = null,
-    creadoPor: number
+    observaciones: string | null = null
   ): Promise<ApiResponse<Capacitacion>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -8159,6 +8159,7 @@ class ApiService {
       const { data, error } = await supabase.rpc('crear_capacitacion', {
         p_titulo: titulo,
         p_descripcion: descripcion,
+        p_creado_por: creadoPor,
         p_tipo_capacitacion: tipoCapacitacion,
         p_categoria: categoria,
         p_duracion_horas: duracionHoras,
@@ -8172,8 +8173,7 @@ class ApiService {
         p_es_obligatoria: esObligatoria,
         p_requiere_aprobacion: requiereAprobacion,
         p_material_adjunto_url: materialAdjuntoUrl,
-        p_observaciones: observaciones,
-        p_creado_por: creadoPor
+        p_observaciones: observaciones
       })
 
       if (error) throw error
