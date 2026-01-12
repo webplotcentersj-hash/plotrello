@@ -2733,6 +2733,7 @@ class ApiService {
     type?: 'info' | 'success' | 'warning' | 'error' | 'mention'
     orden_id?: number
     pedido_id?: number
+    solicitud_id?: number
   }): Promise<ApiResponse<Notification>> {
     if (supabase) {
       const { data, error } = await supabase
@@ -2744,6 +2745,7 @@ class ApiService {
           type: notification.type || 'info',
           orden_id: notification.orden_id || null,
           pedido_id: notification.pedido_id || null,
+          solicitud_id: notification.solicitud_id || null,
           is_read: false
         })
         .select()
@@ -7606,9 +7608,42 @@ class ApiService {
 
       if (error) throw error
 
+      const solicitud = data as SolicitudPermiso
+
+      // Obtener nombre del usuario que creó la solicitud
+      const usuariosResponse = await this.getUsuarios()
+      const usuarioSolicitante = usuariosResponse.data?.find(u => u.id === idUsuario)
+      const nombreUsuario = usuarioSolicitante?.nombre || 'Usuario'
+
+      // Notificar a usuarios de RRHH y Admin
+      if (usuariosResponse.success && usuariosResponse.data) {
+        const usuariosRRHH = usuariosResponse.data.filter(
+          u => u.rol === 'recursos-humanos' || u.rol === 'administracion'
+        )
+
+        for (const usuarioRRHH of usuariosRRHH) {
+          const tipoIcon = {
+            turno: '🕐',
+            ausencia: '❌',
+            vacaciones: '🏖️',
+            ropa: '👕',
+            permiso: '✅',
+            otro: '📝'
+          }[tipoSolicitud] || '📋'
+
+          await this.createNotification({
+            user_id: usuarioRRHH.id,
+            title: `${tipoIcon} Nueva Solicitud de ${tipoSolicitud}`,
+            description: `${nombreUsuario} ha creado una solicitud: "${titulo}"${descripcion ? ` - ${descripcion}` : ''}`,
+            type: 'info',
+            solicitud_id: solicitud.id
+          })
+        }
+      }
+
       return {
         success: true,
-        data: data as SolicitudPermiso
+        data: solicitud
       }
     } catch (error: any) {
       console.error('Error al crear solicitud:', error)
@@ -7666,6 +7701,10 @@ class ApiService {
     }
 
     try {
+      // Primero obtener la solicitud para notificar al usuario
+      const solicitudResponse = await this.obtenerSolicitudesPermisos(null, null, null, null, null)
+      const solicitud = solicitudResponse.data?.find(s => s.id === id)
+
       const { data, error } = await supabase.rpc('aprobar_rechazar_solicitud', {
         p_id: id,
         p_estado: estado,
@@ -7676,9 +7715,36 @@ class ApiService {
 
       if (error) throw error
 
+      const solicitudActualizada = data as SolicitudPermiso
+
+      // Notificar al usuario que creó la solicitud
+      if (solicitud && solicitud.id_usuario) {
+        const usuariosResponse = await this.getUsuarios()
+        const usuarioAprobador = usuariosResponse.data?.find(u => u.id === idAprobador)
+        const nombreAprobador = usuarioAprobador?.nombre || 'RRHH'
+
+        if (estado === 'aprobado') {
+          await this.createNotification({
+            user_id: solicitud.id_usuario,
+            title: `✅ Solicitud Aprobada`,
+            description: `Tu solicitud "${solicitud.titulo}" ha sido aprobada por ${nombreAprobador}.${observaciones ? ` Observaciones: ${observaciones}` : ''}`,
+            type: 'success',
+            solicitud_id: solicitud.id
+          })
+        } else {
+          await this.createNotification({
+            user_id: solicitud.id_usuario,
+            title: `❌ Solicitud Rechazada`,
+            description: `Tu solicitud "${solicitud.titulo}" ha sido rechazada por ${nombreAprobador}.${motivoRechazo ? ` Motivo: ${motivoRechazo}` : ''}`,
+            type: 'error',
+            solicitud_id: solicitud.id
+          })
+        }
+      }
+
       return {
         success: true,
-        data: data as SolicitudPermiso
+        data: solicitudActualizada
       }
     } catch (error: any) {
       console.error('Error al aprobar/rechazar solicitud:', error)
