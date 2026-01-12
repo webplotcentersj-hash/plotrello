@@ -24,8 +24,9 @@ const CapacitacionesPage = () => {
     setLoading(true)
     try {
       if (activeTab === 'disponibles') {
+        // Obtener todas las capacitaciones (sin filtrar por estado) para mostrar las disponibles
         const response = await apiService.obtenerCapacitaciones(
-          'abierta',
+          null, // Sin filtro de estado para ver todas
           filtros.tipo,
           filtros.categoria,
           null,
@@ -33,7 +34,11 @@ const CapacitacionesPage = () => {
           usuario?.id || null
         )
         if (response.success && response.data) {
-          setCapacitaciones(response.data)
+          // Filtrar en el frontend para mostrar solo las que están abiertas o planificadas
+          const capacitacionesDisponibles = response.data.filter(
+            c => c.estado === 'abierta' || c.estado === 'planificada' || c.estado === 'en_curso'
+          )
+          setCapacitaciones(capacitacionesDisponibles)
         }
       } else if (usuario?.id) {
         const response = await apiService.obtenerCapacitacionesUsuario(usuario.id, null)
