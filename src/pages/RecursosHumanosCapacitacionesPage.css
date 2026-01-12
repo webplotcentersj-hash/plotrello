@@ -462,13 +462,15 @@
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 500;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
 }
 
 .btn-danger {
