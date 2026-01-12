@@ -8178,9 +8178,22 @@ class ApiService {
 
       if (error) throw error
 
+      const capacitacionCreada = data as Capacitacion
+
+      // Notificar a todos los usuarios sobre la nueva capacitación
+      if (capacitacionCreada.estado === 'abierta') {
+        await this.enviarNotificacionMasiva({
+          titulo: `📚 Nueva Capacitación: ${titulo}`,
+          descripcion: descripcion || `Se ha creado una nueva capacitación. ${esObligatoria ? '⚠️ Esta capacitación es obligatoria.' : ''}`,
+          tipo: esObligatoria ? 'warning' : 'info',
+          enviar_a_todos: true,
+          id_usuario_emisor: creadoPor
+        })
+      }
+
       return {
         success: true,
-        data: data as Capacitacion
+        data: capacitacionCreada
       }
     } catch (error: any) {
       console.error('Error al crear capacitación:', error)
@@ -8373,6 +8386,10 @@ class ApiService {
     }
 
     try {
+      // Obtener capacitación actual para comparar estado
+      const capacitacionActualRes = await this.obtenerCapacitaciones(null, null, null, null, null, null)
+      const capacitacionActual = capacitacionActualRes.data?.find(c => c.id === id)
+
       const { data, error } = await supabase.rpc('actualizar_capacitacion', {
         p_id: id,
         p_titulo: titulo,
@@ -8396,9 +8413,38 @@ class ApiService {
 
       if (error) throw error
 
+      const capacitacionActualizada = data as Capacitacion
+
+      // Si el estado cambió a "abierta" y antes no lo era, notificar a todos
+      if (estado === 'abierta' && capacitacionActual?.estado !== 'abierta') {
+        await this.enviarNotificacionMasiva({
+          titulo: `📚 Nueva Capacitación Disponible: ${capacitacionActualizada.titulo}`,
+          descripcion: capacitacionActualizada.descripcion || `Se ha abierto una nueva capacitación. ${capacitacionActualizada.es_obligatoria ? '⚠️ Esta capacitación es obligatoria.' : ''}`,
+          tipo: capacitacionActualizada.es_obligatoria ? 'warning' : 'info',
+          enviar_a_todos: true
+        })
+      }
+
+      // Si se canceló, notificar a los inscritos
+      if (estado === 'cancelada' && capacitacionActual?.estado !== 'cancelada') {
+        const inscripcionesRes = await this.obtenerInscripcionesCapacitacion(id, null)
+        if (inscripcionesRes.success && inscripcionesRes.data) {
+          for (const inscripcion of inscripcionesRes.data) {
+            if (inscripcion.estado !== 'cancelado' && inscripcion.estado !== 'completado') {
+              await this.createNotification({
+                user_id: inscripcion.id_usuario,
+                title: '⚠️ Capacitación Cancelada',
+                description: `La capacitación "${capacitacionActualizada.titulo}" ha sido cancelada.`,
+                type: 'warning'
+              })
+            }
+          }
+        }
+      }
+
       return {
         success: true,
-        data: data as Capacitacion
+        data: capacitacionActualizada
       }
     } catch (error: any) {
       console.error('Error al actualizar capacitación:', error)

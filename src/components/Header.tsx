@@ -213,6 +213,12 @@ const Header = ({
             >
               🖼️ Galería
             </a>
+            <a
+              href="/capacitaciones"
+              className="brand-button"
+            >
+              📚 Capacitaciones
+            </a>
             {onSolicitarProductos && (
               <button className="brand-button" onClick={onSolicitarProductos}>
                 📦 Solicitar Productos
