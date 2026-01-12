@@ -95,8 +95,8 @@
 
 /* Tab Content */
 .rrhh-tab-content {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f8f9fa;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   padding: 24px;
 }
@@ -114,6 +114,7 @@
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
+  color: #111827;
 }
 
 /* Cards */
@@ -126,18 +127,29 @@
   gap: 16px;
 }
 
+.rrhh-horarios-list > p,
+.rrhh-turnos-list > p,
+.rrhh-ausencias-list > p,
+.rrhh-asistencia-list > p {
+  color: #4b5563;
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px;
+}
+
 .rrhh-horario-card,
 .rrhh-turno-card,
 .rrhh-ausencia-card,
 .rrhh-asistencia-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   padding: 16px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .rrhh-horario-info,
@@ -154,6 +166,7 @@
   margin: 0 0 8px 0;
   font-size: 1.1rem;
   font-weight: 600;
+  color: #111827;
 }
 
 .rrhh-horario-info p,
@@ -162,7 +175,7 @@
 .rrhh-asistencia-info p {
   margin: 4px 0;
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: #4b5563;
 }
 
 .rrhh-badge {
@@ -422,8 +435,8 @@
 }
 
 .rrhh-info-box {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f8f9fa;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   padding: 24px;
   text-align: center;
@@ -431,7 +444,7 @@
 
 .rrhh-info-box p {
   margin: 0 0 12px 0;
-  color: var(--text-muted);
+  color: #4b5563;
 }
 
 .rrhh-info-box p:last-child {
