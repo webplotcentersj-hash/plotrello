@@ -7927,8 +7927,8 @@ class ApiService {
   async agregarCriterioEvaluacion(
     idEvaluacion: number,
     criterio: string,
-    descripcion: string | null = null,
     calificacion: number,
+    descripcion: string | null = null,
     peso: number = 1.0,
     comentarios: string | null = null
   ): Promise<ApiResponse<CriterioEvaluacion>> {
@@ -7940,8 +7940,8 @@ class ApiService {
       const { data, error } = await supabase.rpc('agregar_criterio_evaluacion', {
         p_id_evaluacion: idEvaluacion,
         p_criterio: criterio,
-        p_descripcion: descripcion,
         p_calificacion: calificacion,
+        p_descripcion: descripcion,
         p_peso: peso,
         p_comentarios: comentarios
       })
