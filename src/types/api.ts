@@ -480,6 +480,8 @@ export interface Notification {
   type: 'info' | 'success' | 'warning' | 'error' | 'mention'
   orden_id: number | null
   pedido_id: number | null
+  solicitud_id?: number | null
+  capacitacion_id?: number | null
   is_read: boolean
   timestamp: string
 }

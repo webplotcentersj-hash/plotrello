@@ -2738,6 +2738,7 @@ class ApiService {
     orden_id?: number
     pedido_id?: number
     solicitud_id?: number
+    capacitacion_id?: number
   }): Promise<ApiResponse<Notification>> {
     if (supabase) {
       const { data, error } = await supabase
@@ -2750,6 +2751,7 @@ class ApiService {
           orden_id: notification.orden_id || null,
           pedido_id: notification.pedido_id || null,
           solicitud_id: notification.solicitud_id || null,
+          capacitacion_id: notification.capacitacion_id || null,
           is_read: false
         })
         .select()
@@ -8269,14 +8271,16 @@ class ApiService {
           user_id: idUsuario,
           title: '📚 Inscripción Pendiente de Aprobación',
           description: `Tu inscripción a "${capacitacion?.titulo || 'la capacitación'}" está pendiente de aprobación por Recursos Humanos.`,
-          type: 'info'
+          type: 'info',
+          capacitacion_id: idCapacitacion
         })
       } else {
         await this.createNotification({
           user_id: idUsuario,
           title: '✅ Inscripción Confirmada',
           description: `Te has inscrito exitosamente a "${capacitacion?.titulo || 'la capacitación'}".`,
-          type: 'success'
+          type: 'success',
+          capacitacion_id: idCapacitacion
         })
       }
 
