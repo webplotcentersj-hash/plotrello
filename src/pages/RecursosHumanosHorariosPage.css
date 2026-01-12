@@ -150,6 +150,7 @@
   align-items: flex-start;
   gap: 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-height: auto;
 }
 
 .rrhh-horario-info,
@@ -157,6 +158,10 @@
 .rrhh-ausencia-info,
 .rrhh-asistencia-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-width: 0;
 }
 
 .rrhh-horario-info h3,
@@ -176,6 +181,15 @@
   margin: 4px 0;
   font-size: 0.9rem;
   color: #4b5563;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.rrhh-horario-info p:empty,
+.rrhh-turno-info p:empty,
+.rrhh-ausencia-info p:empty,
+.rrhh-asistencia-info p:empty {
+  display: none;
 }
 
 .rrhh-badge {
@@ -232,10 +246,25 @@
   color: #8b5cf6;
 }
 
-.rrhh-ausencia-actions {
+.rrhh-ausencia-actions,
+.rrhh-turno-actions,
+.rrhh-horario-actions,
+.rrhh-asistencia-actions {
   display: flex;
   gap: 8px;
   flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.rrhh-turno-card > .btn-danger,
+.rrhh-horario-card > .btn-danger,
+.rrhh-ausencia-card > .btn-danger,
+.rrhh-asistencia-card > .btn-danger {
+  align-self: flex-start;
+  margin-top: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Buttons */
