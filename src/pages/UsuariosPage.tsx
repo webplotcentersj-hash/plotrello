@@ -5,7 +5,7 @@ import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import './UsuariosPage.css'
 
-const UsuariosPage = ({ onBack }: { onBack: () => void }) => {
+const UsuariosPage = () => {
   const { isAdmin, loading } = useAuth()
   const navigate = useNavigate()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])

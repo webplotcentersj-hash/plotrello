@@ -625,7 +625,7 @@ function AppRoutes({
       />
       <Route
         path="/usuarios"
-        element={<UsuariosPage onBack={() => navigate('/')} />}
+        element={<UsuariosPage />}
       />
       <Route
         path="/impresoras"
