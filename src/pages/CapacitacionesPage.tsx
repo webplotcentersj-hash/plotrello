@@ -208,7 +208,7 @@ const CapacitacionesPage = () => {
                           </p>
                         )}
                         {capacitacion.cupo_maximo && (
-                          <p><strong>Cupos disponibles:</strong> {capacitacion.cupos_disponibles || 0} / {capacitacion.cupo_maximo}</p>
+                          <p><strong>Cupos disponibles:</strong> {capacitacion.cupos_disponibles ?? 0} / {capacitacion.cupo_maximo}</p>
                         )}
                         {capacitacion.material_adjunto_url && (
                           <p>

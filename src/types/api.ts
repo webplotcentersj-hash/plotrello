@@ -641,6 +641,9 @@ export interface Capacitacion {
   cupos_disponibles?: number | null
   usuario_inscrito?: boolean
   estado_inscripcion?: string | null
+  asistio?: boolean
+  calificacion?: number | null
+  fecha_inscripcion?: string
   created_at: string
   updated_at: string
 }
