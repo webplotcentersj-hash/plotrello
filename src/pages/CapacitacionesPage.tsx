@@ -273,7 +273,7 @@ const CapacitacionesPage = () => {
                           <p><strong>Fecha inicio:</strong> {new Date(capacitacion.fecha_inicio).toLocaleDateString()}</p>
                         )}
                         {capacitacion.fecha_fin && (
-                          <p><strong>Fecha fin:</strong> {new Date(capacitacion.fecha_fin).toLocaleDateString()}
+                          <p><strong>Fecha fin:</strong> {new Date(capacitacion.fecha_fin).toLocaleDateString()}</p>
                         )}
                         {capacitacion.instructor && <p><strong>Instructor:</strong> {capacitacion.instructor}</p>}
                         {capacitacion.lugar && <p><strong>Lugar:</strong> {capacitacion.lugar}</p>}
