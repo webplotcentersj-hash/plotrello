@@ -123,7 +123,7 @@ const CapacitacionesPage = () => {
       <header className="capacitaciones-header">
         <div className="capacitaciones-header-content">
           <h1>📚 Capacitaciones</h1>
-          <button className="btn-back" onClick={() => navigate('/board')}>
+          <button className="btn-back" onClick={() => navigate('/')}>
             ← Volver al Tablero
           </button>
         </div>
