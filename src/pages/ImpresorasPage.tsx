@@ -591,11 +591,11 @@ const ImpresorasPage = () => {
                   <div className="stat-item" style={{ 
                     marginTop: '15px', 
                     padding: '12px', 
-                    background: 'rgba(59, 130, 246, 0.15)', 
+                    background: '#1e3a8a', 
                     borderRadius: '8px',
-                    border: '1px solid rgba(59, 130, 246, 0.3)'
+                    border: '1px solid #3b82f6'
                   }}>
-                    <div className="stat-label" style={{ fontSize: '11px', marginBottom: '12px', color: '#60a5fa', fontWeight: '600' }}>
+                    <div className="stat-label" style={{ fontSize: '11px', marginBottom: '12px', color: '#ffffff', fontWeight: '700' }}>
                       🖨️ COLA DE IMPRESIÓN ({trabajosActivosPorImpresora[impresora.id].length})
                     </div>
                     {trabajosActivosPorImpresora[impresora.id]
@@ -606,9 +606,9 @@ const ImpresorasPage = () => {
                           style={{ 
                             marginBottom: '12px', 
                             padding: '10px',
-                            background: index === 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                            background: index === 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(30, 58, 138, 0.6)',
                             borderRadius: '6px',
-                            border: index === 0 ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                            border: index === 0 ? '1px solid #10b981' : '1px solid rgba(59, 130, 246, 0.4)',
                             position: 'relative'
                           }}
                         >
@@ -633,9 +633,9 @@ const ImpresorasPage = () => {
                               top: '8px', 
                               right: '8px', 
                               fontSize: '9px', 
-                              color: '#9ca3af', 
+                              color: '#e5e7eb', 
                               fontWeight: '600',
-                              background: 'rgba(255, 255, 255, 0.1)',
+                              background: 'rgba(59, 130, 246, 0.4)',
                               padding: '2px 6px',
                               borderRadius: '4px'
                             }}>
@@ -646,7 +646,7 @@ const ImpresorasPage = () => {
                             OP {trabajo.numero_op} - {trabajo.cliente}
                           </div>
                           {trabajo.descripcion && (
-                            <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px', lineHeight: '1.4' }}>
+                            <div style={{ fontSize: '11px', color: '#d1d5db', marginBottom: '4px', lineHeight: '1.4' }}>
                               {trabajo.descripcion.length > 50 ? `${trabajo.descripcion.substring(0, 50)}...` : trabajo.descripcion}
                             </div>
                           )}
@@ -657,11 +657,11 @@ const ImpresorasPage = () => {
                               </div>
                             )}
                             {trabajo.operario && (
-                              <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                              <div style={{ fontSize: '10px', color: '#d1d5db' }}>
                                 👤 {trabajo.operario}
                               </div>
                             )}
-                            <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                            <div style={{ fontSize: '10px', color: '#d1d5db' }}>
                               🕐 {new Date(trabajo.fecha_inicio).toLocaleString('es-AR', { 
                                 day: '2-digit', 
                                 month: '2-digit', 
