@@ -1,52 +1,53 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import BoardPage from './pages/BoardPage'
-import StatisticsPage from './pages/StatisticsPage'
-import ChatPage from './pages/ChatPage'
-import ClienteConsultaPage from './pages/ClienteConsultaPage'
-import UsuariosPage from './pages/UsuariosPage'
-import DashboardPantallasPage from './pages/DashboardPantallasPage'
-import ImpresorasPage from './pages/ImpresorasPage'
-import CalendarPage from './pages/CalendarPage'
-import GanttPage from './pages/GanttPage'
-import OpViewPage from './pages/OpViewPage'
-import OpPublicPage from './pages/OpPublicPage'
-import HerramientaPage from './pages/HerramientaPage'
-import MostradorDashboardPage from './pages/MostradorDashboardPage'
-import DisenoDashboardPage from './pages/DisenoDashboardPage'
-import GaleriaTrabajosPage from './pages/GaleriaTrabajosPage'
-import BriefPublicoPage from './pages/BriefPublicoPage'
-import BriefsPendientesPage from './pages/BriefsPendientesPage'
-import OrdenesListasPage from './pages/OrdenesListasPage'
-import BuscarClientePage from './pages/BuscarClientePage'
-import EntregaPage from './pages/EntregaPage'
-import CalendarioEntregasPage from './pages/CalendarioEntregasPage'
-import ReportesMostradorPage from './pages/ReportesMostradorPage'
-import ClientesFrecuentesPage from './pages/ClientesFrecuentesPage'
-import ComprasDashboardPage from './pages/ComprasDashboardPage'
-import PedidoCompraDetallePage from './pages/PedidoCompraDetallePage'
-import ReportesStockPage from './pages/ReportesStockPage'
-import GestionStockPage from './pages/GestionStockPage'
-import ProveedoresPage from './pages/ProveedoresPage'
-import PresupuestosPage from './pages/PresupuestosPage'
-import ReportesComprasPage from './pages/ReportesComprasPage'
-import CrearPedidoCompraPage from './pages/CrearPedidoCompraPage'
-import ConciliacionBancariaPage from './pages/ConciliacionBancariaPage'
-import RecursosHumanosDashboardPage from './pages/RecursosHumanosDashboardPage'
-import ClientesWebDashboardPage from './pages/ClientesWebDashboardPage'
-import ClientesWebGestionPage from './pages/ClientesWebGestionPage'
-import PedidosClientesPage from './pages/PedidosClientesPage'
-import ArticulosEmpresaPage from './pages/ArticulosEmpresaPage'
-import CategoriasArticulosPage from './pages/CategoriasArticulosPage'
-import RecursosHumanosUsuariosPage from './pages/RecursosHumanosUsuariosPage'
-import RecursosHumanosReportesPage from './pages/RecursosHumanosReportesPage'
-import RecursosHumanosHorariosPage from './pages/RecursosHumanosHorariosPage'
-import RecursosHumanosEvaluacionesPage from './pages/RecursosHumanosEvaluacionesPage'
-import RecursosHumanosEstadisticasPage from './pages/RecursosHumanosEstadisticasPage'
-import RecursosHumanosPermisosPage from './pages/RecursosHumanosPermisosPage'
-import RecursosHumanosNotificacionesPage from './pages/RecursosHumanosNotificacionesPage'
-import RecursosHumanosCapacitacionesPage from './pages/RecursosHumanosCapacitacionesPage'
-import CapacitacionesPage from './pages/CapacitacionesPage'
+// Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
+const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
+const ChatPage = lazy(() => import('./pages/ChatPage'))
+const ClienteConsultaPage = lazy(() => import('./pages/ClienteConsultaPage'))
+const UsuariosPage = lazy(() => import('./pages/UsuariosPage'))
+const DashboardPantallasPage = lazy(() => import('./pages/DashboardPantallasPage'))
+const ImpresorasPage = lazy(() => import('./pages/ImpresorasPage'))
+const CalendarPage = lazy(() => import('./pages/CalendarPage'))
+const GanttPage = lazy(() => import('./pages/GanttPage'))
+const OpViewPage = lazy(() => import('./pages/OpViewPage'))
+const OpPublicPage = lazy(() => import('./pages/OpPublicPage'))
+const HerramientaPage = lazy(() => import('./pages/HerramientaPage'))
+const MostradorDashboardPage = lazy(() => import('./pages/MostradorDashboardPage'))
+const DisenoDashboardPage = lazy(() => import('./pages/DisenoDashboardPage'))
+const GaleriaTrabajosPage = lazy(() => import('./pages/GaleriaTrabajosPage'))
+const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
+const BriefsPendientesPage = lazy(() => import('./pages/BriefsPendientesPage'))
+const OrdenesListasPage = lazy(() => import('./pages/OrdenesListasPage'))
+const BuscarClientePage = lazy(() => import('./pages/BuscarClientePage'))
+const EntregaPage = lazy(() => import('./pages/EntregaPage'))
+const CalendarioEntregasPage = lazy(() => import('./pages/CalendarioEntregasPage'))
+const ReportesMostradorPage = lazy(() => import('./pages/ReportesMostradorPage'))
+const ClientesFrecuentesPage = lazy(() => import('./pages/ClientesFrecuentesPage'))
+const ComprasDashboardPage = lazy(() => import('./pages/ComprasDashboardPage'))
+const PedidoCompraDetallePage = lazy(() => import('./pages/PedidoCompraDetallePage'))
+const ReportesStockPage = lazy(() => import('./pages/ReportesStockPage'))
+const GestionStockPage = lazy(() => import('./pages/GestionStockPage'))
+const ProveedoresPage = lazy(() => import('./pages/ProveedoresPage'))
+const PresupuestosPage = lazy(() => import('./pages/PresupuestosPage'))
+const ReportesComprasPage = lazy(() => import('./pages/ReportesComprasPage'))
+const CrearPedidoCompraPage = lazy(() => import('./pages/CrearPedidoCompraPage'))
+const ConciliacionBancariaPage = lazy(() => import('./pages/ConciliacionBancariaPage'))
+const RecursosHumanosDashboardPage = lazy(() => import('./pages/RecursosHumanosDashboardPage'))
+const ClientesWebDashboardPage = lazy(() => import('./pages/ClientesWebDashboardPage'))
+const ClientesWebGestionPage = lazy(() => import('./pages/ClientesWebGestionPage'))
+const PedidosClientesPage = lazy(() => import('./pages/PedidosClientesPage'))
+const ArticulosEmpresaPage = lazy(() => import('./pages/ArticulosEmpresaPage'))
+const CategoriasArticulosPage = lazy(() => import('./pages/CategoriasArticulosPage'))
+const RecursosHumanosUsuariosPage = lazy(() => import('./pages/RecursosHumanosUsuariosPage'))
+const RecursosHumanosReportesPage = lazy(() => import('./pages/RecursosHumanosReportesPage'))
+const RecursosHumanosHorariosPage = lazy(() => import('./pages/RecursosHumanosHorariosPage'))
+const RecursosHumanosEvaluacionesPage = lazy(() => import('./pages/RecursosHumanosEvaluacionesPage'))
+const RecursosHumanosEstadisticasPage = lazy(() => import('./pages/RecursosHumanosEstadisticasPage'))
+const RecursosHumanosPermisosPage = lazy(() => import('./pages/RecursosHumanosPermisosPage'))
+const RecursosHumanosNotificacionesPage = lazy(() => import('./pages/RecursosHumanosNotificacionesPage'))
+const RecursosHumanosCapacitacionesPage = lazy(() => import('./pages/RecursosHumanosCapacitacionesPage'))
+const CapacitacionesPage = lazy(() => import('./pages/CapacitacionesPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -559,6 +560,7 @@ function AppRoutes({
       </button>
       {/* Botón flotante para solicitudes y permisos */}
       <SolicitudesPermisosFloatingButton />
+      <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
       <Routes>
       <Route
         path="/"
