@@ -273,9 +273,11 @@
   grid-column: 1 / -1;
 }
 
+.rrhh-modal .form-group label,
+.rrhh-capacitaciones-page .form-group label,
 .form-group label {
-  font-weight: 500;
-  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  color: #ffffff !important;
   font-size: 0.9rem;
 }
 
