@@ -8329,14 +8329,16 @@ class ApiService {
           user_id: inscripcionActualizada.id_usuario,
           title: '✅ Inscripción Aprobada',
           description: `Tu inscripción a "${capacitacion?.titulo || 'la capacitación'}" ha sido aprobada.`,
-          type: 'success'
+          type: 'success',
+          capacitacion_id: inscripcionActualizada.id_capacitacion
         })
       } else if (estado === 'rechazado') {
         await this.createNotification({
           user_id: inscripcionActualizada.id_usuario,
           title: '❌ Inscripción Rechazada',
           description: `Tu inscripción a "${capacitacion?.titulo || 'la capacitación'}" ha sido rechazada.${motivoRechazo ? ` Motivo: ${motivoRechazo}` : ''}`,
-          type: 'error'
+          type: 'error',
+          capacitacion_id: inscripcionActualizada.id_capacitacion
         })
       }
 
@@ -8485,7 +8487,8 @@ class ApiService {
                 user_id: inscripcion.id_usuario,
                 title: '⚠️ Capacitación Cancelada',
                 description: `La capacitación "${capacitacionActualizada.titulo}" ha sido cancelada.`,
-                type: 'warning'
+                type: 'warning',
+                capacitacion_id: id
               })
             }
           }
@@ -8541,21 +8544,24 @@ class ApiService {
             user_id: inscripcionCompleta.id_usuario,
             title: '📊 Calificación Registrada',
             description: `Tu asistencia y calificación (${calificacion}/10) han sido registradas para "${capacitacion?.titulo || 'la capacitación'}".`,
-            type: 'success'
+            type: 'success',
+            capacitacion_id: inscripcionActualizada.id_capacitacion
           })
         } else if (asistio) {
           await this.createNotification({
             user_id: inscripcionCompleta.id_usuario,
             title: '✅ Asistencia Registrada',
             description: `Tu asistencia ha sido registrada para "${capacitacion?.titulo || 'la capacitación'}".`,
-            type: 'success'
+            type: 'success',
+            capacitacion_id: inscripcionActualizada.id_capacitacion
           })
         } else {
           await this.createNotification({
             user_id: inscripcionCompleta.id_usuario,
             title: '⚠️ Ausencia Registrada',
             description: `Se ha registrado tu ausencia para "${capacitacion?.titulo || 'la capacitación'}".`,
-            type: 'warning'
+            type: 'warning',
+            capacitacion_id: inscripcionActualizada.id_capacitacion
           })
         }
       }
