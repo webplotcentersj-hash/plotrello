@@ -173,9 +173,10 @@ const CapacitacionesPage = () => {
               </div>
             ) : (
               capacitaciones.map(capacitacion => {
+                const cuposDisponibles = capacitacion.cupos_disponibles ?? null
                 const puedeInscribirse = !capacitacion.usuario_inscrito && 
                   capacitacion.estado === 'abierta' &&
-                  (capacitacion.cupos_disponibles === null || capacitacion.cupos_disponibles === undefined || capacitacion.cupos_disponibles > 0)
+                  (cuposDisponibles === null || cuposDisponibles > 0)
                 
                 return (
                   <div key={capacitacion.id} className="capacitacion-card">
