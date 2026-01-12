@@ -548,22 +548,22 @@ const RecursosHumanosCapacitacionesPage = () => {
               </div>
 
               <div className="form-group">
-                <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.es_obligatoria}
                       onChange={(e) => setFormData({ ...formData, es_obligatoria: e.target.checked })}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      className="checkbox-input"
                     />
                     <span>Es Obligatoria</span>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                  <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.requiere_aprobacion}
                       onChange={(e) => setFormData({ ...formData, requiere_aprobacion: e.target.checked })}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      className="checkbox-input"
                     />
                     <span>Requiere Aprobación</span>
                   </label>
