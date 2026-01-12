@@ -29,7 +29,9 @@ import type {
   Turno,
   Ausencia,
   Asistencia,
-  SolicitudPermiso
+  SolicitudPermiso,
+  Evaluacion,
+  CriterioEvaluacion
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -7805,6 +7807,321 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al eliminar solicitud'
+      }
+    }
+  }
+
+  // ============================================
+  // EVALUACIONES DE DESEMPEÑO
+  // ============================================
+
+  async crearEvaluacion(
+    idUsuarioEvaluado: number,
+    idUsuarioEvaluador: number,
+    tipoEvaluacion: 'anual' | 'semestral' | 'trimestral' | 'mensual' | 'periodo_prueba' | 'especial',
+    periodoEvaluacion: string,
+    fechaEvaluacion: string | null = null,
+    fechaInicioPeriodo: string | null = null,
+    fechaFinPeriodo: string | null = null,
+    comentariosEvaluador: string | null = null,
+    objetivosCumplidos: string | null = null,
+    areasMejora: string | null = null,
+    recomendaciones: string | null = null
+  ): Promise<ApiResponse<Evaluacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_evaluacion', {
+        p_id_usuario_evaluado: idUsuarioEvaluado,
+        p_id_usuario_evaluador: idUsuarioEvaluador,
+        p_tipo_evaluacion: tipoEvaluacion,
+        p_periodo_evaluacion: periodoEvaluacion,
+        p_fecha_evaluacion: fechaEvaluacion,
+        p_fecha_inicio_periodo: fechaInicioPeriodo,
+        p_fecha_fin_periodo: fechaFinPeriodo,
+        p_comentarios_evaluador: comentariosEvaluador,
+        p_objetivos_cumplidos: objetivosCumplidos,
+        p_areas_mejora: areasMejora,
+        p_recomendaciones: recomendaciones
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as Evaluacion
+      }
+    } catch (error: any) {
+      console.error('Error al crear evaluación:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear evaluación'
+      }
+    }
+  }
+
+  async obtenerEvaluaciones(
+    idUsuarioEvaluado: number | null = null,
+    idUsuarioEvaluador: number | null = null,
+    estado: string | null = null,
+    tipoEvaluacion: string | null = null,
+    fechaDesde: string | null = null,
+    fechaHasta: string | null = null
+  ): Promise<ApiResponse<Evaluacion[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_evaluaciones', {
+        p_id_usuario_evaluado: idUsuarioEvaluado,
+        p_id_usuario_evaluador: idUsuarioEvaluador,
+        p_estado: estado,
+        p_tipo_evaluacion: tipoEvaluacion,
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as Evaluacion[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener evaluaciones:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener evaluaciones'
+      }
+    }
+  }
+
+  async obtenerCriteriosEvaluacion(idEvaluacion: number): Promise<ApiResponse<CriterioEvaluacion[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_criterios_evaluacion', {
+        p_id_evaluacion: idEvaluacion
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as CriterioEvaluacion[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener criterios:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener criterios'
+      }
+    }
+  }
+
+  async agregarCriterioEvaluacion(
+    idEvaluacion: number,
+    criterio: string,
+    descripcion: string | null = null,
+    calificacion: number,
+    peso: number = 1.0,
+    comentarios: string | null = null
+  ): Promise<ApiResponse<CriterioEvaluacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('agregar_criterio_evaluacion', {
+        p_id_evaluacion: idEvaluacion,
+        p_criterio: criterio,
+        p_descripcion: descripcion,
+        p_calificacion: calificacion,
+        p_peso: peso,
+        p_comentarios: comentarios
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as CriterioEvaluacion
+      }
+    } catch (error: any) {
+      console.error('Error al agregar criterio:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al agregar criterio'
+      }
+    }
+  }
+
+  async actualizarCriterioEvaluacion(
+    id: number,
+    criterio: string | null = null,
+    descripcion: string | null = null,
+    calificacion: number | null = null,
+    peso: number | null = null,
+    comentarios: string | null = null
+  ): Promise<ApiResponse<CriterioEvaluacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('actualizar_criterio_evaluacion', {
+        p_id: id,
+        p_criterio: criterio,
+        p_descripcion: descripcion,
+        p_calificacion: calificacion,
+        p_peso: peso,
+        p_comentarios: comentarios
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as CriterioEvaluacion
+      }
+    } catch (error: any) {
+      console.error('Error al actualizar criterio:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar criterio'
+      }
+    }
+  }
+
+  async actualizarEvaluacion(
+    id: number,
+    tipoEvaluacion: string | null = null,
+    periodoEvaluacion: string | null = null,
+    fechaEvaluacion: string | null = null,
+    fechaInicioPeriodo: string | null = null,
+    fechaFinPeriodo: string | null = null,
+    estado: string | null = null,
+    comentariosEvaluador: string | null = null,
+    comentariosEvaluado: string | null = null,
+    objetivosCumplidos: string | null = null,
+    areasMejora: string | null = null,
+    recomendaciones: string | null = null
+  ): Promise<ApiResponse<Evaluacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('actualizar_evaluacion', {
+        p_id: id,
+        p_tipo_evaluacion: tipoEvaluacion,
+        p_periodo_evaluacion: periodoEvaluacion,
+        p_fecha_evaluacion: fechaEvaluacion,
+        p_fecha_inicio_periodo: fechaInicioPeriodo,
+        p_fecha_fin_periodo: fechaFinPeriodo,
+        p_estado: estado,
+        p_comentarios_evaluador: comentariosEvaluador,
+        p_comentarios_evaluado: comentariosEvaluado,
+        p_objetivos_cumplidos: objetivosCumplidos,
+        p_areas_mejora: areasMejora,
+        p_recomendaciones: recomendaciones
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as Evaluacion
+      }
+    } catch (error: any) {
+      console.error('Error al actualizar evaluación:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar evaluación'
+      }
+    }
+  }
+
+  async aprobarEvaluacion(
+    id: number,
+    idAprobador: number
+  ): Promise<ApiResponse<Evaluacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('aprobar_evaluacion', {
+        p_id: id,
+        p_id_aprobador: idAprobador
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as Evaluacion
+      }
+    } catch (error: any) {
+      console.error('Error al aprobar evaluación:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al aprobar evaluación'
+      }
+    }
+  }
+
+  async eliminarCriterioEvaluacion(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_criterio_evaluacion', {
+        p_id: id
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar criterio:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al eliminar criterio'
+      }
+    }
+  }
+
+  async eliminarEvaluacion(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_evaluacion', {
+        p_id: id
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar evaluación:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al eliminar evaluación'
       }
     }
   }

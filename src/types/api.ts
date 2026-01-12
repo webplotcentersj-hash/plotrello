@@ -580,3 +580,39 @@ export interface SolicitudPermiso {
   updated_at: string
 }
 
+export interface Evaluacion {
+  id: number
+  id_usuario_evaluado: number
+  nombre_evaluado?: string
+  id_usuario_evaluador: number
+  nombre_evaluador?: string
+  tipo_evaluacion: 'anual' | 'semestral' | 'trimestral' | 'mensual' | 'periodo_prueba' | 'especial'
+  periodo_evaluacion: string
+  fecha_evaluacion: string
+  fecha_inicio_periodo: string | null
+  fecha_fin_periodo: string | null
+  calificacion_general: number | null
+  estado: 'borrador' | 'completada' | 'revisada' | 'aprobada'
+  comentarios_evaluador: string | null
+  comentarios_evaluado: string | null
+  objetivos_cumplidos: string | null
+  areas_mejora: string | null
+  recomendaciones: string | null
+  aprobado_por: number | null
+  aprobado_por_nombre?: string | null
+  fecha_aprobacion: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CriterioEvaluacion {
+  id: number
+  id_evaluacion: number
+  criterio: string
+  descripcion: string | null
+  calificacion: number
+  peso: number
+  comentarios: string | null
+  created_at: string
+}
+
