@@ -24,7 +24,11 @@ import type {
   PresupuestoClienteRecord,
   PresupuestoClienteItemRecord,
   ActaSectorRecord,
-  TipoNovedad
+  TipoNovedad,
+  HorarioEmpleado,
+  Turno,
+  Ausencia,
+  Asistencia
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -7212,6 +7216,354 @@ class ApiService {
       }
 
       return { success: true, data: data || [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  // ============================================
+  // HORARIOS Y TURNOS
+  // ============================================
+
+  async crearHorario(
+    idUsuario: number,
+    tipoHorario: 'fijo' | 'flexible' | 'turnos',
+    diaSemana: number | null = null,
+    horaEntrada: string | null = null,
+    horaSalida: string | null = null,
+    horasSemanales: number | null = null,
+    fechaInicio: string | null = null,
+    fechaFin: string | null = null,
+    observaciones: string | null = null,
+    activo: boolean = true
+  ): Promise<ApiResponse<HorarioEmpleado>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_actualizar_horario', {
+        p_id_usuario: idUsuario,
+        p_tipo_horario: tipoHorario,
+        p_dia_semana: diaSemana,
+        p_hora_entrada: horaEntrada,
+        p_hora_salida: horaSalida,
+        p_horas_semanales: horasSemanales,
+        p_fecha_inicio: fechaInicio,
+        p_fecha_fin: fechaFin,
+        p_observaciones: observaciones,
+        p_activo: activo
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as HorarioEmpleado }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async obtenerHorariosUsuario(idUsuario: number): Promise<ApiResponse<HorarioEmpleado[]>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_horarios_usuario', {
+        p_id_usuario: idUsuario
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: (data as HorarioEmpleado[]) || [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async eliminarHorario(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_horario', {
+        p_id: id
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as boolean }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async crearTurno(
+    idUsuario: number,
+    fecha: string,
+    horaEntrada: string,
+    horaSalida: string,
+    tipoTurno: 'normal' | 'extra' | 'nocturno' = 'normal',
+    observaciones: string | null = null
+  ): Promise<ApiResponse<Turno>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_actualizar_turno', {
+        p_id_usuario: idUsuario,
+        p_fecha: fecha,
+        p_hora_entrada: horaEntrada,
+        p_hora_salida: horaSalida,
+        p_tipo_turno: tipoTurno,
+        p_observaciones: observaciones
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as Turno }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async obtenerTurnos(
+    idUsuario: number | null = null,
+    fechaDesde: string | null = null,
+    fechaHasta: string | null = null
+  ): Promise<ApiResponse<Turno[]>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_turnos', {
+        p_id_usuario: idUsuario,
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: (data as Turno[]) || [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async eliminarTurno(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_turno', {
+        p_id: id
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as boolean }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async crearAusencia(
+    idUsuario: number,
+    tipoAusencia: 'vacaciones' | 'licencia' | 'inasistencia' | 'permiso' | 'enfermedad',
+    fechaInicio: string,
+    fechaFin: string,
+    motivo: string | null = null,
+    observaciones: string | null = null
+  ): Promise<ApiResponse<Ausencia>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_ausencia', {
+        p_id_usuario: idUsuario,
+        p_tipo_ausencia: tipoAusencia,
+        p_fecha_inicio: fechaInicio,
+        p_fecha_fin: fechaFin,
+        p_motivo: motivo,
+        p_observaciones: observaciones
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as Ausencia }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async obtenerAusencias(
+    idUsuario: number | null = null,
+    fechaDesde: string | null = null,
+    fechaHasta: string | null = null,
+    estado: string | null = null
+  ): Promise<ApiResponse<Ausencia[]>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_ausencias', {
+        p_id_usuario: idUsuario,
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta,
+        p_estado: estado
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: (data as Ausencia[]) || [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async aprobarRechazarAusencia(
+    id: number,
+    estado: 'aprobado' | 'rechazado',
+    idAprobador: number,
+    observaciones: string | null = null
+  ): Promise<ApiResponse<Ausencia>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('aprobar_rechazar_ausencia', {
+        p_id: id,
+        p_estado: estado,
+        p_id_aprobador: idAprobador,
+        p_observaciones: observaciones
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as Ausencia }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async eliminarAusencia(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_ausencia', {
+        p_id: id
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as boolean }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async registrarEntrada(
+    idUsuario: number,
+    fecha: string | null = null,
+    horaEntrada: string | null = null
+  ): Promise<ApiResponse<Asistencia>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('registrar_entrada', {
+        p_id_usuario: idUsuario,
+        p_fecha: fecha,
+        p_hora_entrada: horaEntrada
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as Asistencia }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async registrarSalida(
+    idUsuario: number,
+    fecha: string | null = null,
+    horaSalida: string | null = null
+  ): Promise<ApiResponse<Asistencia>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('registrar_salida', {
+        p_id_usuario: idUsuario,
+        p_fecha: fecha,
+        p_hora_salida: horaSalida
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as Asistencia }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async obtenerAsistencia(
+    idUsuario: number | null = null,
+    fechaDesde: string | null = null,
+    fechaHasta: string | null = null
+  ): Promise<ApiResponse<Asistencia[]>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_asistencia', {
+        p_id_usuario: idUsuario,
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: (data as Asistencia[]) || [] }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
     }

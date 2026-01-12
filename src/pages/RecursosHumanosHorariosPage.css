@@ -14,6 +14,19 @@
   gap: 20px;
 }
 
+.rrhh-horarios-loading .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .rrhh-horarios-header {
   margin-bottom: 30px;
 }
@@ -23,11 +36,397 @@
   margin: 0 auto;
 }
 
+/* Tabs */
+.rrhh-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.rrhh-tab {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rrhh-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rrhh-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  font-weight: 600;
+}
+
+/* Filtros */
+.rrhh-filters-section {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.rrhh-filter-select,
+.rrhh-date-input {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.rrhh-filter-select:focus,
+.rrhh-date-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Tab Content */
+.rrhh-tab-content {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.rrhh-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rrhh-section-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* Cards */
+.rrhh-horarios-list,
+.rrhh-turnos-list,
+.rrhh-ausencias-list,
+.rrhh-asistencia-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.rrhh-horario-card,
+.rrhh-turno-card,
+.rrhh-ausencia-card,
+.rrhh-asistencia-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.rrhh-horario-info,
+.rrhh-turno-info,
+.rrhh-ausencia-info,
+.rrhh-asistencia-info {
+  flex: 1;
+}
+
+.rrhh-horario-info h3,
+.rrhh-turno-info h3,
+.rrhh-ausencia-info h3,
+.rrhh-asistencia-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.rrhh-horario-info p,
+.rrhh-turno-info p,
+.rrhh-ausencia-info p,
+.rrhh-asistencia-info p {
+  margin: 4px 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.rrhh-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.rrhh-badge.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.rrhh-badge.inactive {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.rrhh-badge.pendiente {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.rrhh-badge.aprobado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.rrhh-badge.rechazado {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.rrhh-badge.normal {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.rrhh-badge.tarde {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.rrhh-badge.ausente {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.rrhh-badge.justificado {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+
+.rrhh-ausencia-actions {
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-success,
+.btn-warning {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.btn-success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.btn-warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.btn-warning:hover {
+  background: rgba(245, 158, 11, 0.3);
+}
+
+.btn-back {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Modal */
+.rrhh-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.rrhh-modal {
+  background: var(--bg-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.rrhh-modal h2 {
+  margin: 0 0 24px 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.rrhh-asistencia-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Reportes */
+.rrhh-reportes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.rrhh-reporte-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.rrhh-reporte-card h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rrhh-reporte-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #3b82f6;
+  margin: 0 0 8px 0;
+}
+
+.rrhh-reporte-periodo {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
 .rrhh-info-box {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 24px;
+  text-align: center;
 }
 
 .rrhh-info-box p {
@@ -39,3 +438,36 @@
   margin-bottom: 0;
 }
 
+/* Responsive */
+@media (max-width: 768px) {
+  .rrhh-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rrhh-tab {
+    white-space: nowrap;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .rrhh-horarios-list,
+  .rrhh-turnos-list,
+  .rrhh-ausencias-list,
+  .rrhh-asistencia-list {
+    grid-template-columns: 1fr;
+  }
+
+  .rrhh-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rrhh-filters-section {
+    flex-direction: column;
+  }
+
+  .rrhh-filters-section > * {
+    width: 100%;
+  }
+}

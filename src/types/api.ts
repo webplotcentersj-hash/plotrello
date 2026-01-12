@@ -493,3 +493,68 @@ export interface TareaRecord {
   es_sub_tarea?: boolean
 }
 
+// ============================================
+// SISTEMA DE HORARIOS Y TURNOS
+// ============================================
+
+export interface HorarioEmpleado {
+  id: number
+  id_usuario: number
+  tipo_horario: 'fijo' | 'flexible' | 'turnos'
+  dia_semana: number | null // 0=Domingo, 1=Lunes, ..., 6=Sábado
+  hora_entrada: string | null // time format
+  hora_salida: string | null // time format
+  horas_semanales: number | null
+  activo: boolean
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  observaciones: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Turno {
+  id: number
+  id_usuario: number
+  nombre_usuario?: string
+  fecha: string
+  hora_entrada: string // time format
+  hora_salida: string // time format
+  tipo_turno: 'normal' | 'extra' | 'nocturno'
+  observaciones: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Ausencia {
+  id: number
+  id_usuario: number
+  nombre_usuario?: string
+  tipo_ausencia: 'vacaciones' | 'licencia' | 'inasistencia' | 'permiso' | 'enfermedad'
+  fecha_inicio: string
+  fecha_fin: string
+  dias: number
+  motivo: string | null
+  estado: 'pendiente' | 'aprobado' | 'rechazado'
+  aprobado_por: number | null
+  aprobado_por_nombre?: string | null
+  fecha_aprobacion: string | null
+  observaciones: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Asistencia {
+  id: number
+  id_usuario: number
+  nombre_usuario?: string
+  fecha: string
+  hora_entrada: string | null
+  hora_salida: string | null
+  horas_trabajadas: number | null
+  tipo_registro: 'normal' | 'tarde' | 'ausente' | 'justificado'
+  observaciones: string | null
+  created_at: string
+  updated_at: string
+}
+
