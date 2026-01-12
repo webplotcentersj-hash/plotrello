@@ -32,6 +32,7 @@ const ProveedoresPage = lazy(() => import('./pages/ProveedoresPage'))
 const PresupuestosPage = lazy(() => import('./pages/PresupuestosPage'))
 const ReportesComprasPage = lazy(() => import('./pages/ReportesComprasPage'))
 const CrearPedidoCompraPage = lazy(() => import('./pages/CrearPedidoCompraPage'))
+const MisPedidosPage = lazy(() => import('./pages/MisPedidosPage'))
 const ConciliacionBancariaPage = lazy(() => import('./pages/ConciliacionBancariaPage'))
 const RecursosHumanosDashboardPage = lazy(() => import('./pages/RecursosHumanosDashboardPage'))
 const ClientesWebDashboardPage = lazy(() => import('./pages/ClientesWebDashboardPage'))
@@ -714,6 +715,10 @@ function AppRoutes({
       <Route
         path="/compras/crear-pedido"
         element={<CrearPedidoCompraPage />}
+      />
+      <Route
+        path="/mis-pedidos"
+        element={<MisPedidosPage />}
       />
       <Route
         path="/compras/conciliacion-bancaria"

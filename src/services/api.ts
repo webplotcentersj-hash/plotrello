@@ -3457,11 +3457,22 @@ class ApiService {
         // Obtener el pedido actualizado para notificar al solicitante
         const pedido = await this.getPedidoCompra(id)
         if (pedido.success && pedido.data && pedido.data.id_solicitante && estadoAnterior !== estado) {
+          let notificationTitle = '🔄 Estado del pedido actualizado'
+          let notificationType: 'info' | 'success' = 'info'
+          
+          if (estado === 'En Compra') {
+            notificationTitle = '🛒 Pedido en compra'
+            notificationType = 'info'
+          } else if (estado === 'Completado') {
+            notificationTitle = '🎉 Pedido completado'
+            notificationType = 'success'
+          }
+          
           await this.createNotification({
             user_id: pedido.data.id_solicitante,
-            title: '🔄 Estado del pedido actualizado',
+            title: notificationTitle,
             description: `El estado de tu pedido ${pedido.data.numero_pedido} cambió de "${estadoAnterior}" a "${estado}"`,
-            type: 'info',
+            type: notificationType,
             pedido_id: id
           })
         }

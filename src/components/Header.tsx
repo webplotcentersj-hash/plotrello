@@ -230,6 +230,12 @@ const Header = ({
                 📦 Solicitar Productos
               </button>
             )}
+            <a
+              href="/mis-pedidos"
+              className="brand-button"
+            >
+              📋 Mis Pedidos
+            </a>
             {onOptimizeSprint && (
               <button className="brand-button" onClick={onOptimizeSprint}>
                 Optimizar sprint
