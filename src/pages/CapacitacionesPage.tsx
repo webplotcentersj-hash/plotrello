@@ -180,7 +180,7 @@ const CapacitacionesPage = () => {
               capacitaciones.map(capacitacion => {
                 const cuposDisponibles = capacitacion.cupos_disponibles ?? null
                 const puedeInscribirse = !capacitacion.usuario_inscrito && 
-                  capacitacion.estado === 'abierta' &&
+                  (capacitacion.estado === 'abierta' || capacitacion.estado === 'planificada' || capacitacion.estado === 'en_curso') &&
                   (cuposDisponibles === null || cuposDisponibles > 0)
                 
                 return (
