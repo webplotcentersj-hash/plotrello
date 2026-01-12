@@ -8257,9 +8257,32 @@ class ApiService {
 
       if (error) throw error
 
+      const inscripcion = data as InscripcionCapacitacion
+
+      // Obtener información de la capacitación para la notificación
+      const capacitacionRes = await this.obtenerCapacitaciones(null, null, null, null, null, idUsuario)
+      const capacitacion = capacitacionRes.data?.find(c => c.id === idCapacitacion)
+
+      // Notificar al usuario sobre su inscripción
+      if (inscripcion.estado === 'pendiente') {
+        await this.createNotification({
+          user_id: idUsuario,
+          title: '📚 Inscripción Pendiente de Aprobación',
+          description: `Tu inscripción a "${capacitacion?.titulo || 'la capacitación'}" está pendiente de aprobación por Recursos Humanos.`,
+          type: 'info'
+        })
+      } else {
+        await this.createNotification({
+          user_id: idUsuario,
+          title: '✅ Inscripción Confirmada',
+          description: `Te has inscrito exitosamente a "${capacitacion?.titulo || 'la capacitación'}".`,
+          type: 'success'
+        })
+      }
+
       return {
         success: true,
-        data: data as InscripcionCapacitacion
+        data: inscripcion
       }
     } catch (error: any) {
       console.error('Error al inscribirse:', error)
@@ -8290,9 +8313,32 @@ class ApiService {
 
       if (error) throw error
 
+      const inscripcionActualizada = data as InscripcionCapacitacion
+
+      // Obtener información de la capacitación
+      const capacitacionRes = await this.obtenerCapacitaciones(null, null, null, null, null, inscripcionActualizada.id_usuario)
+      const capacitacion = capacitacionRes.data?.find(c => c.id === inscripcionActualizada.id_capacitacion)
+
+      // Notificar al usuario sobre la aprobación/rechazo
+      if (estado === 'aprobado') {
+        await this.createNotification({
+          user_id: inscripcionActualizada.id_usuario,
+          title: '✅ Inscripción Aprobada',
+          description: `Tu inscripción a "${capacitacion?.titulo || 'la capacitación'}" ha sido aprobada.`,
+          type: 'success'
+        })
+      } else if (estado === 'rechazado') {
+        await this.createNotification({
+          user_id: inscripcionActualizada.id_usuario,
+          title: '❌ Inscripción Rechazada',
+          description: `Tu inscripción a "${capacitacion?.titulo || 'la capacitación'}" ha sido rechazada.${motivoRechazo ? ` Motivo: ${motivoRechazo}` : ''}`,
+          type: 'error'
+        })
+      }
+
       return {
         success: true,
-        data: data as InscripcionCapacitacion
+        data: inscripcionActualizada
       }
     } catch (error: any) {
       console.error('Error al aprobar/rechazar inscripción:', error)
