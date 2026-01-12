@@ -20,7 +20,7 @@ const CapacitacionesPage = () => {
   useEffect(() => {
     if (authLoading) return
     loadData()
-  }, [authLoading, activeTab, filtros])
+  }, [authLoading, activeTab, filtros.tipo, filtros.categoria])
 
   const loadData = async () => {
     setLoading(true)

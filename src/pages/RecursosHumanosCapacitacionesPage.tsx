@@ -50,7 +50,7 @@ const RecursosHumanosCapacitacionesPage = () => {
       return
     }
     loadData()
-  }, [canManageRecursosHumanos, navigate, authLoading, filtros])
+  }, [canManageRecursosHumanos, navigate, authLoading, filtros.estado, filtros.tipo, filtros.categoria, filtros.fechaDesde, filtros.fechaHasta])
 
   const loadData = async () => {
     setLoading(true)
