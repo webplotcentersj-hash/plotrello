@@ -461,16 +461,21 @@
   transform: translateY(-1px);
 }
 
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  font-weight: 500;
+.rrhh-modal .btn-secondary,
+.rrhh-capacitaciones-page .btn-secondary,
+button.btn-secondary {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  font-weight: 600 !important;
 }
 
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
+.rrhh-modal .btn-secondary:hover,
+.rrhh-capacitaciones-page .btn-secondary:hover,
+button.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
   color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
 .btn-danger {
