@@ -8521,9 +8521,44 @@ class ApiService {
 
       if (error) throw error
 
+      const inscripcionActualizada = data as InscripcionCapacitacion
+
+      // Obtener información de la capacitación
+      const inscripcionRes = await this.obtenerInscripcionesCapacitacion(inscripcionActualizada.id_capacitacion, null)
+      const inscripcionCompleta = inscripcionRes.data?.find(i => i.id === idInscripcion)
+      
+      if (inscripcionCompleta) {
+        const capacitacionRes = await this.obtenerCapacitaciones(null, null, null, null, null, inscripcionCompleta.id_usuario)
+        const capacitacion = capacitacionRes.data?.find(c => c.id === inscripcionActualizada.id_capacitacion)
+
+        // Notificar al usuario sobre su asistencia y calificación
+        if (asistio && calificacion !== null) {
+          await this.createNotification({
+            user_id: inscripcionCompleta.id_usuario,
+            title: '📊 Calificación Registrada',
+            description: `Tu asistencia y calificación (${calificacion}/10) han sido registradas para "${capacitacion?.titulo || 'la capacitación'}".`,
+            type: 'success'
+          })
+        } else if (asistio) {
+          await this.createNotification({
+            user_id: inscripcionCompleta.id_usuario,
+            title: '✅ Asistencia Registrada',
+            description: `Tu asistencia ha sido registrada para "${capacitacion?.titulo || 'la capacitación'}".`,
+            type: 'success'
+          })
+        } else {
+          await this.createNotification({
+            user_id: inscripcionCompleta.id_usuario,
+            title: '⚠️ Ausencia Registrada',
+            description: `Se ha registrado tu ausencia para "${capacitacion?.titulo || 'la capacitación'}".`,
+            type: 'warning'
+          })
+        }
+      }
+
       return {
         success: true,
-        data: data as InscripcionCapacitacion
+        data: inscripcionActualizada
       }
     } catch (error: any) {
       console.error('Error al registrar asistencia:', error)
