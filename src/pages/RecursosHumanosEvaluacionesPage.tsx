@@ -181,8 +181,8 @@ const RecursosHumanosEvaluacionesPage = () => {
     const response = await apiService.agregarCriterioEvaluacion(
       evaluacionSeleccionada.id,
       nuevoCriterio.criterio,
-      nuevoCriterio.descripcion || null,
       nuevoCriterio.calificacion,
+      nuevoCriterio.descripcion || null,
       nuevoCriterio.peso,
       nuevoCriterio.comentarios || null
     )
