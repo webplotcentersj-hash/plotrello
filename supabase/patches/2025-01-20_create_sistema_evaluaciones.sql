@@ -99,8 +99,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.agregar_criterio_evaluacion(
   p_id_evaluacion integer,
   p_criterio varchar,
-  p_descripcion text DEFAULT NULL,
   p_calificacion numeric,
+  p_descripcion text DEFAULT NULL,
   p_peso numeric DEFAULT 1.0,
   p_comentarios text DEFAULT NULL
 )
