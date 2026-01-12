@@ -13,8 +13,8 @@
 }
 
 .solicitud-modal {
-  background: var(--bg-primary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 24px;
   max-width: 600px;
@@ -22,6 +22,7 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  color: #111827 !important;
 }
 
 .solicitud-modal-header {
@@ -35,13 +36,13 @@
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #111827 !important;
 }
 
 .solicitud-modal-close {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: #6b7280 !important;
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -55,8 +56,8 @@
 }
 
 .solicitud-modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  background: #f3f4f6;
+  color: #111827 !important;
 }
 
 .solicitud-form {
@@ -82,7 +83,7 @@
 
 .form-group label {
   font-weight: 500;
-  color: var(--text-primary);
+  color: #111827 !important;
   font-size: 0.9rem;
 }
 
@@ -90,10 +91,10 @@
 .form-group select,
 .form-group textarea {
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff !important;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  color: var(--text-primary);
+  color: #111827 !important;
   font-size: 0.9rem;
   font-family: inherit;
 }
@@ -103,7 +104,8 @@
 .form-group textarea:focus {
   outline: none;
   border-color: #3b82f6;
-  background: rgba(255, 255, 255, 0.08);
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-group textarea {
@@ -112,8 +114,8 @@
 }
 
 .readonly-input {
-  background: rgba(255, 255, 255, 0.03) !important;
-  color: var(--text-muted) !important;
+  background: #f9fafb !important;
+  color: #6b7280 !important;
   cursor: not-allowed;
 }
 
@@ -157,13 +159,13 @@
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
+  background: #e5e7eb !important;
 }
 
 @media (max-width: 768px) {
