@@ -175,6 +175,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/menu-diario')}
+            >
+              <div className="rrhh-action-icon">🍽️</div>
+              <h3>Menú Diario</h3>
+              <p>Gestionar menú del día y selecciones de empleados</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/estadisticas')}
             >
               <div className="rrhh-action-icon">📈</div>

@@ -33,7 +33,9 @@ import type {
   Evaluacion,
   CriterioEvaluacion,
   Capacitacion,
-  InscripcionCapacitacion
+  InscripcionCapacitacion,
+  MenuDiario,
+  MenuSeleccion
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -8629,6 +8631,250 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al eliminar capacitación'
+      }
+    }
+  }
+
+  // ========== MENÚ DIARIO ==========
+  
+  async crearActualizarMenuDiario(
+    fecha: string,
+    platoPrincipal: string,
+    platoSecundario: string | null = null,
+    guarnicion: string | null = null,
+    ensalada: string | null = null,
+    postre: string | null = null,
+    bebida: string | null = null,
+    opcionVegetariana: string | null = null,
+    observaciones: string | null = null,
+    activo: boolean = true,
+    creadoPor: number
+  ): Promise<ApiResponse<MenuDiario>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_actualizar_menu_diario', {
+        p_fecha: fecha,
+        p_plato_principal: platoPrincipal,
+        p_plato_secundario: platoSecundario,
+        p_guarnicion: guarnicion,
+        p_ensalada: ensalada,
+        p_postre: postre,
+        p_bebida: bebida,
+        p_opcion_vegetariana: opcionVegetariana,
+        p_observaciones: observaciones,
+        p_activo: activo,
+        p_creado_por: creadoPor
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as MenuDiario
+      }
+    } catch (error: any) {
+      console.error('Error al crear/actualizar menú diario:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear/actualizar menú diario'
+      }
+    }
+  }
+
+  async obtenerMenusDiarios(
+    fechaDesde: string | null = null,
+    fechaHasta: string | null = null,
+    soloActivos: boolean = true
+  ): Promise<ApiResponse<MenuDiario[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_menus_diarios', {
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta,
+        p_solo_activos: soloActivos
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as MenuDiario[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener menús diarios:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener menús diarios'
+      }
+    }
+  }
+
+  async obtenerMenuDiaActual(): Promise<ApiResponse<MenuDiario | null>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_menu_dia_actual')
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data && data.length > 0) ? data[0] as MenuDiario : null
+      }
+    } catch (error: any) {
+      console.error('Error al obtener menú del día actual:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener menú del día actual'
+      }
+    }
+  }
+
+  async seleccionarPlatoMenu(
+    idMenu: number,
+    idUsuario: number,
+    seleccion: 'principal' | 'secundario' | 'vegetariano',
+    observaciones: string | null = null
+  ): Promise<ApiResponse<MenuSeleccion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('seleccionar_plato_menu', {
+        p_id_menu: idMenu,
+        p_id_usuario: idUsuario,
+        p_seleccion: seleccion,
+        p_observaciones: observaciones
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as MenuSeleccion
+      }
+    } catch (error: any) {
+      console.error('Error al seleccionar plato:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al seleccionar plato'
+      }
+    }
+  }
+
+  async obtenerSeleccionesMenu(idMenu: number): Promise<ApiResponse<MenuSeleccion[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_selecciones_menu', {
+        p_id_menu: idMenu
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as MenuSeleccion[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener selecciones del menú:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener selecciones del menú'
+      }
+    }
+  }
+
+  async obtenerSeleccionUsuarioMenu(
+    idMenu: number,
+    idUsuario: number
+  ): Promise<ApiResponse<MenuSeleccion | null>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_seleccion_usuario_menu', {
+        p_id_menu: idMenu,
+        p_id_usuario: idUsuario
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as MenuSeleccion | null
+      }
+    } catch (error: any) {
+      console.error('Error al obtener selección del usuario:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener selección del usuario'
+      }
+    }
+  }
+
+  async eliminarMenuDiario(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_menu_diario', {
+        p_id: id
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar menú diario:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al eliminar menú diario'
+      }
+    }
+  }
+
+  async cancelarSeleccionMenu(
+    idMenu: number,
+    idUsuario: number
+  ): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('cancelar_seleccion_menu', {
+        p_id_menu: idMenu,
+        p_id_usuario: idUsuario
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al cancelar selección:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al cancelar selección'
       }
     }
   }

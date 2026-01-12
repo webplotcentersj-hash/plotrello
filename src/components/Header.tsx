@@ -219,6 +219,12 @@ const Header = ({
             >
               📚 Capacitaciones
             </a>
+            <a
+              href="/menu-diario"
+              className="brand-button"
+            >
+              🍽️ Menú Diario
+            </a>
             {onSolicitarProductos && (
               <button className="brand-button" onClick={onSolicitarProductos}>
                 📦 Solicitar Productos
