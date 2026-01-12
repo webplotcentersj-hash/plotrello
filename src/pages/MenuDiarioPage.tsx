@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { MenuDiario, MenuSeleccion } from '../types/api'
+import { getArgentinaDate, getArgentinaTime, formatArgentinaTime, formatArgentinaDate, isBeforeArgentinaTime } from '../utils/dateUtils'
 import './MenuDiarioPage.css'
 
 const MenuDiarioPage = () => {
@@ -12,7 +13,7 @@ const MenuDiarioPage = () => {
   const [menu, setMenu] = useState<MenuDiario | null>(null)
   const [miSeleccion, setMiSeleccion] = useState<MenuSeleccion | null>(null)
   const [seleccionando, setSeleccionando] = useState(false)
-  const [horaActual, setHoraActual] = useState(new Date())
+  const [horaActual, setHoraActual] = useState(getArgentinaDate())
   const [puedeSeleccionar, setPuedeSeleccionar] = useState(true)
 
   useEffect(() => {
@@ -24,16 +25,14 @@ const MenuDiarioPage = () => {
     loadMenu()
     // Actualizar hora cada minuto
     const interval = setInterval(() => {
-      setHoraActual(new Date())
+      setHoraActual(getArgentinaDate())
     }, 60000)
     return () => clearInterval(interval)
   }, [authLoading, usuario, navigate])
 
   useEffect(() => {
-    // Verificar si puede seleccionar (hasta las 9:30 AM)
-    const hora = horaActual.getHours()
-    const minutos = horaActual.getMinutes()
-    const puede = hora < 9 || (hora === 9 && minutos <= 30)
+    // Verificar si puede seleccionar (hasta las 9:30 AM en Argentina)
+    const puede = isBeforeArgentinaTime(9, 30)
     setPuedeSeleccionar(puede)
   }, [horaActual])
 
@@ -68,7 +67,7 @@ const MenuDiarioPage = () => {
   const handleSeleccionar = async (idPlato: number) => {
     if (!usuario?.id || !menu) return
     if (!puedeSeleccionar) {
-      alert('El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM')
+      alert('El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM (hora Argentina)')
       return
     }
 
@@ -92,7 +91,7 @@ const MenuDiarioPage = () => {
   const handleCancelarSeleccion = async () => {
     if (!usuario?.id || !menu || !miSeleccion) return
     if (!puedeSeleccionar) {
-      alert('El plazo para cancelar la selección ha expirado. Debes hacerlo antes de las 9:30 AM')
+      alert('El plazo para cancelar la selección ha expirado. Debes hacerlo antes de las 9:30 AM (hora Argentina)')
       return
     }
 
@@ -119,7 +118,7 @@ const MenuDiarioPage = () => {
     )
   }
 
-  const horaFormateada = horaActual.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  const horaFormateada = formatArgentinaTime(horaActual)
 
   return (
     <div className="menu-diario-page">
@@ -136,11 +135,11 @@ const MenuDiarioPage = () => {
           <div className={`horario-badge ${puedeSeleccionar ? 'horario-activo' : 'horario-expirado'}`}>
             {puedeSeleccionar ? (
               <>
-                ⏰ Hora actual: {horaFormateada} - Puedes seleccionar hasta las 9:30 AM
+                ⏰ Hora actual (Argentina): {horaFormateada} - Puedes seleccionar hasta las 9:30 AM
               </>
             ) : (
               <>
-                ⏰ Hora actual: {horaFormateada} - El plazo para seleccionar ha expirado
+                ⏰ Hora actual (Argentina): {horaFormateada} - El plazo para seleccionar ha expirado
               </>
             )}
           </div>
@@ -158,12 +157,7 @@ const MenuDiarioPage = () => {
               <div className="menu-card-header">
                 <h2>Menú del Día</h2>
                 <span className="menu-fecha">
-                  {new Date(menu.fecha).toLocaleDateString('es-AR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  {formatArgentinaDate(menu.fecha)}
                 </span>
               </div>
               <div className="menu-card-body">
@@ -192,7 +186,7 @@ const MenuDiarioPage = () => {
                   </p>
                   <p>
                     <strong>Hora de selección:</strong>{' '}
-                    {new Date(miSeleccion.fecha_seleccion).toLocaleTimeString('es-AR')}
+                    {formatArgentinaTime(miSeleccion.fecha_seleccion)}
                   </p>
                 </div>
                 {puedeSeleccionar && (
@@ -209,7 +203,7 @@ const MenuDiarioPage = () => {
               <div className="menu-seleccion-card">
                 <h3>Selecciona tu plato</h3>
                 <p className="seleccion-subtitle">
-                  Tienes tiempo hasta las 9:30 AM para seleccionar tu plato
+                  Tienes tiempo hasta las 9:30 AM (hora Argentina) para seleccionar tu plato
                 </p>
                 <div className="seleccion-buttons">
                   {menu.platos && menu.platos.length > 0 ? (
@@ -232,7 +226,7 @@ const MenuDiarioPage = () => {
             ) : (
               <div className="menu-seleccion-card menu-seleccion-expirada">
                 <h3>⏰ Plazo Expirado</h3>
-                <p>El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM.</p>
+                <p>El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM (hora Argentina).</p>
               </div>
             )}
           </>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { MenuDiario, MenuSeleccion } from '../types/api'
+import { formatArgentinaDate, formatArgentinaTime } from '../utils/dateUtils'
 import jsPDF from 'jspdf'
 import './RecursosHumanosMenuDiarioPage.css'
 
@@ -130,12 +131,7 @@ const RecursosHumanosMenuDiarioPage = () => {
 
     // Fecha
     doc.setFontSize(12)
-    const fechaFormateada = new Date(menuHoy.fecha).toLocaleDateString('es-AR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    const fechaFormateada = formatArgentinaDate(menuHoy.fecha)
     doc.text(`Fecha: ${fechaFormateada}`, margin, yPos)
     yPos += 10
 
@@ -179,7 +175,7 @@ const RecursosHumanosMenuDiarioPage = () => {
         
         doc.text(sel.nombre_usuario || `Usuario ${sel.id_usuario}`, margin, yPos)
         doc.text(sel.nombre_plato || '-', margin + 80, yPos)
-        doc.text(new Date(sel.fecha_seleccion).toLocaleTimeString('es-AR'), margin + 140, yPos)
+        doc.text(formatArgentinaTime(sel.fecha_seleccion), margin + 140, yPos)
         yPos += 6
       })
     }
@@ -213,12 +209,7 @@ const RecursosHumanosMenuDiarioPage = () => {
         {menuHoy ? (
           <div className="rrhh-menu-card">
             <div className="rrhh-menu-card-header">
-              <h3>Menú del Día - {new Date(menuHoy.fecha).toLocaleDateString('es-AR', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}</h3>
+              <h3>Menú del Día - {formatArgentinaDate(menuHoy.fecha)}</h3>
               <span className="badge-active">Activo</span>
             </div>
             <div className="rrhh-menu-card-body">
@@ -265,7 +256,7 @@ const RecursosHumanosMenuDiarioPage = () => {
         <div className="rrhh-modal-overlay" onClick={() => setShowSelecciones(false)}>
           <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rrhh-modal-header">
-              <h2>Selecciones - {menuHoy && new Date(menuHoy.fecha).toLocaleDateString('es-AR')}</h2>
+              <h2>Selecciones - {menuHoy && formatArgentinaDate(menuHoy.fecha)}</h2>
               <button className="btn-close" onClick={() => setShowSelecciones(false)}>✕</button>
             </div>
             <div className="rrhh-modal-body">
@@ -287,7 +278,7 @@ const RecursosHumanosMenuDiarioPage = () => {
                       <tr key={sel.id}>
                         <td>{sel.nombre_usuario || `Usuario ${sel.id_usuario}`}</td>
                         <td>{sel.nombre_plato || '-'}</td>
-                        <td>{new Date(sel.fecha_seleccion).toLocaleTimeString('es-AR')}</td>
+                        <td>{formatArgentinaTime(sel.fecha_seleccion)}</td>
                       </tr>
                     ))
                   )}
