@@ -848,6 +848,7 @@ function AppRoutes({
         element={<LibroActasSectorPage />}
       />
     </Routes>
+    </Suspense>
     </>
   )
 }
