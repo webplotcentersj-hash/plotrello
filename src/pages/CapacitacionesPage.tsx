@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { Capacitacion } from '../types/api'
 import './CapacitacionesPage.css'
 
 const CapacitacionesPage = () => {
+  const navigate = useNavigate()
   const { usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [capacitaciones, setCapacitaciones] = useState<Capacitacion[]>([])
@@ -119,7 +121,12 @@ const CapacitacionesPage = () => {
   return (
     <div className="capacitaciones-page">
       <header className="capacitaciones-header">
-        <h1>📚 Capacitaciones</h1>
+        <div className="capacitaciones-header-content">
+          <h1>📚 Capacitaciones</h1>
+          <button className="btn-back" onClick={() => navigate('/board')}>
+            ← Volver al Tablero
+          </button>
+        </div>
       </header>
 
       <div className="capacitaciones-content">
