@@ -144,8 +144,8 @@ const UsuariosPage = ({ onBack }: { onBack: () => void }) => {
         <div style={{ padding: '40px', textAlign: 'center' }}>
           <h2>Acceso Denegado</h2>
           <p>No tienes permisos para acceder a esta sección.</p>
-          <button onClick={onBack} className="back-button" style={{ marginTop: '20px' }}>
-            Volver al Tablero
+          <button onClick={() => navigate('/board')} className="back-button" style={{ marginTop: '20px' }}>
+            ← Volver al Tablero
           </button>
         </div>
       </div>
@@ -165,8 +165,8 @@ const UsuariosPage = ({ onBack }: { onBack: () => void }) => {
             <h1>Gestión de Usuarios</h1>
             <p>Administra usuarios del sistema (Taller y Mostrador)</p>
           </div>
-          <button className="back-button" onClick={onBack}>
-            ← Volver
+          <button className="back-button" onClick={() => navigate('/board')}>
+            ← Volver al Tablero
           </button>
         </div>
       </header>
