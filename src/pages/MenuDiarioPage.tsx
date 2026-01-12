@@ -65,7 +65,7 @@ const MenuDiarioPage = () => {
     }
   }
 
-  const handleSeleccionar = async (seleccion: 'principal' | 'secundario' | 'vegetariano') => {
+  const handleSeleccionar = async (idPlato: number) => {
     if (!usuario?.id || !menu) return
     if (!puedeSeleccionar) {
       alert('El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM')
@@ -74,10 +74,11 @@ const MenuDiarioPage = () => {
 
     setSeleccionando(true)
     try {
-      const response = await apiService.seleccionarPlatoMenu(menu.id, usuario.id, seleccion)
+      const response = await apiService.seleccionarPlatoMenu(menu.id, usuario.id, idPlato)
       if (response.success && response.data) {
         setMiSeleccion(response.data)
         alert('Selección registrada correctamente')
+        loadMenu()
       } else {
         alert('Error: ' + response.error)
       }
@@ -101,6 +102,7 @@ const MenuDiarioPage = () => {
     if (response.success) {
       setMiSeleccion(null)
       alert('Selección cancelada correctamente')
+      loadMenu()
     } else {
       alert('Error: ' + response.error)
     }
@@ -165,51 +167,18 @@ const MenuDiarioPage = () => {
                 </span>
               </div>
               <div className="menu-card-body">
-                <div className="menu-item">
-                  <span className="menu-item-label">🍽️ Plato Principal:</span>
-                  <span className="menu-item-value">{menu.plato_principal}</span>
+                <div className="menu-platos-grid">
+                  {menu.platos && menu.platos.length > 0 ? (
+                    menu.platos.map((plato) => (
+                      <div key={plato.id} className="menu-plato-card">
+                        <div className="plato-number">{menu.platos.indexOf(plato) + 1}</div>
+                        <div className="plato-name">{plato.nombre_plato}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <p>No hay platos disponibles</p>
+                  )}
                 </div>
-                {menu.plato_secundario && (
-                  <div className="menu-item">
-                    <span className="menu-item-label">🍽️ Plato Secundario:</span>
-                    <span className="menu-item-value">{menu.plato_secundario}</span>
-                  </div>
-                )}
-                {menu.guarnicion && (
-                  <div className="menu-item">
-                    <span className="menu-item-label">🥔 Guarnición:</span>
-                    <span className="menu-item-value">{menu.guarnicion}</span>
-                  </div>
-                )}
-                {menu.ensalada && (
-                  <div className="menu-item">
-                    <span className="menu-item-label">🥗 Ensalada:</span>
-                    <span className="menu-item-value">{menu.ensalada}</span>
-                  </div>
-                )}
-                {menu.postre && (
-                  <div className="menu-item">
-                    <span className="menu-item-label">🍰 Postre:</span>
-                    <span className="menu-item-value">{menu.postre}</span>
-                  </div>
-                )}
-                {menu.bebida && (
-                  <div className="menu-item">
-                    <span className="menu-item-label">🥤 Bebida:</span>
-                    <span className="menu-item-value">{menu.bebida}</span>
-                  </div>
-                )}
-                {menu.opcion_vegetariana && (
-                  <div className="menu-item menu-item-vegetariano">
-                    <span className="menu-item-label">🌱 Opción Vegetariana:</span>
-                    <span className="menu-item-value">{menu.opcion_vegetariana}</span>
-                  </div>
-                )}
-                {menu.observaciones && (
-                  <div className="menu-observaciones">
-                    <strong>Observaciones:</strong> {menu.observaciones}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -219,15 +188,8 @@ const MenuDiarioPage = () => {
                 <h3>✅ Tu Selección</h3>
                 <div className="seleccion-info">
                   <p>
-                    <strong>Plato seleccionado:</strong>{' '}
-                    {miSeleccion.seleccion === 'principal' ? 'Plato Principal' :
-                     miSeleccion.seleccion === 'secundario' ? 'Plato Secundario' : 'Opción Vegetariana'}
+                    <strong>Plato seleccionado:</strong> {miSeleccion.nombre_plato || 'Plato seleccionado'}
                   </p>
-                  {miSeleccion.observaciones && (
-                    <p>
-                      <strong>Observaciones:</strong> {miSeleccion.observaciones}
-                    </p>
-                  )}
                   <p>
                     <strong>Hora de selección:</strong>{' '}
                     {new Date(miSeleccion.fecha_seleccion).toLocaleTimeString('es-AR')}
@@ -250,30 +212,19 @@ const MenuDiarioPage = () => {
                   Tienes tiempo hasta las 9:30 AM para seleccionar tu plato
                 </p>
                 <div className="seleccion-buttons">
-                  <button
-                    className="btn-seleccion btn-seleccion-principal"
-                    onClick={() => handleSeleccionar('principal')}
-                    disabled={seleccionando}
-                  >
-                    🍽️ Plato Principal
-                  </button>
-                  {menu.plato_secundario && (
-                    <button
-                      className="btn-seleccion btn-seleccion-secundario"
-                      onClick={() => handleSeleccionar('secundario')}
-                      disabled={seleccionando}
-                    >
-                      🍽️ Plato Secundario
-                    </button>
-                  )}
-                  {menu.opcion_vegetariana && (
-                    <button
-                      className="btn-seleccion btn-seleccion-vegetariano"
-                      onClick={() => handleSeleccionar('vegetariano')}
-                      disabled={seleccionando}
-                    >
-                      🌱 Opción Vegetariana
-                    </button>
+                  {menu.platos && menu.platos.length > 0 ? (
+                    menu.platos.map((plato) => (
+                      <button
+                        key={plato.id}
+                        className="btn-seleccion"
+                        onClick={() => handleSeleccionar(plato.id)}
+                        disabled={seleccionando}
+                      >
+                        🍽️ {plato.nombre_plato}
+                      </button>
+                    ))
+                  ) : (
+                    <p>No hay platos disponibles para seleccionar</p>
                   )}
                 </div>
                 {seleccionando && <p className="seleccion-loading">Procesando...</p>}
@@ -292,4 +243,3 @@ const MenuDiarioPage = () => {
 }
 
 export default MenuDiarioPage
-

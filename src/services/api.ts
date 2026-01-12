@@ -8638,17 +8638,9 @@ class ApiService {
   // ========== MENÚ DIARIO ==========
   
   async crearActualizarMenuDiario(
-    fecha: string,
-    platoPrincipal: string,
+    platos: string[],
     creadoPor: number,
-    platoSecundario: string | null = null,
-    guarnicion: string | null = null,
-    ensalada: string | null = null,
-    postre: string | null = null,
-    bebida: string | null = null,
-    opcionVegetariana: string | null = null,
-    observaciones: string | null = null,
-    activo: boolean = true
+    fecha: string | null = null
   ): Promise<ApiResponse<MenuDiario>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -8656,17 +8648,9 @@ class ApiService {
 
     try {
       const { data, error } = await supabase.rpc('crear_actualizar_menu_diario', {
-        p_fecha: fecha,
-        p_plato_principal: platoPrincipal,
         p_creado_por: creadoPor,
-        p_plato_secundario: platoSecundario,
-        p_guarnicion: guarnicion,
-        p_ensalada: ensalada,
-        p_postre: postre,
-        p_bebida: bebida,
-        p_opcion_vegetariana: opcionVegetariana,
-        p_observaciones: observaciones,
-        p_activo: activo
+        p_platos: platos.filter(p => p && p.trim() !== ''),
+        p_fecha: fecha || null
       })
 
       if (error) throw error
@@ -8686,8 +8670,7 @@ class ApiService {
 
   async obtenerMenusDiarios(
     fechaDesde: string | null = null,
-    fechaHasta: string | null = null,
-    soloActivos: boolean = true
+    fechaHasta: string | null = null
   ): Promise<ApiResponse<MenuDiario[]>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -8696,8 +8679,7 @@ class ApiService {
     try {
       const { data, error } = await supabase.rpc('obtener_menus_diarios', {
         p_fecha_desde: fechaDesde,
-        p_fecha_hasta: fechaHasta,
-        p_solo_activos: soloActivos
+        p_fecha_hasta: fechaHasta
       })
 
       if (error) throw error
@@ -8741,8 +8723,7 @@ class ApiService {
   async seleccionarPlatoMenu(
     idMenu: number,
     idUsuario: number,
-    seleccion: 'principal' | 'secundario' | 'vegetariano',
-    observaciones: string | null = null
+    idPlato: number
   ): Promise<ApiResponse<MenuSeleccion>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -8752,8 +8733,7 @@ class ApiService {
       const { data, error } = await supabase.rpc('seleccionar_plato_menu', {
         p_id_menu: idMenu,
         p_id_usuario: idUsuario,
-        p_seleccion: seleccion,
-        p_observaciones: observaciones
+        p_id_plato: idPlato
       })
 
       if (error) throw error
@@ -8814,7 +8794,7 @@ class ApiService {
 
       return {
         success: true,
-        data: data as MenuSeleccion | null
+        data: (data && data.length > 0) ? data[0] as MenuSeleccion : null
       }
     } catch (error: any) {
       console.error('Error al obtener selección del usuario:', error)

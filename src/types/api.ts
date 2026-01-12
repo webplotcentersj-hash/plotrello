@@ -668,23 +668,21 @@ export interface InscripcionCapacitacion {
   updated_at: string
 }
 
+export interface MenuPlato {
+  id: number
+  nombre_plato: string
+  orden: number
+}
+
 export interface MenuDiario {
   id: number
   fecha: string
-  plato_principal: string
-  plato_secundario: string | null
-  guarnicion: string | null
-  ensalada: string | null
-  postre: string | null
-  bebida: string | null
-  opcion_vegetariana: string | null
-  observaciones: string | null
-  activo: boolean
   creado_por: number
   creado_por_nombre?: string
+  platos: MenuPlato[]
+  total_selecciones?: number
   created_at: string
   updated_at: string
-  total_selecciones?: number
 }
 
 export interface MenuSeleccion {
@@ -692,8 +690,8 @@ export interface MenuSeleccion {
   id_menu: number
   id_usuario: number
   nombre_usuario?: string
-  seleccion: 'principal' | 'secundario' | 'vegetariano'
-  observaciones: string | null
+  id_plato: number
+  nombre_plato?: string
   fecha_seleccion: string
   created_at: string
 }

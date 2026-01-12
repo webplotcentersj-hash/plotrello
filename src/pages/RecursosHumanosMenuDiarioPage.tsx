@@ -10,31 +10,11 @@ const RecursosHumanosMenuDiarioPage = () => {
   const navigate = useNavigate()
   const { canManageRecursosHumanos, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [menus, setMenus] = useState<MenuDiario[]>([])
+  const [menuHoy, setMenuHoy] = useState<MenuDiario | null>(null)
   const [selecciones, setSelecciones] = useState<MenuSeleccion[]>([])
   const [showModal, setShowModal] = useState(false)
-  const [menuSeleccionado, setMenuSeleccionado] = useState<MenuDiario | null>(null)
-  const [formData, setFormData] = useState({
-    fecha: new Date().toISOString().split('T')[0],
-    plato_principal: '',
-    plato_secundario: '',
-    guarnicion: '',
-    ensalada: '',
-    postre: '',
-    bebida: '',
-    opcion_vegetariana: '',
-    observaciones: '',
-    activo: true
-  })
-  const [filtros, setFiltros] = useState<{
-    fechaDesde: string
-    fechaHasta: string
-    soloActivos: boolean
-  }>({
-    fechaDesde: '',
-    fechaHasta: '',
-    soloActivos: true
-  })
+  const [showSelecciones, setShowSelecciones] = useState(false)
+  const [platos, setPlatos] = useState<string[]>([''])
 
   useEffect(() => {
     if (authLoading) return
@@ -42,117 +22,101 @@ const RecursosHumanosMenuDiarioPage = () => {
       navigate('/rrhh/dashboard')
       return
     }
-    loadData()
-  }, [canManageRecursosHumanos, navigate, authLoading, filtros.fechaDesde, filtros.fechaHasta, filtros.soloActivos])
+    loadMenuHoy()
+  }, [canManageRecursosHumanos, navigate, authLoading])
 
-  const loadData = async () => {
+  const loadMenuHoy = async () => {
     setLoading(true)
     try {
-      const response = await apiService.obtenerMenusDiarios(
-        filtros.fechaDesde ? filtros.fechaDesde : null,
-        filtros.fechaHasta ? filtros.fechaHasta : null,
-        filtros.soloActivos
-      )
+      const response = await apiService.obtenerMenuDiaActual()
       if (response.success && response.data) {
-        setMenus(response.data)
+        setMenuHoy(response.data)
+        if (response.data.platos && response.data.platos.length > 0) {
+          setPlatos(response.data.platos.map(p => p.nombre_plato))
+        } else {
+          setPlatos([''])
+        }
+      } else {
+        setMenuHoy(null)
+        setPlatos([''])
       }
     } catch (error) {
-      console.error('Error cargando datos:', error)
+      console.error('Error cargando menú:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const loadSelecciones = async (idMenu: number) => {
-    const response = await apiService.obtenerSeleccionesMenu(idMenu)
+  const loadSelecciones = async () => {
+    if (!menuHoy) return
+    const response = await apiService.obtenerSeleccionesMenu(menuHoy.id)
     if (response.success && response.data) {
       setSelecciones(response.data)
     }
   }
 
   const handleNuevoMenu = () => {
-    setMenuSeleccionado(null)
-    setFormData({
-      fecha: new Date().toISOString().split('T')[0],
-      plato_principal: '',
-      plato_secundario: '',
-      guarnicion: '',
-      ensalada: '',
-      postre: '',
-      bebida: '',
-      opcion_vegetariana: '',
-      observaciones: '',
-      activo: true
-    })
+    setPlatos([''])
     setShowModal(true)
   }
 
-  const handleEditarMenu = (menu: MenuDiario) => {
-    setMenuSeleccionado(menu)
-    setFormData({
-      fecha: menu.fecha,
-      plato_principal: menu.plato_principal,
-      plato_secundario: menu.plato_secundario || '',
-      guarnicion: menu.guarnicion || '',
-      ensalada: menu.ensalada || '',
-      postre: menu.postre || '',
-      bebida: menu.bebida || '',
-      opcion_vegetariana: menu.opcion_vegetariana || '',
-      observaciones: menu.observaciones || '',
-      activo: menu.activo
-    })
+  const handleEditarMenu = () => {
+    if (menuHoy && menuHoy.platos && menuHoy.platos.length > 0) {
+      setPlatos(menuHoy.platos.map(p => p.nombre_plato))
+    } else {
+      setPlatos([''])
+    }
     setShowModal(true)
+  }
+
+  const handleAgregarPlato = () => {
+    setPlatos([...platos, ''])
+  }
+
+  const handleEliminarPlato = (index: number) => {
+    if (platos.length > 1) {
+      setPlatos(platos.filter((_, i) => i !== index))
+    }
+  }
+
+  const handleCambiarPlato = (index: number, valor: string) => {
+    const nuevosPlatos = [...platos]
+    nuevosPlatos[index] = valor
+    setPlatos(nuevosPlatos)
   }
 
   const handleGuardarMenu = async () => {
     if (!usuario?.id) return
-    if (!formData.plato_principal.trim()) {
-      alert('El plato principal es obligatorio')
+    
+    const platosFiltrados = platos.filter(p => p && p.trim() !== '')
+    if (platosFiltrados.length === 0) {
+      alert('Debes agregar al menos un plato')
       return
     }
 
     const response = await apiService.crearActualizarMenuDiario(
-      formData.fecha,
-      formData.plato_principal,
-      usuario.id,
-      formData.plato_secundario || null,
-      formData.guarnicion || null,
-      formData.ensalada || null,
-      formData.postre || null,
-      formData.bebida || null,
-      formData.opcion_vegetariana || null,
-      formData.observaciones || null,
-      formData.activo
+      platosFiltrados,
+      usuario.id
     )
 
     if (response.success) {
       alert('Menú guardado correctamente')
       setShowModal(false)
-      loadData()
+      loadMenuHoy()
     } else {
       alert('Error: ' + response.error)
     }
   }
 
-  const handleEliminarMenu = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este menú?')) return
-
-    const response = await apiService.eliminarMenuDiario(id)
-    if (response.success) {
-      alert('Menú eliminado correctamente')
-      loadData()
-    } else {
-      alert('Error: ' + response.error)
-    }
+  const handleVerSelecciones = async () => {
+    await loadSelecciones()
+    setShowSelecciones(true)
   }
 
-  const handleVerSelecciones = async (menu: MenuDiario) => {
-    await loadSelecciones(menu.id)
-    setMenuSeleccionado(menu)
-  }
-
-  const handleDescargarPDF = async (menu: MenuDiario) => {
-    await loadSelecciones(menu.id)
+  const handleDescargarPDF = async () => {
+    if (!menuHoy) return
+    
+    await loadSelecciones()
     
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
@@ -166,7 +130,7 @@ const RecursosHumanosMenuDiarioPage = () => {
 
     // Fecha
     doc.setFontSize(12)
-    const fechaFormateada = new Date(menu.fecha).toLocaleDateString('es-AR', {
+    const fechaFormateada = new Date(menuHoy.fecha).toLocaleDateString('es-AR', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -177,36 +141,14 @@ const RecursosHumanosMenuDiarioPage = () => {
 
     // Menú
     doc.setFontSize(14)
-    doc.text('Menú del Día:', margin, yPos)
+    doc.text('Platos del Día:', margin, yPos)
     yPos += 8
     doc.setFontSize(11)
     
-    doc.text(`• Plato Principal: ${menu.plato_principal}`, margin + 5, yPos)
-    yPos += 6
-    if (menu.plato_secundario) {
-      doc.text(`• Plato Secundario: ${menu.plato_secundario}`, margin + 5, yPos)
+    menuHoy.platos.forEach((plato, index) => {
+      doc.text(`${index + 1}. ${plato.nombre_plato}`, margin + 5, yPos)
       yPos += 6
-    }
-    if (menu.guarnicion) {
-      doc.text(`• Guarnición: ${menu.guarnicion}`, margin + 5, yPos)
-      yPos += 6
-    }
-    if (menu.ensalada) {
-      doc.text(`• Ensalada: ${menu.ensalada}`, margin + 5, yPos)
-      yPos += 6
-    }
-    if (menu.postre) {
-      doc.text(`• Postre: ${menu.postre}`, margin + 5, yPos)
-      yPos += 6
-    }
-    if (menu.bebida) {
-      doc.text(`• Bebida: ${menu.bebida}`, margin + 5, yPos)
-      yPos += 6
-    }
-    if (menu.opcion_vegetariana) {
-      doc.text(`• Opción Vegetariana: ${menu.opcion_vegetariana}`, margin + 5, yPos)
-      yPos += 6
-    }
+    })
 
     yPos += 5
 
@@ -224,8 +166,8 @@ const RecursosHumanosMenuDiarioPage = () => {
       // Encabezados de tabla
       doc.setFont('helvetica', 'bold')
       doc.text('Empleado', margin, yPos)
-      doc.text('Selección', margin + 80, yPos)
-      doc.text('Observaciones', margin + 120, yPos)
+      doc.text('Plato Seleccionado', margin + 80, yPos)
+      doc.text('Hora', margin + 140, yPos)
       yPos += 6
       doc.setFont('helvetica', 'normal')
       
@@ -235,18 +177,15 @@ const RecursosHumanosMenuDiarioPage = () => {
           yPos = margin
         }
         
-        const seleccionTexto = sel.seleccion === 'principal' ? 'Principal' :
-                               sel.seleccion === 'secundario' ? 'Secundario' : 'Vegetariano'
-        
         doc.text(sel.nombre_usuario || `Usuario ${sel.id_usuario}`, margin, yPos)
-        doc.text(seleccionTexto, margin + 80, yPos)
-        doc.text(sel.observaciones || '-', margin + 120, yPos)
+        doc.text(sel.nombre_plato || '-', margin + 80, yPos)
+        doc.text(new Date(sel.fecha_seleccion).toLocaleTimeString('es-AR'), margin + 140, yPos)
         yPos += 6
       })
     }
 
     // Guardar PDF
-    doc.save(`menu-diario-${menu.fecha}.pdf`)
+    doc.save(`menu-diario-${menuHoy.fecha}.pdf`)
   }
 
   if (loading) {
@@ -270,151 +209,88 @@ const RecursosHumanosMenuDiarioPage = () => {
       </div>
 
       <div className="rrhh-menu-content">
-        {/* Filtros */}
-        <div className="rrhh-menu-filters">
-          <div className="filter-group">
-            <label>Fecha Desde:</label>
-            <input
-              type="date"
-              value={filtros.fechaDesde}
-              onChange={(e) => setFiltros({ ...filtros, fechaDesde: e.target.value })}
-            />
-          </div>
-          <div className="filter-group">
-            <label>Fecha Hasta:</label>
-            <input
-              type="date"
-              value={filtros.fechaHasta}
-              onChange={(e) => setFiltros({ ...filtros, fechaHasta: e.target.value })}
-            />
-          </div>
-          <div className="filter-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={filtros.soloActivos}
-                onChange={(e) => setFiltros({ ...filtros, soloActivos: e.target.checked })}
-              />
-              Solo Activos
-            </label>
-          </div>
-          <button className="btn-primary" onClick={handleNuevoMenu}>
-            ➕ Nuevo Menú
-          </button>
-        </div>
-
-        {/* Lista de menús */}
-        <div className="rrhh-menu-list">
-          {menus.length === 0 ? (
-            <div className="rrhh-empty-state">
-              <p>No hay menús registrados</p>
+        {/* Menú del día */}
+        {menuHoy ? (
+          <div className="rrhh-menu-card">
+            <div className="rrhh-menu-card-header">
+              <h3>Menú del Día - {new Date(menuHoy.fecha).toLocaleDateString('es-AR', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}</h3>
+              <span className="badge-active">Activo</span>
             </div>
-          ) : (
-            menus.map((menu) => (
-              <div key={menu.id} className="rrhh-menu-card">
-                <div className="rrhh-menu-card-header">
-                  <h3>{new Date(menu.fecha).toLocaleDateString('es-AR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}</h3>
-                  {menu.activo && <span className="badge-active">Activo</span>}
-                  {!menu.activo && <span className="badge-inactive">Inactivo</span>}
-                </div>
-                <div className="rrhh-menu-card-body">
-                  <div className="menu-item">
-                    <strong>Plato Principal:</strong> {menu.plato_principal}
-                  </div>
-                  {menu.plato_secundario && (
-                    <div className="menu-item">
-                      <strong>Plato Secundario:</strong> {menu.plato_secundario}
+            <div className="rrhh-menu-card-body">
+              <div className="menu-platos-list">
+                {menuHoy.platos && menuHoy.platos.length > 0 ? (
+                  menuHoy.platos.map((plato, index) => (
+                    <div key={plato.id} className="menu-plato-item">
+                      <span className="plato-number">{index + 1}.</span>
+                      <span className="plato-name">{plato.nombre_plato}</span>
                     </div>
-                  )}
-                  {menu.guarnicion && (
-                    <div className="menu-item">
-                      <strong>Guarnición:</strong> {menu.guarnicion}
-                    </div>
-                  )}
-                  {menu.ensalada && (
-                    <div className="menu-item">
-                      <strong>Ensalada:</strong> {menu.ensalada}
-                    </div>
-                  )}
-                  {menu.postre && (
-                    <div className="menu-item">
-                      <strong>Postre:</strong> {menu.postre}
-                    </div>
-                  )}
-                  {menu.bebida && (
-                    <div className="menu-item">
-                      <strong>Bebida:</strong> {menu.bebida}
-                    </div>
-                  )}
-                  {menu.opcion_vegetariana && (
-                    <div className="menu-item">
-                      <strong>Opción Vegetariana:</strong> {menu.opcion_vegetariana}
-                    </div>
-                  )}
-                  {menu.observaciones && (
-                    <div className="menu-item">
-                      <strong>Observaciones:</strong> {menu.observaciones}
-                    </div>
-                  )}
-                  <div className="menu-item">
-                    <strong>Total Selecciones:</strong> {menu.total_selecciones || 0}
-                  </div>
-                </div>
-                <div className="rrhh-menu-card-actions">
-                  <button className="btn-secondary" onClick={() => handleEditarMenu(menu)}>
-                    ✏️ Editar
-                  </button>
-                  <button className="btn-secondary" onClick={() => handleVerSelecciones(menu)}>
-                    👥 Ver Selecciones ({menu.total_selecciones || 0})
-                  </button>
-                  <button className="btn-secondary" onClick={() => handleDescargarPDF(menu)}>
-                    📄 Descargar PDF
-                  </button>
-                  <button className="btn-danger" onClick={() => handleEliminarMenu(menu.id)}>
-                    🗑️ Eliminar
-                  </button>
-                </div>
+                  ))
+                ) : (
+                  <p>No hay platos cargados</p>
+                )}
               </div>
-            ))
-          )}
-        </div>
+              <div className="menu-stats">
+                <strong>Total Selecciones:</strong> {menuHoy.total_selecciones || 0}
+              </div>
+            </div>
+            <div className="rrhh-menu-card-actions">
+              <button className="btn-secondary" onClick={handleEditarMenu}>
+                ✏️ Editar Menú
+              </button>
+              <button className="btn-secondary" onClick={handleVerSelecciones}>
+                👥 Ver Selecciones ({menuHoy.total_selecciones || 0})
+              </button>
+              <button className="btn-secondary" onClick={handleDescargarPDF}>
+                📄 Descargar PDF
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="rrhh-empty-state">
+            <p>No hay menú cargado para hoy</p>
+            <button className="btn-primary" onClick={handleNuevoMenu}>
+              ➕ Crear Menú del Día
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modal de selecciones */}
-      {menuSeleccionado && selecciones.length > 0 && (
-        <div className="rrhh-modal-overlay" onClick={() => setMenuSeleccionado(null)}>
+      {showSelecciones && (
+        <div className="rrhh-modal-overlay" onClick={() => setShowSelecciones(false)}>
           <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rrhh-modal-header">
-              <h2>Selecciones - {new Date(menuSeleccionado.fecha).toLocaleDateString('es-AR')}</h2>
-              <button className="btn-close" onClick={() => setMenuSeleccionado(null)}>✕</button>
+              <h2>Selecciones - {menuHoy && new Date(menuHoy.fecha).toLocaleDateString('es-AR')}</h2>
+              <button className="btn-close" onClick={() => setShowSelecciones(false)}>✕</button>
             </div>
             <div className="rrhh-modal-body">
               <table className="rrhh-table">
                 <thead>
                   <tr>
                     <th>Empleado</th>
-                    <th>Selección</th>
-                    <th>Observaciones</th>
+                    <th>Plato Seleccionado</th>
                     <th>Hora</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selecciones.map((sel) => (
-                    <tr key={sel.id}>
-                      <td>{sel.nombre_usuario || `Usuario ${sel.id_usuario}`}</td>
-                      <td>
-                        {sel.seleccion === 'principal' ? 'Principal' :
-                         sel.seleccion === 'secundario' ? 'Secundario' : 'Vegetariano'}
-                      </td>
-                      <td>{sel.observaciones || '-'}</td>
-                      <td>{new Date(sel.fecha_seleccion).toLocaleTimeString('es-AR')}</td>
+                  {selecciones.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: 'center' }}>No hay selecciones registradas</td>
                     </tr>
-                  ))}
+                  ) : (
+                    selecciones.map((sel) => (
+                      <tr key={sel.id}>
+                        <td>{sel.nombre_usuario || `Usuario ${sel.id_usuario}`}</td>
+                        <td>{sel.nombre_plato || '-'}</td>
+                        <td>{new Date(sel.fecha_seleccion).toLocaleTimeString('es-AR')}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -427,100 +303,47 @@ const RecursosHumanosMenuDiarioPage = () => {
         <div className="rrhh-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rrhh-modal-header">
-              <h2>{menuSeleccionado ? 'Editar Menú' : 'Nuevo Menú'}</h2>
+              <h2>Gestionar Menú del Día</h2>
               <button className="btn-close" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <div className="rrhh-modal-body">
               <div className="form-group">
-                <label>Fecha *</label>
-                <input
-                  type="date"
-                  value={formData.fecha}
-                  onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Plato Principal *</label>
-                <input
-                  type="text"
-                  value={formData.plato_principal}
-                  onChange={(e) => setFormData({ ...formData, plato_principal: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Plato Secundario</label>
-                <input
-                  type="text"
-                  value={formData.plato_secundario}
-                  onChange={(e) => setFormData({ ...formData, plato_secundario: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Guarnición</label>
-                <input
-                  type="text"
-                  value={formData.guarnicion}
-                  onChange={(e) => setFormData({ ...formData, guarnicion: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Ensalada</label>
-                <input
-                  type="text"
-                  value={formData.ensalada}
-                  onChange={(e) => setFormData({ ...formData, ensalada: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Postre</label>
-                <input
-                  type="text"
-                  value={formData.postre}
-                  onChange={(e) => setFormData({ ...formData, postre: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Bebida</label>
-                <input
-                  type="text"
-                  value={formData.bebida}
-                  onChange={(e) => setFormData({ ...formData, bebida: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Opción Vegetariana</label>
-                <input
-                  type="text"
-                  value={formData.opcion_vegetariana}
-                  onChange={(e) => setFormData({ ...formData, opcion_vegetariana: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Observaciones</label>
-                <textarea
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <div className="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={formData.activo}
-                    onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                  />
-                  Activo
-                </label>
+                <label>Platos del Día *</label>
+                <p className="form-help">Agrega los platos disponibles para hoy. Puedes agregar múltiples platos.</p>
+                {platos.map((plato, index) => (
+                  <div key={index} className="plato-input-group">
+                    <input
+                      type="text"
+                      value={plato}
+                      onChange={(e) => handleCambiarPlato(index, e.target.value)}
+                      placeholder={`Plato ${index + 1}`}
+                      className="plato-input"
+                    />
+                    {platos.length > 1 && (
+                      <button
+                        type="button"
+                        className="btn-remove-plato"
+                        onClick={() => handleEliminarPlato(index)}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn-add-plato"
+                  onClick={handleAgregarPlato}
+                >
+                  ➕ Agregar Otro Plato
+                </button>
               </div>
               <div className="rrhh-modal-actions">
                 <button className="btn-secondary" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
                 <button className="btn-primary" onClick={handleGuardarMenu}>
-                  Guardar
+                  Guardar Menú
                 </button>
               </div>
             </div>
@@ -532,4 +355,3 @@ const RecursosHumanosMenuDiarioPage = () => {
 }
 
 export default RecursosHumanosMenuDiarioPage
-
