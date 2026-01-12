@@ -503,7 +503,7 @@ const ImpresorasPage = () => {
                       style={{
                         width: '100%',
                         height: '24px',
-                        backgroundColor: '#1f2937',
+                        backgroundColor: '#e5e7eb',
                         borderRadius: '12px',
                         overflow: 'hidden',
                         position: 'relative'
@@ -523,10 +523,9 @@ const ImpresorasPage = () => {
                           top: '50%',
                           left: '50%',
                           transform: 'translate(-50%, -50%)',
-                          color: '#fff',
+                          color: '#000',
                           fontWeight: 'bold',
-                          fontSize: '12px',
-                          textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                          fontSize: '12px'
                         }}
                       >
                         {impresora.porcentaje_ocupacion_hoy.toFixed(1)}%
@@ -546,7 +545,7 @@ const ImpresorasPage = () => {
                       style={{
                         width: '100%',
                         height: '24px',
-                        backgroundColor: '#1f2937',
+                        backgroundColor: '#e5e7eb',
                         borderRadius: '12px',
                         overflow: 'hidden',
                         position: 'relative'
@@ -566,10 +565,9 @@ const ImpresorasPage = () => {
                           top: '50%',
                           left: '50%',
                           transform: 'translate(-50%, -50%)',
-                          color: '#fff',
+                          color: '#000',
                           fontWeight: 'bold',
-                          fontSize: '12px',
-                          textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                          fontSize: '12px'
                         }}
                       >
                         {impresora.porcentaje_ocupacion_semana.toFixed(1)}%
