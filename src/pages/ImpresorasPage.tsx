@@ -523,9 +523,10 @@ const ImpresorasPage = () => {
                           top: '50%',
                           left: '50%',
                           transform: 'translate(-50%, -50%)',
-                          color: '#000',
+                          color: impresora.porcentaje_ocupacion_hoy > 50 ? '#fff' : '#111827',
                           fontWeight: 'bold',
-                          fontSize: '12px'
+                          fontSize: '12px',
+                          textShadow: impresora.porcentaje_ocupacion_hoy > 50 ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none'
                         }}
                       >
                         {impresora.porcentaje_ocupacion_hoy.toFixed(1)}%
@@ -565,9 +566,10 @@ const ImpresorasPage = () => {
                           top: '50%',
                           left: '50%',
                           transform: 'translate(-50%, -50%)',
-                          color: '#000',
+                          color: impresora.porcentaje_ocupacion_semana > 50 ? '#fff' : '#111827',
                           fontWeight: 'bold',
-                          fontSize: '12px'
+                          fontSize: '12px',
+                          textShadow: impresora.porcentaje_ocupacion_semana > 50 ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none'
                         }}
                       >
                         {impresora.porcentaje_ocupacion_semana.toFixed(1)}%
