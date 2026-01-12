@@ -8272,7 +8272,7 @@ class ApiService {
         p_id: id,
         p_estado: estado,
         p_id_aprobador: idAprobador,
-        p_motivo_rechazo: motivoRechazo
+        p_motivo_rechazo: motivoRechazo || ''
       })
 
       if (error) throw error

@@ -271,7 +271,7 @@ CREATE OR REPLACE FUNCTION public.aprobar_rechazar_inscripcion(
   p_id integer,
   p_estado varchar, -- 'aprobado' o 'rechazado'
   p_id_aprobador integer,
-  p_motivo_rechazo text DEFAULT NULL
+  p_motivo_rechazo text
 )
 RETURNS public.capacitaciones_inscripciones
 LANGUAGE plpgsql
