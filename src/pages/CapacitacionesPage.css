@@ -111,6 +111,7 @@
   flex-direction: column;
   gap: 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: #111827 !important;
 }
 
 .capacitacion-info {
@@ -134,12 +135,12 @@
   flex: 1;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #111827;
+  color: #111827 !important;
   min-width: 200px;
 }
 
 .capacitacion-descripcion {
-  color: #4b5563;
+  color: #4b5563 !important;
   font-size: 0.9rem;
   margin: 8px 0;
 }
@@ -153,7 +154,12 @@
 .capacitacion-details p {
   margin: 4px 0;
   font-size: 0.85rem;
-  color: #4b5563;
+  color: #4b5563 !important;
+}
+
+.capacitacion-details p strong {
+  color: #111827 !important;
+  font-weight: 600;
 }
 
 .capacitacion-details a {
@@ -177,7 +183,7 @@
 }
 
 .capacitacion-no-disponible {
-  color: #6b7280;
+  color: #6b7280 !important;
   font-size: 0.9rem;
   margin: 0;
 }
