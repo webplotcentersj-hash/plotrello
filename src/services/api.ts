@@ -28,7 +28,8 @@ import type {
   HorarioEmpleado,
   Turno,
   Ausencia,
-  Asistencia
+  Asistencia,
+  SolicitudPermiso
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -7566,6 +7567,179 @@ class ApiService {
       return { success: true, data: (data as Asistencia[]) || [] }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  // ============================================
+  // SOLICITUDES Y PERMISOS
+  // ============================================
+
+  async crearSolicitudPermiso(
+    idUsuario: number,
+    tipoSolicitud: 'turno' | 'ausencia' | 'vacaciones' | 'ropa' | 'permiso' | 'otro',
+    titulo: string,
+    descripcion: string | null = null,
+    fechaSolicitud: string | null = null,
+    fechaInicio: string | null = null,
+    fechaFin: string | null = null,
+    diasSolicitados: number | null = null,
+    observaciones: string | null = null,
+    archivoAdjuntoUrl: string | null = null
+  ): Promise<ApiResponse<SolicitudPermiso>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_solicitud_permiso', {
+        p_id_usuario: idUsuario,
+        p_tipo_solicitud: tipoSolicitud,
+        p_titulo: titulo,
+        p_descripcion: descripcion,
+        p_fecha_solicitud: fechaSolicitud,
+        p_fecha_inicio: fechaInicio,
+        p_fecha_fin: fechaFin,
+        p_dias_solicitados: diasSolicitados,
+        p_observaciones: observaciones,
+        p_archivo_adjunto_url: archivoAdjuntoUrl
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as SolicitudPermiso
+      }
+    } catch (error: any) {
+      console.error('Error al crear solicitud:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear solicitud'
+      }
+    }
+  }
+
+  async obtenerSolicitudesPermisos(
+    idUsuario: number | null = null,
+    estado: string | null = null,
+    tipoSolicitud: string | null = null,
+    fechaDesde: string | null = null,
+    fechaHasta: string | null = null
+  ): Promise<ApiResponse<SolicitudPermiso[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_solicitudes_permisos', {
+        p_id_usuario: idUsuario,
+        p_estado: estado,
+        p_tipo_solicitud: tipoSolicitud,
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as SolicitudPermiso[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener solicitudes:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener solicitudes'
+      }
+    }
+  }
+
+  async aprobarRechazarSolicitud(
+    id: number,
+    estado: 'aprobado' | 'rechazado',
+    idAprobador: number,
+    motivoRechazo: string | null = null,
+    observaciones: string | null = null
+  ): Promise<ApiResponse<SolicitudPermiso>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('aprobar_rechazar_solicitud', {
+        p_id: id,
+        p_estado: estado,
+        p_id_aprobador: idAprobador,
+        p_motivo_rechazo: motivoRechazo,
+        p_observaciones: observaciones
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as SolicitudPermiso
+      }
+    } catch (error: any) {
+      console.error('Error al aprobar/rechazar solicitud:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al procesar solicitud'
+      }
+    }
+  }
+
+  async cancelarSolicitud(
+    id: number,
+    idUsuario: number
+  ): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('cancelar_solicitud', {
+        p_id: id,
+        p_id_usuario: idUsuario
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al cancelar solicitud:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al cancelar solicitud'
+      }
+    }
+  }
+
+  async eliminarSolicitud(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_solicitud', {
+        p_id: id
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar solicitud:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al eliminar solicitud'
+      }
     }
   }
 }

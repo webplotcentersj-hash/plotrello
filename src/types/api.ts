@@ -558,3 +558,25 @@ export interface Asistencia {
   updated_at: string
 }
 
+export interface SolicitudPermiso {
+  id: number
+  id_usuario: number
+  nombre_usuario?: string
+  tipo_solicitud: 'turno' | 'ausencia' | 'vacaciones' | 'ropa' | 'permiso' | 'otro'
+  titulo: string
+  descripcion: string | null
+  fecha_solicitud: string
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  dias_solicitados: number | null
+  estado: 'pendiente' | 'aprobado' | 'rechazado' | 'cancelado'
+  aprobado_por: number | null
+  aprobado_por_nombre?: string | null
+  fecha_aprobacion: string | null
+  motivo_rechazo: string | null
+  observaciones: string | null
+  archivo_adjunto_url: string | null
+  created_at: string
+  updated_at: string
+}
+

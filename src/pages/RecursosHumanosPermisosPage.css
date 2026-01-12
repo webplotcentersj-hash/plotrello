@@ -14,8 +14,35 @@
   gap: 20px;
 }
 
+.rrhh-permisos-loading .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .rrhh-permisos-header {
   margin-bottom: 30px;
+}
+
+.rrhh-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rrhh-header-content h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
 }
 
 .rrhh-permisos-content {
@@ -23,19 +50,291 @@
   margin: 0 auto;
 }
 
-.rrhh-info-box {
+/* Filtros */
+.rrhh-filters-section {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.rrhh-filter-select,
+.rrhh-date-input {
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.rrhh-filter-select:focus,
+.rrhh-date-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Lista de solicitudes */
+.rrhh-solicitudes-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+}
+
+.rrhh-solicitud-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.rrhh-solicitud-info {
+  flex: 1;
+}
+
+.rrhh-solicitud-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rrhh-solicitud-icon {
+  font-size: 24px;
+}
+
+.rrhh-solicitud-header h3 {
+  margin: 0;
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.rrhh-solicitud-info p {
+  margin: 6px 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.rrhh-solicitud-usuario,
+.rrhh-solicitud-tipo,
+.rrhh-solicitud-fechas,
+.rrhh-solicitud-aprobador,
+.rrhh-solicitud-rechazo,
+.rrhh-solicitud-fecha {
+  margin: 4px 0;
+}
+
+.rrhh-solicitud-descripcion {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-style: italic;
+}
+
+.rrhh-solicitud-rechazo {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.rrhh-solicitud-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rrhh-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.rrhh-badge.badge-pendiente {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.rrhh-badge.badge-aprobado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.rrhh-badge.badge-rechazado {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.rrhh-badge.badge-cancelado {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
+}
+
+.btn-success,
+.btn-danger,
+.btn-secondary {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-back {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.rrhh-info-box {
+  background: #f8f9fa;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   padding: 24px;
+  text-align: center;
+  grid-column: 1 / -1;
 }
 
 .rrhh-info-box p {
-  margin: 0 0 12px 0;
-  color: var(--text-muted);
+  margin: 0;
+  color: #4b5563;
 }
 
-.rrhh-info-box p:last-child {
-  margin-bottom: 0;
+/* Modal */
+.rrhh-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
 }
 
+.rrhh-modal {
+  background: var(--bg-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+}
+
+.rrhh-modal h2 {
+  margin: 0 0 24px 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .rrhh-solicitudes-list {
+    grid-template-columns: 1fr;
+  }
+
+  .rrhh-filters-section {
+    flex-direction: column;
+  }
+
+  .rrhh-filters-section > * {
+    width: 100%;
+  }
+
+  .rrhh-solicitud-actions {
+    flex-direction: column;
+  }
+
+  .rrhh-solicitud-actions button {
+    width: 100%;
+  }
+}

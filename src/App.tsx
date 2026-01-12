@@ -65,6 +65,7 @@ import LibroActasPage from './pages/LibroActasPage'
 import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
+import SolicitudesPermisosFloatingButton from './components/SolicitudesPermisosFloatingButton'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
 import type {
   HistorialMovimiento,
@@ -554,6 +555,8 @@ function AppRoutes({
       >
         🖨️
       </button>
+      {/* Botón flotante para solicitudes y permisos */}
+      <SolicitudesPermisosFloatingButton />
       <Routes>
       <Route
         path="/"
