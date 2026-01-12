@@ -1,0 +1,306 @@
+.capacitaciones-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+}
+
+.capacitaciones-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 20px;
+}
+
+.capacitaciones-loading .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.capacitaciones-header {
+  margin-bottom: 30px;
+}
+
+.capacitaciones-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.capacitaciones-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Tabs */
+.capacitaciones-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.capacitaciones-tab {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.capacitaciones-tab:hover {
+  color: var(--text-primary);
+}
+
+.capacitaciones-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+/* Filtros */
+.capacitaciones-filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.capacitaciones-filter-select {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.capacitaciones-filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Lista de capacitaciones */
+.capacitaciones-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+}
+
+.capacitacion-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.capacitacion-info {
+  flex: 1;
+}
+
+.capacitacion-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.capacitacion-icon {
+  font-size: 24px;
+}
+
+.capacitacion-header h3 {
+  margin: 0;
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+  min-width: 200px;
+}
+
+.capacitacion-descripcion {
+  color: #4b5563;
+  font-size: 0.9rem;
+  margin: 8px 0;
+}
+
+.capacitacion-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.capacitacion-details p {
+  margin: 4px 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.capacitacion-details a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.capacitacion-details a:hover {
+  text-decoration: underline;
+}
+
+.capacitacion-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.capacitacion-inscrito {
+  display: flex;
+  align-items: center;
+}
+
+.capacitacion-no-disponible {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.capacitacion-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.capacitacion-badge.badge-pendiente {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.capacitacion-badge.badge-inscrito {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.capacitacion-badge.badge-aprobado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.capacitacion-badge.badge-rechazado {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.capacitacion-badge.badge-completado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.capacitacion-badge.badge-ausente {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
+}
+
+.capacitacion-badge.badge-cancelado {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6b7280;
+}
+
+.capacitacion-badge.obligatoria {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Buttons */
+.btn-primary,
+.btn-danger {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.capacitaciones-info-box {
+  background: #f8f9fa;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+
+.capacitaciones-info-box p {
+  margin: 0;
+  color: #4b5563;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .capacitaciones-list {
+    grid-template-columns: 1fr;
+  }
+
+  .capacitaciones-filters {
+    flex-direction: column;
+  }
+
+  .capacitaciones-filters > * {
+    width: 100%;
+  }
+
+  .capacitacion-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .capacitacion-actions {
+    width: 100%;
+  }
+
+  .capacitacion-actions button {
+    width: 100%;
+  }
+}
+
