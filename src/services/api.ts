@@ -8640,6 +8640,7 @@ class ApiService {
   async crearActualizarMenuDiario(
     fecha: string,
     platoPrincipal: string,
+    creadoPor: number,
     platoSecundario: string | null = null,
     guarnicion: string | null = null,
     ensalada: string | null = null,
@@ -8647,8 +8648,7 @@ class ApiService {
     bebida: string | null = null,
     opcionVegetariana: string | null = null,
     observaciones: string | null = null,
-    activo: boolean = true,
-    creadoPor: number
+    activo: boolean = true
   ): Promise<ApiResponse<MenuDiario>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -8658,6 +8658,7 @@ class ApiService {
       const { data, error } = await supabase.rpc('crear_actualizar_menu_diario', {
         p_fecha: fecha,
         p_plato_principal: platoPrincipal,
+        p_creado_por: creadoPor,
         p_plato_secundario: platoSecundario,
         p_guarnicion: guarnicion,
         p_ensalada: ensalada,
@@ -8665,8 +8666,7 @@ class ApiService {
         p_bebida: bebida,
         p_opcion_vegetariana: opcionVegetariana,
         p_observaciones: observaciones,
-        p_activo: activo,
-        p_creado_por: creadoPor
+        p_activo: activo
       })
 
       if (error) throw error

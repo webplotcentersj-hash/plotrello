@@ -42,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_menu_selecciones_fecha ON public.menu_selecciones
 CREATE OR REPLACE FUNCTION public.crear_actualizar_menu_diario(
   p_fecha date,
   p_plato_principal varchar(255),
+  p_creado_por integer,
   p_plato_secundario varchar(255) DEFAULT NULL,
   p_guarnicion varchar(255) DEFAULT NULL,
   p_ensalada varchar(255) DEFAULT NULL,
@@ -49,8 +50,7 @@ CREATE OR REPLACE FUNCTION public.crear_actualizar_menu_diario(
   p_bebida varchar(255) DEFAULT NULL,
   p_opcion_vegetariana varchar(255) DEFAULT NULL,
   p_observaciones text DEFAULT NULL,
-  p_activo boolean DEFAULT true,
-  p_creado_por integer
+  p_activo boolean DEFAULT true
 )
 RETURNS public.menus_diarios
 LANGUAGE plpgsql

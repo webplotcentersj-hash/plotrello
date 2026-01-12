@@ -26,7 +26,11 @@ const RecursosHumanosMenuDiarioPage = () => {
     observaciones: '',
     activo: true
   })
-  const [filtros, setFiltros] = useState({
+  const [filtros, setFiltros] = useState<{
+    fechaDesde: string
+    fechaHasta: string
+    soloActivos: boolean
+  }>({
     fechaDesde: '',
     fechaHasta: '',
     soloActivos: true
@@ -45,8 +49,8 @@ const RecursosHumanosMenuDiarioPage = () => {
     setLoading(true)
     try {
       const response = await apiService.obtenerMenusDiarios(
-        filtros.fechaDesde || null,
-        filtros.fechaHasta || null,
+        filtros.fechaDesde ? filtros.fechaDesde : null,
+        filtros.fechaHasta ? filtros.fechaHasta : null,
         filtros.soloActivos
       )
       if (response.success && response.data) {
@@ -110,6 +114,7 @@ const RecursosHumanosMenuDiarioPage = () => {
     const response = await apiService.crearActualizarMenuDiario(
       formData.fecha,
       formData.plato_principal,
+      usuario.id,
       formData.plato_secundario || null,
       formData.guarnicion || null,
       formData.ensalada || null,
@@ -117,8 +122,7 @@ const RecursosHumanosMenuDiarioPage = () => {
       formData.bebida || null,
       formData.opcion_vegetariana || null,
       formData.observaciones || null,
-      formData.activo,
-      usuario.id
+      formData.activo
     )
 
     if (response.success) {
@@ -218,12 +222,12 @@ const RecursosHumanosMenuDiarioPage = () => {
       doc.setFontSize(10)
       
       // Encabezados de tabla
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('Empleado', margin, yPos)
       doc.text('Selección', margin + 80, yPos)
       doc.text('Observaciones', margin + 120, yPos)
       yPos += 6
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       
       selecciones.forEach((sel) => {
         if (yPos > 270) {
