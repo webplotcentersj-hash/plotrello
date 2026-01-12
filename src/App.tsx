@@ -45,6 +45,8 @@ import RecursosHumanosEvaluacionesPage from './pages/RecursosHumanosEvaluaciones
 import RecursosHumanosEstadisticasPage from './pages/RecursosHumanosEstadisticasPage'
 import RecursosHumanosPermisosPage from './pages/RecursosHumanosPermisosPage'
 import RecursosHumanosNotificacionesPage from './pages/RecursosHumanosNotificacionesPage'
+import RecursosHumanosCapacitacionesPage from './pages/RecursosHumanosCapacitacionesPage'
+import CapacitacionesPage from './pages/CapacitacionesPage'
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -775,6 +777,10 @@ function AppRoutes({
         element={<RecursosHumanosEvaluacionesPage />}
       />
       <Route
+        path="/rrhh/capacitaciones"
+        element={<RecursosHumanosCapacitacionesPage />}
+      />
+      <Route
         path="/rrhh/estadisticas"
         element={<RecursosHumanosEstadisticasPage />}
       />
@@ -785,6 +791,10 @@ function AppRoutes({
       <Route
         path="/rrhh/notificaciones"
         element={<RecursosHumanosNotificacionesPage />}
+      />
+      <Route
+        path="/capacitaciones"
+        element={<CapacitacionesPage />}
       />
       {/* Rutas de Gestión de Clientes Web */}
       <Route

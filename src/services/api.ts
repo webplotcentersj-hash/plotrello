@@ -31,7 +31,9 @@ import type {
   Asistencia,
   SolicitudPermiso,
   Evaluacion,
-  CriterioEvaluacion
+  CriterioEvaluacion,
+  Capacitacion,
+  InscripcionCapacitacion
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -8122,6 +8124,374 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al eliminar evaluación'
+      }
+    }
+  }
+
+  // ============================================
+  // CAPACITACIONES
+  // ============================================
+
+  async crearCapacitacion(
+    titulo: string,
+    descripcion: string | null = null,
+    tipoCapacitacion: 'presencial' | 'virtual' | 'mixta' | 'online' = 'presencial',
+    categoria: string | null = null,
+    duracionHoras: number | null = null,
+    fechaInicio: string | null = null,
+    fechaFin: string | null = null,
+    fechaLimiteInscripcion: string | null = null,
+    cupoMaximo: number | null = null,
+    lugar: string | null = null,
+    linkVirtual: string | null = null,
+    instructor: string | null = null,
+    esObligatoria: boolean = false,
+    requiereAprobacion: boolean = true,
+    materialAdjuntoUrl: string | null = null,
+    observaciones: string | null = null,
+    creadoPor: number
+  ): Promise<ApiResponse<Capacitacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_capacitacion', {
+        p_titulo: titulo,
+        p_descripcion: descripcion,
+        p_tipo_capacitacion: tipoCapacitacion,
+        p_categoria: categoria,
+        p_duracion_horas: duracionHoras,
+        p_fecha_inicio: fechaInicio,
+        p_fecha_fin: fechaFin,
+        p_fecha_limite_inscripcion: fechaLimiteInscripcion,
+        p_cupo_maximo: cupoMaximo,
+        p_lugar: lugar,
+        p_link_virtual: linkVirtual,
+        p_instructor: instructor,
+        p_es_obligatoria: esObligatoria,
+        p_requiere_aprobacion: requiereAprobacion,
+        p_material_adjunto_url: materialAdjuntoUrl,
+        p_observaciones: observaciones,
+        p_creado_por: creadoPor
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as Capacitacion
+      }
+    } catch (error: any) {
+      console.error('Error al crear capacitación:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear capacitación'
+      }
+    }
+  }
+
+  async obtenerCapacitaciones(
+    estado: string | null = null,
+    tipoCapacitacion: string | null = null,
+    categoria: string | null = null,
+    fechaDesde: string | null = null,
+    fechaHasta: string | null = null,
+    idUsuario: number | null = null
+  ): Promise<ApiResponse<Capacitacion[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_capacitaciones', {
+        p_estado: estado,
+        p_tipo_capacitacion: tipoCapacitacion,
+        p_categoria: categoria,
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta,
+        p_id_usuario: idUsuario
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as Capacitacion[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener capacitaciones:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener capacitaciones'
+      }
+    }
+  }
+
+  async inscribirseCapacitacion(
+    idCapacitacion: number,
+    idUsuario: number
+  ): Promise<ApiResponse<InscripcionCapacitacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('inscribirse_capacitacion', {
+        p_id_capacitacion: idCapacitacion,
+        p_id_usuario: idUsuario
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as InscripcionCapacitacion
+      }
+    } catch (error: any) {
+      console.error('Error al inscribirse:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al inscribirse a la capacitación'
+      }
+    }
+  }
+
+  async aprobarRechazarInscripcion(
+    id: number,
+    estado: 'aprobado' | 'rechazado',
+    idAprobador: number,
+    motivoRechazo: string | null = null
+  ): Promise<ApiResponse<InscripcionCapacitacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('aprobar_rechazar_inscripcion', {
+        p_id: id,
+        p_estado: estado,
+        p_id_aprobador: idAprobador,
+        p_motivo_rechazo: motivoRechazo
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as InscripcionCapacitacion
+      }
+    } catch (error: any) {
+      console.error('Error al aprobar/rechazar inscripción:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al procesar la inscripción'
+      }
+    }
+  }
+
+  async obtenerInscripcionesCapacitacion(
+    idCapacitacion: number,
+    estado: string | null = null
+  ): Promise<ApiResponse<InscripcionCapacitacion[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_inscripciones_capacitacion', {
+        p_id_capacitacion: idCapacitacion,
+        p_estado: estado
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as InscripcionCapacitacion[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener inscripciones:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener inscripciones'
+      }
+    }
+  }
+
+  async obtenerCapacitacionesUsuario(
+    idUsuario: number,
+    estadoInscripcion: string | null = null
+  ): Promise<ApiResponse<Capacitacion[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_capacitaciones_usuario', {
+        p_id_usuario: idUsuario,
+        p_estado_inscripcion: estadoInscripcion
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as Capacitacion[]
+      }
+    } catch (error: any) {
+      console.error('Error al obtener capacitaciones del usuario:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener capacitaciones'
+      }
+    }
+  }
+
+  async actualizarCapacitacion(
+    id: number,
+    titulo: string | null = null,
+    descripcion: string | null = null,
+    tipoCapacitacion: string | null = null,
+    categoria: string | null = null,
+    duracionHoras: number | null = null,
+    fechaInicio: string | null = null,
+    fechaFin: string | null = null,
+    fechaLimiteInscripcion: string | null = null,
+    cupoMaximo: number | null = null,
+    lugar: string | null = null,
+    linkVirtual: string | null = null,
+    instructor: string | null = null,
+    estado: string | null = null,
+    esObligatoria: boolean | null = null,
+    requiereAprobacion: boolean | null = null,
+    materialAdjuntoUrl: string | null = null,
+    observaciones: string | null = null
+  ): Promise<ApiResponse<Capacitacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('actualizar_capacitacion', {
+        p_id: id,
+        p_titulo: titulo,
+        p_descripcion: descripcion,
+        p_tipo_capacitacion: tipoCapacitacion,
+        p_categoria: categoria,
+        p_duracion_horas: duracionHoras,
+        p_fecha_inicio: fechaInicio,
+        p_fecha_fin: fechaFin,
+        p_fecha_limite_inscripcion: fechaLimiteInscripcion,
+        p_cupo_maximo: cupoMaximo,
+        p_lugar: lugar,
+        p_link_virtual: linkVirtual,
+        p_instructor: instructor,
+        p_estado: estado,
+        p_es_obligatoria: esObligatoria,
+        p_requiere_aprobacion: requiereAprobacion,
+        p_material_adjunto_url: materialAdjuntoUrl,
+        p_observaciones: observaciones
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as Capacitacion
+      }
+    } catch (error: any) {
+      console.error('Error al actualizar capacitación:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar capacitación'
+      }
+    }
+  }
+
+  async registrarAsistenciaCapacitacion(
+    idInscripcion: number,
+    asistio: boolean,
+    calificacion: number | null = null,
+    comentarios: string | null = null
+  ): Promise<ApiResponse<InscripcionCapacitacion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('registrar_asistencia_capacitacion', {
+        p_id_inscripcion: idInscripcion,
+        p_asistio: asistio,
+        p_calificacion: calificacion,
+        p_comentarios: comentarios
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as InscripcionCapacitacion
+      }
+    } catch (error: any) {
+      console.error('Error al registrar asistencia:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al registrar asistencia'
+      }
+    }
+  }
+
+  async cancelarInscripcion(
+    idInscripcion: number,
+    idUsuario: number
+  ): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('cancelar_inscripcion', {
+        p_id_inscripcion: idInscripcion,
+        p_id_usuario: idUsuario
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al cancelar inscripción:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al cancelar inscripción'
+      }
+    }
+  }
+
+  async eliminarCapacitacion(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_capacitacion', {
+        p_id: id
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as boolean
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar capacitación:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al eliminar capacitación'
       }
     }
   }

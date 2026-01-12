@@ -616,3 +616,50 @@ export interface CriterioEvaluacion {
   created_at: string
 }
 
+export interface Capacitacion {
+  id: number
+  titulo: string
+  descripcion: string | null
+  tipo_capacitacion: 'presencial' | 'virtual' | 'mixta' | 'online'
+  categoria: string | null
+  duracion_horas: number | null
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  fecha_limite_inscripcion: string | null
+  cupo_maximo: number | null
+  lugar: string | null
+  link_virtual: string | null
+  instructor: string | null
+  estado: 'planificada' | 'abierta' | 'en_curso' | 'completada' | 'cancelada'
+  es_obligatoria: boolean
+  requiere_aprobacion: boolean
+  material_adjunto_url: string | null
+  observaciones: string | null
+  creado_por: number
+  creado_por_nombre?: string
+  inscripciones_count?: number
+  cupos_disponibles?: number | null
+  usuario_inscrito?: boolean
+  estado_inscripcion?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface InscripcionCapacitacion {
+  id: number
+  id_capacitacion: number
+  id_usuario: number
+  nombre_usuario?: string
+  fecha_inscripcion: string
+  estado: 'pendiente' | 'inscrito' | 'aprobado' | 'rechazado' | 'completado' | 'ausente' | 'cancelado'
+  asistio: boolean
+  calificacion: number | null
+  comentarios: string | null
+  aprobado_por: number | null
+  aprobado_por_nombre?: string | null
+  fecha_aprobacion: string | null
+  motivo_rechazo: string | null
+  created_at: string
+  updated_at: string
+}
+

@@ -166,6 +166,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/capacitaciones')}
+            >
+              <div className="rrhh-action-icon">📚</div>
+              <h3>Capacitaciones</h3>
+              <p>Gestionar capacitaciones y cursos</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/estadisticas')}
             >
               <div className="rrhh-action-icon">📈</div>
