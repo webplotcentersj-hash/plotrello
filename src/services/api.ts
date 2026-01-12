@@ -8647,11 +8647,18 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('crear_actualizar_menu_diario', {
+      // Si no se especifica fecha, no pasamos el parámetro para que use el DEFAULT CURRENT_DATE
+      const params: any = {
         p_creado_por: creadoPor,
-        p_platos: platos.filter(p => p && p.trim() !== ''),
-        p_fecha: fecha || null
-      })
+        p_platos: platos.filter(p => p && p.trim() !== '')
+      }
+      
+      // Solo agregar p_fecha si se especifica explícitamente
+      if (fecha) {
+        params.p_fecha = fecha
+      }
+      
+      const { data, error } = await supabase.rpc('crear_actualizar_menu_diario', params)
 
       if (error) throw error
 
