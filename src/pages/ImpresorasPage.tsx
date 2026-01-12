@@ -503,7 +503,7 @@ const ImpresorasPage = () => {
                       style={{
                         width: '100%',
                         height: '24px',
-                        backgroundColor: '#e5e7eb',
+                        backgroundColor: '#1f2937',
                         borderRadius: '12px',
                         overflow: 'hidden',
                         position: 'relative'
@@ -523,9 +523,10 @@ const ImpresorasPage = () => {
                           top: '50%',
                           left: '50%',
                           transform: 'translate(-50%, -50%)',
-                          color: impresora.porcentaje_ocupacion_hoy > 50 ? '#fff' : '#000',
+                          color: '#fff',
                           fontWeight: 'bold',
-                          fontSize: '12px'
+                          fontSize: '12px',
+                          textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
                         }}
                       >
                         {impresora.porcentaje_ocupacion_hoy.toFixed(1)}%
@@ -545,7 +546,7 @@ const ImpresorasPage = () => {
                       style={{
                         width: '100%',
                         height: '24px',
-                        backgroundColor: '#e5e7eb',
+                        backgroundColor: '#1f2937',
                         borderRadius: '12px',
                         overflow: 'hidden',
                         position: 'relative'
@@ -565,9 +566,10 @@ const ImpresorasPage = () => {
                           top: '50%',
                           left: '50%',
                           transform: 'translate(-50%, -50%)',
-                          color: impresora.porcentaje_ocupacion_semana > 50 ? '#fff' : '#000',
+                          color: '#fff',
                           fontWeight: 'bold',
-                          fontSize: '12px'
+                          fontSize: '12px',
+                          textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
                         }}
                       >
                         {impresora.porcentaje_ocupacion_semana.toFixed(1)}%
