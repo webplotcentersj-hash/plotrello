@@ -5,21 +5,21 @@ import SolicitudPermisoModal from './SolicitudPermisoModal'
 import './SolicitudesPermisosFloatingButton.css'
 
 const SolicitudesPermisosFloatingButton = () => {
-  const { user } = useAuth()
+  const { usuario } = useAuth()
   const [showModal, setShowModal] = useState(false)
   const [pendientesCount, setPendientesCount] = useState(0)
 
   useEffect(() => {
-    if (user?.id) {
+    if (usuario?.id) {
       loadPendientesCount()
     }
-  }, [user?.id])
+  }, [usuario?.id])
 
   const loadPendientesCount = async () => {
-    if (!user?.id) return
+    if (!usuario?.id) return
 
     const response = await apiService.obtenerSolicitudesPermisos(
-      user.id,
+      usuario.id,
       'pendiente',
       null,
       null,
@@ -31,7 +31,7 @@ const SolicitudesPermisosFloatingButton = () => {
     }
   }
 
-  if (!user) return null
+  if (!usuario) return null
 
   return (
     <>

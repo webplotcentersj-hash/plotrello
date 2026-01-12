@@ -11,7 +11,7 @@ interface SolicitudPermisoModalProps {
 }
 
 const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: SolicitudPermisoModalProps) => {
-  const { user } = useAuth()
+  const { usuario } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -44,14 +44,14 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user?.id) return
+    if (!usuario?.id) return
 
     setLoading(true)
     setError(null)
 
     try {
       const response = await apiService.crearSolicitudPermiso(
-        user.id,
+        usuario.id,
         formData.tipo_solicitud,
         formData.titulo,
         formData.descripcion || null,

@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { SolicitudPermiso } from '../types/api'
-import SolicitudPermisoModal from '../components/SolicitudPermisoModal'
 import './RecursosHumanosPermisosPage.css'
 
 const RecursosHumanosPermisosPage = () => {
   const navigate = useNavigate()
-  const { canManageRecursosHumanos, user, loading: authLoading } = useAuth()
+  const { canManageRecursosHumanos, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [solicitudes, setSolicitudes] = useState<SolicitudPermiso[]>([])
   const [filtros, setFiltros] = useState({
@@ -46,12 +45,12 @@ const RecursosHumanosPermisosPage = () => {
   }
 
   const handleAprobar = async (solicitud: SolicitudPermiso) => {
-    if (!user?.id) return
+    if (!usuario?.id) return
 
     const response = await apiService.aprobarRechazarSolicitud(
       solicitud.id,
       'aprobado',
-      user.id,
+      usuario.id,
       null,
       null
     )
@@ -66,7 +65,7 @@ const RecursosHumanosPermisosPage = () => {
   }
 
   const handleRechazar = async () => {
-    if (!user?.id || !solicitudSeleccionada) return
+    if (!usuario?.id || !solicitudSeleccionada) return
 
     if (!motivoRechazo.trim()) {
       alert('Por favor, ingresa un motivo de rechazo')
@@ -76,7 +75,7 @@ const RecursosHumanosPermisosPage = () => {
     const response = await apiService.aprobarRechazarSolicitud(
       solicitudSeleccionada.id,
       'rechazado',
-      user.id,
+      usuario.id,
       motivoRechazo,
       null
     )
