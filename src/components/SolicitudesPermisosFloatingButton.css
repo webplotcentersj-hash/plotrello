@@ -1,5 +1,5 @@
 .solicitudes-floating-button {
-  position: fixed;
+  position: fixed !important;
   bottom: 100px;
   right: 30px;
   width: 60px;
@@ -11,7 +11,7 @@
   font-size: 28px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-  z-index: 999;
+  z-index: 1001 !important;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -18,20 +18,27 @@ const SolicitudesPermisosFloatingButton = () => {
   const loadPendientesCount = async () => {
     if (!usuario?.id) return
 
-    const response = await apiService.obtenerSolicitudesPermisos(
-      usuario.id,
-      'pendiente',
-      null,
-      null,
-      null
-    )
+    try {
+      const response = await apiService.obtenerSolicitudesPermisos(
+        usuario.id,
+        'pendiente',
+        null,
+        null,
+        null
+      )
 
-    if (response.success && response.data) {
-      setPendientesCount(response.data.length)
+      if (response.success && response.data) {
+        setPendientesCount(response.data.length)
+      }
+    } catch (error) {
+      console.error('Error al cargar solicitudes pendientes:', error)
     }
   }
 
-  if (!usuario) return null
+  // Mostrar el botón siempre que haya un usuario autenticado
+  if (!usuario) {
+    return null
+  }
 
   return (
     <>
