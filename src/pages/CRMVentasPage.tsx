@@ -6,6 +6,7 @@ import { supabase } from '../services/supabaseClient'
 import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
+import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF } from '../utils/crmExportUtils'
 import './CRMVentasPage.css'
 
 const CRMVentasPage = () => {
@@ -899,6 +900,26 @@ const CRMVentasPage = () => {
             <button className="btn-secondary" onClick={() => navigate('/reportes-ventas')}>
               📊 Ver Reportes
             </button>
+            {activeTab === 'ventas' && ventasFiltradas.length > 0 && (
+              <div className="export-dropdown">
+                <button className="btn-secondary">
+                  📥 Exportar
+                </button>
+                <div className="export-menu">
+                  <button onClick={() => exportarVentasPDF(ventasFiltradas, { fechaDesde, fechaHasta, estadoPago: filtroEstadoPago })}>
+                    📄 Exportar a PDF
+                  </button>
+                  <button onClick={() => exportarVentasExcel(ventasFiltradas, { fechaDesde, fechaHasta, estadoPago: filtroEstadoPago })}>
+                    📊 Exportar a Excel
+                  </button>
+                </div>
+              </div>
+            )}
+            {activeTab === 'oportunidades' && oportunidadesFiltradas.length > 0 && (
+              <button className="btn-secondary" onClick={() => exportarOportunidadesPDF(oportunidadesFiltradas)}>
+                📄 Exportar PDF
+              </button>
+            )}
           </div>
         </div>
         
@@ -1257,6 +1278,19 @@ const CRMVentasPage = () => {
                   >
                     ✏️ Editar
                   </button>
+                  <div className="export-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
+                    <button className="btn-action">
+                      📄 Documentos
+                    </button>
+                    <div className="export-menu" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 1000 }}>
+                      <button onClick={() => generarFacturaRemitoPDF(venta, 'factura')}>
+                        🧾 Generar Factura
+                      </button>
+                      <button onClick={() => generarFacturaRemitoPDF(venta, 'remito')}>
+                        📋 Generar Remito
+                      </button>
+                    </div>
+                  </div>
                   <select
                     className="btn-action"
                     value={venta.estado_pago}
