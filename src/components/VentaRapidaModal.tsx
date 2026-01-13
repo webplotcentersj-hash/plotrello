@@ -218,22 +218,32 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         throw new Error(ventaResponse.error || 'Error al crear venta')
       }
 
-      // Agregar items a la venta
+      // Agregar items a la venta (el stock se descuenta automáticamente en agregarItemVenta)
       for (const item of itemsVenta) {
-        await apiService.agregarItemVenta({
-          id_venta: ventaResponse.data.id,
-          id_articulo_stock: item.id_articulo_stock,
-          codigo_articulo: item.codigo_articulo,
-          descripcion: item.descripcion,
-          cantidad: item.cantidad,
-          precio_unitario: item.precio_unitario,
-          descuento: item.descuento,
-          observaciones: item.observaciones
-        })
+        try {
+          const itemResponse = await apiService.agregarItemVenta({
+            id_venta: ventaResponse.data.id,
+            id_articulo_stock: item.id_articulo_stock,
+            codigo_articulo: item.codigo_articulo,
+            descripcion: item.descripcion,
+            cantidad: item.cantidad,
+            precio_unitario: item.precio_unitario,
+            descuento: item.descuento,
+            observaciones: item.observaciones
+          })
+
+          if (!itemResponse.success) {
+            console.error('Error agregando item:', itemResponse.error)
+            throw new Error(`Error agregando item: ${itemResponse.error}`)
+          }
+        } catch (itemError) {
+          console.error('Error procesando item:', itemError)
+          throw itemError // Re-lanzar para que se muestre el error al usuario
+        }
       }
 
-      // Obtener la venta completa
-      if (ventaResponse.data) {
+      // Obtener la venta completa con items para mostrarla
+      try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
           const ventaCompleta = ventasResponse.data.find(v => v.id === ventaResponse.data!.id)
@@ -241,6 +251,9 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
             setVentaCreada(ventaCompleta)
           }
         }
+      } catch (error) {
+        console.error('Error obteniendo venta completa:', error)
+        // No fallar la venta si hay error obteniendo la venta completa
       }
 
       alert(`Venta creada exitosamente: ${ventaResponse.data.numero_venta}`)
