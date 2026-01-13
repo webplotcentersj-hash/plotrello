@@ -7,6 +7,7 @@ import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord } 
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
 import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF } from '../utils/crmExportUtils'
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './CRMVentasPage.css'
 
 const CRMVentasPage = () => {
@@ -40,7 +41,15 @@ const CRMVentasPage = () => {
     ingresosPagados: 0,
     ventasPendientes: 0,
     ingresosPendientes: 0,
-    ticketPromedio: 0
+    ticketPromedio: 0,
+    // KPIs avanzados
+    tasaConversion: 0,
+    tiempoPromedioCierre: 0,
+    valorPromedioOportunidad: 0,
+    oportunidadesActivas: 0,
+    oportunidadesCerradas: 0,
+    oportunidadesPerdidas: 0,
+    valorTotalOportunidades: 0
   })
   
   // Búsqueda de clientes
