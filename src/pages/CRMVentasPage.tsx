@@ -324,6 +324,11 @@ const CRMVentasPage = () => {
       if (ordenesResponse.success && ordenesResponse.data) {
         setOrdenesDisponibles(ordenesResponse.data)
       }
+
+      // Verificar recordatorios después de cargar los datos
+      if (oppResponse.success && oppResponse.data && ventasResponse.success && ventasResponse.data) {
+        await verificarRecordatorios(oppResponse.data, ventasResponse.data)
+      }
     } catch (error) {
       console.error('Error cargando datos:', error)
     } finally {
