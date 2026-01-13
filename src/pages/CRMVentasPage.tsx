@@ -27,9 +27,12 @@ const CRMVentasPage = () => {
   const [ventas, setVentas] = useState<Venta[]>([])
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([])
   const [filtroEstadoPago, setFiltroEstadoPago] = useState<string>('todos')
+  const [filtroMetodoPago, setFiltroMetodoPago] = useState<string>('todos')
+  const [filtroVendedor, setFiltroVendedor] = useState<string>('todos')
   const [busquedaVenta, setBusquedaVenta] = useState('')
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
+  const [mostrarFiltrosAvanzados, setMostrarFiltrosAvanzados] = useState(false)
   const [estadisticas, setEstadisticas] = useState({
     totalVentas: 0,
     totalIngresos: 0,
@@ -752,8 +755,9 @@ const CRMVentasPage = () => {
         descripcion += `\nObservaciones: ${venta.observaciones}`
       }
 
-      // Crear la OP
+      // Crear la OP usando el número de venta como número de OP
       const ordenResponse = await apiService.createOrden({
+        numero_op: venta.numero_venta, // Usar el número de venta como número de OP
         cliente: venta.cliente_nombre,
         dni_cuit: venta.cliente_dni_cuit || undefined,
         descripcion: descripcion,
