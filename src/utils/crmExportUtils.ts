@@ -6,7 +6,7 @@ import { formatArgentinaDate } from './dateUtils'
 /**
  * Exporta ventas a PDF
  */
-export function exportarVentasPDF(ventas: Venta[], filtros?: { fechaDesde?: string; fechaHasta?: string; estadoPago?: string }): void {
+export function exportarVentasPDF(ventas: Venta[], _filtros?: { fechaDesde?: string; fechaHasta?: string; estadoPago?: string }): void {
   const doc = new jsPDF('l', 'mm', 'a4') // Landscape para más espacio
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
