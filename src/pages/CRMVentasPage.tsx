@@ -149,6 +149,89 @@ const CRMVentasPage = () => {
     }
   }, []) // loadData no necesita estar en dependencias porque es estable
 
+  // Función para verificar y crear recordatorios
+  const verificarRecordatorios = async (oportunidades: OportunidadVenta[], ventas: Venta[]) => {
+    if (!usuario) return
+
+    try {
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      const hoyISO = hoy.toISOString().split('T')[0]
+      
+      // Verificar oportunidades próximas a vencer (próximos 7 días)
+      const fechaLimite = new Date()
+      fechaLimite.setDate(fechaLimite.getDate() + 7)
+      const fechaLimiteISO = fechaLimite.toISOString().split('T')[0]
+
+      for (const opp of oportunidades) {
+        if (!opp.activo || opp.etapa === 'Cerrado' || opp.etapa === 'Perdido') continue
+
+        // Verificar si hay seguimientos pendientes (con fecha_proxima_accion en el pasado o hoy)
+        if (opp.seguimientos && opp.seguimientos.length > 0) {
+          const seguimientosPendientes = opp.seguimientos.filter(seg => {
+            if (!seg.fecha_proxima_accion) return false
+            const fechaAccion = new Date(seg.fecha_proxima_accion)
+            fechaAccion.setHours(0, 0, 0, 0)
+            return fechaAccion <= hoy && !seg.realizada // Asumiendo que hay un campo 'realizada'
+          })
+
+          if (seguimientosPendientes.length > 0 && opp.id_vendedor === usuario.id) {
+            await apiService.createNotification({
+              user_id: usuario.id,
+              title: `⏰ Seguimiento Pendiente: ${opp.cliente_nombre}`,
+              description: `Tienes ${seguimientosPendientes.length} seguimiento(s) pendiente(s) para la oportunidad ${opp.numero_oportunidad}`,
+              type: 'warning'
+            })
+          }
+        }
+
+        // Verificar oportunidades próximas a vencer
+        if (opp.fecha_cierre_estimada && opp.id_vendedor === usuario.id) {
+          const fechaCierre = new Date(opp.fecha_cierre_estimada)
+          fechaCierre.setHours(0, 0, 0, 0)
+          const fechaCierreISO = fechaCierre.toISOString().split('T')[0]
+          
+          if (fechaCierreISO >= hoyISO && fechaCierreISO <= fechaLimiteISO) {
+            const diasRestantes = Math.ceil((fechaCierre.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
+            await apiService.createNotification({
+              user_id: usuario.id,
+              title: `📅 Oportunidad Próxima a Vencer: ${opp.cliente_nombre}`,
+              description: `La oportunidad ${opp.numero_oportunidad} vence en ${diasRestantes} día(s). Valor estimado: $${(opp.valor_estimado || 0).toLocaleString()}`,
+              type: diasRestantes <= 2 ? 'error' : 'warning',
+              oportunidad_id: opp.id
+            })
+          }
+        }
+      }
+
+      // Verificar ventas pendientes de pago (más de 7 días)
+      const fechaLimitePago = new Date()
+      fechaLimitePago.setDate(fechaLimitePago.getDate() - 7)
+      const fechaLimitePagoISO = fechaLimitePago.toISOString().split('T')[0]
+
+      for (const venta of ventas) {
+        if (venta.estado_pago === 'Pendiente' && venta.id_vendedor === usuario.id) {
+          const fechaVenta = new Date(venta.fecha_venta)
+          fechaVenta.setHours(0, 0, 0, 0)
+          const fechaVentaISO = fechaVenta.toISOString().split('T')[0]
+          
+          if (fechaVentaISO <= fechaLimitePagoISO) {
+            const diasPendiente = Math.ceil((hoy.getTime() - fechaVenta.getTime()) / (1000 * 60 * 60 * 24))
+            await apiService.createNotification({
+              user_id: usuario.id,
+              title: `💰 Venta Pendiente de Pago: ${venta.cliente_nombre}`,
+              description: `La venta ${venta.numero_venta} lleva ${diasPendiente} día(s) pendiente de pago. Monto: $${venta.valor_total.toLocaleString()}`,
+              type: 'warning',
+              venta_id: venta.id
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error verificando recordatorios:', error)
+    }
+  }
+
   const loadData = async () => {
     setLoading(true)
     try {

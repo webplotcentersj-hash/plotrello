@@ -2745,6 +2745,8 @@ class ApiService {
     pedido_id?: number
     solicitud_id?: number
     capacitacion_id?: number
+    oportunidad_id?: number
+    venta_id?: number
   }): Promise<ApiResponse<Notification>> {
     if (supabase) {
       const { data, error } = await supabase
@@ -2758,6 +2760,8 @@ class ApiService {
           pedido_id: notification.pedido_id || null,
           solicitud_id: notification.solicitud_id || null,
           capacitacion_id: notification.capacitacion_id || null,
+          oportunidad_id: notification.oportunidad_id || null,
+          venta_id: notification.venta_id || null,
           is_read: false
         })
         .select()

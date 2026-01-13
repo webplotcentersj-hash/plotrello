@@ -482,6 +482,8 @@ export interface Notification {
   pedido_id: number | null
   solicitud_id?: number | null
   capacitacion_id?: number | null
+  oportunidad_id?: number | null
+  venta_id?: number | null
   is_read: boolean
   timestamp: string
 }
