@@ -135,7 +135,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: #ffffff !important;
   font-size: 0.9rem;
 }
 
