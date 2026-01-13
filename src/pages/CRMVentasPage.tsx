@@ -1298,6 +1298,118 @@ const CRMVentasPage = () => {
             </div>
           </div>
         )}
+        
+        {/* Alertas y Recordatorios */}
+        {usuario && (
+          <div className="alertas-section" style={{ 
+            marginTop: '24px', 
+            padding: '16px', 
+            background: 'rgba(245, 158, 11, 0.1)', 
+            borderRadius: '12px',
+            border: '1px solid rgba(245, 158, 11, 0.3)'
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', color: '#fbbf24', fontSize: '1rem', fontWeight: 700 }}>
+              ⚠️ Recordatorios Activos
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {(() => {
+                const hoy = new Date()
+                hoy.setHours(0, 0, 0, 0)
+                const hoyISO = hoy.toISOString().split('T')[0]
+                const fechaLimite = new Date()
+                fechaLimite.setDate(fechaLimite.getDate() + 7)
+                const fechaLimiteISO = fechaLimite.toISOString().split('T')[0]
+                const fechaLimitePago = new Date()
+                fechaLimitePago.setDate(fechaLimitePago.getDate() - 7)
+                const fechaLimitePagoISO = fechaLimitePago.toISOString().split('T')[0]
+
+                const alertas: Array<{ tipo: string; mensaje: string; color: string }> = []
+
+                // Oportunidades próximas a vencer
+                if (activeTab === 'oportunidades') {
+                  const oppsProximas = oportunidades.filter(opp => {
+                    if (!opp.activo || opp.etapa === 'Cerrado' || opp.etapa === 'Perdido' || opp.id_vendedor !== usuario.id) return false
+                    if (!opp.fecha_cierre_estimada) return false
+                    const fechaCierre = new Date(opp.fecha_cierre_estimada)
+                    fechaCierre.setHours(0, 0, 0, 0)
+                    const fechaCierreISO = fechaCierre.toISOString().split('T')[0]
+                    return fechaCierreISO >= hoyISO && fechaCierreISO <= fechaLimiteISO
+                  })
+
+                  if (oppsProximas.length > 0) {
+                    alertas.push({
+                      tipo: 'oportunidades',
+                      mensaje: `${oppsProximas.length} oportunidad(es) próxima(s) a vencer en los próximos 7 días`,
+                      color: '#f59e0b'
+                    })
+                  }
+
+                  // Seguimientos pendientes
+                  const seguimientosPendientes = oportunidades.reduce((count, opp) => {
+                    if (!opp.activo || opp.etapa === 'Cerrado' || opp.etapa === 'Perdido' || opp.id_vendedor !== usuario.id) return count
+                    if (!opp.seguimientos) return count
+                    const pendientes = opp.seguimientos.filter(seg => {
+                      if (!seg.fecha_proxima_accion) return false
+                      const fechaAccion = new Date(seg.fecha_proxima_accion)
+                      fechaAccion.setHours(0, 0, 0, 0)
+                      return fechaAccion <= hoy
+                    })
+                    return count + pendientes.length
+                  }, 0)
+
+                  if (seguimientosPendientes > 0) {
+                    alertas.push({
+                      tipo: 'seguimientos',
+                      mensaje: `${seguimientosPendientes} seguimiento(s) pendiente(s)`,
+                      color: '#ef4444'
+                    })
+                  }
+                }
+
+                // Ventas pendientes de pago
+                if (activeTab === 'ventas') {
+                  const ventasPendientes = ventas.filter(v => {
+                    if (v.estado_pago !== 'Pendiente' || v.id_vendedor !== usuario.id) return false
+                    const fechaVenta = new Date(v.fecha_venta)
+                    fechaVenta.setHours(0, 0, 0, 0)
+                    const fechaVentaISO = fechaVenta.toISOString().split('T')[0]
+                    return fechaVentaISO <= fechaLimitePagoISO
+                  })
+
+                  if (ventasPendientes.length > 0) {
+                    const totalPendiente = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
+                    alertas.push({
+                      tipo: 'pagos',
+                      mensaje: `${ventasPendientes.length} venta(s) pendiente(s) de pago por más de 7 días. Total: $${totalPendiente.toLocaleString()}`,
+                      color: '#ef4444'
+                    })
+                  }
+                }
+
+                if (alertas.length === 0) {
+                  return (
+                    <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.875rem' }}>
+                      ✅ No hay recordatorios pendientes
+                    </p>
+                  )
+                }
+
+                return alertas.map((alerta, index) => (
+                  <div key={index} style={{ 
+                    padding: '8px 12px', 
+                    background: 'rgba(255, 255, 255, 0.05)', 
+                    borderRadius: '8px',
+                    borderLeft: `3px solid ${alerta.color}`
+                  }}>
+                    <p style={{ margin: 0, color: 'white', fontSize: '0.875rem' }}>
+                      {alerta.mensaje}
+                    </p>
+                  </div>
+                ))
+              })()}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Tabs */}
