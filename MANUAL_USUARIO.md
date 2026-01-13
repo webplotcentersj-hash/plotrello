@@ -822,7 +822,388 @@ La página muestra:
 
 ---
 
-## 12. Atajos de Teclado
+## 12. Sistema de Capacitaciones
+
+### 12.1 Acceder a Capacitaciones
+
+Todos los usuarios pueden acceder a las capacitaciones:
+
+- Haz clic en **📚 Capacitaciones** en el header
+- O navega a `/capacitaciones`
+
+### 12.2 Ver Capacitaciones Disponibles
+
+La página muestra todas las capacitaciones disponibles:
+
+- **Capacitaciones Abiertas**: Disponibles para inscripción
+- **Capacitaciones Planificadas**: Próximas a iniciar
+- **Capacitaciones en Curso**: Actualmente activas
+- **Mis Capacitaciones**: Capacitaciones en las que estás inscrito
+
+### 12.3 Inscribirse en una Capacitación
+
+1. Busca la capacitación que te interesa
+2. Haz clic en **"Inscribirse"**
+3. Si la capacitación requiere aprobación, espera la confirmación de RRHH
+4. Recibirás una notificación cuando tu inscripción sea aprobada o rechazada
+
+**Nota:** Algunas capacitaciones son obligatorias y se inscribirán automáticamente.
+
+### 12.4 Ver Mis Capacitaciones
+
+En la sección "Mis Capacitaciones" verás:
+
+- **Estado de inscripción**: Pendiente, Aprobada, Rechazada
+- **Fecha de inicio y fin**
+- **Asistencia**: Si asististe o no
+- **Calificación**: Si la capacitación tiene evaluación
+
+### 12.5 Gestión de Capacitaciones (RRHH/Admin)
+
+Los usuarios de RRHH y Admin pueden gestionar capacitaciones:
+
+1. Accede a **👥 Recursos Humanos** → **Capacitaciones**
+2. Haz clic en **"Crear Nueva Capacitación"**
+3. Completa el formulario:
+   - **Título**: Nombre de la capacitación
+   - **Descripción**: Detalles del contenido
+   - **Fecha de inicio y fin**
+   - **Cupos disponibles**
+   - **Es obligatoria**: Marca si todos deben tomarla
+   - **Requiere aprobación**: Marca si RRHH debe aprobar inscripciones
+   - **Fecha límite de inscripción**
+4. Haz clic en **"Guardar"**
+
+### 12.6 Aprobar/Rechazar Inscripciones (RRHH/Admin)
+
+1. En la página de gestión, verás las inscripciones pendientes
+2. Haz clic en **"Aprobar"** o **"Rechazar"**
+3. Si rechazas, puedes agregar un motivo
+4. El usuario recibirá una notificación del resultado
+
+### 12.7 Registrar Asistencia (RRHH/Admin)
+
+1. En la capacitación, verás la lista de inscritos
+2. Marca la casilla de **"Asistió"** para cada participante
+3. Si aplica, ingresa la **calificación**
+4. Los cambios se guardan automáticamente
+
+---
+
+## 13. Sistema de Evaluaciones de Desempeño
+
+### 13.1 Acceder a Evaluaciones
+
+**Solo disponible para RRHH y Admin**
+
+- Accede a **👥 Recursos Humanos** → **Evaluaciones**
+- O navega a `/rrhh/evaluaciones`
+
+### 13.2 Crear una Nueva Evaluación
+
+1. Haz clic en **"Crear Nueva Evaluación"**
+2. Completa el formulario:
+   - **Empleado**: Selecciona el empleado a evaluar
+   - **Fecha de evaluación**
+   - **Criterios**: Agrega criterios de evaluación con sus pesos
+   - **Observaciones**: Notas adicionales
+3. Haz clic en **"Guardar"**
+
+### 13.3 Agregar Criterios de Evaluación
+
+1. En el formulario de evaluación, haz clic en **"Agregar Criterio"**
+2. Completa:
+   - **Nombre del criterio**
+   - **Peso** (importancia relativa)
+   - **Descripción** (opcional)
+3. El criterio se agregará a la lista
+
+### 13.4 Completar una Evaluación
+
+1. Selecciona la evaluación en la lista
+2. Para cada criterio, asigna una **calificación** (generalmente 1-5 o 1-10)
+3. Agrega **comentarios** si es necesario
+4. Haz clic en **"Guardar Evaluación"**
+
+### 13.5 Ver Historial de Evaluaciones
+
+- Todas las evaluaciones se guardan con fecha
+- Puedes filtrar por empleado o fecha
+- Las evaluaciones completadas muestran el resultado final
+
+---
+
+## 14. Sistema de Solicitudes de Permisos
+
+### 14.1 Acceder a Solicitudes
+
+Todos los usuarios pueden crear solicitudes:
+
+- Haz clic en el botón flotante **📋** (esquina inferior derecha)
+- O desde el header, busca el botón de solicitudes
+
+### 14.2 Crear una Nueva Solicitud
+
+1. Haz clic en el botón flotante **📋**
+2. Se abrirá el modal "Nueva Solicitud"
+3. Selecciona el **tipo de solicitud**:
+   - **🕐 Turno**: Solicitud de cambio de turno o turno especial
+   - **❌ Ausencia**: Solicitud de ausencia justificada
+   - **🏖️ Vacaciones**: Solicitud de días de vacaciones
+   - **👕 Ropa de Trabajo**: Solicitud de ropa/uniforme
+   - **✅ Permiso**: Solicitud de permiso general
+   - **📝 Otro**: Cualquier otro tipo de solicitud
+4. Completa el formulario:
+   - **Título**: Nombre descriptivo de la solicitud
+   - **Descripción**: Detalles adicionales
+   - **Fecha de inicio y fin**: Si aplica
+   - **Observaciones**: Información adicional
+5. Haz clic en **"Enviar Solicitud"**
+
+### 14.3 Ver Mis Solicitudes
+
+1. Haz clic en el botón flotante **📋**
+2. Verás un contador de solicitudes pendientes
+3. En el modal, puedes ver:
+   - **Solicitudes pendientes**: Esperando aprobación
+   - **Solicitudes aprobadas**: Ya aprobadas
+   - **Solicitudes rechazadas**: Con motivo de rechazo
+
+### 14.4 Cancelar una Solicitud
+
+1. En tus solicitudes pendientes, haz clic en **"Cancelar"**
+2. Confirma la cancelación
+3. La solicitud será cancelada y no se procesará
+
+### 14.5 Gestión de Solicitudes (RRHH/Admin)
+
+Los usuarios de RRHH y Admin pueden gestionar todas las solicitudes:
+
+1. Accede a **👥 Recursos Humanos** → **Permisos**
+2. Verás todas las solicitudes con filtros:
+   - **Por estado**: Pendiente, Aprobada, Rechazada, Cancelada
+   - **Por tipo**: Turno, Ausencia, Vacaciones, etc.
+   - **Por fecha**: Rango de fechas
+3. Para cada solicitud puedes:
+   - **Aprobar**: La solicitud será aprobada
+   - **Rechazar**: Debes ingresar un motivo de rechazo
+   - **Ver detalles**: Ver toda la información de la solicitud
+
+### 14.6 Notificaciones
+
+Recibirás notificaciones cuando:
+- Tu solicitud sea aprobada
+- Tu solicitud sea rechazada (con motivo)
+- Haya actualizaciones en tu solicitud
+
+---
+
+## 15. Sistema de Menú Diario
+
+### 15.1 Acceder al Menú Diario
+
+Todos los usuarios pueden ver el menú diario:
+
+- Haz clic en **🍽️ Menú Diario** en el header
+- O navega a `/menu-diario`
+
+### 15.2 Ver el Menú del Día
+
+La página muestra:
+
+- **Platos disponibles** para el día
+- **Hora actual** (zona horaria de Argentina)
+- **Plazo de selección**: Hasta las 9:30 AM
+- **Tu selección**: Si ya seleccionaste un plato
+
+### 15.3 Seleccionar un Plato
+
+1. Antes de las 9:30 AM, verás los platos disponibles
+2. Haz clic en el botón del plato que deseas
+3. Tu selección se guardará automáticamente
+4. Recibirás confirmación de tu selección
+
+**⚠️ Importante:** Solo puedes seleccionar hasta las **9:30 AM** (hora Argentina). Después de ese horario, el plazo expira.
+
+### 15.4 Cambiar o Cancelar Selección
+
+1. Si ya seleccionaste un plato, verás la opción **"Cambiar Selección"**
+2. Haz clic para seleccionar otro plato
+3. **Nota:** Solo puedes cambiar antes de las 9:30 AM
+
+### 15.5 Gestión del Menú (RRHH/Admin)
+
+Los usuarios de RRHH y Admin pueden gestionar el menú:
+
+1. Accede a **👥 Recursos Humanos** → **Menú Diario**
+2. Haz clic en **"Crear Menú del Día"** o **"Editar Menú"**
+3. Agrega los platos disponibles:
+   - Haz clic en **"➕ Agregar Otro Plato"** para agregar más
+   - Elimina platos con el botón **✕**
+4. Haz clic en **"Guardar Menú"**
+
+### 15.6 Ver Selecciones (RRHH/Admin)
+
+1. En la página de gestión, verás el total de selecciones
+2. Haz clic en **"Ver Selecciones"** para ver quién seleccionó qué
+3. Haz clic en **"📄 Descargar PDF"** para generar un reporte
+
+### 15.7 Reporte PDF
+
+El PDF incluye:
+- Fecha del menú
+- Lista de platos disponibles
+- Lista de empleados con sus selecciones
+- Hora de selección de cada empleado
+
+---
+
+## 16. Sistema de Pedidos de Compra
+
+### 16.1 Solicitar Productos
+
+Todos los usuarios pueden solicitar productos a compras:
+
+1. Haz clic en **📦 Solicitar Productos** en el header
+2. O desde el tablero principal, busca el botón de solicitar productos
+3. Se abrirá el modal de solicitud
+
+### 16.2 Crear una Solicitud de Pedido
+
+1. En el modal, **busca productos**:
+   - Escribe el código o descripción del producto
+   - O haz clic en **"Mostrar Stock Bajo"** para ver productos con stock bajo
+2. **Agrega productos** a tu solicitud:
+   - Haz clic en un producto de la lista para agregarlo
+   - O escribe manualmente un producto que no esté en el catálogo
+3. Para cada producto, especifica:
+   - **Cantidad solicitada**
+   - **Unidad** (unidad, kg, litros, etc.)
+   - **Observaciones** (opcional)
+4. Completa la información del pedido:
+   - **Prioridad**: Baja, Normal, Alta, Urgente
+   - **Motivo de la Solicitud**: Explica por qué necesitas estos productos
+   - **Observaciones Adicionales**: Información extra
+5. Haz clic en **"Enviar Solicitud"**
+
+### 16.3 Ver Mis Pedidos
+
+1. Haz clic en **📋 Mis Pedidos** en el header
+2. O navega a `/mis-pedidos`
+3. Verás todos tus pedidos con:
+   - **Número de pedido**
+   - **Estado**: Pendiente, En Revisión, Aprobado, Rechazado, En Compra, Completado
+   - **Fecha de solicitud**
+   - **Productos solicitados**
+   - **Motivo de rechazo** (si fue rechazado)
+
+### 16.4 Filtros de Pedidos
+
+Puedes filtrar tus pedidos por:
+- **Estado**: Todos, Pendiente, Aprobado, Rechazado, etc.
+- Los filtros se aplican automáticamente
+
+### 16.5 Ver Detalles de un Pedido
+
+1. En la lista de pedidos, haz clic en **"Ver Detalles"**
+2. Verás información completa:
+   - Todos los productos solicitados
+   - Estado actual
+   - Fechas de aprobación/rechazo/completado
+   - Comentarios (si los hay)
+
+### 16.6 Notificaciones de Pedidos
+
+Recibirás notificaciones cuando:
+- Tu pedido sea **aprobado** por compras
+- Tu pedido sea **rechazado** (con motivo)
+- Tu pedido esté **en compra**
+- Tu pedido esté **completado**
+
+### 16.7 Gestión de Pedidos (Compras/Admin)
+
+Los usuarios de compras y admin pueden gestionar pedidos:
+
+1. Accede a **🛒 Compras** → **Dashboard**
+2. Verás todos los pedidos con filtros por estado
+3. Para cada pedido puedes:
+   - **Aprobar**: Aprobar el pedido completo o parcialmente
+   - **Rechazar**: Rechazar con motivo
+   - **Actualizar estado**: Cambiar a "En Compra" o "Completado"
+   - **Ver detalles**: Ver toda la información
+
+---
+
+## 17. Sistema de Horarios y Turnos
+
+### 17.1 Acceder a Horarios
+
+**Solo disponible para RRHH y Admin**
+
+- Accede a **👥 Recursos Humanos** → **Horarios**
+- O navega a `/rrhh/horarios`
+
+### 17.2 Gestión de Horarios
+
+Los usuarios de RRHH pueden gestionar horarios de empleados:
+
+1. Selecciona un **usuario** de la lista
+2. Ve a la pestaña **"Horarios"**
+3. Haz clic en **"Agregar Horario"**
+4. Completa:
+   - **Tipo de horario**: Fijo, Flexible, Turnos
+   - **Día de la semana** (para horarios fijos)
+   - **Hora de entrada y salida**
+   - **Horas semanales** (para horarios flexibles)
+   - **Fecha de inicio y fin**
+5. Haz clic en **"Guardar"**
+
+### 17.3 Gestión de Turnos
+
+1. Ve a la pestaña **"Turnos"**
+2. Haz clic en **"Agregar Turno"**
+3. Completa:
+   - **Fecha**
+   - **Hora de entrada y salida**
+   - **Tipo de turno**: Normal, Extra, Nocturno
+   - **Observaciones**
+4. Haz clic en **"Guardar"**
+
+### 17.4 Gestión de Ausencias
+
+1. Ve a la pestaña **"Ausencias"**
+2. Haz clic en **"Registrar Ausencia"**
+3. Completa:
+   - **Tipo**: Vacaciones, Licencia, Inasistencia, Permiso, Enfermedad
+   - **Fecha de inicio y fin**
+   - **Observaciones**
+4. Haz clic en **"Guardar"**
+5. La ausencia quedará pendiente de aprobación
+
+### 17.5 Control de Asistencia
+
+1. Ve a la pestaña **"Asistencia"**
+2. Para registrar entrada/salida:
+   - Haz clic en **"Registrar Entrada"** o **"Registrar Salida"**
+   - Se registrará automáticamente la hora actual
+3. Verás el historial de registros con:
+   - Fecha y hora de entrada/salida
+   - Horas trabajadas
+   - Tipo de registro
+
+### 17.6 Reportes
+
+1. Ve a la pestaña **"Reportes"**
+2. Selecciona un **rango de fechas**
+3. Verás:
+   - **Total de horas trabajadas**
+   - **Total de ausencias**
+   - **Total de turnos**
+   - **Desglose por tipo de ausencia**
+
+---
+
+## 18. Atajos de Teclado
 
 La aplicación tiene varios atajos de teclado para mejorar la productividad:
 
