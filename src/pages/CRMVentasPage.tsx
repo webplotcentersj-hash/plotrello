@@ -119,9 +119,14 @@ const CRMVentasPage = () => {
 
   // Escuchar eventos de venta creada desde otros componentes
   useEffect(() => {
-    const handleVentaCreada = () => {
-      console.log('Evento de venta creada recibido, recargando CRM...')
-      loadData()
+    const handleVentaCreada = (event: Event) => {
+      const customEvent = event as CustomEvent
+      console.log('Evento de venta creada recibido:', customEvent.detail)
+      console.log('Recargando CRM...')
+      // Esperar un momento para asegurar que la venta se guardó en la BD
+      setTimeout(() => {
+        loadData()
+      }, 500)
     }
 
     window.addEventListener('venta-creada', handleVentaCreada)
@@ -129,7 +134,7 @@ const CRMVentasPage = () => {
     return () => {
       window.removeEventListener('venta-creada', handleVentaCreada)
     }
-  }, [])
+  }, []) // loadData no necesita estar en dependencias porque es estable
 
   const loadData = async () => {
     setLoading(true)

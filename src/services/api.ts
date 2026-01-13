@@ -9185,7 +9185,7 @@ class ApiService {
     idVendedor?: number,
     fechaDesde?: string,
     fechaHasta?: string,
-    estadoPago?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
+    estadoPago?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado' | 'todos'
   ): Promise<ApiResponse<Array<import('../types/api').Venta>>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -9196,7 +9196,7 @@ class ApiService {
         p_id_vendedor: idVendedor || null,
         p_fecha_desde: fechaDesde || null,
         p_fecha_hasta: fechaHasta || null,
-        p_estado_pago: estadoPago || null
+        p_estado_pago: estadoPago === 'todos' ? null : (estadoPago || null)
       })
 
       if (error) {
