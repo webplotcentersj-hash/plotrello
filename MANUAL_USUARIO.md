@@ -18,9 +18,15 @@
 9. [Calendario](#calendario)
 10. [Diagrama de Gantt](#diagrama-de-gantt)
 11. [Gestión de Usuarios](#gestión-de-usuarios)
-12. [Atajos de Teclado](#atajos-de-teclado)
-13. [Funciones Avanzadas](#funciones-avanzadas)
-14. [Solución de Problemas](#solución-de-problemas)
+12. [Sistema de Capacitaciones](#sistema-de-capacitaciones)
+13. [Sistema de Evaluaciones de Desempeño](#sistema-de-evaluaciones-de-desempeño)
+14. [Sistema de Solicitudes de Permisos](#sistema-de-solicitudes-de-permisos)
+15. [Sistema de Menú Diario](#sistema-de-menú-diario)
+16. [Sistema de Pedidos de Compra](#sistema-de-pedidos-de-compra)
+17. [Sistema de Horarios y Turnos](#sistema-de-horarios-y-turnos)
+18. [Atajos de Teclado](#atajos-de-teclado)
+19. [Funciones Avanzadas](#funciones-avanzadas)
+20. [Solución de Problemas](#solución-de-problemas)
 
 ---
 
@@ -41,6 +47,12 @@
 - ✅ **Gestión de materiales y sectores**
 - ✅ **Códigos QR** para acceso rápido
 - ✅ **Auditoría completa** de movimientos
+- ✅ **Sistema de Capacitaciones** para RRHH y empleados
+- ✅ **Sistema de Evaluaciones de Desempeño**
+- ✅ **Sistema de Solicitudes de Permisos** (turnos, vacaciones, ausencias)
+- ✅ **Sistema de Menú Diario** con selección de platos
+- ✅ **Sistema de Pedidos de Compra** con historial y notificaciones
+- ✅ **Sistema de Horarios y Turnos** para RRHH
 
 ---
 
@@ -831,7 +843,7 @@ La aplicación tiene varios atajos de teclado para mejorar la productividad:
 
 ---
 
-## 13. Funciones Avanzadas
+## 19. Funciones Avanzadas
 
 ### 13.1 Modo Compacto
 
@@ -962,7 +974,7 @@ Accede a la gestión de ocupación de impresoras:
 
 ---
 
-## 14. Solución de Problemas
+## 20. Solución de Problemas
 
 ### 14.1 No puedo iniciar sesión
 
@@ -1070,7 +1082,7 @@ Accede a la gestión de ocupación de impresoras:
 
 ---
 
-## 15. Consejos y Mejores Prácticas
+## 21. Consejos y Mejores Prácticas
 
 ### 15.1 Organización del Tablero
 
@@ -1109,7 +1121,7 @@ Accede a la gestión de ocupación de impresoras:
 
 ---
 
-## 16. Glosario de Términos
+## 22. Glosario de Términos
 
 - **OP (Orden de Producción)**: Ficha de trabajo que representa un pedido del cliente
 - **Ficha**: Tarjeta visual que representa una OP en el tablero
@@ -1125,7 +1137,7 @@ Accede a la gestión de ocupación de impresoras:
 
 ---
 
-## 17. Contacto y Soporte
+## 23. Contacto y Soporte
 
 ### 17.1 Soporte Técnico
 
@@ -1157,7 +1169,7 @@ El sistema se actualiza regularmente:
 
 ---
 
-## 18. Preguntas Frecuentes (FAQ)
+## 24. Preguntas Frecuentes (FAQ)
 
 ### ¿Puedo usar la aplicación en mi teléfono?
 
@@ -1219,7 +1231,7 @@ Se recomienda usar la última versión del navegador.
 
 ---
 
-## 19. Changelog y Versiones
+## 25. Changelog y Versiones
 
 ### Versión Actual
 
@@ -1227,17 +1239,26 @@ La aplicación se actualiza continuamente. Las nuevas funciones y correcciones s
 
 ### Historial de Cambios Importantes
 
-- **Diciembre 2025**: Aplicación de escritorio (PWA) - Instalación como aplicación nativa
-- **Sistema de Chat**: Comunicación en tiempo real entre usuarios
-- **PlotAI**: Asistente inteligente con IA generativa
-- **Estadísticas Avanzadas**: Métricas detalladas de rendimiento
-- **Modo Compacto**: Vista optimizada para más información
-- **Códigos QR**: Acceso rápido a órdenes
-- **Checklist**: Sistema de subtareas mejorado
+- **Enero 2025**: 
+  - Sistema de Capacitaciones para RRHH y empleados
+  - Sistema de Evaluaciones de Desempeño
+  - Sistema de Solicitudes de Permisos (turnos, vacaciones, ausencias, ropa)
+  - Sistema de Menú Diario con selección de platos (hasta 9:30 AM)
+  - Sistema de Pedidos de Compra mejorado con historial y notificaciones
+  - Sistema de Horarios y Turnos para RRHH
+  - Corrección de zona horaria (Argentina - UTC-3)
+- **Diciembre 2024**: 
+  - Aplicación de escritorio (PWA) - Instalación como aplicación nativa
+  - Sistema de Chat: Comunicación en tiempo real entre usuarios
+  - PlotAI: Asistente inteligente con IA generativa
+  - Estadísticas Avanzadas: Métricas detalladas de rendimiento
+  - Modo Compacto: Vista optimizada para más información
+  - Códigos QR: Acceso rápido a órdenes
+  - Checklist: Sistema de subtareas mejorado
 
 ---
 
-## 20. Conclusión
+## 26. Conclusión
 
 Este manual cubre todas las funciones principales de Trello Plot. Si tienes preguntas adicionales o encuentras algo que no está documentado aquí, no dudes en:
 
@@ -1249,6 +1270,59 @@ Este manual cubre todas las funciones principales de Trello Plot. Si tienes preg
 
 ---
 
-*Última actualización: 2025*
-*Versión del manual: 1.0*
+*Última actualización: Enero 2025*
+*Versión del manual: 2.0*
+
+---
+
+## 27. Información Técnica Adicional
+
+### 27.1 Zona Horaria
+
+El sistema está configurado para usar la zona horaria de **Argentina (America/Argentina/Buenos_Aires, UTC-3)**. Todas las fechas y horas se muestran y procesan en esta zona horaria.
+
+**Importante:**
+- El menú diario tiene un plazo de selección hasta las **9:30 AM** (hora Argentina)
+- Las fechas se muestran en formato argentino (DD/MM/YYYY)
+- Las horas se muestran en formato 24 horas
+
+### 27.2 Notificaciones
+
+El sistema envía notificaciones automáticas para:
+- Cambios de estado en órdenes de trabajo
+- Nuevos mensajes en el chat (menciones)
+- Actualizaciones en pedidos de compra
+- Aprobaciones/rechazos de solicitudes de permisos
+- Actualizaciones en capacitaciones
+- Cambios en el estado de pedidos de compra
+
+Las notificaciones aparecen en:
+- El icono de campana (🔔) en el header
+- Notificaciones del navegador (si están habilitadas)
+
+### 27.3 Módulos por Rol
+
+#### Todos los Usuarios
+- Tablero Kanban
+- Chat
+- PlotAI
+- Capacitaciones (ver e inscribirse)
+- Menú Diario (ver y seleccionar)
+- Solicitudes de Permisos (crear)
+- Pedidos de Compra (solicitar y ver historial)
+
+#### RRHH y Admin
+- Gestión de Capacitaciones
+- Gestión de Evaluaciones
+- Gestión de Solicitudes de Permisos
+- Gestión de Menú Diario
+- Gestión de Horarios y Turnos
+- Gestión de Usuarios
+
+#### Compras y Admin
+- Dashboard de Compras
+- Gestión de Pedidos de Compra
+- Aprobación/Rechazo de Pedidos
+- Reportes de Compras
+- Conciliación Bancaria
 
