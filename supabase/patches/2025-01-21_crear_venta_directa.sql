@@ -9,17 +9,17 @@ ALTER TABLE public.ventas
 
 CREATE OR REPLACE FUNCTION public.crear_venta_directa(
   p_cliente_nombre varchar(255),
+  p_valor_total numeric(10,2),
+  p_id_vendedor integer,
+  p_nombre_vendedor varchar(100),
   p_cliente_telefono varchar(50) DEFAULT NULL,
   p_cliente_email varchar(255) DEFAULT NULL,
   p_cliente_dni_cuit varchar(50) DEFAULT NULL,
   p_cliente_empresa varchar(255) DEFAULT NULL,
   p_cliente_direccion text DEFAULT NULL,
-  p_valor_total numeric(10,2),
   p_metodo_pago varchar(50) DEFAULT NULL,
   p_estado_pago varchar(50) DEFAULT 'Pendiente',
   p_fecha_venta date DEFAULT CURRENT_DATE,
-  p_id_vendedor integer,
-  p_nombre_vendedor varchar(100),
   p_observaciones text DEFAULT NULL
 )
 RETURNS json

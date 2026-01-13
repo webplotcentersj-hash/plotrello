@@ -9087,17 +9087,17 @@ class ApiService {
     try {
       const { data, error } = await supabase.rpc('crear_venta_directa', {
         p_cliente_nombre: venta.cliente_nombre,
+        p_valor_total: venta.valor_total,
+        p_id_vendedor: venta.id_vendedor,
+        p_nombre_vendedor: venta.nombre_vendedor,
         p_cliente_telefono: venta.cliente_telefono || null,
         p_cliente_email: venta.cliente_email || null,
         p_cliente_dni_cuit: venta.cliente_dni_cuit || null,
         p_cliente_empresa: venta.cliente_empresa || null,
         p_cliente_direccion: venta.cliente_direccion || null,
-        p_valor_total: venta.valor_total,
         p_metodo_pago: venta.metodo_pago || null,
         p_estado_pago: venta.estado_pago || 'Pendiente',
         p_fecha_venta: venta.fecha_venta || null,
-        p_id_vendedor: venta.id_vendedor,
-        p_nombre_vendedor: venta.nombre_vendedor,
         p_observaciones: venta.observaciones || null
       })
 
