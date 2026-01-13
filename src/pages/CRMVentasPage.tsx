@@ -166,7 +166,7 @@ const CRMVentasPage = () => {
         setVentas(ventasResponse.data)
         setVentasFiltradas(ventasResponse.data)
         
-        // Calcular estadísticas
+        // Calcular estadísticas básicas de ventas
         const totalVentas = ventasResponse.data.length
         const totalIngresos = ventasResponse.data.reduce((sum, v) => sum + v.valor_total, 0)
         const ventasPagadas = ventasResponse.data.filter(v => v.estado_pago === 'Pagado')
@@ -175,6 +175,29 @@ const CRMVentasPage = () => {
         const ingresosPendientes = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
         const ticketPromedio = totalVentas > 0 ? totalIngresos / totalVentas : 0
         
+        // Calcular KPIs avanzados de oportunidades
+        const oportunidadesActivas = oppResponse.data?.filter(o => o.activo && o.etapa !== 'Cerrado' && o.etapa !== 'Perdido').length || 0
+        const oportunidadesCerradas = oppResponse.data?.filter(o => o.etapa === 'Cerrado').length || 0
+        const oportunidadesPerdidas = oppResponse.data?.filter(o => o.etapa === 'Perdido').length || 0
+        const totalOportunidades = oppResponse.data?.length || 0
+        const tasaConversion = totalOportunidades > 0 ? (oportunidadesCerradas / totalOportunidades) * 100 : 0
+        
+        // Calcular tiempo promedio de cierre (días entre creación y cierre)
+        const oportunidadesConFecha = oppResponse.data?.filter(o => o.etapa === 'Cerrado' && o.created_at && o.updated_at) || []
+        let tiempoTotalCierre = 0
+        oportunidadesConFecha.forEach(opp => {
+          const fechaCreacion = new Date(opp.created_at)
+          const fechaCierre = new Date(opp.updated_at)
+          const dias = Math.ceil((fechaCierre.getTime() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24))
+          tiempoTotalCierre += dias
+        })
+        const tiempoPromedioCierre = oportunidadesConFecha.length > 0 ? tiempoTotalCierre / oportunidadesConFecha.length : 0
+        
+        // Valor promedio de oportunidad
+        const oportunidadesConValor = oppResponse.data?.filter(o => o.valor_estimado && o.valor_estimado > 0) || []
+        const valorTotalOportunidades = oportunidadesConValor.reduce((sum, o) => sum + (o.valor_estimado || 0), 0)
+        const valorPromedioOportunidad = oportunidadesConValor.length > 0 ? valorTotalOportunidades / oportunidadesConValor.length : 0
+        
         setEstadisticas({
           totalVentas,
           totalIngresos,
@@ -182,7 +205,14 @@ const CRMVentasPage = () => {
           ingresosPagados,
           ventasPendientes: ventasPendientes.length,
           ingresosPendientes,
-          ticketPromedio
+          ticketPromedio,
+          tasaConversion,
+          tiempoPromedioCierre,
+          valorPromedioOportunidad,
+          oportunidadesActivas,
+          oportunidadesCerradas,
+          oportunidadesPerdidas,
+          valorTotalOportunidades
         })
       } else {
         console.error('Error cargando ventas:', ventasResponse.error)
@@ -195,7 +225,14 @@ const CRMVentasPage = () => {
           ingresosPagados: 0,
           ventasPendientes: 0,
           ingresosPendientes: 0,
-          ticketPromedio: 0
+          ticketPromedio: 0,
+          tasaConversion: 0,
+          tiempoPromedioCierre: 0,
+          valorPromedioOportunidad: 0,
+          oportunidadesActivas: 0,
+          oportunidadesCerradas: 0,
+          oportunidadesPerdidas: 0,
+          valorTotalOportunidades: 0
         })
       }
       
@@ -984,7 +1021,200 @@ const CRMVentasPage = () => {
               <p className="metrica-subtitle">Por venta</p>
             </div>
           </div>
+          {activeTab === 'oportunidades' && (
+            <>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #06b6d4' }}>
+                <div className="metrica-icon">🎯</div>
+                <div className="metrica-content">
+                  <h3>Tasa de Conversión</h3>
+                  <p className="metrica-valor">{estadisticas.tasaConversion.toFixed(1)}%</p>
+                  <p className="metrica-subtitle">{estadisticas.oportunidadesCerradas} cerradas</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #ec4899' }}>
+                <div className="metrica-icon">⏱️</div>
+                <div className="metrica-content">
+                  <h3>Tiempo Promedio</h3>
+                  <p className="metrica-valor">{estadisticas.tiempoPromedioCierre.toFixed(0)} días</p>
+                  <p className="metrica-subtitle">Cierre de oportunidades</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+                <div className="metrica-icon">💎</div>
+                <div className="metrica-content">
+                  <h3>Valor Promedio</h3>
+                  <p className="metrica-valor">${estadisticas.valorPromedioOportunidad.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="metrica-subtitle">Por oportunidad</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
+                <div className="metrica-icon">📈</div>
+                <div className="metrica-content">
+                  <h3>Oportunidades Activas</h3>
+                  <p className="metrica-valor">{estadisticas.oportunidadesActivas}</p>
+                  <p className="metrica-subtitle">En proceso</p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
+        
+        {/* Gráficos de Tendencias */}
+        {activeTab === 'oportunidades' && oportunidades.length > 0 && (
+          <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+            {/* Gráfico de distribución por etapa */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <h3 style={{ margin: '0 0 20px 0', color: 'white', fontSize: '1.1rem', fontWeight: 700 }}>Distribución por Etapa</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Prospecto', value: oportunidades.filter(o => o.etapa === 'Prospecto').length, color: '#8b5cf6' },
+                      { name: 'Calificación', value: oportunidades.filter(o => o.etapa === 'Calificación').length, color: '#3b82f6' },
+                      { name: 'Propuesta', value: oportunidades.filter(o => o.etapa === 'Propuesta').length, color: '#f59e0b' },
+                      { name: 'Negociación', value: oportunidades.filter(o => o.etapa === 'Negociación').length, color: '#ef4444' },
+                      { name: 'Cerrado', value: oportunidades.filter(o => o.etapa === 'Cerrado').length, color: '#10b981' },
+                      { name: 'Perdido', value: oportunidades.filter(o => o.etapa === 'Perdido').length, color: '#6b7280' }
+                    ].filter(item => item.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {[
+                      { name: 'Prospecto', value: oportunidades.filter(o => o.etapa === 'Prospecto').length, color: '#8b5cf6' },
+                      { name: 'Calificación', value: oportunidades.filter(o => o.etapa === 'Calificación').length, color: '#3b82f6' },
+                      { name: 'Propuesta', value: oportunidades.filter(o => o.etapa === 'Propuesta').length, color: '#f59e0b' },
+                      { name: 'Negociación', value: oportunidades.filter(o => o.etapa === 'Negociación').length, color: '#ef4444' },
+                      { name: 'Cerrado', value: oportunidades.filter(o => o.etapa === 'Cerrado').length, color: '#10b981' },
+                      { name: 'Perdido', value: oportunidades.filter(o => o.etapa === 'Perdido').length, color: '#6b7280' }
+                    ].filter(item => item.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            
+            {/* Gráfico de valor por etapa */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <h3 style={{ margin: '0 0 20px 0', color: 'white', fontSize: '1.1rem', fontWeight: 700 }}>Valor Estimado por Etapa</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={[
+                  { etapa: 'Prospecto', valor: oportunidades.filter(o => o.etapa === 'Prospecto').reduce((sum, o) => sum + (o.valor_estimado || 0), 0) },
+                  { etapa: 'Calificación', valor: oportunidades.filter(o => o.etapa === 'Calificación').reduce((sum, o) => sum + (o.valor_estimado || 0), 0) },
+                  { etapa: 'Propuesta', valor: oportunidades.filter(o => o.etapa === 'Propuesta').reduce((sum, o) => sum + (o.valor_estimado || 0), 0) },
+                  { etapa: 'Negociación', valor: oportunidades.filter(o => o.etapa === 'Negociación').reduce((sum, o) => sum + (o.valor_estimado || 0), 0) },
+                  { etapa: 'Cerrado', valor: oportunidades.filter(o => o.etapa === 'Cerrado').reduce((sum, o) => sum + (o.valor_estimado || 0), 0) }
+                ].filter(item => item.valor > 0)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                  <XAxis dataKey="etapa" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
+                  <YAxis stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: 'rgba(15, 23, 42, 0.95)', 
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      color: 'white'
+                    }}
+                    formatter={(value: any) => `$${Number(value).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                  />
+                  <Bar dataKey="valor" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'ventas' && ventas.length > 0 && (
+          <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+            {/* Gráfico de ventas por día */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <h3 style={{ margin: '0 0 20px 0', color: 'white', fontSize: '1.1rem', fontWeight: 700 }}>Tendencia de Ventas</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={(() => {
+                  const porDia = ventas.reduce((acc, v) => {
+                    const fecha = v.fecha_venta
+                    if (!acc[fecha]) {
+                      acc[fecha] = { cantidad: 0, total: 0 }
+                    }
+                    acc[fecha].cantidad += 1
+                    acc[fecha].total += v.valor_total
+                    return acc
+                  }, {} as Record<string, { cantidad: number; total: number }>)
+                  
+                  return Object.entries(porDia)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .slice(-14) // Últimas 2 semanas
+                    .map(([fecha, datos]) => ({
+                      fecha: formatArgentinaDate(fecha, 'dd/MM'),
+                      cantidad: datos.cantidad,
+                      total: Number(datos.total)
+                    }))
+                })()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                  <XAxis dataKey="fecha" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
+                  <YAxis yAxisId="left" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
+                  <YAxis yAxisId="right" orientation="right" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: 'rgba(15, 23, 42, 0.95)', 
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      color: 'white'
+                    }}
+                  />
+                  <Legend />
+                  <Line yAxisId="left" type="monotone" dataKey="cantidad" stroke="#3b82f6" strokeWidth={2} name="Cantidad" />
+                  <Line yAxisId="right" type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} name="Total ($)" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            
+            {/* Gráfico de ventas por método de pago */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <h3 style={{ margin: '0 0 20px 0', color: 'white', fontSize: '1.1rem', fontWeight: 700 }}>Ventas por Método de Pago</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={(() => {
+                  const porMetodo = ventas.reduce((acc, v) => {
+                    const metodo = v.metodo_pago || 'No especificado'
+                    if (!acc[metodo]) {
+                      acc[metodo] = { cantidad: 0, total: 0 }
+                    }
+                    acc[metodo].cantidad += 1
+                    acc[metodo].total += v.valor_total
+                    return acc
+                  }, {} as Record<string, { cantidad: number; total: number }>)
+                  
+                  return Object.entries(porMetodo)
+                    .map(([metodo, datos]) => ({
+                      metodo,
+                      cantidad: datos.cantidad,
+                      total: Number(datos.total)
+                    }))
+                    .sort((a, b) => b.total - a.total)
+                })()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                  <XAxis dataKey="metodo" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
+                  <YAxis stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: 'rgba(15, 23, 42, 0.95)', 
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      color: 'white'
+                    }}
+                  />
+                  <Bar dataKey="total" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Tabs */}
