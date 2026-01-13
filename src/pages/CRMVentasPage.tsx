@@ -168,15 +168,55 @@ const CRMVentasPage = () => {
     }
     
     if (busquedaVenta) {
-      const busqueda = busquedaVenta.toLowerCase()
-      filtradas = filtradas.filter(v =>
-        v.cliente_nombre.toLowerCase().includes(busqueda) ||
-        v.numero_venta.toLowerCase().includes(busqueda) ||
-        (v.numero_op && v.numero_op.toLowerCase().includes(busqueda)) ||
-        v.cliente_empresa?.toLowerCase().includes(busqueda) ||
-        v.cliente_telefono?.toLowerCase().includes(busqueda) ||
-        v.cliente_email?.toLowerCase().includes(busqueda)
-      )
+      const busqueda = busquedaVenta.toLowerCase().trim()
+      if (busqueda) {
+        filtradas = filtradas.filter(v => {
+          // Buscar en cliente_nombre
+          if (v.cliente_nombre?.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en numero_venta
+          if (v.numero_venta?.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en numero_op (si existe)
+          if (v.numero_op && v.numero_op.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en cliente_empresa
+          if (v.cliente_empresa && v.cliente_empresa.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en cliente_telefono
+          if (v.cliente_telefono && v.cliente_telefono.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en cliente_email
+          if (v.cliente_email && v.cliente_email.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en cliente_dni_cuit
+          if (v.cliente_dni_cuit && v.cliente_dni_cuit.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en nombre_vendedor
+          if (v.nombre_vendedor && v.nombre_vendedor.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en metodo_pago
+          if (v.metodo_pago && v.metodo_pago.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en observaciones
+          if (v.observaciones && v.observaciones.toLowerCase().includes(busqueda)) return true
+          
+          // Buscar en items de la venta (descripción de artículos)
+          if (v.items && v.items.length > 0) {
+            const encontradoEnItems = v.items.some(item => 
+              item.descripcion?.toLowerCase().includes(busqueda) ||
+              item.codigo_articulo?.toLowerCase().includes(busqueda) ||
+              item.observaciones?.toLowerCase().includes(busqueda)
+            )
+            if (encontradoEnItems) return true
+          }
+          
+          // Buscar en valor_total (convertir a string)
+          if (v.valor_total && v.valor_total.toString().includes(busqueda)) return true
+          
+          return false
+        })
+      }
     }
     
     setVentasFiltradas(filtradas)
