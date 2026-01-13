@@ -140,18 +140,25 @@
 .filtro-input {
   padding: 10px 12px;
   background: var(--surface-base);
-  border: 1px solid var(--surface-border);
+  border: 2px solid var(--surface-border);
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 0.95rem;
   transition: all 0.2s;
 }
 
+.filtro-input[type="text"] {
+  min-width: 250px;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 .filtro-select:focus,
 .filtro-input:focus {
   outline: none;
   border-color: var(--brand);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
 }
 
 /* Grids */

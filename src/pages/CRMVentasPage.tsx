@@ -172,8 +172,10 @@ const CRMVentasPage = () => {
       filtradas = filtradas.filter(v =>
         v.cliente_nombre.toLowerCase().includes(busqueda) ||
         v.numero_venta.toLowerCase().includes(busqueda) ||
-        v.numero_op.toLowerCase().includes(busqueda) ||
-        v.cliente_empresa?.toLowerCase().includes(busqueda)
+        (v.numero_op && v.numero_op.toLowerCase().includes(busqueda)) ||
+        v.cliente_empresa?.toLowerCase().includes(busqueda) ||
+        v.cliente_telefono?.toLowerCase().includes(busqueda) ||
+        v.cliente_email?.toLowerCase().includes(busqueda)
       )
     }
     
@@ -550,6 +552,66 @@ const CRMVentasPage = () => {
     }
   }
 
+  const handleConvertirVentaAOP = async (venta: Venta) => {
+    if (!usuario) {
+      alert('Debes estar autenticado para convertir la venta a OP')
+      return
+    }
+
+    try {
+      // Construir descripción con items de la venta
+      let descripcion = `Venta: ${venta.numero_venta}\n`
+      descripcion += `Cliente: ${venta.cliente_nombre}\n`
+      if (venta.metodo_pago) {
+        descripcion += `Condición: ${venta.metodo_pago}\n`
+      }
+      descripcion += `Estado de pago: ${venta.estado_pago}\n\n`
+      descripcion += 'Items:\n'
+      
+      if (venta.items && venta.items.length > 0) {
+        venta.items.forEach((item, index) => {
+          descripcion += `${index + 1}. ${item.descripcion} - Cantidad: ${item.cantidad} - Precio: $${item.precio_unitario}\n`
+        })
+      }
+
+      if (venta.observaciones) {
+        descripcion += `\nObservaciones: ${venta.observaciones}`
+      }
+
+      // Crear la OP
+      const ordenResponse = await apiService.createOrden({
+        cliente: venta.cliente_nombre,
+        dni_cuit: venta.cliente_dni_cuit || undefined,
+        descripcion: descripcion,
+        estado: 'Diseño Gráfico',
+        prioridad: 'Normal',
+        fecha_entrega: venta.fecha_venta,
+        sector: 'Diseño Gráfico',
+        sector_inicial: 'Diseño Gráfico',
+        nombre_creador: usuario.nombre,
+        telefono_cliente: venta.cliente_telefono || undefined,
+        email_cliente: venta.cliente_email || undefined,
+        direccion_cliente: venta.cliente_direccion || undefined
+      })
+
+      if (!ordenResponse.success || !ordenResponse.data) {
+        throw new Error(ordenResponse.error || 'Error al crear OP')
+      }
+
+      // Actualizar la venta con el ID de la OP
+      await apiService.actualizarVenta(venta.id, {
+        id_op: ordenResponse.data.id,
+        numero_op: ordenResponse.data.numero_op
+      })
+
+      alert(`Venta convertida a OP exitosamente: ${ordenResponse.data.numero_op}`)
+      await loadData()
+    } catch (error: any) {
+      console.error('Error convirtiendo venta a OP:', error)
+      alert('Error al convertir a OP: ' + error.message)
+    }
+  }
+
   const handleGuardarVenta = async () => {
     if (!usuario || !oportunidadParaConvertir) return
     
@@ -886,7 +948,7 @@ const CRMVentasPage = () => {
                 
                 <div className="card-info">
                   <div className="info-item">
-                    <strong>OP:</strong> {venta.numero_op}
+                    <strong>OP:</strong> {venta.numero_op || 'Sin OP'}
                   </div>
                   <div className="info-item">
                     <strong>Valor total:</strong> ${venta.valor_total.toLocaleString()}
@@ -916,12 +978,21 @@ const CRMVentasPage = () => {
                 )}
 
                 <div className="card-actions">
-                  <button
-                    className="btn-action"
-                    onClick={() => navigate(`/op/${venta.numero_op}`)}
-                  >
-                    👁️ Ver OP
-                  </button>
+                  {venta.numero_op ? (
+                    <button
+                      className="btn-action"
+                      onClick={() => navigate(`/op/${venta.numero_op}`)}
+                    >
+                      👁️ Ver OP
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-action btn-primary"
+                      onClick={() => handleConvertirVentaAOP(venta)}
+                    >
+                      📋 Convertir a OP
+                    </button>
+                  )}
                   <button
                     className="btn-action"
                     onClick={() => handleEditarVenta(venta)}
