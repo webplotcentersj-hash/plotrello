@@ -858,14 +858,14 @@ const TaskEditModal = ({
               
               {task.clienteNombreCompleto && (
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>Cliente:</strong> {task.clienteNombreCompleto}
-                  {task.clienteEmpresa && <span style={{ color: 'var(--text-secondary)' }}> - {task.clienteEmpresa}</span>}
+                  <strong style={{ color: '#e5e7eb' }}>Cliente:</strong> {task.clienteNombreCompleto}
+                  {task.clienteEmpresa && <span style={{ color: '#d1d5db' }}> - {task.clienteEmpresa}</span>}
                 </div>
               )}
               
               {task.tipoProductoServicio && task.tipoProductoServicio.length > 0 && (
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>Tipo de Producto/Servicio:</strong>
+                  <strong style={{ color: '#e5e7eb' }}>Tipo de Producto/Servicio:</strong>
                   <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {task.tipoProductoServicio.map((tipo, idx) => (
                       <span key={idx} style={{ 
@@ -884,14 +884,14 @@ const TaskEditModal = ({
               
               {task.objetivoProyecto && (
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>Objetivo:</strong> {task.objetivoProyecto}
+                  <strong style={{ color: '#e5e7eb' }}>Objetivo:</strong> {task.objetivoProyecto}
                 </div>
               )}
               
               {(task.materialLogo || task.materialTextos || task.materialImagenes) && (
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>Material Disponible:</strong>
-                  <div style={{ marginTop: '4px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  <strong style={{ color: '#e5e7eb' }}>Material Disponible:</strong>
+                  <div style={{ marginTop: '4px', fontSize: '0.9rem', color: '#d1d5db' }}>
                     {task.materialLogo && <div>Logo: {task.materialLogo.replace(/_/g, ' ')}</div>}
                     {task.materialTextos && <div>Textos: {task.materialTextos.replace(/_/g, ' ')}</div>}
                     {task.materialImagenes && <div>Imágenes: {task.materialImagenes.replace(/_/g, ' ')}</div>}
@@ -907,7 +907,7 @@ const TaskEditModal = ({
               
               {task.fechaLimiteBrief && (
                 <div style={{ marginBottom: '12px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>Fecha Límite:</strong> {
+                  <strong style={{ color: '#e5e7eb' }}>Fecha Límite:</strong> {
                     task.fechaLimiteBrief 
                       ? (() => {
                           try {
