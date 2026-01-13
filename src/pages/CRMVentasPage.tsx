@@ -227,18 +227,32 @@ const CRMVentasPage = () => {
   useEffect(() => {
     let filtradas = ventas
     
+    // Filtro por estado de pago
     if (filtroEstadoPago !== 'todos') {
       filtradas = filtradas.filter(v => v.estado_pago === filtroEstadoPago)
     }
     
+    // Filtro por método de pago
+    if (filtroMetodoPago !== 'todos') {
+      filtradas = filtradas.filter(v => v.metodo_pago === filtroMetodoPago)
+    }
+    
+    // Filtro por vendedor
+    if (filtroVendedor !== 'todos') {
+      filtradas = filtradas.filter(v => v.nombre_vendedor === filtroVendedor)
+    }
+    
+    // Filtro por fecha desde
     if (fechaDesde) {
       filtradas = filtradas.filter(v => v.fecha_venta >= fechaDesde)
     }
     
+    // Filtro por fecha hasta
     if (fechaHasta) {
       filtradas = filtradas.filter(v => v.fecha_venta <= fechaHasta)
     }
     
+    // Búsqueda de texto
     if (busquedaVenta) {
       const busqueda = busquedaVenta.toLowerCase().trim()
       if (busqueda) {
@@ -292,7 +306,7 @@ const CRMVentasPage = () => {
     }
     
     setVentasFiltradas(filtradas)
-  }, [ventas, filtroEstadoPago, fechaDesde, fechaHasta, busquedaVenta])
+  }, [ventas, filtroEstadoPago, filtroMetodoPago, filtroVendedor, fechaDesde, fechaHasta, busquedaVenta])
 
   // Buscar clientes
   useEffect(() => {
@@ -1116,49 +1130,117 @@ const CRMVentasPage = () => {
         <div className="crm-section">
           {/* Filtros */}
           <div className="filtros-section">
-            <div className="filtro-group">
-              <label>Estado de pago:</label>
-              <select
-                value={filtroEstadoPago}
-                onChange={(e) => setFiltroEstadoPago(e.target.value)}
-                className="filtro-select"
+            <div className="filtros-basicos" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div className="filtro-group">
+                <label>Estado de pago:</label>
+                <select
+                  value={filtroEstadoPago}
+                  onChange={(e) => setFiltroEstadoPago(e.target.value)}
+                  className="filtro-select"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Parcial">Parcial</option>
+                  <option value="Pagado">Pagado</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
+              <div className="filtro-group">
+                <label>Desde:</label>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                  className="filtro-input"
+                />
+              </div>
+              <div className="filtro-group">
+                <label>Hasta:</label>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                  className="filtro-input"
+                />
+              </div>
+              <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
+                <label>🔍 Buscar:</label>
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente, número de venta, OP, teléfono, email..."
+                  value={busquedaVenta}
+                  onChange={(e) => setBusquedaVenta(e.target.value)}
+                  className="filtro-input"
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <button
+                className="btn-secondary"
+                onClick={() => setMostrarFiltrosAvanzados(!mostrarFiltrosAvanzados)}
+                style={{ padding: '10px 16px', fontSize: '0.875rem' }}
               >
-                <option value="todos">Todos</option>
-                <option value="Pendiente">Pendiente</option>
-                <option value="Parcial">Parcial</option>
-                <option value="Pagado">Pagado</option>
-                <option value="Cancelado">Cancelado</option>
-              </select>
+                {mostrarFiltrosAvanzados ? '▲' : '▼'} Filtros Avanzados
+              </button>
             </div>
-            <div className="filtro-group">
-              <label>Desde:</label>
-              <input
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-                className="filtro-input"
-              />
-            </div>
-            <div className="filtro-group">
-              <label>Hasta:</label>
-              <input
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-                className="filtro-input"
-              />
-            </div>
-            <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
-              <label>🔍 Buscar:</label>
-              <input
-                type="text"
-                placeholder="Buscar por cliente, número de venta, OP, teléfono, email..."
-                value={busquedaVenta}
-                onChange={(e) => setBusquedaVenta(e.target.value)}
-                className="filtro-input"
-                style={{ width: '100%' }}
-              />
-            </div>
+            
+            {mostrarFiltrosAvanzados && (
+              <div className="filtros-avanzados" style={{ 
+                marginTop: '16px', 
+                padding: '16px', 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                gap: '16px',
+                flexWrap: 'wrap'
+              }}>
+                <div className="filtro-group">
+                  <label>Método de pago:</label>
+                  <select
+                    value={filtroMetodoPago}
+                    onChange={(e) => setFiltroMetodoPago(e.target.value)}
+                    className="filtro-select"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Cuenta Corriente">Cuenta Corriente</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div className="filtro-group">
+                  <label>Vendedor:</label>
+                  <select
+                    value={filtroVendedor}
+                    onChange={(e) => setFiltroVendedor(e.target.value)}
+                    className="filtro-select"
+                  >
+                    <option value="todos">Todos</option>
+                    {Array.from(new Set(ventas.map(v => v.nombre_vendedor).filter(Boolean))).map(vendedor => (
+                      <option key={vendedor} value={vendedor}>{vendedor}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="filtro-group" style={{ flex: 1 }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      setFiltroEstadoPago('todos')
+                      setFiltroMetodoPago('todos')
+                      setFiltroVendedor('todos')
+                      setFechaDesde('')
+                      setFechaHasta('')
+                      setBusquedaVenta('')
+                    }}
+                    style={{ padding: '10px 16px', fontSize: '0.875rem' }}
+                  >
+                    🔄 Limpiar Filtros
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Lista de Ventas */}
