@@ -9065,6 +9065,57 @@ class ApiService {
     }
   }
 
+  async crearVentaDirecta(venta: {
+    cliente_nombre: string
+    cliente_telefono?: string
+    cliente_email?: string
+    cliente_dni_cuit?: string
+    cliente_empresa?: string
+    cliente_direccion?: string
+    valor_total: number
+    metodo_pago?: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+    estado_pago?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
+    fecha_venta?: string
+    id_vendedor: number
+    nombre_vendedor: string
+    observaciones?: string
+  }): Promise<ApiResponse<{ id: number; numero_venta: string }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_venta_directa', {
+        p_cliente_nombre: venta.cliente_nombre,
+        p_cliente_telefono: venta.cliente_telefono || null,
+        p_cliente_email: venta.cliente_email || null,
+        p_cliente_dni_cuit: venta.cliente_dni_cuit || null,
+        p_cliente_empresa: venta.cliente_empresa || null,
+        p_cliente_direccion: venta.cliente_direccion || null,
+        p_valor_total: venta.valor_total,
+        p_metodo_pago: venta.metodo_pago || null,
+        p_estado_pago: venta.estado_pago || 'Pendiente',
+        p_fecha_venta: venta.fecha_venta || null,
+        p_id_vendedor: venta.id_vendedor,
+        p_nombre_vendedor: venta.nombre_vendedor,
+        p_observaciones: venta.observaciones || null
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data.data as { id: number; numero_venta: string }
+      }
+    } catch (error: any) {
+      console.error('Error al crear venta directa:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear venta directa'
+      }
+    }
+  }
+
   async crearVentaDesdeOportunidad(venta: {
     id_oportunidad: number
     id_op: number
@@ -9258,6 +9309,50 @@ class ApiService {
     } catch (error) {
       console.error('Error descontando stock de venta:', error)
       // No lanzar error para no interrumpir la creación del item
+    }
+  }
+
+  async actualizarVenta(
+    id: number,
+    venta: Partial<{
+      id_op: number | null
+      numero_op: string | null
+      valor_total: number
+      metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+      estado_pago: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
+      fecha_venta: string
+      observaciones: string
+    }>
+  ): Promise<ApiResponse<{ success: boolean }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const updateData: any = {}
+      if (venta.id_op !== undefined) updateData.id_op = venta.id_op
+      if (venta.numero_op !== undefined) updateData.numero_op = venta.numero_op
+      if (venta.valor_total !== undefined) updateData.valor_total = venta.valor_total
+      if (venta.metodo_pago !== undefined) updateData.metodo_pago = venta.metodo_pago
+      if (venta.estado_pago !== undefined) updateData.estado_pago = venta.estado_pago
+      if (venta.fecha_venta !== undefined) updateData.fecha_venta = venta.fecha_venta
+      if (venta.observaciones !== undefined) updateData.observaciones = venta.observaciones
+      updateData.updated_at = new Date().toISOString()
+
+      const { error } = await supabase
+        .from('ventas')
+        .update(updateData)
+        .eq('id', id)
+
+      if (error) throw error
+
+      return { success: true, data: { success: true } }
+    } catch (error: any) {
+      console.error('Error al actualizar venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar venta'
+      }
     }
   }
 

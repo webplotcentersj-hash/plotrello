@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
+import VentaRapidaModal from '../components/VentaRapidaModal'
 import type { OrdenTrabajo } from '../types/api'
 import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
@@ -27,6 +28,7 @@ const MostradorDashboardPage = () => {
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [registrandoRapido, setRegistrandoRapido] = useState(false)
+  const [showVentaRapida, setShowVentaRapida] = useState(false)
   
   const handleRegistrarAtencionSuccess = async () => {
     await loadAtencionesHoy()
@@ -903,10 +905,20 @@ const MostradorDashboardPage = () => {
         />
       )}
 
-      {/* Botón flotante para registrar atención */}
+      {/* Botones flotantes */}
       <div className="fab-container">
+        {/* Botón principal de venta rápida */}
         <button
-          className="fab-button"
+          className="fab-button fab-venta"
+          onClick={() => setShowVentaRapida(true)}
+          title="Venta Rápida"
+        >
+          💰
+        </button>
+        
+        {/* Botón secundario para registrar atención */}
+        <button
+          className="fab-button fab-secondary"
           onClick={() => setShowFabMenu((prev) => !prev)}
           title="Registrar Atención (Alt+1 Virtual, Alt+2 Consulta, Alt+3 Venta)"
         >
@@ -939,6 +951,21 @@ const MostradorDashboardPage = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Venta Rápida */}
+      {showVentaRapida && usuario && (
+        <VentaRapidaModal
+          onClose={() => {
+            setShowVentaRapida(false)
+            loadDashboardData()
+          }}
+          onSuccess={() => {
+            loadDashboardData()
+          }}
+          usuarioId={usuario.id}
+          usuarioNombre={usuario.nombre}
+        />
+      )}
     </div>
   )
 }
