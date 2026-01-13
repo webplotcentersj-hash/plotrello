@@ -9080,6 +9080,7 @@ class ApiService {
     fecha_venta?: string
     id_vendedor: number
     nombre_vendedor: string
+    id_cliente?: number
     observaciones?: string
   }): Promise<ApiResponse<{ id: number; numero_venta: string }>> {
     if (!supabase) {
@@ -9101,7 +9102,7 @@ class ApiService {
         p_estado_pago: venta.estado_pago || 'Pendiente',
         p_fecha_venta: venta.fecha_venta || null,
         p_observaciones: venta.observaciones || null,
-        p_id_cliente: (venta as any).id_cliente || null
+        p_id_cliente: venta.id_cliente || null
       })
 
       if (error) throw error
