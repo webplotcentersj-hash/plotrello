@@ -767,14 +767,15 @@ const CRMVentasPage = () => {
                 <option value="Perdido">Perdido</option>
               </select>
             </div>
-            <div className="filtro-group">
-              <label>Buscar:</label>
+            <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
+              <label>🔍 Buscar:</label>
               <input
                 type="text"
-                placeholder="Cliente, número, OP..."
+                placeholder="Buscar por cliente, número de oportunidad, OP, empresa..."
                 value={busquedaOportunidad}
                 onChange={(e) => setBusquedaOportunidad(e.target.value)}
                 className="filtro-input"
+                style={{ width: '100%' }}
               />
             </div>
           </div>
@@ -913,14 +914,15 @@ const CRMVentasPage = () => {
                 className="filtro-input"
               />
             </div>
-            <div className="filtro-group">
-              <label>Buscar:</label>
+            <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
+              <label>🔍 Buscar:</label>
               <input
                 type="text"
-                placeholder="Cliente, número, OP..."
+                placeholder="Buscar por cliente, número de venta, OP, teléfono, email..."
                 value={busquedaVenta}
                 onChange={(e) => setBusquedaVenta(e.target.value)}
                 className="filtro-input"
+                style={{ width: '100%' }}
               />
             </div>
           </div>
