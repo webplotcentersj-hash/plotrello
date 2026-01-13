@@ -36,7 +36,7 @@ const ReportesVentasPage = () => {
   const loadVentas = async () => {
     setLoading(true)
     try {
-      const response = await apiService.obtenerVentas(undefined, fechaDesde, fechaHasta)
+      const response = await apiService.obtenerVentas(undefined, fechaDesde || undefined, fechaHasta || undefined)
       if (response.success && response.data) {
         setVentas(response.data)
       }
@@ -220,12 +220,12 @@ const ReportesVentasPage = () => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {estadisticas.datosPorMetodo.map((entry, index) => (
+                {estadisticas.datosPorMetodo.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

@@ -37,16 +37,36 @@ export function getArgentinaTime(): { hours: number; minutes: number; seconds: n
 }
 
 /**
- * Formatea una fecha a string en formato argentino (DD/MM/YYYY)
+ * Formatea una fecha a string en formato argentino (DD/MM/YYYY por defecto)
+ * @param date Fecha a formatear
+ * @param formatStr Formato opcional (por defecto 'dd/MM/yyyy')
  */
-export function formatArgentinaDate(date: Date | string): string {
+export function formatArgentinaDate(date: Date | string, formatStr: string = 'dd/MM/yyyy'): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
+  
+  // Si no se especifica formato o es el formato por defecto, usar toLocaleDateString
+  if (formatStr === 'dd/MM/yyyy' || !formatStr) {
+    return d.toLocaleDateString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  }
+  
+  // Para otros formatos, usar una implementación simple
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  
+  return formatStr
+    .replace('dd', day)
+    .replace('MM', month)
+    .replace('yyyy', String(year))
+    .replace('HH', hours)
+    .replace('mm', minutes)
 }
 
 /**

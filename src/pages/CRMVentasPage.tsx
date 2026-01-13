@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import type { OportunidadVenta, Venta, SeguimientoVenta, OrdenTrabajo, VentaItem } from '../types/api'
+import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
 import './CRMVentasPage.css'
@@ -41,7 +41,7 @@ const CRMVentasPage = () => {
     descripcion: '',
     valor_estimado: '',
     probabilidad_cierre: 50,
-    etapa: 'Prospecto' as const,
+    etapa: 'Prospecto' as 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido',
     fecha_cierre_estimada: '',
     observaciones: ''
   })
@@ -404,8 +404,6 @@ const CRMVentasPage = () => {
     
     // Recalcular precio_total si cambia cantidad, precio_unitario o descuento
     if (campo === 'cantidad' || campo === 'precio_unitario' || campo === 'descuento') {
-      const item = nuevosItems[index]
-      const precioTotal = (item.precio_unitario * item.cantidad) - item.descuento
       // No actualizamos precio_total directamente, se calcula en el backend
     }
     
@@ -419,6 +417,136 @@ const CRMVentasPage = () => {
       return sum + precioItem
     }, 0)
     setFormVenta(prev => ({ ...prev, valor_total: total.toFixed(2) }))
+  }
+
+  const handleEditarVenta = (venta: Venta) => {
+    setVentaEditando(venta)
+    setItemsVentaEditando(venta.items || [])
+    setBusquedaArticuloEditar('')
+    setArticulosEncontradosEditar([])
+    setMostrarModalEditarVenta(true)
+  }
+
+  useEffect(() => {
+    if (!mostrarModalEditarVenta) return
+    
+    const timer = setTimeout(() => {
+      if (!busquedaArticuloEditar.trim() || busquedaArticuloEditar.trim().length < 2) {
+        setArticulosEncontradosEditar([])
+        return
+      }
+
+      setBuscandoArticulosEditar(true)
+      apiService.getArticulosStock(busquedaArticuloEditar.trim(), false)
+        .then(response => {
+          if (response.success && response.data) {
+            setArticulosEncontradosEditar(response.data)
+          } else {
+            setArticulosEncontradosEditar([])
+          }
+        })
+        .catch(error => {
+          console.error('Error buscando artículos:', error)
+          setArticulosEncontradosEditar([])
+        })
+        .finally(() => {
+          setBuscandoArticulosEditar(false)
+        })
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [busquedaArticuloEditar, mostrarModalEditarVenta])
+
+  const agregarArticuloAVentaEditando = async (articulo: ArticuloStock) => {
+    if (!ventaEditando) return
+    
+    if (itemsVentaEditando.some(item => item.id_articulo_stock === articulo.id)) {
+      alert('Este artículo ya está en la lista')
+      return
+    }
+
+    try {
+      const response = await apiService.agregarItemVenta({
+        id_venta: ventaEditando.id,
+        id_articulo_stock: articulo.id,
+        codigo_articulo: articulo.codigo || undefined,
+        descripcion: articulo.descripcion,
+        cantidad: 1,
+        precio_unitario: articulo.precio || 0,
+        descuento: 0,
+        observaciones: articulo.stock !== null && articulo.stock <= 0 ? 'Stock agotado' : undefined
+      })
+
+      if (response.success) {
+        await loadData()
+        // Recargar la venta actualizada
+        const ventasResponse = await apiService.obtenerVentas()
+        if (ventasResponse.success && ventasResponse.data) {
+          const ventaActualizada = ventasResponse.data.find(v => v.id === ventaEditando.id)
+          if (ventaActualizada) {
+            setVentaEditando(ventaActualizada)
+            setItemsVentaEditando(ventaActualizada.items || [])
+          }
+        }
+        setBusquedaArticuloEditar('')
+        setArticulosEncontradosEditar([])
+      } else {
+        alert('Error al agregar item: ' + response.error)
+      }
+    } catch (error: any) {
+      console.error('Error agregando artículo:', error)
+      alert('Error al agregar artículo: ' + error.message)
+    }
+  }
+
+  const eliminarItemVentaEditando = async (itemId: number) => {
+    if (!ventaEditando) return
+
+    if (!confirm('¿Estás seguro de eliminar este item?')) return
+
+    try {
+      const response = await apiService.eliminarItemVenta(itemId)
+      if (response.success) {
+        await loadData()
+        // Recargar la venta actualizada
+        const ventasResponse = await apiService.obtenerVentas()
+        if (ventasResponse.success && ventasResponse.data) {
+          const ventaActualizada = ventasResponse.data.find(v => v.id === ventaEditando.id)
+          if (ventaActualizada) {
+            setVentaEditando(ventaActualizada)
+            setItemsVentaEditando(ventaActualizada.items || [])
+          }
+        }
+      } else {
+        alert('Error al eliminar item: ' + response.error)
+      }
+    } catch (error: any) {
+      console.error('Error eliminando item:', error)
+      alert('Error al eliminar item: ' + error.message)
+    }
+  }
+
+  const actualizarEstadoPagoVenta = async (venta: Venta, nuevoEstado: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado') => {
+    if (!supabase) {
+      alert('Error: Supabase no está inicializado')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('ventas')
+        .update({ estado_pago: nuevoEstado, updated_at: new Date().toISOString() })
+        .eq('id', venta.id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      await loadData()
+    } catch (error: any) {
+      console.error('Error actualizando estado de pago:', error)
+      alert('Error al actualizar estado de pago: ' + error.message)
+    }
   }
 
   const handleGuardarVenta = async () => {

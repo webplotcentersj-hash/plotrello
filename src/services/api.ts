@@ -36,9 +36,10 @@ import type {
   InscripcionCapacitacion,
   MenuDiario,
   MenuSeleccion,
-  OportunidadVenta,
-  Venta,
-  SeguimientoVenta
+  // Types used in function signatures and return types
+  // OportunidadVenta,
+  // Venta,
+  // SeguimientoVenta
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -8960,7 +8961,7 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('actualizar_oportunidad_venta', {
+      const { error } = await supabase.rpc('actualizar_oportunidad_venta', {
         p_id: id,
         p_cliente_nombre: datos.cliente_nombre || null,
         p_cliente_telefono: datos.cliente_telefono || null,
