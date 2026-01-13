@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
 import VentaRapidaModal from '../components/VentaRapidaModal'
-import type { OrdenTrabajo } from '../types/api'
+import type { OrdenTrabajo, Venta } from '../types/api'
 import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './MostradorDashboardPage.css'
@@ -76,6 +76,15 @@ const MostradorDashboardPage = () => {
     ventasConcretadas: 0,
     ordenesCreadas: 0,
     ordenesEntregadas: 0
+  })
+
+  // CRM de Ventas
+  const [ventasRecientes, setVentasRecientes] = useState<Venta[]>([])
+  const [estadisticasVentas, setEstadisticasVentas] = useState({
+    totalHoy: 0,
+    ingresosHoy: 0,
+    ventasPendientes: 0,
+    ingresosPendientes: 0
   })
 
   const loadAtencionesHoy = useCallback(async () => {
@@ -220,6 +229,39 @@ const MostradorDashboardPage = () => {
     }
   }, [ordenesListas.length])
 
+  const loadVentasData = useCallback(async () => {
+    try {
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      const hoyISO = hoy.toISOString().split('T')[0]
+
+      // Cargar ventas del día
+      const ventasResponse = await apiService.obtenerVentas(undefined, hoyISO, hoyISO)
+      if (ventasResponse.success && ventasResponse.data) {
+        // Ordenar por fecha más reciente
+        const ventasOrdenadas = ventasResponse.data.sort((a, b) => 
+          new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime()
+        )
+        setVentasRecientes(ventasOrdenadas.slice(0, 5))
+
+        // Calcular estadísticas
+        const totalHoy = ventasResponse.data.length
+        const ingresosHoy = ventasResponse.data.reduce((sum, v) => sum + v.valor_total, 0)
+        const ventasPendientes = ventasResponse.data.filter(v => v.estado_pago === 'Pendiente')
+        const ingresosPendientes = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
+
+        setEstadisticasVentas({
+          totalHoy,
+          ingresosHoy,
+          ventasPendientes: ventasPendientes.length,
+          ingresosPendientes
+        })
+      }
+    } catch (error) {
+      console.error('Error cargando ventas:', error)
+    }
+  }, [])
+
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
     try {
@@ -267,6 +309,9 @@ const MostradorDashboardPage = () => {
         // Cargar atenciones del día (si existe la tabla)
         await loadAtencionesHoy()
 
+        // Cargar ventas
+        await loadVentasData()
+
         // Cargar métricas si es admin (después de cargar todos los datos)
         if (isAdmin) {
           await loadMetricas(creadasHoy.length)
@@ -277,7 +322,7 @@ const MostradorDashboardPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin, loadAtencionesHoy, loadMetricas])
+  }, [isAdmin, loadAtencionesHoy, loadMetricas, loadVentasData])
 
   useEffect(() => {
     loadDashboardData()
@@ -896,6 +941,106 @@ const MostradorDashboardPage = () => {
           </div>
         </section>
       )}
+
+      {/* CRM de Ventas */}
+      <section className="crm-ventas-section">
+        <div className="section-header">
+          <h2>💼 CRM de Ventas</h2>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              className="btn-link"
+              onClick={() => navigate('/crm-ventas')}
+            >
+              Ver CRM Completo →
+            </button>
+          </div>
+        </div>
+
+        {/* Estadísticas Rápidas */}
+        <div className="metricas-grid" style={{ marginBottom: '24px' }}>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
+            <div className="metrica-icon">💰</div>
+            <div className="metrica-content">
+              <div className="metrica-value">{estadisticasVentas.totalHoy}</div>
+              <div className="metrica-label">Ventas Hoy</div>
+            </div>
+          </div>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #3b82f6' }}>
+            <div className="metrica-icon">💵</div>
+            <div className="metrica-content">
+              <div className="metrica-value">${estadisticasVentas.ingresosHoy.toLocaleString()}</div>
+              <div className="metrica-label">Ingresos Hoy</div>
+            </div>
+          </div>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+            <div className="metrica-icon">⏳</div>
+            <div className="metrica-content">
+              <div className="metrica-value">{estadisticasVentas.ventasPendientes}</div>
+              <div className="metrica-label">Pendientes</div>
+            </div>
+          </div>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #ef4444' }}>
+            <div className="metrica-icon">💸</div>
+            <div className="metrica-content">
+              <div className="metrica-value">${estadisticasVentas.ingresosPendientes.toLocaleString()}</div>
+              <div className="metrica-label">Por Cobrar</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ventas Recientes */}
+        {ventasRecientes.length === 0 ? (
+          <div className="empty-state">
+            <p>No hay ventas registradas hoy</p>
+          </div>
+        ) : (
+          <div className="ordenes-grid">
+            {ventasRecientes.map((venta) => (
+              <div key={venta.id} className="orden-card" style={{ borderLeft: '4px solid #10b981' }}>
+                <div className="orden-header">
+                  <h3>{venta.cliente_nombre}</h3>
+                  <span 
+                    className="badge" 
+                    style={{ 
+                      background: venta.estado_pago === 'Pagado' ? '#10b981' : 
+                                  venta.estado_pago === 'Pendiente' ? '#f59e0b' : 
+                                  venta.estado_pago === 'Parcial' ? '#3b82f6' : '#ef4444',
+                      color: 'white'
+                    }}
+                  >
+                    {venta.estado_pago}
+                  </span>
+                </div>
+                <div className="orden-cliente">
+                  <strong>Venta:</strong> {venta.numero_venta}
+                </div>
+                <div className="orden-fecha">
+                  <strong>Total:</strong> ${venta.valor_total.toLocaleString()}
+                  {venta.metodo_pago && ` • ${venta.metodo_pago}`}
+                </div>
+                {venta.numero_op ? (
+                  <div className="orden-fecha" style={{ color: '#3b82f6', fontWeight: 600 }}>
+                    OP: {venta.numero_op}
+                  </div>
+                ) : (
+                  <div className="orden-fecha" style={{ color: '#f59e0b', fontStyle: 'italic' }}>
+                    Sin OP asociada
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <button 
+                    className="btn-small"
+                    onClick={() => navigate('/crm-ventas')}
+                    style={{ flex: 1 }}
+                  >
+                    Ver Detalles
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Modal de Registrar Atención */}
       {showRegistrarAtencion && (

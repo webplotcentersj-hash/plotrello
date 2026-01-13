@@ -422,6 +422,17 @@
   font-weight: 600;
 }
 
+/* CRM de Ventas */
+.crm-ventas-section {
+  margin-bottom: 32px;
+}
+
+.crm-ventas-section h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
 /* Gráficos Estadísticos */
 .graficos-section {
   margin-bottom: 32px;

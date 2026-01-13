@@ -244,6 +244,13 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       }
 
       alert(`Venta creada exitosamente: ${ventaResponse.data.numero_venta}`)
+      
+      // Cerrar modal y recargar datos
+      onClose()
+      // Recargar ventas en el dashboard si existe la función
+      if (window.location.pathname.includes('/mostrador')) {
+        window.location.reload()
+      }
     } catch (error: any) {
       console.error('Error guardando venta:', error)
       alert('Error al guardar venta: ' + error.message)

@@ -9103,10 +9103,26 @@ class ApiService {
 
       if (error) throw error
 
-      return {
-        success: true,
-        data: data.data as { id: number; numero_venta: string }
+      // La función RPC devuelve un JSON con {success: true, data: {...}}
+      if (data && typeof data === 'object' && 'success' in data) {
+        const result = data as any
+        if (result.success && result.data) {
+          return {
+            success: true,
+            data: result.data as { id: number; numero_venta: string }
+          }
+        }
       }
+
+      // Si no viene en el formato esperado, intentar acceder directamente
+      if (data && typeof data === 'object' && 'id' in data) {
+        return {
+          success: true,
+          data: data as { id: number; numero_venta: string }
+        }
+      }
+
+      throw new Error('Formato de respuesta inesperado')
     } catch (error: any) {
       console.error('Error al crear venta directa:', error)
       return {
