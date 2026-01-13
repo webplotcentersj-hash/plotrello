@@ -9200,24 +9200,49 @@ class ApiService {
         throw error
       }
 
-      // La función RPC devuelve JSON directamente, puede venir como string o como objeto
+      // La función RPC devuelve JSON directamente
+      // Supabase puede devolverlo como string JSON o como objeto ya parseado
       let ventasData: any[] = []
       
-      if (typeof data === 'string') {
+      console.log('Tipo de data recibida:', typeof data)
+      console.log('Data recibida:', data)
+      
+      if (data === null || data === undefined) {
+        console.warn('Data es null o undefined, retornando array vacío')
+        ventasData = []
+      } else if (typeof data === 'string') {
         try {
-          ventasData = JSON.parse(data)
+          const parsed = JSON.parse(data)
+          // Si el string JSON contiene un array, usarlo directamente
+          // Si contiene un objeto con un array dentro, extraerlo
+          if (Array.isArray(parsed)) {
+            ventasData = parsed
+          } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.data)) {
+            ventasData = parsed.data
+          } else if (parsed && typeof parsed === 'object') {
+            // Si es un objeto único, convertirlo a array
+            ventasData = [parsed]
+          }
         } catch (e) {
-          console.error('Error parseando JSON de ventas:', e)
+          console.error('Error parseando JSON de ventas:', e, 'String recibido:', data)
           ventasData = []
         }
       } else if (Array.isArray(data)) {
         ventasData = data
       } else if (data && typeof data === 'object') {
-        // Si viene como objeto único, convertirlo a array
-        ventasData = [data]
+        // Verificar si tiene una propiedad 'data' que sea un array
+        if ('data' in data && Array.isArray((data as any).data)) {
+          ventasData = (data as any).data
+        } else {
+          // Si es un objeto único, convertirlo a array
+          ventasData = [data]
+        }
       }
 
-      console.log('Ventas obtenidas:', ventasData.length)
+      console.log('Ventas parseadas:', ventasData.length)
+      if (ventasData.length > 0) {
+        console.log('Primera venta ejemplo:', ventasData[0])
+      }
 
       return {
         success: true,
