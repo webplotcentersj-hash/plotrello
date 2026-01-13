@@ -50,6 +50,10 @@
   color: var(--text-primary);
 }
 
+.create-modal .modal-header h2 {
+  color: #e5e7eb !important;
+}
+
 .modal-close {
   background: none;
   border: none;
@@ -93,9 +97,13 @@
 .form-group label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-primary) !important;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.create-modal .form-group label {
+  color: #e5e7eb !important;
 }
 
 .form-section-divider {
@@ -110,6 +118,10 @@
   font-size: 1.2rem;
   color: #f97316;
   font-weight: 700;
+}
+
+.create-modal .form-section-divider h3 {
+  color: #e5e7eb !important;
 }
 
 .section-description {
