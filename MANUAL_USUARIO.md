@@ -24,9 +24,19 @@
 15. [Sistema de Menú Diario](#sistema-de-menú-diario)
 16. [Sistema de Pedidos de Compra](#sistema-de-pedidos-de-compra)
 17. [Sistema de Horarios y Turnos](#sistema-de-horarios-y-turnos)
-18. [Atajos de Teclado](#atajos-de-teclado)
-19. [Funciones Avanzadas](#funciones-avanzadas)
-20. [Solución de Problemas](#solución-de-problemas)
+18. [Sistema de Clientes Web](#sistema-de-clientes-web)
+19. [Módulo DT (Asesor Técnico / Presupuestos)](#módulo-dt-asesor-técnico--presupuestos)
+20. [Módulo de Mostrador](#módulo-de-mostrador)
+21. [Módulo de Compras](#módulo-de-compras)
+22. [Módulo de Diseño](#módulo-de-diseño)
+23. [Libro de Actas](#libro-de-actas)
+24. [Gestión de Impresoras](#gestión-de-impresoras)
+25. [Briefs y Galería de Trabajos](#briefs-y-galería-de-trabajos)
+26. [Herramientas Personalizadas](#herramientas-personalizadas)
+27. [Páginas Públicas](#páginas-públicas)
+28. [Atajos de Teclado](#atajos-de-teclado)
+29. [Funciones Avanzadas](#funciones-avanzadas)
+30. [Solución de Problemas](#solución-de-problemas)
 
 ---
 
@@ -1691,6 +1701,8 @@ Las notificaciones aparecen en:
 - Menú Diario (ver y seleccionar)
 - Solicitudes de Permisos (crear)
 - Pedidos de Compra (solicitar y ver historial)
+- Libro de Actas (ver y crear actas de su sector)
+- Herramientas Personalizadas
 
 #### RRHH y Admin
 - Gestión de Capacitaciones
@@ -1699,11 +1711,45 @@ Las notificaciones aparecen en:
 - Gestión de Menú Diario
 - Gestión de Horarios y Turnos
 - Gestión de Usuarios
+- Reportes de RRHH
 
 #### Compras y Admin
 - Dashboard de Compras
 - Gestión de Pedidos de Compra
 - Aprobación/Rechazo de Pedidos
-- Reportes de Compras
+- Gestión de Stock
+- Gestión de Proveedores
+- Presupuestos de Compras
+- Calendario de Entregas
 - Conciliación Bancaria
+- Reportes de Compras
+
+#### Mostrador y Admin
+- Dashboard de Mostrador
+- Órdenes Listas para Retirar
+- Buscar Cliente
+- Procesar Entregas
+- Calendario de Entregas
+- Clientes Frecuentes
+- Reportes de Mostrador
+- Gestión de Clientes Web
+
+#### Diseño y Admin
+- Dashboard de Diseño
+- Briefs Pendientes
+- Galería de Trabajos
+- Gestión de Briefs
+
+#### Asesor Técnico / Presupuestos / Admin
+- Módulo DT (Kanban dedicado)
+- Fichas No OP
+- Gestión de Presupuestos
+
+#### Clientes Web
+- Portal de Clientes
+- Catálogo de Productos
+- Crear y Gestionar Pedidos
+- Presupuestos
+- Buscar OP
+- Mensajes
 
