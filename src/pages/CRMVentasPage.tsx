@@ -126,10 +126,38 @@ const CRMVentasPage = () => {
         console.log('Ventas cargadas en CRM:', ventasResponse.data.length)
         setVentas(ventasResponse.data)
         setVentasFiltradas(ventasResponse.data)
+        
+        // Calcular estadísticas
+        const totalVentas = ventasResponse.data.length
+        const totalIngresos = ventasResponse.data.reduce((sum, v) => sum + v.valor_total, 0)
+        const ventasPagadas = ventasResponse.data.filter(v => v.estado_pago === 'Pagado')
+        const ingresosPagados = ventasPagadas.reduce((sum, v) => sum + v.valor_total, 0)
+        const ventasPendientes = ventasResponse.data.filter(v => v.estado_pago === 'Pendiente')
+        const ingresosPendientes = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
+        const ticketPromedio = totalVentas > 0 ? totalIngresos / totalVentas : 0
+        
+        setEstadisticas({
+          totalVentas,
+          totalIngresos,
+          ventasPagadas: ventasPagadas.length,
+          ingresosPagados,
+          ventasPendientes: ventasPendientes.length,
+          ingresosPendientes,
+          ticketPromedio
+        })
       } else {
         console.error('Error cargando ventas:', ventasResponse.error)
         setVentas([])
         setVentasFiltradas([])
+        setEstadisticas({
+          totalVentas: 0,
+          totalIngresos: 0,
+          ventasPagadas: 0,
+          ingresosPagados: 0,
+          ventasPendientes: 0,
+          ingresosPendientes: 0,
+          ticketPromedio: 0
+        })
       }
       
       // Cargar órdenes disponibles
@@ -769,10 +797,15 @@ const CRMVentasPage = () => {
         <div className="header-content">
           <h1>💼 CRM de Ventas</h1>
           <div className="header-actions">
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/reportes-ventas')}
-            >
+            <button className="btn-secondary" onClick={() => navigate('/')}>
+              ← Volver al Tablero
+            </button>
+            {activeTab === 'oportunidades' && (
+              <button className="btn-primary" onClick={handleCrearOportunidad}>
+                ➕ Nueva Oportunidad
+              </button>
+            )}
+            <button className="btn-secondary" onClick={() => navigate('/reportes-ventas')}>
               📊 Ver Reportes
             </button>
           </div>
@@ -811,25 +844,6 @@ const CRMVentasPage = () => {
               <p className="metrica-valor">${estadisticas.ticketPromedio.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</p>
               <p className="metrica-subtitle">Por venta</p>
             </div>
-          </div>
-        </div>
-      </header>
-      
-      <div className="crm-content">
-        <div className="header-content">
-          <h1>💼 CRM de Ventas</h1>
-          <div className="header-actions">
-            <button className="btn-secondary" onClick={() => navigate('/')}>
-              ← Volver al Tablero
-            </button>
-            {activeTab === 'oportunidades' && (
-              <button className="btn-primary" onClick={handleCrearOportunidad}>
-                ➕ Nueva Oportunidad
-              </button>
-            )}
-            <button className="btn-secondary" onClick={() => navigate('/crm-ventas/reportes')}>
-              📊 Reportes
-            </button>
           </div>
         </div>
       </header>
