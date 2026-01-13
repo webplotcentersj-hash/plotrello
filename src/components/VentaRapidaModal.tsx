@@ -260,6 +260,14 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
 
       alert(`Venta creada exitosamente: ${ventaResponse.data.numero_venta}`)
       
+      // Disparar evento personalizado para que el CRM se actualice si está abierto
+      window.dispatchEvent(new CustomEvent('venta-creada', { 
+        detail: { 
+          ventaId: ventaResponse.data.id, 
+          numeroVenta: ventaResponse.data.numero_venta 
+        }
+      }))
+      
       // Llamar a onSuccess para recargar datos en el dashboard
       if (onSuccess) {
         onSuccess()

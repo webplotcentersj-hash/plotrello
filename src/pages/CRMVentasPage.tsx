@@ -117,6 +117,20 @@ const CRMVentasPage = () => {
     }
   }, [isAdmin, isMostrador, navigate, authLoading])
 
+  // Escuchar eventos de venta creada desde otros componentes
+  useEffect(() => {
+    const handleVentaCreada = () => {
+      console.log('Evento de venta creada recibido, recargando CRM...')
+      loadData()
+    }
+
+    window.addEventListener('venta-creada', handleVentaCreada)
+    
+    return () => {
+      window.removeEventListener('venta-creada', handleVentaCreada)
+    }
+  }, [])
+
   const loadData = async () => {
     setLoading(true)
     try {
