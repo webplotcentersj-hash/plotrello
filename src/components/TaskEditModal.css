@@ -44,7 +44,8 @@
   border-bottom: 1px solid var(--surface-border);
 }
 
-.modal-header h2 {
+.modal-content .modal-header h2,
+.modal-content.create-modal .modal-header h2 {
   margin: 0;
   font-size: 1.5rem;
   color: #e5e7eb !important;
@@ -90,7 +91,8 @@
   position: relative;
 }
 
-.form-group label {
+.modal-content .form-group label,
+.modal-content.create-modal .form-group label {
   font-size: 0.85rem;
   font-weight: 600;
   color: #e5e7eb !important;
@@ -105,17 +107,19 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.form-section-divider h3 {
+.modal-content .form-section-divider h3,
+.modal-content.create-modal .form-section-divider h3 {
   margin: 0 0 8px 0;
   font-size: 1.2rem;
   color: #e5e7eb !important;
   font-weight: 700;
 }
 
-.section-description {
+.modal-content .section-description,
+.modal-content.create-modal .section-description {
   margin: 0;
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: #d1d5db !important;
   font-style: italic;
 }
 
