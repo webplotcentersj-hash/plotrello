@@ -172,7 +172,7 @@ const CRMVentasPage = () => {
             if (!seg.fecha_proxima_accion) return false
             const fechaAccion = new Date(seg.fecha_proxima_accion)
             fechaAccion.setHours(0, 0, 0, 0)
-            return fechaAccion <= hoy && !seg.realizada // Asumiendo que hay un campo 'realizada'
+            return fechaAccion <= hoy
           })
 
           if (seguimientosPendientes.length > 0 && opp.id_vendedor === usuario.id) {
