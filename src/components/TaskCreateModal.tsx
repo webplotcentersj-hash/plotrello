@@ -859,7 +859,7 @@ const TaskCreateModal = ({
               {isClienteDropdownOpen && clientesEncontrados.length > 0 && (
                 <div className="dropdown-list">
                   {buscandoClientes && (
-                    <div className="dropdown-item" style={{ color: 'var(--text-muted)' }}>
+                    <div className="dropdown-item" style={{ color: '#d1d5db' }}>
                       🔍 Buscando...
                     </div>
                   )}
@@ -868,7 +868,7 @@ const TaskCreateModal = ({
                       <div className="dropdown-header" style={{ 
                         padding: '8px 12px', 
                         fontSize: '0.75rem', 
-                        color: 'var(--text-muted)',
+                        color: '#d1d5db',
                         borderBottom: '1px solid var(--surface-border)',
                         fontWeight: 600
                       }}>
@@ -915,7 +915,7 @@ const TaskCreateModal = ({
                 <div style={{ 
                   marginTop: '4px', 
                   fontSize: '0.75rem', 
-                  color: 'var(--text-muted)',
+                  color: '#d1d5db',
                   fontStyle: 'italic'
                 }}>
                   💡 Cliente no encontrado. Se creará uno nuevo al guardar.
@@ -996,11 +996,11 @@ const TaskCreateModal = ({
                     overflowY: 'auto'
                   }}>
                     {loadingBriefs ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
                         Cargando briefs...
                       </div>
                     ) : briefsPendientes.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
                         No hay briefs pendientes
                       </div>
                     ) : (
@@ -1028,18 +1028,18 @@ const TaskCreateModal = ({
                               e.currentTarget.style.boxShadow = 'none'
                             }}
                           >
-                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                            <div style={{ fontWeight: 700, color: '#e5e7eb', marginBottom: '4px' }}>
                               {brief.cliente_nombre_completo || 'Cliente sin nombre'}
                               {brief.cliente_empresa && ` - ${brief.cliente_empresa}`}
                             </div>
                             {brief.objetivo_proyecto && (
-                              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                              <div style={{ fontSize: '0.85rem', color: '#d1d5db', marginTop: '4px' }}>
                                 {brief.objetivo_proyecto.length > 60 
                                   ? `${brief.objetivo_proyecto.substring(0, 60)}...` 
                                   : brief.objetivo_proyecto}
                               </div>
                             )}
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#d1d5db', marginTop: '4px' }}>
                               {brief.completado ? '✓ Completado' : '⏳ Pendiente'}
                               {brief.es_urgencia && ' • ⚠️ Urgencia'}
                             </div>
@@ -1068,7 +1068,7 @@ const TaskCreateModal = ({
                       <span style={{ color: '#eb671b', fontWeight: 600 }}>
                         ✓ Pedido seleccionado: {pedidoWebSeleccionado.numero_pedido}
                       </span>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#d1d5db', marginTop: '4px' }}>
                         Estado: {pedidoWebSeleccionado.estado} • Precio: ${pedidoWebSeleccionado.precio_total}
                         {pedidoWebSeleccionado.es_urgente && ' • ⚠️ Urgente'}
                       </div>
@@ -1122,11 +1122,11 @@ const TaskCreateModal = ({
                   overflowY: 'auto'
                 }}>
                   {loadingPedidosWeb ? (
-                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
                       Cargando pedidos...
                     </div>
                   ) : pedidosWebPendientes.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
                       No hay pedidos web pendientes
                     </div>
                   ) : (
@@ -1169,14 +1169,14 @@ const TaskCreateModal = ({
                               e.currentTarget.style.boxShadow = 'none'
                             }}
                           >
-                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                            <div style={{ fontWeight: 700, color: '#e5e7eb', marginBottom: '4px' }}>
                               {pedido.numero_pedido} - {nombreCliente}
                               {cliente?.empresa && ` (${cliente.empresa})`}
                             </div>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.85rem', color: '#d1d5db', marginTop: '4px' }}>
                               Precio: ${pedido.precio_total} • Estado: {pedido.estado}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#d1d5db', marginTop: '4px' }}>
                               {pedido.es_urgente && '⚠️ Urgente • '}
                               {pedido.requiere_delivery && '🚚 Delivery • '}
                               {pedido.fecha_limite_deseada && `📅 ${new Date(pedido.fecha_limite_deseada).toLocaleDateString('es-AR')}`}
