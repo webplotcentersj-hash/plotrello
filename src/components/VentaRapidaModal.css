@@ -86,7 +86,7 @@
   border: 1px solid var(--surface-border);
   border-radius: 8px;
   background: var(--surface-base);
-  color: var(--text-primary);
+  color: #111827 !important;
   font-size: 0.95rem;
   transition: all 0.2s;
 }
@@ -291,7 +291,7 @@
 
 .item-control label {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: #d1d5db !important;
   margin: 0;
 }
 
@@ -301,7 +301,7 @@
   border: 1px solid var(--surface-border);
   border-radius: 6px;
   background: var(--surface-base);
-  color: var(--text-primary);
+  color: #111827 !important;
   font-size: 0.9rem;
 }
 
@@ -338,7 +338,7 @@
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
-  color: var(--text-primary);
+  color: #ffffff !important;
 }
 
 .total-line.total-final {
