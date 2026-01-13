@@ -43,15 +43,15 @@ export function exportarVentasPDF(ventas: Venta[], _filtros?: { fechaDesde?: str
   doc.text(`Generado el ${fechaGeneracion}`, margin, yPos)
   yPos += lineHeight
 
-  if (filtros) {
-    if (filtros.fechaDesde || filtros.fechaHasta) {
-      const fechaDesde = filtros.fechaDesde ? formatArgentinaDate(filtros.fechaDesde) : 'Inicio'
-      const fechaHasta = filtros.fechaHasta ? formatArgentinaDate(filtros.fechaHasta) : 'Hoy'
+  if (_filtros) {
+    if (_filtros.fechaDesde || _filtros.fechaHasta) {
+      const fechaDesde = _filtros.fechaDesde ? formatArgentinaDate(_filtros.fechaDesde) : 'Inicio'
+      const fechaHasta = _filtros.fechaHasta ? formatArgentinaDate(_filtros.fechaHasta) : 'Hoy'
       doc.text(`Período: ${fechaDesde} - ${fechaHasta}`, margin, yPos)
       yPos += lineHeight
     }
-    if (filtros.estadoPago && filtros.estadoPago !== 'todos') {
-      doc.text(`Estado de Pago: ${filtros.estadoPago}`, margin, yPos)
+    if (_filtros.estadoPago && _filtros.estadoPago !== 'todos') {
+      doc.text(`Estado de Pago: ${_filtros.estadoPago}`, margin, yPos)
       yPos += lineHeight
     }
   }
