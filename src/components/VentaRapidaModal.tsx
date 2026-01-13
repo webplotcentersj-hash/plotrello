@@ -198,6 +198,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       const valorTotal = calcularSubtotal()
 
       // Crear venta directamente (sin oportunidad ni OP)
+      // Usar id_cliente si el cliente existe en la base de datos
       const ventaResponse = await apiService.crearVentaDirecta({
         cliente_nombre: clienteFinal.nombre,
         cliente_telefono: clienteFinal.telefono || undefined,
@@ -211,6 +212,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         fecha_venta: fechaVenta,
         id_vendedor: usuarioId,
         nombre_vendedor: usuarioNombre,
+        id_cliente: clienteFinal.id || undefined, // Asociar con cliente de la tabla clientes
         observaciones: observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
       })
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem } from '../types/api'
+import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
 import './CRMVentasPage.css'
@@ -39,6 +39,12 @@ const CRMVentasPage = () => {
     ticketPromedio: 0
   })
   
+  // Búsqueda de clientes
+  const [busquedaCliente, setBusquedaCliente] = useState('')
+  const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
+  const [buscandoClientes, setBuscandoClientes] = useState(false)
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteRecord | null>(null)
+  
   // Formularios
   const [formOportunidad, setFormOportunidad] = useState({
     cliente_nombre: '',
@@ -52,7 +58,8 @@ const CRMVentasPage = () => {
     probabilidad_cierre: 50,
     etapa: 'Prospecto' as 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido',
     fecha_cierre_estimada: '',
-    observaciones: ''
+    observaciones: '',
+    id_cliente: null as number | null
   })
   
   const [mostrarModalSeguimiento, setMostrarModalSeguimiento] = useState(false)
@@ -264,8 +271,53 @@ const CRMVentasPage = () => {
     setVentasFiltradas(filtradas)
   }, [ventas, filtroEstadoPago, fechaDesde, fechaHasta, busquedaVenta])
 
+  // Buscar clientes
+  useEffect(() => {
+    if (busquedaCliente.trim().length < 1) {
+      setClientesEncontrados([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setBuscandoClientes(true)
+      try {
+        const response = await apiService.buscarClientes(busquedaCliente.trim())
+        if (response.success && response.data) {
+          setClientesEncontrados(response.data)
+        } else {
+          setClientesEncontrados([])
+        }
+      } catch (error) {
+        console.error('Error buscando clientes:', error)
+        setClientesEncontrados([])
+      } finally {
+        setBuscandoClientes(false)
+      }
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [busquedaCliente])
+
+  const seleccionarCliente = (cliente: ClienteRecord) => {
+    setClienteSeleccionado(cliente)
+    setBusquedaCliente(cliente.nombre)
+    setClientesEncontrados([])
+    setFormOportunidad({
+      ...formOportunidad,
+      cliente_nombre: cliente.nombre,
+      cliente_telefono: cliente.telefono || '',
+      cliente_email: cliente.email || '',
+      cliente_dni_cuit: cliente.dni_cuit || '',
+      cliente_empresa: cliente.empresa || '',
+      cliente_direccion: cliente.direccion || '',
+      id_cliente: cliente.id
+    })
+  }
+
   const handleCrearOportunidad = () => {
     setOportunidadEditando(null)
+    setClienteSeleccionado(null)
+    setBusquedaCliente('')
     setFormOportunidad({
       cliente_nombre: '',
       cliente_telefono: '',
@@ -278,13 +330,16 @@ const CRMVentasPage = () => {
       probabilidad_cierre: 50,
       etapa: 'Prospecto',
       fecha_cierre_estimada: '',
-      observaciones: ''
+      observaciones: '',
+      id_cliente: null
     })
     setMostrarModalOportunidad(true)
   }
 
   const handleEditarOportunidad = (oportunidad: OportunidadVenta) => {
     setOportunidadEditando(oportunidad)
+    setClienteSeleccionado(null)
+    setBusquedaCliente(oportunidad.cliente_nombre)
     setFormOportunidad({
       cliente_nombre: oportunidad.cliente_nombre,
       cliente_telefono: oportunidad.cliente_telefono || '',
@@ -297,7 +352,8 @@ const CRMVentasPage = () => {
       probabilidad_cierre: oportunidad.probabilidad_cierre,
       etapa: oportunidad.etapa,
       fecha_cierre_estimada: oportunidad.fecha_cierre_estimada || '',
-      observaciones: oportunidad.observaciones || ''
+      observaciones: oportunidad.observaciones || '',
+      id_cliente: null // Se puede buscar y asociar después
     })
     setMostrarModalOportunidad(true)
   }
@@ -335,6 +391,21 @@ const CRMVentasPage = () => {
           alert('Error al actualizar oportunidad: ' + response.error)
         }
       } else {
+        // Buscar o crear cliente si no está seleccionado
+        let idClienteFinal = formOportunidad.id_cliente
+        if (!idClienteFinal && formOportunidad.cliente_nombre.trim()) {
+          const clienteResponse = await apiService.buscarOCrearCliente({
+            nombre: formOportunidad.cliente_nombre,
+            dni_cuit: formOportunidad.cliente_dni_cuit || undefined,
+            telefono: formOportunidad.cliente_telefono || undefined,
+            email: formOportunidad.cliente_email || undefined,
+            direccion: formOportunidad.cliente_direccion || undefined
+          })
+          if (clienteResponse.success && clienteResponse.data) {
+            idClienteFinal = clienteResponse.data.id
+          }
+        }
+
         // Crear
         const response = await apiService.crearOportunidadVenta({
           cliente_nombre: formOportunidad.cliente_nombre,
@@ -350,7 +421,8 @@ const CRMVentasPage = () => {
           fecha_cierre_estimada: formOportunidad.fecha_cierre_estimada || undefined,
           id_vendedor: usuario.id,
           nombre_vendedor: usuario.nombre,
-          observaciones: formOportunidad.observaciones || undefined
+          observaciones: formOportunidad.observaciones || undefined,
+          id_cliente: idClienteFinal || undefined
         })
         
         if (response.success) {
@@ -1211,12 +1283,42 @@ const CRMVentasPage = () => {
             <div className="modal-body">
               <div className="form-group">
                 <label>Cliente *</label>
-                <input
-                  type="text"
-                  value={formOportunidad.cliente_nombre}
-                  onChange={(e) => setFormOportunidad({ ...formOportunidad, cliente_nombre: e.target.value })}
-                  placeholder="Nombre del cliente"
-                />
+                <div className="cliente-search-container" style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={busquedaCliente}
+                    onChange={(e) => {
+                      setBusquedaCliente(e.target.value)
+                      setFormOportunidad({ ...formOportunidad, cliente_nombre: e.target.value })
+                    }}
+                    placeholder="Buscar cliente por nombre, DNI, teléfono..."
+                    style={{ paddingRight: buscandoClientes ? '35px' : '12px' }}
+                  />
+                  {buscandoClientes && (
+                    <span className="loading-spinner" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}>⏳</span>
+                  )}
+                  {clientesEncontrados.length > 0 && (
+                    <div className="dropdown-results" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: 'var(--surface-card)', border: '1px solid var(--surface-border)', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto', marginTop: '4px' }}>
+                      {clientesEncontrados.map((cliente) => (
+                        <div
+                          key={cliente.id}
+                          className="dropdown-item"
+                          onClick={() => seleccionarCliente(cliente)}
+                          style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid var(--surface-border)' }}
+                        >
+                          <strong>{cliente.nombre}</strong>
+                          {cliente.dni_cuit && <div className="dropdown-subtext">DNI/CUIT: {cliente.dni_cuit}</div>}
+                          {cliente.telefono && <div className="dropdown-subtext">Tel: {cliente.telefono}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {clienteSeleccionado && (
+                  <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px', fontSize: '0.9rem' }}>
+                    ✓ Cliente seleccionado: <strong>{clienteSeleccionado.nombre}</strong>
+                  </div>
+                )}
               </div>
               <div className="form-row">
                 <div className="form-group">

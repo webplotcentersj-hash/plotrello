@@ -8898,6 +8898,7 @@ class ApiService {
     id_vendedor: number
     nombre_vendedor: string
     observaciones?: string
+    id_cliente?: number
   }): Promise<ApiResponse<{ id: number; numero_oportunidad: string }>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -8906,6 +8907,8 @@ class ApiService {
     try {
       const { data, error } = await supabase.rpc('crear_oportunidad_venta', {
         p_cliente_nombre: oportunidad.cliente_nombre,
+        p_id_vendedor: oportunidad.id_vendedor,
+        p_nombre_vendedor: oportunidad.nombre_vendedor,
         p_cliente_telefono: oportunidad.cliente_telefono || null,
         p_cliente_email: oportunidad.cliente_email || null,
         p_cliente_dni_cuit: oportunidad.cliente_dni_cuit || null,
@@ -8916,9 +8919,8 @@ class ApiService {
         p_probabilidad_cierre: oportunidad.probabilidad_cierre || 50,
         p_etapa: oportunidad.etapa || 'Prospecto',
         p_fecha_cierre_estimada: oportunidad.fecha_cierre_estimada || null,
-        p_id_vendedor: oportunidad.id_vendedor,
-        p_nombre_vendedor: oportunidad.nombre_vendedor,
-        p_observaciones: oportunidad.observaciones || null
+        p_observaciones: oportunidad.observaciones || null,
+        p_id_cliente: (oportunidad as any).id_cliente || null
       })
 
       if (error) throw error
@@ -9098,7 +9100,8 @@ class ApiService {
         p_metodo_pago: venta.metodo_pago || null,
         p_estado_pago: venta.estado_pago || 'Pendiente',
         p_fecha_venta: venta.fecha_venta || null,
-        p_observaciones: venta.observaciones || null
+        p_observaciones: venta.observaciones || null,
+        p_id_cliente: (venta as any).id_cliente || null
       })
 
       if (error) throw error
