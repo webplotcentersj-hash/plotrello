@@ -171,7 +171,7 @@ export function exportarVentasPDF(ventas: Venta[], _filtros?: { fechaDesde?: str
 /**
  * Exporta ventas a Excel
  */
-export function exportarVentasExcel(ventas: Venta[], filtros?: { fechaDesde?: string; fechaHasta?: string; estadoPago?: string }): void {
+export function exportarVentasExcel(ventas: Venta[], _filtros?: { fechaDesde?: string; fechaHasta?: string; estadoPago?: string }): void {
   // Preparar datos para Excel
   const datos = ventas.map(venta => ({
     'N° Venta': venta.numero_venta || '',
@@ -443,7 +443,7 @@ export function generarFacturaRemitoPDF(venta: Venta, tipo: 'factura' | 'remito'
     const cantidad = item.cantidad.toString()
     const descripcion = item.descripcion.length > 35 ? item.descripcion.substring(0, 32) + '...' : item.descripcion
     const precioUnit = `$${item.precio_unitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-    const descuento = item.descuento > 0 ? `$${item.descuento.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '-'
+    const descuento = (item.descuento && item.descuento > 0) ? `$${item.descuento.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '-'
     const total = `$${item.precio_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
 
     xPos = margin
