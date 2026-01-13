@@ -36,7 +36,7 @@
 .venta-rapida-modal-header h2 {
   margin: 0;
   font-size: 1.75rem;
-  color: var(--text-primary);
+  color: #ffffff !important;
   font-weight: 700;
 }
 
@@ -221,7 +221,7 @@
 
 .items-venta-section h3 {
   margin: 0 0 16px 0;
-  color: var(--text-primary);
+  color: #ffffff !important;
   font-size: 1.25rem;
 }
 

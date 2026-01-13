@@ -49,9 +49,9 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
 
-  // Buscar clientes
+  // Buscar clientes (desde 1 letra)
   useEffect(() => {
-    if (busquedaCliente.trim().length < 2) {
+    if (busquedaCliente.trim().length < 1) {
       setClientesEncontrados([])
       return
     }
@@ -71,14 +71,14 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       } finally {
         setBuscandoClientes(false)
       }
-    }, 300)
+    }, 200)
 
     return () => clearTimeout(timer)
   }, [busquedaCliente])
 
-  // Buscar artículos
+  // Buscar artículos (desde 1 letra)
   useEffect(() => {
-    if (busquedaArticulo.trim().length < 2) {
+    if (busquedaArticulo.trim().length < 1) {
       setArticulosEncontrados([])
       return
     }
@@ -98,7 +98,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       } finally {
         setBuscandoArticulos(false)
       }
-    }, 300)
+    }, 200)
 
     return () => clearTimeout(timer)
   }, [busquedaArticulo])
