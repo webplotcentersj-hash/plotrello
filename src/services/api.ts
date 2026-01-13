@@ -9274,11 +9274,11 @@ class ApiService {
     try {
       const { data, error } = await supabase.rpc('agregar_item_venta', {
         p_id_venta: item.id_venta,
+        p_descripcion: item.descripcion,
+        p_precio_unitario: item.precio_unitario,
+        p_cantidad: item.cantidad,
         p_id_articulo_stock: item.id_articulo_stock || null,
         p_codigo_articulo: item.codigo_articulo || null,
-        p_descripcion: item.descripcion,
-        p_cantidad: item.cantidad,
-        p_precio_unitario: item.precio_unitario,
         p_descuento: item.descuento || 0,
         p_observaciones: item.observaciones || null
       })
