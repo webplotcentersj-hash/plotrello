@@ -504,18 +504,22 @@ BEGIN
       'created_at', v.created_at,
       'updated_at', v.updated_at,
       'items', (
-        SELECT json_agg(
+        SELECT COALESCE(json_agg(
           json_build_object(
             'id', vi.id,
+            'id_venta', vi.id_venta,
+            'id_articulo_stock', vi.id_articulo_stock,
             'codigo_articulo', vi.codigo_articulo,
             'descripcion', vi.descripcion,
             'cantidad', vi.cantidad,
             'precio_unitario', vi.precio_unitario,
             'precio_total', vi.precio_total,
             'descuento', vi.descuento,
-            'observaciones', vi.observaciones
+            'observaciones', vi.observaciones,
+            'created_at', vi.created_at
           )
-        )
+          ORDER BY vi.id
+        ), '[]'::json)
         FROM public.ventas_items vi
         WHERE vi.id_venta = v.id
       )
