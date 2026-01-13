@@ -10,7 +10,7 @@ import './CRMVentasPage.css'
 
 const CRMVentasPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, usuario } = useAuth()
+  const { isAdmin, isMostrador, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas'>('oportunidades')
   
@@ -88,17 +88,18 @@ const CRMVentasPage = () => {
 
   // Verificar permisos
   useEffect(() => {
+    if (authLoading) return // Esperar a que termine de cargar el usuario
+    
     if (!isAdmin && !isMostrador) {
       navigate('/')
+      return
     }
-  }, [isAdmin, isMostrador, navigate])
-
-  // Cargar datos
-  useEffect(() => {
+    
+    // Solo cargar datos si tiene permisos
     if (isAdmin || isMostrador) {
       loadData()
     }
-  }, [isAdmin, isMostrador])
+  }, [isAdmin, isMostrador, navigate, authLoading])
 
   const loadData = async () => {
     setLoading(true)
