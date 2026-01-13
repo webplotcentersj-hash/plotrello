@@ -115,6 +115,50 @@
 
 .metrica-card {
   background: var(--surface-card);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-left: 4px solid transparent;
+}
+
+.metrica-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.metrica-icon {
+  font-size: 2.5rem;
+}
+
+.metrica-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metrica-valor {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.metrica-subtitle {
+  margin: 8px 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.metrica-card {
+  background: var(--surface-card);
   border: 1px solid var(--surface-border);
   border-radius: 12px;
   padding: 24px;

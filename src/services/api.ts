@@ -9195,11 +9195,33 @@ class ApiService {
         p_estado_pago: estadoPago || null
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error RPC obtener_ventas:', error)
+        throw error
+      }
+
+      // La función RPC devuelve JSON directamente, puede venir como string o como objeto
+      let ventasData: any[] = []
+      
+      if (typeof data === 'string') {
+        try {
+          ventasData = JSON.parse(data)
+        } catch (e) {
+          console.error('Error parseando JSON de ventas:', e)
+          ventasData = []
+        }
+      } else if (Array.isArray(data)) {
+        ventasData = data
+      } else if (data && typeof data === 'object') {
+        // Si viene como objeto único, convertirlo a array
+        ventasData = [data]
+      }
+
+      console.log('Ventas obtenidas:', ventasData.length)
 
       return {
         success: true,
-        data: (data || []) as Array<import('../types/api').Venta>
+        data: ventasData as Array<import('../types/api').Venta>
       }
     } catch (error: any) {
       console.error('Error al obtener ventas:', error)

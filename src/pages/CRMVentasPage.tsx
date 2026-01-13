@@ -29,6 +29,15 @@ const CRMVentasPage = () => {
   const [busquedaVenta, setBusquedaVenta] = useState('')
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
+  const [estadisticas, setEstadisticas] = useState({
+    totalVentas: 0,
+    totalIngresos: 0,
+    ventasPagadas: 0,
+    ingresosPagados: 0,
+    ventasPendientes: 0,
+    ingresosPendientes: 0,
+    ticketPromedio: 0
+  })
   
   // Formularios
   const [formOportunidad, setFormOportunidad] = useState({
@@ -111,11 +120,16 @@ const CRMVentasPage = () => {
         setOportunidadesFiltradas(oppResponse.data)
       }
       
-      // Cargar ventas
+      // Cargar ventas (sin filtros para obtener todas)
       const ventasResponse = await apiService.obtenerVentas()
       if (ventasResponse.success && ventasResponse.data) {
+        console.log('Ventas cargadas en CRM:', ventasResponse.data.length)
         setVentas(ventasResponse.data)
         setVentasFiltradas(ventasResponse.data)
+      } else {
+        console.error('Error cargando ventas:', ventasResponse.error)
+        setVentas([])
+        setVentasFiltradas([])
       }
       
       // Cargar órdenes disponibles
@@ -755,6 +769,56 @@ const CRMVentasPage = () => {
         <div className="header-content">
           <h1>💼 CRM de Ventas</h1>
           <div className="header-actions">
+            <button 
+              className="btn-secondary"
+              onClick={() => navigate('/reportes-ventas')}
+            >
+              📊 Ver Reportes
+            </button>
+          </div>
+        </div>
+        
+        {/* Estadísticas Rápidas */}
+        <div className="metricas-grid" style={{ marginTop: '24px' }}>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #3b82f6' }}>
+            <div className="metrica-icon">💰</div>
+            <div className="metrica-content">
+              <h3>Total Ingresos</h3>
+              <p className="metrica-valor">${estadisticas.totalIngresos.toLocaleString()}</p>
+              <p className="metrica-subtitle">{estadisticas.totalVentas} ventas</p>
+            </div>
+          </div>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
+            <div className="metrica-icon">✅</div>
+            <div className="metrica-content">
+              <h3>Ingresos Pagados</h3>
+              <p className="metrica-valor">${estadisticas.ingresosPagados.toLocaleString()}</p>
+              <p className="metrica-subtitle">{estadisticas.ventasPagadas} ventas</p>
+            </div>
+          </div>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+            <div className="metrica-icon">⏳</div>
+            <div className="metrica-content">
+              <h3>Ingresos Pendientes</h3>
+              <p className="metrica-valor">${estadisticas.ingresosPendientes.toLocaleString()}</p>
+              <p className="metrica-subtitle">{estadisticas.ventasPendientes} ventas</p>
+            </div>
+          </div>
+          <div className="metrica-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+            <div className="metrica-icon">📊</div>
+            <div className="metrica-content">
+              <h3>Ticket Promedio</h3>
+              <p className="metrica-valor">${estadisticas.ticketPromedio.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</p>
+              <p className="metrica-subtitle">Por venta</p>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      <div className="crm-content">
+        <div className="header-content">
+          <h1>💼 CRM de Ventas</h1>
+          <div className="header-actions">
             <button className="btn-secondary" onClick={() => navigate('/')}>
               ← Volver al Tablero
             </button>
@@ -1006,16 +1070,63 @@ const CRMVentasPage = () => {
                   <div className="info-item">
                     <strong>Vendedor:</strong> {venta.nombre_vendedor}
                   </div>
+                  {venta.cliente_telefono && (
+                    <div className="info-item">
+                      <strong>Teléfono:</strong> {venta.cliente_telefono}
+                    </div>
+                  )}
+                  {venta.cliente_email && (
+                    <div className="info-item">
+                      <strong>Email:</strong> {venta.cliente_email}
+                    </div>
+                  )}
+                  {venta.cliente_dni_cuit && (
+                    <div className="info-item">
+                      <strong>DNI/CUIT:</strong> {venta.cliente_dni_cuit}
+                    </div>
+                  )}
+                  {venta.items && venta.items.length > 0 && (
+                    <div className="info-item">
+                      <strong>Items:</strong> {venta.items.length} artículo{venta.items.length > 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
 
                 {venta.items && venta.items.length > 0 && (
                   <div className="items-section">
-                    <strong>Items:</strong>
+                    <strong>Items ({venta.items.length}):</strong>
                     {venta.items.map((item) => (
                       <div key={item.id} className="item-venta">
-                        {item.cantidad} x {item.descripcion} - ${item.precio_total.toLocaleString()}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <div style={{ flex: 1 }}>
+                            <strong>{item.cantidad}x</strong> {item.descripcion}
+                            {item.codigo_articulo && (
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginLeft: '8px' }}>
+                                ({item.codigo_articulo})
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontWeight: 600, color: '#10b981', marginLeft: '12px' }}>
+                            ${item.precio_total.toLocaleString()}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          <span>Precio unitario: ${item.precio_unitario.toLocaleString()}</span>
+                          {item.descuento && item.descuento > 0 && (
+                            <span style={{ color: '#f59e0b' }}>Descuento: ${item.descuento.toLocaleString()}</span>
+                          )}
+                        </div>
                       </div>
                     ))}
+                  </div>
+                )}
+                
+                {venta.observaciones && (
+                  <div className="items-section" style={{ background: 'rgba(139, 92, 246, 0.1)', borderColor: 'rgba(139, 92, 246, 0.2)' }}>
+                    <strong>Observaciones:</strong>
+                    <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                      {venta.observaciones}
+                    </p>
                   </div>
                 )}
 

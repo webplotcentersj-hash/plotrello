@@ -302,9 +302,14 @@
 }
 
 .item-venta {
-  padding: 4px 0;
+  padding: 8px 0;
   font-size: 0.85rem;
   color: var(--text-primary);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+.item-venta:last-child {
+  border-bottom: none;
 }
 
 .card-actions {

@@ -54,6 +54,10 @@ const ReportesVentasPage = () => {
     const ingresosPagados = ventasPagadas.reduce((sum, v) => sum + v.valor_total, 0)
     const ventasPendientes = ventas.filter(v => v.estado_pago === 'Pendiente')
     const ingresosPendientes = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
+    const ventasParciales = ventas.filter(v => v.estado_pago === 'Parcial')
+    const ingresosParciales = ventasParciales.reduce((sum, v) => sum + v.valor_total, 0)
+    const ventasCanceladas = ventas.filter(v => v.estado_pago === 'Cancelado')
+    const ticketPromedio = totalVentas > 0 ? totalIngresos / totalVentas : 0
 
     // Ventas por método de pago
     const porMetodoPago = ventas.reduce((acc, v) => {
@@ -62,18 +66,23 @@ const ReportesVentasPage = () => {
       return acc
     }, {} as Record<string, number>)
 
-    // Ventas por día
+    // Ventas por día (con cantidad y monto)
     const porDia = ventas.reduce((acc, v) => {
       const fecha = v.fecha_venta
-      acc[fecha] = (acc[fecha] || 0) + v.valor_total
+      if (!acc[fecha]) {
+        acc[fecha] = { cantidad: 0, total: 0 }
+      }
+      acc[fecha].cantidad += 1
+      acc[fecha].total += v.valor_total
       return acc
-    }, {} as Record<string, number>)
+    }, {} as Record<string, { cantidad: number; total: number }>)
 
     const datosPorDia = Object.entries(porDia)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([fecha, total]) => ({
+      .map(([fecha, datos]) => ({
         fecha: formatArgentinaDate(fecha, 'dd/MM'),
-        total: Number(total)
+        cantidad: datos.cantidad,
+        total: Number(datos.total)
       }))
 
     const datosPorMetodo = Object.entries(porMetodoPago).map(([metodo, total]) => ({
@@ -81,27 +90,104 @@ const ReportesVentasPage = () => {
       value: Number(total)
     }))
 
-    // Ventas por estado de pago
+    // Ventas por estado de pago (con montos)
     const porEstado = ventas.reduce((acc, v) => {
-      acc[v.estado_pago] = (acc[v.estado_pago] || 0) + 1
+      if (!acc[v.estado_pago]) {
+        acc[v.estado_pago] = { cantidad: 0, monto: 0 }
+      }
+      acc[v.estado_pago].cantidad += 1
+      acc[v.estado_pago].monto += v.valor_total
       return acc
-    }, {} as Record<string, number>)
+    }, {} as Record<string, { cantidad: number; monto: number }>)
 
-    const datosPorEstado = Object.entries(porEstado).map(([estado, cantidad]) => ({
+    const datosPorEstado = Object.entries(porEstado).map(([estado, datos]) => ({
       name: estado,
-      value: cantidad
+      cantidad: datos.cantidad,
+      monto: Number(datos.monto)
     }))
 
-    // Top vendedores
+    // Top vendedores (con cantidad de ventas)
     const porVendedor = ventas.reduce((acc, v) => {
-      acc[v.nombre_vendedor] = (acc[v.nombre_vendedor] || 0) + v.valor_total
+      if (!acc[v.nombre_vendedor]) {
+        acc[v.nombre_vendedor] = { total: 0, cantidad: 0 }
+      }
+      acc[v.nombre_vendedor].total += v.valor_total
+      acc[v.nombre_vendedor].cantidad += 1
       return acc
-    }, {} as Record<string, number>)
+    }, {} as Record<string, { total: number; cantidad: number }>)
 
     const topVendedores = Object.entries(porVendedor)
-      .map(([nombre, total]) => ({ nombre, total: Number(total) }))
+      .map(([nombre, datos]) => ({ 
+        nombre, 
+        total: Number(datos.total),
+        cantidad: datos.cantidad,
+        promedio: datos.cantidad > 0 ? Number(datos.total) / datos.cantidad : 0
+      }))
       .sort((a, b) => b.total - a.total)
-      .slice(0, 5)
+      .slice(0, 10)
+
+    // Ventas por semana
+    const porSemana = ventas.reduce((acc, v) => {
+      const fecha = new Date(v.fecha_venta)
+      const semana = getSemana(fecha)
+      if (!acc[semana]) {
+        acc[semana] = { cantidad: 0, total: 0 }
+      }
+      acc[semana].cantidad += 1
+      acc[semana].total += v.valor_total
+      return acc
+    }, {} as Record<string, { cantidad: number; total: number }>)
+
+    const datosPorSemana = Object.entries(porSemana)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([semana, datos]) => ({
+        semana,
+        cantidad: datos.cantidad,
+        total: Number(datos.total)
+      }))
+
+    // Top clientes
+    const porCliente = ventas.reduce((acc, v) => {
+      if (!acc[v.cliente_nombre]) {
+        acc[v.cliente_nombre] = { total: 0, cantidad: 0 }
+      }
+      acc[v.cliente_nombre].total += v.valor_total
+      acc[v.cliente_nombre].cantidad += 1
+      return acc
+    }, {} as Record<string, { total: number; cantidad: number }>)
+
+    const topClientes = Object.entries(porCliente)
+      .map(([nombre, datos]) => ({
+        nombre,
+        total: Number(datos.total),
+        cantidad: datos.cantidad
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+
+    // Items más vendidos
+    const itemsVendidos = ventas.reduce((acc, v) => {
+      if (v.items && v.items.length > 0) {
+        v.items.forEach(item => {
+          const key = item.descripcion || item.codigo_articulo || 'Sin descripción'
+          if (!acc[key]) {
+            acc[key] = { cantidad: 0, ingresos: 0 }
+          }
+          acc[key].cantidad += item.cantidad
+          acc[key].ingresos += item.precio_total
+        })
+      }
+      return acc
+    }, {} as Record<string, { cantidad: number; ingresos: number }>)
+
+    const topItems = Object.entries(itemsVendidos)
+      .map(([nombre, datos]) => ({
+        nombre,
+        cantidad: Number(datos.cantidad),
+        ingresos: Number(datos.ingresos)
+      }))
+      .sort((a, b) => b.ingresos - a.ingresos)
+      .slice(0, 10)
 
     return {
       totalVentas,
@@ -110,11 +196,26 @@ const ReportesVentasPage = () => {
       ingresosPagados,
       ventasPendientes: ventasPendientes.length,
       ingresosPendientes,
+      ventasParciales: ventasParciales.length,
+      ingresosParciales,
+      ventasCanceladas: ventasCanceladas.length,
+      ticketPromedio,
       datosPorDia,
       datosPorMetodo,
       datosPorEstado,
-      topVendedores
+      topVendedores,
+      datosPorSemana,
+      topClientes,
+      topItems
     }
+  }
+
+  const getSemana = (fecha: Date): string => {
+    const año = fecha.getFullYear()
+    const inicioAño = new Date(año, 0, 1)
+    const dias = Math.floor((fecha.getTime() - inicioAño.getTime()) / (24 * 60 * 60 * 1000))
+    const semana = Math.ceil((dias + inicioAño.getDay() + 1) / 7)
+    return `Sem ${semana}/${año}`
   }
 
   const estadisticas = getEstadisticas()
@@ -203,11 +304,29 @@ const ReportesVentasPage = () => {
             <LineChart data={estadisticas.datosPorDia}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="fecha" />
-              <YAxis />
+              <YAxis yAxisId="left" />
+              <YAxis yAxisId="right" orientation="right" />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} name="Ingresos ($)" />
+              <Line yAxisId="left" type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} name="Ingresos ($)" />
+              <Line yAxisId="right" type="monotone" dataKey="cantidad" stroke="#10b981" strokeWidth={2} name="Cantidad" />
             </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="grafico-card">
+          <h3>Ventas por Semana</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={estadisticas.datosPorSemana}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="semana" />
+              <YAxis yAxisId="left" />
+              <YAxis yAxisId="right" orientation="right" />
+              <Tooltip />
+              <Legend />
+              <Bar yAxisId="left" dataKey="total" fill="#3b82f6" name="Ingresos ($)" />
+              <Bar yAxisId="right" dataKey="cantidad" fill="#10b981" name="Cantidad" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
 
@@ -240,24 +359,57 @@ const ReportesVentasPage = () => {
             <BarChart data={estadisticas.datosPorEstado}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
+              <YAxis yAxisId="left" />
+              <YAxis yAxisId="right" orientation="right" />
               <Tooltip />
               <Legend />
-              <Bar dataKey="value" fill="#10b981" name="Cantidad" />
+              <Bar yAxisId="left" dataKey="cantidad" fill="#10b981" name="Cantidad" />
+              <Bar yAxisId="right" dataKey="monto" fill="#f59e0b" name="Monto ($)" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="grafico-card">
-          <h3>Top 5 Vendedores</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <h3>Top 10 Vendedores</h3>
+          <ResponsiveContainer width="100%" height={400}>
             <BarChart data={estadisticas.topVendedores} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" />
-              <YAxis dataKey="nombre" type="category" width={100} />
+              <YAxis dataKey="nombre" type="category" width={120} />
               <Tooltip />
               <Legend />
               <Bar dataKey="total" fill="#8b5cf6" name="Ingresos ($)" />
+              <Bar dataKey="cantidad" fill="#ec4899" name="Ventas" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="grafico-card">
+          <h3>Top 10 Clientes</h3>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={estadisticas.topClientes} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" />
+              <YAxis dataKey="nombre" type="category" width={120} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="total" fill="#10b981" name="Ingresos ($)" />
+              <Bar dataKey="cantidad" fill="#3b82f6" name="Compras" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="grafico-card">
+          <h3>Top 10 Artículos Más Vendidos</h3>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={estadisticas.topItems} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" />
+              <YAxis dataKey="nombre" type="category" width={150} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="ingresos" fill="#f59e0b" name="Ingresos ($)" />
+              <Bar dataKey="cantidad" fill="#ef4444" name="Cantidad" />
             </BarChart>
           </ResponsiveContainer>
         </div>
