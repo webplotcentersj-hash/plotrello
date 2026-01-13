@@ -1213,7 +1213,589 @@ Los usuarios de RRHH pueden gestionar horarios de empleados:
 
 ---
 
-## 18. Atajos de Teclado
+## 18. Sistema de Clientes Web
+
+### 18.1 Portal de Clientes
+
+Los clientes pueden acceder a un portal web dedicado para gestionar sus pedidos y presupuestos.
+
+#### Acceso al Portal
+
+1. Navega a `/cliente/login`
+2. Ingresa tu **email** y **contraseña** de cliente
+3. Si no tienes cuenta, contacta a tu representante de ventas
+
+### 18.2 Dashboard del Cliente
+
+El dashboard muestra:
+- **Resumen de pedidos**: Pendientes, en proceso, completados
+- **Próximas entregas**: Calendario de entregas
+- **Presupuestos activos**: Presupuestos pendientes de aprobación
+- **Notificaciones**: Actualizaciones de pedidos y presupuestos
+
+### 18.3 Catálogo de Productos
+
+1. Accede a **"Catálogo"** desde el menú
+2. Explora productos por categoría
+3. Ver detalles, precios y disponibilidad
+4. Agrega productos a tu carrito para crear pedidos
+
+### 18.4 Crear un Pedido
+
+1. Ve a **"Nuevo Pedido"**
+2. Agrega productos del catálogo o escribe manualmente
+3. Especifica cantidades y detalles
+4. Adjunta archivos si es necesario
+5. Haz clic en **"Enviar Pedido"**
+
+### 18.5 Ver y Gestionar Pedidos
+
+1. En **"Mis Pedidos"** verás todos tus pedidos
+2. Haz clic en un pedido para ver detalles
+3. Puedes:
+   - **Editar** pedidos pendientes
+   - **Cancelar** pedidos pendientes
+   - **Ver estado** en tiempo real
+   - **Descargar** documentos relacionados
+
+### 18.6 Presupuestos
+
+#### Crear Presupuesto
+
+1. Ve a **"Presupuestos"** → **"Nuevo Presupuesto"**
+2. Completa la información:
+   - Descripción del trabajo
+   - Productos/servicios requeridos
+   - Fecha deseada
+   - Observaciones
+3. Adjunta archivos de referencia
+4. Haz clic en **"Enviar Presupuesto"**
+
+#### Gestionar Presupuestos
+
+- Ver todos tus presupuestos
+- Editar presupuestos pendientes
+- Ver estado (Pendiente, Aprobado, Rechazado)
+- Convertir presupuesto aprobado en pedido
+
+### 18.7 Buscar OP
+
+1. Ve a **"Buscar OP"**
+2. Ingresa el número de OP
+3. Verás el estado actual y detalles de la orden
+
+### 18.8 Mensajes
+
+1. Accede a **"Mensajes"** desde el menú
+2. Comunícate con el equipo sobre tus pedidos
+3. Recibe notificaciones de actualizaciones
+
+### 18.9 Gestión de Clientes Web (Admin/Mostrador)
+
+Los administradores y usuarios de mostrador pueden gestionar clientes web:
+
+#### Dashboard de Gestión
+
+1. Accede a **🌐 Clientes Web** desde el header
+2. Verás:
+   - Resumen de clientes activos
+   - Pedidos pendientes
+   - Presupuestos pendientes
+   - Estadísticas
+
+#### Gestión de Clientes
+
+1. Ve a **"Gestión de Clientes"**
+2. Puedes:
+   - **Crear nuevos clientes**: Registrar clientes con email y contraseña
+   - **Editar clientes**: Modificar datos de contacto
+   - **Desactivar clientes**: Suspender acceso
+   - **Ver historial**: Pedidos y presupuestos del cliente
+
+#### Gestión de Pedidos
+
+1. Ve a **"Pedidos"**
+2. Verás todos los pedidos de clientes
+3. Para cada pedido puedes:
+   - **Ver detalles**: Revisar productos y archivos
+   - **Aprobar/Rechazar items**: Aprobar o rechazar productos individuales
+   - **Modificar precios**: Ajustar precios antes de convertir
+   - **Convertir a OP**: Crear orden de trabajo desde el pedido
+   - **Ver conversión**: Ver la OP asociada si ya fue convertida
+
+#### Gestión de Artículos
+
+1. Ve a **"Artículos"**
+2. Gestiona el catálogo de productos:
+   - **Crear artículo**: Agregar nuevos productos
+   - **Editar artículo**: Modificar precios, descripción, stock
+   - **Categorizar**: Asignar a categorías
+   - **Visibilidad**: Controlar qué clientes pueden ver cada producto
+
+#### Gestión de Categorías
+
+1. Ve a **"Categorías"**
+2. Organiza productos en categorías
+3. Crea, edita y elimina categorías
+
+#### Gestión de Presupuestos
+
+1. Ve a **"Presupuestos"**
+2. Ver todos los presupuestos de clientes
+3. Aprobar o rechazar presupuestos
+4. Convertir presupuestos aprobados en pedidos
+
+---
+
+## 19. Módulo DT (Asesor Técnico / Presupuestos)
+
+### 19.1 Acceder al Módulo DT
+
+**Disponible para**: Asesor Técnico, Presupuestos, Administración
+
+- Haz clic en **📐 DT** en el header
+- O navega a `/asesor-presupuestos`
+
+### 19.2 Kanban Dedicado
+
+El módulo DT tiene su propio Kanban separado del Kanban principal con 3 columnas:
+
+1. **Asesor Técnico** (cyan): Mediciones y evaluación de factibilidad
+2. **Presupuestos** (amber): Cotizaciones y presupuestos
+3. **Finalizado** (verde): Proyectos completados
+
+### 19.3 Fichas No OP
+
+Las **Fichas No OP** son fichas especiales que NO tienen número de OP real. Se usan para proyectos en etapa de medición y presupuesto.
+
+#### Crear Ficha No OP
+
+1. Haz clic en **"Crear Ficha No OP"**
+2. Completa:
+   - **Cliente**: Nombre del cliente
+   - **Datos de Contacto**: Teléfono, email, dirección
+   - **Especificaciones**: Detalles del trabajo
+   - **Enlace a Google Drive**: Si aplica
+   - **Enlace a Ubicación**: Google Maps
+   - **Prioridad**: Baja, Normal, Alta
+   - **Ficha Técnica PDF**: Sube un PDF con medidas y especificaciones
+   - **Planilla Preliminar**: Marca si es una planilla preliminar
+3. Haz clic en **"Crear Ficha"**
+
+**Nota:** El sistema genera automáticamente un ID único (ejemplo: `FICHA-2500001`)
+
+### 19.4 Trabajar con Fichas No OP
+
+- **Mover entre columnas**: Arrastra fichas entre "Asesor Técnico", "Presupuestos" y "Finalizado"
+- **Editar ficha**: Haz clic en el botón ✏️ para editar
+- **Ver/Descargar PDF**: Si hay ficha técnica, puedes verla o descargarla
+- **Convertir a OP**: Cuando el proyecto esté listo, convierte la ficha en una orden de trabajo real
+
+### 19.5 Filtros
+
+Puedes filtrar fichas por:
+- **Prioridad**: Todas, Alta, Media, Baja
+- **Búsqueda**: Por cliente, ID de ficha, especificaciones
+- **Estado**: Por columna del Kanban
+
+---
+
+## 20. Módulo de Mostrador
+
+### 20.1 Acceder al Dashboard de Mostrador
+
+**Disponible para**: Mostrador, Administración
+
+- Haz clic en **📋 Dashboard Mostrador** en el header
+- O navega a `/mostrador/dashboard`
+
+### 20.2 Dashboard Principal
+
+El dashboard muestra:
+- **Órdenes activas**: Órdenes en proceso
+- **Órdenes listas**: Órdenes listas para retirar
+- **Próximas entregas**: Calendario de entregas
+- **Clientes frecuentes**: Lista de clientes más activos
+- **Estadísticas**: Métricas de atención
+
+### 20.3 Acciones Rápidas
+
+#### Crear Nueva Orden
+- Haz clic en **"➕ Crear Nueva Orden"**
+- Se abre el modal de creación de orden
+
+#### Órdenes Listas para Retirar
+1. Ve a **"📦 Órdenes Listas"**
+2. Verás todas las órdenes listas para entrega
+3. Haz clic en una orden para procesar la entrega
+
+#### Buscar Cliente
+1. Ve a **"🔍 Buscar Cliente"**
+2. Busca por nombre, DNI, email o teléfono
+3. Verás todas las órdenes del cliente
+
+#### Calendario de Entregas
+1. Ve a **"📅 Calendario de Entregas"**
+2. Visualiza entregas por fecha
+3. Planifica entregas futuras
+
+#### Clientes Frecuentes
+1. Ve a **"⭐ Clientes Frecuentes"**
+2. Verás clientes con más órdenes
+3. Acceso rápido a su información
+
+### 20.4 Registrar Atención Rápida
+
+Usa el botón flotante (📝) para registrar atención rápidamente:
+
+- **💻 Virtual**: Atención virtual (Alt+1)
+- **❓ Consulta**: Consulta de cliente (Alt+2)
+- **💰 Venta Concretada**: Venta realizada (Alt+3)
+
+### 20.5 Procesar Entrega
+
+1. En **"Órdenes Listas"**, selecciona una orden
+2. Haz clic en **"Procesar Entrega"**
+3. Completa:
+   - Confirmar datos del cliente
+   - Verificar productos
+   - Marcar como entregado
+4. La orden se archivará automáticamente
+
+### 20.6 Reportes (Solo Admin)
+
+1. Ve a **"📊 Reportes"**
+2. Verás:
+   - Órdenes entregadas por período
+   - Clientes más frecuentes
+   - Productos más vendidos
+   - Estadísticas de atención
+
+---
+
+## 21. Módulo de Compras
+
+### 21.1 Acceder al Dashboard de Compras
+
+**Disponible para**: Compras, Administración
+
+- Haz clic en **🛒 Compras** en el header
+- O navega a `/compras/dashboard`
+
+### 21.2 Dashboard Principal
+
+El dashboard muestra:
+- **Pedidos pendientes**: Pedidos esperando aprobación
+- **Pedidos en compra**: Pedidos siendo procesados
+- **Stock bajo**: Productos con stock bajo
+- **Próximas entregas**: Calendario de entregas de proveedores
+- **Estadísticas**: Métricas de compras
+
+### 21.3 Gestión de Pedidos
+
+#### Ver Todos los Pedidos
+
+1. Haz clic en **"Ver Todos los Pedidos"**
+2. Filtra por estado: Pendiente, Aprobado, En Compra, Completado, Rechazado
+3. Ver detalles de cada pedido
+
+#### Aprobar/Rechazar Pedidos
+
+1. Abre un pedido pendiente
+2. Revisa productos y cantidades
+3. **Aprobar**: Aprueba el pedido completo o parcialmente
+4. **Rechazar**: Rechaza con motivo
+5. El solicitante recibirá una notificación
+
+#### Actualizar Estado
+
+1. En un pedido aprobado, puedes cambiar el estado:
+   - **En Compra**: Pedido siendo procesado
+   - **Completado**: Pedido recibido
+2. El solicitante recibirá notificaciones de cambios
+
+### 21.4 Crear Pedido de Compra
+
+1. Haz clic en **"➕ Crear Pedido"**
+2. Agrega productos del catálogo o escribe manualmente
+3. Especifica cantidades y proveedor
+4. Haz clic en **"Enviar Pedido"**
+
+### 21.5 Gestión de Stock
+
+1. Ve a **"📦 Gestión Stock"**
+2. Verás:
+   - **Lista de productos**: Todos los productos con stock
+   - **Stock actual**: Cantidad disponible
+   - **Stock mínimo**: Límite de stock bajo
+   - **Alertas**: Productos con stock bajo
+
+#### Actualizar Stock
+
+1. Busca un producto
+2. Haz clic en **"Actualizar Stock"**
+3. Ingresa nueva cantidad
+4. El stock se actualizará automáticamente
+
+### 21.6 Proveedores
+
+1. Ve a **"🏢 Proveedores"**
+2. Gestiona proveedores:
+   - **Crear proveedor**: Agregar nuevo proveedor
+   - **Editar proveedor**: Modificar datos de contacto
+   - **Ver historial**: Pedidos con cada proveedor
+
+### 21.7 Presupuestos de Compras
+
+1. Ve a **"Presupuestos"**
+2. Gestiona presupuestos de proveedores:
+   - **Crear presupuesto**: Solicitar presupuesto a proveedor
+   - **Comparar presupuestos**: Comparar ofertas
+   - **Aprobar presupuesto**: Seleccionar proveedor
+
+### 21.8 Calendario de Entregas
+
+1. Ve a **"📅 Calendario Entregas"**
+2. Visualiza entregas programadas de proveedores
+3. Planifica recepción de mercadería
+
+### 21.9 Conciliación Bancaria
+
+1. Ve a **"💰 Conciliación Bancaria"**
+2. Registra pagos a proveedores
+3. Concilia movimientos bancarios
+4. Genera reportes de pagos
+
+### 21.10 Reportes y Exportación
+
+1. Ve a **"📊 Reportes"**
+2. Genera reportes:
+   - **Pedidos por período**: Análisis de compras
+   - **Productos más comprados**: Top productos
+   - **Gastos por proveedor**: Análisis de costos
+   - **Exportar a Excel/PDF**: Descargar reportes
+
+---
+
+## 22. Módulo de Diseño
+
+### 22.1 Acceder al Dashboard de Diseño
+
+**Disponible para**: Diseño, Administración
+
+- Haz clic en **🎨 Dashboard Diseño** en el header
+- O navega a `/diseno/dashboard`
+
+### 22.2 Dashboard Principal
+
+El dashboard muestra:
+- **Órdenes en diseño**: Órdenes asignadas al sector diseño
+- **Briefs pendientes**: Briefs esperando procesamiento
+- **Galería de trabajos**: Trabajos completados
+- **Estadísticas**: Métricas de diseño
+
+### 22.3 Briefs Pendientes
+
+1. Ve a **"📋 Briefs Pendientes"**
+2. Verás todos los briefs recibidos
+3. Para cada brief puedes:
+   - **Ver detalles**: Revisar especificaciones
+   - **Asignar a diseñador**: Asignar responsable
+   - **Crear OP**: Convertir brief en orden de trabajo
+   - **Marcar como procesado**: Archivar brief
+
+### 22.4 Galería de Trabajos
+
+1. Ve a **"🖼️ Galería de Trabajos"**
+2. Explora trabajos completados
+3. Filtra por:
+   - **Cliente**: Ver trabajos por cliente
+   - **Fecha**: Trabajos por período
+   - **Tipo**: Categorías de trabajos
+4. Descarga imágenes de referencia
+
+### 22.5 Brief Público
+
+Los clientes pueden enviar briefs a través de un enlace público:
+
+1. El cliente accede a `/brief/:token`
+2. Completa el formulario de brief
+3. Adjunta archivos de referencia
+4. El brief aparece en "Briefs Pendientes"
+
+---
+
+## 23. Libro de Actas
+
+### 23.1 Acceder al Libro de Actas
+
+- Haz clic en **📝 Libro de Actas** en el header
+- O navega a `/libro-actas`
+
+### 23.2 Ver Libro de Actas General
+
+1. En la página principal verás todos los sectores
+2. Haz clic en un sector para ver su libro de actas
+3. O navega directamente a `/libro-actas/sector/:sectorId`
+
+### 23.3 Libro de Actas por Sector
+
+Cada sector tiene su propio libro de actas para registrar novedades.
+
+#### Ver Actas del Sector
+
+1. Selecciona un sector
+2. Verás todas las actas registradas
+3. Filtra por:
+   - **Tipo de novedad**: General, Problema, Mejora, Incidente, Reunión, Capacitación, Otro
+   - **Fecha desde/hasta**: Rango de fechas
+   - **Búsqueda**: Por título o contenido
+
+#### Crear Nueva Acta
+
+1. Haz clic en **"➕ Crear Nueva Acta"**
+2. Completa:
+   - **Título**: Título descriptivo
+   - **Contenido**: Detalles de la novedad
+   - **Tipo de novedad**: Selecciona el tipo
+   - **Fecha**: Fecha del evento (por defecto: hoy)
+3. Haz clic en **"Guardar"**
+
+#### Editar/Eliminar Acta
+
+- **Editar**: Solo el creador o administradores pueden editar
+- **Eliminar**: Solo el creador o administradores pueden eliminar
+
+### 23.4 Tipos de Novedad
+
+- **General**: Novedades generales del sector
+- **Problema**: Problemas detectados
+- **Mejora**: Mejoras implementadas o sugeridas
+- **Incidente**: Incidentes ocurridos
+- **Reunión**: Registro de reuniones
+- **Capacitación**: Capacitaciones realizadas
+- **Otro**: Cualquier otro tipo
+
+---
+
+## 24. Gestión de Impresoras
+
+### 24.1 Acceder a Impresoras
+
+- Haz clic en el botón flotante **🖨️** (esquina inferior derecha)
+- O navega a `/impresoras`
+
+### 24.2 Ver Ocupación de Impresoras
+
+La página muestra:
+- **Lista de impresoras**: Todas las impresoras disponibles
+- **Estado**: Ocupada, Disponible, Mantenimiento
+- **Trabajo actual**: OP en proceso (si aplica)
+- **Tiempo restante**: Estimación de finalización
+
+### 24.3 Registrar Trabajo en Impresora
+
+1. Selecciona una impresora disponible
+2. Haz clic en **"Registrar Trabajo"**
+3. Completa:
+   - **OP**: Selecciona la orden de trabajo
+   - **Tiempo estimado**: Duración estimada
+   - **Observaciones**: Notas adicionales
+4. Haz clic en **"Iniciar Trabajo"**
+
+### 24.4 Finalizar Trabajo
+
+1. Cuando el trabajo termine, haz clic en **"Finalizar Trabajo"**
+2. La impresora quedará disponible automáticamente
+
+### 24.5 Mantenimiento
+
+1. Marca una impresora como **"En Mantenimiento"**
+2. Agrega motivo y fecha estimada de finalización
+3. La impresora no aparecerá como disponible hasta que se reactive
+
+---
+
+## 25. Briefs y Galería de Trabajos
+
+### 25.1 Briefs Pendientes
+
+Ver sección [22.3 Briefs Pendientes](#223-briefs-pendientes) en Módulo de Diseño.
+
+### 25.2 Galería de Trabajos
+
+Ver sección [22.4 Galería de Trabajos](#224-galería-de-trabajos) en Módulo de Diseño.
+
+### 25.3 Brief Público
+
+Ver sección [22.5 Brief Público](#225-brief-público) en Módulo de Diseño.
+
+---
+
+## 26. Herramientas Personalizadas
+
+### 26.1 Acceder a Herramientas
+
+- Haz clic en **🛠️ Herramientas** en el menú de acciones
+- O navega a `/herramienta`
+
+### 26.2 Crear Nueva Herramienta
+
+1. Haz clic en **"🛠️ Nueva Herramienta"** en el menú
+2. Completa:
+   - **Nombre**: Nombre de la herramienta
+   - **URL**: Enlace a la herramienta externa
+   - **Descripción**: Qué hace la herramienta
+3. Haz clic en **"Guardar"**
+
+### 26.3 Usar Herramientas
+
+1. En la página de herramientas, verás todas las herramientas disponibles
+2. Haz clic en una herramienta para abrirla
+3. Las herramientas se abren en nueva pestaña
+
+---
+
+## 27. Páginas Públicas
+
+### 27.1 Consulta de Cliente
+
+**URL**: `/consulta-cliente`
+
+Los clientes pueden consultar el estado de sus órdenes sin login:
+
+1. Navega a la URL de consulta
+2. Ingresa el **número de OP**
+3. Verás:
+   - Estado actual de la orden
+   - Fecha de entrega
+   - Información básica
+
+### 27.2 OP Pública
+
+**URL**: `/op-public/:opNumber`
+
+Acceso directo a una orden específica mediante enlace público o código QR.
+
+### 27.3 Brief Público
+
+**URL**: `/brief/:token`
+
+Los clientes pueden enviar briefs mediante un enlace único con token.
+
+### 27.4 Dashboard de Pantallas
+
+**URL**: `/dashboard-pantallas`
+
+Vista optimizada para mostrar en pantallas grandes/TVs en el taller o mostrador:
+
+- Actualización automática en tiempo real
+- Vista simplificada de órdenes activas
+- Ideal para visualización en espacios comunes
+
+---
+
+## 28. Atajos de Teclado
 
 La aplicación tiene varios atajos de teclado para mejorar la productividad:
 
