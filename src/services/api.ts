@@ -35,7 +35,10 @@ import type {
   Capacitacion,
   InscripcionCapacitacion,
   MenuDiario,
-  MenuSeleccion
+  MenuSeleccion,
+  OportunidadVenta,
+  Venta,
+  SeguimientoVenta
 } from '../types/api'
 import type {
   PedidoCompra,
@@ -8873,6 +8876,411 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al cancelar selección'
+      }
+    }
+  }
+
+  // ========== CRM DE VENTAS ==========
+
+  async crearOportunidadVenta(oportunidad: {
+    cliente_nombre: string
+    cliente_telefono?: string
+    cliente_email?: string
+    cliente_dni_cuit?: string
+    cliente_empresa?: string
+    cliente_direccion?: string
+    descripcion?: string
+    valor_estimado?: number
+    probabilidad_cierre?: number
+    etapa?: 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido'
+    fecha_cierre_estimada?: string
+    id_vendedor: number
+    nombre_vendedor: string
+    observaciones?: string
+  }): Promise<ApiResponse<{ id: number; numero_oportunidad: string }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_oportunidad_venta', {
+        p_cliente_nombre: oportunidad.cliente_nombre,
+        p_cliente_telefono: oportunidad.cliente_telefono || null,
+        p_cliente_email: oportunidad.cliente_email || null,
+        p_cliente_dni_cuit: oportunidad.cliente_dni_cuit || null,
+        p_cliente_empresa: oportunidad.cliente_empresa || null,
+        p_cliente_direccion: oportunidad.cliente_direccion || null,
+        p_descripcion: oportunidad.descripcion || null,
+        p_valor_estimado: oportunidad.valor_estimado || null,
+        p_probabilidad_cierre: oportunidad.probabilidad_cierre || 50,
+        p_etapa: oportunidad.etapa || 'Prospecto',
+        p_fecha_cierre_estimada: oportunidad.fecha_cierre_estimada || null,
+        p_id_vendedor: oportunidad.id_vendedor,
+        p_nombre_vendedor: oportunidad.nombre_vendedor,
+        p_observaciones: oportunidad.observaciones || null
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data.data as { id: number; numero_oportunidad: string }
+      }
+    } catch (error: any) {
+      console.error('Error al crear oportunidad de venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear oportunidad de venta'
+      }
+    }
+  }
+
+  async actualizarOportunidadVenta(
+    id: number,
+    datos: {
+      cliente_nombre?: string
+      cliente_telefono?: string
+      cliente_email?: string
+      cliente_dni_cuit?: string
+      cliente_empresa?: string
+      cliente_direccion?: string
+      descripcion?: string
+      valor_estimado?: number
+      probabilidad_cierre?: number
+      etapa?: 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido'
+      fecha_cierre_estimada?: string
+      id_op?: number
+      numero_op?: string
+      observaciones?: string
+      activo?: boolean
+    }
+  ): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('actualizar_oportunidad_venta', {
+        p_id: id,
+        p_cliente_nombre: datos.cliente_nombre || null,
+        p_cliente_telefono: datos.cliente_telefono || null,
+        p_cliente_email: datos.cliente_email || null,
+        p_cliente_dni_cuit: datos.cliente_dni_cuit || null,
+        p_cliente_empresa: datos.cliente_empresa || null,
+        p_cliente_direccion: datos.cliente_direccion || null,
+        p_descripcion: datos.descripcion || null,
+        p_valor_estimado: datos.valor_estimado || null,
+        p_probabilidad_cierre: datos.probabilidad_cierre || null,
+        p_etapa: datos.etapa || null,
+        p_fecha_cierre_estimada: datos.fecha_cierre_estimada || null,
+        p_id_op: datos.id_op || null,
+        p_numero_op: datos.numero_op || null,
+        p_observaciones: datos.observaciones || null,
+        p_activo: datos.activo !== undefined ? datos.activo : null
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: true
+      }
+    } catch (error: any) {
+      console.error('Error al actualizar oportunidad de venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar oportunidad de venta'
+      }
+    }
+  }
+
+  async obtenerOportunidadesVenta(
+    idVendedor?: number,
+    etapa?: 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido',
+    activo?: boolean
+  ): Promise<ApiResponse<Array<import('../types/api').OportunidadVenta>>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_oportunidades_venta', {
+        p_id_vendedor: idVendedor || null,
+        p_etapa: etapa || null,
+        p_activo: activo !== undefined ? activo : true
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as Array<import('../types/api').OportunidadVenta>
+      }
+    } catch (error: any) {
+      console.error('Error al obtener oportunidades de venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener oportunidades de venta'
+      }
+    }
+  }
+
+  async crearSeguimientoVenta(seguimiento: {
+    id_oportunidad: number
+    tipo_seguimiento: 'Llamada' | 'Email' | 'Reunión' | 'WhatsApp' | 'Visita' | 'Propuesta' | 'Otro'
+    descripcion: string
+    proxima_accion?: string
+    fecha_proxima_accion?: string
+    id_usuario: number
+    nombre_usuario: string
+  }): Promise<ApiResponse<{ id: number }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_seguimiento_venta', {
+        p_id_oportunidad: seguimiento.id_oportunidad,
+        p_tipo_seguimiento: seguimiento.tipo_seguimiento,
+        p_descripcion: seguimiento.descripcion,
+        p_proxima_accion: seguimiento.proxima_accion || null,
+        p_fecha_proxima_accion: seguimiento.fecha_proxima_accion || null,
+        p_id_usuario: seguimiento.id_usuario,
+        p_nombre_usuario: seguimiento.nombre_usuario
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data.data as { id: number }
+      }
+    } catch (error: any) {
+      console.error('Error al crear seguimiento de venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear seguimiento de venta'
+      }
+    }
+  }
+
+  async crearVentaDesdeOportunidad(venta: {
+    id_oportunidad: number
+    id_op: number
+    numero_op: string
+    valor_total: number
+    metodo_pago?: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+    estado_pago?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
+    fecha_venta?: string
+    id_vendedor: number
+    nombre_vendedor: string
+    observaciones?: string
+  }): Promise<ApiResponse<{ id: number; numero_venta: string }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('crear_venta_desde_oportunidad', {
+        p_id_oportunidad: venta.id_oportunidad,
+        p_id_op: venta.id_op,
+        p_numero_op: venta.numero_op,
+        p_valor_total: venta.valor_total,
+        p_metodo_pago: venta.metodo_pago || null,
+        p_estado_pago: venta.estado_pago || 'Pendiente',
+        p_fecha_venta: venta.fecha_venta || null,
+        p_id_vendedor: venta.id_vendedor,
+        p_nombre_vendedor: venta.nombre_vendedor,
+        p_observaciones: venta.observaciones || null
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data.data as { id: number; numero_venta: string }
+      }
+    } catch (error: any) {
+      console.error('Error al crear venta desde oportunidad:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al crear venta desde oportunidad'
+      }
+    }
+  }
+
+  async obtenerVentas(
+    idVendedor?: number,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    estadoPago?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
+  ): Promise<ApiResponse<Array<import('../types/api').Venta>>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_ventas', {
+        p_id_vendedor: idVendedor || null,
+        p_fecha_desde: fechaDesde || null,
+        p_fecha_hasta: fechaHasta || null,
+        p_estado_pago: estadoPago || null
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as Array<import('../types/api').Venta>
+      }
+    } catch (error: any) {
+      console.error('Error al obtener ventas:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al obtener ventas'
+      }
+    }
+  }
+
+  async agregarItemVenta(item: {
+    id_venta: number
+    id_articulo_stock?: number
+    codigo_articulo?: string
+    descripcion: string
+    cantidad: number
+    precio_unitario: number
+    descuento?: number
+    observaciones?: string
+  }): Promise<ApiResponse<{ id: number }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('agregar_item_venta', {
+        p_id_venta: item.id_venta,
+        p_id_articulo_stock: item.id_articulo_stock || null,
+        p_codigo_articulo: item.codigo_articulo || null,
+        p_descripcion: item.descripcion,
+        p_cantidad: item.cantidad,
+        p_precio_unitario: item.precio_unitario,
+        p_descuento: item.descuento || 0,
+        p_observaciones: item.observaciones || null
+      })
+
+      if (error) throw error
+
+      // Descontar stock si el item tiene id_articulo_stock
+      if (item.id_articulo_stock && item.cantidad > 0) {
+        await this.descontarStockDeVenta(item.id_venta, item.id_articulo_stock, item.cantidad)
+      }
+
+      return {
+        success: true,
+        data: data.data as { id: number }
+      }
+    } catch (error: any) {
+      console.error('Error al agregar item a venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al agregar item a venta'
+      }
+    }
+  }
+
+  // Función privada para descontar stock de una venta
+  private async descontarStockDeVenta(
+    idVenta: number,
+    idArticuloStock: number,
+    cantidad: number
+  ): Promise<void> {
+    if (!supabase || !stockSupabase) return
+
+    try {
+      // Obtener información de la venta
+      const { data: venta } = await supabase
+        .from('ventas')
+        .select('numero_venta, numero_op')
+        .eq('id', idVenta)
+        .single()
+
+      if (!venta) return
+
+      // Obtener artículo de stock
+      const { data: articuloStock } = await stockSupabase
+        .from('articulos')
+        .select('*')
+        .eq('id', idArticuloStock)
+        .single()
+
+      if (!articuloStock || articuloStock.stock === null || articuloStock.stock <= 0) {
+        console.warn(`⚠️ No se puede descontar stock: artículo ${idArticuloStock} no tiene stock disponible`)
+        return
+      }
+
+      const cantidadAnterior = articuloStock.stock
+      const cantidadADescontar = cantidad
+      const cantidadNueva = Math.max(0, cantidadAnterior - cantidadADescontar)
+
+      // Actualizar stock en la base de stock
+      await stockSupabase
+        .from('articulos')
+        .update({ stock: cantidadNueva })
+        .eq('id', idArticuloStock)
+
+      // Obtener información del usuario
+      const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
+      const usuarioData = localStorage.getItem('usuario')
+      const nombreUsuario = usuarioData ? JSON.parse(usuarioData).nombre || 'Sistema' : 'Sistema'
+
+      // Registrar movimiento de stock
+      await supabase.from('stock_movimientos').insert({
+        id_articulo_stock: idArticuloStock,
+        codigo_articulo: articuloStock.codigo || null,
+        descripcion: articuloStock.descripcion,
+        tipo_movimiento: 'Venta',
+        cantidad: cantidadADescontar,
+        cantidad_anterior: cantidadAnterior,
+        cantidad_nueva: cantidadNueva,
+        motivo: `Venta ${venta.numero_venta}${venta.numero_op ? ` - OP ${venta.numero_op}` : ''}`,
+        id_venta: idVenta,
+        id_usuario: usuarioId,
+        nombre_usuario: nombreUsuario
+      })
+
+      // Verificar si el stock quedó bajo y crear alerta si es necesario
+      if (cantidadNueva <= 10 && cantidadNueva > 0) {
+        await this.crearAlertaStockBajo(articuloStock as ArticuloStock, cantidadNueva)
+      } else if (cantidadNueva === 0) {
+        await this.crearAlertaStockAgotado(articuloStock as ArticuloStock)
+      }
+    } catch (error) {
+      console.error('Error descontando stock de venta:', error)
+      // No lanzar error para no interrumpir la creación del item
+    }
+  }
+
+  async eliminarItemVenta(idItem: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { error } = await supabase.rpc('eliminar_item_venta', {
+        p_id_item: idItem
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: true
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar item de venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al eliminar item de venta'
       }
     }
   }

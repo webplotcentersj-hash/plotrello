@@ -51,6 +51,8 @@ const RecursosHumanosCapacitacionesPage = lazy(() => import('./pages/RecursosHum
 const RecursosHumanosMenuDiarioPage = lazy(() => import('./pages/RecursosHumanosMenuDiarioPage'))
 const CapacitacionesPage = lazy(() => import('./pages/CapacitacionesPage'))
 const MenuDiarioPage = lazy(() => import('./pages/MenuDiarioPage'))
+const CRMVentasPage = lazy(() => import('./pages/CRMVentasPage'))
+const ReportesVentasPage = lazy(() => import('./pages/ReportesVentasPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -671,6 +673,14 @@ function AppRoutes({
       <Route
         path="/mostrador/clientes-frecuentes"
         element={<ClientesFrecuentesPage />}
+      />
+      <Route
+        path="/crm-ventas"
+        element={<CRMVentasPage />}
+      />
+      <Route
+        path="/crm-ventas/reportes"
+        element={<ReportesVentasPage />}
       />
       <Route
         path="/compras/dashboard"

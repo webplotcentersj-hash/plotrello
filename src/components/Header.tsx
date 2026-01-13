@@ -160,6 +160,14 @@ const Header = ({
                 📋 Dashboard Mostrador
               </button>
             )}
+            {(isMostrador || isAdmin) && (
+              <a
+                href="/crm-ventas"
+                className="brand-button"
+              >
+                💼 CRM Ventas
+              </a>
+            )}
             {canManageCompras && onNavigateToCompras && (
               <button className="brand-button" onClick={onNavigateToCompras}>
                 🛒 Compras

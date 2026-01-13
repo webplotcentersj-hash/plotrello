@@ -696,3 +696,88 @@ export interface MenuSeleccion {
   created_at: string
 }
 
+// ============================================
+// SISTEMA CRM DE VENTAS
+// ============================================
+
+export type EtapaOportunidad = 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido'
+export type TipoSeguimiento = 'Llamada' | 'Email' | 'Reunión' | 'WhatsApp' | 'Visita' | 'Propuesta' | 'Otro'
+export type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+export type EstadoPago = 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
+
+export interface OportunidadVenta {
+  id: number
+  numero_oportunidad: string
+  cliente_nombre: string
+  cliente_telefono?: string | null
+  cliente_email?: string | null
+  cliente_dni_cuit?: string | null
+  cliente_empresa?: string | null
+  cliente_direccion?: string | null
+  descripcion?: string | null
+  valor_estimado?: number | null
+  probabilidad_cierre: number
+  etapa: EtapaOportunidad
+  fecha_cierre_estimada?: string | null
+  id_vendedor: number
+  nombre_vendedor: string
+  id_op?: number | null
+  numero_op?: string | null
+  observaciones?: string | null
+  activo: boolean
+  created_at: string
+  updated_at: string
+  seguimientos?: SeguimientoVenta[]
+}
+
+export interface SeguimientoVenta {
+  id: number
+  id_oportunidad: number
+  tipo_seguimiento: TipoSeguimiento
+  descripcion: string
+  fecha_seguimiento: string
+  proxima_accion?: string | null
+  fecha_proxima_accion?: string | null
+  id_usuario: number
+  nombre_usuario: string
+  created_at: string
+}
+
+export interface Venta {
+  id: number
+  numero_venta: string
+  id_oportunidad?: number | null
+  cliente_nombre: string
+  cliente_telefono?: string | null
+  cliente_email?: string | null
+  cliente_dni_cuit?: string | null
+  cliente_empresa?: string | null
+  cliente_direccion?: string | null
+  id_op: number
+  numero_op: string
+  valor_total: number
+  metodo_pago?: MetodoPago | null
+  estado_pago: EstadoPago
+  fecha_venta: string
+  id_vendedor: number
+  nombre_vendedor: string
+  observaciones?: string | null
+  created_at: string
+  updated_at: string
+  items?: VentaItem[]
+}
+
+export interface VentaItem {
+  id: number
+  id_venta: number
+  id_articulo_stock?: number | null
+  codigo_articulo?: string | null
+  descripcion: string
+  cantidad: number
+  precio_unitario: number
+  precio_total: number
+  descuento?: number | null
+  observaciones?: string | null
+  created_at: string
+}
+
