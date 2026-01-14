@@ -114,6 +114,22 @@ const CRMVentasPage = () => {
   const [busquedaArticuloEditar, setBusquedaArticuloEditar] = useState('')
   const [articulosEncontradosEditar, setArticulosEncontradosEditar] = useState<ArticuloStock[]>([])
   const [buscandoArticulosEditar, setBuscandoArticulosEditar] = useState(false)
+  const [dropdownDocumentosAbierto, setDropdownDocumentosAbierto] = useState<number | null>(null)
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.export-dropdown')) {
+        setDropdownDocumentosAbierto(null)
+      }
+    }
+
+    if (dropdownDocumentosAbierto !== null) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [dropdownDocumentosAbierto])
 
   // Verificar permisos
   useEffect(() => {
@@ -1804,17 +1820,40 @@ const CRMVentasPage = () => {
                     ✏️ Editar
                   </button>
                   <div className="export-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
-                    <button className="btn-action">
-                      📄 Documentos
+                    <button 
+                      className="btn-action"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDropdownDocumentosAbierto(
+                          dropdownDocumentosAbierto === venta.id ? null : venta.id
+                        )
+                      }}
+                    >
+                      📄 Documentos {dropdownDocumentosAbierto === venta.id ? '▼' : '▶'}
                     </button>
-                    <div className="export-menu" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 1000 }}>
-                      <button onClick={() => generarFacturaRemitoPDF(venta, 'factura')}>
-                        🧾 Generar Factura
-                      </button>
-                      <button onClick={() => generarFacturaRemitoPDF(venta, 'remito')}>
-                        📋 Generar Remito
-                      </button>
-                    </div>
+                    {dropdownDocumentosAbierto === venta.id && (
+                      <div 
+                        className="export-menu export-menu-visible"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button 
+                          onClick={() => {
+                            generarFacturaRemitoPDF(venta, 'factura')
+                            setDropdownDocumentosAbierto(null)
+                          }}
+                        >
+                          🧾 Generar Factura
+                        </button>
+                        <button 
+                          onClick={() => {
+                            generarFacturaRemitoPDF(venta, 'remito')
+                            setDropdownDocumentosAbierto(null)
+                          }}
+                        >
+                          📋 Generar Remito
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <select
                     className="btn-action"

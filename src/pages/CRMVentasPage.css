@@ -552,44 +552,66 @@
   display: inline-block;
 }
 
-.export-dropdown:hover .export-menu {
-  display: block;
-}
-
 .export-menu {
   display: none;
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   right: 0;
-  margin-top: 8px;
   background: rgba(15, 23, 42, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(59, 130, 246, 0.3);
   border-radius: 12px;
   padding: 8px;
-  min-width: 180px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  min-width: 200px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.1);
   backdrop-filter: blur(20px);
-  z-index: 1000;
+  z-index: 10000;
+  animation: slideDown 0.2s ease-out;
+}
+
+.export-menu-visible {
+  display: block !important;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .export-menu button {
   display: block;
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: transparent;
   border: none;
   border-radius: 8px;
   color: white;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
   transition: all 0.2s;
+  margin-bottom: 4px;
+}
+
+.export-menu button:last-child {
+  margin-bottom: 0;
 }
 
 .export-menu button:hover {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+  transform: translateX(4px);
+}
+
+.export-menu button:active {
+  transform: translateX(2px);
+  background: rgba(59, 130, 246, 0.35);
 }
 
 .empty-state {
