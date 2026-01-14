@@ -60,22 +60,42 @@ const BuscadorClientesModal = ({ onClose }: BuscadorClientesModalProps) => {
       // Cargar ventas del cliente
       const ventasResp = await apiService.obtenerVentas()
       if (ventasResp.success && ventasResp.data) {
-        const ventasFiltradas = ventasResp.data.filter(v => 
-          v.id_cliente === cliente.id || 
-          v.cliente_nombre?.toLowerCase().includes(cliente.nombre.toLowerCase()) ||
-          (cliente.dni_cuit && v.cliente_dni_cuit === cliente.dni_cuit)
-        )
+        const nombreClienteLower = cliente.nombre.toLowerCase()
+        const apellidoClienteLower = cliente.apellido?.toLowerCase() || ''
+        const nombreCompletoCliente = `${cliente.nombre} ${cliente.apellido || ''}`.trim().toLowerCase()
+        
+        const ventasFiltradas = ventasResp.data.filter(v => {
+          const nombreVentaLower = v.cliente_nombre?.toLowerCase() || ''
+          return (
+            nombreVentaLower.includes(nombreClienteLower) ||
+            nombreVentaLower.includes(apellidoClienteLower) ||
+            nombreVentaLower === nombreCompletoCliente ||
+            (cliente.dni_cuit && v.cliente_dni_cuit === cliente.dni_cuit) ||
+            (cliente.telefono && v.cliente_telefono === cliente.telefono) ||
+            (cliente.email && v.cliente_email === cliente.email)
+          )
+        })
         setVentasCliente(ventasFiltradas)
       }
 
       // Cargar oportunidades del cliente
       const oppResp = await apiService.obtenerOportunidadesVenta()
       if (oppResp.success && oppResp.data) {
-        const oppFiltradas = oppResp.data.filter(o =>
-          o.id_cliente === cliente.id ||
-          o.cliente_nombre?.toLowerCase().includes(cliente.nombre.toLowerCase()) ||
-          (cliente.dni_cuit && o.cliente_dni_cuit === cliente.dni_cuit)
-        )
+        const nombreClienteLower = cliente.nombre.toLowerCase()
+        const apellidoClienteLower = cliente.apellido?.toLowerCase() || ''
+        const nombreCompletoCliente = `${cliente.nombre} ${cliente.apellido || ''}`.trim().toLowerCase()
+        
+        const oppFiltradas = oppResp.data.filter(o => {
+          const nombreOppLower = o.cliente_nombre?.toLowerCase() || ''
+          return (
+            nombreOppLower.includes(nombreClienteLower) ||
+            nombreOppLower.includes(apellidoClienteLower) ||
+            nombreOppLower === nombreCompletoCliente ||
+            (cliente.dni_cuit && o.cliente_dni_cuit === cliente.dni_cuit) ||
+            (cliente.telefono && o.cliente_telefono === cliente.telefono) ||
+            (cliente.email && o.cliente_email === cliente.email)
+          )
+        })
         setOportunidadesCliente(oppFiltradas)
       }
 
