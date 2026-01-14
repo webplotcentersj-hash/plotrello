@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import apiService from '../services/api'
 import type { ClienteRecord, Venta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
+import { generarFacturaRemitoPDF } from '../utils/crmExportUtils'
 import './VentaRapidaModal.css'
 
 interface VentaRapidaModalProps {
@@ -245,18 +246,56 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       }
 
       // Obtener la venta completa con items para mostrarla
+      // IMPORTANTE: Establecer ventaCreada ANTES de llamar a onSuccess para que el modal no se cierre
       try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
           const ventaCompleta = ventasResponse.data.find(v => v.id === ventaResponse.data!.id)
           if (ventaCompleta) {
             setVentaCreada(ventaCompleta)
+          } else {
+            // Si no se encuentra, crear la venta con los items que tenemos
+            if (ventaResponse.data) {
+              const ventaData = ventaResponse.data
+              setVentaCreada({
+                ...ventaData,
+                items: itemsVenta.map(item => ({
+                  id: 0,
+                  id_venta: ventaData.id,
+                  id_articulo_stock: item.id_articulo_stock,
+                  codigo_articulo: item.codigo_articulo,
+                  descripcion: item.descripcion,
+                  cantidad: item.cantidad,
+                  precio_unitario: item.precio_unitario,
+                  descuento: item.descuento,
+                  observaciones: item.observaciones || null
+                }))
+              } as Venta)
+            }
+          }
+        } else {
+          // Fallback: crear la venta con los datos que tenemos
+          if (ventaResponse.data) {
+            const ventaData = ventaResponse.data
+            setVentaCreada({
+              ...ventaData,
+              items: itemsVenta.map(item => ({
+                id: 0,
+                id_venta: ventaData.id,
+                id_articulo_stock: item.id_articulo_stock,
+                codigo_articulo: item.codigo_articulo,
+                descripcion: item.descripcion,
+                cantidad: item.cantidad,
+                precio_unitario: item.precio_unitario,
+                descuento: item.descuento,
+                observaciones: item.observaciones || null
+              }))
+            } as Venta)
           }
         }
       } catch (error) {
         console.error('Error obteniendo venta completa:', error)
-        // No fallar la venta si hay error obteniendo la venta completa
-        // Pero al menos establecer la venta básica si tenemos los datos
+        // Fallback: establecer la venta básica si tenemos los datos
         if (ventaResponse.success && ventaResponse.data) {
           const ventaData = ventaResponse.data
           setVentaCreada({
@@ -742,16 +781,31 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
                   </div>
                 )}
               </div>
-              {!ventaCreada.numero_op && (
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
+                {!ventaCreada.numero_op && (
+                  <button
+                    className="btn-primary"
+                    onClick={handleConvertirAOP}
+                    disabled={guardando}
+                  >
+                    {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
+                  </button>
+                )}
                 <button
-                  className="btn-primary"
-                  onClick={handleConvertirAOP}
-                  disabled={guardando}
-                  style={{ marginTop: '12px' }}
+                  className="btn-secondary"
+                  onClick={() => generarFacturaRemitoPDF(ventaCreada, 'factura')}
+                  style={{ background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
                 >
-                  {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
+                  🧾 Generar Factura
                 </button>
-              )}
+                <button
+                  className="btn-secondary"
+                  onClick={() => generarFacturaRemitoPDF(ventaCreada, 'remito')}
+                  style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
+                >
+                  📋 Generar Remito
+                </button>
+              </div>
             </div>
           )}
         </div>
