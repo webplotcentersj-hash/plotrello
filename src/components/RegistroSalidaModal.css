@@ -1,0 +1,173 @@
+.registro-salida-modal {
+  max-width: 700px;
+  width: 90%;
+}
+
+.form-section {
+  margin-bottom: 25px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+}
+
+.form-section h3 {
+  margin: 0 0 15px 0;
+  color: #1e293b;
+  font-size: 1.1rem;
+}
+
+.btn-solicitar-llave {
+  width: 100%;
+  padding: 12px;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-solicitar-llave:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.btn-solicitar-llave:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.llave-entregada {
+  padding: 12px;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 6px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.btn-ubicacion {
+  padding: 10px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-ubicacion:hover {
+  background: #2563eb;
+}
+
+.coordenadas {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-family: monospace;
+}
+
+.map-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.map-link:hover {
+  text-decoration: underline;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #64748b;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #475569;
+}
+
+.error-message {
+  padding: 12px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+

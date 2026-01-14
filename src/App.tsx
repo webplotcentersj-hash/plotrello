@@ -53,6 +53,8 @@ const CapacitacionesPage = lazy(() => import('./pages/CapacitacionesPage'))
 const MenuDiarioPage = lazy(() => import('./pages/MenuDiarioPage'))
 const CRMVentasPage = lazy(() => import('./pages/CRMVentasPage'))
 const ReportesVentasPage = lazy(() => import('./pages/ReportesVentasPage'))
+const FlotaPage = lazy(() => import('./pages/FlotaPage'))
+const FlotaAdminDashboard = lazy(() => import('./pages/FlotaAdminDashboard'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -588,6 +590,7 @@ function AppRoutes({
             onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
             onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
             onNavigateToAsesorPresupuestos={() => navigate('/asesor-presupuestos')}
+            onNavigateToFlota={() => navigate('/flota')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -871,6 +874,15 @@ function AppRoutes({
       <Route
         path="/libro-actas/sector/:sectorId"
         element={<LibroActasSectorPage />}
+      />
+      {/* Rutas de Gestión de Flota */}
+      <Route
+        path="/flota"
+        element={<FlotaPage />}
+      />
+      <Route
+        path="/flota/admin"
+        element={<FlotaAdminDashboard />}
       />
     </Routes>
     </Suspense>

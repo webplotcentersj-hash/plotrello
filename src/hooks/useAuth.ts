@@ -52,6 +52,7 @@ export function useAuth() {
   const adminRoles: Usuario['rol'][] = ['administracion', 'gerencia']
   const isAdmin = !!usuario && adminRoles.includes(usuario.rol)
   const isMostrador = usuario?.rol === 'mostrador'
+  const isCaja = usuario?.rol === 'caja'
   const isTallerGrafico = usuario?.rol === 'taller-grafico'
   const isInstalaciones = usuario?.rol === 'instalaciones'
   const isCompras = usuario?.rol === 'compras'
@@ -82,6 +83,7 @@ export function useAuth() {
     usuario,
     isAdmin,
     isMostrador,
+    isCaja,
     isTallerGrafico,
     isInstalaciones,
     isCompras,

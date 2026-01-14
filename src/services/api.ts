@@ -36,6 +36,8 @@ import type {
   InscripcionCapacitacion,
   MenuDiario,
   MenuSeleccion,
+  Vehiculo,
+  RegistroSalidaVehiculo
   // Types used in function signatures and return types
   // OportunidadVenta,
   // Venta,
@@ -9450,6 +9452,213 @@ class ApiService {
         error: error.message || 'Error al eliminar item de venta'
       }
     }
+  }
+
+  // ============================================
+  // GESTIÓN DE FLOTA
+  // ============================================
+
+  async getVehiculos(): Promise<ApiResponse<Vehiculo[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('vehiculos')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre', { ascending: true })
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as Vehiculo[]) ?? [] }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getRegistrosSalidasVehiculos(filtros?: {
+    estado?: 'en_uso' | 'retrasado' | 'finalizado'
+    id_vehiculo?: number
+    fecha_desde?: string
+    fecha_hasta?: string
+  }): Promise<ApiResponse<RegistroSalidaVehiculo[]>> {
+    if (supabase) {
+      let query = supabase
+        .from('registros_salidas_vehiculos')
+        .select(`
+          *,
+          vehiculo:vehiculos(*)
+        `)
+        .order('hora_salida', { ascending: false })
+
+      if (filtros?.estado) {
+        query = query.eq('estado', filtros.estado)
+      }
+
+      if (filtros?.id_vehiculo) {
+        query = query.eq('id_vehiculo', filtros.id_vehiculo)
+      }
+
+      if (filtros?.fecha_desde) {
+        query = query.gte('hora_salida', filtros.fecha_desde)
+      }
+
+      if (filtros?.fecha_hasta) {
+        query = query.lte('hora_salida', filtros.fecha_hasta)
+      }
+
+      const { data, error } = await query
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as RegistroSalidaVehiculo[]) ?? [] }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearRegistroSalidaVehiculo(
+    registro: Omit<RegistroSalidaVehiculo, 'id' | 'created_at' | 'updated_at' | 'vehiculo'>
+  ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
+    if (supabase) {
+      // Verificar que el vehículo no esté en uso
+      const { data: registrosActivos } = await supabase
+        .from('registros_salidas_vehiculos')
+        .select('id')
+        .eq('id_vehiculo', registro.id_vehiculo)
+        .eq('estado', 'en_uso')
+        .limit(1)
+
+      if (registrosActivos && registrosActivos.length > 0) {
+        return { success: false, error: 'El vehículo ya está en uso' }
+      }
+
+      const { data, error } = await supabase
+        .from('registros_salidas_vehiculos')
+        .insert(registro)
+        .select(`
+          *,
+          vehiculo:vehiculos(*)
+        `)
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as RegistroSalidaVehiculo }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async finalizarRegistroSalidaVehiculo(
+    idRegistro: number,
+    hora_llegada?: string,
+    observaciones?: string
+  ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('registros_salidas_vehiculos')
+        .update({
+          estado: 'finalizado',
+          hora_llegada_real: hora_llegada || new Date().toISOString(),
+          observaciones: observaciones || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idRegistro)
+        .select(`
+          *,
+          vehiculo:vehiculos(*)
+        `)
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as RegistroSalidaVehiculo }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async entregarLlaveVehiculo(
+    idRegistro: number,
+    idUsuarioCaja: number,
+    nombreUsuarioCaja: string
+  ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('registros_salidas_vehiculos')
+        .update({
+          llave_entregada: true,
+          id_usuario_caja_entrego_llave: idUsuarioCaja,
+          nombre_usuario_caja_entrego_llave: nombreUsuarioCaja,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idRegistro)
+        .select(`
+          *,
+          vehiculo:vehiculos(*)
+        `)
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as RegistroSalidaVehiculo }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getEstadisticasFlota(fechaDesde?: string, fechaHasta?: string): Promise<ApiResponse<{
+    total_salidas: number
+    vehiculos_en_uso: number
+    vehiculos_retrasados: number
+    distancia_total_km: number
+    tiempo_promedio_horas: number
+    registros_retrasados: RegistroSalidaVehiculo[]
+  }>> {
+    if (supabase) {
+      let query = supabase
+        .from('registros_salidas_vehiculos')
+        .select('*')
+
+      if (fechaDesde) {
+        query = query.gte('hora_salida', fechaDesde)
+      }
+
+      if (fechaHasta) {
+        query = query.lte('hora_salida', fechaHasta)
+      }
+
+      const { data, error } = await query
+
+      if (error) return { success: false, error: error.message }
+
+      const registros = (data as RegistroSalidaVehiculo[]) ?? []
+      const enUso = registros.filter(r => r.estado === 'en_uso')
+      const retrasados = registros.filter(r => r.estado === 'retrasado' || 
+        (r.estado === 'en_uso' && r.hora_estimada_llegada && new Date(r.hora_estimada_llegada) < new Date()))
+
+      const distanciaTotal = registros.reduce((sum, r) => sum + (r.km_aproximado || 0), 0)
+
+      const tiempos = registros
+        .filter(r => r.hora_llegada_real && r.hora_salida)
+        .map(r => {
+          const salida = new Date(r.hora_salida).getTime()
+          const llegada = new Date(r.hora_llegada_real!).getTime()
+          return (llegada - salida) / (1000 * 60 * 60) // Horas
+        })
+
+      const tiempoPromedio = tiempos.length > 0
+        ? tiempos.reduce((sum, t) => sum + t, 0) / tiempos.length
+        : 0
+
+      return {
+        success: true,
+        data: {
+          total_salidas: registros.length,
+          vehiculos_en_uso: enUso.length,
+          vehiculos_retrasados: retrasados.length,
+          distancia_total_km: distanciaTotal,
+          tiempo_promedio_horas: tiempoPromedio,
+          registros_retrasados: retrasados
+        }
+      }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
   }
 }
 

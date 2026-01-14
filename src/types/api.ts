@@ -783,3 +783,42 @@ export interface VentaItem {
   created_at: string
 }
 
+// ============================================
+// SISTEMA DE GESTIÓN DE FLOTA
+// ============================================
+
+export interface Vehiculo {
+  id: number
+  nombre: string
+  patente?: string | null
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface RegistroSalidaVehiculo {
+  id: number
+  id_vehiculo: number
+  id_usuario?: number | null
+  nombre_usuario: string
+  sector: string
+  km_aproximado?: number | null
+  numero_op?: string | null
+  motivo_salida: string
+  hora_salida: string
+  hora_estimada_llegada?: string | null
+  hora_llegada_real?: string | null
+  ubicacion_destino?: string | null
+  latitud?: number | null
+  longitud?: number | null
+  estado: 'en_uso' | 'retrasado' | 'finalizado'
+  llave_entregada: boolean
+  id_usuario_caja_entrego_llave?: number | null
+  nombre_usuario_caja_entrego_llave?: string | null
+  observaciones?: string | null
+  created_at: string
+  updated_at: string
+  // Relaciones
+  vehiculo?: Vehiculo
+}
+
