@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { jsPDF } from 'jspdf'
 import type { Task } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import './OpViewPage.css'
@@ -18,6 +19,8 @@ const badgeColorByPriority: Record<Task['priority'], string> = {
 const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
   const { opNumber } = useParams<{ opNumber: string }>()
   const navigate = useNavigate()
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   const task = useMemo(() => {
     if (!opNumber) return null
@@ -60,7 +63,7 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
 
   return (
     <div className="opview-page">
-      <div className="opview-card">
+      <div className="opview-card" ref={contentRef}>
         <header className="opview-header">
           <div>
             <p className="opview-eyebrow">Orden de Producción</p>
@@ -143,11 +146,26 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
           </button>
           <button
             className="brand-button"
-            onClick={() => {
-              window.print()
+            disabled={downloading}
+            onClick={async () => {
+              const el = contentRef.current
+              if (!el) return
+              setDownloading(true)
+              try {
+                const doc = new jsPDF('p', 'mm', 'a4')
+                await doc.html(el, {
+                  // margen en mm
+                  margin: [10, 10, 10, 10],
+                  autoPaging: 'text',
+                  windowWidth: 1200
+                })
+                doc.save(`OP-${task.opNumber}.pdf`)
+              } finally {
+                setDownloading(false)
+              }
             }}
           >
-            🖨️ Imprimir
+            {downloading ? 'Descargando...' : '⬇️ Descargar PDF'}
           </button>
         </footer>
       </div>
