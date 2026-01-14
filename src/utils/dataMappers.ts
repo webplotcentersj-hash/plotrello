@@ -138,9 +138,13 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
   // El backend ya asegura que estado = sector al crear fichas duplicadas
   // Pero si hay discrepancia, priorizar el sector (donde debe aparecer la ficha)
   const estadoMapeado = mapEstadoToStatus(orden.estado)
-  const statusFinal = orden.sector 
-    ? mapEstadoToStatus(orden.sector)  // Usar sector directamente (más confiable para columna)
-    : estadoMapeado
+  // Para fichas duplicadas, siempre usar el sector para determinar la columna
+  // Para fichas principales, usar el estado si está bien mapeado, sino el sector
+  const statusFinal = orden.es_duplicado && orden.sector
+    ? mapEstadoToStatus(orden.sector)  // Fichas duplicadas: usar sector directamente
+    : (estadoMapeado !== 'en-espera' || !orden.sector)
+      ? estadoMapeado  // Fichas principales: usar estado si es válido
+      : mapEstadoToStatus(orden.sector)  // Fallback al sector si el estado es inválido
 
   return {
     id: orden.id?.toString() ?? crypto.randomUUID(),

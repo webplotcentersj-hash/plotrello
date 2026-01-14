@@ -292,9 +292,12 @@ const TaskEditModal = ({
       return
     }
 
+    // IMPORTANTE: Preservar el status (columna) original para que la OP no cambie de columna
+    // Esto es crítico para fichas duplicadas que deben quedarse en su sector
     const updated: Task = {
       ...task,
       ...formData,
+      status: task.status, // Preservar el status original - NO cambiar de columna
       tags,
       materials: materials.map((m) => m.name),
       assignedSector: selectedSectors[0] || task.assignedSector,
@@ -308,7 +311,9 @@ const TaskEditModal = ({
       fichaTecnicaPdfUrl: fichaTecnicaUrl || undefined,
       fichaTecnicaCargada: fichaTecnicaCargada,
       presupuestoEnviadoCliente: presupuestoEnviado,
-      planillaPreliminar: planillaPreliminar
+      planillaPreliminar: planillaPreliminar,
+      // Asegurar que ownerId se preserve correctamente
+      ownerId: formData.ownerId || task.ownerId || 'sin-asignar'
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
