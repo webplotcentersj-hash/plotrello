@@ -8,6 +8,7 @@ import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
 import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF } from '../utils/crmExportUtils'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import './CRMVentasPage.css'
 
 const CRMVentasPage = () => {
@@ -115,6 +116,7 @@ const CRMVentasPage = () => {
   const [articulosEncontradosEditar, setArticulosEncontradosEditar] = useState<ArticuloStock[]>([])
   const [buscandoArticulosEditar, setBuscandoArticulosEditar] = useState(false)
   const [dropdownDocumentosAbierto, setDropdownDocumentosAbierto] = useState<number | null>(null)
+  const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -1065,7 +1067,7 @@ const CRMVentasPage = () => {
                 ➕ Nueva Oportunidad
               </button>
             )}
-            <button className="btn-secondary" onClick={() => navigate('/reportes-ventas')}>
+            <button className="btn-secondary" onClick={() => navigate('/crm-ventas/reportes')}>
               📊 Ver Reportes
             </button>
             {activeTab === 'ventas' && ventasFiltradas.length > 0 && (
@@ -2518,6 +2520,13 @@ const CRMVentasPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Buscador de Clientes */}
+      {mostrarBuscadorClientes && (
+        <BuscadorClientesModal
+          onClose={() => setMostrarBuscadorClientes(false)}
+        />
       )}
     </div>
   )

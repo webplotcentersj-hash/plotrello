@@ -103,18 +103,35 @@
 }
 
 .metrica-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-  border-radius: 16px;
-  padding: 24px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border-radius: 20px;
+  padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  transition: all 0.3s;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
   overflow: hidden;
   min-width: 0;
+  position: relative;
+}
+
+.metrica-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.metrica-card:hover::before {
+  opacity: 1;
 }
 
 .metrica-card:hover {
@@ -124,15 +141,16 @@
 }
 
 .metrica-icon {
-  font-size: 2.5rem;
-  width: 64px;
-  height: 64px;
+  font-size: 2rem; /* Reducido de 2.5rem */
+  width: 56px; /* Reducido de 64px */
+  height: 56px; /* Reducido de 64px */
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
-  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(139, 92, 246, 0.25) 100%);
+  border-radius: 14px;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 .metrica-content {
@@ -152,8 +170,8 @@
 
 .metrica-valor {
   margin: 0 0 4px 0;
-  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
-  font-weight: 900;
+  font-size: clamp(1rem, 2vw, 1.4rem); /* Achicado de 1.25-1.75 a 1-1.4 */
+  font-weight: 800; /* Reducido de 900 a 800 */
   background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
