@@ -1030,7 +1030,15 @@ const MostradorDashboardPage = () => {
                 <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                   <button 
                     className="btn-small"
-                    onClick={() => navigate('/crm-ventas')}
+                    onClick={() => {
+                      // Si la venta ya tiene OP, ir al detalle específico de esa OP
+                      if (venta.numero_op) {
+                        navigate(`/op/${encodeURIComponent(venta.numero_op)}`)
+                        return
+                      }
+                      // Si aún no tiene OP, fallback al CRM (no existe ruta de detalle de venta dedicada)
+                      navigate(`/crm-ventas?ventaId=${venta.id}`)
+                    }}
                     style={{ flex: 1 }}
                   >
                     Ver Detalles
