@@ -442,7 +442,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
   }
 
   return (
-    <div className="venta-rapida-modal-overlay" onClick={onClose}>
+    <div className="venta-rapida-modal-overlay" onClick={ventaCreada ? undefined : onClose}>
       <div className="venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
         <div className="venta-rapida-modal-header">
           <h2>💰 Venta Rápida</h2>
