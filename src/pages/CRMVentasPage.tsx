@@ -1835,6 +1835,12 @@ const CRMVentasPage = () => {
                       <div 
                         className="export-menu export-menu-visible"
                         onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: 'absolute',
+                          top: 'calc(100% + 8px)',
+                          right: 0,
+                          left: 'auto'
+                        }}
                       >
                         <button 
                           onClick={() => {

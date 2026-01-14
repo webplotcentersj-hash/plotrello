@@ -301,7 +301,7 @@
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* Cambiado de hidden a visible para que el dropdown no se corte */
 }
 
 .oportunidad-card::before,
@@ -511,6 +511,8 @@
   padding-top: 20px;
   border-top: 2px solid rgba(255, 255, 255, 0.1);
   flex-wrap: wrap;
+  position: relative; /* Asegurar contexto de apilamiento para el dropdown */
+  z-index: 1;
 }
 
 .btn-action {
@@ -555,8 +557,6 @@
 .export-menu {
   display: none;
   position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
   background: rgba(15, 23, 42, 0.98);
   border: 2px solid rgba(59, 130, 246, 0.3);
   border-radius: 12px;
@@ -566,6 +566,8 @@
   backdrop-filter: blur(20px);
   z-index: 10000;
   animation: slideDown 0.2s ease-out;
+  /* Asegurar que siempre sea visible */
+  white-space: nowrap;
 }
 
 .export-menu-visible {
