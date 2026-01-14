@@ -248,17 +248,23 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
   const whatsappLink =
     task.whatsappUrl?.trim() || buildWhatsappLinkFromPhone(clientPhone ?? undefined) || null
 
+  // Asegurar que operario_asignado se normalice correctamente
+  // Si es 'sin-asignar', convertir a null para la base de datos
+  const operarioAsignado = task.ownerId && task.ownerId !== 'sin-asignar' 
+    ? task.ownerId 
+    : null
+
   const payload = {
     numero_op: task.opNumber,
     cliente: task.title,
     dni_cuit: dniCuitValue,
     descripcion: task.summary,
-    estado: mapStatusToEstado(task.status),
+    estado: mapStatusToEstado(task.status), // Preservar el estado (columna) actual
     prioridad: mapPriorityToDb(task.priority),
     fecha_entrega: toDateOnly(task.dueDate),
     fecha_creacion: task.createdAt,
     fecha_ingreso: task.updatedAt,
-    operario_asignado: task.ownerId,
+    operario_asignado: operarioAsignado, // Normalizar: null si es 'sin-asignar'
     complejidad: mapImpactToComplejidad(task.impact),
     sector: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Primer sector o assignedSector
     sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null),
