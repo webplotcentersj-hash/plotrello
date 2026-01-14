@@ -798,13 +798,57 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
               {guardando ? 'Guardando...' : '💾 Guardar Venta'}
             </button>
           ) : (
-            <button
-              className="btn-primary"
-              onClick={handleConvertirAOP}
-              disabled={guardando || ventaCreada.numero_op !== null}
-            >
-              {guardando ? 'Convirtiendo...' : ventaCreada.numero_op ? `✓ OP: ${ventaCreada.numero_op}` : '📋 Convertir a OP'}
-            </button>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {!ventaCreada.numero_op && (
+                <button
+                  className="btn-primary"
+                  onClick={handleConvertirAOP}
+                  disabled={guardando}
+                  style={{ minWidth: '160px', padding: '12px 20px' }}
+                >
+                  {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
+                </button>
+              )}
+              {ventaCreada.numero_op && (
+                <button
+                  className="btn-secondary"
+                  disabled
+                  style={{ minWidth: '160px', padding: '12px 20px', opacity: 0.7 }}
+                >
+                  ✓ OP: {ventaCreada.numero_op}
+                </button>
+              )}
+              <button
+                className="btn-secondary"
+                onClick={() => generarFacturaRemitoPDF(ventaCreada, 'factura')}
+                style={{ 
+                  minWidth: '160px', 
+                  padding: '12px 20px',
+                  background: 'rgba(59, 130, 246, 0.15)', 
+                  borderColor: 'rgba(59, 130, 246, 0.4)',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                🧾 Generar Factura
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => generarFacturaRemitoPDF(ventaCreada, 'remito')}
+                style={{ 
+                  minWidth: '160px', 
+                  padding: '12px 20px',
+                  background: 'rgba(16, 185, 129, 0.15)', 
+                  borderColor: 'rgba(16, 185, 129, 0.4)',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                📋 Generar Remito
+              </button>
+            </div>
           )}
         </div>
       </div>
