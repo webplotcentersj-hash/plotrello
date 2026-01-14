@@ -256,6 +256,24 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       } catch (error) {
         console.error('Error obteniendo venta completa:', error)
         // No fallar la venta si hay error obteniendo la venta completa
+        // Pero al menos establecer la venta básica si tenemos los datos
+        if (ventaResponse.success && ventaResponse.data) {
+          const ventaData = ventaResponse.data
+          setVentaCreada({
+            ...ventaData,
+            items: itemsVenta.map(item => ({
+              id: 0,
+              id_venta: ventaData.id,
+              id_articulo_stock: item.id_articulo_stock,
+              codigo_articulo: item.codigo_articulo,
+              descripcion: item.descripcion,
+              cantidad: item.cantidad,
+              precio_unitario: item.precio_unitario,
+              descuento: item.descuento,
+              observaciones: item.observaciones || null
+            }))
+          } as Venta)
+        }
       }
 
       // Disparar evento personalizado para que el CRM se actualice si está abierto
