@@ -1,6 +1,6 @@
 {
-  "name": "Trello Plot - Gestión de Órdenes de Trabajo",
-  "short_name": "Trello Plot",
+  "name": "Plot Lab - Gestión de Órdenes de Trabajo",
+  "short_name": "Plot Lab",
   "description": "Sistema de gestión de órdenes de trabajo con Kanban",
   "start_url": "/",
   "display": "standalone",

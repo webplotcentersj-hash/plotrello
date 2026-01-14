@@ -44,7 +44,7 @@ const Login = ({ onLogin }: LoginProps) => {
             alt="Plot Center Logo"
             className="login-logo"
           />
-          <h1>Tablero Plot</h1>
+          <h1>Plot Lab</h1>
           <p>Inicia sesión para continuar</p>
         </div>
         

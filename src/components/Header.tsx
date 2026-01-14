@@ -87,7 +87,7 @@ const Header = ({
             alt="Plot Center Logo" 
             className="header-logo"
           />
-          <h1>Tablero Plot</h1>
+          <h1>Plot Lab</h1>
         </div>
         <div className="header-actions">
           <ClockWidget />
