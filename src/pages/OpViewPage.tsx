@@ -147,19 +147,177 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
           <button
             className="brand-button"
             disabled={downloading}
-            onClick={async () => {
-              const el = contentRef.current
-              if (!el) return
+            onClick={() => {
+              if (!task) return
               setDownloading(true)
               try {
                 const doc = new jsPDF('p', 'mm', 'a4')
-                await doc.html(el, {
-                  // margen en mm
-                  margin: [10, 10, 10, 10],
-                  autoPaging: 'text',
-                  windowWidth: 1200
+                const pageWidth = doc.internal.pageSize.getWidth()
+                const pageHeight = doc.internal.pageSize.getHeight()
+                const margin = 20
+                let yPos = margin
+
+                // Encabezado
+                doc.setFontSize(20)
+                doc.setTextColor(59, 130, 246)
+                doc.setFont('helvetica', 'bold')
+                doc.text('ORDEN DE PRODUCCIÓN', margin, yPos)
+                yPos += 10
+
+                doc.setFontSize(18)
+                doc.setTextColor(0, 0, 0)
+                doc.text(`OP ${task.opNumber}`, margin, yPos)
+                yPos += 8
+
+                doc.setFontSize(12)
+                doc.setFont('helvetica', 'normal')
+                doc.setTextColor(100, 100, 100)
+                doc.text(`Cliente: ${task.title}`, margin, yPos)
+                yPos += 7
+
+                if (task.dniCuit) {
+                  doc.text(`DNI/CUIT: ${task.dniCuit}`, margin, yPos)
+                  yPos += 7
+                }
+
+                yPos += 5
+                doc.setDrawColor(200, 200, 200)
+                doc.line(margin, yPos, pageWidth - margin, yPos)
+                yPos += 10
+
+                // Descripción
+                doc.setFontSize(11)
+                doc.setFont('helvetica', 'bold')
+                doc.setTextColor(0, 0, 0)
+                doc.text('Descripción:', margin, yPos)
+                yPos += 7
+
+                doc.setFontSize(10)
+                doc.setFont('helvetica', 'normal')
+                const descripcion = task.summary || 'Sin descripción'
+                const descripcionLines = doc.splitTextToSize(descripcion, pageWidth - margin * 2)
+                descripcionLines.forEach((line: string) => {
+                  if (yPos > pageHeight - margin - 10) {
+                    doc.addPage()
+                    yPos = margin
+                  }
+                  doc.text(line, margin + 5, yPos)
+                  yPos += 6
                 })
+                yPos += 5
+
+                // Fechas
+                doc.setFontSize(11)
+                doc.setFont('helvetica', 'bold')
+                doc.text('Fechas:', margin, yPos)
+                yPos += 7
+
+                doc.setFontSize(10)
+                doc.setFont('helvetica', 'normal')
+                const fechaCreacion = new Date(task.createdAt).toLocaleString('es-AR')
+                const fechaEntrega = new Date(task.dueDate).toLocaleDateString('es-AR')
+                doc.text(`Creada: ${fechaCreacion}`, margin + 5, yPos)
+                yPos += 6
+                doc.text(`Entrega: ${fechaEntrega}`, margin + 5, yPos)
+                yPos += 10
+
+                // Estado y Prioridad
+                doc.setFontSize(11)
+                doc.setFont('helvetica', 'bold')
+                doc.text('Estado y Prioridad:', margin, yPos)
+                yPos += 7
+
+                doc.setFontSize(10)
+                doc.setFont('helvetica', 'normal')
+                doc.text(`Sector: ${task.assignedSector ?? task.status}`, margin + 5, yPos)
+                yPos += 6
+                doc.text(`Prioridad: ${task.priority}`, margin + 5, yPos)
+                yPos += 10
+
+                // Etiquetas
+                if (task.tags && task.tags.length > 0) {
+                  doc.setFontSize(11)
+                  doc.setFont('helvetica', 'bold')
+                  doc.text('Etiquetas:', margin, yPos)
+                  yPos += 7
+
+                  doc.setFontSize(10)
+                  doc.setFont('helvetica', 'normal')
+                  doc.text(task.tags.join(', '), margin + 5, yPos)
+                  yPos += 10
+                }
+
+                // Materiales
+                if (task.materials && task.materials.length > 0) {
+                  doc.setFontSize(11)
+                  doc.setFont('helvetica', 'bold')
+                  doc.text('Materiales:', margin, yPos)
+                  yPos += 7
+
+                  doc.setFontSize(10)
+                  doc.setFont('helvetica', 'normal')
+                  const materialesText = task.materials.join(', ')
+                  const materialesLines = doc.splitTextToSize(materialesText, pageWidth - margin * 2)
+                  materialesLines.forEach((line: string) => {
+                    if (yPos > pageHeight - margin - 10) {
+                      doc.addPage()
+                      yPos = margin
+                    }
+                    doc.text(line, margin + 5, yPos)
+                    yPos += 6
+                  })
+                  yPos += 5
+                }
+
+                // Contacto
+                if (task.clientPhone || task.clientEmail || task.clientAddress) {
+                  doc.setFontSize(11)
+                  doc.setFont('helvetica', 'bold')
+                  doc.text('Contacto:', margin, yPos)
+                  yPos += 7
+
+                  doc.setFontSize(10)
+                  doc.setFont('helvetica', 'normal')
+                  if (task.clientPhone) {
+                    doc.text(`Tel: ${task.clientPhone}`, margin + 5, yPos)
+                    yPos += 6
+                  }
+                  if (task.clientEmail) {
+                    doc.text(`Email: ${task.clientEmail}`, margin + 5, yPos)
+                    yPos += 6
+                  }
+                  if (task.clientAddress) {
+                    const direccionLines = doc.splitTextToSize(`Dirección: ${task.clientAddress}`, pageWidth - margin * 2 - 10)
+                    direccionLines.forEach((line: string) => {
+                      if (yPos > pageHeight - margin - 10) {
+                        doc.addPage()
+                        yPos = margin
+                      }
+                      doc.text(line, margin + 5, yPos)
+                      yPos += 6
+                    })
+                  }
+                }
+
+                // Pie de página
+                const totalPages = doc.getNumberOfPages()
+                for (let i = 1; i <= totalPages; i++) {
+                  doc.setPage(i)
+                  doc.setFontSize(8)
+                  doc.setFont('helvetica', 'normal')
+                  doc.setTextColor(100, 100, 100)
+                  doc.text(
+                    `Página ${i} de ${totalPages}`,
+                    pageWidth / 2,
+                    pageHeight - 10,
+                    { align: 'center' }
+                  )
+                }
+
                 doc.save(`OP-${task.opNumber}.pdf`)
+              } catch (error) {
+                console.error('Error generando PDF:', error)
+                alert('Error al generar el PDF. Por favor intenta nuevamente.')
               } finally {
                 setDownloading(false)
               }
