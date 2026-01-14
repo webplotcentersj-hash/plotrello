@@ -36,12 +36,22 @@ const ReportesVentasPage = () => {
   const loadVentas = async () => {
     setLoading(true)
     try {
-      const response = await apiService.obtenerVentas(undefined, fechaDesde || undefined, fechaHasta || undefined)
+      const response = await apiService.obtenerVentas(
+        undefined, // idVendedor
+        fechaDesde || undefined, // fechaDesde
+        fechaHasta || undefined, // fechaHasta
+        'todos' // estadoPago
+      )
+      
       if (response.success && response.data) {
         setVentas(response.data)
+      } else {
+        console.error('Error cargando ventas:', response.error)
+        setVentas([])
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cargando ventas:', error)
+      setVentas([])
     } finally {
       setLoading(false)
     }

@@ -32,11 +32,17 @@ const BuscadorClientesModal = ({ onClose }: BuscadorClientesModalProps) => {
       if (response.success && response.data) {
         setClientes(response.data)
       } else {
+        console.error('Error en respuesta buscarClientes:', response.error)
         setClientes([])
+        // Mostrar error al usuario si es necesario
+        if (response.error) {
+          alert('Error al buscar clientes: ' + response.error)
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error buscando clientes:', error)
       setClientes([])
+      alert('Error al buscar clientes: ' + (error.message || 'Error desconocido'))
     } finally {
       setLoading(false)
     }

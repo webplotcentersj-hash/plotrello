@@ -1869,18 +1869,32 @@ class ApiService {
 
   // ========== CLIENTES ==========
   async buscarClientes(query: string): Promise<ApiResponse<ClienteRecord[]>> {
-    if (supabase) {
-      const { data, error } = await supabase.rpc('buscar_clientes', {
-        p_query: query.trim()
-      })
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const queryLower = query.trim().toLowerCase()
+      
+      // Buscar directamente en la tabla clientes usando múltiples campos
+      let queryBuilder = supabase
+        .from('clientes')
+        .select('*')
+        .or(`nombre.ilike.%${queryLower}%,apellido.ilike.%${queryLower}%,dni_cuit.ilike.%${queryLower}%,telefono.ilike.%${queryLower}%,email.ilike.%${queryLower}%,empresa.ilike.%${queryLower}%`)
+        .limit(50)
+
+      const { data, error } = await queryBuilder
 
       if (error) {
+        console.error('Error buscando clientes:', error)
         return { success: false, error: error.message }
       }
 
       return { success: true, data: (data as ClienteRecord[]) ?? [] }
+    } catch (error: any) {
+      console.error('Error en buscarClientes:', error)
+      return { success: false, error: error.message || 'Error al buscar clientes' }
     }
-    return { success: false, error: 'No hay conexión a Supabase' }
   }
 
   async buscarOCrearCliente(cliente: {
