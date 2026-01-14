@@ -258,8 +258,6 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         // No fallar la venta si hay error obteniendo la venta completa
       }
 
-      alert(`Venta creada exitosamente: ${ventaResponse.data.numero_venta}`)
-      
       // Disparar evento personalizado para que el CRM se actualice si está abierto
       window.dispatchEvent(new CustomEvent('venta-creada', { 
         detail: { 
@@ -273,8 +271,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         onSuccess()
       }
       
-      // Cerrar modal
-      onClose()
+      // NO cerrar el modal - permitir convertir a OP desde aquí
     } catch (error: any) {
       console.error('Error guardando venta:', error)
       alert('Error al guardar venta: ' + error.message)
@@ -316,6 +313,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       return
     }
 
+    setGuardando(true)
     try {
       // Construir descripción con items de la venta
       let descripcion = `Venta: ${ventaCreada.numero_venta}\n`
@@ -334,7 +332,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         descripcion += `\nObservaciones: ${observaciones}`
       }
 
-      // Crear la OP
+      // Crear la OP usando el número de venta como número de OP
       const ordenResponse = await apiService.createOrden({
         cliente: clienteFinal.nombre,
         dni_cuit: clienteFinal.dni_cuit || undefined,
@@ -347,7 +345,8 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         nombre_creador: usuarioNombre,
         telefono_cliente: clienteFinal.telefono || undefined,
         email_cliente: clienteFinal.email || undefined,
-        direccion_cliente: clienteFinal.direccion || undefined
+        direccion_cliente: clienteFinal.direccion || undefined,
+        numero_op: ventaCreada.numero_venta // Usar el número de venta como número de OP
       })
 
       if (!ordenResponse.success || !ordenResponse.data) {
@@ -360,12 +359,28 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         numero_op: ordenResponse.data.numero_op
       })
 
+      // Actualizar la venta creada con la información de la OP
+      const ventasResponse = await apiService.obtenerVentas()
+      if (ventasResponse.success && ventasResponse.data) {
+        const ventaActualizada = ventasResponse.data.find(v => v.id === ventaCreada.id)
+        if (ventaActualizada) {
+          setVentaCreada(ventaActualizada)
+        }
+      }
+
       alert(`Venta convertida a OP exitosamente: ${ordenResponse.data.numero_op}`)
-      onSuccess()
-      onClose()
+      
+      // Llamar a onSuccess para recargar datos
+      if (onSuccess) {
+        onSuccess()
+      }
+      
+      // NO cerrar el modal - permitir al usuario ver el resultado
     } catch (error: any) {
       console.error('Error convirtiendo a OP:', error)
       alert('Error al convertir a OP: ' + error.message)
+    } finally {
+      setGuardando(false)
     }
   }
 
@@ -703,28 +718,47 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
             <div className="venta-creada-info">
               <div className="success-message">
                 ✓ Venta creada: <strong>{ventaCreada.numero_venta}</strong>
+                {ventaCreada.numero_op && (
+                  <div style={{ marginTop: '8px', fontSize: '0.95rem' }}>
+                    ✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong>
+                  </div>
+                )}
               </div>
-              <button
-                className="btn-primary"
-                onClick={handleConvertirAOP}
-              >
-                📋 Convertir a OP
-              </button>
+              {!ventaCreada.numero_op && (
+                <button
+                  className="btn-primary"
+                  onClick={handleConvertirAOP}
+                  disabled={guardando}
+                  style={{ marginTop: '12px' }}
+                >
+                  {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
+                </button>
+              )}
             </div>
           )}
         </div>
 
         <div className="venta-rapida-modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Cancelar
+            {ventaCreada ? 'Cerrar' : 'Cancelar'}
           </button>
-          <button
-            className="btn-primary"
-            onClick={handleGuardarVenta}
-            disabled={guardando || itemsVenta.length === 0}
-          >
-            {guardando ? 'Guardando...' : '💾 Guardar Venta'}
-          </button>
+          {!ventaCreada ? (
+            <button
+              className="btn-primary"
+              onClick={handleGuardarVenta}
+              disabled={guardando || itemsVenta.length === 0}
+            >
+              {guardando ? 'Guardando...' : '💾 Guardar Venta'}
+            </button>
+          ) : (
+            <button
+              className="btn-primary"
+              onClick={handleConvertirAOP}
+              disabled={guardando || ventaCreada.numero_op !== null}
+            >
+              {guardando ? 'Convirtiendo...' : ventaCreada.numero_op ? `✓ OP: ${ventaCreada.numero_op}` : '📋 Convertir a OP'}
+            </button>
+          )}
         </div>
       </div>
     </div>
