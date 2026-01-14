@@ -7,7 +7,10 @@ BEGIN;
 -- Asegurar que la extensión pgcrypto esté instalada
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Actualizar la función login_usuario para verificar correctamente las contraseñas
+-- Eliminar la función existente para poder recrearla con el tipo de retorno correcto
+DROP FUNCTION IF EXISTS public.login_usuario(text, text);
+
+-- Crear la función login_usuario para verificar correctamente las contraseñas
 CREATE OR REPLACE FUNCTION public.login_usuario(p_usuario text, p_password text)
 RETURNS TABLE (id integer, nombre text, rol text)
 LANGUAGE plpgsql
