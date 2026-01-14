@@ -781,31 +781,6 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
-                {!ventaCreada.numero_op && (
-                  <button
-                    className="btn-primary"
-                    onClick={handleConvertirAOP}
-                    disabled={guardando}
-                  >
-                    {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
-                  </button>
-                )}
-                <button
-                  className="btn-secondary"
-                  onClick={() => generarFacturaRemitoPDF(ventaCreada, 'factura')}
-                  style={{ background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
-                >
-                  🧾 Generar Factura
-                </button>
-                <button
-                  className="btn-secondary"
-                  onClick={() => generarFacturaRemitoPDF(ventaCreada, 'remito')}
-                  style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
-                >
-                  📋 Generar Remito
-                </button>
-              </div>
             </div>
           )}
         </div>
