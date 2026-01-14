@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
@@ -1067,9 +1067,13 @@ const CRMVentasPage = () => {
                 ➕ Nueva Oportunidad
               </button>
             )}
-            <button className="btn-secondary" onClick={() => navigate('/crm-ventas/reportes')}>
+            <Link 
+              to="/crm-ventas/reportes"
+              className="btn-secondary"
+              style={{ textDecoration: 'none', display: 'inline-block' }}
+            >
               📊 Ver Reportes
-            </button>
+            </Link>
             {activeTab === 'ventas' && ventasFiltradas.length > 0 && (
               <div className="export-dropdown">
                 <button className="btn-secondary">

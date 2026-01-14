@@ -1874,16 +1874,21 @@ class ApiService {
     }
 
     try {
-      const queryLower = query.trim().toLowerCase()
+      const queryTrimmed = query.trim()
+      if (!queryTrimmed) {
+        return { success: true, data: [] }
+      }
+
+      const queryPattern = `%${queryTrimmed}%`
       
       // Buscar directamente en la tabla clientes usando múltiples campos
-      let queryBuilder = supabase
+      // Usar ilike para búsqueda case-insensitive
+      const { data, error } = await supabase
         .from('clientes')
         .select('*')
-        .or(`nombre.ilike.%${queryLower}%,apellido.ilike.%${queryLower}%,dni_cuit.ilike.%${queryLower}%,telefono.ilike.%${queryLower}%,email.ilike.%${queryLower}%,empresa.ilike.%${queryLower}%`)
+        .or(`nombre.ilike.${queryPattern},apellido.ilike.${queryPattern},dni_cuit.ilike.${queryPattern},telefono.ilike.${queryPattern},email.ilike.${queryPattern},empresa.ilike.${queryPattern}`)
         .limit(50)
-
-      const { data, error } = await queryBuilder
+        .order('nombre', { ascending: true })
 
       if (error) {
         console.error('Error buscando clientes:', error)
