@@ -18,6 +18,9 @@ const FlotaPage = () => {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
+      // Actualizar estados retrasados antes de cargar datos
+      await apiService.actualizarEstadosRetrasados()
+      
       const [vehiculosResp, registrosResp] = await Promise.all([
         apiService.getVehiculos(),
         apiService.getRegistrosSalidasVehiculos({ estado: 'en_uso' })
@@ -28,7 +31,13 @@ const FlotaPage = () => {
       }
 
       if (registrosResp.success && registrosResp.data) {
-        setRegistrosActivos(registrosResp.data)
+        // Incluir también los retrasados
+        const retrasadosResp = await apiService.getRegistrosSalidasVehiculos({ estado: 'retrasado' })
+        const todosActivos = [
+          ...registrosResp.data,
+          ...(retrasadosResp.success && retrasadosResp.data ? retrasadosResp.data : [])
+        ]
+        setRegistrosActivos(todosActivos)
       }
     } catch (error) {
       console.error('Error cargando datos de flota:', error)

@@ -9660,6 +9660,17 @@ class ApiService {
 
     return { success: false, error: 'Supabase no configurado' }
   }
+
+  async actualizarEstadosRetrasados(): Promise<ApiResponse<boolean>> {
+    if (supabase) {
+      const { error } = await supabase.rpc('actualizar_estado_vehiculos_retrasados')
+      
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: true }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {
