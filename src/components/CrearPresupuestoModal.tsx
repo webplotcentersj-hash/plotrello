@@ -205,7 +205,6 @@ const CrearPresupuestoModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }:
           dni_cuit: nuevoCliente.dni_cuit || undefined,
           telefono: nuevoCliente.telefono || undefined,
           email: nuevoCliente.email || undefined,
-          empresa: nuevoCliente.empresa || undefined,
           direccion: nuevoCliente.direccion || undefined
         })
 

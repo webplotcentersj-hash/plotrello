@@ -2188,9 +2188,9 @@ const CRMVentasPage = () => {
                         <strong>OP asociada:</strong> {presupuesto.id_op_asociada}
                       </div>
                     )}
-                    {presupuesto.id_pedido_asociado && (
+                    {presupuesto.id_venta_asociada && (
                       <div className="info-item">
-                        <strong>Pedido asociado:</strong> {presupuesto.id_pedido_asociado}
+                        <strong>Venta asociada:</strong> {presupuesto.id_venta_asociada}
                       </div>
                     )}
                   </div>
