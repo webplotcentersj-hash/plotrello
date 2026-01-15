@@ -126,8 +126,13 @@ const CRMVentasPage = () => {
   const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
   
   // Presupuestos
-  const [presupuestos, setPresupuestos] = useState<PresupuestoClienteRecord[]>([])
-  const [presupuestosFiltrados, setPresupuestosFiltrados] = useState<PresupuestoClienteRecord[]>([])
+  type PresupuestoConCliente = PresupuestoClienteRecord & {
+    cliente_nombre?: string
+    cliente_empresa?: string
+    cliente_email?: string
+  }
+  const [presupuestos, setPresupuestos] = useState<PresupuestoConCliente[]>([])
+  const [presupuestosFiltrados, setPresupuestosFiltrados] = useState<PresupuestoConCliente[]>([])
   const [filtroEstadoPresupuesto, setFiltroEstadoPresupuesto] = useState<string>('todos')
   const [busquedaPresupuesto, setBusquedaPresupuesto] = useState('')
   const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState('')
@@ -313,16 +318,6 @@ const CRMVentasPage = () => {
         const oportunidadesConValor = oppResponse.data?.filter(o => o.valor_estimado && o.valor_estimado > 0) || []
         const valorTotalOportunidades = oportunidadesConValor.reduce((sum, o) => sum + (o.valor_estimado || 0), 0)
         const valorPromedioOportunidad = oportunidadesConValor.length > 0 ? valorTotalOportunidades / oportunidadesConValor.length : 0
-        
-        // Calcular estadísticas de presupuestos
-        const totalPresupuestos = presupuestosResponse.data?.length || 0
-        const presupuestosEnviados = presupuestosResponse.data?.filter(p => p.estado === 'enviado').length || 0
-        const presupuestosAceptados = presupuestosResponse.data?.filter(p => p.estado === 'aceptado').length || 0
-        const presupuestosRechazados = presupuestosResponse.data?.filter(p => p.estado === 'rechazado').length || 0
-        const valorTotalPresupuestos = presupuestosResponse.data?.reduce((sum, p) => sum + (p.precio_total || 0), 0) || 0
-        const tasaAceptacionPresupuestos = (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados) > 0 
-          ? (presupuestosAceptados / (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados)) * 100 
-          : 0
 
         setEstadisticas({
           totalVentas,
@@ -384,6 +379,16 @@ const CRMVentasPage = () => {
         setPresupuestos([])
         setPresupuestosFiltrados([])
       }
+      
+      // Calcular estadísticas de presupuestos (después de cargar)
+      const totalPresupuestos = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.length : 0
+      const presupuestosEnviados = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.filter(p => p.estado === 'enviado').length : 0
+      const presupuestosAceptados = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.filter(p => p.estado === 'aceptado').length : 0
+      const presupuestosRechazados = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.filter(p => p.estado === 'rechazado').length : 0
+      const valorTotalPresupuestos = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.reduce((sum, p) => sum + (p.precio_total || 0), 0) : 0
+      const tasaAceptacionPresupuestos = (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados) > 0 
+        ? (presupuestosAceptados / (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados)) * 100 
+        : 0
       
       // Cargar órdenes disponibles
       const ordenesResponse = await apiService.getOrdenes()
@@ -2118,7 +2123,7 @@ const CRMVentasPage = () => {
                 <div key={presupuesto.id} className="venta-card">
                   <div className="card-header">
                     <div>
-                      <h3>{(presupuesto as any).cliente_nombre || 'Cliente'}</h3>
+                      <h3>{presupuesto.cliente_nombre || 'Cliente'}</h3>
                       <span className="numero-oportunidad">{presupuesto.numero_presupuesto}</span>
                     </div>
                     <span
@@ -2129,8 +2134,8 @@ const CRMVentasPage = () => {
                     </span>
                   </div>
                   
-                  {(presupuesto as any).cliente_empresa && (
-                    <p className="cliente-empresa">🏢 {(presupuesto as any).cliente_empresa}</p>
+                  {presupuesto.cliente_empresa && (
+                    <p className="cliente-empresa">🏢 {presupuesto.cliente_empresa}</p>
                   )}
                   
                   <div className="card-info">
@@ -2150,9 +2155,9 @@ const CRMVentasPage = () => {
                         <strong>Fecha vencimiento:</strong> {formatArgentinaDate(presupuesto.fecha_vencimiento)}
                       </div>
                     )}
-                    {(presupuesto as any).cliente_email && (
+                    {presupuesto.cliente_email && (
                       <div className="info-item">
-                        <strong>Email:</strong> {(presupuesto as any).cliente_email}
+                        <strong>Email:</strong> {presupuesto.cliente_email}
                       </div>
                     )}
                     {presupuesto.id_op_asociada && (
@@ -2194,9 +2199,9 @@ const CRMVentasPage = () => {
                         👁️ Ver OP
                       </button>
                     )}
-                    {(presupuesto as any).cliente_email && (
+                    {presupuesto.cliente_email && (
                       <a
-                        href={`mailto:${(presupuesto as any).cliente_email}`}
+                        href={`mailto:${presupuesto.cliente_email}`}
                         className="btn-action"
                         style={{ textDecoration: 'none' }}
                       >
