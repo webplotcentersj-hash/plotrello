@@ -107,6 +107,132 @@ const TaskCard = ({
   const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
   const isTallerImprenta = task.assignedSector === 'Taller de Imprenta' || task.status === 'taller-imprenta'
   const isMetalurgica = task.assignedSector === 'Metalúrgica' || task.status === 'metalurgica'
+
+  // Helper para obtener color e icono de etapa por sector
+  const getEtapaInfo = (sector: string, etapa: string | null | undefined): { color: string; icon: string } | null => {
+    if (!etapa) return null
+    
+    // Taller Gráfico
+    if (sector === 'Taller Gráfico') {
+      const colores: Record<string, string> = {
+        'Falta Material para Impresión o archivo': '#ef4444',
+        'En Proceso': '#3b82f6',
+        'Para Cortar o Pegar': '#f59e0b',
+        'Para Rotular': '#8b5cf6',
+        'Instalaciones/Ploteo': '#10b981',
+        'Metalurgica Instalacion': '#ec4899',
+        'laminas': '#06b6d4'
+      }
+      const iconos: Record<string, string> = {
+        'Falta Material para Impresión o archivo': '⚠️',
+        'En Proceso': '⚙️',
+        'Para Cortar o Pegar': '✂️',
+        'Para Rotular': '🏷️',
+        'Instalaciones/Ploteo': '🚚',
+        'Metalurgica Instalacion': '🔧',
+        'laminas': '📄'
+      }
+      return { color: colores[etapa] || '#6b7280', icon: iconos[etapa] || '📍' }
+    }
+    
+    // Instalaciones
+    if (sector === 'Instalaciones') {
+      const colores: Record<string, string> = {
+        'Falta Info o Material': '#ef4444',
+        'Coordinados para Instalaciones': '#3b82f6',
+        'Listos para instalar': '#10b981',
+        'Pausados': '#f59e0b',
+        'Rehacer': '#ec4899'
+      }
+      const iconos: Record<string, string> = {
+        'Falta Info o Material': '⚠️',
+        'Coordinados para Instalaciones': '📅',
+        'Listos para instalar': '✅',
+        'Pausados': '⏸️',
+        'Rehacer': '🔄'
+      }
+      return { color: colores[etapa] || '#6b7280', icon: iconos[etapa] || '📍' }
+    }
+    
+    // Taller de Imprenta
+    if (sector === 'Taller de Imprenta') {
+      const colores: Record<string, string> = {
+        'Proceso': '#3b82f6',
+        'Finalizado/máquina con Precorte': '#10b981',
+        'Almacén': '#f59e0b',
+        'Entregado/ Derivado': '#8b5cf6',
+        'Sin Realizar Por faltantes': '#ef4444',
+        'En Revisión': '#ec4899'
+      }
+      const iconos: Record<string, string> = {
+        'Proceso': '⚙️',
+        'Finalizado/máquina con Precorte': '✅',
+        'Almacén': '📦',
+        'Entregado/ Derivado': '🚚',
+        'Sin Realizar Por faltantes': '⚠️',
+        'En Revisión': '🔍'
+      }
+      return { color: colores[etapa] || '#6b7280', icon: iconos[etapa] || '📍' }
+    }
+    
+    // Metalúrgica
+    if (sector === 'Metalúrgica') {
+      const colores: Record<string, string> = {
+        'En Proceso': '#3b82f6',
+        'Corte': '#ef4444',
+        'Soldadura': '#f59e0b',
+        'Pintura/Tratamiento': '#8b5cf6',
+        'Montaje': '#06b6d4',
+        'Listo para Instalar': '#10b981',
+        'Finalizado': '#6366f1'
+      }
+      const iconos: Record<string, string> = {
+        'En Proceso': '⚙️',
+        'Corte': '✂️',
+        'Soldadura': '🔥',
+        'Pintura/Tratamiento': '🎨',
+        'Montaje': '🔧',
+        'Listo para Instalar': '✅',
+        'Finalizado': '🏁'
+      }
+      return { color: colores[etapa] || '#6b7280', icon: iconos[etapa] || '📍' }
+    }
+    
+    return null
+  }
+
+  // Obtener información de la etapa actual según el sector
+  const getEtapaActual = () => {
+    if (isTallerGrafico && task.etapaTallerGrafico) {
+      return {
+        etapa: task.etapaTallerGrafico,
+        fechaInicio: task.etapaTallerGraficoFechaInicio,
+        info: getEtapaInfo('Taller Gráfico', task.etapaTallerGrafico)
+      }
+    }
+    if (isInstalaciones && task.etapaInstalaciones) {
+      return {
+        etapa: task.etapaInstalaciones,
+        fechaInicio: task.etapaInstalacionesFechaInicio,
+        info: getEtapaInfo('Instalaciones', task.etapaInstalaciones)
+      }
+    }
+    if (isTallerImprenta && task.etapaTallerImprenta) {
+      return {
+        etapa: task.etapaTallerImprenta,
+        fechaInicio: task.etapaTallerImprentaFechaInicio,
+        info: getEtapaInfo('Taller de Imprenta', task.etapaTallerImprenta)
+      }
+    }
+    if (isMetalurgica && task.etapaMetalurgica) {
+      return {
+        etapa: task.etapaMetalurgica,
+        fechaInicio: task.etapaMetalurgicaFechaInicio,
+        info: getEtapaInfo('Metalúrgica', task.etapaMetalurgica)
+      }
+    }
+    return null
+  }
   const workerName =
     stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
   const workerDisplay = workerName ?? 'Sin asignar'
@@ -289,36 +415,14 @@ const TaskCard = ({
                 >
                   {task.assignedSector}
                 </span>
-                {/* Mostrar etapa actual de Taller Gráfico */}
-                {isTallerGrafico && task.etapaTallerGrafico && (() => {
-                  const getEtapaColor = (etapa: string): string => {
-                    const colores: Record<string, string> = {
-                      'Falta Material para Impresión o archivo': '#ef4444',
-                      'En Proceso': '#3b82f6',
-                      'Para Cortar o Pegar': '#f59e0b',
-                      'Para Rotular': '#8b5cf6',
-                      'Instalaciones/Ploteo': '#10b981',
-                      'Metalurgica Instalacion': '#ec4899',
-                      'laminas': '#06b6d4'
-                    }
-                    return colores[etapa] || '#6b7280'
-                  }
-                  const getEtapaIcon = (etapa: string): string => {
-                    const iconos: Record<string, string> = {
-                      'Falta Material para Impresión o archivo': '⚠️',
-                      'En Proceso': '⚙️',
-                      'Para Cortar o Pegar': '✂️',
-                      'Para Rotular': '🏷️',
-                      'Instalaciones/Ploteo': '🚚',
-                      'Metalurgica Instalacion': '🔧',
-                      'laminas': '📄'
-                    }
-                    return iconos[etapa] || '📍'
-                  }
-                  const etapaColor = getEtapaColor(task.etapaTallerGrafico)
-                  const etapaIcon = getEtapaIcon(task.etapaTallerGrafico)
-                  const tiempoEnEtapa = task.etapaTallerGraficoFechaInicio 
-                    ? Math.floor((new Date().getTime() - new Date(task.etapaTallerGraficoFechaInicio).getTime()) / 1000)
+                {/* Mostrar etapa actual para todos los sectores */}
+                {(() => {
+                  const etapaActual = getEtapaActual()
+                  if (!etapaActual || !etapaActual.info) return null
+                  
+                  const { etapa, fechaInicio, info } = etapaActual
+                  const tiempoEnEtapa = fechaInicio 
+                    ? Math.floor((new Date().getTime() - new Date(fechaInicio).getTime()) / 1000)
                     : null
                   const tiempoFormateado = tiempoEnEtapa 
                     ? tiempoEnEtapa < 60 
@@ -332,9 +436,9 @@ const TaskCard = ({
                     <span 
                       className="etapa-pill-header" 
                       style={{ 
-                        backgroundColor: `${etapaColor}20`,
-                        borderColor: `${etapaColor}60`,
-                        color: etapaColor,
+                        backgroundColor: `${info.color}20`,
+                        borderColor: `${info.color}60`,
+                        color: info.color,
                         fontSize: '0.75rem',
                         marginLeft: '8px',
                         padding: '4px 8px',
@@ -344,10 +448,10 @@ const TaskCard = ({
                         gap: '4px',
                         fontWeight: '600'
                       }}
-                      title={`Etapa actual: ${task.etapaTallerGrafico}${tiempoFormateado ? ` (${tiempoFormateado})` : ''}`}
+                      title={`Etapa actual: ${etapa}${tiempoFormateado ? ` (${tiempoFormateado})` : ''}`}
                     >
-                      <span>{etapaIcon}</span>
-                      <span>{task.etapaTallerGrafico}</span>
+                      <span>{info.icon}</span>
+                      <span>{etapa}</span>
                       {tiempoFormateado && (
                         <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({tiempoFormateado})</span>
                       )}
