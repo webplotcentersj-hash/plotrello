@@ -49,15 +49,12 @@ const BuscadorClientesModal = ({ onClose }: BuscadorClientesModalProps) => {
   }, [])
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (busqueda.trim()) {
-        buscarClientes(busqueda)
-      } else {
-        setClientes([])
-      }
-    }, 300)
-
-    return () => clearTimeout(timeoutId)
+    // Si hay al menos un carácter, buscar inmediatamente
+    if (busqueda.trim().length >= 1) {
+      buscarClientes(busqueda)
+    } else {
+      setClientes([])
+    }
   }, [busqueda, buscarClientes])
 
   const cargarDatosCliente = useCallback(async (cliente: ClienteRecord) => {
