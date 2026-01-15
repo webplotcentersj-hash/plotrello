@@ -330,25 +330,41 @@ const BoardPage = ({
     const sectorCambio = taskOriginal && taskOriginal.assignedSector !== updatedTask.assignedSector
     
     if (ordenId) {
-      const response = await apiService.updateOrden(ordenId, taskToOrdenPayload(updatedTask))
+      // Si cambió el sector, actualizar el status (columna) basado en el nuevo sector
+      let taskConStatusActualizado = { ...updatedTask }
+      
+      if (sectorCambio && updatedTask.assignedSector) {
+        // Mapear el sector a su columna correspondiente
+        const nuevoStatus = mapEstadoToStatus(updatedTask.assignedSector)
+        taskConStatusActualizado = {
+          ...updatedTask,
+          status: nuevoStatus // Actualizar el status para que aparezca en la columna correcta
+        }
+        console.log(`🔄 Sector cambiado de "${taskOriginal?.assignedSector}" a "${updatedTask.assignedSector}" -> Nueva columna: ${nuevoStatus}`)
+      }
+      
+      // Preparar el payload para Supabase
+      const payload = taskToOrdenPayload(taskConStatusActualizado)
+      
+      // Si cambió el sector, asegurar que el estado en la BD también se actualice
+      if (sectorCambio && updatedTask.assignedSector) {
+        // El estado debe coincidir con el sector para que aparezca en la columna correcta
+        payload.estado = updatedTask.assignedSector
+        console.log(`📝 Actualizando estado en BD a: ${payload.estado}`)
+      }
+      
+      const response = await apiService.updateOrden(ordenId, payload)
       if (response.success && response.data) {
         // IMPORTANTE: Actualizar el estado local con los datos que vienen de Supabase
         const ordenActualizada = response.data
         const taskActualizado = ordenToTask(ordenActualizada)
         
-        // Si cambió el sector asignado, actualizar el status (columna) basado en el nuevo sector
-        // Si no cambió el sector, mantener el status actual
-        let nuevoStatus: TaskStatus = updatedTask.status
-        
-        if (sectorCambio && updatedTask.assignedSector) {
-          // Mapear el sector a su columna correspondiente
-          nuevoStatus = mapEstadoToStatus(updatedTask.assignedSector)
-          console.log(`🔄 Sector cambiado de "${taskOriginal?.assignedSector}" a "${updatedTask.assignedSector}" -> Nueva columna: ${nuevoStatus}`)
-        }
+        // Usar el status actualizado si cambió el sector
+        const statusFinal = sectorCambio ? taskConStatusActualizado.status : updatedTask.status
         
         const taskFinal: Task = {
           ...taskActualizado,
-          status: nuevoStatus, // Usar el nuevo status si cambió el sector, sino mantener el actual
+          status: statusFinal, // Usar el nuevo status si cambió el sector
           id: updatedTask.id // Mantener el ID original
         }
         
@@ -358,7 +374,7 @@ const BoardPage = ({
             id: `edit-${Date.now()}`,
             taskId: updatedTask.id,
             from: taskOriginal?.status || updatedTask.status,
-            to: nuevoStatus,
+            to: statusFinal,
             actorId: updatedTask.ownerId,
             timestamp: new Date().toISOString(),
             note: sectorCambio ? `Sector cambiado a ${updatedTask.assignedSector}` : 'Tarea actualizada'
@@ -372,7 +388,7 @@ const BoardPage = ({
       } else {
         setActionError(response.error || 'No se pudo guardar la orden en Supabase.')
         // Si falla, mantener el estado local actualizado de todas formas
-        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
+        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? taskConStatusActualizado : task)))
       }
     } else {
       // Si no hay ordenId, solo actualizar el estado local
