@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord } from '../types/api'
+import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, PresupuestoClienteRecord } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
 import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF } from '../utils/crmExportUtils'
@@ -15,7 +15,7 @@ const CRMVentasPage = () => {
   const navigate = useNavigate()
   const { isAdmin, isMostrador, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas'>('oportunidades')
+  const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas' | 'presupuestos'>('oportunidades')
   
   // Oportunidades
   const [oportunidades, setOportunidades] = useState<OportunidadVenta[]>([])
@@ -50,7 +50,14 @@ const CRMVentasPage = () => {
     oportunidadesActivas: 0,
     oportunidadesCerradas: 0,
     oportunidadesPerdidas: 0,
-    valorTotalOportunidades: 0
+    valorTotalOportunidades: 0,
+    // Presupuestos
+    totalPresupuestos: 0,
+    presupuestosEnviados: 0,
+    presupuestosAceptados: 0,
+    presupuestosRechazados: 0,
+    valorTotalPresupuestos: 0,
+    tasaAceptacionPresupuestos: 0
   })
   
   // Búsqueda de clientes
@@ -117,6 +124,14 @@ const CRMVentasPage = () => {
   const [buscandoArticulosEditar, setBuscandoArticulosEditar] = useState(false)
   const [dropdownDocumentosAbierto, setDropdownDocumentosAbierto] = useState<number | null>(null)
   const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
+  
+  // Presupuestos
+  const [presupuestos, setPresupuestos] = useState<PresupuestoClienteRecord[]>([])
+  const [presupuestosFiltrados, setPresupuestosFiltrados] = useState<PresupuestoClienteRecord[]>([])
+  const [filtroEstadoPresupuesto, setFiltroEstadoPresupuesto] = useState<string>('todos')
+  const [busquedaPresupuesto, setBusquedaPresupuesto] = useState('')
+  const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState('')
+  const [fechaHastaPresupuesto, setFechaHastaPresupuesto] = useState('')
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -299,6 +314,16 @@ const CRMVentasPage = () => {
         const valorTotalOportunidades = oportunidadesConValor.reduce((sum, o) => sum + (o.valor_estimado || 0), 0)
         const valorPromedioOportunidad = oportunidadesConValor.length > 0 ? valorTotalOportunidades / oportunidadesConValor.length : 0
         
+        // Calcular estadísticas de presupuestos
+        const totalPresupuestos = presupuestosResponse.data?.length || 0
+        const presupuestosEnviados = presupuestosResponse.data?.filter(p => p.estado === 'enviado').length || 0
+        const presupuestosAceptados = presupuestosResponse.data?.filter(p => p.estado === 'aceptado').length || 0
+        const presupuestosRechazados = presupuestosResponse.data?.filter(p => p.estado === 'rechazado').length || 0
+        const valorTotalPresupuestos = presupuestosResponse.data?.reduce((sum, p) => sum + (p.precio_total || 0), 0) || 0
+        const tasaAceptacionPresupuestos = (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados) > 0 
+          ? (presupuestosAceptados / (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados)) * 100 
+          : 0
+
         setEstadisticas({
           totalVentas,
           totalIngresos,
@@ -313,7 +338,13 @@ const CRMVentasPage = () => {
           oportunidadesActivas,
           oportunidadesCerradas,
           oportunidadesPerdidas,
-          valorTotalOportunidades
+          valorTotalOportunidades,
+          totalPresupuestos,
+          presupuestosEnviados,
+          presupuestosAceptados,
+          presupuestosRechazados,
+          valorTotalPresupuestos,
+          tasaAceptacionPresupuestos
         })
       } else {
         console.error('Error cargando ventas:', ventasResponse.error)
@@ -333,8 +364,25 @@ const CRMVentasPage = () => {
           oportunidadesActivas: 0,
           oportunidadesCerradas: 0,
           oportunidadesPerdidas: 0,
-          valorTotalOportunidades: 0
+          valorTotalOportunidades: 0,
+          totalPresupuestos: 0,
+          presupuestosEnviados: 0,
+          presupuestosAceptados: 0,
+          presupuestosRechazados: 0,
+          valorTotalPresupuestos: 0,
+          tasaAceptacionPresupuestos: 0
         })
+      }
+      
+      // Cargar presupuestos
+      const presupuestosResponse = await apiService.getPresupuestosClientesAdmin()
+      if (presupuestosResponse.success && presupuestosResponse.data) {
+        setPresupuestos(presupuestosResponse.data)
+        setPresupuestosFiltrados(presupuestosResponse.data)
+      } else {
+        console.error('Error cargando presupuestos:', presupuestosResponse.error)
+        setPresupuestos([])
+        setPresupuestosFiltrados([])
       }
       
       // Cargar órdenes disponibles
@@ -459,6 +507,51 @@ const CRMVentasPage = () => {
     
     setVentasFiltradas(filtradas)
   }, [ventas, filtroEstadoPago, filtroMetodoPago, filtroVendedor, fechaDesde, fechaHasta, busquedaVenta])
+
+  // Filtros presupuestos
+  useEffect(() => {
+    let filtrados = presupuestos
+    
+    // Filtro por estado
+    if (filtroEstadoPresupuesto !== 'todos') {
+      filtrados = filtrados.filter(p => p.estado === filtroEstadoPresupuesto)
+    }
+    
+    // Filtro por fecha desde
+    if (fechaDesdePresupuesto) {
+      filtrados = filtrados.filter(p => {
+        const fechaCreacion = p.fecha_creacion?.split('T')[0] || ''
+        return fechaCreacion >= fechaDesdePresupuesto
+      })
+    }
+    
+    // Filtro por fecha hasta
+    if (fechaHastaPresupuesto) {
+      filtrados = filtrados.filter(p => {
+        const fechaCreacion = p.fecha_creacion?.split('T')[0] || ''
+        return fechaCreacion <= fechaHastaPresupuesto
+      })
+    }
+    
+    // Búsqueda de texto
+    if (busquedaPresupuesto) {
+      const busqueda = busquedaPresupuesto.toLowerCase().trim()
+      if (busqueda) {
+        filtrados = filtrados.filter(p => {
+          if (p.numero_presupuesto?.toLowerCase().includes(busqueda)) return true
+          if (p.cliente_nombre?.toLowerCase().includes(busqueda)) return true
+          if (p.cliente_empresa?.toLowerCase().includes(busqueda)) return true
+          if (p.cliente_email?.toLowerCase().includes(busqueda)) return true
+          if (p.observaciones_cliente?.toLowerCase().includes(busqueda)) return true
+          if (p.observaciones_internas?.toLowerCase().includes(busqueda)) return true
+          if (p.precio_total?.toString().includes(busqueda)) return true
+          return false
+        })
+      }
+    }
+    
+    setPresupuestosFiltrados(filtrados)
+  }, [presupuestos, filtroEstadoPresupuesto, fechaDesdePresupuesto, fechaHastaPresupuesto, busquedaPresupuesto])
 
   // Buscar clientes
   useEffect(() => {
@@ -1456,6 +1549,12 @@ const CRMVentasPage = () => {
         >
           💰 Ventas ({ventasFiltradas.length})
         </button>
+        <button
+          className={`tab-button ${activeTab === 'presupuestos' ? 'active' : ''}`}
+          onClick={() => setActiveTab('presupuestos')}
+        >
+          📄 Presupuestos ({presupuestosFiltrados.length})
+        </button>
       </div>
 
       {/* Tab: Oportunidades */}
@@ -1899,6 +1998,176 @@ const CRMVentasPage = () => {
           {ventasFiltradas.length === 0 && (
             <div className="empty-state">
               <p>No hay ventas que coincidan con los filtros</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Presupuestos */}
+      {activeTab === 'presupuestos' && (
+        <div className="crm-section">
+          {/* Filtros */}
+          <div className="filtros-section">
+            <div className="filtro-group">
+              <label>Estado:</label>
+              <select
+                value={filtroEstadoPresupuesto}
+                onChange={(e) => setFiltroEstadoPresupuesto(e.target.value)}
+                className="filtro-select"
+              >
+                <option value="todos">Todos</option>
+                <option value="borrador">Borrador</option>
+                <option value="enviado">Enviado</option>
+                <option value="aceptado">Aceptado</option>
+                <option value="rechazado">Rechazado</option>
+                <option value="cancelado">Cancelado</option>
+                <option value="convertido">Convertido</option>
+              </select>
+            </div>
+            <div className="filtro-group">
+              <label>Desde:</label>
+              <input
+                type="date"
+                value={fechaDesdePresupuesto}
+                onChange={(e) => setFechaDesdePresupuesto(e.target.value)}
+                className="filtro-input"
+              />
+            </div>
+            <div className="filtro-group">
+              <label>Hasta:</label>
+              <input
+                type="date"
+                value={fechaHastaPresupuesto}
+                onChange={(e) => setFechaHastaPresupuesto(e.target.value)}
+                className="filtro-input"
+              />
+            </div>
+            <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
+              <label>🔍 Buscar:</label>
+              <input
+                type="text"
+                placeholder="Buscar por número, cliente, empresa, email..."
+                value={busquedaPresupuesto}
+                onChange={(e) => setBusquedaPresupuesto(e.target.value)}
+                className="filtro-input"
+                style={{ width: '100%' }}
+              />
+            </div>
+          </div>
+
+          {/* Lista de Presupuestos */}
+          <div className="ventas-grid">
+            {presupuestosFiltrados.map((presupuesto) => {
+              const getEstadoColor = (estado: string) => {
+                switch (estado) {
+                  case 'aceptado': return '#10b981'
+                  case 'enviado': return '#3b82f6'
+                  case 'borrador': return '#6b7280'
+                  case 'rechazado': return '#ef4444'
+                  case 'cancelado': return '#f59e0b'
+                  case 'convertido': return '#8b5cf6'
+                  default: return '#6b7280'
+                }
+              }
+
+              return (
+                <div key={presupuesto.id} className="venta-card">
+                  <div className="card-header">
+                    <div>
+                      <h3>{(presupuesto as any).cliente_nombre || 'Cliente'}</h3>
+                      <span className="numero-oportunidad">{presupuesto.numero_presupuesto}</span>
+                    </div>
+                    <span
+                      className="etapa-badge"
+                      style={{ backgroundColor: getEstadoColor(presupuesto.estado) }}
+                    >
+                      {presupuesto.estado}
+                    </span>
+                  </div>
+                  
+                  {(presupuesto as any).cliente_empresa && (
+                    <p className="cliente-empresa">🏢 {(presupuesto as any).cliente_empresa}</p>
+                  )}
+                  
+                  <div className="card-info">
+                    <div className="info-item">
+                      <strong>Precio total:</strong> ${presupuesto.precio_total.toLocaleString()}
+                    </div>
+                    <div className="info-item">
+                      <strong>Fecha creación:</strong> {formatArgentinaDate(presupuesto.fecha_creacion)}
+                    </div>
+                    {presupuesto.fecha_envio && (
+                      <div className="info-item">
+                        <strong>Fecha envío:</strong> {formatArgentinaDate(presupuesto.fecha_envio)}
+                      </div>
+                    )}
+                    {presupuesto.fecha_vencimiento && (
+                      <div className="info-item">
+                        <strong>Fecha vencimiento:</strong> {formatArgentinaDate(presupuesto.fecha_vencimiento)}
+                      </div>
+                    )}
+                    {(presupuesto as any).cliente_email && (
+                      <div className="info-item">
+                        <strong>Email:</strong> {(presupuesto as any).cliente_email}
+                      </div>
+                    )}
+                    {presupuesto.id_op_asociada && (
+                      <div className="info-item">
+                        <strong>OP asociada:</strong> {presupuesto.id_op_asociada}
+                      </div>
+                    )}
+                    {presupuesto.id_pedido_asociado && (
+                      <div className="info-item">
+                        <strong>Pedido asociado:</strong> {presupuesto.id_pedido_asociado}
+                      </div>
+                    )}
+                  </div>
+
+                  {presupuesto.observaciones_cliente && (
+                    <div className="items-section" style={{ background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+                      <strong>Observaciones Cliente:</strong>
+                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                        {presupuesto.observaciones_cliente}
+                      </p>
+                    </div>
+                  )}
+
+                  {presupuesto.observaciones_internas && (
+                    <div className="items-section" style={{ background: 'rgba(139, 92, 246, 0.1)', borderColor: 'rgba(139, 92, 246, 0.2)' }}>
+                      <strong>Observaciones Internas:</strong>
+                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                        {presupuesto.observaciones_internas}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="card-actions">
+                    {presupuesto.id_op_asociada && (
+                      <button
+                        className="btn-action"
+                        onClick={() => navigate(`/op/${presupuesto.id_op_asociada}`)}
+                      >
+                        👁️ Ver OP
+                      </button>
+                    )}
+                    {(presupuesto as any).cliente_email && (
+                      <a
+                        href={`mailto:${(presupuesto as any).cliente_email}`}
+                        className="btn-action"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        ✉️ Email
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {presupuestosFiltrados.length === 0 && (
+            <div className="empty-state">
+              <p>No hay presupuestos que coincidan con los filtros</p>
             </div>
           )}
         </div>
