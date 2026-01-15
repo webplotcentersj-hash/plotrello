@@ -351,6 +351,14 @@ const BoardPage = ({
         // El estado debe coincidir con el sector para que aparezca en la columna correcta
         payload.estado = updatedTask.assignedSector
         console.log(`📝 Actualizando estado en BD a: ${payload.estado}`)
+      } else {
+        // Si NO cambió el sector, preservar el estado actual en la BD
+        // Esto es crítico para que la ficha no se mueva cuando solo se cambia el operario
+        if (taskOriginal) {
+          const estadoOriginal = mapStatusToEstado(taskOriginal.status)
+          payload.estado = estadoOriginal
+          console.log(`🔒 Preservando estado en BD: ${estadoOriginal} (sector no cambió, solo operario)`)
+        }
       }
       
       const response = await apiService.updateOrden(ordenId, payload)
