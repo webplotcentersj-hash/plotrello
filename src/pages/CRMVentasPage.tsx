@@ -319,6 +319,14 @@ const CRMVentasPage = () => {
         const valorTotalOportunidades = oportunidadesConValor.reduce((sum, o) => sum + (o.valor_estimado || 0), 0)
         const valorPromedioOportunidad = oportunidadesConValor.length > 0 ? valorTotalOportunidades / oportunidadesConValor.length : 0
 
+        // Inicializar estadísticas de presupuestos (se actualizarán después de cargar)
+        let totalPresupuestos = 0
+        let presupuestosEnviados = 0
+        let presupuestosAceptados = 0
+        let presupuestosRechazados = 0
+        let valorTotalPresupuestos = 0
+        let tasaAceptacionPresupuestos = 0
+
         setEstadisticas({
           totalVentas,
           totalIngresos,
@@ -374,21 +382,32 @@ const CRMVentasPage = () => {
       if (presupuestosResponse.success && presupuestosResponse.data) {
         setPresupuestos(presupuestosResponse.data)
         setPresupuestosFiltrados(presupuestosResponse.data)
+        
+        // Calcular estadísticas de presupuestos
+        totalPresupuestos = presupuestosResponse.data.length
+        presupuestosEnviados = presupuestosResponse.data.filter(p => p.estado === 'enviado').length
+        presupuestosAceptados = presupuestosResponse.data.filter(p => p.estado === 'aceptado').length
+        presupuestosRechazados = presupuestosResponse.data.filter(p => p.estado === 'rechazado').length
+        valorTotalPresupuestos = presupuestosResponse.data.reduce((sum, p) => sum + (p.precio_total || 0), 0)
+        tasaAceptacionPresupuestos = (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados) > 0 
+          ? (presupuestosAceptados / (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados)) * 100 
+          : 0
+        
+        // Actualizar estadísticas con datos de presupuestos
+        setEstadisticas(prev => ({
+          ...prev,
+          totalPresupuestos,
+          presupuestosEnviados,
+          presupuestosAceptados,
+          presupuestosRechazados,
+          valorTotalPresupuestos,
+          tasaAceptacionPresupuestos
+        }))
       } else {
         console.error('Error cargando presupuestos:', presupuestosResponse.error)
         setPresupuestos([])
         setPresupuestosFiltrados([])
       }
-      
-      // Calcular estadísticas de presupuestos (después de cargar)
-      const totalPresupuestos = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.length : 0
-      const presupuestosEnviados = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.filter(p => p.estado === 'enviado').length : 0
-      const presupuestosAceptados = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.filter(p => p.estado === 'aceptado').length : 0
-      const presupuestosRechazados = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.filter(p => p.estado === 'rechazado').length : 0
-      const valorTotalPresupuestos = presupuestosResponse.success && presupuestosResponse.data ? presupuestosResponse.data.reduce((sum, p) => sum + (p.precio_total || 0), 0) : 0
-      const tasaAceptacionPresupuestos = (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados) > 0 
-        ? (presupuestosAceptados / (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados)) * 100 
-        : 0
       
       // Cargar órdenes disponibles
       const ordenesResponse = await apiService.getOrdenes()
