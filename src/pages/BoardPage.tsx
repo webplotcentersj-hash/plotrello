@@ -359,12 +359,18 @@ const BoardPage = ({
         const ordenActualizada = response.data
         const taskActualizado = ordenToTask(ordenActualizada)
         
-        // Usar el status actualizado si cambió el sector
-        const statusFinal = sectorCambio ? taskConStatusActualizado.status : updatedTask.status
+        // Determinar el status final:
+        // - Si cambió el sector, usar el nuevo status basado en el sector
+        // - Si NO cambió el sector, preservar el status original (columna actual)
+        const statusFinal = sectorCambio 
+          ? taskConStatusActualizado.status 
+          : (taskOriginal?.status || updatedTask.status) // Preservar el status original si no cambió el sector
+        
+        console.log(`📊 Status final: ${statusFinal} (sectorCambio: ${sectorCambio}, original: ${taskOriginal?.status}, updated: ${updatedTask.status})`)
         
         const taskFinal: Task = {
           ...taskActualizado,
-          status: statusFinal, // Usar el nuevo status si cambió el sector
+          status: statusFinal, // Preservar el status original si no cambió el sector, sino usar el nuevo
           id: updatedTask.id // Mantener el ID original
         }
         
