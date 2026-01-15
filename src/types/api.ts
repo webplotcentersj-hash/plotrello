@@ -320,6 +320,47 @@ export interface PresupuestoClienteItemRecord {
   articulo?: ArticuloEmpresaRecord
 }
 
+// Presupuestos de ventas presenciales (CRM/Mostrador)
+export interface PresupuestoVentaRecord {
+  id: number
+  id_cliente?: number | null
+  numero_presupuesto: string
+  estado: EstadoPresupuestoCliente
+  fecha_creacion: string
+  fecha_envio?: string | null
+  fecha_respuesta?: string | null
+  fecha_vencimiento?: string | null
+  observaciones_cliente?: string | null
+  observaciones_internas?: string | null
+  precio_total: number
+  id_op_asociada?: number | null
+  id_venta_asociada?: number | null
+  id_vendedor?: number | null
+  nombre_vendedor?: string | null
+  cliente_nombre?: string | null
+  cliente_telefono?: string | null
+  cliente_email?: string | null
+  cliente_dni_cuit?: string | null
+  cliente_empresa?: string | null
+  cliente_direccion?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PresupuestoVentaItemRecord {
+  id: number
+  id_presupuesto: number
+  id_articulo_stock?: number | null
+  codigo_articulo?: string | null
+  descripcion: string
+  cantidad: number
+  precio_unitario: number
+  descuento: number
+  precio_total: number
+  observaciones?: string | null
+  created_at?: string
+}
+
 export interface PedidoClienteItemRecord {
   id: number
   id_pedido: number

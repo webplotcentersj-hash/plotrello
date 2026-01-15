@@ -23,6 +23,8 @@ import type {
   MensajePedidoClienteRecord,
   PresupuestoClienteRecord,
   PresupuestoClienteItemRecord,
+  PresupuestoVentaRecord,
+  PresupuestoVentaItemRecord,
   ActaSectorRecord,
   TipoNovedad,
   HorarioEmpleado,
@@ -6993,6 +6995,174 @@ class ApiService {
 
         if (error) return { success: false, error: error.message }
         return { success: true, data: data as PedidoClienteRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ==================== PRESUPUESTOS DE VENTAS PRESENCIALES ====================
+
+  /**
+   * Crear presupuesto de venta presencial (desde CRM/Mostrador)
+   */
+  async crearPresupuestoVenta(params: {
+    id_cliente?: number | null
+    cliente_nombre?: string
+    cliente_telefono?: string
+    cliente_email?: string
+    cliente_dni_cuit?: string
+    cliente_empresa?: string
+    cliente_direccion?: string
+    id_vendedor?: number
+    nombre_vendedor?: string
+    items: Array<{
+      id_articulo_stock?: number
+      codigo_articulo?: string
+      descripcion: string
+      cantidad: number
+      precio_unitario: number
+      descuento?: number
+      precio_total: number
+      observaciones?: string
+    }>
+    fecha_vencimiento?: string
+    observaciones_cliente?: string
+    observaciones_internas?: string
+    estado?: 'borrador' | 'enviado'
+  }): Promise<ApiResponse<PresupuestoVentaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_presupuesto_venta', {
+          p_id_cliente: params.id_cliente || null,
+          p_cliente_nombre: params.cliente_nombre || null,
+          p_cliente_telefono: params.cliente_telefono || null,
+          p_cliente_email: params.cliente_email || null,
+          p_cliente_dni_cuit: params.cliente_dni_cuit || null,
+          p_cliente_empresa: params.cliente_empresa || null,
+          p_cliente_direccion: params.cliente_direccion || null,
+          p_id_vendedor: params.id_vendedor || null,
+          p_nombre_vendedor: params.nombre_vendedor || null,
+          p_items: params.items,
+          p_fecha_vencimiento: params.fecha_vencimiento || null,
+          p_observaciones_cliente: params.observaciones_cliente || null,
+          p_observaciones_internas: params.observaciones_internas || null,
+          p_estado: params.estado || 'borrador'
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo crear el presupuesto' }
+        }
+
+        // Obtener el presupuesto completo
+        const { data: presupuestoCompleto, error: fetchError } = await supabase
+          .from('presupuestos_ventas')
+          .select('*')
+          .eq('id', data[0].id)
+          .single()
+
+        if (fetchError) return { success: false, error: fetchError.message }
+        return { success: true, data: presupuestoCompleto as PresupuestoVentaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener presupuestos de ventas presenciales (admin)
+   */
+  async getPresupuestosVentasAdmin(filters?: {
+    estado?: 'borrador' | 'enviado' | 'aceptado' | 'rechazado' | 'cancelado' | 'convertido'
+    id_cliente?: number
+    id_vendedor?: number
+    fecha_desde?: string
+    fecha_hasta?: string
+  }): Promise<ApiResponse<PresupuestoVentaRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_presupuestos_ventas_admin', {
+          p_estado: filters?.estado || null,
+          p_id_cliente: filters?.id_cliente || null,
+          p_id_vendedor: filters?.id_vendedor || null,
+          p_fecha_desde: filters?.fecha_desde || null,
+          p_fecha_hasta: filters?.fecha_hasta || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []) as PresupuestoVentaRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Actualizar estado de presupuesto de venta
+   */
+  async actualizarEstadoPresupuestoVenta(
+    idPresupuesto: number,
+    estado: 'borrador' | 'enviado' | 'aceptado' | 'rechazado' | 'cancelado' | 'convertido',
+    observacionesInternas?: string
+  ): Promise<ApiResponse<PresupuestoVentaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_estado_presupuesto_venta', {
+          p_id_presupuesto: idPresupuesto,
+          p_estado: estado,
+          p_observaciones_internas: observacionesInternas || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'No se pudo actualizar el presupuesto' }
+        }
+
+        // Obtener el presupuesto completo
+        const { data: presupuestoCompleto, error: fetchError } = await supabase
+          .from('presupuestos_ventas')
+          .select('*')
+          .eq('id', idPresupuesto)
+          .single()
+
+        if (fetchError) return { success: false, error: fetchError.message }
+        return { success: true, data: presupuestoCompleto as PresupuestoVentaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Obtener detalle completo de presupuesto de venta
+   */
+  async obtenerDetallePresupuestoVenta(idPresupuesto: number): Promise<ApiResponse<{
+    presupuesto: PresupuestoVentaRecord
+    items: PresupuestoVentaItemRecord[]
+  }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_detalle_presupuesto_venta', {
+          p_id_presupuesto: idPresupuesto
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'Presupuesto no encontrado' }
+        }
+
+        return {
+          success: true,
+          data: {
+            presupuesto: data[0].presupuesto as PresupuestoVentaRecord,
+            items: (data[0].items || []) as PresupuestoVentaItemRecord[]
+          }
+        }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }

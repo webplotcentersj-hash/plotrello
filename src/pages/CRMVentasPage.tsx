@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, PresupuestoClienteRecord } from '../types/api'
+import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, PresupuestoVentaRecord } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
 import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF } from '../utils/crmExportUtils'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
+import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import './CRMVentasPage.css'
 
 const CRMVentasPage = () => {
@@ -124,15 +125,11 @@ const CRMVentasPage = () => {
   const [buscandoArticulosEditar, setBuscandoArticulosEditar] = useState(false)
   const [dropdownDocumentosAbierto, setDropdownDocumentosAbierto] = useState<number | null>(null)
   const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
+  const [mostrarModalPresupuesto, setMostrarModalPresupuesto] = useState(false)
   
   // Presupuestos
-  type PresupuestoConCliente = PresupuestoClienteRecord & {
-    cliente_nombre?: string
-    cliente_empresa?: string
-    cliente_email?: string
-  }
-  const [presupuestos, setPresupuestos] = useState<PresupuestoConCliente[]>([])
-  const [presupuestosFiltrados, setPresupuestosFiltrados] = useState<PresupuestoConCliente[]>([])
+  const [presupuestos, setPresupuestos] = useState<PresupuestoVentaRecord[]>([])
+  const [presupuestosFiltrados, setPresupuestosFiltrados] = useState<PresupuestoVentaRecord[]>([])
   const [filtroEstadoPresupuesto, setFiltroEstadoPresupuesto] = useState<string>('todos')
   const [busquedaPresupuesto, setBusquedaPresupuesto] = useState('')
   const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState('')
@@ -377,10 +374,8 @@ const CRMVentasPage = () => {
         })
       }
       
-      // Cargar presupuestos de ventas presenciales (no online, no compras)
-      // Nota: getPresupuestosClientesAdmin devuelve presupuestos de clientes web
-      // Para ventas presenciales, necesitaríamos una API diferente o filtrar
-      const presupuestosResponse = await apiService.getPresupuestosClientesAdmin()
+      // Cargar presupuestos de ventas presenciales
+      const presupuestosResponse = await apiService.getPresupuestosVentasAdmin()
       if (presupuestosResponse.success && presupuestosResponse.data) {
         // Filtrar solo presupuestos de ventas presenciales (no clientes web)
         // Por ahora usamos todos, pero se puede filtrar por algún campo que identifique ventas presenciales
@@ -1186,6 +1181,11 @@ const CRMVentasPage = () => {
             {activeTab === 'oportunidades' && (
               <button className="btn-primary" onClick={handleCrearOportunidad}>
                 ➕ Nueva Oportunidad
+              </button>
+            )}
+            {activeTab === 'presupuestos' && (
+              <button className="btn-primary" onClick={() => setMostrarModalPresupuesto(true)}>
+                ➕ Nuevo Presupuesto
               </button>
             )}
             <button
@@ -2874,6 +2874,19 @@ const CRMVentasPage = () => {
       {mostrarBuscadorClientes && (
         <BuscadorClientesModal
           onClose={() => setMostrarBuscadorClientes(false)}
+        />
+      )}
+
+      {/* Modal Crear Presupuesto */}
+      {mostrarModalPresupuesto && usuario && (
+        <CrearPresupuestoModal
+          onClose={() => setMostrarModalPresupuesto(false)}
+          onSuccess={() => {
+            setMostrarModalPresupuesto(false)
+            loadData()
+          }}
+          usuarioId={usuario.id}
+          usuarioNombre={usuario.nombre}
         />
       )}
     </div>
