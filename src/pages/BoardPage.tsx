@@ -21,7 +21,8 @@ import {
   ordenToTask,
   parseTaskIdToOrdenId,
   taskToOrdenPayload,
-  mapStatusToEstado
+  mapStatusToEstado,
+  mapEstadoToStatus
 } from '../utils/dataMappers'
 import Subtasks from '../components/Subtasks'
 
@@ -323,36 +324,51 @@ const BoardPage = ({
 
   const handleSaveTask = async (updatedTask: Task) => {
     const ordenId = parseTaskIdToOrdenId(updatedTask.id)
+    
+    // Obtener la tarea original para comparar el sector
+    const taskOriginal = tasks.find(t => t.id === updatedTask.id)
+    const sectorCambio = taskOriginal && taskOriginal.assignedSector !== updatedTask.assignedSector
+    
     if (ordenId) {
       const response = await apiService.updateOrden(ordenId, taskToOrdenPayload(updatedTask))
       if (response.success && response.data) {
         // IMPORTANTE: Actualizar el estado local con los datos que vienen de Supabase
-        // pero preservando el status (columna) actual para que no cambie de posición
         const ordenActualizada = response.data
         const taskActualizado = ordenToTask(ordenActualizada)
         
-        // Preservar el status original para que la ficha no cambie de columna
-        const taskConStatusPreservado: Task = {
+        // Si cambió el sector asignado, actualizar el status (columna) basado en el nuevo sector
+        // Si no cambió el sector, mantener el status actual
+        let nuevoStatus: TaskStatus = updatedTask.status
+        
+        if (sectorCambio && updatedTask.assignedSector) {
+          // Mapear el sector a su columna correspondiente
+          nuevoStatus = mapEstadoToStatus(updatedTask.assignedSector)
+          console.log(`🔄 Sector cambiado de "${taskOriginal?.assignedSector}" a "${updatedTask.assignedSector}" -> Nueva columna: ${nuevoStatus}`)
+        }
+        
+        const taskFinal: Task = {
           ...taskActualizado,
-          status: updatedTask.status, // Mantener el status original
+          status: nuevoStatus, // Usar el nuevo status si cambió el sector, sino mantener el actual
           id: updatedTask.id // Mantener el ID original
         }
         
-        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? taskConStatusPreservado : task)))
+        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? taskFinal : task)))
         setActivity((prev) => [
           {
             id: `edit-${Date.now()}`,
             taskId: updatedTask.id,
-            from: updatedTask.status,
-            to: updatedTask.status,
+            from: taskOriginal?.status || updatedTask.status,
+            to: nuevoStatus,
             actorId: updatedTask.ownerId,
             timestamp: new Date().toISOString(),
-            note: 'Tarea actualizada'
+            note: sectorCambio ? `Sector cambiado a ${updatedTask.assignedSector}` : 'Tarea actualizada'
           },
           ...prev
         ])
         
-        setActionSuccess('Cambios guardados correctamente.')
+        setActionSuccess(sectorCambio 
+          ? `Cambios guardados. Ficha movida a ${updatedTask.assignedSector}` 
+          : 'Cambios guardados correctamente.')
       } else {
         setActionError(response.error || 'No se pudo guardar la orden en Supabase.')
         // Si falla, mantener el estado local actualizado de todas formas
