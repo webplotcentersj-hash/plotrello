@@ -423,6 +423,11 @@ const BoardPage = ({
         
         console.log(`📊 Status final: ${statusFinal} (sectorCambio: ${sectorCambio}, original: ${taskOriginal?.status}, updated: ${updatedTask.status})`)
         
+        // Notificar al realtime que esta tarea fue editada para preservar su status
+        window.dispatchEvent(new CustomEvent('user-edited-task', {
+          detail: { taskId: ordenId.toString(), status: statusFinal, timestamp: Date.now() }
+        }))
+        
         const taskFinal: Task = {
           ...taskActualizado,
           status: statusFinal, // Preservar el status original si no cambió el sector, sino usar el nuevo

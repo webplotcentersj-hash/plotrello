@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
+import type { TaskStatus } from './types/board'
 import BoardPage from './pages/BoardPage'
 // Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
@@ -293,6 +294,8 @@ function App() {
 
     // Track movimientos recientes del usuario para evitar efecto espejo del realtime
     const recentUserMoves = new Map<string, { estado: string; timestamp: number }>()
+    // Track ediciones recientes del usuario para preservar el status
+    const recentUserEdits = new Map<string, { status: TaskStatus; timestamp: number }>()
 
     // Escuchar eventos de movimiento del usuario desde BoardPage
     const handleUserMove = (event: Event) => {
@@ -302,7 +305,16 @@ function App() {
       console.log(`📝 Registrado movimiento del usuario: ${taskId} → ${estado}`)
     }
 
+    // Escuchar eventos de edición del usuario desde BoardPage
+    const handleUserEdit = (event: Event) => {
+      const customEvent = event as CustomEvent<{ taskId: string; status: TaskStatus; timestamp: number }>
+      const { taskId, status, timestamp } = customEvent.detail
+      recentUserEdits.set(taskId, { status, timestamp })
+      console.log(`✏️ Registrada edición del usuario: ${taskId} → status: ${status}`)
+    }
+
     window.addEventListener('user-moved-task', handleUserMove)
+    window.addEventListener('user-edited-task', handleUserEdit)
 
     const upsertTaskFromOrden = (orden: OrdenTrabajo) => {
       if (!orden?.id) return
@@ -329,6 +341,28 @@ function App() {
         const next = [...prev]
         const idx = next.findIndex((task) => task.id === taskId)
         if (idx >= 0) {
+          const taskActual = next[idx]
+          // ⚠️ CRÍTICO: Preservar el status actual si la tarea fue editada recientemente
+          // Esto evita que la ficha se mueva cuando solo se actualiza la etapa u otros campos
+          const recentEdit = recentUserEdits.get(taskId)
+          if (recentEdit) {
+            const timeSinceEdit = Date.now() - recentEdit.timestamp
+            // Si la edición fue hace menos de 5 segundos, preservar el status
+            if (timeSinceEdit < 5000) {
+              mapped.status = recentEdit.status
+              console.log(`🔒 Preservando status de edición (${recentEdit.status}) para ${taskId} - editado hace ${timeSinceEdit}ms`)
+            } else {
+              // Si pasaron más de 5 segundos, limpiar el tracking
+              recentUserEdits.delete(taskId)
+            }
+          } else {
+            // Si no hay edición reciente, solo preservar si el sector no cambió
+            const sectorCambio = taskActual.assignedSector !== mapped.assignedSector
+            if (!sectorCambio) {
+              mapped.status = taskActual.status
+              console.log(`🔒 Preservando status actual (${taskActual.status}) para ${taskId} - sector no cambió`)
+            }
+          }
           next[idx] = mapped
         } else {
           next.unshift(mapped)
