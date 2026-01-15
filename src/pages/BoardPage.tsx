@@ -322,29 +322,45 @@ const BoardPage = ({
   }
 
   const handleSaveTask = async (updatedTask: Task) => {
-    setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
-    setActivity((prev) => [
-      {
-        id: `edit-${Date.now()}`,
-        taskId: updatedTask.id,
-        from: updatedTask.status,
-        to: updatedTask.status,
-        actorId: updatedTask.ownerId,
-        timestamp: new Date().toISOString(),
-        note: 'Tarea actualizada'
-      },
-      ...prev
-    ])
-
     const ordenId = parseTaskIdToOrdenId(updatedTask.id)
     if (ordenId) {
       const response = await apiService.updateOrden(ordenId, taskToOrdenPayload(updatedTask))
       if (response.success && response.data) {
-        setActionSuccess('Cambios guardados en Supabase.')
-        // No recargamos datos aquí para evitar que la ficha vuelva a la columna previa
+        // IMPORTANTE: Actualizar el estado local con los datos que vienen de Supabase
+        // pero preservando el status (columna) actual para que no cambie de posición
+        const ordenActualizada = response.data
+        const taskActualizado = ordenToTask(ordenActualizada)
+        
+        // Preservar el status original para que la ficha no cambie de columna
+        const taskConStatusPreservado: Task = {
+          ...taskActualizado,
+          status: updatedTask.status, // Mantener el status original
+          id: updatedTask.id // Mantener el ID original
+        }
+        
+        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? taskConStatusPreservado : task)))
+        setActivity((prev) => [
+          {
+            id: `edit-${Date.now()}`,
+            taskId: updatedTask.id,
+            from: updatedTask.status,
+            to: updatedTask.status,
+            actorId: updatedTask.ownerId,
+            timestamp: new Date().toISOString(),
+            note: 'Tarea actualizada'
+          },
+          ...prev
+        ])
+        
+        setActionSuccess('Cambios guardados correctamente.')
       } else {
         setActionError(response.error || 'No se pudo guardar la orden en Supabase.')
+        // Si falla, mantener el estado local actualizado de todas formas
+        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
       }
+    } else {
+      // Si no hay ordenId, solo actualizar el estado local
+      setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
     }
   }
 
