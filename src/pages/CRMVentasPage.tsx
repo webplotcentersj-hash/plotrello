@@ -1263,6 +1263,50 @@ const CRMVentasPage = () => {
               </div>
             </>
           )}
+          {activeTab === 'presupuestos' && (
+            <>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #06b6d4' }}>
+                <div className="metrica-icon">📄</div>
+                <div className="metrica-content">
+                  <h3>Total Presupuestos</h3>
+                  <p className="metrica-valor">{estadisticas.totalPresupuestos}</p>
+                  <p className="metrica-subtitle">Creados</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #3b82f6' }}>
+                <div className="metrica-icon">📤</div>
+                <div className="metrica-content">
+                  <h3>Enviados</h3>
+                  <p className="metrica-valor">{estadisticas.presupuestosEnviados}</p>
+                  <p className="metrica-subtitle">A clientes</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
+                <div className="metrica-icon">✅</div>
+                <div className="metrica-content">
+                  <h3>Aceptados</h3>
+                  <p className="metrica-valor">{estadisticas.presupuestosAceptados}</p>
+                  <p className="metrica-subtitle">Aprobados</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                <div className="metrica-icon">💰</div>
+                <div className="metrica-content">
+                  <h3>Valor Total</h3>
+                  <p className="metrica-valor">${estadisticas.valorTotalPresupuestos.toLocaleString()}</p>
+                  <p className="metrica-subtitle">En presupuestos</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+                <div className="metrica-icon">📊</div>
+                <div className="metrica-content">
+                  <h3>Tasa Aceptación</h3>
+                  <p className="metrica-valor">{estadisticas.tasaAceptacionPresupuestos.toFixed(1)}%</p>
+                  <p className="metrica-subtitle">De enviados</p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
         
         {/* Gráficos de Tendencias */}
