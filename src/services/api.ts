@@ -661,6 +661,13 @@ class ApiService {
       // Preparar el objeto para actualizar
       const ordenToUpdate = { ...orden }
       
+      // ⚠️ CRÍTICO: NO actualizar sector_inicial - es el sector primario/indeleble donde se creó la OP
+      // sector_inicial solo se establece al crear, nunca al editar
+      if ('sector_inicial' in ordenToUpdate) {
+        delete ordenToUpdate.sector_inicial
+        console.log('🔒 Preservando sector_inicial original (no se actualiza al editar)')
+      }
+      
       // Solo eliminar foto_url si está vacío, null o undefined (pero NUNCA eliminarlo si tiene valor)
       if (ordenToUpdate.foto_url && ordenToUpdate.foto_url.trim() !== '') {
         // Mantener foto_url - es importante

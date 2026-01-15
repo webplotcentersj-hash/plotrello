@@ -273,9 +273,8 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     // sector_inicial es el sector primario/indeleble donde se creó la OP
     // Solo se actualiza sector (el sector actual), no sector_inicial
     sector: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Sector actual
-    sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null),
-    // NO actualizar sector_inicial - mantener el valor original (se establece solo al crear)
-    // sector_inicial: se mantiene como está en la BD (no se incluye en el payload para preservarlo)
+    sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null)
+    // NO incluir sector_inicial en el payload - se mantiene como está en la BD (solo se establece al crear)
     materiales: task.materials.join(', '),
     nombre_creador: task.createdBy,
     foto_url: task.photoUrl?.trim() || null,
