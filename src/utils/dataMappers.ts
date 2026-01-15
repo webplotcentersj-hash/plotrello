@@ -272,7 +272,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     // Actualizar tanto sector como sector_inicial si cambian
     sector: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Sector actual
     sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null),
-    sector_inicial: task.sectorInicial ?? task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null) // Puede actualizarse si cambia
+    sector_inicial: task.sectorInicial ?? task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Puede actualizarse si cambia
     materiales: task.materials.join(', '),
     nombre_creador: task.createdBy,
     foto_url: task.photoUrl?.trim() || null,
