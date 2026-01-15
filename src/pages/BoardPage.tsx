@@ -277,6 +277,11 @@ const BoardPage = ({
               updates.etapaMetalurgicaFechaInicio = fechaInicio || undefined
             }
             
+            // Notificar al realtime que esta tarea fue editada para preservar su status
+            window.dispatchEvent(new CustomEvent('user-edited-task', {
+              detail: { taskId: ordenId.toString(), status: task.status, timestamp: Date.now() }
+            }))
+            
             return {
               ...task,
               ...updates
