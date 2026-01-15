@@ -269,12 +269,10 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     fecha_ingreso: task.updatedAt,
     operario_asignado: operarioAsignado, // Normalizar: null si es 'sin-asignar'
     complejidad: mapImpactToComplejidad(task.impact),
-    // ⚠️ IMPORTANTE: sector_inicial NO debe actualizarse al editar
-    // sector_inicial es el sector primario/indeleble donde se creó la OP
-    // Solo se actualiza sector (el sector actual), no sector_inicial
+    // Actualizar tanto sector como sector_inicial si cambian
     sector: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Sector actual
-    sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null)
-    // NO incluir sector_inicial en el payload - se mantiene como está en la BD (solo se establece al crear)
+    sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null),
+    sector_inicial: task.sectorInicial ?? task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null) // Puede actualizarse si cambia
     materiales: task.materials.join(', '),
     nombre_creador: task.createdBy,
     foto_url: task.photoUrl?.trim() || null,
