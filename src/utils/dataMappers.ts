@@ -161,7 +161,10 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     materials: orden.materiales
       ? orden.materiales.split(',').map((m) => m.trim()).filter(Boolean)
       : [],
-    assignedSector: orden.sector_inicial ?? orden.sector ?? 'Sin sector',
+    // ⚠️ IMPORTANTE: Usar sector (actual) para assignedSector, NO sector_inicial
+    // sector_inicial es el sector primario/indeleble donde se creó la OP
+    // sector es el sector actual donde está la OP ahora
+    assignedSector: orden.sector ?? orden.sector_inicial ?? 'Sin sector',
     sectores: orden.sectores && orden.sectores.length > 0 ? orden.sectores : (orden.sector ? [orden.sector] : []),
     sectorInicial: orden.sector_inicial ?? orden.sector ?? undefined,
     finalLocation: orden.ubicacion_final ?? undefined,
@@ -266,9 +269,13 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     fecha_ingreso: task.updatedAt,
     operario_asignado: operarioAsignado, // Normalizar: null si es 'sin-asignar'
     complejidad: mapImpactToComplejidad(task.impact),
-    sector: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Primer sector o assignedSector
+    // ⚠️ IMPORTANTE: sector_inicial NO debe actualizarse al editar
+    // sector_inicial es el sector primario/indeleble donde se creó la OP
+    // Solo se actualiza sector (el sector actual), no sector_inicial
+    sector: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Sector actual
     sectores: task.sectores && task.sectores.length > 0 ? task.sectores : (task.assignedSector ? [task.assignedSector] : null),
-    sector_inicial: task.assignedSector ?? (task.sectores && task.sectores.length > 0 ? task.sectores[0] : null), // Para compatibilidad
+    // NO actualizar sector_inicial - mantener el valor original (se establece solo al crear)
+    // sector_inicial: se mantiene como está en la BD (no se incluye en el payload para preservarlo)
     materiales: task.materials.join(', '),
     nombre_creador: task.createdBy,
     foto_url: task.photoUrl?.trim() || null,
