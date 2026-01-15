@@ -1282,11 +1282,8 @@ const TaskCard = ({
                 etapaActual={task.etapaTallerGrafico}
                 onEtapaChange={() => {
                   setShowEtapasTallerModal(false)
-                  // Recargar datos si hay callback disponible
-                  if (onEdit) {
-                    // Trigger a reload through parent
-                    window.dispatchEvent(new CustomEvent('reload-tasks'))
-                  }
+                  // La actualización se maneja mediante el evento 'update-task-etapa'
+                  // No es necesario recargar todas las tareas
                 }}
               />
             </div>
@@ -1323,11 +1320,8 @@ const TaskCard = ({
                 etapaActual={task.etapaInstalaciones}
                 onEtapaChange={() => {
                   setShowEtapasInstalacionesModal(false)
-                  // Recargar datos si hay callback disponible
-                  if (onEdit) {
-                    // Trigger a reload through parent
-                    window.dispatchEvent(new CustomEvent('reload-tasks'))
-                  }
+                  // La actualización se maneja mediante el evento 'update-task-etapa'
+                  // No es necesario recargar todas las tareas
                 }}
               />
             </div>
@@ -1424,11 +1418,8 @@ const TaskCard = ({
                 etapaActual={task.etapaTallerImprenta}
                 onEtapaChange={() => {
                   setShowEtapasTallerImprentaModal(false)
-                  // Recargar datos si hay callback disponible
-                  if (onEdit) {
-                    // Trigger a reload through parent
-                    window.dispatchEvent(new CustomEvent('reload-tasks'))
-                  }
+                  // La actualización se maneja mediante el evento 'update-task-etapa'
+                  // No es necesario recargar todas las tareas
                 }}
               />
             </div>
@@ -1495,11 +1486,8 @@ const TaskCard = ({
                 etapaActual={task.etapaMetalurgica}
                 onEtapaChange={() => {
                   setShowEtapasMetalurgicaModal(false)
-                  // Recargar datos si hay callback disponible
-                  if (onEdit) {
-                    // Trigger a reload through parent
-                    window.dispatchEvent(new CustomEvent('reload-tasks'))
-                  }
+                  // La actualización se maneja mediante el evento 'update-task-etapa'
+                  // No es necesario recargar todas las tareas
                 }}
               />
             </div>

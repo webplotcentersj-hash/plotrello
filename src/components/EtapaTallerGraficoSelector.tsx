@@ -61,12 +61,20 @@ const EtapaTallerGraficoSelector = ({
         usuario?.nombre || 'Sistema'
       )
 
-      if (response.success) {
+      if (response.success && response.data) {
+        // Actualizar solo la tarea específica preservando su status actual
+        // Esto evita que la ficha se mueva cuando solo se cambia la etapa
+        window.dispatchEvent(new CustomEvent('update-task-etapa', {
+          detail: {
+            ordenId,
+            etapa: nuevaEtapa,
+            fechaInicio: response.data.etapa_taller_grafico_fecha_inicio,
+            tipo: 'taller_grafico'
+          }
+        }))
+        
         if (onEtapaChange) {
           onEtapaChange()
-        } else {
-          // Recargar la página si no hay callback
-          window.location.reload()
         }
       } else {
         alert(`Error al cambiar etapa: ${response.error}`)

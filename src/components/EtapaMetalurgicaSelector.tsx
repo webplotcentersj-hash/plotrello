@@ -61,12 +61,19 @@ const EtapaMetalurgicaSelector = ({
         usuario?.nombre || 'Sistema'
       )
 
-      if (response.success) {
+      if (response.success && response.data) {
+        // Actualizar solo la tarea específica preservando su status actual
+        window.dispatchEvent(new CustomEvent('update-task-etapa', {
+          detail: {
+            ordenId,
+            etapa: nuevaEtapa,
+            fechaInicio: response.data.etapa_metalurgica_fecha_inicio,
+            tipo: 'metalurgica'
+          }
+        }))
+        
         if (onEtapaChange) {
           onEtapaChange()
-        } else {
-          // Recargar la página si no hay callback
-          window.location.reload()
         }
       } else {
         alert(`Error al cambiar etapa: ${response.error}`)

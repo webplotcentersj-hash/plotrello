@@ -244,6 +244,53 @@ const BoardPage = ({
     return () => document.removeEventListener('keydown', handler)
   }, [])
 
+  // Listener para actualizar solo la etapa de una tarea sin recargar todo
+  useEffect(() => {
+    const handleUpdateTaskEtapa = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        ordenId: number
+        etapa: string
+        fechaInicio?: string | null
+        tipo: 'taller_grafico' | 'instalaciones' | 'taller_imprenta' | 'metalurgica'
+      }>
+      const { ordenId, etapa, fechaInicio, tipo } = customEvent.detail
+
+      // Actualizar solo la tarea específica preservando su status actual
+      setTasks((prev) =>
+        prev.map((task) => {
+          const taskOrdenId = parseTaskIdToOrdenId(task.id)
+          if (taskOrdenId === ordenId) {
+            // Preservar el status actual y solo actualizar la etapa correspondiente
+            const updates: Partial<Task> = {}
+            
+            if (tipo === 'taller_grafico') {
+              updates.etapaTallerGrafico = etapa
+              updates.etapaTallerGraficoFechaInicio = fechaInicio || undefined
+            } else if (tipo === 'instalaciones') {
+              updates.etapaInstalaciones = etapa
+              updates.etapaInstalacionesFechaInicio = fechaInicio || undefined
+            } else if (tipo === 'taller_imprenta') {
+              updates.etapaTallerImprenta = etapa
+              updates.etapaTallerImprentaFechaInicio = fechaInicio || undefined
+            } else if (tipo === 'metalurgica') {
+              updates.etapaMetalurgica = etapa
+              updates.etapaMetalurgicaFechaInicio = fechaInicio || undefined
+            }
+            
+            return {
+              ...task,
+              ...updates
+            }
+          }
+          return task
+        })
+      )
+    }
+
+    window.addEventListener('update-task-etapa', handleUpdateTaskEtapa)
+    return () => window.removeEventListener('update-task-etapa', handleUpdateTaskEtapa)
+  }, [])
+
   const handleMoveTask = async (taskId: string, destination: TaskStatus) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
 

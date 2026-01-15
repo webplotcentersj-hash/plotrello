@@ -55,12 +55,19 @@ const EtapaInstalacionesSelector = ({
         usuario?.nombre || 'Sistema'
       )
 
-      if (response.success) {
+      if (response.success && response.data) {
+        // Actualizar solo la tarea específica preservando su status actual
+        window.dispatchEvent(new CustomEvent('update-task-etapa', {
+          detail: {
+            ordenId,
+            etapa: nuevaEtapa,
+            fechaInicio: response.data.etapa_instalaciones_fecha_inicio,
+            tipo: 'instalaciones'
+          }
+        }))
+        
         if (onEtapaChange) {
           onEtapaChange()
-        } else {
-          // Recargar la página si no hay callback
-          window.location.reload()
         }
       } else {
         alert(`Error al cambiar etapa: ${response.error}`)
