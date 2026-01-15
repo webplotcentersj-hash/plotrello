@@ -273,6 +273,14 @@ const CRMVentasPage = () => {
   const loadData = async () => {
     setLoading(true)
     try {
+      // Inicializar estadísticas de presupuestos (se actualizarán después de cargar)
+      let totalPresupuestos = 0
+      let presupuestosEnviados = 0
+      let presupuestosAceptados = 0
+      let presupuestosRechazados = 0
+      let valorTotalPresupuestos = 0
+      let tasaAceptacionPresupuestos = 0
+
       // Cargar oportunidades
       const oppResponse = await apiService.obtenerOportunidadesVenta()
       if (oppResponse.success && oppResponse.data) {
@@ -318,14 +326,6 @@ const CRMVentasPage = () => {
         const oportunidadesConValor = oppResponse.data?.filter(o => o.valor_estimado && o.valor_estimado > 0) || []
         const valorTotalOportunidades = oportunidadesConValor.reduce((sum, o) => sum + (o.valor_estimado || 0), 0)
         const valorPromedioOportunidad = oportunidadesConValor.length > 0 ? valorTotalOportunidades / oportunidadesConValor.length : 0
-
-        // Inicializar estadísticas de presupuestos (se actualizarán después de cargar)
-        let totalPresupuestos = 0
-        let presupuestosEnviados = 0
-        let presupuestosAceptados = 0
-        let presupuestosRechazados = 0
-        let valorTotalPresupuestos = 0
-        let tasaAceptacionPresupuestos = 0
 
         setEstadisticas({
           totalVentas,
@@ -377,9 +377,13 @@ const CRMVentasPage = () => {
         })
       }
       
-      // Cargar presupuestos
+      // Cargar presupuestos de ventas presenciales (no online, no compras)
+      // Nota: getPresupuestosClientesAdmin devuelve presupuestos de clientes web
+      // Para ventas presenciales, necesitaríamos una API diferente o filtrar
       const presupuestosResponse = await apiService.getPresupuestosClientesAdmin()
       if (presupuestosResponse.success && presupuestosResponse.data) {
+        // Filtrar solo presupuestos de ventas presenciales (no clientes web)
+        // Por ahora usamos todos, pero se puede filtrar por algún campo que identifique ventas presenciales
         setPresupuestos(presupuestosResponse.data)
         setPresupuestosFiltrados(presupuestosResponse.data)
         
