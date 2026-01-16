@@ -1,0 +1,199 @@
+.facturas-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.facturas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.facturas-header h1 {
+  margin: 0;
+  color: #1a202c;
+  font-size: 2rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  background: #4299e1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #3182ce;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: #e2e8f0;
+  color: #2d3748;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #cbd5e0;
+}
+
+.facturas-filters {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-select,
+.filter-input {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.filter-input {
+  flex: 1;
+  max-width: 200px;
+}
+
+.facturas-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.facturas-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.facturas-table th {
+  background: #f7fafc;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 2px solid #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.facturas-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+}
+
+.facturas-table tr:hover {
+  background: #f7fafc;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px !important;
+  color: #718096;
+}
+
+.estado-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.estado-borrador {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.estado-emitida {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.estado-anulada {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.afip-badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.afip-pendiente {
+  background: #feebc8;
+  color: #c05621;
+}
+
+.afip-autorizada {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.afip-rechazada {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-view {
+  background: #4299e1;
+  color: white;
+}
+
+.btn-view:hover {
+  background: #3182ce;
+}
+
+.btn-emit {
+  background: #48bb78;
+  color: white;
+}
+
+.btn-emit:hover {
+  background: #38a169;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+  color: #718096;
+}
+

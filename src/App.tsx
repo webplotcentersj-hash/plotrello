@@ -56,6 +56,11 @@ const CRMVentasPage = lazy(() => import('./pages/CRMVentasPage'))
 const ReportesVentasPage = lazy(() => import('./pages/ReportesVentasPage'))
 const FlotaPage = lazy(() => import('./pages/FlotaPage'))
 const FlotaAdminDashboard = lazy(() => import('./pages/FlotaAdminDashboard'))
+const ERPDashboardPage = lazy(() => import('./pages/ERPDashboardPage'))
+const FacturasPage = lazy(() => import('./pages/FacturasPage'))
+const FacturaDetallePage = lazy(() => import('./pages/FacturaDetallePage'))
+const CrearFacturaPage = lazy(() => import('./pages/CrearFacturaPage'))
+const AsientosContablesPage = lazy(() => import('./pages/AsientosContablesPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -633,6 +638,7 @@ function AppRoutes({
             onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
             onNavigateToAsesorPresupuestos={() => navigate('/asesor-presupuestos')}
             onNavigateToFlota={() => navigate('/flota')}
+            onNavigateToERP={() => navigate('/erp')}
             onLogout={onLogout}
             onReloadData={onReloadData}
             isSyncing={isSyncing}
@@ -925,6 +931,31 @@ function AppRoutes({
       <Route
         path="/flota/admin"
         element={<FlotaAdminDashboard />}
+      />
+      {/* Rutas ERP */}
+      <Route
+        path="/erp"
+        element={<ERPDashboardPage />}
+      />
+      <Route
+        path="/erp/facturas"
+        element={<FacturasPage />}
+      />
+      <Route
+        path="/erp/facturas/nueva"
+        element={<CrearFacturaPage />}
+      />
+      <Route
+        path="/erp/facturas/:id"
+        element={<FacturaDetallePage />}
+      />
+      <Route
+        path="/erp/asientos"
+        element={<AsientosContablesPage />}
+      />
+      <Route
+        path="/erp/*"
+        element={<Navigate to="/erp" replace />}
       />
     </Routes>
     </Suspense>

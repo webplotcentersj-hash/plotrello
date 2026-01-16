@@ -45,6 +45,7 @@ type BoardPageProps = {
   onNavigateToClientesWeb?: () => void
   onNavigateToAsesorPresupuestos?: () => void
   onNavigateToFlota?: () => void
+  onNavigateToERP?: () => void
   onLogout?: () => void
   onReloadData?: () => Promise<void>
   isSyncing?: boolean
@@ -74,6 +75,7 @@ const BoardPage = ({
   onNavigateToClientesWeb,
   onNavigateToAsesorPresupuestos,
   onNavigateToFlota,
+  onNavigateToERP,
   onLogout,
   onReloadData,
   isSyncing,
@@ -686,6 +688,7 @@ const BoardPage = ({
             onNavigateToClientesWeb={onNavigateToClientesWeb}
             onNavigateToAsesorPresupuestos={onNavigateToAsesorPresupuestos}
             onNavigateToFlota={onNavigateToFlota}
+            onNavigateToERP={onNavigateToERP}
         onSolicitarProductos={() => setIsSolicitarProductosOpen(true)}
         onOpenChatAI={() => setIsChatAIOpen(true)}
         onLogout={onLogout}

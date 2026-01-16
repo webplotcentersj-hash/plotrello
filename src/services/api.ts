@@ -9859,6 +9859,1208 @@ class ApiService {
 
     return { success: false, error: 'Supabase no configurado' }
   }
+
+  // ============================================
+  // SISTEMA ERP
+  // ============================================
+
+  // ========== PLAN DE CUENTAS ==========
+  async getPlanCuentas(activas?: boolean): Promise<ApiResponse<import('../types/api').PlanCuentaRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('plan_cuentas')
+          .select('*')
+          .order('codigo', { ascending: true })
+
+        if (activas !== undefined) {
+          query = query.eq('activa', activas)
+        }
+
+        const { data, error } = await query
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as import('../types/api').PlanCuentaRecord[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearCuenta(cuenta: {
+    codigo: string
+    nombre: string
+    tipo: 'Activo' | 'Pasivo' | 'Patrimonio' | 'Ingreso' | 'Costo' | 'Gasto' | 'Cuenta de Orden'
+    nivel: number
+    cuenta_padre_id?: number | null
+    naturaleza: 'Deudora' | 'Acreedora'
+    activa?: boolean
+  }): Promise<ApiResponse<import('../types/api').PlanCuentaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('plan_cuentas')
+          .insert({
+            ...cuenta,
+            activa: cuenta.activa !== undefined ? cuenta.activa : true
+          })
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').PlanCuentaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async actualizarCuenta(
+    id: number,
+    updates: Partial<import('../types/api').PlanCuentaRecord>
+  ): Promise<ApiResponse<import('../types/api').PlanCuentaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('plan_cuentas')
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').PlanCuentaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== ASIENTOS CONTABLES ==========
+  async getAsientosContables(filters?: {
+    fechaDesde?: string
+    fechaHasta?: string
+    estado?: 'Borrador' | 'Contabilizado' | 'Anulado'
+    tipo_asiento?: string
+  }): Promise<ApiResponse<import('../types/api').AsientoContableRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('asientos_contables')
+          .select(`
+            *,
+            detalles:asientos_detalle(
+              *,
+              cuenta:plan_cuentas(*)
+            )
+          `)
+          .order('fecha', { ascending: false })
+          .order('numero_asiento', { ascending: false })
+
+        if (filters?.fechaDesde) {
+          query = query.gte('fecha', filters.fechaDesde)
+        }
+        if (filters?.fechaHasta) {
+          query = query.lte('fecha', filters.fechaHasta)
+        }
+        if (filters?.estado) {
+          query = query.eq('estado', filters.estado)
+        }
+        if (filters?.tipo_asiento) {
+          query = query.eq('tipo_asiento', filters.tipo_asiento)
+        }
+
+        const { data, error } = await query
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearAsientoContable(asiento: {
+    fecha: string
+    concepto: string
+    tipo_asiento?: 'Manual' | 'Automático' | 'Facturación' | 'Compra' | 'Pago' | 'Cobro' | 'Ajuste'
+    id_origen?: number | null
+    tipo_origen?: string | null
+    detalles: Array<{
+      id_cuenta: number
+      debe: number
+      haber: number
+      concepto?: string | null
+    }>
+    observaciones?: string | null
+  }): Promise<ApiResponse<import('../types/api').AsientoContableRecord>> {
+    if (supabase) {
+      try {
+        // Calcular totales
+        const totalDebe = asiento.detalles.reduce((sum, d) => sum + (d.debe || 0), 0)
+        const totalHaber = asiento.detalles.reduce((sum, d) => sum + (d.haber || 0), 0)
+
+        // Validar partida doble
+        if (Math.abs(totalDebe - totalHaber) > 0.01) {
+          return { success: false, error: 'Los totales de debe y haber deben ser iguales (partida doble)' }
+        }
+
+        // Generar número de asiento
+        const { data: numeroAsiento, error: errorNumero } = await supabase.rpc('generar_numero_asiento')
+        if (errorNumero) return { success: false, error: errorNumero.message }
+
+        // Crear asiento
+        const { data: asientoData, error: errorAsiento } = await supabase
+          .from('asientos_contables')
+          .insert({
+            numero_asiento: numeroAsiento,
+            fecha: asiento.fecha,
+            concepto: asiento.concepto,
+            tipo_asiento: asiento.tipo_asiento || 'Manual',
+            id_origen: asiento.id_origen || null,
+            tipo_origen: asiento.tipo_origen || null,
+            total_debe: totalDebe,
+            total_haber: totalHaber,
+            estado: 'Borrador',
+            observaciones: asiento.observaciones || null
+          })
+          .select()
+          .single()
+
+        if (errorAsiento) return { success: false, error: errorAsiento.message }
+
+        // Crear detalles
+        const detallesData = asiento.detalles.map(d => ({
+          id_asiento: asientoData.id,
+          id_cuenta: d.id_cuenta,
+          debe: d.debe,
+          haber: d.haber,
+          concepto: d.concepto || null
+        }))
+
+        const { error: errorDetalles } = await supabase
+          .from('asientos_detalle')
+          .insert(detallesData)
+
+        if (errorDetalles) {
+          // Si falla, eliminar el asiento creado
+          await supabase.from('asientos_contables').delete().eq('id', asientoData.id)
+          return { success: false, error: errorDetalles.message }
+        }
+
+        // Obtener asiento completo
+        const { data: asientoCompleto, error: errorCompleto } = await supabase
+          .from('asientos_contables')
+          .select(`
+            *,
+            detalles:asientos_detalle(
+              *,
+              cuenta:plan_cuentas(*)
+            )
+          `)
+          .eq('id', asientoData.id)
+          .single()
+
+        if (errorCompleto) return { success: false, error: errorCompleto.message }
+        return { success: true, data: asientoCompleto as any }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async contabilizarAsiento(id: number): Promise<ApiResponse<import('../types/api').AsientoContableRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('asientos_contables')
+          .update({ estado: 'Contabilizado', updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').AsientoContableRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== VENTAS ==========
+  async getVenta(id: number): Promise<ApiResponse<import('../types/api').Venta>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('ventas')
+          .select('*')
+          .eq('id', id)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').Venta }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getItemsVenta(id_venta: number): Promise<ApiResponse<import('../types/api').VentaItem[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('ventas_items')
+          .select('*')
+          .eq('id_venta', id_venta)
+          .order('id', { ascending: true })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as import('../types/api').VentaItem[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== FACTURAS ==========
+  async getFacturas(filters?: {
+    fechaDesde?: string
+    fechaHasta?: string
+    estado?: 'Borrador' | 'Emitida' | 'Anulada' | 'Cancelada'
+    tipo_comprobante?: string
+    id_cliente?: number
+    id_op?: number
+  }): Promise<ApiResponse<import('../types/api').FacturaVentaRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('facturas_venta')
+          .select(`
+            *,
+            items:facturas_items(*),
+            cliente:clientes(*)
+          `)
+          .order('fecha_emision', { ascending: false })
+          .order('numero_comprobante', { ascending: false })
+
+        if (filters?.fechaDesde) {
+          query = query.gte('fecha_emision', filters.fechaDesde)
+        }
+        if (filters?.fechaHasta) {
+          query = query.lte('fecha_emision', filters.fechaHasta)
+        }
+        if (filters?.estado) {
+          query = query.eq('estado', filters.estado)
+        }
+        if (filters?.tipo_comprobante) {
+          query = query.eq('tipo_comprobante', filters.tipo_comprobante)
+        }
+        if (filters?.id_cliente) {
+          query = query.eq('id_cliente', filters.id_cliente)
+        }
+        if (filters?.id_op) {
+          query = query.eq('id_op', filters.id_op)
+        }
+
+        const { data, error } = await query
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearFactura(factura: {
+    tipo_comprobante: 'Factura A' | 'Factura B' | 'Factura C' | 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Crédito C' | 'Nota de Débito A' | 'Nota de Débito B' | 'Nota de Débito C'
+    fecha_emision: string
+    fecha_vencimiento?: string | null
+    id_cliente?: number | null
+    cliente_nombre: string
+    cliente_dni_cuit?: string | null
+    cliente_direccion?: string | null
+    cliente_condicion_iva?: 'Responsable Inscripto' | 'Monotributista' | 'Exento' | 'Consumidor Final' | 'No Responsable' | null
+    id_op?: number | null
+    numero_op?: string | null
+    id_venta?: number | null
+    items: Array<{
+      descripcion: string
+      cantidad: number
+      unidad_medida?: string
+      precio_unitario: number
+      descuento?: number
+      iva_porcentaje?: number
+    }>
+    observaciones?: string | null
+  }): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
+    if (supabase) {
+      try {
+        // Obtener configuración AFIP
+        const { data: configAFIP } = await supabase
+          .from('configuracion_afip')
+          .select('*')
+          .eq('activo', true)
+          .single()
+
+        if (!configAFIP) {
+          return { success: false, error: 'No hay configuración AFIP activa' }
+        }
+
+        // Generar número de comprobante
+        const { data: numeroComprobante, error: errorNumero } = await supabase.rpc('generar_numero_factura', {
+          p_tipo_comprobante: factura.tipo_comprobante,
+          p_punto_venta: configAFIP.punto_venta
+        })
+
+        if (errorNumero) return { success: false, error: errorNumero.message }
+
+        // Calcular totales
+        let subtotal = 0
+        let descuentoTotal = 0
+        let ivaTotal = 0
+
+        const itemsCalculados = factura.items.map((item, index) => {
+          const cantidad = item.cantidad || 1
+          const precioUnitario = item.precio_unitario || 0
+          const descuento = item.descuento || 0
+          const ivaPorcentaje = item.iva_porcentaje || 21
+          
+          const subtotalItem = cantidad * precioUnitario - descuento
+          const ivaMonto = subtotalItem * (ivaPorcentaje / 100)
+          const totalItem = subtotalItem + ivaMonto
+
+          subtotal += subtotalItem
+          descuentoTotal += descuento
+          ivaTotal += ivaMonto
+
+          return {
+            item_numero: index + 1,
+            descripcion: item.descripcion,
+            cantidad,
+            unidad_medida: item.unidad_medida || 'UN',
+            precio_unitario: precioUnitario,
+            descuento,
+            iva_porcentaje: ivaPorcentaje,
+            iva_monto: ivaMonto,
+            subtotal: subtotalItem,
+            total: totalItem
+          }
+        })
+
+        const total = subtotal + ivaTotal
+
+        // Crear factura
+        const numeroFactura = `${configAFIP.punto_venta.toString().padStart(4, '0')}-${numeroComprobante.toString().padStart(8, '0')}`
+
+        const { data: facturaData, error: errorFactura } = await supabase
+          .from('facturas_venta')
+          .insert({
+            numero_factura: numeroFactura,
+            punto_venta: configAFIP.punto_venta,
+            numero_comprobante: numeroComprobante,
+            tipo_comprobante: factura.tipo_comprobante,
+            fecha_emision: factura.fecha_emision,
+            fecha_vencimiento: factura.fecha_vencimiento || null,
+            id_cliente: factura.id_cliente || null,
+            cliente_nombre: factura.cliente_nombre,
+            cliente_dni_cuit: factura.cliente_dni_cuit || null,
+            cliente_direccion: factura.cliente_direccion || null,
+            cliente_condicion_iva: factura.cliente_condicion_iva || null,
+            id_op: factura.id_op || null,
+            numero_op: factura.numero_op || null,
+            id_venta: factura.id_venta || null,
+            subtotal,
+            descuento: descuentoTotal,
+            iva: ivaTotal,
+            total,
+            estado: 'Borrador',
+            estado_afip: 'Pendiente',
+            observaciones: factura.observaciones || null
+          })
+          .select()
+          .single()
+
+        if (errorFactura) return { success: false, error: errorFactura.message }
+
+        // Crear items
+        const itemsData = itemsCalculados.map(item => ({
+          id_factura: facturaData.id,
+          ...item
+        }))
+
+        const { error: errorItems } = await supabase
+          .from('facturas_items')
+          .insert(itemsData)
+
+        if (errorItems) {
+          await supabase.from('facturas_venta').delete().eq('id', facturaData.id)
+          return { success: false, error: errorItems.message }
+        }
+
+        // Obtener factura completa
+        const { data: facturaCompleta, error: errorCompleto } = await supabase
+          .from('facturas_venta')
+          .select(`
+            *,
+            items:facturas_items(*)
+          `)
+          .eq('id', facturaData.id)
+          .single()
+
+        if (errorCompleto) return { success: false, error: errorCompleto.message }
+        return { success: true, data: facturaCompleta as any }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== COSTOS OP ==========
+  async getCostosOP(id_op: number): Promise<ApiResponse<import('../types/api').CostoOPRecord[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('costos_op')
+          .select('*')
+          .eq('id_op', id_op)
+          .order('fecha_costo', { ascending: false })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as import('../types/api').CostoOPRecord[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearCostoOP(costo: {
+    id_op: number
+    numero_op: string
+    tipo_costo: 'Materiales' | 'Mano de Obra' | 'Gastos Generales' | 'Subcontratación' | 'Otros'
+    concepto: string
+    cantidad: number
+    costo_unitario: number
+    id_material?: number | null
+    fecha_costo?: string
+    observaciones?: string | null
+  }): Promise<ApiResponse<import('../types/api').CostoOPRecord>> {
+    if (supabase) {
+      try {
+        const costoTotal = costo.cantidad * costo.costo_unitario
+
+        const { data, error } = await supabase
+          .from('costos_op')
+          .insert({
+            id_op: costo.id_op,
+            numero_op: costo.numero_op,
+            tipo_costo: costo.tipo_costo,
+            concepto: costo.concepto,
+            cantidad: costo.cantidad,
+            costo_unitario: costo.costo_unitario,
+            costo_total: costoTotal,
+            id_material: costo.id_material || null,
+            fecha_costo: costo.fecha_costo || new Date().toISOString().split('T')[0],
+            observaciones: costo.observaciones || null
+          })
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').CostoOPRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async calcularCostosOP(id_op: number): Promise<ApiResponse<{
+    costo_materiales: number
+    costo_mano_obra: number
+    costo_gastos_generales: number
+    costo_total: number
+  }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('calcular_costos_op', {
+          p_id_op: id_op
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as any }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== CUENTAS POR COBRAR ==========
+  async getCuentasPorCobrar(filters?: {
+    estado?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado'
+    fechaDesde?: string
+    fechaHasta?: string
+    id_cliente?: number
+  }): Promise<ApiResponse<import('../types/api').CuentaPorCobrarRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('cuentas_por_cobrar')
+          .select(`
+            *,
+            factura:facturas_venta(*)
+          `)
+          .order('fecha_emision', { ascending: false })
+
+        if (filters?.estado) {
+          query = query.eq('estado', filters.estado)
+        }
+        if (filters?.fechaDesde) {
+          query = query.gte('fecha_emision', filters.fechaDesde)
+        }
+        if (filters?.fechaHasta) {
+          query = query.lte('fecha_emision', filters.fechaHasta)
+        }
+        if (filters?.id_cliente) {
+          query = query.eq('id_cliente', filters.id_cliente)
+        }
+
+        const { data, error } = await query
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== CUENTAS POR PAGAR ==========
+  async getCuentasPorPagar(filters?: {
+    estado?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado'
+    fechaDesde?: string
+    fechaHasta?: string
+    id_proveedor?: number
+  }): Promise<ApiResponse<import('../types/api').CuentaPorPagarRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('cuentas_por_pagar')
+          .select('*')
+          .order('fecha_emision', { ascending: false })
+
+        if (filters?.estado) {
+          query = query.eq('estado', filters.estado)
+        }
+        if (filters?.fechaDesde) {
+          query = query.gte('fecha_emision', filters.fechaDesde)
+        }
+        if (filters?.fechaHasta) {
+          query = query.lte('fecha_emision', filters.fechaHasta)
+        }
+        if (filters?.id_proveedor) {
+          query = query.eq('id_proveedor', filters.id_proveedor)
+        }
+
+        const { data, error } = await query
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as import('../types/api').CuentaPorPagarRecord[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== PAGOS Y COBROS ==========
+  async registrarCobro(cobro: {
+    id_cuenta_por_cobrar: number
+    monto: number
+    fecha_pago: string
+    metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
+    numero_comprobante?: string | null
+    id_cuenta_bancaria?: number | null
+    observaciones?: string | null
+  }): Promise<ApiResponse<import('../types/api').PagoCobroRecord>> {
+    if (supabase) {
+      try {
+        const usuarioData = localStorage.getItem('usuario')
+        const usuario = usuarioData ? JSON.parse(usuarioData) : null
+
+        const { data, error } = await supabase
+          .from('pagos_cobros')
+          .insert({
+            tipo: 'Cobro',
+            id_cuenta_por_cobrar: cobro.id_cuenta_por_cobrar,
+            monto: cobro.monto,
+            fecha_pago: cobro.fecha_pago,
+            metodo_pago: cobro.metodo_pago,
+            numero_comprobante: cobro.numero_comprobante || null,
+            id_cuenta_bancaria: cobro.id_cuenta_bancaria || null,
+            observaciones: cobro.observaciones || null,
+            id_usuario: usuario?.id || null
+          })
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').PagoCobroRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async registrarPago(pago: {
+    id_cuenta_por_pagar: number
+    monto: number
+    fecha_pago: string
+    metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
+    numero_comprobante?: string | null
+    id_cuenta_bancaria?: number | null
+    observaciones?: string | null
+  }): Promise<ApiResponse<import('../types/api').PagoCobroRecord>> {
+    if (supabase) {
+      try {
+        const usuarioData = localStorage.getItem('usuario')
+        const usuario = usuarioData ? JSON.parse(usuarioData) : null
+
+        const { data, error } = await supabase
+          .from('pagos_cobros')
+          .insert({
+            tipo: 'Pago',
+            id_cuenta_por_pagar: pago.id_cuenta_por_pagar,
+            monto: pago.monto,
+            fecha_pago: pago.fecha_pago,
+            metodo_pago: pago.metodo_pago,
+            numero_comprobante: pago.numero_comprobante || null,
+            id_cuenta_bancaria: pago.id_cuenta_bancaria || null,
+            observaciones: pago.observaciones || null,
+            id_usuario: usuario?.id || null
+          })
+          .select()
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').PagoCobroRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== ACTUALIZACIÓN DE FACTURAS ==========
+  async actualizarFactura(
+    id: number,
+    updates: Partial<import('../types/api').FacturaVentaRecord>
+  ): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('facturas_venta')
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select(`
+            *,
+            items:facturas_items(*)
+          `)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as any }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async emitirFactura(id: number): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
+    if (supabase) {
+      try {
+        // Obtener factura
+        const { data: factura, error: errorFactura } = await supabase
+          .from('facturas_venta')
+          .select('*')
+          .eq('id', id)
+          .single()
+
+        if (errorFactura) return { success: false, error: errorFactura.message }
+        if (!factura) return { success: false, error: 'Factura no encontrada' }
+
+        if (factura.estado !== 'Borrador') {
+          return { success: false, error: 'Solo se pueden emitir facturas en estado Borrador' }
+        }
+
+        // Actualizar estado
+        const { data, error } = await supabase
+          .from('facturas_venta')
+          .update({
+            estado: 'Emitida',
+            estado_afip: 'Pendiente',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id)
+          .select(`
+            *,
+            items:facturas_items(*)
+          `)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+
+        // Crear cuenta por cobrar automáticamente
+        await supabase
+          .from('cuentas_por_cobrar')
+          .insert({
+            id_factura: id,
+            id_cliente: factura.id_cliente || null,
+            cliente_nombre: factura.cliente_nombre,
+            monto_total: factura.total,
+            monto_pagado: 0,
+            monto_pendiente: factura.total,
+            fecha_emision: factura.fecha_emision,
+            fecha_vencimiento: factura.fecha_vencimiento || null,
+            estado: 'Pendiente'
+          })
+
+        // Crear asiento contable automático si está configurado
+        try {
+          await supabase.rpc('crear_asiento_desde_factura', {
+            p_id_factura: id
+          })
+        } catch (errorAsiento) {
+          console.warn('No se pudo crear asiento contable automático:', errorAsiento)
+          // No fallar la emisión si el asiento falla
+        }
+
+        return { success: true, data: data as any }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getFactura(id: number): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('facturas_venta')
+          .select(`
+            *,
+            items:facturas_items(*),
+            cliente:clientes(*),
+            asiento:asientos_contables(*)
+          `)
+          .eq('id', id)
+          .single()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as any }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== CREAR FACTURA DESDE OP ==========
+  async crearFacturaDesdeOP(id_op: number, datosAdicionales?: {
+    tipo_comprobante?: 'Factura A' | 'Factura B' | 'Factura C'
+    fecha_emision?: string
+    fecha_vencimiento?: string
+    observaciones?: string
+  }): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
+    if (supabase) {
+      try {
+        // Obtener OP
+        const { data: op, error: errorOP } = await supabase
+          .from('ordenes_trabajo')
+          .select('*')
+          .eq('id', id_op)
+          .single()
+
+        if (errorOP) return { success: false, error: errorOP.message }
+        if (!op) return { success: false, error: 'Orden de trabajo no encontrada' }
+
+        // Obtener venta asociada si existe
+        const { data: venta } = await supabase
+          .from('ventas')
+          .select('*')
+          .eq('id_op', id_op)
+          .maybeSingle()
+
+        // Determinar tipo de comprobante según cliente
+        let tipoComprobante: 'Factura A' | 'Factura B' | 'Factura C' = 'Factura B'
+        if (op.dni_cuit && op.dni_cuit.length === 11) {
+          // Si tiene CUIT, probablemente es Factura A
+          tipoComprobante = datosAdicionales?.tipo_comprobante || 'Factura A'
+        } else {
+          tipoComprobante = datosAdicionales?.tipo_comprobante || 'Factura B'
+        }
+
+        // Crear items de la factura desde la venta o desde la OP
+        let items: Array<{
+          descripcion: string
+          cantidad: number
+          precio_unitario: number
+          iva_porcentaje: number
+        }> = []
+
+        if (venta) {
+          // Si hay venta, usar items de la venta
+          const { data: ventaItems } = await supabase
+            .from('ventas_items')
+            .select('*')
+            .eq('id_venta', venta.id)
+
+          if (ventaItems) {
+            items = ventaItems.map(item => ({
+              descripcion: item.descripcion,
+              cantidad: item.cantidad,
+              precio_unitario: item.precio_unitario,
+              iva_porcentaje: 21 // Por defecto 21%
+            }))
+          }
+        } else {
+          // Si no hay venta, crear un item genérico desde la OP
+          items = [{
+            descripcion: op.descripcion || `Trabajo ${op.numero_op}`,
+            cantidad: 1,
+            precio_unitario: 0, // Se debe completar manualmente
+            iva_porcentaje: 21
+          }]
+        }
+
+        // Crear factura
+        const facturaResponse = await this.crearFactura({
+          tipo_comprobante: tipoComprobante,
+          fecha_emision: datosAdicionales?.fecha_emision || new Date().toISOString().split('T')[0],
+          fecha_vencimiento: datosAdicionales?.fecha_vencimiento || null,
+          id_cliente: null, // Se puede asociar después
+          cliente_nombre: op.cliente,
+          cliente_dni_cuit: op.dni_cuit || null,
+          cliente_direccion: op.direccion_cliente || null,
+          cliente_condicion_iva: null, // Se debe completar
+          id_op: id_op,
+          numero_op: op.numero_op,
+          id_venta: venta?.id || null,
+          items: items,
+          observaciones: datosAdicionales?.observaciones || null
+        })
+
+        return facturaResponse
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== REPORTES FINANCIEROS ==========
+  async getEstadoResultados(fechaDesde: string, fechaHasta: string): Promise<ApiResponse<{
+    ingresos: number
+    costos: number
+    gastos: number
+    utilidad_bruta: number
+    utilidad_neta: number
+    detalle_ingresos: Array<{ cuenta: string; monto: number }>
+    detalle_costos: Array<{ cuenta: string; monto: number }>
+    detalle_gastos: Array<{ cuenta: string; monto: number }>
+  }>> {
+    if (supabase) {
+      try {
+        // Primero obtener IDs de cuentas por tipo
+        const { data: cuentasIngreso } = await supabase
+          .from('plan_cuentas')
+          .select('id')
+          .eq('tipo', 'Ingreso')
+          .eq('activa', true)
+
+        const { data: cuentasCosto } = await supabase
+          .from('plan_cuentas')
+          .select('id')
+          .eq('tipo', 'Costo')
+          .eq('activa', true)
+
+        const { data: cuentasGasto } = await supabase
+          .from('plan_cuentas')
+          .select('id')
+          .eq('tipo', 'Gasto')
+          .eq('activa', true)
+
+        const idsIngreso = cuentasIngreso?.map(c => c.id) || []
+        const idsCosto = cuentasCosto?.map(c => c.id) || []
+        const idsGasto = cuentasGasto?.map(c => c.id) || []
+
+        // Obtener asientos en el rango de fechas
+        const { data: asientos } = await supabase
+          .from('asientos_contables')
+          .select('id, fecha')
+          .gte('fecha', fechaDesde)
+          .lte('fecha', fechaHasta)
+          .eq('estado', 'Contabilizado')
+
+        const idsAsientos = asientos?.map(a => a.id) || []
+
+        if (idsAsientos.length === 0) {
+          return {
+            success: true,
+            data: {
+              ingresos: 0,
+              costos: 0,
+              gastos: 0,
+              utilidad_bruta: 0,
+              utilidad_neta: 0,
+              detalle_ingresos: [],
+              detalle_costos: [],
+              detalle_gastos: []
+            }
+          }
+        }
+
+        // Obtener detalles de asientos con cuentas
+        const { data: detallesData } = await supabase
+          .from('asientos_detalle')
+          .select(`
+            debe,
+            haber,
+            cuenta:plan_cuentas(id, codigo, nombre, tipo)
+          `)
+          .in('id_asiento', idsAsientos)
+
+        if (!detallesData) {
+          return {
+            success: true,
+            data: {
+              ingresos: 0,
+              costos: 0,
+              gastos: 0,
+              utilidad_bruta: 0,
+              utilidad_neta: 0,
+              detalle_ingresos: [],
+              detalle_costos: [],
+              detalle_gastos: []
+            }
+          }
+        }
+
+        // Filtrar y calcular
+        const ingresosData = detallesData.filter((d: any) => 
+          d.cuenta && idsIngreso.includes(d.cuenta.id) && d.haber > 0
+        )
+        const costosData = detallesData.filter((d: any) => 
+          d.cuenta && idsCosto.includes(d.cuenta.id) && d.debe > 0
+        )
+        const gastosData = detallesData.filter((d: any) => 
+          d.cuenta && idsGasto.includes(d.cuenta.id) && d.debe > 0
+        )
+
+        // Calcular totales
+        const ingresos = ingresosData.reduce((sum: number, item: any) => sum + (item.haber || 0), 0)
+        const costos = costosData.reduce((sum: number, item: any) => sum + (item.debe || 0), 0)
+        const gastos = gastosData.reduce((sum: number, item: any) => sum + (item.debe || 0), 0)
+        const utilidadBruta = ingresos - costos
+        const utilidadNeta = utilidadBruta - gastos
+
+        // Agrupar por cuenta
+        const detalleIngresos = ingresosData.reduce((acc: any, item: any) => {
+          const cuentaNombre = item.cuenta?.nombre || 'Sin cuenta'
+          acc[cuentaNombre] = (acc[cuentaNombre] || 0) + (item.haber || 0)
+          return acc
+        }, {})
+
+        const detalleCostos = costosData.reduce((acc: any, item: any) => {
+          const cuentaNombre = item.cuenta?.nombre || 'Sin cuenta'
+          acc[cuentaNombre] = (acc[cuentaNombre] || 0) + (item.debe || 0)
+          return acc
+        }, {})
+
+        const detalleGastos = gastosData.reduce((acc: any, item: any) => {
+          const cuentaNombre = item.cuenta?.nombre || 'Sin cuenta'
+          acc[cuentaNombre] = (acc[cuentaNombre] || 0) + (item.debe || 0)
+          return acc
+        }, {})
+
+        return {
+          success: true,
+          data: {
+            ingresos,
+            costos,
+            gastos,
+            utilidad_bruta: utilidadBruta,
+            utilidad_neta: utilidadNeta,
+            detalle_ingresos: Object.entries(detalleIngresos).map(([cuenta, monto]) => ({
+              cuenta,
+              monto: monto as number
+            })),
+            detalle_costos: Object.entries(detalleCostos).map(([cuenta, monto]) => ({
+              cuenta,
+              monto: monto as number
+            })),
+            detalle_gastos: Object.entries(detalleGastos).map(([cuenta, monto]) => ({
+              cuenta,
+              monto: monto as number
+            }))
+          }
+        }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== REPORTES FINANCIEROS ADICIONALES ==========
+  async getBalanceGeneral(fechaCorte?: string): Promise<ApiResponse<Array<{
+    tipo_cuenta: string
+    codigo_cuenta: string
+    nombre_cuenta: string
+    saldo_deudor: number
+    saldo_acreedor: number
+    saldo_final: number
+  }>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_balance_general', {
+          p_fecha_corte: fechaCorte || new Date().toISOString().split('T')[0]
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getFlujoCaja(fechaDesde: string, fechaHasta: string): Promise<ApiResponse<Array<{
+    fecha: string
+    concepto: string
+    tipo: string
+    ingreso: number
+    egreso: number
+    saldo_acumulado: number
+  }>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_flujo_caja', {
+          p_fecha_desde: fechaDesde,
+          p_fecha_hasta: fechaHasta
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getResumenCuentas(fechaCorte?: string): Promise<ApiResponse<Array<{
+    tipo_cuenta: string
+    total_deudor: number
+    total_acreedor: number
+    saldo_final: number
+  }>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_resumen_cuentas', {
+          p_fecha_corte: fechaCorte || new Date().toISOString().split('T')[0]
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== CONFIGURACIÓN AFIP ==========
+  async getConfiguracionAFIP(): Promise<ApiResponse<import('../types/api').ConfiguracionAFIPRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('configuracion_afip')
+          .select('*')
+          .eq('activo', true)
+          .single()
+
+        if (error && error.code !== 'PGRST116') {
+          return { success: false, error: error.message }
+        }
+        return { success: true, data: data as import('../types/api').ConfiguracionAFIPRecord | null }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async actualizarConfiguracionAFIP(
+    updates: Partial<import('../types/api').ConfiguracionAFIPRecord>
+  ): Promise<ApiResponse<import('../types/api').ConfiguracionAFIPRecord>> {
+    if (supabase) {
+      try {
+        // Obtener configuración actual
+        const { data: configActual } = await supabase
+          .from('configuracion_afip')
+          .select('id')
+          .eq('activo', true)
+          .single()
+
+        if (configActual) {
+          // Actualizar existente
+          const { data, error } = await supabase
+            .from('configuracion_afip')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', configActual.id)
+            .select()
+            .single()
+
+          if (error) return { success: false, error: error.message }
+          return { success: true, data: data as import('../types/api').ConfiguracionAFIPRecord }
+        } else {
+          // Crear nueva
+          const { data, error } = await supabase
+            .from('configuracion_afip')
+            .insert({
+              ...updates,
+              activo: true
+            })
+            .select()
+            .single()
+
+          if (error) return { success: false, error: error.message }
+          return { success: true, data: data as import('../types/api').ConfiguracionAFIPRecord }
+        }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
 }
 
 function inferChatType(message: string): ChatMessageUI['tipo'] {

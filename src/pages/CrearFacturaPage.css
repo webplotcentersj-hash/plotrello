@@ -1,0 +1,240 @@
+.crear-factura-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: #1a202c;
+  font-size: 2rem;
+}
+
+.form-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.form-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.form-section h2 {
+  margin: 0 0 20px 0;
+  color: #2d3748;
+  font-size: 1.3rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 10px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.btn-add-item {
+  padding: 8px 16px;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-add-item:hover {
+  background: #38a169;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.form-input,
+.form-textarea {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.empty-items {
+  text-align: center;
+  padding: 40px;
+  color: #718096;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.item-row {
+  display: grid;
+  grid-template-columns: 2fr 100px 120px 120px 100px 120px auto;
+  gap: 10px;
+  align-items: end;
+  padding: 15px;
+  background: #f7fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.item-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.item-field label {
+  font-size: 0.8rem;
+  color: #718096;
+  font-weight: 500;
+}
+
+.item-subtotal {
+  padding: 10px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-weight: 600;
+  color: #2d3748;
+  text-align: right;
+}
+
+.btn-remove-item {
+  padding: 8px 12px;
+  background: #fc8181;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+  align-self: end;
+}
+
+.btn-remove-item:hover {
+  background: #f56565;
+}
+
+.totales-preview {
+  max-width: 400px;
+  margin-left: auto;
+  background: #f7fafc;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.totales-preview .total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.totales-preview .total-row.total-final {
+  border-top: 2px solid #2d3748;
+  border-bottom: 2px solid #2d3748;
+  margin-top: 10px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 2px solid #e2e8f0;
+}
+
+.btn-primary {
+  padding: 12px 24px;
+  background: #4299e1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #3182ce;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 12px 24px;
+  background: #e2e8f0;
+  color: #2d3748;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #cbd5e0;
+}
+

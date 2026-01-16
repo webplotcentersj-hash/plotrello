@@ -361,6 +361,200 @@ export interface PresupuestoVentaItemRecord {
   created_at?: string
 }
 
+// ============================================
+// SISTEMA ERP
+// ============================================
+
+export interface PlanCuentaRecord {
+  id: number
+  codigo: string
+  nombre: string
+  tipo: 'Activo' | 'Pasivo' | 'Patrimonio' | 'Ingreso' | 'Costo' | 'Gasto' | 'Cuenta de Orden'
+  nivel: number
+  cuenta_padre_id?: number | null
+  naturaleza: 'Deudora' | 'Acreedora'
+  activa: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface AsientoContableRecord {
+  id: number
+  numero_asiento: string
+  fecha: string
+  concepto: string
+  tipo_asiento: 'Manual' | 'Automático' | 'Facturación' | 'Compra' | 'Pago' | 'Cobro' | 'Ajuste'
+  id_origen?: number | null
+  tipo_origen?: string | null
+  total_debe: number
+  total_haber: number
+  estado: 'Borrador' | 'Contabilizado' | 'Anulado'
+  id_usuario?: number | null
+  observaciones?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface AsientoDetalleRecord {
+  id: number
+  id_asiento: number
+  id_cuenta: number
+  debe: number
+  haber: number
+  concepto?: string | null
+  created_at?: string
+}
+
+export interface FacturaVentaRecord {
+  id: number
+  numero_factura: string
+  punto_venta: number
+  numero_comprobante: number
+  tipo_comprobante: 'Factura A' | 'Factura B' | 'Factura C' | 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Crédito C' | 'Nota de Débito A' | 'Nota de Débito B' | 'Nota de Débito C'
+  fecha_emision: string
+  fecha_vencimiento?: string | null
+  id_cliente?: number | null
+  cliente_nombre: string
+  cliente_dni_cuit?: string | null
+  cliente_direccion?: string | null
+  cliente_condicion_iva?: 'Responsable Inscripto' | 'Monotributista' | 'Exento' | 'Consumidor Final' | 'No Responsable' | null
+  id_op?: number | null
+  numero_op?: string | null
+  id_venta?: number | null
+  subtotal: number
+  descuento: number
+  iva: number
+  total: number
+  estado: 'Borrador' | 'Emitida' | 'Anulada' | 'Cancelada'
+  estado_afip?: 'Pendiente' | 'Autorizada' | 'Rechazada' | 'Error' | 'Enviando' | null
+  cae?: string | null
+  numero_cae?: string | null
+  fecha_vencimiento_cae?: string | null
+  resultado_afip?: string | null
+  codigo_resultado_afip?: string | null
+  fecha_autorizacion_afip?: string | null
+  id_asiento_contable?: number | null
+  id_usuario?: number | null
+  observaciones?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface FacturaItemRecord {
+  id: number
+  id_factura: number
+  item_numero: number
+  descripcion: string
+  cantidad: number
+  unidad_medida?: string | null
+  precio_unitario: number
+  descuento: number
+  iva_porcentaje: number
+  iva_monto: number
+  subtotal: number
+  total: number
+  id_articulo?: number | null
+  created_at?: string
+}
+
+export interface CostoOPRecord {
+  id: number
+  id_op: number
+  numero_op: string
+  tipo_costo: 'Materiales' | 'Mano de Obra' | 'Gastos Generales' | 'Subcontratación' | 'Otros'
+  concepto: string
+  cantidad: number
+  costo_unitario: number
+  costo_total: number
+  id_material?: number | null
+  id_usuario?: number | null
+  fecha_costo: string
+  observaciones?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface CuentaPorCobrarRecord {
+  id: number
+  id_factura: number
+  id_cliente?: number | null
+  cliente_nombre: string
+  monto_total: number
+  monto_pagado: number
+  monto_pendiente: number
+  fecha_emision: string
+  fecha_vencimiento?: string | null
+  estado: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado'
+  observaciones?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface CuentaPorPagarRecord {
+  id: number
+  id_pedido_compra?: number | null
+  id_proveedor?: number | null
+  proveedor_nombre: string
+  numero_documento?: string | null
+  monto_total: number
+  monto_pagado: number
+  monto_pendiente: number
+  fecha_emision: string
+  fecha_vencimiento?: string | null
+  estado: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado'
+  observaciones?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PagoCobroRecord {
+  id: number
+  tipo: 'Pago' | 'Cobro'
+  id_cuenta_por_cobrar?: number | null
+  id_cuenta_por_pagar?: number | null
+  monto: number
+  fecha_pago: string
+  metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
+  numero_comprobante?: string | null
+  id_cuenta_bancaria?: number | null
+  id_asiento_contable?: number | null
+  observaciones?: string | null
+  id_usuario?: number | null
+  created_at?: string
+}
+
+export interface ConfiguracionAFIPRecord {
+  id: number
+  cuit: string
+  punto_venta: number
+  razon_social: string
+  domicilio_comercial?: string | null
+  condicion_iva: string
+  ingresos_brutos?: string | null
+  fecha_inicio_actividades?: string | null
+  actividad_principal?: string | null
+  certificado_afip?: string | null
+  clave_certificado?: string | null
+  webservice: 'wsfev1' | 'wsmtxca' | 'wsfexv1' // wsmtxca recomendado para facturas con items
+  ambiente: 'Testing' | 'Homologación' | 'Producción'
+  homologacion_aprobada: boolean
+  fecha_aprobacion_homologacion?: string | null
+  numero_expediente_homologacion?: string | null
+  url_wsaa_testing?: string | null
+  url_wsaa_produccion?: string | null
+  url_wsmtxca_testing?: string | null
+  url_wsmtxca_produccion?: string | null
+  token_afip?: string | null
+  sign_afip?: string | null
+  token_expira_en?: string | null
+  ultimo_numero_factura_a: number
+  ultimo_numero_factura_b: number
+  ultimo_numero_factura_c: number
+  activo: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 export interface PedidoClienteItemRecord {
   id: number
   id_pedido: number

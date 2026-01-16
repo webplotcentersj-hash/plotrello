@@ -23,6 +23,7 @@ type HeaderProps = {
   onNavigateToClientesWeb?: () => void
   onNavigateToAsesorPresupuestos?: () => void
   onNavigateToFlota?: () => void
+  onNavigateToERP?: () => void
   onSolicitarProductos?: () => void
   onOpenChatAI?: () => void
   onNavigateToChat?: () => void
@@ -51,6 +52,7 @@ const Header = ({
   onNavigateToClientesWeb,
   onNavigateToAsesorPresupuestos,
   onNavigateToFlota,
+  onNavigateToERP,
   onSolicitarProductos,
   onOpenChatAI,
   onNavigateToChat,
@@ -208,6 +210,11 @@ const Header = ({
                 🚗 Gestión de Flota
               </button>
             )}
+            {onNavigateToERP && isAdmin && (
+              <button className="brand-button" onClick={onNavigateToERP}>
+                💰 Sistema ERP
+              </button>
+            )}
             {(isDiseno || isAdmin) && (
               <a
                 href="/briefs-pendientes"
@@ -234,6 +241,31 @@ const Header = ({
             >
               📚 Capacitaciones
             </a>
+            <button
+              className="brand-button"
+              onClick={() => {
+                // Descargar el manual
+                fetch('/MANUAL_USUARIO.md')
+                  .then(response => response.blob())
+                  .then(blob => {
+                    const url = window.URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'MANUAL_USUARIO_TRELLO_PLOT.md'
+                    document.body.appendChild(a)
+                    a.click()
+                    window.URL.revokeObjectURL(url)
+                    document.body.removeChild(a)
+                  })
+                  .catch(error => {
+                    console.error('Error descargando manual:', error)
+                    alert('Error al descargar el manual. Por favor, intenta nuevamente.')
+                  })
+              }}
+              title="Descargar manual de usuario en formato Markdown"
+            >
+              📖 Descargar Manual
+            </button>
             <a
               href="/menu-diario"
               className="brand-button"
