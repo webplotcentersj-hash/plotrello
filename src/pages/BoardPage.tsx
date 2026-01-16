@@ -777,7 +777,7 @@ const BoardPage = ({
       )}
 
       <ChatFloatingButton
-        onNavigateToChat={() => navigate('/chat')}
+        onNavigateToChat={onNavigateToChat || (() => {})}
       />
 
       <PlotAIFloatingButton

@@ -76,7 +76,9 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (supabase) {
+        supabase.removeChannel(channel)
+      }
     }
   }, [usuario?.id])
 
@@ -85,6 +87,8 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
     if (!supabase || !usuario?.id) return
 
     const calculateUnread = async () => {
+      if (!supabase || !usuario?.id) return
+      
       try {
         // Obtener todos los canales
         const channels = ['general', 'diseno', 'recursos-humanos', 'metalurgica', 'mostrador', 'taller-grafico', 'random']
