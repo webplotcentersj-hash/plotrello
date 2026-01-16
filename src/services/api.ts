@@ -131,6 +131,43 @@ const roomToChatChannel: Record<number, string> = {
 }
 
 class ApiService {
+  // Helper para obtener usuario actual desde localStorage
+  private getCurrentUser(): { id: number; nombre: string } {
+    const usuarioData = localStorage.getItem('usuario')
+    const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
+    const nombreUsuario = usuarioData
+      ? JSON.parse(usuarioData).nombre || 'Usuario'
+      : 'Usuario'
+    return { id: usuarioId, nombre: nombreUsuario }
+  }
+
+  // Helper para registrar cambios en historial_movimientos
+  private async registrarCambioHistorial(
+    idOrden: number,
+    estadoAnterior: string | null,
+    estadoNuevo: string | null,
+    comentario?: string
+  ): Promise<void> {
+    if (!supabase) return
+
+    const { id: usuarioId, nombre: nombreUsuario } = this.getCurrentUser()
+
+    try {
+      await supabase.from('historial_movimientos').insert({
+        id_orden: idOrden,
+        estado_anterior: estadoAnterior,
+        estado_nuevo: estadoNuevo,
+        id_usuario: usuarioId,
+        nombre_usuario: nombreUsuario,
+        timestamp: new Date().toISOString(),
+        comentario: comentario || null
+      })
+    } catch (error) {
+      console.error('Error registrando cambio en historial:', error)
+      // No lanzar error, solo loguear para no interrumpir el flujo
+    }
+  }
+
   private legacyRequest<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     if (!LEGACY_API_BASE_URL) {
       return Promise.resolve({ success: false, error: 'Backend legacy no configurado' })
@@ -612,6 +649,18 @@ class ApiService {
       // Capturar supabase en variable local para TypeScript
       const supabaseClient = supabase
       
+      // Obtener estado anterior antes de actualizar
+      const { data: ordenAnterior } = await supabaseClient
+        .from('ordenes_trabajo')
+        .select('estado, operario_asignado, sector, prioridad')
+        .eq('id', id)
+        .maybeSingle()
+      
+      const estadoAnterior = ordenAnterior?.estado || null
+      const operarioAnterior = ordenAnterior?.operario_asignado || null
+      const sectorAnterior = ordenAnterior?.sector || null
+      const prioridadAnterior = ordenAnterior?.prioridad || null
+      
       // SOLUCIÓN DIRECTA: Si hay campos de contacto, usar función SQL que evita schema cache
       if (orden.telefono_cliente || orden.direccion_cliente || orden.drive_link || 
           orden.ubicacion_link || orden.email_cliente || orden.whatsapp_link) {
@@ -817,6 +866,45 @@ class ApiService {
           ubicacion: ordenToUpdate.ubicacion_link || 'no',
           drive: ordenToUpdate.drive_link || 'no'
         })
+      }
+
+      // Registrar cambios en historial si hay cambios relevantes
+      const estadoNuevo = ordenToUpdate.estado || data?.estado || null
+      const operarioNuevo = ordenToUpdate.operario_asignado || data?.operario_asignado || null
+      const sectorNuevo = ordenToUpdate.sector || data?.sector || null
+      const prioridadNueva = ordenToUpdate.prioridad || data?.prioridad || null
+      
+      // Construir comentario descriptivo
+      const cambios: string[] = []
+      
+      if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
+        cambios.push(`Estado: ${estadoAnterior || 'N/A'} → ${estadoNuevo}`)
+      }
+      
+      const trim = (str: string | null | undefined): string => (str || '').trim()
+      
+      if (trim(operarioAnterior) !== trim(operarioNuevo)) {
+        if (!operarioNuevo || trim(operarioNuevo) === '') {
+          cambios.push('Operario desasignado')
+        } else if (!operarioAnterior || trim(operarioAnterior) === '') {
+          cambios.push(`Operario asignado: ${operarioNuevo}`)
+        } else {
+          cambios.push(`Operario: ${operarioAnterior} → ${operarioNuevo}`)
+        }
+      }
+      
+      if (sectorAnterior !== sectorNuevo && sectorNuevo !== null) {
+        cambios.push(`Sector: ${sectorAnterior || 'N/A'} → ${sectorNuevo}`)
+      }
+      
+      if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
+        cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${prioridadNueva}`)
+      }
+      
+      // Solo registrar si hay cambios relevantes
+      if (cambios.length > 0) {
+        const comentario = cambios.join(' | ')
+        await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo, comentario)
       }
 
       return { success: true, data: data as OrdenTrabajo }
@@ -5680,6 +5768,16 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        // Obtener etapa anterior
+        const { data: ordenAnterior } = await supabase
+          .from('ordenes_trabajo')
+          .select('etapa_taller_grafico, estado')
+          .eq('id', ordenId)
+          .maybeSingle()
+        
+        const etapaAnterior = ordenAnterior?.etapa_taller_grafico || null
+        const estadoActual = ordenAnterior?.estado || null
+        
         const { error } = await supabase.rpc('actualizar_etapa_taller_grafico', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
@@ -5687,6 +5785,14 @@ class ApiService {
         })
 
         if (error) return { success: false, error: error.message }
+        
+        // Registrar cambio de etapa en historial_movimientos
+        await this.registrarCambioHistorial(
+          ordenId,
+          estadoActual,
+          estadoActual, // El estado no cambia, solo la etapa
+          `Etapa Taller Gráfico: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`
+        )
         
         // Obtener la orden actualizada
         const { data: orden, error: fetchError } = await supabase
@@ -5711,6 +5817,16 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        // Obtener etapa anterior
+        const { data: ordenAnterior } = await supabase
+          .from('ordenes_trabajo')
+          .select('etapa_instalaciones, estado')
+          .eq('id', ordenId)
+          .maybeSingle()
+        
+        const etapaAnterior = ordenAnterior?.etapa_instalaciones || null
+        const estadoActual = ordenAnterior?.estado || null
+        
         const { error } = await supabase.rpc('actualizar_etapa_instalaciones', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
@@ -5718,6 +5834,14 @@ class ApiService {
         })
 
         if (error) return { success: false, error: error.message }
+        
+        // Registrar cambio de etapa en historial_movimientos
+        await this.registrarCambioHistorial(
+          ordenId,
+          estadoActual,
+          estadoActual, // El estado no cambia, solo la etapa
+          `Etapa Instalaciones: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`
+        )
         
         // Obtener la orden actualizada
         const { data: orden, error: fetchError } = await supabase
@@ -5742,6 +5866,16 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        // Obtener etapa anterior
+        const { data: ordenAnterior } = await supabase
+          .from('ordenes_trabajo')
+          .select('etapa_taller_imprenta, estado')
+          .eq('id', ordenId)
+          .maybeSingle()
+        
+        const etapaAnterior = ordenAnterior?.etapa_taller_imprenta || null
+        const estadoActual = ordenAnterior?.estado || null
+        
         const { error } = await supabase.rpc('actualizar_etapa_taller_imprenta', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
@@ -5749,6 +5883,14 @@ class ApiService {
         })
 
         if (error) return { success: false, error: error.message }
+        
+        // Registrar cambio de etapa en historial_movimientos
+        await this.registrarCambioHistorial(
+          ordenId,
+          estadoActual,
+          estadoActual, // El estado no cambia, solo la etapa
+          `Etapa Taller Imprenta: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`
+        )
         
         // Obtener la orden actualizada
         const { data: orden, error: fetchError } = await supabase
@@ -5773,6 +5915,16 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        // Obtener etapa anterior
+        const { data: ordenAnterior } = await supabase
+          .from('ordenes_trabajo')
+          .select('etapa_metalurgica, estado')
+          .eq('id', ordenId)
+          .maybeSingle()
+        
+        const etapaAnterior = ordenAnterior?.etapa_metalurgica || null
+        const estadoActual = ordenAnterior?.estado || null
+        
         const { error } = await supabase.rpc('actualizar_etapa_metalurgica', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
@@ -5780,6 +5932,14 @@ class ApiService {
         })
 
         if (error) return { success: false, error: error.message }
+        
+        // Registrar cambio de etapa en historial_movimientos
+        await this.registrarCambioHistorial(
+          ordenId,
+          estadoActual,
+          estadoActual, // El estado no cambia, solo la etapa
+          `Etapa Metalúrgica: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`
+        )
         
         // Obtener la orden actualizada
         const { data: orden, error: fetchError } = await supabase
