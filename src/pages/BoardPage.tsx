@@ -422,12 +422,14 @@ const BoardPage = ({
         const ordenActualizada = response.data
         const taskActualizado = ordenToTask(ordenActualizada)
         
-        // Determinar el status final:
-        // - Si cambió el sector, usar el nuevo status basado en el sector
-        // - Si NO cambió el sector, preservar el status original (columna actual)
+        // CRÍTICO: Preservar siempre el status de la tarea que se está editando
+        // El status representa la columna donde está la ficha, y debe mantenerse
+        // a menos que haya un cambio explícito de sector
+        // Usamos el status de updatedTask porque es el que viene del modal de edición
+        // y representa la columna actual donde el usuario está editando
         const statusFinal = sectorCambio 
-          ? taskConStatusActualizado.status 
-          : (taskOriginal?.status || updatedTask.status) // Preservar el status original si no cambió el sector
+          ? taskConStatusActualizado.status // Si cambió sector, usar el nuevo status
+          : updatedTask.status // Si NO cambió sector, preservar el status actual (columna donde está)
         
         console.log(`📊 Status final: ${statusFinal} (sectorCambio: ${sectorCambio}, original: ${taskOriginal?.status}, updated: ${updatedTask.status})`)
         
@@ -438,7 +440,7 @@ const BoardPage = ({
         
         const taskFinal: Task = {
           ...taskActualizado,
-          status: statusFinal, // Preservar el status original si no cambió el sector, sino usar el nuevo
+          status: statusFinal, // SIEMPRE usar el status preservado (columna actual)
           id: updatedTask.id // Mantener el ID original
         }
         
