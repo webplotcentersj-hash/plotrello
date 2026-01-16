@@ -38,6 +38,12 @@ const BuscarClientePage = () => {
     }
   }
 
+  // Función auxiliar para normalizar DNI/CUIT (eliminar guiones, espacios, etc.)
+  const normalizarDniCuit = (dniCuit: string | null | undefined): string => {
+    if (!dniCuit) return ''
+    return dniCuit.replace(/[-\s]/g, '').toUpperCase().trim()
+  }
+
   const seleccionarCliente = async (cliente: ClienteRecord) => {
     setClienteSeleccionado(cliente)
     setLoadingOrdenes(true)
@@ -46,10 +52,57 @@ const BuscarClientePage = () => {
       // Buscar todas las órdenes del cliente
       const ordenesResponse = await apiService.getOrdenes()
       if (ordenesResponse.success && ordenesResponse.data) {
-        const dniNormalized = cliente.dni_cuit?.toUpperCase() || ''
-        const ordenesFiltradas = ordenesResponse.data.filter(
-          (orden) => orden.dni_cuit && orden.dni_cuit.toUpperCase() === dniNormalized
-        )
+        // Normalizar datos del cliente para búsqueda
+        const dniClienteNormalized = normalizarDniCuit(cliente.dni_cuit)
+        const nombreClienteLower = cliente.nombre?.toLowerCase().trim() || ''
+        const apellidoClienteLower = cliente.apellido?.toLowerCase().trim() || ''
+        const nombreCompletoCliente = `${nombreClienteLower} ${apellidoClienteLower}`.trim()
+        const telefonoCliente = cliente.telefono?.trim() || ''
+        const emailCliente = cliente.email?.toLowerCase().trim() || ''
+
+        // Filtrar órdenes por múltiples criterios
+        const ordenesFiltradas = ordenesResponse.data.filter((orden) => {
+          // Buscar por DNI/CUIT (normalizado)
+          if (dniClienteNormalized) {
+            const dniOrdenNormalized = normalizarDniCuit(orden.dni_cuit)
+            if (dniOrdenNormalized && dniOrdenNormalized === dniClienteNormalized) {
+              return true
+            }
+          }
+
+          // Buscar por nombre del cliente
+          if (nombreClienteLower) {
+            const nombreOrdenLower = orden.cliente?.toLowerCase().trim() || ''
+            if (nombreOrdenLower) {
+              // Coincidencia exacta o parcial del nombre
+              if (nombreOrdenLower === nombreCompletoCliente || 
+                  nombreOrdenLower === nombreClienteLower ||
+                  nombreOrdenLower.includes(nombreClienteLower) ||
+                  (apellidoClienteLower && nombreOrdenLower.includes(apellidoClienteLower))) {
+                return true
+              }
+            }
+          }
+
+          // Buscar por teléfono
+          if (telefonoCliente && orden.telefono_cliente) {
+            const telefonoOrden = orden.telefono_cliente.replace(/[-\s()]/g, '').trim()
+            const telefonoClienteClean = telefonoCliente.replace(/[-\s()]/g, '').trim()
+            if (telefonoOrden === telefonoClienteClean) {
+              return true
+            }
+          }
+
+          // Buscar por email
+          if (emailCliente && orden.email_cliente) {
+            const emailOrdenLower = orden.email_cliente.toLowerCase().trim()
+            if (emailOrdenLower === emailCliente) {
+              return true
+            }
+          }
+
+          return false
+        })
 
         // Separar órdenes activas (no entregadas)
         const activas = ordenesFiltradas.filter(

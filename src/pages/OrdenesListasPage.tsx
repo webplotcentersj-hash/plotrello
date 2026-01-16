@@ -34,10 +34,19 @@ const OrdenesListasPage = () => {
 
   const ordenesFiltradas = ordenesListas.filter((orden) => {
     // Filtro por búsqueda
-    const matchesSearch = 
-      orden.numero_op?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      orden.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      orden.dni_cuit?.toLowerCase().includes(searchTerm.toLowerCase())
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim()
+      const numeroOpStr = orden.numero_op?.toString().toLowerCase() || ''
+      const clienteStr = orden.cliente?.toLowerCase() || ''
+      const dniCuitStr = orden.dni_cuit?.toLowerCase() || ''
+      
+      const matchesSearch = 
+        numeroOpStr.includes(searchLower) ||
+        clienteStr.includes(searchLower) ||
+        dniCuitStr.includes(searchLower)
+      
+      if (!matchesSearch) return false
+    }
 
     // Filtro por estado
     const matchesEstado = 
@@ -45,7 +54,7 @@ const OrdenesListasPage = () => {
       (filterEstado === 'finalizado' && orden.estado === 'Finalizado en Taller') ||
       (filterEstado === 'almacen' && orden.estado === 'Almacén de Entrega')
 
-    return matchesSearch && matchesEstado
+    return matchesEstado
   })
 
   const handleMarcarEntregada = async (ordenId: number) => {
