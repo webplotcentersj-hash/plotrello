@@ -438,6 +438,45 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
           })
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `room_id=eq.${roomId}`
+        },
+        (payload) => {
+          console.log('🔄 Mensaje actualizado vía Realtime (reacciones):', payload)
+          const updatedMsg = payload.new as any
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id === updatedMsg.id.toString()) {
+                // Actualizar reacciones
+                const reacciones = (() => {
+                  const raw = updatedMsg.reacciones
+                  if (!raw) return m.reacciones
+                  const parsed: Record<string, string[]> = {}
+                  try {
+                    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw
+                    Object.entries(obj).forEach(([emoji, users]) => {
+                      if (Array.isArray(users)) {
+                        parsed[emoji] = (users as any[]).map((u) => u?.toString?.() ?? '')
+                      }
+                    })
+                    return parsed
+                  } catch (e) {
+                    console.error('Error parseando reacciones (UPDATE):', e)
+                    return m.reacciones
+                  }
+                })()
+                return { ...m, reacciones }
+              }
+              return m
+            })
+          )
+        }
+      )
       .subscribe((status) => {
         console.log(`📡 Estado de suscripción Realtime: ${status}`)
       })

@@ -9,6 +9,7 @@ import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
 import PlotAIChat from '../components/PlotAIChat'
 import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
+import ChatFloatingButton from '../components/ChatFloatingButton'
 import TaskLibraryModal from '../components/TaskLibraryModal'
 import QRPrintView from '../components/QRPrintView'
 import SolicitarProductosModal from '../components/SolicitarProductosModal'
@@ -774,6 +775,10 @@ const BoardPage = ({
           onApplyOptimization={handleApplyOptimizations}
         />
       )}
+
+      <ChatFloatingButton
+        onNavigateToChat={() => navigate('/chat')}
+      />
 
       <PlotAIFloatingButton
         onClick={() => setIsChatAIOpen(!isChatAIOpen)}
