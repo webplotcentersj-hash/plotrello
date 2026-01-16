@@ -90,6 +90,7 @@ import './app.css'
 import apiService from './services/api'
 import { historialToActivity, ordenToTask } from './utils/dataMappers'
 import { supabase } from './services/supabaseClient'
+import { initializeManual } from './services/plotAIManualService'
 
 const DEFAULT_SECTORES: SectorRecord[] = [
   { id: 1, nombre: 'Diseño Gráfico', color: '#FF7F50' },
@@ -135,6 +136,13 @@ function App() {
       setIsAuthenticated(!!usuario)
     }
   }, [usuario, loading])
+
+  // Precargar manual de usuario al inicio
+  useEffect(() => {
+    initializeManual().catch((error) => {
+      console.warn('Error precargando manual:', error)
+    })
+  }, [])
 
   // Debug: Mostrar variables de entorno
   useEffect(() => {

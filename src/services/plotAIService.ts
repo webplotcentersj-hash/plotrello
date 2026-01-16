@@ -11,6 +11,7 @@ import {
   formatMemoryForPrompt,
   saveConversationMemory
 } from './plotAIMemoryService'
+import { formatManualForPrompt } from './plotAIManualService'
 
 // El nuevo SDK de Google GenAI puede usar la API key desde variable de entorno
 // o se puede pasar en el constructor si es necesario
@@ -317,6 +318,23 @@ INSTRUCCIONES AGÉNTICAS:
     // Agregar memoria si está disponible
     if (memoriaTexto) {
       prompt += memoriaTexto
+    }
+
+    // Detectar si la pregunta es sobre el manual o la aplicación
+    const esPreguntaManual = /manual|documentaci[oó]n|instrucciones|gu[ií]a|ayuda|c[oó]mo|qu[eé]|d[oó]nde|cu[aá]ndo|funciona|uso|tutorial/i.test(contents)
+    
+    // Agregar manual del usuario si es relevante
+    let manualTexto = ''
+    if (esPreguntaManual || useCompleteContext) {
+      try {
+        manualTexto = await formatManualForPrompt(contents)
+        if (manualTexto) {
+          prompt += `\n${manualTexto}\n`
+          prompt += `\nIMPORTANTE: Tienes acceso al manual completo de usuario. Cuando el usuario pregunte sobre cómo usar la aplicación, funciones, procesos, o cualquier aspecto del sistema, usa la información del manual para dar respuestas precisas y detalladas. Si la pregunta es específica, busca en el manual las secciones relevantes y proporciona instrucciones paso a paso.\n`
+        }
+      } catch (error) {
+        console.warn('Error cargando manual:', error)
+      }
     }
 
     if (agenticContext) {

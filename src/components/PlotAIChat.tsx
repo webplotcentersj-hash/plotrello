@@ -317,85 +317,145 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
   const analyzeFile = async (file: File): Promise<string> => {
     console.log('🔍 Analizando archivo:', file.name, file.type, `${(file.size / 1024).toFixed(2)}KB`)
+    
+    // Validar tamaño general (máximo 50MB para cualquier archivo)
+    const maxFileSize = 50 * 1024 * 1024
+    if (file.size > maxFileSize) {
+      const errorMsg = `El archivo "${file.name}" es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 50MB. Por favor, reduce el tamaño del archivo.`
+      console.error('❌ Error de tamaño:', errorMsg)
+      throw new Error(errorMsg)
+    }
+    
     return new Promise((resolve, reject) => {
-      if (file.type.startsWith('image/')) {
-        // Validar tamaño (máximo 20MB para imágenes)
-        const maxFileSize = 20 * 1024 * 1024
-        if (file.size > maxFileSize) {
-          const errorMsg = `La imagen es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 20MB. Por favor, reduce el tamaño de la imagen.`
-          console.error('❌ Error de tamaño:', errorMsg)
-          reject(new Error(errorMsg))
-          return
-        }
-        
-        console.log('✅ Imagen válida, optimizando...')
-        // Optimizar imagen si es necesario (máximo 4MB en base64)
-        optimizeImage(file, 4 * 1024 * 1024)
-          .then((dataUrl) => {
-            console.log('✅ Imagen optimizada, tamaño base64:', `${(dataUrl.length * 3 / 4 / 1024).toFixed(2)}KB`)
-            resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
-          })
-          .catch((error) => {
-            console.warn('⚠️ Error en optimización, intentando sin optimizar:', error)
-            // Si falla la optimización, intentar sin optimizar
-            const reader = new FileReader()
-            reader.onload = (e) => {
-              const dataUrl = e.target?.result as string
-              console.log('✅ Imagen leída sin optimizar, tamaño base64:', `${(dataUrl.length * 3 / 4 / 1024).toFixed(2)}KB`)
-              resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
-            }
-            reader.onerror = () => {
-              console.error('❌ Error leyendo archivo:', error)
-              reject(error)
-            }
-            reader.readAsDataURL(file)
-          })
-      } else if (file.type === 'application/pdf') {
-        console.log('📄 Procesando PDF:', file.name)
-        // Para PDFs, extraer texto primero (Gemini no puede procesar PDFs directamente)
-        const reader = new FileReader()
-        reader.onload = async () => {
-          try {
-            // Intentar leer como texto primero
-            const textReader = new FileReader()
-            textReader.onload = (e) => {
-              const textContent = e.target?.result as string
-              console.log('📄 Texto extraído del PDF:', textContent ? `${textContent.length} caracteres` : 'vacío')
-              if (textContent && textContent.trim().length > 0) {
-                // Extraer texto del PDF (si es texto extraíble)
-                const extractedText = textContent.substring(0, 50000)
-                console.log('✅ PDF procesado con texto:', extractedText.length, 'caracteres')
-                resolve(`[PDF_TEXT:${file.name}:${extractedText}]`)
-              } else {
-                // Si no hay texto extraíble, informar al usuario
-                console.warn('⚠️ PDF sin texto extraíble')
-                resolve(`[PDF_INFO:${file.name}:Este PDF no contiene texto extraíble. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
-              }
-            }
-            textReader.onerror = () => {
-              console.error('❌ Error extrayendo texto del PDF')
-              resolve(`[PDF_INFO:${file.name}:No se pudo extraer texto del PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
-            }
-            textReader.readAsText(file)
-          } catch (error) {
-            console.error('❌ Error procesando PDF:', error)
-            resolve(`[PDF_INFO:${file.name}:Error al procesar el PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
+      try {
+        if (file.type.startsWith('image/')) {
+          // Validar tamaño (máximo 20MB para imágenes)
+          const maxImageSize = 20 * 1024 * 1024
+          if (file.size > maxImageSize) {
+            const errorMsg = `La imagen "${file.name}" es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 20MB. Por favor, reduce el tamaño de la imagen.`
+            console.error('❌ Error de tamaño:', errorMsg)
+            reject(new Error(errorMsg))
+            return
           }
+          
+          console.log('✅ Imagen válida, optimizando...')
+          // Optimizar imagen si es necesario (máximo 4MB en base64)
+          optimizeImage(file, 4 * 1024 * 1024)
+            .then((dataUrl) => {
+              console.log('✅ Imagen optimizada, tamaño base64:', `${(dataUrl.length * 3 / 4 / 1024).toFixed(2)}KB`)
+              resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
+            })
+            .catch((error) => {
+              console.warn('⚠️ Error en optimización, intentando sin optimizar:', error)
+              // Si falla la optimización, intentar sin optimizar
+              const reader = new FileReader()
+              reader.onload = (e) => {
+                try {
+                  const dataUrl = e.target?.result as string
+                  if (!dataUrl) {
+                    throw new Error('No se pudo leer el archivo')
+                  }
+                  console.log('✅ Imagen leída sin optimizar, tamaño base64:', `${(dataUrl.length * 3 / 4 / 1024).toFixed(2)}KB`)
+                  resolve(`[IMAGEN_BASE64:${dataUrl}:${file.name}]`)
+                } catch (readError) {
+                  console.error('❌ Error procesando imagen:', readError)
+                  reject(new Error(`Error al procesar la imagen "${file.name}": ${readError instanceof Error ? readError.message : 'Error desconocido'}`))
+                }
+              }
+              reader.onerror = () => {
+                console.error('❌ Error leyendo archivo:', error)
+                reject(new Error(`Error al leer la imagen "${file.name}". Verifica que el archivo no esté corrupto.`))
+              }
+              reader.readAsDataURL(file)
+            })
+        } else if (file.type === 'application/pdf') {
+          console.log('📄 Procesando PDF:', file.name)
+          // Validar tamaño (máximo 10MB para PDFs)
+          const maxPdfSize = 10 * 1024 * 1024
+          if (file.size > maxPdfSize) {
+            const errorMsg = `El PDF "${file.name}" es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 10MB. Por favor, reduce el tamaño del PDF o convierte las páginas a imágenes.`
+            console.error('❌ Error de tamaño:', errorMsg)
+            reject(new Error(errorMsg))
+            return
+          }
+          
+          // Para PDFs, intentar extraer texto (aunque generalmente no funciona bien)
+          // Mejor informar al usuario que convierta a imágenes
+          const reader = new FileReader()
+          reader.onload = () => {
+            try {
+              // Intentar leer como texto (puede no funcionar para PDFs binarios)
+              const textReader = new FileReader()
+              textReader.onload = (e) => {
+                try {
+                  const textContent = e.target?.result as string
+                  console.log('📄 Texto extraído del PDF:', textContent ? `${textContent.length} caracteres` : 'vacío')
+                  if (textContent && textContent.trim().length > 0 && !textContent.includes('%PDF')) {
+                    // Si tiene texto y no es solo el header del PDF
+                    const extractedText = textContent.substring(0, 50000)
+                    console.log('✅ PDF procesado con texto:', extractedText.length, 'caracteres')
+                    resolve(`[PDF_TEXT:${file.name}:${extractedText}]`)
+                  } else {
+                    // Si no hay texto extraíble, informar al usuario
+                    console.warn('⚠️ PDF sin texto extraíble')
+                    resolve(`[PDF_INFO:${file.name}:Este PDF no contiene texto extraíble o es un PDF escaneado. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
+                  }
+                } catch (textError) {
+                  console.error('❌ Error procesando texto del PDF:', textError)
+                  resolve(`[PDF_INFO:${file.name}:No se pudo extraer texto del PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
+                }
+              }
+              textReader.onerror = () => {
+                console.error('❌ Error extrayendo texto del PDF')
+                resolve(`[PDF_INFO:${file.name}:No se pudo extraer texto del PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente para que PlotAI pueda analizarlas visualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
+              }
+              textReader.readAsText(file)
+            } catch (error) {
+              console.error('❌ Error procesando PDF:', error)
+              resolve(`[PDF_INFO:${file.name}:Error al procesar el PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
+            }
+          }
+          reader.onerror = () => {
+            console.error('❌ Error leyendo PDF')
+            reject(new Error(`Error al leer el PDF "${file.name}". Verifica que el archivo no esté corrupto.`))
+          }
+          reader.readAsArrayBuffer(file)
+        } else if (file.type.startsWith('text/')) {
+          // Validar tamaño (máximo 5MB para archivos de texto)
+          const maxTextSize = 5 * 1024 * 1024
+          if (file.size > maxTextSize) {
+            const errorMsg = `El archivo de texto "${file.name}" es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). El tamaño máximo es 5MB.`
+            console.error('❌ Error de tamaño:', errorMsg)
+            reject(new Error(errorMsg))
+            return
+          }
+          
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              const content = e.target?.result as string
+              if (!content) {
+                throw new Error('No se pudo leer el contenido del archivo')
+              }
+              resolve(content)
+            } catch (readError) {
+              console.error('❌ Error procesando archivo de texto:', readError)
+              reject(new Error(`Error al procesar el archivo de texto "${file.name}": ${readError instanceof Error ? readError.message : 'Error desconocido'}`))
+            }
+          }
+          reader.onerror = () => {
+            console.error('❌ Error leyendo archivo de texto')
+            reject(new Error(`Error al leer el archivo de texto "${file.name}". Verifica que el archivo no esté corrupto.`))
+          }
+          reader.readAsText(file)
+        } else {
+          // Para otros tipos de archivo, solo informar
+          console.log('ℹ️ Tipo de archivo no procesable:', file.type)
+          resolve(`[Archivo: ${file.name}, Tipo: ${file.type}, Tamaño: ${(file.size / 1024).toFixed(2)}KB. Este tipo de archivo no se puede analizar directamente. Por favor, convierte el contenido a texto o imágenes si es posible.]`)
         }
-        reader.onerror = () => {
-          console.error('❌ Error leyendo PDF como ArrayBuffer')
-          resolve(`[PDF_INFO:${file.name}:No se pudo leer el PDF. Por favor, convierte las páginas del PDF a imágenes (JPG o PNG) y súbelas individualmente. Tamaño: ${(file.size / 1024).toFixed(2)}KB]`)
-        }
-        reader.readAsArrayBuffer(file)
-      } else if (file.type.startsWith('text/')) {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          resolve(e.target?.result as string)
-        }
-        reader.onerror = reject
-        reader.readAsText(file)
-      } else {
-        resolve(`[Archivo: ${file.name}, Tipo: ${file.type}, Tamaño: ${file.size} bytes]`)
+      } catch (error) {
+        console.error('❌ Error general procesando archivo:', error)
+        reject(error instanceof Error ? error : new Error(`Error desconocido al procesar "${file.name}"`))
       }
     })
   }
@@ -413,22 +473,31 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     if (filesToSend.length > 0) {
       console.log('📎 Procesando archivos adjuntos...')
       try {
-        attachments = await Promise.all(
-          filesToSend.map(async (file) => {
+        // Procesar archivos uno por uno para mejor manejo de errores
+        attachments = []
+        for (const file of filesToSend) {
+          try {
             console.log('📎 Procesando:', file.name)
             const content = await analyzeFile(file)
             console.log('✅ Archivo procesado:', file.name, 'tipo:', content.substring(0, 50))
-            return {
+            attachments.push({
               name: file.name,
               type: file.type,
               content: content
-            }
-          })
-        )
+            })
+          } catch (fileError) {
+            console.error(`❌ Error procesando archivo "${file.name}":`, fileError)
+            // Continuar con otros archivos pero mostrar error al usuario
+            const errorMessage = fileError instanceof Error ? fileError.message : 'Error desconocido'
+            throw new Error(`Error al procesar "${file.name}": ${errorMessage}`)
+          }
+        }
         console.log('✅ Todos los archivos procesados:', attachments.length)
       } catch (error) {
         console.error('❌ Error procesando archivos:', error)
-        throw error
+        // Mostrar mensaje de error más claro al usuario
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar archivos'
+        throw new Error(errorMessage)
       }
     }
 
@@ -499,8 +568,12 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
           errorContent = `⚠️ **Cuota de API excedida**\n\n${error.message}\n\n💡 **Sugerencias:**\n- Espera unos minutos antes de intentar nuevamente\n- Considera actualizar tu plan de Gemini API en https://ai.google.dev\n- El plan gratuito tiene límites de uso diarios`
         } else if (error.message.includes('API key')) {
           errorContent = `🔑 **Error de API Key**\n\n${error.message}\n\nPor favor, verifica que tu API key de Gemini esté configurada correctamente.`
+        } else if (error.message.includes('demasiado grande') || error.message.includes('tamaño máximo')) {
+          errorContent = `📦 **Error de tamaño de archivo**\n\n${error.message}\n\n💡 **Sugerencias:**\n- Reduce el tamaño del archivo\n- Para imágenes: comprime o redimensiona la imagen\n- Para PDFs: convierte las páginas a imágenes individuales\n- Tamaños máximos:\n  - Imágenes: 20MB\n  - PDFs: 10MB\n  - Texto: 5MB\n  - Otros: 50MB`
+        } else if (error.message.includes('Error al procesar') || error.message.includes('Error al leer')) {
+          errorContent = `❌ **Error procesando archivo**\n\n${error.message}\n\n💡 **Sugerencias:**\n- Verifica que el archivo no esté corrupto\n- Intenta con otro archivo\n- Para PDFs: convierte las páginas a imágenes (JPG o PNG)`
         } else {
-          errorContent = `Error: ${error.message}`
+          errorContent = `❌ **Error**\n\n${error.message}\n\nSi el problema persiste, intenta con un archivo diferente o contacta al administrador.`
         }
       }
       
