@@ -61,6 +61,7 @@ const FacturasPage = lazy(() => import('./pages/FacturasPage'))
 const FacturaDetallePage = lazy(() => import('./pages/FacturaDetallePage'))
 const CrearFacturaPage = lazy(() => import('./pages/CrearFacturaPage'))
 const AsientosContablesPage = lazy(() => import('./pages/AsientosContablesPage'))
+const ConfiguracionAFIPPage = lazy(() => import('./pages/ConfiguracionAFIPPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -952,6 +953,10 @@ function AppRoutes({
       <Route
         path="/erp/asientos"
         element={<AsientosContablesPage />}
+      />
+      <Route
+        path="/erp/configuracion-afip"
+        element={<ConfiguracionAFIPPage />}
       />
       <Route
         path="/erp/*"
