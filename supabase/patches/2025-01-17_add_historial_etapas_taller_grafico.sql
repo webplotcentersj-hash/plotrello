@@ -161,6 +161,30 @@ SECURITY DEFINER
 AS $$
 BEGIN
   RETURN QUERY
+  WITH historial_deduplicado AS (
+    SELECT DISTINCT ON (
+      h.etapa_nueva,
+      h.fecha_inicio_etapa,
+      COALESCE(h.fecha_fin_etapa, '1970-01-01'::timestamptz)
+    )
+      h.id,
+      h.etapa_anterior,
+      h.etapa_nueva,
+      h.nombre_usuario,
+      h.comentario,
+      h.fecha_cambio,
+      h.fecha_inicio_etapa,
+      h.fecha_fin_etapa,
+      h.tiempo_en_etapa_seg
+    FROM public.historial_etapas_taller_grafico h
+    WHERE h.id_orden = p_id_orden
+    ORDER BY 
+      h.etapa_nueva,
+      h.fecha_inicio_etapa,
+      COALESCE(h.fecha_fin_etapa, '1970-01-01'::timestamptz),
+      h.fecha_cambio DESC,
+      h.id DESC
+  )
   SELECT 
     h.id,
     h.etapa_anterior,
@@ -177,8 +201,7 @@ BEGIN
       WHEN h.tiempo_en_etapa_seg < 3600 THEN (h.tiempo_en_etapa_seg / 60)::text || ' min'
       ELSE (h.tiempo_en_etapa_seg / 3600)::text || ' horas'
     END as tiempo_formateado
-  FROM public.historial_etapas_taller_grafico h
-  WHERE h.id_orden = p_id_orden
+  FROM historial_deduplicado h
   ORDER BY h.fecha_cambio DESC;
 END;
 $$;
