@@ -251,7 +251,6 @@ export async function formatManualForPrompt(query?: string): Promise<string> {
   // Si no hay consulta o no se encontraron secciones relevantes, devolver índice y primeras secciones
   const lines = manual.split('\n')
   const tableOfContents: string[] = []
-  const firstSections: string[] = []
   let sectionCount = 0
 
   for (let i = 0; i < lines.length && sectionCount < 10; i++) {
