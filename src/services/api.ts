@@ -141,30 +141,72 @@ class ApiService {
     return { id: usuarioId, nombre: nombreUsuario }
   }
 
-  // Helper para registrar cambios en historial_movimientos
+  // Helper para registrar cambios en historial_movimientos (AUDITORÍA PROFESIONAL)
   private async registrarCambioHistorial(
     idOrden: number,
     estadoAnterior: string | null,
     estadoNuevo: string | null,
-    comentario?: string
+    comentario?: string,
+    accionTipo: string = 'actualizacion',
+    cambiosDetallados?: Record<string, any>
   ): Promise<void> {
     if (!supabase) return
 
     const { id: usuarioId, nombre: nombreUsuario } = this.getCurrentUser()
 
+    // Intentar usar la función SQL que es más robusta
     try {
-      await supabase.from('historial_movimientos').insert({
-        id_orden: idOrden,
-        estado_anterior: estadoAnterior,
-        estado_nuevo: estadoNuevo,
-        id_usuario: usuarioId,
-        nombre_usuario: nombreUsuario,
-        timestamp: new Date().toISOString(),
-        comentario: comentario || null
+      const { error } = await supabase.rpc('registrar_cambio_manual', {
+        p_id_orden: idOrden,
+        p_id_usuario: usuarioId || 0,
+        p_nombre_usuario: nombreUsuario,
+        p_estado_anterior: estadoAnterior,
+        p_estado_nuevo: estadoNuevo,
+        p_comentario: comentario || null,
+        p_accion_tipo: accionTipo,
+        p_cambios_detallados: cambiosDetallados ? (cambiosDetallados as any) : {},
+        p_ip_address: null, // Se puede obtener desde el cliente si es necesario
+        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
       })
+
+      if (error) {
+        // Si falla la función RPC, intentar insert directo como fallback
+        console.warn('Error en registrar_cambio_manual, usando fallback:', error)
+        await supabase.from('historial_movimientos').insert({
+          id_orden: idOrden,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: estadoNuevo,
+          id_usuario: usuarioId || 0,
+          nombre_usuario: nombreUsuario,
+          timestamp: new Date().toISOString(),
+          comentario: comentario || null,
+          accion_tipo: accionTipo,
+          cambios_detallados: cambiosDetallados ? (cambiosDetallados as any) : {},
+          metadata: {
+            registrado_manual: true,
+            timestamp_preciso: Date.now() / 1000,
+            version_sistema: '2.0'
+          }
+        })
+      }
     } catch (error) {
-      console.error('Error registrando cambio en historial:', error)
-      // No lanzar error, solo loguear para no interrumpir el flujo
+      // Fallback final: insert directo
+      console.error('Error crítico registrando cambio en historial:', error)
+      try {
+        await supabase.from('historial_movimientos').insert({
+          id_orden: idOrden,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: estadoNuevo,
+          id_usuario: usuarioId || 0,
+          nombre_usuario: nombreUsuario,
+          timestamp: new Date().toISOString(),
+          comentario: comentario || null,
+          accion_tipo: accionTipo
+        })
+      } catch (fallbackError) {
+        console.error('Error crítico en fallback de historial:', fallbackError)
+        // En este punto, el trigger SQL debería capturar el cambio automáticamente
+      }
     }
   }
 
@@ -953,10 +995,31 @@ class ApiService {
         cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${prioridadNueva}`)
       }
       
-      // Solo registrar si hay cambios relevantes
+      // Registrar SIEMPRE si hay cambios relevantes (AUDITORÍA PROFESIONAL)
       if (cambios.length > 0) {
         const comentario = cambios.join(' | ')
-        await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo, comentario)
+        const cambiosDetallados: Record<string, any> = {}
+        
+        if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
+          cambiosDetallados.estado = { anterior: estadoAnterior, nuevo: estadoNuevo }
+        }
+        if (trim(operarioAnterior) !== trim(operarioNuevo)) {
+          cambiosDetallados.operario = { anterior: operarioAnterior, nuevo: operarioNuevo }
+        }
+        if (sectorAnterior !== sectorNuevo && sectorNuevo !== null) {
+          cambiosDetallados.sector = { anterior: sectorAnterior, nuevo: sectorNuevo }
+        }
+        if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
+          cambiosDetallados.prioridad = { anterior: prioridadAnterior, nuevo: prioridadNueva }
+        }
+        
+        // Determinar tipo de acción
+        let accionTipo = 'actualizacion'
+        if (estadoAnterior !== estadoNuevo) accionTipo = 'cambio_estado'
+        else if (trim(operarioAnterior) !== trim(operarioNuevo)) accionTipo = 'cambio_operario'
+        else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
+        
+        await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo, comentario, accionTipo, cambiosDetallados)
       }
 
       return { success: true, data: data as OrdenTrabajo }
@@ -1033,20 +1096,18 @@ class ApiService {
         return { success: false, error: updateError.message }
       }
 
-      // Obtener nombre del usuario
-      const usuarioData = localStorage.getItem('usuario')
-      const nombreUsuario = usuarioData
-        ? JSON.parse(usuarioData).nombre || 'Usuario'
-        : 'Usuario'
-
-      await supabase.from('historial_movimientos').insert({
-        id_orden: id,
-        estado_anterior: currentEstado,
-        estado_nuevo: nuevoEstado,
-        id_usuario: usuarioId,
-        nombre_usuario: nombreUsuario,
-        timestamp: new Date().toISOString()
-      })
+      // Registrar movimiento con auditoría profesional
+      await this.registrarCambioHistorial(
+        id,
+        currentEstado,
+        nuevoEstado,
+        `Ficha movida de "${currentEstado}" a "${nuevoEstado}"`,
+        'cambio_estado',
+        {
+          estado: { anterior: currentEstado, nuevo: nuevoEstado },
+          sector: { anterior: current?.sector || null, nuevo: nuevoSector }
+        }
+      )
 
       // Si la orden llega a un estado final, finalizar el uso de impresora si está asignada
       // El trigger en la BD también lo hará automáticamente, pero esto asegura que se haga inmediatamente
@@ -1114,23 +1175,19 @@ class ApiService {
 
       if (error) return { success: false, error: error.message }
 
-      // Registrar en historial si se marca como entregado
+      // Registrar en historial si se marca como entregado (AUDITORÍA PROFESIONAL)
       if (entregado) {
-        const usuarioData = localStorage.getItem('usuario')
-        const nombreUsuario = usuarioData
-          ? JSON.parse(usuarioData).nombre || 'Usuario'
-          : 'Usuario'
-        const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-
-        await supabase.from('historial_movimientos').insert({
-          id_orden: id,
-          estado_anterior: 'Almacén de Entrega',
-          estado_nuevo: 'Entregado (Archivado)',
-          id_usuario: usuarioId,
-          nombre_usuario: nombreUsuario,
-          timestamp: new Date().toISOString(),
-          comentario: 'Ficha marcada como entregada y archivada'
-        })
+        await this.registrarCambioHistorial(
+          id,
+          'Almacén de Entrega',
+          'Entregado (Archivado)',
+          'Ficha marcada como entregada y archivada',
+          'cambio_estado',
+          {
+            estado: { anterior: 'Almacén de Entrega', nuevo: 'Entregado (Archivado)' },
+            accion: 'marcar_entregado'
+          }
+        )
       }
 
       return { success: true }
@@ -1167,16 +1224,22 @@ class ApiService {
 
       if (updateError) return { success: false, error: updateError.message }
 
-      // Registrar en historial
-      await supabase.from('historial_movimientos').insert({
-        id_orden: id,
-        estado_anterior: 'Almacén de Entrega',
-        estado_nuevo: 'Entregado o Instalado',
-        id_usuario: datosEntrega.usuarioId,
-        nombre_usuario: datosEntrega.usuarioNombre,
-        timestamp: new Date().toISOString(),
-        comentario: `Orden entregada a ${datosEntrega.entregadoA}${datosEntrega.dniRetira ? ` (DNI: ${datosEntrega.dniRetira})` : ''}`
-      })
+      // Registrar en historial (AUDITORÍA PROFESIONAL)
+      await this.registrarCambioHistorial(
+        id,
+        'Almacén de Entrega',
+        'Entregado o Instalado',
+        `Orden entregada a ${datosEntrega.entregadoA}${datosEntrega.dniRetira ? ` (DNI: ${datosEntrega.dniRetira})` : ''}`,
+        'procesar_entrega',
+        {
+          estado: { anterior: 'Almacén de Entrega', nuevo: 'Entregado o Instalado' },
+          entrega: {
+            entregado_a: datosEntrega.entregadoA,
+            dni_retira: datosEntrega.dniRetira || null,
+            observaciones: datosEntrega.observaciones || null
+          }
+        }
+      )
 
       return { success: true }
     }
@@ -5887,12 +5950,20 @@ class ApiService {
 
         if (error) return { success: false, error: error.message }
         
-        // Registrar cambio de etapa en historial_movimientos
+        // Registrar cambio de etapa en historial_movimientos (AUDITORÍA PROFESIONAL)
         await this.registrarCambioHistorial(
           ordenId,
           estadoActual,
           estadoActual, // El estado no cambia, solo la etapa
-          `Etapa Instalaciones: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`
+          `Etapa Instalaciones: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`,
+          'cambio_etapa',
+          {
+            etapa_instalaciones: {
+              anterior: etapaAnterior,
+              nuevo: nuevaEtapa
+            },
+            sector: 'Instalaciones'
+          }
         )
         
         // Obtener la orden actualizada
@@ -5936,12 +6007,20 @@ class ApiService {
 
         if (error) return { success: false, error: error.message }
         
-        // Registrar cambio de etapa en historial_movimientos
+        // Registrar cambio de etapa en historial_movimientos (AUDITORÍA PROFESIONAL)
         await this.registrarCambioHistorial(
           ordenId,
           estadoActual,
           estadoActual, // El estado no cambia, solo la etapa
-          `Etapa Taller Imprenta: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`
+          `Etapa Taller Imprenta: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`,
+          'cambio_etapa',
+          {
+            etapa_taller_imprenta: {
+              anterior: etapaAnterior,
+              nuevo: nuevaEtapa
+            },
+            sector: 'Taller de Imprenta'
+          }
         )
         
         // Obtener la orden actualizada
@@ -5985,12 +6064,20 @@ class ApiService {
 
         if (error) return { success: false, error: error.message }
         
-        // Registrar cambio de etapa en historial_movimientos
+        // Registrar cambio de etapa en historial_movimientos (AUDITORÍA PROFESIONAL)
         await this.registrarCambioHistorial(
           ordenId,
           estadoActual,
           estadoActual, // El estado no cambia, solo la etapa
-          `Etapa Metalúrgica: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`
+          `Etapa Metalúrgica: ${etapaAnterior || 'N/A'} → ${nuevaEtapa}`,
+          'cambio_etapa',
+          {
+            etapa_metalurgica: {
+              anterior: etapaAnterior,
+              nuevo: nuevaEtapa
+            },
+            sector: 'Metalúrgica'
+          }
         )
         
         // Obtener la orden actualizada
