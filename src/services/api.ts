@@ -782,10 +782,31 @@ class ApiService {
                 cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${orden.prioridad}`)
               }
               
-              // Solo registrar si hay cambios relevantes
+              // Registrar SIEMPRE si hay cambios relevantes (AUDITORÍA PROFESIONAL)
               if (cambios.length > 0) {
                 const comentario = cambios.join(' | ')
-                await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo || orden.estado || null, comentario)
+                const cambiosDetallados: Record<string, any> = {}
+                
+                if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
+                  cambiosDetallados.estado = { anterior: estadoAnterior, nuevo: estadoNuevo }
+                }
+                if (trim(operarioAnterior) !== trim(operarioNuevo)) {
+                  cambiosDetallados.operario = { anterior: operarioAnterior, nuevo: operarioNuevo }
+                }
+                if (sectorAnterior !== sectorNuevo && sectorNuevo !== null) {
+                  cambiosDetallados.sector = { anterior: sectorAnterior, nuevo: sectorNuevo }
+                }
+                if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
+                  cambiosDetallados.prioridad = { anterior: prioridadAnterior, nuevo: prioridadNueva }
+                }
+                
+                // Determinar tipo de acción
+                let accionTipo = 'actualizacion'
+                if (estadoAnterior !== estadoNuevo) accionTipo = 'cambio_estado'
+                else if (trim(operarioAnterior) !== trim(operarioNuevo)) accionTipo = 'cambio_operario'
+                else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
+                
+                await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo || orden.estado || null, comentario, accionTipo, cambiosDetallados)
               }
               
               // Descontar stock si hay materiales asociados (solo si se actualizaron materiales)
