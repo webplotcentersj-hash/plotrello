@@ -103,7 +103,7 @@
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff !important;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -117,7 +117,7 @@
 .mark-all-read-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.9) !important;
   padding: 8px 14px;
   border-radius: 8px;
   font-size: 0.8rem;
@@ -128,7 +128,7 @@
 
 .mark-all-read-btn:hover {
   background: rgba(235, 103, 27, 0.2);
-  color: var(--text-primary);
+  color: #ffffff !important;
   border-color: rgba(235, 103, 27, 0.5);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(235, 103, 27, 0.2);
@@ -144,7 +144,7 @@
 .notifications-empty {
   padding: 48px 32px;
   text-align: center;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.7) !important;
   font-size: 0.9rem;
   background: #0b0d17 !important;
 }
@@ -297,24 +297,24 @@
 
 .notification-title {
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff !important;
   font-size: 0.95rem;
   line-height: 1.3;
 }
 
 .notification-item.unread .notification-title {
-  color: #fff;
+  color: #ffffff !important;
 }
 
 .notification-description {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.85) !important;
   font-size: 0.85rem;
   line-height: 1.5;
   opacity: 0.9;
 }
 
 .notification-time {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.7) !important;
   font-size: 0.75rem;
   font-weight: 500;
   margin-top: 2px;
