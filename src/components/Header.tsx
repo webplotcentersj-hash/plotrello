@@ -101,6 +101,9 @@ const Header = ({
               onNavigateToChat?.()
             }
           }} />
+          {isAdmin && (
+            <AdminAlertButton />
+          )}
           <button
             className="ghost-button actions-toggle"
             type="button"
@@ -215,9 +218,6 @@ const Header = ({
               <button className="brand-button" onClick={onNavigateToERP}>
                 💰 Sistema ERP
               </button>
-            )}
-            {isAdmin && (
-              <AdminAlertButton />
             )}
             {(isDiseno || isAdmin) && (
               <a

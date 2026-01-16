@@ -1,17 +1,18 @@
 .admin-alert-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 8px 14px;
   background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
   border: none;
   border-radius: 8px;
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+  white-space: nowrap;
 }
 
 .admin-alert-button:hover:not(:disabled) {
