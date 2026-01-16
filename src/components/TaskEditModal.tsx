@@ -341,13 +341,8 @@ const TaskEditModal = ({
           await apiService.guardarArchivoOrden(ordenId, attachment.name, attachment.remoteUrl)
         }
       }
-    }
-    
-    onSave(updated)
-    
-    // Recargar historial después de guardar para mostrar los cambios recientes
-    const ordenId = parseTaskIdToOrdenId(task.id)
-    if (ordenId) {
+      
+      // Recargar historial después de guardar para mostrar los cambios recientes
       setTimeout(async () => {
         const histResp = await apiService.getHistorialMovimientos({ ordenId, limit: 500 })
         if (histResp.success && histResp.data) {
@@ -355,6 +350,8 @@ const TaskEditModal = ({
         }
       }, 500) // Pequeño delay para asegurar que el cambio se haya guardado
     }
+    
+    onSave(updated)
     
     onClose(task.id)
   }

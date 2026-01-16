@@ -229,8 +229,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
 export const historialToActivity = (registro: HistorialMovimiento): ActivityEvent => ({
   id: registro.id.toString(),
   taskId: registro.id_orden.toString(),
-  from: mapEstadoToStatus(registro.estado_anterior),
-  to: mapEstadoToStatus(registro.estado_nuevo),
+  from: mapEstadoToStatus(registro.estado_anterior || ''),
+  to: mapEstadoToStatus(registro.estado_nuevo || ''),
   actorId: registro.id_usuario.toString(),
   timestamp: registro.timestamp,
   note: registro.comentario ?? 'Cambio de estado'

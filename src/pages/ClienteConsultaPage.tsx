@@ -238,9 +238,9 @@ const ClienteConsultaPage = () => {
                       <div className="timeline">
                         {historialOrdenado.map((movimiento, index) => {
                           const isLast = index === historialOrdenado.length - 1
-                          const estadoAnterior = getEstadoLabel(movimiento.estado_anterior)
-                          const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo)
-                          const colorNuevo = getEstadoColor(movimiento.estado_nuevo)
+                          const estadoAnterior = getEstadoLabel(movimiento.estado_anterior || '')
+                          const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
+                          const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
 
                           return (
                             <div key={movimiento.id} className="timeline-item">
