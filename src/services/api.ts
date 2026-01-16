@@ -694,6 +694,58 @@ class ApiService {
             }
             
             if (fullOrden) {
+              // Registrar cambios en historial si hay cambios relevantes (incluso si se usó función SQL)
+              const estadoNuevo = fullOrden.estado || null
+              const operarioNuevo = fullOrden.operario_asignado || null
+              const sectorNuevo = fullOrden.sector || null
+              const prioridadNueva = fullOrden.prioridad || null
+              
+              const cambios: string[] = []
+              
+              if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
+                cambios.push(`Estado: ${estadoAnterior || 'N/A'} → ${estadoNuevo}`)
+              }
+              
+              const trim = (str: string | null | undefined): string => (str || '').trim()
+              
+              if (trim(operarioAnterior) !== trim(operarioNuevo)) {
+                if (!operarioNuevo || trim(operarioNuevo) === '') {
+                  cambios.push('Operario desasignado')
+                } else if (!operarioAnterior || trim(operarioAnterior) === '') {
+                  cambios.push(`Operario asignado: ${operarioNuevo}`)
+                } else {
+                  cambios.push(`Operario: ${operarioAnterior} → ${operarioNuevo}`)
+                }
+              }
+              
+              if (sectorAnterior !== sectorNuevo && sectorNuevo !== null) {
+                cambios.push(`Sector: ${sectorAnterior || 'N/A'} → ${sectorNuevo}`)
+              }
+              
+              if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
+                cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${prioridadNueva}`)
+              }
+              
+              // Si hay cambios en el payload original, también registrarlos
+              if (orden.estado && orden.estado !== estadoAnterior) {
+                cambios.push(`Estado: ${estadoAnterior || 'N/A'} → ${orden.estado}`)
+              }
+              if (orden.operario_asignado && trim(orden.operario_asignado) !== trim(operarioAnterior)) {
+                cambios.push(`Operario: ${operarioAnterior || 'N/A'} → ${orden.operario_asignado}`)
+              }
+              if (orden.sector && orden.sector !== sectorAnterior) {
+                cambios.push(`Sector: ${sectorAnterior || 'N/A'} → ${orden.sector}`)
+              }
+              if (orden.prioridad && orden.prioridad !== prioridadAnterior) {
+                cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${orden.prioridad}`)
+              }
+              
+              // Solo registrar si hay cambios relevantes
+              if (cambios.length > 0) {
+                const comentario = cambios.join(' | ')
+                await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo || orden.estado || null, comentario)
+              }
+              
               // Descontar stock si hay materiales asociados (solo si se actualizaron materiales)
               // Nota: En actualización no descontamos automáticamente, solo al crear
               return { success: true, data: fullOrden as OrdenTrabajo }

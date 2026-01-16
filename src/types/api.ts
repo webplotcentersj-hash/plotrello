@@ -681,9 +681,10 @@ export interface HistorialEtapaTallerGrafico {
 export interface HistorialMovimiento {
   id: number
   id_orden: number
-  estado_anterior: string
-  estado_nuevo: string
+  estado_anterior: string | null
+  estado_nuevo: string | null
   id_usuario: number
+  nombre_usuario?: string | null
   timestamp: string
   comentario?: string | null
 }

@@ -344,6 +344,18 @@ const TaskEditModal = ({
     }
     
     onSave(updated)
+    
+    // Recargar historial después de guardar para mostrar los cambios recientes
+    const ordenId = parseTaskIdToOrdenId(task.id)
+    if (ordenId) {
+      setTimeout(async () => {
+        const histResp = await apiService.getHistorialMovimientos({ ordenId, limit: 500 })
+        if (histResp.success && histResp.data) {
+          setFullHistory(histResp.data as HistorialMovimiento[])
+        }
+      }, 500) // Pequeño delay para asegurar que el cambio se haya guardado
+    }
+    
     onClose(task.id)
   }
 
@@ -1221,8 +1233,11 @@ const TaskEditModal = ({
             ) : taskHistory.length > 0 ? (
               <div className="history-list">
                 {taskHistory.map((entry) => {
-                  const usuario = teamMembers.find((m) => m.id === entry.id_usuario.toString())
-                  const nombreUsuario = usuario?.name || `Usuario ${entry.id_usuario}`
+                  // Usar nombre_usuario directamente del historial (ya viene de la BD)
+                  const nombreUsuario = (entry as any).nombre_usuario || 
+                    teamMembers.find((m) => m.id === entry.id_usuario.toString())?.name || 
+                    `Usuario ${entry.id_usuario}`
+                  
                   return (
                     <div key={entry.id} className="history-item">
                       <div className="history-header">
@@ -1248,7 +1263,7 @@ const TaskEditModal = ({
                           <span className="history-note">{entry.comentario || 'Movimiento registrado'}</span>
                         )}
                       </div>
-                      {entry.comentario && entry.estado_anterior !== entry.estado_nuevo && (
+                      {entry.comentario && (
                         <p className="history-comment">{entry.comentario}</p>
                       )}
                     </div>
