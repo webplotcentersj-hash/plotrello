@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import NotificationsDropdown from './NotificationsDropdown'
 import ClockWidget from './ClockWidget'
 import WeatherWidget from './WeatherWidget'
+import AdminAlertButton from './AdminAlertButton'
 import './Header.css'
 
 type HeaderProps = {
