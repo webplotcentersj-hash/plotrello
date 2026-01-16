@@ -48,9 +48,20 @@ BEGIN
     LIMIT 1;
   END IF;
   
-  -- Si no se encontró ID, usar 0
+  -- Si no se encontró ID, buscar un usuario por defecto o crear uno temporal
+  -- Usar el primer usuario disponible como fallback, o NULL si no hay ninguno
   IF usuario_actual_id IS NULL THEN
-    usuario_actual_id := 0;
+    SELECT id INTO usuario_actual_id
+    FROM public.usuarios
+    ORDER BY id
+    LIMIT 1;
+    
+    -- Si aún no hay usuario, no podemos insertar (la FK lo requiere)
+    -- En este caso, usar el nombre del sistema pero sin ID válido
+    IF usuario_actual_id IS NULL THEN
+      -- No registrar el historial si no hay usuarios en la BD
+      RETURN NEW;
+    END IF;
   END IF;
   
   -- Obtener valores anteriores y nuevos
@@ -95,8 +106,15 @@ BEGIN
       FROM public.usuarios
       WHERE nombre = usuario_actual_nombre
       LIMIT 1;
+      -- Si no se encuentra, usar el primero disponible
       IF usuario_actual_id IS NULL THEN
-        usuario_actual_id := 0;
+        SELECT id INTO usuario_actual_id
+        FROM public.usuarios
+        ORDER BY id
+        LIMIT 1;
+        IF usuario_actual_id IS NULL THEN
+          RETURN NEW;
+        END IF;
       END IF;
     END IF;
   END IF;
