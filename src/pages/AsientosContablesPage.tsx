@@ -23,7 +23,7 @@ export default function AsientosContablesPage() {
     setLoading(true)
     try {
       const response = await apiService.getAsientosContables({
-        estado: filtros.estado || undefined,
+        estado: filtros.estado ? (filtros.estado as 'Borrador' | 'Contabilizado' | 'Anulado') : undefined,
         fechaDesde: filtros.fechaDesde || undefined,
         fechaHasta: filtros.fechaHasta || undefined
       })

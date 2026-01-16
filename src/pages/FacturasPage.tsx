@@ -24,7 +24,7 @@ export default function FacturasPage() {
     setLoading(true)
     try {
       const response = await apiService.getFacturas({
-        estado: filtros.estado || undefined,
+        estado: filtros.estado ? (filtros.estado as 'Borrador' | 'Emitida' | 'Anulada' | 'Cancelada') : undefined,
         fechaDesde: filtros.fechaDesde || undefined,
         fechaHasta: filtros.fechaHasta || undefined,
         tipo_comprobante: filtros.tipoComprobante || undefined

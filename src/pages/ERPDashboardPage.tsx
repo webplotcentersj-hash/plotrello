@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
-import type { FacturaVentaRecord, AsientoContableRecord, CuentaPorCobrarRecord } from '../types/api'
+import type { FacturaVentaRecord, CuentaPorCobrarRecord } from '../types/api'
 import './ERPDashboardPage.css'
 
 export default function ERPDashboardPage() {

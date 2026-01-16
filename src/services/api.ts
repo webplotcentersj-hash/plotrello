@@ -11010,7 +11010,7 @@ class ApiService {
         if (error && error.code !== 'PGRST116') {
           return { success: false, error: error.message }
         }
-        return { success: true, data: data as import('../types/api').ConfiguracionAFIPRecord | null }
+        return { success: true, data: data ? (data as import('../types/api').ConfiguracionAFIPRecord) : undefined }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
