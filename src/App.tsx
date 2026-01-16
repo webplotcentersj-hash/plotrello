@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import type { TaskStatus } from './types/board'
 import BoardPage from './pages/BoardPage'
+import GlobalAlertScreen from './components/GlobalAlertScreen'
 // Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
@@ -475,6 +476,7 @@ function App() {
 
   return (
     <>
+      <GlobalAlertScreen />
       <EnvDebug />
       <BrowserRouter>
         <Routes>

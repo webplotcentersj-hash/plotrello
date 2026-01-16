@@ -215,6 +215,9 @@ const Header = ({
                 💰 Sistema ERP
               </button>
             )}
+            {isAdmin && (
+              <AdminAlertButton />
+            )}
             {(isDiseno || isAdmin) && (
               <a
                 href="/briefs-pendientes"
