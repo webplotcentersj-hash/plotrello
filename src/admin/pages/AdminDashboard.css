@@ -1,0 +1,310 @@
+/* Admin Dashboard - Mobile First Design */
+
+.admin-dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0b0d17 0%, #1a1d2e 100%);
+  color: #f9fbff;
+  padding-bottom: 80px; /* Espacio para botones flotantes si los hay */
+}
+
+/* Header */
+.admin-header {
+  background: rgba(235, 103, 27, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(235, 103, 27, 0.2);
+  padding: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.admin-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-header-left {
+  flex: 1;
+}
+
+.admin-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #f9fbff;
+  line-height: 1.2;
+}
+
+.admin-subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #b7bed3;
+}
+
+.admin-header-right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.admin-btn-primary {
+  background: #eb671b;
+  color: #fff;
+}
+
+.admin-btn-primary:hover {
+  background: #d45a17;
+  transform: translateY(-1px);
+}
+
+.admin-btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f9fbff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.admin-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.admin-btn-icon {
+  font-size: 18px;
+}
+
+.admin-btn-text {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .admin-btn-text {
+    display: inline;
+  }
+}
+
+.admin-user-info {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #b7bed3;
+}
+
+.admin-user-role {
+  background: rgba(235, 103, 27, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+/* Métricas */
+.admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+
+.admin-metric-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.admin-metric-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.admin-metric-card-urgent {
+  border-color: rgba(255, 77, 77, 0.3);
+  background: rgba(255, 77, 77, 0.1);
+}
+
+.admin-metric-card-warning {
+  border-color: rgba(255, 193, 7, 0.3);
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.admin-metric-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.admin-metric-content {
+  flex: 1;
+}
+
+.admin-metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f9fbff;
+  line-height: 1.2;
+}
+
+.admin-metric-label {
+  font-size: 12px;
+  color: #b7bed3;
+  margin-top: 4px;
+}
+
+/* PlotAI Container */
+.admin-plotai-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: #0e0f16;
+}
+
+/* Accesos Rápidos */
+.admin-quick-actions {
+  padding: 16px;
+}
+
+.admin-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: #f9fbff;
+}
+
+.admin-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.admin-quick-action-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  color: #f9fbff;
+  font-size: 14px;
+}
+
+.admin-quick-action-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.admin-quick-action-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.admin-quick-action-label {
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Información del Sistema */
+.admin-system-info {
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.admin-system-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.admin-system-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.admin-system-info-label {
+  color: #b7bed3;
+}
+
+.admin-system-info-value {
+  color: #f9fbff;
+  font-weight: 600;
+}
+
+/* Tablet */
+@media (min-width: 768px) {
+  .admin-header-content {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin-metrics {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .admin-quick-actions-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .admin-system-info-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .admin-system-info-item {
+    flex: 1;
+    min-width: 200px;
+  }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .admin-dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .admin-plotai-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 900px;
+    height: 80vh;
+    max-height: 800px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
