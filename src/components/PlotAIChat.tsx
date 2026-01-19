@@ -125,25 +125,74 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
   const speakText = (text: string) => {
     if (typeof window === 'undefined') return
-    if (!('speechSynthesis' in window)) return
+    if (!('speechSynthesis' in window)) {
+      console.warn('SpeechSynthesis no disponible en este navegador')
+      return
+    }
     if (!text.trim()) return
 
     try {
+      // Limpiar texto de markdown y código para mejor pronunciación
+      let cleanText = text
+        .replace(/```[\s\S]*?```/g, '') // Eliminar bloques de código
+        .replace(/`[^`]+`/g, '') // Eliminar código inline
+        .replace(/\*\*/g, '') // Eliminar negritas
+        .replace(/\*/g, '') // Eliminar cursivas
+        .replace(/#{1,6}\s/g, '') // Eliminar headers
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Convertir links a texto
+        .replace(/\n{2,}/g, '. ') // Reemplazar saltos de línea múltiples
+        .replace(/\n/g, '. ') // Reemplazar saltos de línea simples
+        .trim()
+
+      if (!cleanText) return
+
       window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
+      
+      const utterance = new SpeechSynthesisUtterance(cleanText)
       utterance.lang = 'es-AR'
-      utterance.rate = 1
-      utterance.pitch = 1
-      utterance.volume = 1
-      utterance.onstart = () => setIsSpeaking(true)
-      utterance.onend = () => setIsSpeaking(false)
-      utterance.onerror = () => setIsSpeaking(false)
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+      utterance.volume = 1.0
+      
+      utterance.onstart = () => {
+        setIsSpeaking(true)
+        console.log('🔊 Iniciando reproducción de voz')
+      }
+      
+      utterance.onend = () => {
+        setIsSpeaking(false)
+        console.log('🔇 Reproducción de voz finalizada')
+      }
+      
+      utterance.onerror = (event) => {
+        console.error('Error en TTS:', event)
+        setIsSpeaking(false)
+      }
+      
       window.speechSynthesis.speak(utterance)
     } catch (error) {
-      console.warn('No se pudo reproducir voz (TTS):', error)
+      console.error('Error al reproducir voz (TTS):', error)
       setIsSpeaking(false)
     }
   }
+
+  // Efecto: cuando se activa la voz, hablar el último mensaje del asistente
+  useEffect(() => {
+    if (isVoiceEnabled && messages.length > 0) {
+      // Buscar el último mensaje del asistente
+      const lastAssistantMessage = [...messages].reverse().find(msg => msg.role === 'assistant')
+      if (lastAssistantMessage && lastAssistantMessage.content) {
+        // Esperar un momento para que el estado se actualice
+        const timer = setTimeout(() => {
+          speakText(lastAssistantMessage.content)
+        }, 300)
+        return () => clearTimeout(timer)
+      }
+    } else if (!isVoiceEnabled) {
+      // Si se desactiva, detener la voz
+      stopSpeaking()
+    }
+  }, [isVoiceEnabled]) // Solo depende de isVoiceEnabled para evitar loops
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -810,6 +859,14 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
           )
           
           setMessages((prev) => [...prev, ...imageMessages])
+          
+          // Voz de salida (TTS) opcional
+          if (isVoiceEnabled && imageMessages[0]?.content) {
+            setTimeout(() => {
+              speakText(imageMessages[0].content)
+            }, 100)
+          }
+          
           setIsLoading(false)
           return
         } else {
@@ -822,6 +879,14 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
             timestamp: new Date()
           }
           setMessages((prev) => [...prev, assistantMessage])
+          
+          // Voz de salida (TTS) opcional
+          if (isVoiceEnabled) {
+            setTimeout(() => {
+              speakText(assistantMessage.content)
+            }, 100)
+          }
+          
           setIsLoading(false)
           return
         }
@@ -849,6 +914,14 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
             }
           }
           setMessages((prev) => [...prev, assistantMessage])
+          
+          // Voz de salida (TTS) opcional
+          if (isVoiceEnabled) {
+            setTimeout(() => {
+              speakText(assistantMessage.content)
+            }, 100)
+          }
+          
           setIsLoading(false)
           return
         } else {
@@ -861,6 +934,14 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
             timestamp: new Date()
           }
           setMessages((prev) => [...prev, assistantMessage])
+          
+          // Voz de salida (TTS) opcional
+          if (isVoiceEnabled) {
+            setTimeout(() => {
+              speakText(assistantMessage.content)
+            }, 100)
+          }
+          
           setIsLoading(false)
           return
         }
@@ -908,9 +989,12 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
       setMessages((prev) => [...prev, assistantMessage])
 
-      // Voz de salida (TTS) opcional
+      // Voz de salida (TTS) opcional - hablar después de agregar el mensaje
       if (isVoiceEnabled) {
-        speakText(response.replace(/```[\s\S]*?```/g, '').replace(/\*\*/g, ''))
+        // Pequeño delay para asegurar que el mensaje se agregó
+        setTimeout(() => {
+          speakText(response)
+        }, 100)
       }
     } catch (error) {
       console.error('Error en PlotAI:', error)
