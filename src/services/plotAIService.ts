@@ -503,53 +503,103 @@ INSTRUCCIONES AGÉNTICAS:
         let base64Data = ''
         let mimeType = att.type || 'image/jpeg'
         
-        if (att.content.startsWith('[IMAGEN_BASE64:')) {
-          const match = att.content.match(/\[IMAGEN_BASE64:(.+?):/)
-          if (match && match[1]) {
-            base64Data = match[1]
-            console.log('📦 Base64 extraído, tamaño:', `${(base64Data.length * 3 / 4 / 1024).toFixed(2)}KB`)
-            if (base64Data.includes('data:')) {
-              const dataMatch = base64Data.match(/data:([^;]+);base64,(.+)/)
-              if (dataMatch) {
-                mimeType = dataMatch[1]
-                base64Data = dataMatch[2]
-                console.log('✅ MIME type extraído:', mimeType)
+        try {
+          if (att.content.startsWith('[IMAGEN_BASE64:')) {
+            // Extraer el data URL completo del formato [IMAGEN_BASE64:data:image/...;base64,xxx:filename]
+            // Buscar desde el inicio hasta el último : antes del nombre del archivo
+            const startIdx = '[IMAGEN_BASE64:'.length
+            const lastColonIdx = att.content.lastIndexOf(':')
+            
+            if (lastColonIdx > startIdx) {
+              const dataUrlPart = att.content.substring(startIdx, lastColonIdx)
+              console.log('📦 Data URL extraído, longitud:', dataUrlPart.length)
+              
+              // Extraer MIME type y base64 del data URL
+              if (dataUrlPart.startsWith('data:')) {
+                const dataMatch = dataUrlPart.match(/data:([^;]+);base64,(.+)/s)
+                if (dataMatch && dataMatch[1] && dataMatch[2]) {
+                  mimeType = dataMatch[1]
+                  base64Data = dataMatch[2]
+                  console.log('✅ MIME type extraído:', mimeType, 'Base64 length:', base64Data.length)
+                } else {
+                  console.warn('⚠️ No se pudo parsear el data URL correctamente')
+                  continue
+                }
+              } else {
+                // Si no tiene el prefijo data:, asumir que es solo base64
+                base64Data = dataUrlPart
+                console.log('⚠️ Data URL sin prefijo, usando como base64 directo')
               }
+            } else {
+              console.warn('⚠️ Formato [IMAGEN_BASE64:...] inválido, no se encontró separador')
+              continue
+            }
+          } else if (att.content.startsWith('data:')) {
+            // Formato directo data URL
+            const dataMatch = att.content.match(/data:([^;]+);base64,(.+)/s)
+            if (dataMatch && dataMatch[1] && dataMatch[2]) {
+              mimeType = dataMatch[1]
+              base64Data = dataMatch[2]
+              console.log('✅ Base64 extraído de data URL directo, MIME:', mimeType)
+            } else {
+              console.warn('⚠️ Data URL mal formateado')
+              continue
             }
           } else {
-            console.warn('⚠️ No se pudo extraer base64 del formato [IMAGEN_BASE64:...]')
+            // Intentar usar como base64 directo
+            base64Data = att.content
+            console.log('⚠️ Usando contenido directo como base64')
           }
-        } else if (att.content.startsWith('data:')) {
-          const dataMatch = att.content.match(/data:([^;]+);base64,(.+)/)
-          if (dataMatch) {
-            mimeType = dataMatch[1]
-            base64Data = dataMatch[2]
-            console.log('✅ Base64 extraído de data URL, MIME:', mimeType)
+          
+          // Validar que el base64 no esté vacío
+          if (!base64Data || base64Data.trim().length === 0) {
+            console.error('❌ Base64 vacío para:', att.name)
+            continue
           }
-        } else {
-          base64Data = att.content
-          console.log('⚠️ Usando contenido directo como base64')
-        }
-        
-        // Validar que el base64 no esté vacío y tenga un tamaño razonable
-        if (base64Data && base64Data.length > 0) {
-          // Verificar tamaño (máximo ~20MB en base64)
+          
+          // Validar formato base64 (debe contener solo caracteres válidos)
+          const base64Regex = /^[A-Za-z0-9+/=]+$/
+          if (!base64Regex.test(base64Data)) {
+            console.error('❌ Base64 inválido (contiene caracteres no válidos) para:', att.name)
+            continue
+          }
+          
+          // Verificar tamaño (máximo ~20MB en base64, pero Gemini recomienda máximo 4MB)
           const base64Size = (base64Data.length * 3) / 4
           console.log('📏 Tamaño base64:', `${(base64Size / 1024 / 1024).toFixed(2)}MB`)
+          
+          if (base64Size > 4 * 1024 * 1024) {
+            console.warn(`⚠️ Imagen ${att.name || 'sin nombre'} es grande (${(base64Size / 1024 / 1024).toFixed(2)}MB). Gemini recomienda máximo 4MB. Intentando enviar de todas formas...`)
+          }
+          
           if (base64Size > 20 * 1024 * 1024) {
             console.warn(`❌ Imagen ${att.name || 'sin nombre'} es demasiado grande (${(base64Size / 1024 / 1024).toFixed(2)}MB), omitiendo...`)
             continue
           }
           
-          console.log('✅ Agregando imagen a parts:', att.name, mimeType)
+          // Validar MIME type
+          if (!mimeType || !mimeType.startsWith('image/')) {
+            console.warn(`⚠️ MIME type inválido "${mimeType}", usando image/jpeg por defecto`)
+            mimeType = 'image/jpeg'
+          }
+          
+          // Asegurar que el MIME type sea uno de los soportados por Gemini
+          const supportedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+          if (!supportedMimeTypes.includes(mimeType)) {
+            console.warn(`⚠️ MIME type "${mimeType}" puede no ser soportado, convirtiendo a JPEG`)
+            mimeType = 'image/jpeg'
+          }
+          
+          console.log('✅ Agregando imagen a parts:', att.name, mimeType, `(${(base64Size / 1024).toFixed(2)}KB)`)
           parts.push({
             inlineData: {
               mimeType,
               data: base64Data
             }
           })
-        } else {
-          console.error('❌ Base64 vacío o inválido para:', att.name)
+        } catch (error) {
+          console.error(`❌ Error procesando imagen ${att.name}:`, error)
+          continue
         }
       }
       
@@ -592,14 +642,58 @@ INSTRUCCIONES AGÉNTICAS:
         }
         
         // Si hay error con imágenes, intentar solo con texto
-        if (error?.error?.code === 400 && error?.error?.message?.includes('image')) {
-          console.warn('Error procesando imagen, intentando solo con texto...', error)
-          const textOnlyPrompt = prompt + (hasPDFsForText ? '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas o en formato JPG/PNG.' : '')
-          const response = await ai.models.generateContent({
-            model: model || 'gemini-2.5-flash',
-            contents: textOnlyPrompt
-          })
-          responseText = response.text || ''
+        if (error?.error?.code === 400 && (error?.error?.message?.includes('image') || error?.error?.message?.includes('Unable to process input image'))) {
+          console.warn('⚠️ Error procesando imagen con Gemini, intentando solo con texto...', error)
+          
+          // Intentar procesar solo la primera imagen con mejor validación
+          if (imageAttachmentsForVision.length > 0 && parts.length > 1) {
+            // Si hay múltiples imágenes, intentar solo con la primera
+            const firstImagePart = parts.find(p => p.inlineData)
+            if (firstImagePart && firstImagePart.inlineData) {
+              console.log('🔄 Intentando con solo la primera imagen...')
+              try {
+                const singleImageContents = [{
+                  role: 'user' as const,
+                  parts: [
+                    { text: textPrompt },
+                    { inlineData: firstImagePart.inlineData }
+                  ]
+                }]
+                
+                const retryResponse = await ai.models.generateContent({
+                  model: visionModel,
+                  contents: singleImageContents
+                })
+                
+                responseText = retryResponse.text || ''
+                console.log('✅ Respuesta recibida con imagen única')
+              } catch (retryError) {
+                console.warn('⚠️ También falló con imagen única, usando solo texto...')
+                const textOnlyPrompt = prompt + '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas (máximo 4MB), en formato JPG o PNG, o convierte las imágenes a un formato más compatible.'
+                const response = await ai.models.generateContent({
+                  model: model || 'gemini-2.5-flash',
+                  contents: textOnlyPrompt
+                })
+                responseText = response.text || ''
+              }
+            } else {
+              // Sin imágenes válidas, usar solo texto
+              const textOnlyPrompt = prompt + '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas (máximo 4MB), en formato JPG o PNG.'
+              const response = await ai.models.generateContent({
+                model: model || 'gemini-2.5-flash',
+                contents: textOnlyPrompt
+              })
+              responseText = response.text || ''
+            }
+          } else {
+            // Sin imágenes válidas, usar solo texto
+            const textOnlyPrompt = prompt + '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas (máximo 4MB), en formato JPG o PNG.'
+            const response = await ai.models.generateContent({
+              model: model || 'gemini-2.5-flash',
+              contents: textOnlyPrompt
+            })
+            responseText = response.text || ''
+          }
         } else {
           throw error
         }

@@ -278,63 +278,114 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   }
 
   // Función para optimizar imagen si es muy grande
+  // Gemini recomienda máximo 4MB para imágenes, pero acepta hasta 20MB
   const optimizeImage = (file: File, maxSize: number = 4 * 1024 * 1024): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = (e) => {
         const img = new Image()
         img.onload = () => {
-          const canvas = document.createElement('canvas')
-          let width = img.width
-          let height = img.height
-          
-          // Calcular el tamaño base64 aproximado (base64 es ~33% más grande que el binario)
-          const estimatedSize = (width * height * 4) * 1.33
-          
-          // Si es muy grande, redimensionar
-          if (estimatedSize > maxSize) {
-            const ratio = Math.sqrt(maxSize / estimatedSize)
-            width = Math.floor(width * ratio)
-            height = Math.floor(height * ratio)
-          }
-          
-          canvas.width = width
-          canvas.height = height
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            reject(new Error('No se pudo crear el contexto del canvas'))
-            return
-          }
-          
-          ctx.drawImage(img, 0, 0, width, height)
-          
-          // Convertir a JPEG con calidad 0.85 para reducir tamaño
-          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
-          const quality = mimeType === 'image/png' ? 1.0 : 0.85
-          const dataUrl = canvas.toDataURL(mimeType, quality)
-          
-          // Verificar tamaño final
-          const base64Size = (dataUrl.length * 3) / 4
-          if (base64Size > maxSize * 1.5) {
-            // Si aún es muy grande, reducir más
-            const newMaxSize = maxSize * 0.7
-            optimizeImage(file, newMaxSize).then(resolve).catch(reject)
-          } else {
-            resolve(dataUrl)
+          try {
+            const canvas = document.createElement('canvas')
+            let width = img.width
+            let height = img.height
+            const originalAspectRatio = width / height
+            
+            // Calcular el tamaño base64 aproximado (base64 es ~33% más grande que el binario)
+            // Estimación: width * height * 4 bytes (RGBA) * 1.33 (overhead base64)
+            const estimatedSize = (width * height * 4) * 1.33
+            
+            // Si es muy grande, redimensionar manteniendo aspect ratio
+            if (estimatedSize > maxSize) {
+              const ratio = Math.sqrt(maxSize / estimatedSize)
+              width = Math.floor(width * ratio)
+              height = Math.floor(height * ratio)
+              console.log(`📐 Redimensionando imagen de ${img.width}x${img.height} a ${width}x${height}`)
+            }
+            
+            // Limitar dimensiones máximas (Gemini tiene límites)
+            const maxDimension = 4096 // Gemini soporta hasta 4096x4096
+            if (width > maxDimension || height > maxDimension) {
+              if (width > height) {
+                height = Math.floor((height * maxDimension) / width)
+                width = maxDimension
+              } else {
+                width = Math.floor((width * maxDimension) / height)
+                height = maxDimension
+              }
+              console.log(`📐 Limitando dimensiones a ${width}x${height}`)
+            }
+            
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            if (!ctx) {
+              reject(new Error('No se pudo crear el contexto del canvas'))
+              return
+            }
+            
+            // Configurar calidad de renderizado
+            ctx.imageSmoothingEnabled = true
+            ctx.imageSmoothingQuality = 'high'
+            
+            // Dibujar imagen redimensionada
+            ctx.drawImage(img, 0, 0, width, height)
+            
+            // Convertir a JPEG siempre para mejor compatibilidad con Gemini
+            // JPEG es más eficiente y tiene mejor soporte
+            const mimeType = 'image/jpeg'
+            const quality = 0.85 // Calidad balanceada entre tamaño y calidad
+            
+            const dataUrl = canvas.toDataURL(mimeType, quality)
+            
+            // Verificar tamaño final
+            const base64Size = (dataUrl.length * 3) / 4
+            console.log(`✅ Imagen optimizada: ${(base64Size / 1024).toFixed(2)}KB (${width}x${height})`)
+            
+            if (base64Size > maxSize * 1.5) {
+              // Si aún es muy grande, reducir calidad y tamaño
+              console.log('⚠️ Imagen aún grande, reduciendo más...')
+              const newMaxSize = maxSize * 0.7
+              const lowerQuality = 0.7
+              const lowerQualityDataUrl = canvas.toDataURL(mimeType, lowerQuality)
+              const lowerQualitySize = (lowerQualityDataUrl.length * 3) / 4
+              
+              if (lowerQualitySize > maxSize * 1.2) {
+                // Si aún es grande, reducir dimensiones más
+                optimizeImage(file, newMaxSize).then(resolve).catch(reject)
+              } else {
+                resolve(lowerQualityDataUrl)
+              }
+            } else {
+              resolve(dataUrl)
+            }
+          } catch (error) {
+            console.error('❌ Error en optimización de imagen:', error)
+            reject(error)
           }
         }
-        img.onerror = () => {
+        img.onerror = (error) => {
+          console.warn('⚠️ Error cargando imagen para optimización, intentando sin optimizar:', error)
           // Si falla la optimización, intentar con el original
           const originalReader = new FileReader()
           originalReader.onload = (e) => {
-            resolve(e.target?.result as string)
+            const originalDataUrl = e.target?.result as string
+            if (originalDataUrl) {
+              resolve(originalDataUrl)
+            } else {
+              reject(new Error('No se pudo leer el archivo original'))
+            }
           }
-          originalReader.onerror = reject
+          originalReader.onerror = () => {
+            reject(new Error('Error al leer el archivo original'))
+          }
           originalReader.readAsDataURL(file)
         }
         img.src = e.target?.result as string
       }
-      reader.onerror = reject
+      reader.onerror = () => {
+        reject(new Error('Error al leer el archivo'))
+      }
       reader.readAsDataURL(file)
     })
   }
@@ -596,6 +647,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
           errorContent = `📦 **Error de tamaño de archivo**\n\n${error.message}\n\n💡 **Sugerencias:**\n- Reduce el tamaño del archivo\n- Para imágenes: comprime o redimensiona la imagen\n- Para PDFs: convierte las páginas a imágenes individuales\n- Tamaños máximos:\n  - Imágenes: 20MB\n  - PDFs: 10MB\n  - Texto: 5MB\n  - Otros: 50MB`
         } else if (error.message.includes('Error al procesar') || error.message.includes('Error al leer')) {
           errorContent = `❌ **Error procesando archivo**\n\n${error.message}\n\n💡 **Sugerencias:**\n- Verifica que el archivo no esté corrupto\n- Intenta con otro archivo\n- Para PDFs: convierte las páginas a imágenes (JPG o PNG)`
+        } else if (error.message.includes('Unable to process input image') || error.message.includes('INVALID_ARGUMENT')) {
+          errorContent = `🖼️ **Error procesando imagen**\n\nNo se pudo procesar la imagen con la IA. Esto puede deberse a:\n\n💡 **Soluciones:**\n- **Tamaño**: Asegúrate de que la imagen sea menor a 4MB\n- **Formato**: Usa formato JPG o PNG (evita formatos exóticos)\n- **Calidad**: La imagen puede estar corrupta o en un formato no soportado\n- **Dimensiones**: Imágenes muy grandes (>4096px) pueden causar problemas\n\n**Recomendación**: Intenta comprimir o redimensionar la imagen antes de subirla.`
         } else {
           errorContent = `❌ **Error**\n\n${error.message}\n\nSi el problema persiste, intenta con un archivo diferente o contacta al administrador.`
         }
