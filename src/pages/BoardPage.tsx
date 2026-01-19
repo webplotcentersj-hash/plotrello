@@ -490,28 +490,45 @@ const BoardPage = ({
 
   const handleMarkDelivered = async (taskId: string, delivered: boolean) => {
     const ordenId = parseTaskIdToOrdenId(taskId)
-    if (!ordenId) return
+    if (!ordenId) {
+      console.error('❌ No se pudo obtener ordenId de taskId:', taskId)
+      setActionError('Error: No se pudo identificar la orden')
+      throw new Error('No se pudo obtener ordenId')
+    }
 
-    const response = await apiService.marcarEntregado(ordenId, delivered)
-    if (response.success) {
-      // Actualizar el estado local: entregado y estado
-      // Cuando se marca como entregado, el estado en BD cambia a "Entregado o Instalado"
-      // El filtro filteredTasks excluye automáticamente las fichas con entregado=true
-      setTasks((prev) =>
-        prev.map((task) =>
-          task.id === taskId 
-            ? { 
-                ...task, 
-                entregado: delivered,
-                // Si se desmarca, restaurar el estado a almacen-entrega
-                status: delivered ? task.status : 'almacen-entrega'
-              } 
-            : task
+    console.log(`📦 Marcando orden ${ordenId} como entregado: ${delivered}`)
+
+    try {
+      const response = await apiService.marcarEntregado(ordenId, delivered)
+      
+      if (response.success) {
+        console.log(`✅ Orden ${ordenId} marcada como entregado: ${delivered}`)
+        
+        // Actualizar el estado local: entregado y estado
+        // Cuando se marca como entregado, el estado en BD cambia a "Entregado o Instalado"
+        // El filtro filteredTasks excluye automáticamente las fichas con entregado=true
+        setTasks((prev) =>
+          prev.map((task) =>
+            task.id === taskId 
+              ? { 
+                  ...task, 
+                  entregado: delivered,
+                  // Si se desmarca, restaurar el estado a almacen-entrega
+                  status: delivered ? task.status : 'almacen-entrega'
+                } 
+              : task
+          )
         )
-      )
-      setActionSuccess(delivered ? 'Ficha marcada como entregada y archivada' : 'Ficha desarchivada')
-    } else {
-      setActionError(response.error || 'No se pudo marcar como entregado')
+        setActionSuccess(delivered ? 'Ficha marcada como entregada y archivada' : 'Ficha desarchivada')
+      } else {
+        console.error('❌ Error marcando como entregado:', response.error)
+        setActionError(response.error || 'No se pudo marcar como entregado')
+        throw new Error(response.error || 'No se pudo marcar como entregado')
+      }
+    } catch (error) {
+      console.error('❌ Excepción al marcar como entregado:', error)
+      setActionError(error instanceof Error ? error.message : 'Error desconocido al marcar como entregado')
+      throw error
     }
   }
 

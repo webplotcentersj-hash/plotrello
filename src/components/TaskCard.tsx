@@ -100,6 +100,7 @@ const TaskCard = ({
   const [showEtapasInstalacionesModal, setShowEtapasInstalacionesModal] = useState(false)
   const [showEtapasTallerImprentaModal, setShowEtapasTallerImprentaModal] = useState(false)
   const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
+  const [marcandoEntregado, setMarcandoEntregado] = useState(false)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
@@ -559,16 +560,33 @@ const TaskCard = ({
             {/* Checkbox Entregado cuando está en Almacén de Entrega */}
             {task.status === 'almacen-entrega' && onMarkDelivered && (
               <div className="task-delivered-checkbox">
-                <label className="delivered-label">
+                <label className="delivered-label" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={task.entregado ?? false}
+                    disabled={marcandoEntregado}
                     onChange={async (e) => {
                       e.stopPropagation()
-                      await onMarkDelivered(task.id, e.target.checked)
+                      
+                      if (marcandoEntregado) {
+                        e.preventDefault()
+                        return
+                      }
+                      
+                      const nuevoValor = e.target.checked
+                      setMarcandoEntregado(true)
+                      
+                      try {
+                        await onMarkDelivered(task.id, nuevoValor)
+                      } catch (error) {
+                        console.error('Error marcando como entregado:', error)
+                        // El estado se revertirá automáticamente si falla la actualización
+                      } finally {
+                        setMarcandoEntregado(false)
+                      }
                     }}
                   />
-                  <span>✓ Entregado (Archivar)</span>
+                  <span>{marcandoEntregado ? '⏳ Guardando...' : '✓ Entregado (Archivar)'}</span>
                 </label>
               </div>
             )}
