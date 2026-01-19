@@ -168,7 +168,7 @@
   margin-top: 4px;
 }
 
-/* PlotAI Container */
+/* PlotAI Container - Mobile First */
 .admin-plotai-container {
   position: fixed;
   top: 0;
@@ -177,6 +177,187 @@
   bottom: 0;
   z-index: 1000;
   background: #0e0f16;
+}
+
+/* Override PlotAI styles for mobile in Admin context */
+.admin-plotai-container .plotai-overlay {
+  padding: 0;
+  background: #0e0f16;
+}
+
+.admin-plotai-container .plotai-chat {
+  max-width: 100%;
+  width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+}
+
+/* Hide side panel on mobile */
+.admin-plotai-container .plotai-side-panel {
+  display: none;
+}
+
+/* Compact header for mobile */
+.admin-plotai-container .plotai-header {
+  padding: 12px 16px;
+  min-height: 60px;
+}
+
+.admin-plotai-container .plotai-header h2 {
+  font-size: 1.2rem;
+}
+
+.admin-plotai-container .plotai-header p {
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.admin-plotai-container .plotai-close {
+  width: 44px;
+  height: 44px;
+  font-size: 1.8rem;
+  /* Touch-friendly size */
+}
+
+/* Messages area - better spacing on mobile */
+.admin-plotai-container .plotai-messages {
+  padding: 16px;
+  gap: 12px;
+}
+
+.admin-plotai-container .message-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 1.3rem;
+}
+
+.admin-plotai-container .message-content {
+  max-width: 85%;
+}
+
+.admin-plotai-container .message-text {
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Input area - mobile optimized */
+.admin-plotai-container .plotai-input-area {
+  padding: 12px 16px;
+  gap: 8px;
+}
+
+.admin-plotai-container .plotai-input {
+  font-size: 16px; /* Prevents zoom on iOS */
+  padding: 12px 16px;
+  min-height: 48px; /* Touch-friendly */
+}
+
+.admin-plotai-container .plotai-input-actions {
+  gap: 8px;
+}
+
+/* Buttons - larger and touch-friendly */
+.admin-plotai-container .plotai-send,
+.admin-plotai-container .plotai-attach,
+.admin-plotai-container .mic-button,
+.admin-plotai-container .voice-button,
+.admin-plotai-container .voice-stop-button,
+.admin-plotai-container .live-call-button {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  font-size: 1.4rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* Generated media - better sizing on mobile */
+.admin-plotai-container .generated-image,
+.admin-plotai-container .generated-video {
+  max-width: 100%;
+  max-height: 300px;
+}
+
+/* Intel panel - hide on mobile or make it collapsible */
+.admin-plotai-container .plotai-intel-panel {
+  display: none; /* Hide on mobile for cleaner UI */
+}
+
+/* Quick OP form - mobile optimized */
+.admin-plotai-container .quick-op-form {
+  padding: 16px;
+  gap: 12px;
+}
+
+.admin-plotai-container .quick-op-field {
+  gap: 6px;
+}
+
+.admin-plotai-container .quick-op-field input,
+.admin-plotai-container .quick-op-field textarea,
+.admin-plotai-container .quick-op-field select {
+  font-size: 16px; /* Prevents zoom on iOS */
+  padding: 12px;
+  min-height: 44px;
+}
+
+.admin-plotai-container .quick-op-actions button {
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  min-height: 44px;
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) {
+  .admin-plotai-container .plotai-chat {
+    border-radius: 16px;
+    max-width: 90%;
+    max-height: 90vh;
+    height: 90vh;
+    margin: auto;
+  }
+
+  .admin-plotai-container .plotai-header {
+    padding: 16px 20px;
+  }
+
+  .admin-plotai-container .plotai-messages {
+    padding: 24px;
+  }
+
+  .admin-plotai-container .message-content {
+    max-width: 75%;
+  }
+
+  .admin-plotai-container .generated-image,
+  .admin-plotai-container .generated-video {
+    max-height: 400px;
+  }
+}
+
+/* Desktop - show side panel */
+@media (min-width: 1024px) {
+  .admin-plotai-container .plotai-side-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-plotai-container .plotai-intel-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-plotai-container .plotai-chat {
+    max-width: 1400px;
+    max-height: 900px;
+    height: 90vh;
+  }
 }
 
 /* Accesos Rápidos */
@@ -295,16 +476,17 @@
 
   .admin-plotai-container {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 900px;
-    height: 80vh;
-    max-height: 800px;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+  }
+
+  .admin-plotai-container .plotai-overlay {
+    padding: 20px;
   }
 }
 
