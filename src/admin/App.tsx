@@ -57,7 +57,7 @@ function AdminApp() {
       }
 
       // Cargar órdenes de trabajo
-      const ordenesResponse = await apiService.getOrdenesTrabajo()
+      const ordenesResponse = await apiService.getOrdenes()
       if (ordenesResponse.success && ordenesResponse.data) {
         const mappedTasks = ordenesResponse.data.map(ordenToTask)
         setTasks(mappedTasks)
