@@ -43,14 +43,19 @@ export class PlotAILiveVoice {
       const config = {
         responseModalities: [Modality.AUDIO],
         systemInstruction: 'Eres PlotAI, un asistente inteligente y conversacional. Responde de forma natural y amigable, como en una conversación telefónica.',
+        // Configuraciones adicionales para mejor calidad
+        generationConfig: {
+          temperature: 0.8,
+        },
       }
 
+      console.log('🔌 Conectando a Gemini Live API...')
       this.session = await this.ai.live.connect({
         model,
         config,
         callbacks: {
           onopen: () => {
-            console.log('🔊 Conectado a Gemini Live API')
+            console.log('✅ Conectado a Gemini Live API exitosamente')
             this.callbacks.onOpen?.()
           },
           onmessage: (message: any) => {
@@ -58,7 +63,7 @@ export class PlotAILiveVoice {
             this.callbacks.onMessage?.(message)
           },
           onerror: (error: any) => {
-            console.error('Error en Live API:', error)
+            console.error('❌ Error en Live API:', error)
             const err = error instanceof Error ? error : new Error(String(error))
             this.callbacks.onError?.(err)
           },
@@ -68,6 +73,8 @@ export class PlotAILiveVoice {
           },
         },
       })
+      
+      console.log('📡 Sesión Live creada:', this.session)
 
       // Iniciar captura de micrófono
       await this.startMicrophone()
@@ -88,47 +95,102 @@ export class PlotAILiveVoice {
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         },
       })
 
       const audioContext = new AudioContext({ sampleRate: 16000 })
       const source = audioContext.createMediaStreamSource(this.mediaStream)
-      const processor = audioContext.createScriptProcessor(4096, 1, 1)
+      
+      // Usar AudioWorklet si está disponible, sino ScriptProcessor como fallback
+      let processor: ScriptProcessorNode | AudioWorkletNode | null = null
 
-      processor.onaudioprocess = (event) => {
-        const inputData = event.inputBuffer.getChannelData(0)
-        
-        // Convertir Float32Array a PCM 16-bit
-        const pcmData = new Int16Array(inputData.length)
-        for (let i = 0; i < inputData.length; i++) {
-          const s = Math.max(-1, Math.min(1, inputData[i]))
-          pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+      try {
+        // Intentar usar AudioWorklet (más moderno y eficiente)
+        await audioContext.audioWorklet.addModule(
+          URL.createObjectURL(new Blob([`
+            class AudioProcessor extends AudioWorkletProcessor {
+              process(inputs, outputs) {
+                const input = inputs[0]
+                if (input.length > 0) {
+                  const inputData = input[0]
+                  const pcmData = new Int16Array(inputData.length)
+                  
+                  for (let i = 0; i < inputData.length; i++) {
+                    const s = Math.max(-1, Math.min(1, inputData[i]))
+                    pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+                  }
+                  
+                  this.port.postMessage({ audioData: pcmData.buffer })
+                }
+                return true
+              }
+            }
+            registerProcessor('audio-processor', AudioProcessor)
+          `], { type: 'application/javascript' }))
+        )
+
+        processor = new AudioWorkletNode(audioContext, 'audio-processor')
+        processor.port.onmessage = (event) => {
+          const audioData = event.data.audioData
+          this.sendAudioChunk(audioData)
         }
-
-        // Convertir a base64 y enviar a Gemini Live
-        const base64Audio = this.arrayBufferToBase64(pcmData.buffer)
+      } catch (workletError) {
+        console.warn('AudioWorklet no disponible, usando ScriptProcessor:', workletError)
+        // Fallback a ScriptProcessor
+        processor = audioContext.createScriptProcessor(4096, 1, 1)
         
-        if (this.session) {
-          this.session.sendRealtimeInput({
-            audio: {
-              data: base64Audio,
-              mimeType: 'audio/pcm;rate=16000',
-            },
-          })
+        processor.onaudioprocess = (event) => {
+          const inputData = event.inputBuffer.getChannelData(0)
+          
+          // Convertir Float32Array a PCM 16-bit little-endian
+          const pcmData = new Int16Array(inputData.length)
+          for (let i = 0; i < inputData.length; i++) {
+            const s = Math.max(-1, Math.min(1, inputData[i]))
+            pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+          }
+
+          this.sendAudioChunk(pcmData.buffer)
         }
       }
 
-      source.connect(processor)
-      processor.connect(audioContext.destination)
+      source.connect(processor as AudioNode)
+      if (processor instanceof ScriptProcessorNode) {
+        processor.connect(audioContext.destination)
+      }
 
-      console.log('🎙️ Micrófono iniciado')
+      console.log('🎙️ Micrófono iniciado correctamente')
     } catch (error) {
       console.error('Error iniciando micrófono:', error)
       throw error
     }
   }
 
+  private sendAudioChunk(audioBuffer: ArrayBuffer): void {
+    if (!this.session) {
+      console.warn('Session no disponible, no se puede enviar audio')
+      return
+    }
+
+    try {
+      // Convertir a base64
+      const base64Audio = this.arrayBufferToBase64(audioBuffer)
+      
+      // Enviar a Gemini Live API
+      this.session.sendRealtimeInput({
+        audio: {
+          data: base64Audio,
+          mimeType: 'audio/pcm;rate=16000;channels=1',
+        },
+      })
+    } catch (error) {
+      console.error('Error enviando chunk de audio:', error)
+    }
+  }
+
   private handleMessage(message: any): void {
+    console.log('📨 Mensaje recibido de Gemini:', message)
+    
     // Procesar mensajes de audio de Gemini
     if (message.serverContent?.modelTurn?.parts) {
       for (const part of message.serverContent.modelTurn.parts) {
@@ -136,8 +198,18 @@ export class PlotAILiveVoice {
           // Audio recibido de Gemini
           const audioData = this.base64ToArrayBuffer(part.inlineData.data)
           this.audioQueue.push(audioData)
+          console.log('🔊 Audio recibido, tamaño:', audioData.byteLength)
+        }
+        if (part.text) {
+          console.log('💬 Texto recibido:', part.text)
         }
       }
+    }
+    
+    // Manejar interrupciones
+    if (message.serverContent?.interrupted) {
+      console.log('⚠️ Mensaje interrumpido')
+      this.audioQueue = [] // Limpiar cola si hay interrupción
     }
   }
 
@@ -148,7 +220,21 @@ export class PlotAILiveVoice {
         const audioData = this.audioQueue.shift()!
 
         try {
-          const audioBuffer = await this.audioContext.decodeAudioData(audioData)
+          // El audio de Gemini viene como PCM raw, necesitamos convertirlo a AudioBuffer
+          // Gemini envía audio PCM 24kHz, mono, 16-bit
+          const sampleRate = 24000
+          const numChannels = 1
+          const length = audioData.byteLength / 2 // 16-bit = 2 bytes por muestra
+          
+          const audioBuffer = this.audioContext.createBuffer(numChannels, length, sampleRate)
+          const pcmData = new Int16Array(audioData)
+          const channelData = audioBuffer.getChannelData(0)
+          
+          // Convertir PCM 16-bit a Float32 (-1 a 1)
+          for (let i = 0; i < length; i++) {
+            channelData[i] = pcmData[i] / 32768.0
+          }
+
           const source = this.audioContext.createBufferSource()
           source.buffer = audioBuffer
           source.connect(this.audioContext.destination)
@@ -158,7 +244,14 @@ export class PlotAILiveVoice {
             playNextChunk()
           }
 
+          source.addEventListener('error', (error) => {
+            console.error('Error en source de audio:', error)
+            this.isPlaying = false
+            playNextChunk()
+          })
+
           source.start(0)
+          console.log('🔊 Reproduciendo audio, duración:', audioBuffer.duration.toFixed(2), 's')
         } catch (error) {
           console.error('Error reproduciendo audio:', error)
           this.isPlaying = false
