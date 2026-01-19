@@ -65,6 +65,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [filePreviews, setFilePreviews] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
@@ -147,6 +148,29 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       ownerId: prev.ownerId || teamMembers[0].id
     }))
   }, [teamMembers])
+
+  // Generar vistas previas para archivos subidos (especialmente imágenes)
+  useEffect(() => {
+    // Limpiar URLs anteriores
+    setFilePreviews((prev) => {
+      prev.forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+      })
+      return []
+    })
+
+    const newPreviews = uploadedFiles.map((file) =>
+      file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
+    )
+
+    setFilePreviews(newPreviews)
+
+    return () => {
+      newPreviews.forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+      })
+    }
+  }, [uploadedFiles])
 
   const toggleRecording = () => {
     const recognition = recognitionRef.current
@@ -819,11 +843,46 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
                     <div className="message-text">{message.content}</div>
                     {message.attachments && message.attachments.length > 0 && (
                       <div className="message-attachments">
-                        {message.attachments.map((att, idx) => (
-                          <div key={idx} className="attachment-item">
-                            📎 {att.name}
-                          </div>
-                        ))}
+                        {message.attachments.map((att, idx) => {
+                          const isImage =
+                            att.type.startsWith('image/') ||
+                            att.content.startsWith('[IMAGEN_BASE64:') ||
+                            att.content.startsWith('data:')
+
+                          let imageSrc: string | undefined
+                          if (isImage) {
+                            if (att.content.startsWith('[IMAGEN_BASE64:')) {
+                              const match = att.content.match(/\[IMAGEN_BASE64:(.+?):/)
+                              if (match && match[1]) {
+                                const base = match[1]
+                                if (base.includes('data:')) {
+                                  imageSrc = base
+                                } else {
+                                  imageSrc = `data:image/jpeg;base64,${base}`
+                                }
+                              }
+                            } else if (att.content.startsWith('data:')) {
+                              imageSrc = att.content
+                            }
+                          }
+
+                          return (
+                            <div key={idx} className="attachment-item">
+                              {isImage && imageSrc ? (
+                                <div className="attachment-image-wrapper">
+                                  <img
+                                    src={imageSrc}
+                                    alt={att.name}
+                                    className="attachment-image"
+                                  />
+                                  <div className="attachment-caption">📎 {att.name}</div>
+                                </div>
+                              ) : (
+                                <span>📎 {att.name}</span>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                     <div className="message-time">
@@ -855,12 +914,23 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         <div className="plotai-input-area">
           {uploadedFiles.length > 0 && (
             <div className="uploaded-files">
-              {uploadedFiles.map((file, index) => (
-                <div key={index} className="file-chip">
-                  <span>📎 {file.name}</span>
-                  <button onClick={() => removeFile(index)}>×</button>
-                </div>
-              ))}
+              {uploadedFiles.map((file, index) => {
+                const isImage = file.type.startsWith('image/')
+                const previewUrl = isImage ? filePreviews[index] : undefined
+                return (
+                  <div key={index} className="file-chip">
+                    {isImage && previewUrl && (
+                      <img
+                        src={previewUrl}
+                        alt={file.name}
+                        className="file-preview-image"
+                      />
+                    )}
+                    <span>📎 {file.name}</span>
+                    <button onClick={() => removeFile(index)}>×</button>
+                  </div>
+                )
+              })}
             </div>
           )}
           <div className="input-container">
