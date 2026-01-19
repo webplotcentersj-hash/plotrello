@@ -602,37 +602,53 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
     try {
       // Si el usuario quiere generar una imagen o video, hacerlo primero
+      // IMPORTANTE: NO pasar al chat normal si detectamos intención de generación
       if (generationIntent.type === 'image') {
-        console.log('🎨 Generando imagen con prompt:', generationIntent.prompt)
+        console.log('🎨 Generando imagen con prompt:', generationIntent.prompt, 'count:', generationIntent.count)
         
-        const imageResult = await generateImage({
-          prompt: generationIntent.prompt,
-          aspectRatio: '1:1'
-        })
+        const count = generationIntent.count || 1
+        const imagePromises: Promise<typeof imageResult>[] = []
         
-        if (imageResult.success && (imageResult.url || imageResult.dataUrl)) {
-          const assistantMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: `✅ **Imagen generada**\n\nHe creado una imagen basada en tu descripción: "${generationIntent.prompt}"`,
+        // Generar múltiples imágenes si se solicitaron
+        for (let i = 0; i < Math.min(count, 3); i++) { // Máximo 3 imágenes a la vez
+          imagePromises.push(
+            generateImage({
+              prompt: generationIntent.prompt,
+              aspectRatio: '1:1'
+            })
+          )
+        }
+        
+        const results = await Promise.all(imagePromises)
+        const successfulResults = results.filter(r => r.success && (r.url || r.dataUrl))
+        
+        if (successfulResults.length > 0) {
+          // Si hay al menos una imagen exitosa, mostrar todas
+          const imageMessages: Message[] = successfulResults.map((imageResult, idx) => ({
+            id: `${Date.now()}-${idx}`,
+            role: 'assistant' as const,
+            content: idx === 0 
+              ? `✅ **${successfulResults.length} imagen${successfulResults.length > 1 ? 'es' : ''} generada${successfulResults.length > 1 ? 's' : ''}**\n\nHe creado ${successfulResults.length > 1 ? 'imágenes' : 'una imagen'} basada${successfulResults.length > 1 ? 's' : ''} en tu descripción: "${generationIntent.prompt}"`
+              : '',
             timestamp: new Date(),
             generatedMedia: {
-              type: 'image',
+              type: 'image' as const,
               url: imageResult.url,
               dataUrl: imageResult.dataUrl,
               prompt: generationIntent.prompt
             }
-          }
-          setMessages((prev) => [...prev, assistantMessage])
+          }))
+          
+          setMessages((prev) => [...prev, ...imageMessages])
           setIsLoading(false)
           return
         } else {
-          // Si falla la generación, continuar con el chat normal
-          const errorMsg = imageResult.error || 'No se pudo generar la imagen'
+          // Si todas fallaron, mostrar error y NO continuar con chat normal
+          const errorMsg = results[0]?.error || 'No se pudo generar la imagen'
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: `❌ **Error generando imagen**\n\n${errorMsg}\n\n¿Te gustaría que te ayude con algo más?`,
+            content: `❌ **Error generando imagen**\n\n${errorMsg}\n\n💡 **Posibles causas:**\n- Tu API key no tiene acceso a generación de imágenes\n- El modelo no está disponible en tu región\n- Se alcanzó el límite de cuota\n- El contenido fue filtrado por políticas\n\n¿Te gustaría intentar con otro prompt o necesitas ayuda con algo más?`,
             timestamp: new Date()
           }
           setMessages((prev) => [...prev, assistantMessage])
@@ -666,12 +682,12 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
           setIsLoading(false)
           return
         } else {
-          // Si falla la generación, continuar con el chat normal
+          // Si falla la generación, mostrar error y NO continuar con chat normal
           const errorMsg = videoResult.error || 'No se pudo generar el video'
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: `❌ **Error generando video**\n\n${errorMsg}\n\n¿Te gustaría que te ayude con algo más?`,
+            content: `❌ **Error generando video**\n\n${errorMsg}\n\n💡 **Nota importante:** La generación de videos con Veo requiere:\n- Plan Gemini Pro/Ultra\n- Acceso habilitado al modelo Veo\n- Disponibilidad en tu región\n\nPor ahora, la generación de videos puede no estar disponible. ¿Te gustaría generar una imagen en su lugar o necesitas ayuda con algo más?`,
             timestamp: new Date()
           }
           setMessages((prev) => [...prev, assistantMessage])

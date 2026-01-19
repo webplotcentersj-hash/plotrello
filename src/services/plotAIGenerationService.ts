@@ -103,33 +103,64 @@ export async function generateVideo(options: VideoGenerationOptions): Promise<Ge
 export function detectGenerationIntent(message: string): {
   type: 'image' | 'video' | null
   prompt: string
+  count?: number // Para múltiples imágenes
 } {
-  const lowerMessage = message.toLowerCase()
+  const lowerMessage = message.toLowerCase().trim()
   
-  // Palabras clave para generación de imágenes
+  // Detectar número de imágenes solicitadas primero
+  const numberMatch = lowerMessage.match(/(\d+)\s+(imagen|imágenes|foto|fotos|caballo|caballos|perro|perros|gato|gatos|gato|gatos|auto|autos|carro|carros)/)
+  const count = numberMatch ? parseInt(numberMatch[1], 10) : 1
+  
+  // Palabras clave para generación de imágenes (más amplias y al inicio)
   const imageKeywords = [
     'genera una imagen',
+    'genera imagen',
+    'genera imágenes',
     'crea una imagen',
+    'crea imagen',
+    'crea imágenes',
     'haz una imagen',
+    'haz imagen',
+    'haz imágenes',
     'haceme una imagen',
+    'haceme imagen',
+    'haceme imágenes',
     'hazme una imagen',
+    'hazme imagen',
+    'hazme imágenes',
     'dibuja',
     'diseña una imagen',
+    'diseña imagen',
     'imagen de',
     'foto de',
     'picture of',
     'generate image',
     'create image',
-    'haceme un', // Para frases como "haceme un caballo"
-    'hazme un',
-    'haz un'
+    'haceme', // Para frases como "haceme un caballo" o "haceme dos caballos"
+    'hazme',
+    'haz un',
+    'haz una',
+    'haz dos',
+    'haz tres',
+    'muéstrame',
+    'muestrame'
   ]
   
   // Palabras clave para generación de videos
   const videoKeywords = [
     'genera un video',
+    'genera video',
+    'genera videos',
     'crea un video',
+    'crea video',
+    'crea videos',
     'haz un video',
+    'haz video',
+    'haz videos',
+    'haceme un video',
+    'haceme video',
+    'hazme un video',
+    'hazme video',
     'video de',
     'generate video',
     'create video',
@@ -145,7 +176,9 @@ export function detectGenerationIntent(message: string): {
     imageKeywords.forEach(keyword => {
       prompt = prompt.replace(new RegExp(keyword, 'gi'), '').trim()
     })
-    return { type: 'image', prompt: prompt || message }
+    // Limpiar números al inicio si son parte de la solicitud
+    prompt = prompt.replace(/^\d+\s+/, '').trim()
+    return { type: 'image', prompt: prompt || message, count }
   }
   
   if (hasVideoIntent) {
