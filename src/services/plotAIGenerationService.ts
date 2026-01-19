@@ -110,13 +110,19 @@ export function detectGenerationIntent(message: string): {
   const imageKeywords = [
     'genera una imagen',
     'crea una imagen',
+    'haz una imagen',
+    'haceme una imagen',
+    'hazme una imagen',
     'dibuja',
     'diseña una imagen',
     'imagen de',
     'foto de',
     'picture of',
     'generate image',
-    'create image'
+    'create image',
+    'haceme un', // Para frases como "haceme un caballo"
+    'hazme un',
+    'haz un'
   ]
   
   // Palabras clave para generación de videos

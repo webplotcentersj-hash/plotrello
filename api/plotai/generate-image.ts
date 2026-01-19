@@ -35,55 +35,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const ai = new GoogleGenAI({ apiKey })
 
-    // Modelo de generación de imágenes (según docs actuales)
-    // Nota: el acceso puede depender de la cuenta/plan/región.
+    // Modelo de generación de imágenes según documentación oficial
+    // Opciones: gemini-2.5-flash-image, nano-banana, nano-banana-pro
+    // Nota: el acceso puede depender de la cuenta/plan/región
     const model = 'gemini-2.5-flash-image'
 
-    // Pedimos IMAGE+TEXT por si el modelo devuelve texto adicional
+    // Construir el prompt mejorado
+    const enhancedPrompt = `Genera una imagen de: ${prompt}. Relación de aspecto: ${aspectRatio}.`
+
+    // Llamar a generateContent con responseModalities para IMAGE
+    // Según la documentación oficial del SDK @google/genai
     const response = await ai.models.generateContent({
       model,
-      // @ts-expect-error: responseModalities puede no estar tipado en esta versión del SDK.
-      config: { responseModalities: ['IMAGE', 'TEXT'] },
       contents: [
         {
           role: 'user',
-          parts: [
-            {
-              text:
-                `Genera UNA imagen. Relación de aspecto preferida: ${aspectRatio}.\n` +
-                `Prompt:\n${prompt}\n`
-            }
-          ]
+          parts: [{ text: enhancedPrompt }]
         }
-      ]
+      ],
+      // @ts-expect-error: responseModalities puede no estar tipado en esta versión del SDK
+      config: {
+        responseModalities: ['IMAGE']
+      }
     } as any)
 
-    // Extraer imagen (cuando viene como inlineData/base64)
+    // Extraer la imagen de la respuesta
+    // La estructura puede variar según la versión del SDK
+    let imageData: string | null = null
+    let mimeType = 'image/png'
+
+    // Intentar diferentes estructuras de respuesta
     const candidates = (response as any)?.candidates || []
-    const parts =
-      candidates?.[0]?.content?.parts ||
-      (response as any)?.response?.candidates?.[0]?.content?.parts ||
-      []
+    if (candidates.length > 0) {
+      const parts = candidates[0]?.content?.parts || []
+      const imagePart = parts.find((p: any) => p?.inlineData?.data)
+      
+      if (imagePart?.inlineData) {
+        imageData = imagePart.inlineData.data
+        mimeType = imagePart.inlineData.mimeType || 'image/png'
+      }
+    }
 
-    const imagePart = parts.find((p: any) => p?.inlineData?.data || p?.inlineData?.mimeType)
-    const textPart = parts.find((p: any) => typeof p?.text === 'string')
+    // Si no encontramos imagen en candidates, intentar en response directamente
+    if (!imageData) {
+      const directParts = (response as any)?.response?.candidates?.[0]?.content?.parts || []
+      const imagePart = directParts.find((p: any) => p?.inlineData?.data)
+      
+      if (imagePart?.inlineData) {
+        imageData = imagePart.inlineData.data
+        mimeType = imagePart.inlineData.mimeType || 'image/png'
+      }
+    }
 
-    if (!imagePart?.inlineData?.data) {
-      // Si no viene imagen, devolver el texto para debug
-      const debugText = textPart?.text || (response as any)?.text || ''
+    // Si aún no hay imagen, verificar si hay texto de error
+    if (!imageData) {
+      const textPart = candidates[0]?.content?.parts?.find((p: any) => typeof p?.text === 'string')
+      const debugText = textPart?.text || (response as any)?.text || JSON.stringify(response, null, 2)
+      
       res.status(502).json({
         success: false,
         provider: 'gemini',
         error:
-          'Gemini no devolvió una imagen (posible falta de acceso al modelo, región o restricción de contenido).',
+          'Gemini no devolvió una imagen. Posibles causas: modelo no disponible, falta de acceso, restricción de contenido o región.',
         metadata: { model, size: aspectRatio },
-        debugText: debugText?.slice?.(0, 8000)
+        debugText: debugText?.slice?.(0, 2000),
+        hint: 'Verifica que tu API key tenga acceso a generación de imágenes y que el modelo esté disponible en tu región.'
       })
       return
     }
 
-    const mimeType = imagePart.inlineData.mimeType || 'image/png'
-    const dataUrl = `data:${mimeType};base64,${imagePart.inlineData.data}`
+    // Construir data URL
+    const dataUrl = `data:${mimeType};base64,${imageData}`
 
     res.status(200).json({
       success: true,
@@ -92,10 +114,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       metadata: { model, size: aspectRatio }
     })
   } catch (error: any) {
+    console.error('Error en generate-image endpoint:', error)
+    
+    // Proporcionar mensaje de error más útil
+    let errorMessage = error?.message || 'Error generando imagen con Gemini'
+    
+    if (error?.message?.includes('model') || error?.message?.includes('not found')) {
+      errorMessage = 'El modelo de generación de imágenes no está disponible. Verifica que tu API key tenga acceso a esta funcionalidad.'
+    } else if (error?.message?.includes('quota') || error?.message?.includes('limit')) {
+      errorMessage = 'Se alcanzó el límite de cuota. Intenta más tarde o verifica tu plan de Gemini API.'
+    }
+    
     res.status(500).json({
       success: false,
       provider: 'gemini',
-      error: error?.message || 'Error generando imagen con Gemini'
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
     })
   }
 }
