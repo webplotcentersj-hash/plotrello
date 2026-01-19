@@ -133,31 +133,100 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     if (!text.trim()) return
 
     try {
-      // Limpiar texto de markdown y código para mejor pronunciación
-      let cleanText = text
-        .replace(/```[\s\S]*?```/g, '') // Eliminar bloques de código
-        .replace(/`[^`]+`/g, '') // Eliminar código inline
-        .replace(/\*\*/g, '') // Eliminar negritas
-        .replace(/\*/g, '') // Eliminar cursivas
-        .replace(/#{1,6}\s/g, '') // Eliminar headers
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Convertir links a texto
-        .replace(/\n{2,}/g, '. ') // Reemplazar saltos de línea múltiples
-        .replace(/\n/g, '. ') // Reemplazar saltos de línea simples
+      // Convertir texto técnico a conversación natural
+      let conversationalText = text
+        // Eliminar bloques de código completamente
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`[^`]+`/g, '')
+        
+        // Convertir emojis comunes a palabras
+        .replace(/✅/g, 'listo')
+        .replace(/❌/g, 'error')
+        .replace(/⚠️/g, 'atención')
+        .replace(/💡/g, 'sugerencia')
+        .replace(/🎨/g, 'imagen')
+        .replace(/🎬/g, 'video')
+        .replace(/📊/g, '')
+        .replace(/📎/g, 'archivo')
+        .replace(/🔑/g, 'clave')
+        .replace(/📦/g, '')
+        .replace(/🖼️/g, 'imagen')
+        .replace(/🔊/g, '')
+        .replace(/🔇/g, '')
+        .replace(/🎙️/g, 'micrófono')
+        .replace(/🤖/g, 'PlotAI')
+        
+        // Convertir markdown a texto natural
+        .replace(/\*\*([^*]+)\*\*/g, '$1') // Negritas -> texto normal
+        .replace(/\*([^*]+)\*/g, '$1') // Cursivas -> texto normal
+        .replace(/#{1,6}\s*(.+)/g, '$1') // Headers -> texto normal
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Links -> solo texto
+        
+        // Convertir listas con viñetas en frases naturales
+        .replace(/^[-*•]\s+/gm, '') // Eliminar viñetas al inicio de línea
+        .replace(/^\d+\.\s+/gm, '') // Eliminar numeración
+        
+        // Convertir listas en frases más naturales
+        .replace(/\n[-*•]\s+/g, '. También, ')
+        .replace(/\n\d+\.\s+/g, '. Además, ')
+        
+        // Mejorar puntuación para pausas naturales
+        .replace(/\n{3,}/g, '. ') // Múltiples saltos -> punto
+        .replace(/\n{2}/g, '. ') // Doble salto -> punto
+        .replace(/\n/g, ', ') // Salto simple -> coma
+        .replace(/\.{2,}/g, '.') // Múltiples puntos -> uno solo
+        .replace(/\s+\./g, '.') // Espacios antes de punto
+        .replace(/\.\s*\./g, '.') // Puntos seguidos
+        
+        // Limpiar espacios múltiples
+        .replace(/\s{2,}/g, ' ')
+        .replace(/,\s*,/g, ',')
+        .replace(/\.\s*\./g, '.')
+        
+        // Convertir símbolos técnicos
+        .replace(/\(/g, '')
+        .replace(/\)/g, '')
+        .replace(/\[/g, '')
+        .replace(/\]/g, '')
+        .replace(/\{/g, '')
+        .replace(/\}/g, '')
+        
+        // Mejorar frases comunes para sonar más natural
+        .replace(/Puedo generar/g, 'Puedo crear')
+        .replace(/genera una/g, 'crea una')
+        .replace(/genera un/g, 'crea un')
+        .replace(/generar/g, 'crear')
+        .replace(/Error generando/g, 'No pude crear')
+        .replace(/Error al procesar/g, 'Hubo un problema al procesar')
+        .replace(/Lo siento/g, 'Disculpame')
+        .replace(/Te gustaría/g, 'Querés que')
+        .replace(/¿Te gustaría/g, '¿Querés que')
+        
+        // Agregar pausas naturales en preguntas
+        .replace(/\?/g, '? ... ')
+        .replace(/\!/g, '! ... ')
+        
         .trim()
 
-      if (!cleanText) return
+      // Limpiar puntuación final
+      conversationalText = conversationalText
+        .replace(/,\s*$/g, '.') // Coma al final -> punto
+        .replace(/\s+$/g, '') // Espacios al final
+        .replace(/^\.+\s*/g, '') // Puntos al inicio
+
+      if (!conversationalText || conversationalText.length < 3) return
 
       window.speechSynthesis.cancel()
       
-      const utterance = new SpeechSynthesisUtterance(cleanText)
+      const utterance = new SpeechSynthesisUtterance(conversationalText)
       utterance.lang = 'es-AR'
-      utterance.rate = 1.0
-      utterance.pitch = 1.0
+      utterance.rate = 0.95 // Ligeramente más lento para sonar más natural
+      utterance.pitch = 1.05 // Ligeramente más alto para sonar más amigable
       utterance.volume = 1.0
       
       utterance.onstart = () => {
         setIsSpeaking(true)
-        console.log('🔊 Iniciando reproducción de voz')
+        console.log('🔊 Iniciando reproducción de voz conversacional')
       }
       
       utterance.onend = () => {
