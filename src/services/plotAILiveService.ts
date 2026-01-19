@@ -42,11 +42,13 @@ export class PlotAILiveVoice {
       const model = 'gemini-2.5-flash-native-audio-preview-12-2025'
       const config = {
         responseModalities: [Modality.AUDIO],
-        systemInstruction: 'Eres PlotAI, un asistente inteligente y conversacional. Responde de forma natural y amigable, como en una conversación telefónica.',
+        systemInstruction: 'Eres PlotAI, un asistente inteligente y conversacional. SIEMPRE responde en ESPAÑOL (español argentino). Responde de forma natural y amigable, como en una conversación telefónica. Nunca respondas en inglés, solo en español.',
         // Configuraciones adicionales para mejor calidad
         generationConfig: {
           temperature: 0.8,
         },
+        // Configurar idioma explícitamente
+        language: 'es-AR',
       }
 
       console.log('🔌 Conectando a Gemini Live API...')
