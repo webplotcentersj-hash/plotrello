@@ -65,7 +65,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! ¿En qué te puedo ayudar hoy?\n\n🎨 **Puedo generar imágenes**: Di "genera una imagen de..." o "crea una imagen de..."\n🎬 **Puedo generar videos**: Di "genera un video de..." o "crea un video de..."\n📊 También puedo analizar tus tareas, responder preguntas y ayudarte con el sistema.',
+      content:
+        '¡Hola! Soy PlotAI.\n\nHablemos normal: contame qué necesitás y te ayudo.\n\n- Podés **dictar** con 🎙️, **adjuntar** fotos/PDFs 📎 y (si querés) activar que te **responda con voz** 🔊.\n- Si querés, también puedo **generar imágenes** (“haceme una imagen de…”) y **videos** (“haceme un video de…”).\n\n¿En qué te doy una mano ahora?',
       timestamp: new Date()
     }
   ])
@@ -1406,7 +1407,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Escribe tu mensaje... (Enter para enviar, Shift+Enter para nueva línea)"
+              placeholder="Escribime como si habláramos. Ej: “¿Qué tengo urgente hoy?”, “Armame un plan para entregar la OP 124”, “Analizá esta foto”, “Haceme una imagen de…”"
               rows={2}
               className="plotai-textarea"
             />
