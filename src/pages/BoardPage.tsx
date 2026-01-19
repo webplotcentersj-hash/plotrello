@@ -494,10 +494,19 @@ const BoardPage = ({
 
     const response = await apiService.marcarEntregado(ordenId, delivered)
     if (response.success) {
-      // Actualizar el estado local
+      // Actualizar el estado local: entregado y estado
+      // Cuando se marca como entregado, el estado en BD cambia a "Entregado o Instalado"
+      // El filtro filteredTasks excluye automáticamente las fichas con entregado=true
       setTasks((prev) =>
         prev.map((task) =>
-          task.id === taskId ? { ...task, entregado: delivered } : task
+          task.id === taskId 
+            ? { 
+                ...task, 
+                entregado: delivered,
+                // Si se desmarca, restaurar el estado a almacen-entrega
+                status: delivered ? task.status : 'almacen-entrega'
+              } 
+            : task
         )
       )
       setActionSuccess(delivered ? 'Ficha marcada como entregada y archivada' : 'Ficha desarchivada')

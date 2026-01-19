@@ -25,6 +25,9 @@ const ESTADO_TO_STATUS: Record<string, TaskStatus> = Object.entries(STATUS_TO_ES
   {} as Record<string, TaskStatus>
 )
 
+// Agregar mapeo adicional para "Entregado o Instalado" (las fichas entregadas se filtran por entregado=true)
+ESTADO_TO_STATUS['entregado o instalado'] = 'almacen-entrega'
+
 const PRIORITY_TO_DB: Record<Priority, string> = {
   alta: 'Alta',
   media: 'Normal',

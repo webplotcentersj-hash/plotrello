@@ -1189,24 +1189,58 @@ class ApiService {
 
   async marcarEntregado(id: number, entregado: boolean): Promise<ApiResponse<void>> {
     if (supabase) {
+      // Obtener el estado actual antes de actualizar
+      const { data: current, error: fetchError } = await supabase
+        .from('ordenes_trabajo')
+        .select('estado')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (fetchError || !current) {
+        return { success: false, error: fetchError?.message || 'Orden no encontrada' }
+      }
+
+      const estadoAnterior = (current as { estado: string }).estado
+
+      // Si se marca como entregado, cambiar estado a "Entregado o Instalado"
+      // Si se desmarca, restaurar a "Almacén de Entrega"
+      const nuevoEstado = entregado ? 'Entregado o Instalado' : 'Almacén de Entrega'
+
       const { error } = await supabase
         .from('ordenes_trabajo')
-        .update({ entregado })
+        .update({ 
+          entregado,
+          estado: nuevoEstado,
+          sector: nuevoEstado // Mantener consistencia con el sector
+        })
         .eq('id', id)
 
       if (error) return { success: false, error: error.message }
 
-      // Registrar en historial si se marca como entregado (AUDITORÍA PROFESIONAL)
+      // Registrar en historial (AUDITORÍA PROFESIONAL)
       if (entregado) {
         await this.registrarCambioHistorial(
           id,
-          'Almacén de Entrega',
-          'Entregado (Archivado)',
+          estadoAnterior,
+          nuevoEstado,
           'Ficha marcada como entregada y archivada',
           'cambio_estado',
           {
-            estado: { anterior: 'Almacén de Entrega', nuevo: 'Entregado (Archivado)' },
+            estado: { anterior: estadoAnterior, nuevo: nuevoEstado },
             accion: 'marcar_entregado'
+          }
+        )
+      } else {
+        // Si se desmarca, también registrar el cambio
+        await this.registrarCambioHistorial(
+          id,
+          estadoAnterior,
+          nuevoEstado,
+          'Ficha desarchivada y restaurada a Almacén de Entrega',
+          'cambio_estado',
+          {
+            estado: { anterior: estadoAnterior, nuevo: nuevoEstado },
+            accion: 'desmarcar_entregado'
           }
         )
       }
