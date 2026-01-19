@@ -111,40 +111,114 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const speechWindow = window as typeof window & {
-      SpeechRecognition?: SpeechRecognitionConstructor
-      webkitSpeechRecognition?: SpeechRecognitionConstructor
+    
+    // Verificar permisos de micrófono primero
+    const checkMicrophonePermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach(track => track.stop()) // Detener inmediatamente, solo verificamos permisos
+        return true
+      } catch (error) {
+        console.warn('Permisos de micrófono no otorgados:', error)
+        setMicError('Se requieren permisos de micrófono. Por favor, permite el acceso en la configuración del navegador.')
+        return false
+      }
     }
-    const SpeechRecognitionClass = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
 
-    if (SpeechRecognitionClass) {
+    const initializeSpeechRecognition = async () => {
+      const speechWindow = window as typeof window & {
+        SpeechRecognition?: SpeechRecognitionConstructor
+        webkitSpeechRecognition?: SpeechRecognitionConstructor
+      }
+      const SpeechRecognitionClass = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
+
+      if (!SpeechRecognitionClass) {
+        setIsMicSupported(false)
+        setMicError('Tu navegador no soporta reconocimiento de voz. Usa Chrome, Edge o Safari.')
+        return
+      }
+
       try {
         const recognition = new SpeechRecognitionClass()
         recognition.lang = 'es-AR'
         recognition.continuous = false
-        recognition.interimResults = false
+        recognition.interimResults = true // Habilitar resultados intermedios para mejor UX
+        
         recognition.onresult = (event: SpeechRecognitionResultEventLike) => {
           const transcript = Array.from(event.results)
             .map((result) => {
-              const resultItem = result as { 0: { transcript: string } }
+              const resultItem = result as { 0: { transcript: string }; isFinal?: boolean }
               return resultItem[0]?.transcript ?? ''
             })
             .join(' ')
-          setInput((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript))
+          
+          if (transcript.trim()) {
+            setInput((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript))
+            setMicError(null) // Limpiar errores si hay transcripción exitosa
+          }
         }
-        recognition.onerror = () => {
+        
+        recognition.onerror = (event: any) => {
+          console.error('Error de reconocimiento de voz:', event)
           setIsRecording(false)
-          setMicError('No se pudo transcribir el audio. Reintenta o verifica permisos.')
+          
+          const errorCode = event?.error || event?.code
+          let errorMessage = 'Error al transcribir el audio.'
+          
+          switch (errorCode) {
+            case 'no-speech':
+              errorMessage = 'No se detectó habla. Intenta hablar más cerca del micrófono.'
+              break
+            case 'audio-capture':
+              errorMessage = 'No se pudo acceder al micrófono. Verifica que esté conectado y permitido.'
+              break
+            case 'not-allowed':
+              errorMessage = 'Permisos de micrófono denegados. Por favor, permite el acceso en la configuración del navegador.'
+              break
+            case 'network':
+              errorMessage = 'Error de red. Verifica tu conexión a internet.'
+              break
+            case 'aborted':
+              // Ignorar errores de aborto (cuando se detiene manualmente)
+              return
+            case 'service-not-allowed':
+              errorMessage = 'Servicio de reconocimiento de voz no disponible.'
+              break
+            default:
+              errorMessage = `Error: ${errorCode || 'desconocido'}. Intenta nuevamente.`
+          }
+          
+          setMicError(errorMessage)
+          
+          // Limpiar estado después de un error
+          // No intentar reiniciar automáticamente para evitar loops
         }
+        
         recognition.onend = () => {
           setIsRecording(false)
+          // Si terminó inesperadamente y no fue por error, puede ser timeout
+          // No hacer nada, el usuario puede reiniciar manualmente
         }
+        
+        recognition.onstart = () => {
+          setIsRecording(true)
+          setMicError(null)
+          console.log('Reconocimiento de voz iniciado')
+        }
+        
         recognitionRef.current = recognition
         setIsMicSupported(true)
+        
+        // Verificar permisos después de inicializar
+        await checkMicrophonePermission()
       } catch (error) {
-        console.warn('SpeechRecognition no disponible:', error)
+        console.error('Error al inicializar SpeechRecognition:', error)
+        setIsMicSupported(false)
+        setMicError('No se pudo inicializar el reconocimiento de voz.')
       }
     }
+
+    initializeSpeechRecognition()
   }, [])
 
 
@@ -179,19 +253,72 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     }
   }, [uploadedFiles])
 
-  const toggleRecording = () => {
+  const toggleRecording = async () => {
     const recognition = recognitionRef.current
     if (!recognition) {
       setMicError('Este navegador no soporta dictado por voz.')
       return
     }
+
     if (isRecording) {
-      recognition.stop()
-      setIsRecording(false)
+      // Detener grabación
+      try {
+        recognition.stop()
+        setIsRecording(false)
+        setMicError(null)
+      } catch (error) {
+        console.error('Error al detener grabación:', error)
+        setIsRecording(false)
+      }
     } else {
-      setMicError(null)
-      recognition.start()
-      setIsRecording(true)
+      // Iniciar grabación
+      try {
+        // Verificar permisos antes de iniciar
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach(track => track.stop()) // Detener inmediatamente
+        } catch (permissionError) {
+          setMicError('Se requieren permisos de micrófono. Por favor, permite el acceso.')
+          return
+        }
+
+        // Limpiar estado anterior
+        setMicError(null)
+        
+        // Si el reconocimiento ya está iniciado, detenerlo primero
+        try {
+          recognition.stop()
+          await new Promise(resolve => setTimeout(resolve, 300)) // Esperar un momento
+        } catch (e) {
+          // Ignorar si no estaba iniciado
+        }
+
+        // Iniciar reconocimiento
+        recognition.start()
+        setIsRecording(true)
+      } catch (error: any) {
+        console.error('Error al iniciar grabación:', error)
+        setIsRecording(false)
+        
+        if (error?.message?.includes('already started')) {
+          // Si ya está iniciado, intentar detener y reiniciar
+          try {
+            recognition.stop()
+            setTimeout(() => {
+              try {
+                recognition.start()
+                setIsRecording(true)
+              } catch (retryError) {
+                setMicError('Error al reiniciar el micrófono. Intenta nuevamente.')
+              }
+            }, 500)
+          } catch (stopError) {
+            setMicError('Error al iniciar el micrófono. Intenta nuevamente.')
+          }
+        } else {
+          setMicError('No se pudo iniciar el micrófono. Verifica permisos y conexión.')
+        }
+      }
     }
   }
 
