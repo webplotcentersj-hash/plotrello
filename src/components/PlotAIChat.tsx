@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import type { Task, TeamMember, ActivityEvent, TaskStatus, Priority } from '../types/board'
 import { generateContent, getSystemContext } from '../services/plotAIService'
-import { generateImage, generateVideo, detectGenerationIntent } from '../services/plotAIGenerationService'
+import { generateImage, generateVideo, detectGenerationIntent, type GenerationResult } from '../services/plotAIGenerationService'
 import { buildAgenticContext } from '../utils/agentInsights'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useAuth } from '../hooks/useAuth'
@@ -607,7 +607,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         console.log('🎨 Generando imagen con prompt:', generationIntent.prompt, 'count:', generationIntent.count)
         
         const count = generationIntent.count || 1
-        const imagePromises: Promise<typeof imageResult>[] = []
+        const imagePromises: Array<Promise<GenerationResult>> = []
         
         // Generar múltiples imágenes si se solicitaron
         for (let i = 0; i < Math.min(count, 3); i++) { // Máximo 3 imágenes a la vez
@@ -620,11 +620,14 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         }
         
         const results = await Promise.all(imagePromises)
-        const successfulResults = results.filter(r => r.success && (r.url || r.dataUrl))
+        const successfulResults = results.filter(
+          (r: GenerationResult) => r.success && (r.url || r.dataUrl)
+        )
         
         if (successfulResults.length > 0) {
           // Si hay al menos una imagen exitosa, mostrar todas
-          const imageMessages: Message[] = successfulResults.map((imageResult, idx) => ({
+          const imageMessages: Message[] = successfulResults.map(
+            (imageResult: GenerationResult, idx: number) => ({
             id: `${Date.now()}-${idx}`,
             role: 'assistant' as const,
             content: idx === 0 
@@ -637,7 +640,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
               dataUrl: imageResult.dataUrl,
               prompt: generationIntent.prompt
             }
-          }))
+          })
+          )
           
           setMessages((prev) => [...prev, ...imageMessages])
           setIsLoading(false)
