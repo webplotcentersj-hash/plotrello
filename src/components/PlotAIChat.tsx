@@ -1159,7 +1159,15 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         const liveVoice = new PlotAILiveVoice()
         liveVoiceRef.current = liveVoice
 
+        // Obtener nombre del usuario
+        const nombreUsuario = usuario?.nombre || stripEmailDomain(usuario?.nombre) || undefined
+
         await liveVoice.startCall({
+          tasks,
+          activity,
+          teamMembers,
+          userName: nombreUsuario
+        }, {
           onOpen: () => {
             setIsLiveCallActive(true)
             setMicError(null)

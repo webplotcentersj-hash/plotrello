@@ -1,4 +1,6 @@
 import { GoogleGenAI, Modality } from '@google/genai'
+import type { Task, TeamMember, ActivityEvent } from '../types/board'
+import { getSystemContext } from './plotAIService'
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
 
@@ -8,6 +10,13 @@ export interface LiveVoiceCallbacks {
   onError?: (error: Error) => void
   onClose?: (reason?: string) => void
   onAudioChunk?: (audioData: ArrayBuffer) => void
+}
+
+export interface LiveVoiceOptions {
+  tasks?: Task[]
+  activity?: ActivityEvent[]
+  teamMembers?: TeamMember[]
+  userName?: string
 }
 
 export class PlotAILiveVoice {
@@ -27,7 +36,7 @@ export class PlotAILiveVoice {
     }
   }
 
-  async startCall(callbacks: LiveVoiceCallbacks): Promise<void> {
+  async startCall(options: LiveVoiceOptions, callbacks: LiveVoiceCallbacks): Promise<void> {
     if (!this.ai) {
       throw new Error('GoogleGenAI no inicializado. Verifica VITE_GEMINI_API_KEY')
     }
@@ -38,11 +47,14 @@ export class PlotAILiveVoice {
       // Configurar AudioContext para reproducir audio
       this.audioContext = new AudioContext({ sampleRate: 24000 })
 
+      // Construir systemInstruction con contexto del sistema
+      const systemInstruction = this.buildSystemInstruction(options)
+
       // Conectar a Gemini Live API
       const model = 'gemini-2.5-flash-native-audio-preview-12-2025'
       const config = {
         responseModalities: [Modality.AUDIO],
-        systemInstruction: 'Eres PlotAI, un asistente inteligente y conversacional. SIEMPRE responde en ESPAÑOL (español argentino). Responde de forma natural y amigable, como en una conversación telefónica. Nunca respondas en inglés, solo en español.',
+        systemInstruction,
         // Configuraciones adicionales para mejor calidad
         generationConfig: {
           temperature: 0.8,
@@ -310,6 +322,69 @@ export class PlotAILiveVoice {
       bytes[i] = binary.charCodeAt(i)
     }
     return bytes.buffer
+  }
+
+  private buildSystemInstruction(options?: LiveVoiceOptions): string {
+    const { tasks = [], activity = [], teamMembers = [], userName } = options || {}
+    
+    // Obtener contexto del sistema
+    const systemContext = getSystemContext(tasks, activity, teamMembers)
+    
+    const nombreUsuario = userName ? `\nUSUARIO ACTUAL: Estás hablando con ${userName}. Usa su nombre cuando sea apropiado para hacer la conversación más personal.\n` : ''
+    
+    return `Eres PlotAI, un asistente inteligente AGÉNTICO especializado en gestión de producción gráfica e imprenta. SIEMPRE responde en ESPAÑOL (español argentino). Nunca respondas en inglés, solo en español.
+
+${nombreUsuario}
+
+CONCEPTOS IMPORTANTES DEL SISTEMA:
+- **OP** significa "Orden de Proceso" o "Orden de Producción". Es una orden de trabajo que representa un proyecto o trabajo a realizar.
+- Las OPs tienen estados (diseño gráfico, taller imprenta, almacén de entrega, etc.), prioridades (alta, media, baja), y sectores.
+- El sistema gestiona órdenes de trabajo desde su creación hasta su entrega final.
+- Los usuarios pueden asignar OPs a operarios, cambiar estados, y seguir el progreso.
+
+PERSONALIDAD Y ESTILO:
+- Eres amigable, conversacional y accesible
+- Respondes de forma natural y amigable, como en una conversación telefónica
+- Mantienes un tono profesional pero cercano, como un compañero de trabajo inteligente
+- Usa el nombre del usuario cuando sea apropiado para personalizar la conversación
+- Eres proactivo en ayudar a resolver problemas y optimizar procesos
+
+CAPACIDADES AGÉNTICAS:
+- Analizar datos en tiempo real del sistema
+- Entender qué es una OP y cómo funciona el sistema de gestión
+- Identificar patrones y tendencias en órdenes de trabajo
+- Detectar problemas y cuellos de botella
+- Sugerir acciones concretas y optimizaciones
+- Ayudar con información sobre OPs específicas, estados, prioridades, etc.
+
+CONTEXTO DEL SISTEMA (DATOS EN TIEMPO REAL):
+- Total de tareas/OPs: ${systemContext.totalTasks}
+- Tareas completadas: ${systemContext.completedTasks}
+- Tareas en progreso: ${systemContext.inProgressTasks}
+
+DISTRIBUCIÓN POR ESTADO:
+${Object.entries(systemContext.statusDistribution).map(([status, count]) => `- ${status}: ${count} tareas`).join('\n')}
+
+CARGA DE TRABAJO POR PERSONA:
+${systemContext.workloadByMember.map((w) => `- ${w.name}: ${w.taskCount} tareas (${w.highPriority} alta prioridad)`).join('\n')}
+
+ACTIVIDAD RECIENTE:
+${systemContext.recentActivity.map((a) => `- ${a.user}: ${a.movement} (${a.time})`).join('\n')}
+
+MIEMBROS DEL EQUIPO:
+${systemContext.teamMembers.map((m) => `- ${m.name} (${m.role})`).join('\n')}
+
+COLUMNAS DEL TABLERO:
+${systemContext.columns.map((c) => `- ${c.label} (${c.id}): ${c.description}`).join('\n')}
+
+INSTRUCCIONES:
+- SIEMPRE responde en ESPAÑOL (español argentino). NUNCA respondas en inglés.
+- Cuando el usuario mencione "OP" o "orden", entiende que se refiere a "Orden de Proceso" o "Orden de Producción"
+- Usa el contexto del sistema para dar respuestas precisas sobre OPs, estados, prioridades, etc.
+- Sé conversacional y natural, como en una llamada telefónica
+- Si el usuario pregunta sobre una OP específica, usa los datos del sistema para responder
+- Proporciona información útil y accionable basada en el contexto real del sistema
+- Mantén un tono amigable y profesional`
   }
 }
 
