@@ -289,7 +289,6 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
             const canvas = document.createElement('canvas')
             let width = img.width
             let height = img.height
-            const originalAspectRatio = width / height
             
             // Calcular el tamaño base64 aproximado (base64 es ~33% más grande que el binario)
             // Estimación: width * height * 4 bytes (RGBA) * 1.33 (overhead base64)
