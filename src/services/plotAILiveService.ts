@@ -177,10 +177,11 @@ export class PlotAILiveVoice {
       const base64Audio = this.arrayBufferToBase64(audioBuffer)
       
       // Enviar a Gemini Live API
+      // Formato requerido: 'audio/pcm' o 'audio/pcm;rate=16000' (sin channels)
       this.session.sendRealtimeInput({
         audio: {
           data: base64Audio,
-          mimeType: 'audio/pcm;rate=16000;channels=1',
+          mimeType: 'audio/pcm;rate=16000',
         },
       })
     } catch (error) {
