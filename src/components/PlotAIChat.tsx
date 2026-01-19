@@ -80,6 +80,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   const [isMicSupported, setIsMicSupported] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const [isCreateOpOpen, setIsCreateOpOpen] = useState(false)
   const [isCreatingOp, setIsCreatingOp] = useState(false)
   const [createOpFeedback, setCreateOpFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -108,6 +110,40 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const stopSpeaking = () => {
+    try {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsSpeaking(false)
+    }
+  }
+
+  const speakText = (text: string) => {
+    if (typeof window === 'undefined') return
+    if (!('speechSynthesis' in window)) return
+    if (!text.trim()) return
+
+    try {
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'es-AR'
+      utterance.rate = 1
+      utterance.pitch = 1
+      utterance.volume = 1
+      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = () => setIsSpeaking(false)
+      window.speechSynthesis.speak(utterance)
+    } catch (error) {
+      console.warn('No se pudo reproducir voz (TTS):', error)
+      setIsSpeaking(false)
+    }
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -271,6 +307,9 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         setIsRecording(false)
       }
     } else {
+      // Si está hablando, detener TTS para evitar feedback acústico
+      if (isSpeaking) stopSpeaking()
+
       // Iniciar grabación
       try {
         // Verificar permisos antes de iniciar
@@ -868,6 +907,11 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       }
 
       setMessages((prev) => [...prev, assistantMessage])
+
+      // Voz de salida (TTS) opcional
+      if (isVoiceEnabled) {
+        speakText(response.replace(/```[\s\S]*?```/g, '').replace(/\*\*/g, ''))
+      }
     } catch (error) {
       console.error('Error en PlotAI:', error)
       
@@ -897,6 +941,10 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         timestamp: new Date()
       }
       setMessages((prev) => [...prev, errorMessage])
+
+      if (isVoiceEnabled) {
+        speakText('Ocurrió un error. Reintentá o revisá permisos y conexión.')
+      }
     } finally {
       setIsLoading(false)
       setUploadedFiles([])
@@ -1278,6 +1326,29 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
               rows={2}
               className="plotai-textarea"
             />
+            <button
+              type="button"
+              className={`voice-button ${isVoiceEnabled ? 'enabled' : ''}`}
+              onClick={() => {
+                if (isSpeaking) stopSpeaking()
+                setIsVoiceEnabled((prev) => !prev)
+              }}
+              title={isVoiceEnabled ? 'Voz activada (leer respuestas)' : 'Activar voz (leer respuestas)'}
+              disabled={isLoading}
+            >
+              {isVoiceEnabled ? '🔊' : '🔈'}
+            </button>
+            {isVoiceEnabled && (
+              <button
+                type="button"
+                className="voice-stop-button"
+                onClick={stopSpeaking}
+                title="Detener voz"
+                disabled={!isSpeaking}
+              >
+                ⏹
+              </button>
+            )}
             <button
               type="button"
               className={`mic-button ${isRecording ? 'recording' : ''}`}
