@@ -246,32 +246,153 @@
 
 /* Input area - mobile optimized */
 .admin-plotai-container .plotai-input-area {
-  padding: 12px 16px;
-  gap: 8px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-top: 2px solid rgba(255, 255, 255, 0.15);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
-.admin-plotai-container .plotai-input {
+/* Input container - mejor visibilidad */
+.admin-plotai-container .input-container {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 20px;
+  padding: 12px 16px;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+}
+
+.admin-plotai-container .input-container:focus-within {
+  border-color: rgba(235, 103, 27, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(235, 103, 27, 0.3);
+}
+
+/* Textarea - mejor visibilidad y tamaño */
+.admin-plotai-container .plotai-textarea {
   font-size: 16px; /* Prevents zoom on iOS */
-  padding: 12px 16px;
-  min-height: 48px; /* Touch-friendly */
+  min-height: 52px;
+  max-height: 120px;
+  padding: 12px 8px;
+  line-height: 1.5;
+  color: #f9fbff;
+  background: transparent;
+  border: none;
+  resize: none;
+  width: 100%;
 }
 
-.admin-plotai-container .plotai-input-actions {
-  gap: 8px;
+.admin-plotai-container .plotai-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
 }
 
-/* Buttons - larger and touch-friendly */
-.admin-plotai-container .plotai-send,
-.admin-plotai-container .plotai-attach,
-.admin-plotai-container .mic-button,
-.admin-plotai-container .voice-button,
-.admin-plotai-container .voice-stop-button,
-.admin-plotai-container .live-call-button {
+.admin-plotai-container .plotai-textarea:focus {
+  outline: none;
+  color: #f9fbff;
+}
+
+/* Botones del input - más grandes y visibles */
+.admin-plotai-container .attach-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.4rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.admin-plotai-container .attach-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.admin-plotai-container .send-button {
   width: 48px;
   height: 48px;
   min-width: 48px;
   min-height: 48px;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #eb671b 0%, #d45a17 100%);
+  box-shadow: 0 4px 12px rgba(235, 103, 27, 0.4);
+}
+
+.admin-plotai-container .send-button:hover:not(:disabled) {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(235, 103, 27, 0.5);
+}
+
+/* Archivos adjuntos - mejor visibilidad */
+.admin-plotai-container .uploaded-files {
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.admin-plotai-container .file-chip {
+  background: rgba(235, 103, 27, 0.2);
+  border: 1px solid rgba(235, 103, 27, 0.4);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.admin-plotai-container .file-chip button {
+  width: 20px;
+  height: 20px;
+  font-size: 1rem;
+}
+
+/* Buttons - larger and touch-friendly */
+.admin-plotai-container .mic-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.3rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.admin-plotai-container .mic-button.recording {
+  background: rgba(248, 113, 113, 0.3);
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.5);
+}
+
+.admin-plotai-container .voice-button,
+.admin-plotai-container .voice-stop-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.2rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.admin-plotai-container .voice-button.enabled {
+  background: rgba(235, 103, 27, 0.2);
+  border-color: rgba(235, 103, 27, 0.5);
+}
+
+.admin-plotai-container .live-call-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.2rem;
   padding: 0;
   display: grid;
   place-items: center;
@@ -338,6 +459,19 @@
   .admin-plotai-container .generated-image,
   .admin-plotai-container .generated-video {
     max-height: 400px;
+  }
+
+  .admin-plotai-container .plotai-input-area {
+    padding: 20px 24px;
+  }
+
+  .admin-plotai-container .input-container {
+    padding: 14px 18px;
+  }
+
+  .admin-plotai-container .plotai-textarea {
+    min-height: 56px;
+    padding: 14px 10px;
   }
 }
 
