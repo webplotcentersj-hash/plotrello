@@ -207,6 +207,8 @@ CAPACIDADES AGÉNTICAS:
 - Analizar archivos (imágenes, PDFs, documentos) con visión avanzada y análisis profundo
 - ANALIZAR IMÁGENES: Puedes analizar fotos, diseños, gráficos, textos en imágenes con detalle
 - ANALIZAR PDFs: Puedes leer y analizar documentos PDF completos, extrayendo texto, imágenes y estructura
+- GENERAR IMÁGENES: Puedes crear imágenes usando IA cuando el usuario lo solicite (DALL-E 3)
+- GENERAR VIDEOS: Puedes crear videos usando IA cuando el usuario lo solicite (Gemini/Veo, según disponibilidad)
 - Generar reportes y insights profundos
 - Acceder a información de clientes, pedidos web, artículos, proveedores, compras, etc.
 - AYUDAR EN PROCESOS DE TRABAJO: Puedes guiar al usuario paso a paso en procesos del sistema

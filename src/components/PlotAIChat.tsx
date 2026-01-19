@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import type { Task, TeamMember, ActivityEvent, TaskStatus, Priority } from '../types/board'
 import { generateContent, getSystemContext } from '../services/plotAIService'
+import { generateImage, generateVideo, detectGenerationIntent } from '../services/plotAIGenerationService'
 import { buildAgenticContext } from '../utils/agentInsights'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useAuth } from '../hooks/useAuth'
@@ -42,6 +43,12 @@ type Message = {
   content: string
   timestamp: Date
   attachments?: Array<{ name: string; type: string; content: string }>
+  generatedMedia?: {
+    type: 'image' | 'video'
+    url?: string
+    dataUrl?: string
+    prompt: string
+  }
 }
 
 const stripEmailDomain = (value?: string | null) => {
@@ -58,7 +65,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! ¿En qué te puedo ayudar hoy?',
+      content: '¡Hola! ¿En qué te puedo ayudar hoy?\n\n🎨 **Puedo generar imágenes**: Di "genera una imagen de..." o "crea una imagen de..."\n🎬 **Puedo generar videos**: Di "genera un video de..." o "crea un video de..."\n📊 También puedo analizar tus tareas, responder preguntas y ayudarte con el sistema.',
       timestamp: new Date()
     }
   ])
@@ -542,6 +549,9 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
     console.log('📤 Enviando mensaje con', filesToSend.length, 'archivos')
     
+    // Detectar si el usuario quiere generar una imagen o video
+    const generationIntent = detectGenerationIntent(messageText)
+    
     let attachments: Array<{ name: string; type: string; content: string }> | undefined = undefined
     
     if (filesToSend.length > 0) {
@@ -591,6 +601,86 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     setIsLoading(true)
 
     try {
+      // Si el usuario quiere generar una imagen o video, hacerlo primero
+      if (generationIntent.type === 'image') {
+        console.log('🎨 Generando imagen con prompt:', generationIntent.prompt)
+        
+        const imageResult = await generateImage({
+          prompt: generationIntent.prompt,
+          aspectRatio: '1:1'
+        })
+        
+        if (imageResult.success && (imageResult.url || imageResult.dataUrl)) {
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `✅ **Imagen generada**\n\nHe creado una imagen basada en tu descripción: "${generationIntent.prompt}"`,
+            timestamp: new Date(),
+            generatedMedia: {
+              type: 'image',
+              url: imageResult.url,
+              dataUrl: imageResult.dataUrl,
+              prompt: generationIntent.prompt
+            }
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setIsLoading(false)
+          return
+        } else {
+          // Si falla la generación, continuar con el chat normal
+          const errorMsg = imageResult.error || 'No se pudo generar la imagen'
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `❌ **Error generando imagen**\n\n${errorMsg}\n\n¿Te gustaría que te ayude con algo más?`,
+            timestamp: new Date()
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setIsLoading(false)
+          return
+        }
+      }
+      
+      if (generationIntent.type === 'video') {
+        console.log('🎬 Generando video con prompt:', generationIntent.prompt)
+        
+        const videoResult = await generateVideo({
+          prompt: generationIntent.prompt,
+          duration: 8,
+          aspectRatio: '16:9'
+        })
+        
+        if (videoResult.success && videoResult.url) {
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `✅ **Video generado**\n\nHe creado un video basado en tu descripción: "${generationIntent.prompt}"`,
+            timestamp: new Date(),
+            generatedMedia: {
+              type: 'video',
+              url: videoResult.url,
+              prompt: generationIntent.prompt
+            }
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setIsLoading(false)
+          return
+        } else {
+          // Si falla la generación, continuar con el chat normal
+          const errorMsg = videoResult.error || 'No se pudo generar el video'
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `❌ **Error generando video**\n\n${errorMsg}\n\n¿Te gustaría que te ayude con algo más?`,
+            timestamp: new Date()
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setIsLoading(false)
+          return
+        }
+      }
+
+      // Si no es generación, continuar con el chat normal
       const systemContext = getSystemContext(tasks, activity, teamMembers)
       
       // Usar gemini-2.5-flash (tiene capacidad de visión integrada)
@@ -893,6 +983,39 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
                   </div>
                   <div className="message-content">
                     <div className="message-text">{message.content}</div>
+                    
+                    {/* Mostrar media generada (imágenes o videos) */}
+                    {message.generatedMedia && (
+                      <div className="generated-media">
+                        {message.generatedMedia.type === 'image' && (message.generatedMedia.dataUrl || message.generatedMedia.url) && (
+                          <div className="generated-image-wrapper">
+                            <img
+                              src={message.generatedMedia.dataUrl || message.generatedMedia.url}
+                              alt={message.generatedMedia.prompt}
+                              className="generated-image"
+                            />
+                            <div className="generated-media-caption">
+                              🎨 Generada: "{message.generatedMedia.prompt}"
+                            </div>
+                          </div>
+                        )}
+                        {message.generatedMedia.type === 'video' && message.generatedMedia.url && (
+                          <div className="generated-video-wrapper">
+                            <video
+                              src={message.generatedMedia.url}
+                              controls
+                              className="generated-video"
+                            >
+                              Tu navegador no soporta la reproducción de video.
+                            </video>
+                            <div className="generated-media-caption">
+                              🎬 Generado: "{message.generatedMedia.prompt}"
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     {message.attachments && message.attachments.length > 0 && (
                       <div className="message-attachments">
                         {message.attachments.map((att, idx) => {
