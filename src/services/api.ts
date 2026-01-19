@@ -1189,10 +1189,10 @@ class ApiService {
 
   async marcarEntregado(id: number, entregado: boolean): Promise<ApiResponse<void>> {
     if (supabase) {
-      // Obtener el estado actual antes de actualizar
+      // Obtener el estado y sector actual antes de actualizar
       const { data: current, error: fetchError } = await supabase
         .from('ordenes_trabajo')
-        .select('estado')
+        .select('estado, sector')
         .eq('id', id)
         .maybeSingle()
 
@@ -1200,18 +1200,25 @@ class ApiService {
         return { success: false, error: fetchError?.message || 'Orden no encontrada' }
       }
 
-      const estadoAnterior = (current as { estado: string }).estado
+      const estadoAnterior = (current as { estado: string; sector: string }).estado
+      const sectorActual = (current as { estado: string; sector: string }).sector
 
       // Si se marca como entregado, cambiar estado a "Entregado o Instalado"
       // Si se desmarca, restaurar a "Almacén de Entrega"
+      // ⚠️ IMPORTANTE: NO cambiar el sector, mantener el sector actual (debe ser válido según el check constraint)
       const nuevoEstado = entregado ? 'Entregado o Instalado' : 'Almacén de Entrega'
+      // El sector debe mantenerse como "Almacén de Entrega" (o el que tenía antes) porque
+      // "Entregado o Instalado" NO es un valor válido según el check constraint ordenes_trabajo_sector_check
+      const sectorFinal = entregado 
+        ? (sectorActual === 'Almacén de Entrega' ? 'Almacén de Entrega' : sectorActual)
+        : 'Almacén de Entrega'
 
       const { error } = await supabase
         .from('ordenes_trabajo')
         .update({ 
           entregado,
           estado: nuevoEstado,
-          sector: nuevoEstado // Mantener consistencia con el sector
+          sector: sectorFinal // Mantener sector válido según el check constraint
         })
         .eq('id', id)
 
@@ -1227,6 +1234,7 @@ class ApiService {
           'cambio_estado',
           {
             estado: { anterior: estadoAnterior, nuevo: nuevoEstado },
+            sector: { anterior: sectorActual, nuevo: sectorFinal },
             accion: 'marcar_entregado'
           }
         )
@@ -1240,6 +1248,7 @@ class ApiService {
           'cambio_estado',
           {
             estado: { anterior: estadoAnterior, nuevo: nuevoEstado },
+            sector: { anterior: sectorActual, nuevo: sectorFinal },
             accion: 'desmarcar_entregado'
           }
         )
