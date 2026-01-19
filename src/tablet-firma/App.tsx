@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import TabletFirmaPage from './pages/TabletFirmaPage'
 import TabletFirmaSelectPage from './pages/TabletFirmaSelectPage'
 import '../app.css'
