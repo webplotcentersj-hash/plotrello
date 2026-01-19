@@ -15,7 +15,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        admin: resolve(__dirname, 'admin.html')
+        admin: resolve(__dirname, 'admin.html'),
+        'tablet-firma': resolve(__dirname, 'tablet-firma.html')
       },
       output: {
         entryFileNames: 'assets/[name].[hash].js',

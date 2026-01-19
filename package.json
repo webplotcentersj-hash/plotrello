@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "dev:admin": "vite --config vite.config.ts --open /admin.html",
+    "dev:tablet-firma": "vite --config vite.config.ts --open /tablet-firma.html",
     "build": "tsc && vite build",
     "build:admin": "tsc && vite build --mode admin",
+    "build:tablet-firma": "tsc && vite build --mode tablet-firma",
     "preview": "vite preview",
     "preview:admin": "vite preview --open /admin.html",
+    "preview:tablet-firma": "vite preview --open /tablet-firma.html",
     "clear-cache": "node scripts/clear-cache.js",
     "clean": "node scripts/clear-cache.js && npm run build",
     "clean-all": "node scripts/clear-cache.js --clean-node && npm run build"

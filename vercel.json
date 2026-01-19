@@ -18,6 +18,14 @@
       "destination": "/admin.html"
     },
     {
+      "source": "/tablet-firma",
+      "destination": "/tablet-firma.html"
+    },
+    {
+      "source": "/tablet-firma/(.*)",
+      "destination": "/tablet-firma.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

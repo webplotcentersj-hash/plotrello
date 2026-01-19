@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png" />
+    <link rel="shortcut icon" href="/favicon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#eb671b" />
+    <meta name="description" content="Tablet Firma - Plot Lab - Firma Digital" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Plot Lab Firma" />
+    <title>Plot Lab - Firma Digital</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0e0f16;
+        color: #f9fbff;
+        font-family: system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #app {
+        min-height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+      }
+      #loading-fallback {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #0b0d17 0%, #1a1d2e 100%);
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255,255,255,0.1);
+        border-top-color: #eb671b;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 16px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="loading-fallback">
+        <div class="spinner"></div>
+        <p>Cargando Firma Digital...</p>
+      </div>
+    </div>
+    <script type="module" src="/src/tablet-firma/main.tsx"></script>
+    <script>
+      // Remover el fallback cuando React se monte
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const fallback = document.getElementById('loading-fallback');
+          if (fallback && document.getElementById('app').children.length > 1) {
+            fallback.remove();
+          }
+        }, 100);
+      });
+      
+      // Prevenir zoom con doble tap
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', function(event) {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, false);
+    </script>
+  </body>
+</html>
+
