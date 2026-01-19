@@ -746,6 +746,53 @@
   color: #fca5a5;
 }
 
+.live-call-button {
+  background: rgba(34, 197, 94, 0.15);
+  border: 2px solid rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+  font-size: 1.3rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-call-button.active {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+  animation: pulse-call 2s infinite;
+}
+
+@keyframes pulse-call {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+  }
+}
+
+.live-call-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.live-call-button.active:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.live-call-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .voice-button,
 .voice-stop-button {
   background: transparent;

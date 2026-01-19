@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import type { Task, TeamMember, ActivityEvent, TaskStatus, Priority } from '../types/board'
 import { generateContent, getSystemContext } from '../services/plotAIService'
 import { generateImage, generateVideo, detectGenerationIntent, type GenerationResult } from '../services/plotAIGenerationService'
+import { PlotAILiveVoice } from '../services/plotAILiveService'
 import { buildAgenticContext } from '../utils/agentInsights'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useAuth } from '../hooks/useAuth'
@@ -83,6 +84,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   const [micError, setMicError] = useState<string | null>(null)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [isLiveCallActive, setIsLiveCallActive] = useState(false)
+  const liveVoiceRef = useRef<PlotAILiveVoice | null>(null)
   const [isCreateOpOpen, setIsCreateOpOpen] = useState(false)
   const [isCreatingOp, setIsCreatingOp] = useState(false)
   const [createOpFeedback, setCreateOpFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -1132,6 +1135,92 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     handleSendMessage(prompt)
   }
 
+  const toggleLiveCall = async () => {
+    if (isLiveCallActive) {
+      // Detener llamada
+      if (liveVoiceRef.current) {
+        liveVoiceRef.current.stopCall()
+        liveVoiceRef.current = null
+      }
+      setIsLiveCallActive(false)
+    } else {
+      // Iniciar llamada
+      try {
+        const liveVoice = new PlotAILiveVoice()
+        liveVoiceRef.current = liveVoice
+
+        await liveVoice.startCall({
+          onOpen: () => {
+            setIsLiveCallActive(true)
+            setMicError(null)
+            // Agregar mensaje de sistema
+            const systemMessage: Message = {
+              id: Date.now().toString(),
+              role: 'system',
+              content: '🔊 Llamada de voz iniciada. Hablá normalmente y PlotAI te responderá.',
+              timestamp: new Date()
+            }
+            setMessages((prev) => [...prev, systemMessage])
+          },
+          onMessage: (message) => {
+            // Procesar mensajes de texto si los hay
+            if (message.serverContent?.modelTurn?.parts) {
+              for (const part of message.serverContent.modelTurn.parts) {
+                if (part.text) {
+                  const assistantMessage: Message = {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    content: part.text,
+                    timestamp: new Date()
+                  }
+                  setMessages((prev) => [...prev, assistantMessage])
+                }
+              }
+            }
+          },
+          onError: (error) => {
+            console.error('Error en llamada Live:', error)
+            setMicError(`Error en llamada: ${error.message}`)
+            setIsLiveCallActive(false)
+            if (liveVoiceRef.current) {
+              liveVoiceRef.current.stopCall()
+              liveVoiceRef.current = null
+            }
+          },
+          onClose: (reason) => {
+            setIsLiveCallActive(false)
+            if (liveVoiceRef.current) {
+              liveVoiceRef.current.stopCall()
+              liveVoiceRef.current = null
+            }
+            const systemMessage: Message = {
+              id: Date.now().toString(),
+              role: 'system',
+              content: `🔇 Llamada finalizada${reason ? `: ${reason}` : ''}`,
+              timestamp: new Date()
+            }
+            setMessages((prev) => [...prev, systemMessage])
+          }
+        })
+      } catch (error) {
+        console.error('Error iniciando llamada:', error)
+        const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+        setMicError(`No se pudo iniciar la llamada: ${errorMsg}`)
+        setIsLiveCallActive(false)
+      }
+    }
+  }
+
+  // Limpiar llamada al desmontar
+  useEffect(() => {
+    return () => {
+      if (liveVoiceRef.current) {
+        liveVoiceRef.current.stopCall()
+        liveVoiceRef.current = null
+      }
+    }
+  }, [])
+
   return (
     <div className="plotai-overlay" onClick={onClose}>
       <div className="plotai-chat" onClick={(e) => e.stopPropagation()}>
@@ -1482,13 +1571,22 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
             />
             <button
               type="button"
+              className={`live-call-button ${isLiveCallActive ? 'active' : ''}`}
+              onClick={toggleLiveCall}
+              disabled={isLoading}
+              title={isLiveCallActive ? 'Finalizar llamada de voz' : 'Iniciar llamada de voz (conversación en tiempo real)'}
+            >
+              {isLiveCallActive ? '📞' : '📱'}
+            </button>
+            <button
+              type="button"
               className={`voice-button ${isVoiceEnabled ? 'enabled' : ''}`}
               onClick={() => {
                 if (isSpeaking) stopSpeaking()
                 setIsVoiceEnabled((prev) => !prev)
               }}
               title={isVoiceEnabled ? 'Voz activada (leer respuestas)' : 'Activar voz (leer respuestas)'}
-              disabled={isLoading}
+              disabled={isLoading || isLiveCallActive}
             >
               {isVoiceEnabled ? '🔊' : '🔈'}
             </button>
@@ -1507,8 +1605,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
               type="button"
               className={`mic-button ${isRecording ? 'recording' : ''}`}
               onClick={toggleRecording}
-              disabled={!isMicSupported || isLoading}
-              title={isMicSupported ? 'Dictar con micrófono' : 'Dictado no disponible'}
+              disabled={!isMicSupported || isLoading || isLiveCallActive}
+              title={isLiveCallActive ? 'Micrófono en uso (llamada activa)' : isMicSupported ? 'Dictar con micrófono' : 'Dictado no disponible'}
             >
               {isRecording ? '⏺' : '🎙️'}
             </button>
