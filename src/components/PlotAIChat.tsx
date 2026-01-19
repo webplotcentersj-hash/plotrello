@@ -66,7 +66,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       id: '1',
       role: 'assistant',
       content:
-        '¡Hola! Soy PlotAI.\n\nHablemos normal: contame qué necesitás y te ayudo.\n\n- Podés **dictar** con 🎙️, **adjuntar** fotos/PDFs 📎 y (si querés) activar que te **responda con voz** 🔊.\n- Si querés, también puedo **generar imágenes** (“haceme una imagen de…”) y **videos** (“haceme un video de…”).\n\n¿En qué te doy una mano ahora?',
+        '¡Hola! Soy PlotAI.\n\nHablemos: contame qué necesitás y te ayudo.\n\n- Podés **dictar** con 🎙️, **adjuntar** fotos/PDFs 📎 y (si querés) activar que te **responda con voz** 🔊.\n- Si querés, también puedo **generar imágenes** ("haceme una imagen de…") y **videos** ("haceme un video de…").\n\n¿En qué te doy una mano ahora?',
       timestamp: new Date()
     }
   ])
