@@ -1135,6 +1135,16 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     handleSendMessage(prompt)
   }
 
+  const isProbablySpanish = (text: string) => {
+    const t = text.toLowerCase()
+    // Heurística simple: evitar “meta-razonamiento” en inglés que a veces devuelve Live.
+    const looksEnglish =
+      /\b(i'm|i am|i've|i|the|and|with|now|please|could you|clarifying|responding)\b/.test(t)
+    const looksSpanish =
+      /\b(que|para|con|por|hola|necesit|ayud|pod(e|és)|vamos|listo|bien|gracias|repet|decime|contame)\b/.test(t)
+    return looksSpanish && !looksEnglish
+  }
+
   const toggleLiveCall = async () => {
     if (isLiveCallActive) {
       // Detener llamada
@@ -1167,13 +1177,17 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
             if (message.serverContent?.modelTurn?.parts) {
               for (const part of message.serverContent.modelTurn.parts) {
                 if (part.text) {
-                  const assistantMessage: Message = {
-                    id: Date.now().toString(),
-                    role: 'assistant',
-                    content: part.text,
-                    timestamp: new Date()
+                  // En modo llamada, NO mostramos el texto crudo si viene en inglés/meta-razonamiento.
+                  // Si parece español, lo mostramos como “subtítulo” breve.
+                  if (isProbablySpanish(part.text)) {
+                    const assistantMessage: Message = {
+                      id: Date.now().toString(),
+                      role: 'assistant',
+                      content: part.text,
+                      timestamp: new Date()
+                    }
+                    setMessages((prev) => [...prev, assistantMessage])
                   }
-                  setMessages((prev) => [...prev, assistantMessage])
                 }
               }
             }
