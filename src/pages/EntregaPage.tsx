@@ -18,6 +18,8 @@ const EntregaPage = () => {
   const [entregadoA, setEntregadoA] = useState('')
   const [dniRetira, setDniRetira] = useState('')
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<{ entregadoA?: string; firma?: string }>({})
+  const [success, setSuccess] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const comprobanteRef = useRef<HTMLDivElement>(null)
 
@@ -168,23 +170,47 @@ const EntregaPage = () => {
     setFirmaDataUrl(null)
   }
 
+  const validateForm = (): boolean => {
+    const newErrors: { entregadoA?: string; firma?: string } = {}
+    
+    if (!entregadoA.trim()) {
+      newErrors.entregadoA = 'El nombre de quien retira es obligatorio'
+    } else if (entregadoA.trim().length < 3) {
+      newErrors.entregadoA = 'El nombre debe tener al menos 3 caracteres'
+    }
+    
+    if (!firmaDataUrl) {
+      newErrors.firma = 'La firma del cliente es obligatoria'
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleMarcarEntregada = async () => {
     if (!orden || !usuario) return
 
-    if (!firmaDataUrl) {
-      alert('Por favor, firma el comprobante antes de continuar')
-      return
-    }
-
-    if (!entregadoA.trim()) {
-      alert('Por favor, ingresa el nombre de quien retira')
+    // Validar formulario
+    if (!validateForm()) {
+      // Scroll al primer error después de que se actualice el estado
+      setTimeout(() => {
+        const firstErrorKey = Object.keys(errors)[0]
+        if (firstErrorKey === 'entregadoA') {
+          document.querySelector('.form-group input')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        } else if (firstErrorKey === 'firma') {
+          document.querySelector('.firma-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
       return
     }
 
     setSaving(true)
+    setSuccess(false)
+    setErrors({})
+    
     try {
       const response = await apiService.procesarEntrega(orden.id!, {
-        firmaDataUrl,
+        firmaDataUrl: firmaDataUrl!,
         entregadoA: entregadoA.trim(),
         dniRetira: dniRetira.trim() || undefined,
         observaciones: observaciones.trim() || undefined,
@@ -193,15 +219,18 @@ const EntregaPage = () => {
       })
 
       if (!response.success) {
-        alert(`Error al procesar la entrega: ${response.error}`)
+        setErrors({ firma: response.error || 'Error al procesar la entrega' })
         return
       }
 
-      alert('Orden marcada como entregada exitosamente')
-      navigate('/mostrador/ordenes-listas')
+      setSuccess(true)
+      // Esperar un momento para mostrar el éxito antes de redirigir
+      setTimeout(() => {
+        navigate('/mostrador/ordenes-listas')
+      }, 1500)
     } catch (error) {
       console.error('Error marcando orden como entregada:', error)
-      alert('Error al marcar la orden como entregada')
+      setErrors({ firma: 'Error inesperado al procesar la entrega' })
     } finally {
       setSaving(false)
     }
@@ -332,9 +361,19 @@ const EntregaPage = () => {
             <input
               type="text"
               value={entregadoA}
-              onChange={(e) => setEntregadoA(e.target.value)}
+              onChange={(e) => {
+                setEntregadoA(e.target.value)
+                if (errors.entregadoA) {
+                  setErrors({ ...errors, entregadoA: undefined })
+                }
+              }}
               placeholder="Nombre completo de quien retira"
+              className={errors.entregadoA ? 'input-error' : ''}
+              autoComplete="name"
             />
+            {errors.entregadoA && (
+              <span className="error-message">{errors.entregadoA}</span>
+            )}
           </div>
           <div className="form-group">
             <label>DNI de quien retira (opcional):</label>
@@ -343,6 +382,8 @@ const EntregaPage = () => {
               value={dniRetira}
               onChange={(e) => setDniRetira(e.target.value)}
               placeholder="DNI"
+              inputMode="numeric"
+              pattern="[0-9]*"
             />
           </div>
           <div className="form-group">
@@ -358,22 +399,40 @@ const EntregaPage = () => {
 
         {/* Firma Digital */}
         <section className="firma-section">
-          <h2>Firma del Cliente</h2>
-          <div className="firma-container">
+          <h2>Firma del Cliente *</h2>
+          {errors.firma && (
+            <div className="error-banner">
+              <span>⚠️ {errors.firma}</span>
+            </div>
+          )}
+          <div className={`firma-container ${errors.firma ? 'firma-container-error' : ''}`}>
             <canvas
               ref={canvasRef}
               className="firma-canvas"
+              onClick={() => {
+                if (errors.firma) {
+                  setErrors({ ...errors, firma: undefined })
+                }
+              }}
             />
             <div className="firma-actions">
               <button
                 className="btn-secondary"
                 onClick={limpiarFirma}
+                type="button"
               >
                 🗑️ Limpiar Firma
               </button>
+              {firmaDataUrl && (
+                <span className="firma-status">✅ Firma completada</span>
+              )}
             </div>
           </div>
-          <p className="firma-hint">Firma en el área de arriba</p>
+          <p className="firma-hint">
+            {firmaDataUrl 
+              ? '✅ Firma registrada. Podés limpiarla si necesitás corregirla.' 
+              : '👆 Firma en el área de arriba con el dedo o el mouse'}
+          </p>
         </section>
 
         {/* Vista Previa del Comprobante */}
@@ -450,21 +509,30 @@ const EntregaPage = () => {
           </div>
         </section>
 
+        {/* Mensaje de éxito */}
+        {success && (
+          <div className="success-banner">
+            <span>✅ Orden marcada como entregada exitosamente. Redirigiendo...</span>
+          </div>
+        )}
+
         {/* Acciones */}
         <section className="acciones-section">
           <button
             className="btn-secondary"
             onClick={generarComprobantePDF}
-            disabled={!firmaDataUrl}
+            disabled={!firmaDataUrl || saving}
+            type="button"
           >
             💾 Descargar Comprobante PDF
           </button>
           <button
             className="btn-primary"
             onClick={handleMarcarEntregada}
-            disabled={saving || !firmaDataUrl || !entregadoA.trim()}
+            disabled={saving || success}
+            type="button"
           >
-            {saving ? 'Guardando...' : '✅ Marcar como Entregada'}
+            {saving ? '⏳ Guardando...' : success ? '✅ Entregada' : '✅ Marcar como Entregada'}
           </button>
         </section>
       </div>
