@@ -282,16 +282,6 @@ const Header = ({
             >
               🔧 Herramientas
             </a>
-            {(isDiseno || isAdmin) && (
-              <a
-                href="https://aitools.plotcenter.com.ar/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="brand-button ai-tools-button"
-              >
-                🤖 AI Tools
-              </a>
-            )}
             {onLogout && (
               <button className="brand-button logout-button" onClick={onLogout} title="Cerrar sesión">
                 🚪 Salir
