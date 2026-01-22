@@ -715,7 +715,6 @@ const BoardPage = ({
             onNavigateToFlota={onNavigateToFlota}
             onNavigateToERP={onNavigateToERP}
         onSolicitarProductos={() => setIsSolicitarProductosOpen(true)}
-        onOpenChatAI={() => setIsChatAIOpen(true)}
         onLogout={onLogout}
         isAdmin={isAdmin}
         isMostrador={isMostrador}

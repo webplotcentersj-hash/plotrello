@@ -26,7 +26,6 @@ type HeaderProps = {
   onNavigateToFlota?: () => void
   onNavigateToERP?: () => void
   onSolicitarProductos?: () => void
-  onOpenChatAI?: () => void
   onNavigateToChat?: () => void
   onLogout?: () => void
   isAdmin?: boolean
@@ -53,7 +52,6 @@ const Header = ({
   onNavigateToFlota,
   onNavigateToERP,
   onSolicitarProductos,
-  onOpenChatAI,
   onNavigateToChat,
   onLogout,
   isAdmin: isAdminProp = false,
