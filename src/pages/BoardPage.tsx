@@ -53,8 +53,6 @@ type BoardPageProps = {
   syncError?: string | null
   sectores: SectorRecord[]
   materialesCatalog: MaterialRecord[]
-  isCompact: boolean
-  onToggleCompact: () => void
 }
 
 const BoardPage = ({
@@ -82,9 +80,7 @@ const BoardPage = ({
   isSyncing,
   syncError,
   sectores,
-  materialesCatalog,
-  isCompact,
-  onToggleCompact
+  materialesCatalog
 }: BoardPageProps) => {
   const { usuario, isAdmin, isMostrador, isDiseno } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
@@ -724,8 +720,6 @@ const BoardPage = ({
         isAdmin={isAdmin}
         isMostrador={isMostrador}
         isDiseno={isDiseno}
-        isCompact={isCompact}
-        onToggleCompact={onToggleCompact}
       />
       <FiltersBar
         searchQuery={searchQuery}

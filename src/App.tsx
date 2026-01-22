@@ -129,10 +129,6 @@ function App() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [sectores, setSectores] = useState<SectorRecord[]>(DEFAULT_SECTORES)
   const [materiales, setMateriales] = useState<MaterialRecord[]>([])
-  const [isCompact, setIsCompact] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('compactMode') === '1'
-  })
   const { usuario, loading, setUsuario } = useAuth()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
@@ -164,22 +160,6 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const body = document.body
-      if (isCompact) {
-        body.classList.add('compact-mode')
-        console.log('✅ Modo compacto activado - clase agregada al body')
-      } else {
-        body.classList.remove('compact-mode')
-        console.log('✅ Modo expandido activado - clase removida del body')
-      }
-    }
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('compactMode', isCompact ? '1' : '0')
-      console.log('💾 Estado guardado en localStorage:', isCompact ? 'compacto' : 'expandido')
-    }
-  }, [isCompact])
 
   const handleLogin = (usuarioData: any) => {
     setUsuario(usuarioData)
@@ -532,8 +512,6 @@ function App() {
                   teamMembers={teamMembers}
                   sectores={sectores}
                   materiales={materiales}
-                  isCompact={isCompact}
-                  onToggleCompact={() => setIsCompact((prev) => !prev)}
                 />
               ) : (
                 <Login onLogin={handleLogin} />
@@ -557,9 +535,7 @@ function AppRoutes({
   syncError,
   teamMembers,
   sectores,
-  materiales,
-  isCompact,
-  onToggleCompact
+  materiales
 }: {
   tasks: Task[]
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>
@@ -572,8 +548,6 @@ function AppRoutes({
   teamMembers: TeamMember[]
   sectores: SectorRecord[]
   materiales: MaterialRecord[]
-  isCompact: boolean
-  onToggleCompact: () => void
 }) {
   const navigate = useNavigate()
 
@@ -648,8 +622,6 @@ function AppRoutes({
             syncError={syncError}
             sectores={sectores}
             materialesCatalog={materiales}
-            isCompact={isCompact}
-            onToggleCompact={onToggleCompact}
           />
         }
       />
