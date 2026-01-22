@@ -32,8 +32,6 @@ type HeaderProps = {
   isAdmin?: boolean
   isMostrador?: boolean
   isDiseno?: boolean
-  isCompact?: boolean
-  onToggleCompact?: () => void
 }
 
 const Header = ({
@@ -60,9 +58,7 @@ const Header = ({
   onLogout,
   isAdmin: isAdminProp = false,
   isMostrador = false,
-  isDiseno = false,
-  isCompact = false,
-  onToggleCompact
+  isDiseno = false
 }: HeaderProps) => {
   const { canManageCompras, canManageRecursosHumanos, isAdmin: isAdminFromAuth, isAsesorTecnico, isPresupuestos } = useAuth()
   const isAdmin = isAdminProp || isAdminFromAuth
@@ -137,20 +133,6 @@ const Header = ({
             {onNavigateToGantt && (
               <button className="brand-button" onClick={onNavigateToGantt}>
                 📈 Gantt
-              </button>
-            )}
-            {onToggleCompact && (
-              <button 
-                className="brand-button" 
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  console.log('Botón Vista expandida/Modo compacto clickeado. Estado actual:', isCompact)
-                  onToggleCompact()
-                }}
-                title={isCompact ? 'Cambiar a vista expandida' : 'Cambiar a modo compacto'}
-              >
-                {isCompact ? '🪄 Vista expandida' : '🧊 Modo compacto'}
               </button>
             )}
             {onNavigateToUsuarios && isAdmin && (
