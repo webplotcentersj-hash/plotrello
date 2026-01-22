@@ -110,16 +110,6 @@ const Header = ({
           {actionsOpen ? '✕' : '☰'}
           </button>
           <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
-            {onOpenChatAI && (
-              <button className="brand-button ai-button" onClick={onOpenChatAI}>
-                🤖 PlotAI
-              </button>
-            )}
-            {onNavigateToChat && (
-              <button className="brand-button chat-button" onClick={onNavigateToChat}>
-                💬 Chat
-              </button>
-            )}
             {onNavigateToStats && isAdmin && (
               <button className="brand-button" onClick={onNavigateToStats}>
                 📊 Estadísticas
