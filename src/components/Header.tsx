@@ -274,14 +274,6 @@ const Header = ({
                 Optimizar sprint
               </button>
             )}
-            <a
-              href="https://tools.plotcenter.com.ar/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="brand-button tools-button"
-            >
-              🔧 Herramientas
-            </a>
             {onLogout && (
               <button className="brand-button logout-button" onClick={onLogout} title="Cerrar sesión">
                 🚪 Salir
