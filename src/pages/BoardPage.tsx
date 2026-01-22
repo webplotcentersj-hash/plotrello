@@ -699,7 +699,6 @@ const BoardPage = ({
         teamMembers={teamMembers}
         activity={activity}
         currentUserName={resolveCurrentUserName()}
-        onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
         onNavigateToStats={onNavigateToStats}
         onNavigateToCalendar={onNavigateToCalendar}
         onNavigateToGantt={onNavigateToGantt}
@@ -741,6 +740,7 @@ const BoardPage = ({
         onSectorChange={setSectorFilter}
         onAddNewOrder={() => setIsCreateModalOpen(true)}
         onOpenLibrary={() => setIsLibraryModalOpen(true)}
+        onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
       />
 
       <main className="app-layout">

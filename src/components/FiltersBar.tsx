@@ -21,6 +21,7 @@ type FiltersBarProps = {
   onSectorChange?: (value: string) => void
   onOpenLibrary?: () => void
   onAddNewOrder?: () => void
+  onOptimizeSprint?: () => void
 }
 
 const FiltersBar = ({
@@ -38,7 +39,8 @@ const FiltersBar = ({
   availableSectors = [],
   onSectorChange,
   onOpenLibrary,
-  onAddNewOrder
+  onAddNewOrder,
+  onOptimizeSprint
 }: FiltersBarProps) => {
   const { isAdmin, isDiseno, usuario } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
@@ -131,6 +133,16 @@ const FiltersBar = ({
               title="Bibliotecas de OPs"
             >
               🔍 Bibliotecas de OPs
+            </button>
+          )}
+          {onOptimizeSprint && (
+            <button
+              type="button"
+              className="brand-button"
+              onClick={onOptimizeSprint}
+              title="Optimizar Sprint"
+            >
+              ⚡ Optimizar Sprint
             </button>
           )}
           {(isAdmin || isDiseno) && (

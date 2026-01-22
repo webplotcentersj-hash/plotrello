@@ -11,7 +11,6 @@ type HeaderProps = {
   teamMembers: TeamMember[]
   activity: ActivityEvent[]
   currentUserName?: string
-  onOptimizeSprint?: () => void
   onNavigateToStats?: () => void
   onNavigateToCalendar?: () => void
   onNavigateToGantt?: () => void
@@ -37,7 +36,6 @@ const Header = ({
   teamMembers,
   activity,
   currentUserName,
-  onOptimizeSprint,
   onNavigateToStats,
   onNavigateToCalendar,
   onNavigateToGantt,
@@ -257,11 +255,6 @@ const Header = ({
             >
               📋 Mis Pedidos
             </a>
-            {onOptimizeSprint && (
-              <button className="brand-button" onClick={onOptimizeSprint}>
-                Optimizar sprint
-              </button>
-            )}
             {onLogout && (
               <button className="brand-button logout-button" onClick={onLogout} title="Cerrar sesión">
                 🚪 Salir
