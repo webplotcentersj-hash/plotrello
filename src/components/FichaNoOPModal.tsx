@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
+import type { ClienteRecord } from '../types/api'
 import './FichaNoOPModal.css'
 
 type FichaNoOPModalProps = {
@@ -21,7 +22,47 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null)
   const [fichaTecnicaUrl, setFichaTecnicaUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
+  const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
+  const [buscandoClientes, setBuscandoClientes] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const clienteInputRef = useRef<HTMLInputElement>(null)
+
+  // Buscar clientes cuando se escribe en el campo cliente
+  useEffect(() => {
+    const buscarClientes = async () => {
+      if (nombreCliente.trim().length < 2) {
+        setClientesEncontrados([])
+        setIsClienteDropdownOpen(false)
+        return
+      }
+
+      setBuscandoClientes(true)
+      const response = await apiService.buscarClientes(nombreCliente.trim())
+      if (response.success && response.data) {
+        setClientesEncontrados(response.data)
+        setIsClienteDropdownOpen(true)
+      } else {
+        setClientesEncontrados([])
+      }
+      setBuscandoClientes(false)
+    }
+
+    const timeoutId = setTimeout(() => {
+      void buscarClientes()
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [nombreCliente])
+
+  const handleSelectCliente = (clienteSeleccionado: ClienteRecord) => {
+    setNombreCliente(clienteSeleccionado.nombre)
+    setDatosContacto(clienteSeleccionado.telefono || '')
+    setDriveLink(clienteSeleccionado.drive_link || '')
+    setUbicacionLink(clienteSeleccionado.ubicacion_link || '')
+    setClientesEncontrados([])
+    setIsClienteDropdownOpen(false)
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -117,12 +158,46 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
         <div className="ficha-no-op-modal-body">
           <div className="form-group">
             <label>Nombre del Cliente</label>
-            <input
-              type="text"
-              placeholder="Nombre del Cliente"
-              value={nombreCliente}
-              onChange={(e) => setNombreCliente(e.target.value)}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                ref={clienteInputRef}
+                type="text"
+                placeholder="Nombre del Cliente"
+                value={nombreCliente}
+                onChange={(e) => setNombreCliente(e.target.value)}
+                onFocus={() => {
+                  if (clientesEncontrados.length > 0) {
+                    setIsClienteDropdownOpen(true)
+                  }
+                }}
+                onBlur={() => {
+                  // Delay para permitir el click en el dropdown
+                  setTimeout(() => setIsClienteDropdownOpen(false), 200)
+                }}
+              />
+              {isClienteDropdownOpen && clientesEncontrados.length > 0 && (
+                <div className="cliente-dropdown">
+                  {buscandoClientes && (
+                    <div className="dropdown-item">Buscando...</div>
+                  )}
+                  {clientesEncontrados.map((cliente) => (
+                    <div
+                      key={cliente.id}
+                      className="dropdown-item"
+                      onClick={() => handleSelectCliente(cliente)}
+                    >
+                      <div className="cliente-nombre">{cliente.nombre}</div>
+                      {cliente.telefono && (
+                        <div className="cliente-info">📞 {cliente.telefono}</div>
+                      )}
+                      {cliente.email && (
+                        <div className="cliente-info">✉️ {cliente.email}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="form-group">
