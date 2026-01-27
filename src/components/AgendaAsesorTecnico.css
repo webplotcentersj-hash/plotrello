@@ -1,6 +1,7 @@
 .agenda-asesor-tecnico {
   padding: 24px;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+  background-attachment: fixed;
   min-height: calc(100vh - 80px);
 }
 
@@ -22,8 +23,10 @@
 
 .agenda-header h2 {
   margin: 0;
-  color: #333;
-  font-size: 1.5rem;
+  color: #ffffff;
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .month-nav {
@@ -33,36 +36,66 @@
 
 .btn-nav {
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
   cursor: pointer;
   font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: 600;
+  transition: all 0.3s;
 }
 
 .btn-nav:hover {
-  background: #f0f0f0;
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .month-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #333;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
   text-transform: capitalize;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .btn-primary {
-  padding: 10px 20px;
-  background: #667eea;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
 }
 
 .btn-primary:hover {
-  background: #5568d3;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
 .agenda-content {
@@ -72,10 +105,12 @@
 }
 
 .agenda-calendar {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .calendar-weekdays {
@@ -87,10 +122,12 @@
 
 .weekday-header {
   text-align: center;
-  font-weight: 600;
-  color: #666;
-  padding: 8px;
-  font-size: 0.9rem;
+  font-weight: 700;
+  color: #000000;
+  padding: 12px;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .calendar-grid {
@@ -101,34 +138,61 @@
 
 .calendar-day {
   min-height: 100px;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
   padding: 8px;
   cursor: pointer;
-  background: white;
-  transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.calendar-day::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transform: scaleX(0);
+  transition: transform 0.3s;
+}
+
+.calendar-day:hover::before {
+  transform: scaleX(1);
 }
 
 .calendar-day:hover {
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 1);
   border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .calendar-day.other-month {
-  opacity: 0.4;
-  background: #f9f9f9;
+  opacity: 0.3;
+  background: rgba(249, 250, 251, 0.5);
 }
 
 .calendar-day.today {
-  background: #e3f2fd;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
   border-color: #2196f3;
-  font-weight: 600;
+  border-width: 3px;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.calendar-day.today .day-number {
+  color: #000000;
+  font-weight: 800;
 }
 
 .day-number {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 700;
   margin-bottom: 4px;
+  color: #000000;
 }
 
 .day-citas {
@@ -139,16 +203,20 @@
 
 .cita-indicator {
   font-size: 0.75rem;
-  padding: 2px 4px;
-  border-radius: 3px;
+  padding: 4px 6px;
+  border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
+  color: #000000;
+  transition: all 0.2s;
 }
 
 .cita-indicator:hover {
-  opacity: 0.8;
+  opacity: 0.9;
+  transform: scale(1.05);
 }
 
 .cita-indicator.estado-programada {
@@ -178,8 +246,9 @@
 
 .cita-more {
   font-size: 0.7rem;
-  color: #666;
+  color: #000000;
   font-style: italic;
+  font-weight: 600;
 }
 
 .agenda-sidebar {
@@ -189,16 +258,21 @@
 }
 
 .sidebar-section {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .sidebar-section h3 {
-  margin: 0 0 16px 0;
-  color: #333;
-  font-size: 1.1rem;
+  margin: 0 0 20px 0;
+  color: #000000;
+  font-size: 1.3rem;
+  font-weight: 700;
+  border-bottom: 3px solid #667eea;
+  padding-bottom: 12px;
 }
 
 .citas-list {
@@ -208,16 +282,20 @@
 }
 
 .cita-item {
-  padding: 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  padding: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
+  background: rgba(255, 255, 255, 0.8);
+  margin-bottom: 8px;
 }
 
 .cita-item:hover {
   border-color: #667eea;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 1);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
 .cita-item-header {
@@ -228,9 +306,9 @@
 }
 
 .cita-fecha {
-  font-weight: 600;
-  color: #333;
-  font-size: 0.9rem;
+  font-weight: 700;
+  color: #000000;
+  font-size: 0.95rem;
 }
 
 .cita-estado {
@@ -242,29 +320,35 @@
 }
 
 .cita-titulo {
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 6px;
+  font-size: 1rem;
 }
 
 .cita-cliente,
 .cita-direccion {
   font-size: 0.85rem;
-  color: #666;
+  color: #000000;
   margin-top: 4px;
+  font-weight: 500;
+  opacity: 0.8;
 }
 
 .empty-state {
   text-align: center;
-  color: #999;
+  color: #000000;
   padding: 20px;
   font-style: italic;
+  font-weight: 500;
+  opacity: 0.7;
 }
 
 .loading {
   text-align: center;
-  color: #666;
+  color: #000000;
   padding: 20px;
+  font-weight: 600;
 }
 
 .alert {
@@ -274,9 +358,11 @@
 }
 
 .alert-error {
-  background: #fee;
+  background: rgba(254, 226, 226, 0.95);
   color: #c33;
-  border: 1px solid #fcc;
+  border: 2px solid #fcc;
+  backdrop-filter: blur(10px);
+  font-weight: 600;
 }
 
 @media (max-width: 1024px) {
