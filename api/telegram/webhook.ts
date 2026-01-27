@@ -143,17 +143,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Telegram SIEMPRE espera una respuesta 200 OK con JSON válido
   // Respondemos inmediatamente y procesamos en segundo plano
   
+  console.log('[Telegram Webhook] Request recibido:', {
+    method: req.method,
+    hasBody: !!req.body,
+    bodyKeys: req.body ? Object.keys(req.body) : []
+  })
+  
   // Responder inmediatamente a Telegram ANTES de cualquier procesamiento
   res.status(200).json({ ok: true })
   
   // Si no es POST, terminar aquí
   if (req.method !== 'POST') {
+    console.log('[Telegram Webhook] Método no permitido:', req.method)
     return
   }
   
   // Verificar token del bot
   if (!TELEGRAM_BOT_TOKEN) {
-    console.error('TELEGRAM_BOT_TOKEN no configurado')
+    console.error('[Telegram Webhook] ERROR: TELEGRAM_BOT_TOKEN no configurado')
     return
   }
   
@@ -161,8 +168,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const update = req.body
 
+    console.log('[Telegram Webhook] Update recibido:', JSON.stringify(update, null, 2))
+
     // Verificar que es un update válido de Telegram
     if (!update || !update.message) {
+      console.log('[Telegram Webhook] Update sin mensaje, ignorando')
       return // Ya respondimos 200
     }
 
@@ -171,6 +181,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = message.from.id
     const userName = message.from.first_name || message.from.username || `Usuario ${userId}`
     const text = message.text
+
+    console.log('[Telegram Webhook] Procesando mensaje:', {
+      chatId,
+      userId,
+      userName,
+      text
+    })
 
     // Verificar si el usuario está autorizado
     if (TELEGRAM_ALLOWED_USERS.length > 0 && !TELEGRAM_ALLOWED_USERS.includes(userId)) {
@@ -183,7 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Manejar comandos especiales
     if (text === '/start') {
-      await sendTelegramMessage(
+      console.log('[Telegram Webhook] Comando /start recibido')
+      const sent = await sendTelegramMessage(
         chatId,
         `👋 ¡Hola ${userName}! Soy PlotAI, tu asistente inteligente para gestión de producción gráfica.\n\n` +
         `Puedes preguntarme sobre:\n` +
@@ -193,6 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `📈 Métricas y reportes\n\n` +
         `Simplemente escribe tu pregunta y te ayudaré.`
       )
+      console.log('[Telegram Webhook] Mensaje /start enviado:', sent)
       return // Ya respondimos 200
     }
 
@@ -238,7 +257,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await sendTelegramMessage(chatId, response)
     }
   } catch (error) {
-    console.error('Error en webhook de Telegram:', error)
+    console.error('[Telegram Webhook] ERROR:', error)
+    console.error('[Telegram Webhook] Stack:', error instanceof Error ? error.stack : 'No stack')
     // Ya respondimos 200, solo logueamos el error
   }
 }
