@@ -97,7 +97,7 @@
 
 .stat-content h3 {
   margin: 0 0 8px 0;
-  color: #6b7280;
+  color: #000000;
   font-size: 0.875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -128,7 +128,7 @@
 
 .caja-filters h2 {
   margin: 0 0 16px 0;
-  color: #1f2937;
+  color: #000000;
   font-size: 1.5rem;
 }
 
@@ -177,7 +177,7 @@
 
 .chart-card h3 {
   margin: 0 0 16px 0;
-  color: #1f2937;
+  color: #000000;
   font-size: 1.25rem;
   font-weight: 600;
 }
@@ -207,7 +207,7 @@
 
 .section-header h2 {
   margin: 0;
-  color: #1f2937;
+  color: #000000;
   font-size: 1.25rem;
   font-weight: 600;
 }
