@@ -1,8 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
-import apiService from '../../src/services/api'
-import { generateContent } from '../../src/services/plotAIService'
-import { historialToActivity, ordenToTask } from '../../src/utils/dataMappers'
+import { GoogleGenAI } from '@google/genai'
 import type { Task, TeamMember, ActivityEvent } from '../../src/types/board'
 import type { UsuarioRecord } from '../../src/types/api'
 
@@ -153,22 +151,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Telegram SIEMPRE espera una respuesta 200, incluso en errores
   // Por eso respondemos inmediatamente y procesamos en segundo plano
   
-  // Responder inmediatamente a Telegram
-  res.status(200).json({ ok: true })
-
-  // Verificar método
-  if (req.method !== 'POST') {
-    console.warn('Método no permitido:', req.method)
-    return
-  }
-
-  // Verificar token del bot
-  if (!TELEGRAM_BOT_TOKEN) {
-    console.error('TELEGRAM_BOT_TOKEN no configurado')
-    return
-  }
-
   try {
+    // Responder inmediatamente a Telegram
+    res.status(200).json({ ok: true })
+
+    // Verificar método
+    if (req.method !== 'POST') {
+      console.warn('Método no permitido:', req.method)
+      return
+    }
+
+    // Verificar token del bot
+    if (!TELEGRAM_BOT_TOKEN) {
+      console.error('TELEGRAM_BOT_TOKEN no configurado')
+      return
+    }
+
     const update = req.body
 
     // Verificar que es un update válido de Telegram
