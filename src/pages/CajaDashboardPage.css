@@ -99,7 +99,7 @@
   margin: 0 0 8px 0;
   color: #000000;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -130,6 +130,7 @@
   margin: 0 0 16px 0;
   color: #000000;
   font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .date-filters {
@@ -179,7 +180,7 @@
   margin: 0 0 16px 0;
   color: #000000;
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Secciones de gestión */
@@ -209,7 +210,8 @@
   margin: 0;
   color: #000000;
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .section-content {
