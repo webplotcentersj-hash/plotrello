@@ -150,15 +150,22 @@ async function processMessage(message: string, userId: number, userName: string)
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Telegram SIEMPRE espera una respuesta 200, incluso en errores
+  // Por eso respondemos inmediatamente y procesamos en segundo plano
+  
+  // Responder inmediatamente a Telegram
+  res.status(200).json({ ok: true })
+
   // Verificar método
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método no permitido' })
+    console.warn('Método no permitido:', req.method)
+    return
   }
 
   // Verificar token del bot
   if (!TELEGRAM_BOT_TOKEN) {
     console.error('TELEGRAM_BOT_TOKEN no configurado')
-    return res.status(500).json({ error: 'Bot no configurado' })
+    return
   }
 
   try {
@@ -166,7 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Verificar que es un update válido de Telegram
     if (!update || !update.message) {
-      return res.status(200).json({ ok: true }) // Telegram espera respuesta 200
+      return // Ya respondimos 200
     }
 
     const message = update.message
@@ -181,7 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         chatId,
         '❌ No tienes permiso para usar este bot. Contacta al administrador.'
       )
-      return res.status(200).json({ ok: true })
+      return // Ya respondimos 200
     }
 
     // Manejar comandos especiales
@@ -196,7 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `📈 Métricas y reportes\n\n` +
         `Simplemente escribe tu pregunta y te ayudaré.`
       )
-      return res.status(200).json({ ok: true })
+      return // Ya respondimos 200
     }
 
     if (text === '/help') {
@@ -212,7 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `• Carga de trabajo del equipo\n` +
         `• Reportes y análisis`
       )
-      return res.status(200).json({ ok: true })
+      return // Ya respondimos 200
     }
 
     if (text === '/status') {
@@ -232,7 +239,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `👥 Equipo: ${teamMembers.length} miembros\n` +
         `📝 Movimientos recientes: ${activity.length}`
       )
-      return res.status(200).json({ ok: true })
+      return // Ya respondimos 200
     }
 
     // Procesar mensaje normal con PlotAI
@@ -246,12 +253,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Enviar respuesta
       await sendTelegramMessage(chatId, response)
     }
-
-    // Telegram siempre espera una respuesta 200
-    return res.status(200).json({ ok: true })
   } catch (error) {
     console.error('Error en webhook de Telegram:', error)
-    return res.status(200).json({ ok: true }) // Telegram espera respuesta 200 incluso en errores
+    // Ya respondimos 200, solo logueamos el error
   }
 }
 
