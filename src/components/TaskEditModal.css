@@ -625,7 +625,8 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 24px;
-  border-top: 1px solid var(--surface-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.2) !important;
 }
 
 .footer-actions {
