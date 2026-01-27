@@ -48,6 +48,7 @@ const RecursosHumanosHorariosPage = lazy(() => import('./pages/RecursosHumanosHo
 const RecursosHumanosEvaluacionesPage = lazy(() => import('./pages/RecursosHumanosEvaluacionesPage'))
 const RecursosHumanosEstadisticasPage = lazy(() => import('./pages/RecursosHumanosEstadisticasPage'))
 const RecursosHumanosPermisosPage = lazy(() => import('./pages/RecursosHumanosPermisosPage'))
+const CajaDashboardPage = lazy(() => import('./pages/CajaDashboardPage'))
 const RecursosHumanosNotificacionesPage = lazy(() => import('./pages/RecursosHumanosNotificacionesPage'))
 const RecursosHumanosCapacitacionesPage = lazy(() => import('./pages/RecursosHumanosCapacitacionesPage'))
 const RecursosHumanosMenuDiarioPage = lazy(() => import('./pages/RecursosHumanosMenuDiarioPage'))

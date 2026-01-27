@@ -4,12 +4,12 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { Venta, OrdenTrabajo, CuentaPorCobrarRecord, CuentaPorPagarRecord } from '../types/api'
 import { formatArgentinaDate } from '../utils/dateUtils'
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './CajaDashboardPage.css'
 
 const CajaDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja, usuario } = useAuth()
+  const { isAdmin, isCaja } = useAuth()
   const [loading, setLoading] = useState(true)
   
   // Estados principales
@@ -151,6 +151,7 @@ const CajaDashboardPage = () => {
         
         setEstadisticas(prev => ({
           ...prev,
+          ingresosHoy: ingresos,
           egresosHoy: egresos,
           saldoCaja: saldoFinal
         }))
@@ -340,7 +341,7 @@ const CajaDashboardPage = () => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
@@ -414,7 +415,7 @@ const CajaDashboardPage = () => {
                   <div key={orden.id} className="orden-item">
                     <div className="orden-info">
                       <span className="orden-numero">OP: {orden.numero_op}</span>
-                      <span className="orden-cliente">{orden.cliente_nombre}</span>
+                      <span className="orden-cliente">{orden.cliente}</span>
                     </div>
                     <div className="orden-details">
                       <span className="orden-estado">{orden.estado}</span>
