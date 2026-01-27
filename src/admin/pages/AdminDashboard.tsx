@@ -23,7 +23,6 @@ export default function AdminDashboard({
   const [isPlotAIOpen, setIsPlotAIOpen] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [isInstallable, setIsInstallable] = useState(false)
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   // Manejar instalación PWA
   useEffect(() => {
@@ -42,20 +41,6 @@ export default function AdminDashboard({
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    }
-  }, [])
-
-  // Monitorear estado de conexión
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
     }
   }, [])
 
@@ -89,13 +74,6 @@ export default function AdminDashboard({
 
   return (
     <div className="admin-dashboard">
-      {/* Indicador de estado offline */}
-      {!isOnline && (
-        <div className="admin-offline-banner">
-          <span>📡 Sin conexión - Modo offline activo</span>
-        </div>
-      )}
-
       {/* Header Mobile-First */}
       <header className="admin-header">
         <div className="admin-header-content">
@@ -145,7 +123,6 @@ export default function AdminDashboard({
           <div className="admin-user-info">
             <span>👤 {usuario.nombre}</span>
             <span className="admin-user-role">{usuario.rol}</span>
-            {!isOnline && <span className="admin-offline-indicator">●</span>}
           </div>
         )}
       </header>

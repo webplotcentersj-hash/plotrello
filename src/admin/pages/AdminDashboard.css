@@ -112,31 +112,6 @@
   text-transform: capitalize;
 }
 
-.admin-offline-banner {
-  background: rgba(255, 193, 7, 0.2);
-  border-bottom: 2px solid rgba(255, 193, 7, 0.5);
-  padding: 8px 16px;
-  text-align: center;
-  color: #ffc107;
-  font-size: 13px;
-  font-weight: 600;
-  position: sticky;
-  top: 0;
-  z-index: 200;
-}
-
-.admin-offline-indicator {
-  color: #ffc107;
-  font-size: 12px;
-  margin-left: 8px;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
 .admin-btn-install {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #fff;

@@ -58,24 +58,6 @@
     </div>
     <script type="module" src="/src/admin/main.tsx"></script>
     <script>
-      // Registrar Service Worker para PWA
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw-admin.js', { scope: '/admin' })
-            .then(function(registration) {
-              console.log('[PWA Admin] Service Worker registrado:', registration.scope);
-              
-              // Verificar actualizaciones cada hora
-              setInterval(function() {
-                registration.update();
-              }, 3600000);
-            })
-            .catch(function(error) {
-              console.error('[PWA Admin] Error al registrar Service Worker:', error);
-            });
-        });
-      }
-
       // Remover el fallback cuando React se monte
       window.addEventListener('load', function() {
         setTimeout(function() {
