@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import NotificationsDropdown from './NotificationsDropdown'
@@ -159,17 +160,17 @@ const Header = ({
                 📅 Calendario Entregas
               </a>
             )}
-            {canManageCaja && onNavigateToCaja && (
-              <button 
-                className="brand-button" 
-                onClick={(e) => {
-                  e.preventDefault()
-                  console.log('Navegando a Caja Dashboard')
-                  onNavigateToCaja()
+            {canManageCaja && (
+              <Link
+                to="/caja/dashboard"
+                className="brand-button"
+                onClick={() => {
+                  setActionsOpen(false)
+                  onNavigateToCaja?.()
                 }}
               >
                 💰 Caja
-              </button>
+              </Link>
             )}
             {(isDiseno || isAdmin) && onNavigateToDiseno && (
               <button className="brand-button" onClick={onNavigateToDiseno}>
