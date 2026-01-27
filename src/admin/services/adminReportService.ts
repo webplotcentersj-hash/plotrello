@@ -11,10 +11,21 @@ export interface ReportOptions {
     to: string
   }
   userName?: string
-  ventas?: any[]
-  clientes?: any[]
-  presupuestos?: any[]
-  metrics?: any
+  metrics?: {
+    totalOps?: number
+    opsEnProceso?: number
+    opsCompletadas?: number
+    opsUrgentes?: number
+    opsAtrasadas?: number
+    totalFacturas?: number
+    facturasEmitidas?: number
+    totalVentas?: number
+    totalPresupuestos?: number
+    presupuestosAceptados?: number
+    valorPresupuestos?: number
+    totalClientes?: number
+    clientesActivos?: number
+  }
 }
 
 /**
