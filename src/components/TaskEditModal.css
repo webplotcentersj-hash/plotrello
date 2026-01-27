@@ -13,7 +13,7 @@
 }
 
 .modal-content {
-  background: linear-gradient(145deg, rgba(16, 18, 30, 0.98), rgba(12, 14, 24, 0.98));
+  background: linear-gradient(145deg, rgba(16, 18, 30, 0.98), rgba(12, 14, 24, 0.98)) !important;
   border-radius: 20px;
   width: 100%;
   max-width: 800px;
@@ -41,8 +41,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
 }
 
 .modal-content .modal-header h2,
@@ -76,7 +76,7 @@
   padding: 24px;
   overflow-y: auto;
   flex: 1;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.1) !important;
 }
 
 .form-row {
