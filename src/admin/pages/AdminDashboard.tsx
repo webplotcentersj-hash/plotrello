@@ -21,6 +21,59 @@ export default function AdminDashboard({
   const { usuario } = useAuth()
   const navigate = useNavigate()
   const [isPlotAIOpen, setIsPlotAIOpen] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [isInstallable, setIsInstallable] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+
+  // Manejar instalación PWA
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setIsInstallable(true)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+
+    // Verificar si ya está instalada
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstallable(false)
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
+  }, [])
+
+  // Monitorear estado de conexión
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return
+
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    
+    if (outcome === 'accepted') {
+      console.log('[PWA Admin] Usuario aceptó la instalación')
+    } else {
+      console.log('[PWA Admin] Usuario rechazó la instalación')
+    }
+    
+    setDeferredPrompt(null)
+    setIsInstallable(false)
+  }
 
   // Calcular métricas rápidas
   const totalOps = tasks.length
@@ -36,6 +89,13 @@ export default function AdminDashboard({
 
   return (
     <div className="admin-dashboard">
+      {/* Indicador de estado offline */}
+      {!isOnline && (
+        <div className="admin-offline-banner">
+          <span>📡 Sin conexión - Modo offline activo</span>
+        </div>
+      )}
+
       {/* Header Mobile-First */}
       <header className="admin-header">
         <div className="admin-header-content">
@@ -44,6 +104,16 @@ export default function AdminDashboard({
             <p className="admin-subtitle">Panel de Control</p>
           </div>
           <div className="admin-header-right">
+            {isInstallable && (
+              <button
+                className="admin-btn admin-btn-install"
+                onClick={handleInstallPWA}
+                title="Instalar aplicación"
+              >
+                <span className="admin-btn-icon">📱</span>
+                <span className="admin-btn-text">Instalar</span>
+              </button>
+            )}
             <button
               className="admin-btn admin-btn-primary"
               onClick={() => setIsPlotAIOpen(true)}
@@ -75,6 +145,7 @@ export default function AdminDashboard({
           <div className="admin-user-info">
             <span>👤 {usuario.nombre}</span>
             <span className="admin-user-role">{usuario.rol}</span>
+            {!isOnline && <span className="admin-offline-indicator">●</span>}
           </div>
         )}
       </header>
