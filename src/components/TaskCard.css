@@ -1100,8 +1100,7 @@ body.compact-mode .task-actions {
 .subtasks-modal .modal-header h3 {
   margin: 0;
   font-size: 1.1rem;
-  color: #000000;
-  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .subtasks-modal .modal-close {

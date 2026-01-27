@@ -306,9 +306,8 @@
 
 .modal-content h2 {
   margin: 0 0 20px 0;
-  color: #000000;
+  color: #fff;
   font-size: 24px;
-  font-weight: 600;
 }
 
 .modal-form {

@@ -36,8 +36,8 @@
   margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #000000;
-  text-shadow: none;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .close-button {

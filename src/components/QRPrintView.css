@@ -32,8 +32,7 @@
 .qr-print-modal-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #000000;
-  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .qr-print-modal-body {
