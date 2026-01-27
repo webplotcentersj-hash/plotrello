@@ -30,40 +30,60 @@ Para autorizar usuarios específicos, necesitas conocer sus User IDs:
 
 ### 3. Configurar Variables de Entorno en Vercel
 
-Ve a tu proyecto en Vercel y agrega estas variables de entorno:
+📘 **Para una guía detallada paso a paso, consulta [TELEGRAM_CONFIG_GUIA.md](./TELEGRAM_CONFIG_GUIA.md)**
 
-#### Variables Requeridas:
+**Resumen rápido:**
 
-- `TELEGRAM_BOT_TOKEN`: El token que te dio BotFather
-  ```
-  Ejemplo: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz
-  ```
+1. Ve a Vercel → Tu proyecto → **Settings** → **Environment Variables**
+2. Agrega estas variables:
 
-#### Variables Opcionales:
+   **Requerida:**
+   - `TELEGRAM_BOT_TOKEN`: El token que te dio BotFather
+     ```
+     Ejemplo: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+     ```
 
-- `TELEGRAM_ALLOWED_USERS`: Lista de User IDs autorizados separados por comas
-  ```
-  Ejemplo: 123456789,987654321,555555555
-  ```
-  - Si no se configura, **cualquiera** podrá usar el bot
-  - Si se configura, solo los usuarios listados podrán usarlo
+   **Opcional (recomendado):**
+   - `TELEGRAM_ALLOWED_USERS`: Lista de User IDs autorizados separados por comas
+     ```
+     Ejemplo: 123456789,987654321,555555555
+     ```
+     - Si no se configura, **cualquiera** podrá usar el bot
+     - Si se configura, solo los usuarios listados podrán usarlo
 
-- `TELEGRAM_WEBHOOK_SECRET`: Secreto para validar webhooks (opcional, para mayor seguridad)
+3. **⚠️ IMPORTANTE:** Después de agregar variables, redesplega la aplicación:
+   - Ve a **Deployments** → Haz clic en los tres puntos (⋯) → **Redeploy**
+   - O simplemente haz un nuevo commit y push
 
 ### 4. Configurar el Webhook
 
-Una vez que tu aplicación esté desplegada en Vercel:
+📘 **Para una guía detallada paso a paso, consulta [TELEGRAM_CONFIG_GUIA.md](./TELEGRAM_CONFIG_GUIA.md)**
+
+**Resumen rápido:**
 
 1. Obtén la URL de tu endpoint: `https://tu-dominio.vercel.app/api/telegram/webhook`
-2. Configura el webhook usando este comando en tu navegador o con curl:
+   - Encuentra tu dominio en Vercel → Tu proyecto → **Deployments** → Último despliegue
+   - Agrega `/api/telegram/webhook` al final
+
+2. Configura el webhook ejecutando en tu terminal:
 
 ```bash
 curl -X POST "https://api.telegram.org/bot<TU_TOKEN>/setWebhook?url=https://tu-dominio.vercel.app/api/telegram/webhook"
 ```
 
 Reemplaza:
-- `<TU_TOKEN>` con el token que te dio BotFather
+- `<TU_TOKEN>` con el token que te dio BotFather (sin los `< >`)
 - `https://tu-dominio.vercel.app/api/telegram/webhook` con tu URL real
+
+**En PowerShell (Windows):**
+```powershell
+Invoke-WebRequest -Uri "https://api.telegram.org/bot<TU_TOKEN>/setWebhook?url=https://tu-dominio.vercel.app/api/telegram/webhook" -Method POST
+```
+
+**O usa el navegador:** Abre esta URL (reemplazando los valores):
+```
+https://api.telegram.org/bot<TU_TOKEN>/setWebhook?url=https://tu-dominio.vercel.app/api/telegram/webhook
+```
 
 ### 5. Verificar el Webhook
 
@@ -73,7 +93,7 @@ Para verificar que el webhook está configurado correctamente:
 curl "https://api.telegram.org/bot<TU_TOKEN>/getWebhookInfo"
 ```
 
-Deberías ver información sobre tu webhook configurado.
+Deberías ver información sobre tu webhook configurado con tu URL.
 
 ## 💬 Uso del Bot
 
