@@ -448,15 +448,20 @@ export default function AdminReports({
             </div>
           </div>
         </section>
+        )}
 
         {/* Botón Generar */}
-        <button
-          className="admin-reports-generate-btn"
-          onClick={handleGenerateReport}
-          disabled={isGenerating || loadingData}
-        >
-          {isGenerating ? '⏳ Generando...' : loadingData ? '📥 Cargando datos...' : '📊 Generar Informe'}
-        </button>
+        {!loadingData && (
+          <section className="admin-reports-section">
+            <button
+              className="admin-reports-generate-btn"
+              onClick={handleGenerateReport}
+              disabled={isGenerating || loadingData}
+            >
+              {isGenerating ? '⏳ Generando...' : '📊 Generar Informe'}
+            </button>
+          </section>
+        )}
 
         {/* Error */}
         {reportError && (
