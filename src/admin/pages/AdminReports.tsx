@@ -36,10 +36,13 @@ export default function AdminReports({
   const [presupuestos, setPresupuestos] = useState<any[]>([])
   const [loadingData, setLoadingData] = useState(true)
 
+  const [dataError, setDataError] = useState<string | null>(null)
+
   // Cargar datos adicionales
   useEffect(() => {
     const loadAllData = async () => {
       setLoadingData(true)
+      setDataError(null)
       try {
         // Cargar facturas
         const facturasRes = await apiService.getFacturas({
@@ -48,6 +51,8 @@ export default function AdminReports({
         })
         if (facturasRes.success && facturasRes.data) {
           setFacturas(facturasRes.data)
+        } else {
+          console.warn('No se pudieron cargar facturas:', facturasRes.error)
         }
 
         // Cargar presupuestos de ventas
@@ -57,15 +62,20 @@ export default function AdminReports({
         })
         if (presupuestosRes.success && presupuestosRes.data) {
           setPresupuestos(presupuestosRes.data)
+        } else {
+          console.warn('No se pudieron cargar presupuestos:', presupuestosRes.error)
         }
 
         // Cargar clientes web
         const clientesRes = await apiService.getClientesWeb()
         if (clientesRes.success && clientesRes.data) {
           setClientes(clientesRes.data)
+        } else {
+          console.warn('No se pudieron cargar clientes:', clientesRes.error)
         }
       } catch (error) {
         console.error('Error cargando datos:', error)
+        setDataError(error instanceof Error ? error.message : 'Error al cargar los datos')
       } finally {
         setLoadingData(false)
       }
@@ -237,10 +247,30 @@ export default function AdminReports({
       </header>
 
       <div className="admin-reports-content">
+        {/* Indicador de Carga */}
+        {loadingData && (
+          <section className="admin-reports-section">
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#b7bed3' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+              <div style={{ fontSize: '16px', fontWeight: 600 }}>Cargando datos...</div>
+            </div>
+          </section>
+        )}
+
+        {/* Error de Datos */}
+        {dataError && (
+          <section className="admin-reports-section">
+            <div className="admin-reports-error">
+              ⚠️ Error al cargar datos: {dataError}
+            </div>
+          </section>
+        )}
+
         {/* Métricas Rápidas */}
-        <section className="admin-reports-metrics-section">
-          <h2 className="admin-reports-section-title">📈 Resumen General</h2>
-          <div className="admin-reports-metrics-grid">
+        {!loadingData && (
+          <section className="admin-reports-section admin-reports-metrics-section">
+            <h2 className="admin-reports-section-title">📈 Resumen General</h2>
+            <div className="admin-reports-metrics-grid">
             <div className="admin-reports-metric-card">
               <div className="admin-reports-metric-icon">📋</div>
               <div className="admin-reports-metric-content">
@@ -285,10 +315,12 @@ export default function AdminReports({
             </div>
           </div>
         </section>
+        )}
 
         {/* Selector de Tipo de Reporte */}
-        <section className="admin-reports-section">
-          <h2 className="admin-reports-section-title">Tipo de Informe</h2>
+        {!loadingData && (
+          <section className="admin-reports-section">
+            <h2 className="admin-reports-section-title">Tipo de Informe</h2>
           <div className="admin-reports-type-grid">
             <button
               className={`admin-reports-type-card ${selectedReportType === 'completo' ? 'active' : ''}`}
@@ -348,10 +380,12 @@ export default function AdminReports({
             </button>
           </div>
         </section>
+        )}
 
         {/* Rango de Fechas */}
-        <section className="admin-reports-section">
-          <h2 className="admin-reports-section-title">Período</h2>
+        {!loadingData && (
+          <section className="admin-reports-section">
+            <h2 className="admin-reports-section-title">Período</h2>
           <div className="admin-reports-date-range">
             <div className="admin-reports-date-input-group">
               <label>Desde</label>
