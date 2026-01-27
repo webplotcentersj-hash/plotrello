@@ -21,6 +21,13 @@ const genAI = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : nul
 // Enviar mensaje a Telegram
 async function sendTelegramMessage(chatId: number, text: string) {
   try {
+    console.log('[Telegram Webhook] Enviando mensaje:', { chatId, textLength: text.length })
+    
+    if (!TELEGRAM_BOT_TOKEN) {
+      console.error('[Telegram Webhook] ERROR: TELEGRAM_BOT_TOKEN no disponible para enviar mensaje')
+      return false
+    }
+    
     const response = await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
       method: 'POST',
       headers: {
@@ -34,13 +41,16 @@ async function sendTelegramMessage(chatId: number, text: string) {
 
     if (!response.ok) {
       const error = await response.text()
-      console.error('Error enviando mensaje a Telegram:', error)
+      console.error('[Telegram Webhook] Error enviando mensaje a Telegram:', error)
+      console.error('[Telegram Webhook] Status:', response.status, response.statusText)
       return false
     }
 
+    const result = await response.json()
+    console.log('[Telegram Webhook] Mensaje enviado exitosamente:', result.ok)
     return true
   } catch (error) {
-    console.error('Error en sendTelegramMessage:', error)
+    console.error('[Telegram Webhook] Error en sendTelegramMessage:', error)
     return false
   }
 }
