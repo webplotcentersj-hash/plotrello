@@ -1,0 +1,55 @@
+{
+  "name": "Plot Lab Admin - Panel de Control",
+  "short_name": "Plot Admin",
+  "description": "Panel de control móvil para administración y reportes con PlotAI",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#0e0f16",
+  "theme_color": "#eb671b",
+  "orientation": "portrait-primary",
+  "scope": "/admin",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "PlotAI",
+      "short_name": "PlotAI",
+      "description": "Abrir PlotAI",
+      "url": "/admin?action=plotai",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Reportes",
+      "short_name": "Reportes",
+      "description": "Ver reportes",
+      "url": "/admin/reportes",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}
+

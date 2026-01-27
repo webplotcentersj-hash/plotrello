@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png" />
     <link rel="shortcut icon" href="/favicon.png" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/admin-manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#eb671b" />
     <meta name="description" content="Panel Admin - Plot Lab - Gestión y Reportes" />
@@ -58,6 +58,24 @@
     </div>
     <script type="module" src="/src/admin/main.tsx"></script>
     <script>
+      // Registrar Service Worker para PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw-admin.js', { scope: '/admin' })
+            .then(function(registration) {
+              console.log('[PWA Admin] Service Worker registrado:', registration.scope);
+              
+              // Verificar actualizaciones cada hora
+              setInterval(function() {
+                registration.update();
+              }, 3600000);
+            })
+            .catch(function(error) {
+              console.error('[PWA Admin] Error al registrar Service Worker:', error);
+            });
+        });
+      }
+
       // Remover el fallback cuando React se monte
       window.addEventListener('load', function() {
         setTimeout(function() {
