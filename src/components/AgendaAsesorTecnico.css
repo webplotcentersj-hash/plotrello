@@ -313,11 +313,13 @@
 }
 
 .cita-estado {
-  padding: 2px 8px;
+  padding: 4px 10px;
   border-radius: 12px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
   text-transform: capitalize;
+  color: #000000;
+  border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
 .cita-titulo {
