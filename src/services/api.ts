@@ -39,7 +39,8 @@ import type {
   MenuDiario,
   MenuSeleccion,
   Vehiculo,
-  RegistroSalidaVehiculo
+  RegistroSalidaVehiculo,
+  CitaAsesorTecnico
   // Types used in function signatures and return types
   // OportunidadVenta,
   // Venta,
@@ -11418,6 +11419,134 @@ class ApiService {
           if (error) return { success: false, error: error.message }
           return { success: true, data: data as import('../types/api').ConfiguracionAFIPRecord }
         }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ============================================
+  // AGENDA DEL ASESOR TÉCNICO
+  // ============================================
+
+  async getCitasAsesor(
+    idAsesor: number,
+    fechaDesde?: string,
+    fechaHasta?: string
+  ): Promise<ApiResponse<CitaAsesorTecnico[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_citas_asesor', {
+          p_id_asesor: idAsesor,
+          p_fecha_desde: fechaDesde || null,
+          p_fecha_hasta: fechaHasta || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as CitaAsesorTecnico[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async crearCitaAsesor(
+    idAsesor: number,
+    titulo: string,
+    fechaCita: string,
+    idCliente?: number,
+    idFichaNoOP?: number,
+    descripcion?: string,
+    duracionMinutos?: number,
+    direccion?: string,
+    ubicacionLink?: string,
+    estado?: string,
+    notas?: string
+  ): Promise<ApiResponse<CitaAsesorTecnico>> {
+    if (supabase) {
+      try {
+        const { data: userData } = await supabase.auth.getUser()
+        const createdBy = userData.user?.id ? parseInt(userData.user.id) : null
+
+        const { data, error } = await supabase.rpc('crear_cita_asesor', {
+          p_id_asesor: idAsesor,
+          p_titulo: titulo,
+          p_fecha_cita: fechaCita,
+          p_id_cliente: idCliente || null,
+          p_id_ficha_no_op: idFichaNoOP || null,
+          p_descripcion: descripcion || null,
+          p_duracion_minutos: duracionMinutos || 60,
+          p_direccion: direccion || null,
+          p_ubicacion_link: ubicacionLink || null,
+          p_estado: estado || 'programada',
+          p_notas: notas || null,
+          p_created_by: createdBy
+        })
+
+        if (error) return { success: false, error: error.message }
+        
+        // Obtener la cita completa
+        const citaResponse = await this.getCitasAsesor(idAsesor)
+        if (citaResponse.success && citaResponse.data) {
+          const nuevaCita = citaResponse.data.find(c => c.id === (data as any)[0]?.id)
+          if (nuevaCita) {
+            return { success: true, data: nuevaCita }
+          }
+        }
+        
+        return { success: false, error: 'Error al obtener la cita creada' }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async actualizarCitaAsesor(
+    id: number,
+    titulo?: string,
+    descripcion?: string,
+    fechaCita?: string,
+    duracionMinutos?: number,
+    direccion?: string,
+    ubicacionLink?: string,
+    estado?: string,
+    notas?: string
+  ): Promise<ApiResponse<boolean>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_cita_asesor', {
+          p_id: id,
+          p_titulo: titulo || null,
+          p_descripcion: descripcion || null,
+          p_fecha_cita: fechaCita || null,
+          p_duracion_minutos: duracionMinutos || null,
+          p_direccion: direccion || null,
+          p_ubicacion_link: ubicacionLink || null,
+          p_estado: estado || null,
+          p_notas: notas || null
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as boolean }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async eliminarCitaAsesor(id: number): Promise<ApiResponse<boolean>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('eliminar_cita_asesor', {
+          p_id: id
+        })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as boolean }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }

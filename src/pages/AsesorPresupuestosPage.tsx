@@ -4,6 +4,7 @@ import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
 import TaskEditModal from '../components/TaskEditModal'
 import FichaNoOPModal from '../components/FichaNoOPModal'
+import AgendaAsesorTecnico from '../components/AgendaAsesorTecnico'
 import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
@@ -40,7 +41,7 @@ const AsesorPresupuestosPage = ({
   onLogout,
   onReloadData
 }: AsesorPresupuestosPageProps) => {
-  const { isAdmin, isAsesorTecnico, isPresupuestos } = useAuth()
+  const { isAdmin, isAsesorTecnico, isPresupuestos, usuario } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')
@@ -48,6 +49,7 @@ const AsesorPresupuestosPage = ({
   const [isFichaNoOPModalOpen, setIsFichaNoOPModalOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'kanban' | 'agenda'>('kanban')
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Verificar permisos
@@ -259,6 +261,21 @@ const AsesorPresupuestosPage = ({
           <p className="subtitle">Gestión de mediciones, factibilidad y presupuestos</p>
         </div>
 
+        <div className="asesor-tabs">
+          <button
+            className={`tab-button ${activeTab === 'kanban' ? 'active' : ''}`}
+            onClick={() => setActiveTab('kanban')}
+          >
+            📋 Kanban
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'agenda' ? 'active' : ''}`}
+            onClick={() => setActiveTab('agenda')}
+          >
+            📅 Agenda
+          </button>
+        </div>
+
         {actionError && (
           <div className="alert alert-error">
             {actionError}
@@ -271,37 +288,43 @@ const AsesorPresupuestosPage = ({
           </div>
         )}
 
-        <FiltersBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchInputRef={searchInputRef}
-          statusFocus={statusFocus}
-          onStatusToggle={toggleStatusFocus}
-          onStatusReset={() => setStatusFocus([])}
-          columns={ASESOR_PRESUPUESTOS_COLUMNS}
-          priorityFilter={priorityFilter}
-          priorityFilters={[
-            { id: 'todas', label: 'Todas' },
-            { id: 'alta', label: 'Alta' },
-            { id: 'media', label: 'Media' },
-            { id: 'baja', label: 'Baja' }
-          ]}
-          onPriorityChange={setPriorityFilter}
-          onAddNewOrder={() => setIsFichaNoOPModalOpen(true)}
-        />
+        {activeTab === 'kanban' ? (
+          <>
+            <FiltersBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchInputRef={searchInputRef}
+              statusFocus={statusFocus}
+              onStatusToggle={toggleStatusFocus}
+              onStatusReset={() => setStatusFocus([])}
+              columns={ASESOR_PRESUPUESTOS_COLUMNS}
+              priorityFilter={priorityFilter}
+              priorityFilters={[
+                { id: 'todas', label: 'Todas' },
+                { id: 'alta', label: 'Alta' },
+                { id: 'media', label: 'Media' },
+                { id: 'baja', label: 'Baja' }
+              ]}
+              onPriorityChange={setPriorityFilter}
+              onAddNewOrder={() => setIsFichaNoOPModalOpen(true)}
+            />
 
-        <div className="board-container">
-          <Board
-            tasks={filteredTasks}
-            allTasks={tasks}
-            onMoveTask={handleTaskMove}
-            members={teamMembers}
-            onEditTask={(task) => setTaskToEdit(task)}
-            columns={ASESOR_PRESUPUESTOS_COLUMNS}
-            sectores={sectores}
-            activity={activity}
-          />
-        </div>
+            <div className="board-container">
+              <Board
+                tasks={filteredTasks}
+                allTasks={tasks}
+                onMoveTask={handleTaskMove}
+                members={teamMembers}
+                onEditTask={(task) => setTaskToEdit(task)}
+                columns={ASESOR_PRESUPUESTOS_COLUMNS}
+                sectores={sectores}
+                activity={activity}
+              />
+            </div>
+          </>
+        ) : (
+          usuario && <AgendaAsesorTecnico idAsesor={usuario.id} />
+        )}
 
         {taskToEdit && (
           <TaskEditModal

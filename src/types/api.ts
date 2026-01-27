@@ -1058,3 +1058,29 @@ export interface RegistroSalidaVehiculo {
   vehiculo?: Vehiculo
 }
 
+// ============================================
+// AGENDA DEL ASESOR TÉCNICO
+// ============================================
+
+export interface CitaAsesorTecnico {
+  id: number
+  id_asesor: number
+  id_cliente?: number | null
+  id_ficha_no_op?: number | null
+  titulo: string
+  descripcion?: string | null
+  fecha_cita: string
+  duracion_minutos: number
+  direccion?: string | null
+  ubicacion_link?: string | null
+  estado: 'programada' | 'confirmada' | 'en_curso' | 'completada' | 'cancelada'
+  notas?: string | null
+  created_at?: string
+  updated_at?: string
+  created_by?: number | null
+  cliente_nombre?: string | null
+  cliente_telefono?: string | null
+  cliente_email?: string | null
+  ficha_numero?: string | null
+}
+
