@@ -595,7 +595,6 @@ export function generarPagarePDF(venta: Venta, fechaVencimiento?: string): void 
   doc.setFont('helvetica', 'normal')
   const montoEnLetras = numeroALetras(venta.valor_total).charAt(0).toUpperCase() + numeroALetras(venta.valor_total).slice(1)
   
-  const fechaVenc = fechaVencimiento ? formatArgentinaDate(fechaVencimiento) : '30 días'
   const fechaVencDate = fechaVencimiento ? new Date(fechaVencimiento) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
   const fechaVencTexto = fechaVencimiento 
     ? `a los ${fechaVencDate.getDate()} días del mes de ${fechaVencDate.toLocaleDateString('es-AR', { month: 'long' })} de ${fechaVencDate.getFullYear()}`
@@ -634,7 +633,7 @@ export function generarPagarePDF(venta: Venta, fechaVencimiento?: string): void 
     doc.text('Concepto:', margin, yPos)
     yPos += 6
     doc.setFont('helvetica', 'normal')
-    venta.items.forEach((item, index) => {
+    venta.items.forEach((item) => {
       const concepto = `${item.cantidad}x ${item.descripcion} - $${item.precio_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
       doc.text(concepto, margin + 5, yPos)
       yPos += 5
