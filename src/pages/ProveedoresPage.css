@@ -226,7 +226,8 @@
 .modal-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: var(--text-primary);
+  color: #000000;
+  font-weight: 600;
 }
 
 .btn-close {
