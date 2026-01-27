@@ -135,14 +135,15 @@
 
 .cliente-nombre {
   font-weight: 600;
-  color: #1f2937;
+  color: #000000;
   margin-bottom: 4px;
 }
 
 .cliente-info {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: #000000;
   margin-top: 2px;
+  font-weight: 500;
 }
 
 .dropdown-item.crear-nuevo {
