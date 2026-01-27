@@ -11,6 +11,7 @@ const CajaDashboardPage = () => {
   const navigate = useNavigate()
   const { isAdmin, isCaja } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   // Estados principales
   const [ventasHoy, setVentasHoy] = useState<Venta[]>([])
@@ -164,6 +165,7 @@ const CajaDashboardPage = () => {
   // Cargar todos los datos
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       await Promise.all([
         loadVentasHoy(),
@@ -174,17 +176,32 @@ const CajaDashboardPage = () => {
       ])
     } catch (error) {
       console.error('Error cargando datos del dashboard:', error)
+      setError(error instanceof Error ? error.message : 'Error desconocido al cargar los datos')
     } finally {
       setLoading(false)
     }
   }, [loadVentasHoy, loadOrdenesPendientesFacturacion, loadCuentasPorCobrar, loadCuentasPorPagar, loadFlujoCaja])
 
   useEffect(() => {
-    if (!isAdmin && !isCaja) {
-      navigate('/')
-      return
-    }
-    loadDashboardData()
+    console.log('CajaDashboardPage - Montado')
+    console.log('CajaDashboardPage - isAdmin:', isAdmin, 'isCaja:', isCaja)
+    
+    // Pequeño delay para asegurar que el componente se renderice antes de verificar permisos
+    const timer = setTimeout(() => {
+      if (!isAdmin && !isCaja) {
+        console.log('CajaDashboardPage - Sin permisos, redirigiendo...')
+        navigate('/')
+        return
+      }
+      console.log('CajaDashboardPage - Cargando datos...')
+      loadDashboardData().catch(err => {
+        console.error('Error en loadDashboardData:', err)
+        setError('Error al cargar los datos del dashboard')
+        setLoading(false)
+      })
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [isAdmin, isCaja, navigate, loadDashboardData])
 
   // Preparar datos para gráficos
@@ -200,11 +217,34 @@ const CajaDashboardPage = () => {
     { name: 'Pendientes', value: estadisticas.ventasPendientes, color: '#f59e0b' }
   ].filter(item => item.value > 0)
 
+  // Mostrar mensaje de verificación de permisos mientras se carga
+  if (!isAdmin && !isCaja) {
+    return (
+      <div className="caja-dashboard-page">
+        <div className="loading-container">
+          <p>Verificando permisos...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="caja-dashboard-page">
         <div className="loading-container">
           <p>Cargando Dashboard de Caja...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="caja-dashboard-page">
+        <div className="error-container" style={{ padding: '20px', textAlign: 'center' }}>
+          <h2>Error</h2>
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()}>Recargar</button>
         </div>
       </div>
     )
