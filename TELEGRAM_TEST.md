@@ -60,6 +60,16 @@ Asegúrate de tener configuradas en Vercel:
 
 Si quieres limpiar el error anterior, puedes eliminar y volver a configurar el webhook:
 
+**En PowerShell (Windows):**
+```powershell
+# Eliminar webhook
+Invoke-RestMethod -Uri "https://api.telegram.org/bot8243440644:AAFLS-SxFOtETLrIl2vFKq-iz9JA7-mDiPc/deleteWebhook" -Method POST
+
+# Volver a configurar
+Invoke-RestMethod -Uri "https://api.telegram.org/bot8243440644:AAFLS-SxFOtETLrIl2vFKq-iz9JA7-mDiPc/setWebhook?url=https://plotrello.vercel.app/api/telegram/webhook" -Method POST
+```
+
+**En Terminal/Linux/Mac:**
 ```bash
 # Eliminar webhook
 curl -X POST "https://api.telegram.org/bot8243440644:AAFLS-SxFOtETLrIl2vFKq-iz9JA7-mDiPc/deleteWebhook"
