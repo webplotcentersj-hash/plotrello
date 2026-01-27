@@ -21,7 +21,7 @@ export interface ReportOptions {
  * Genera un reporte online usando PlotAI
  */
 export async function generateReport(options: ReportOptions): Promise<string> {
-  const { type, tasks, activity, teamMembers, dateRange, userName, ventas, clientes, presupuestos, metrics } = options
+  const { type, tasks, activity, teamMembers, dateRange, userName, metrics } = options
 
   // Filtrar tareas por rango de fechas
   const filteredTasks = tasks.filter(task => {

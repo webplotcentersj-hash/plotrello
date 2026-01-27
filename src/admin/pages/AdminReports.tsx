@@ -31,7 +31,6 @@ export default function AdminReports({
   })
   
   // Datos adicionales
-  const [ventas, setVentas] = useState<any[]>([])
   const [clientes, setClientes] = useState<any[]>([])
   const [facturas, setFacturas] = useState<any[]>([])
   const [presupuestos, setPresupuestos] = useState<any[]>([])
@@ -53,8 +52,8 @@ export default function AdminReports({
 
         // Cargar presupuestos de ventas
         const presupuestosRes = await apiService.getPresupuestosVentasAdmin({
-          fechaDesde: dateRange.from,
-          fechaHasta: dateRange.to
+          fecha_desde: dateRange.from,
+          fecha_hasta: dateRange.to
         })
         if (presupuestosRes.success && presupuestosRes.data) {
           setPresupuestos(presupuestosRes.data)
