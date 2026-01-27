@@ -145,6 +145,15 @@
   margin-top: 2px;
 }
 
+.dropdown-item.crear-nuevo {
+  background-color: #fef3c7;
+  border-left: 3px solid #f97316;
+}
+
+.dropdown-item.crear-nuevo:hover {
+  background-color: #fde68a;
+}
+
 .form-group textarea {
   resize: vertical;
   min-height: 80px;

@@ -110,13 +110,42 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       }
     }
 
+    // Buscar o crear el cliente si no existe
+    let clienteFinal: ClienteRecord | null = null
+    
+    // Primero buscar si el cliente existe
+    const buscarResponse = await apiService.buscarClientes(nombreCliente.trim())
+    if (buscarResponse.success && buscarResponse.data && buscarResponse.data.length > 0) {
+      // Buscar coincidencia exacta por nombre
+      clienteFinal = buscarResponse.data.find(c => 
+        c.nombre.toLowerCase().trim() === nombreCliente.toLowerCase().trim()
+      ) || buscarResponse.data[0]
+    }
+
+    // Si no existe, crearlo
+    if (!clienteFinal) {
+      const crearResponse = await apiService.buscarOCrearCliente({
+        nombre: nombreCliente.trim(),
+        telefono: datosContacto.trim() || undefined,
+        drive_link: driveLink.trim() || undefined,
+        ubicacion_link: ubicacionLink.trim() || undefined
+      })
+
+      if (!crearResponse.success || !crearResponse.data) {
+        alert(crearResponse.error || 'Error al crear el cliente')
+        return
+      }
+
+      clienteFinal = crearResponse.data
+    }
+
     const creatorName = usuario?.nombre?.split('@')[0] || usuario?.nombre || 'Usuario'
     
     // El número de ficha se generará automáticamente en la base de datos
     // Solo enviamos 'FICHA-' como prefijo para que la función lo detecte
     const payload = {
       numero_op: 'FICHA-', // La base de datos generará el número completo automáticamente
-      cliente: nombreCliente.trim(),
+      cliente: clienteFinal.nombre,
       descripcion: especificaciones.trim() || null,
       estado: 'Asesor Técnico',
       prioridad: prioridad,
@@ -124,9 +153,9 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       sectores: ['Asesor Técnico'],
       sector_inicial: 'Asesor Técnico',
       nombre_creador: creatorName,
-      telefono_cliente: datosContacto.trim() || null,
-      drive_link: driveLink.trim() || null,
-      ubicacion_link: ubicacionLink.trim() || null,
+      telefono_cliente: clienteFinal.telefono || datosContacto.trim() || null,
+      drive_link: clienteFinal.drive_link || driveLink.trim() || null,
+      ubicacion_link: clienteFinal.ubicacion_link || ubicacionLink.trim() || null,
       es_ficha_no_op: true,
       planilla_preliminar: planillaPreliminar,
       ficha_tecnica_pdf_url: finalFichaTecnicaUrl || null
@@ -195,6 +224,17 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+              {nombreCliente.trim().length >= 2 && 
+               !buscandoClientes && 
+               clientesEncontrados.length === 0 && 
+               isClienteDropdownOpen && (
+                <div className="cliente-dropdown">
+                  <div className="dropdown-item crear-nuevo">
+                    <div className="cliente-nombre">➕ Crear nuevo cliente: "{nombreCliente}"</div>
+                    <div className="cliente-info">Se creará automáticamente al guardar la ficha</div>
+                  </div>
                 </div>
               )}
             </div>
