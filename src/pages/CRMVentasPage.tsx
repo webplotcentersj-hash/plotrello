@@ -6,7 +6,7 @@ import { supabase } from '../services/supabaseClient'
 import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, PresupuestoVentaRecord } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate } from '../utils/dateUtils'
-import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF } from '../utils/crmExportUtils'
+import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
@@ -2024,11 +2024,11 @@ const CRMVentasPage = () => {
                       >
                         <button 
                           onClick={() => {
-                            generarFacturaRemitoPDF(venta, 'factura')
+                            generarPagarePDF(venta)
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
-                          🧾 Generar Factura
+                          📄 Generar Pagaré
                         </button>
                         <button 
                           onClick={() => {

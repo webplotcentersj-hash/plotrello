@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import apiService from '../services/api'
 import type { ClienteRecord, Venta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
-import { generarFacturaRemitoPDF } from '../utils/crmExportUtils'
+import { generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
 import './VentaRapidaModal.css'
 
 interface VentaRapidaModalProps {
@@ -820,7 +820,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
               )}
               <button
                 className="btn-secondary"
-                onClick={() => generarFacturaRemitoPDF(ventaCreada, 'factura')}
+                onClick={() => generarPagarePDF(ventaCreada)}
                 style={{ 
                   minWidth: '160px', 
                   padding: '12px 20px',
@@ -831,7 +831,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
                   cursor: 'pointer'
                 }}
               >
-                🧾 Generar Factura
+                📄 Generar Pagaré
               </button>
               <button
                 className="btn-secondary"

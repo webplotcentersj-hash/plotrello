@@ -502,3 +502,208 @@ export function generarFacturaRemitoPDF(venta: Venta, tipo: 'factura' | 'remito'
   doc.save(`${nombreArchivo}.pdf`)
 }
 
+/**
+ * Convierte un número a texto en español argentino
+ */
+function numeroALetras(numero: number): string {
+  const unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
+  const decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
+  const especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve']
+  const centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos']
+
+  if (numero === 0) return 'cero'
+  if (numero === 100) return 'cien'
+
+  let resultado = ''
+  const parteEntera = Math.floor(numero)
+  const parteDecimal = Math.round((numero - parteEntera) * 100)
+
+  // Miles
+  if (parteEntera >= 1000) {
+    const miles = Math.floor(parteEntera / 1000)
+    if (miles === 1) {
+      resultado += 'mil '
+    } else {
+      resultado += numeroALetras(miles) + ' mil '
+    }
+  }
+
+  // Centenas
+  const centena = Math.floor((parteEntera % 1000) / 100)
+  if (centena > 0) {
+    resultado += centenas[centena] + ' '
+  }
+
+  // Decenas y unidades
+  const resto = parteEntera % 100
+  if (resto >= 10 && resto < 20) {
+    resultado += especiales[resto - 10] + ' '
+  } else {
+    const decena = Math.floor(resto / 10)
+    const unidad = resto % 10
+    if (decena > 1) {
+      resultado += decenas[decena]
+      if (unidad > 0) {
+        resultado += ' y '
+      }
+    }
+    if (unidad > 0) {
+      resultado += unidades[unidad] + ' '
+    }
+  }
+
+  resultado += 'pesos'
+  if (parteDecimal > 0) {
+    resultado += ' con ' + parteDecimal.toString().padStart(2, '0') + '/100'
+  }
+
+  return resultado.trim()
+}
+
+/**
+ * Genera pagaré en PDF para una venta
+ */
+export function generarPagarePDF(venta: Venta, fechaVencimiento?: string): void {
+  const doc = new jsPDF('p', 'mm', 'a4')
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 20
+  let yPos = margin
+
+  // Título
+  doc.setFontSize(24)
+  doc.setTextColor(59, 130, 246)
+  doc.setFont('helvetica', 'bold')
+  doc.text('PAGARÉ', pageWidth / 2, yPos, { align: 'center' })
+  yPos += 15
+
+  // Número de pagaré
+  doc.setFontSize(12)
+  doc.setTextColor(0, 0, 0)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`N° ${venta.numero_venta || 'N/A'}`, pageWidth - margin, yPos, { align: 'right' })
+  yPos += 10
+
+  // Lugar y fecha
+  const fechaEmision = venta.fecha_venta ? formatArgentinaDate(venta.fecha_venta) : formatArgentinaDate(new Date().toISOString())
+  doc.setFontSize(10)
+  doc.text(`En San Juan, a los ${new Date().getDate()} días del mes de ${new Date().toLocaleDateString('es-AR', { month: 'long' })} de ${new Date().getFullYear()}`, margin, yPos)
+  yPos += 15
+
+  // Texto del pagaré
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  const montoEnLetras = numeroALetras(venta.valor_total).charAt(0).toUpperCase() + numeroALetras(venta.valor_total).slice(1)
+  
+  const fechaVenc = fechaVencimiento ? formatArgentinaDate(fechaVencimiento) : '30 días'
+  const fechaVencDate = fechaVencimiento ? new Date(fechaVencimiento) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  const fechaVencTexto = fechaVencimiento 
+    ? `a los ${fechaVencDate.getDate()} días del mes de ${fechaVencDate.toLocaleDateString('es-AR', { month: 'long' })} de ${fechaVencDate.getFullYear()}`
+    : '30 días'
+
+  const textoPagare = `Por medio del presente documento, yo ${venta.cliente_nombre || '___________________'} (DNI/CUIT: ${venta.cliente_dni_cuit || '___________________'}), me comprometo a pagar incondicionalmente a la orden de PLOT CENTER S.R.L., la suma de ${montoEnLetras} ($${venta.valor_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}) el día ${fechaVencTexto}, en el domicilio de la empresa ubicado en San Juan, o en el lugar que ésta indique.`
+
+  const textoLines = doc.splitTextToSize(textoPagare, pageWidth - margin * 2)
+  textoLines.forEach((line: string) => {
+    doc.text(line, margin, yPos)
+    yPos += 6
+  })
+  yPos += 10
+
+  // Detalle de la deuda
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Detalle de la deuda:', margin, yPos)
+  yPos += 8
+
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Venta N°: ${venta.numero_venta || 'N/A'}`, margin + 5, yPos)
+  yPos += 5
+  if (venta.numero_op) {
+    doc.text(`Orden de Trabajo N°: ${venta.numero_op}`, margin + 5, yPos)
+    yPos += 5
+  }
+  doc.text(`Fecha de venta: ${fechaEmision}`, margin + 5, yPos)
+  yPos += 5
+  doc.text(`Monto total: $${venta.valor_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, margin + 5, yPos)
+  yPos += 10
+
+  // Items si existen
+  if (venta.items && venta.items.length > 0) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Concepto:', margin, yPos)
+    yPos += 6
+    doc.setFont('helvetica', 'normal')
+    venta.items.forEach((item, index) => {
+      const concepto = `${item.cantidad}x ${item.descripcion} - $${item.precio_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+      doc.text(concepto, margin + 5, yPos)
+      yPos += 5
+    })
+    yPos += 5
+  }
+
+  // Observaciones si existen
+  if (venta.observaciones) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Observaciones:', margin, yPos)
+    yPos += 6
+    doc.setFont('helvetica', 'normal')
+    const obsLines = doc.splitTextToSize(venta.observaciones, pageWidth - margin * 2 - 10)
+    doc.text(obsLines, margin + 5, yPos)
+    yPos += obsLines.length * 5 + 5
+  }
+
+  // Texto legal
+  yPos += 5
+  doc.setFontSize(9)
+  doc.setTextColor(100, 100, 100)
+  doc.setFont('helvetica', 'italic')
+  const textoLegal = 'En caso de incumplimiento, el deudor se obliga al pago de intereses y gastos que se originen, renunciando al fuero de su domicilio y sometiéndose a los tribunales de San Juan.'
+  const legalLines = doc.splitTextToSize(textoLegal, pageWidth - margin * 2)
+  legalLines.forEach((line: string) => {
+    doc.text(line, margin, yPos)
+    yPos += 5
+  })
+  yPos += 15
+
+  // Firma del deudor
+  doc.setFontSize(10)
+  doc.setTextColor(0, 0, 0)
+  doc.setFont('helvetica', 'normal')
+  doc.line(margin, yPos, pageWidth - margin, yPos)
+  yPos += 8
+  doc.text('Firma del deudor', margin, yPos, { align: 'left' })
+  yPos += 5
+  doc.text(venta.cliente_nombre || '___________________', margin, yPos)
+  yPos += 5
+  if (venta.cliente_dni_cuit) {
+    doc.text(`DNI/CUIT: ${venta.cliente_dni_cuit}`, margin, yPos)
+  }
+
+  // Datos del acreedor
+  yPos = pageHeight - 60
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Acreedor:', margin, yPos)
+  yPos += 6
+  doc.setFont('helvetica', 'normal')
+  doc.text('PLOT CENTER S.R.L.', margin, yPos)
+  yPos += 5
+  doc.text('CUIT: 30-XXXXXXXX-X', margin, yPos)
+  yPos += 5
+  doc.text('San Juan, Argentina', margin, yPos)
+
+  // Pie de página
+  doc.setFontSize(8)
+  doc.setTextColor(100, 100, 100)
+  doc.text(
+    `Generado el ${new Date().toLocaleDateString('es-AR')}`,
+    pageWidth / 2,
+    pageHeight - 10,
+    { align: 'center' }
+  )
+
+  const nombreArchivo = `pagare-${venta.numero_venta}`
+  doc.save(`${nombreArchivo}.pdf`)
+}
+
