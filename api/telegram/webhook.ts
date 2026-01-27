@@ -125,7 +125,7 @@ CONTEXTO DEL SISTEMA:
 SIEMPRE responde en ESPAÑOL (español argentino). Sé profesional, preciso y útil.`
 
     // Generar respuesta con Gemini
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     const prompt = `${systemContext}\n\nUsuario (${userName}): ${message}\n\nPlotAI:`
     
     const result = await model.generateContent(prompt)
