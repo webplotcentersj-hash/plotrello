@@ -407,11 +407,13 @@ export default function AdminReports({
             </div>
           </div>
         </section>
+        )}
 
         {/* Preview de Métricas Detalladas */}
-        <section className="admin-reports-section">
-          <h2 className="admin-reports-section-title">Vista Previa</h2>
-          <div className="admin-reports-preview">
+        {!loadingData && (
+          <section className="admin-reports-section">
+            <h2 className="admin-reports-section-title">Vista Previa</h2>
+            <div className="admin-reports-preview">
             <div className="admin-reports-preview-item">
               <span className="admin-reports-preview-label">Total OPs:</span>
               <span className="admin-reports-preview-value">{metrics.totalOps}</span>
