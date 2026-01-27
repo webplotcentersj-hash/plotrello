@@ -151,19 +151,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   
+  // Verificar token del bot
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.error('TELEGRAM_BOT_TOKEN no configurado')
+    return
+  }
+  
   try {
-
-    // Verificar método
-    if (req.method !== 'POST') {
-      console.warn('Método no permitido:', req.method)
-      return
-    }
-
-    // Verificar token del bot
-    if (!TELEGRAM_BOT_TOKEN) {
-      console.error('TELEGRAM_BOT_TOKEN no configurado')
-      return
-    }
 
     const update = req.body
 
