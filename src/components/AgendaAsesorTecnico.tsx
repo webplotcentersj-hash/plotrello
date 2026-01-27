@@ -116,12 +116,17 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
     loadCitas()
   }
 
-  const proximasCitas = useMemo(() => {
+  const citasDeHoy = useMemo(() => {
     const hoy = new Date()
+    const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0)
+    const finHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59, 999)
+    
     return citas
-      .filter(cita => parseISO(cita.fecha_cita) >= hoy)
+      .filter(cita => {
+        const fechaCita = parseISO(cita.fecha_cita)
+        return fechaCita >= inicioHoy && fechaCita <= finHoy
+      })
       .sort((a, b) => parseISO(a.fecha_cita).getTime() - parseISO(b.fecha_cita).getTime())
-      .slice(0, 5)
   }, [citas])
 
   return (
@@ -196,21 +201,21 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
 
         <div className="agenda-sidebar">
           <div className="sidebar-section">
-            <h3>Próximas Citas</h3>
+            <h3>Citas de Hoy</h3>
             {loading ? (
               <div className="loading">Cargando...</div>
-            ) : proximasCitas.length === 0 ? (
-              <div className="empty-state">No hay citas programadas</div>
+            ) : citasDeHoy.length === 0 ? (
+              <div className="empty-state">No hay citas programadas para hoy</div>
             ) : (
               <div className="citas-list">
-                {proximasCitas.map(cita => (
+                {citasDeHoy.map(cita => (
                   <div
                     key={cita.id}
                     className="cita-item"
                     onClick={() => handleCitaClick(cita)}
                   >
                     <div className="cita-item-header">
-                      <span className="cita-fecha">{format(parseISO(cita.fecha_cita), 'dd/MM HH:mm', { locale: es })}</span>
+                      <span className="cita-fecha">{format(parseISO(cita.fecha_cita), 'HH:mm', { locale: es })}</span>
                       <span className={`cita-estado estado-${cita.estado}`}>{cita.estado}</span>
                     </div>
                     <div className="cita-titulo">{cita.titulo}</div>
@@ -219,6 +224,9 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                     )}
                     {cita.direccion && (
                       <div className="cita-direccion">📍 {cita.direccion}</div>
+                    )}
+                    {cita.duracion_minutos && (
+                      <div className="cita-duracion">⏱️ {cita.duracion_minutos} min</div>
                     )}
                   </div>
                 ))}
