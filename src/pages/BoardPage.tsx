@@ -41,6 +41,7 @@ type BoardPageProps = {
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
+  onNavigateToCaja?: () => void
   onNavigateToDiseno?: () => void
   onNavigateToRecursosHumanos?: () => void
   onNavigateToClientesWeb?: () => void
@@ -69,6 +70,7 @@ const BoardPage = ({
   onNavigateToHerramienta,
   onNavigateToMostrador,
   onNavigateToCompras,
+  onNavigateToCaja,
   onNavigateToDiseno,
   onNavigateToRecursosHumanos,
   onNavigateToClientesWeb,
@@ -707,6 +709,7 @@ const BoardPage = ({
         onNavigateToHerramienta={onNavigateToHerramienta}
         onNavigateToMostrador={onNavigateToMostrador}
         onNavigateToCompras={onNavigateToCompras}
+        onNavigateToCaja={onNavigateToCaja}
         onNavigateToDiseno={onNavigateToDiseno}
             onNavigateToRecursosHumanos={onNavigateToRecursosHumanos}
             onNavigateToClientesWeb={onNavigateToClientesWeb}

@@ -66,6 +66,8 @@ export function useAuth() {
   const canManageImpresoras = !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
   // Puede gestionar compras: compras o administracion
   const canManageCompras = !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion')
+  // Puede gestionar caja: caja o administracion
+  const canManageCaja = !!usuario && (usuario.rol === 'caja' || usuario.rol === 'administracion')
   // Puede gestionar instalaciones: instalaciones o administracion
   const canManageInstalaciones = !!usuario && (usuario.rol === 'instalaciones' || usuario.rol === 'administracion')
   // Puede gestionar taller de imprenta: imprenta o administracion
@@ -95,6 +97,7 @@ export function useAuth() {
     isPresupuestos,
     canManageImpresoras,
     canManageCompras,
+    canManageCaja,
     canManageInstalaciones,
     canManageTallerImprenta,
     canManageMetalurgica,

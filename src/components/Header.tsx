@@ -18,6 +18,7 @@ type HeaderProps = {
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
+  onNavigateToCaja?: () => void
   onNavigateToDiseno?: () => void
   onNavigateToRecursosHumanos?: () => void
   onNavigateToClientesWeb?: () => void
@@ -43,6 +44,7 @@ const Header = ({
   onNavigateToHerramienta,
   onNavigateToMostrador,
   onNavigateToCompras,
+  onNavigateToCaja,
   onNavigateToDiseno,
   onNavigateToRecursosHumanos,
   onNavigateToClientesWeb,
@@ -56,7 +58,7 @@ const Header = ({
   isMostrador = false,
   isDiseno = false
 }: HeaderProps) => {
-  const { canManageCompras, canManageRecursosHumanos, isAdmin: isAdminFromAuth, isAsesorTecnico, isPresupuestos } = useAuth()
+  const { canManageCompras, canManageCaja, canManageRecursosHumanos, isAdmin: isAdminFromAuth, isAsesorTecnico, isPresupuestos } = useAuth()
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -156,6 +158,11 @@ const Header = ({
               >
                 📅 Calendario Entregas
               </a>
+            )}
+            {canManageCaja && onNavigateToCaja && (
+              <button className="brand-button" onClick={onNavigateToCaja}>
+                💰 Caja
+              </button>
             )}
             {(isDiseno || isAdmin) && onNavigateToDiseno && (
               <button className="brand-button" onClick={onNavigateToDiseno}>

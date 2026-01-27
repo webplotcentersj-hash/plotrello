@@ -610,6 +610,7 @@ function AppRoutes({
             onNavigateToHerramienta={() => navigate('/herramienta')}
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onNavigateToCompras={() => navigate('/compras/dashboard')}
+            onNavigateToCaja={() => navigate('/caja/dashboard')}
             onNavigateToDiseno={() => navigate('/diseno/dashboard')}
             onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
             onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
@@ -707,6 +708,10 @@ function AppRoutes({
       <Route
         path="/crm-ventas/reportes"
         element={<ReportesVentasPage />}
+      />
+      <Route
+        path="/caja/dashboard"
+        element={<CajaDashboardPage />}
       />
       <Route
         path="/compras/dashboard"
