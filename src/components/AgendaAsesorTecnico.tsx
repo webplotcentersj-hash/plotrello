@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isToday, parseISO, addMonths, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { CitaAsesorTecnico, ClienteRecord } from '../types/api'
 import CitaModal from './CitaModal'
@@ -12,7 +11,6 @@ type AgendaAsesorTecnicoProps = {
 }
 
 const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
-  const { usuario } = useAuth()
   const [citas, setCitas] = useState<CitaAsesorTecnico[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
