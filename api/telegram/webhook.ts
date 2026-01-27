@@ -140,12 +140,18 @@ SIEMPRE responde en ESPAÑOL (español argentino). Sé profesional, preciso y ú
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Telegram SIEMPRE espera una respuesta 200, incluso en errores
-  // Por eso respondemos inmediatamente y procesamos en segundo plano
+  // Telegram SIEMPRE espera una respuesta 200 OK con JSON válido
+  // Respondemos inmediatamente y procesamos en segundo plano
+  
+  // Responder inmediatamente a Telegram ANTES de cualquier procesamiento
+  res.status(200).json({ ok: true })
+  
+  // Si no es POST, terminar aquí
+  if (req.method !== 'POST') {
+    return
+  }
   
   try {
-    // Responder inmediatamente a Telegram
-    res.status(200).json({ ok: true })
 
     // Verificar método
     if (req.method !== 'POST') {
