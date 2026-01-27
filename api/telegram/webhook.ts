@@ -1,8 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenAI } from '@google/genai'
-import type { Task, TeamMember, ActivityEvent } from '../../src/types/board'
-import type { UsuarioRecord } from '../../src/types/api'
 
 // Crear cliente de Supabase para Vercel (usa process.env en lugar de import.meta.env)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
@@ -11,29 +9,17 @@ const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabase
 
 // Configuración del bot
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ''
-const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || ''
 const TELEGRAM_ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '').split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
 
 // URL base de la API de Telegram
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
 
-// Mapear usuarios de Supabase a TeamMembers
-const mapUsuariosToTeamMembers = (usuarios: UsuarioRecord[]): TeamMember[] =>
-  usuarios.map((usuario) => ({
-    id: usuario.id.toString(),
-    name: usuario.nombre,
-    role: usuario.rol,
-    avatar: usuario.nombre
-      .split(' ')
-      .map((part) => part.charAt(0))
-      .join('')
-      .slice(0, 2)
-      .toUpperCase(),
-    productivity: 0
-  }))
+// Inicializar Gemini AI
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
+const genAI = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null
 
 // Enviar mensaje a Telegram
-async function sendTelegramMessage(chatId: number, text: string, parseMode: 'HTML' | 'Markdown' = 'HTML') {
+async function sendTelegramMessage(chatId: number, text: string) {
   try {
     const response = await fetch(`${TELEGRAM_API_URL}/sendMessage`, {
       method: 'POST',
@@ -43,7 +29,6 @@ async function sendTelegramMessage(chatId: number, text: string, parseMode: 'HTM
       body: JSON.stringify({
         chat_id: chatId,
         text: text.substring(0, 4096), // Límite de Telegram
-        parse_mode: parseMode,
       }),
     })
 
@@ -78,69 +63,76 @@ async function sendTypingAction(chatId: number) {
   }
 }
 
-// Cargar datos del sistema para PlotAI
+// Cargar datos básicos del sistema
 async function loadSystemData() {
   try {
     if (!supabase) {
-      throw new Error('Supabase no está configurado')
+      return { totalOps: 0, opsEnProceso: 0, opsUrgentes: 0, teamMembers: 0, activity: 0 }
     }
 
-    // Cargar órdenes de trabajo directamente desde Supabase
+    // Cargar órdenes de trabajo
     const { data: ordenes, error: ordenesError } = await supabase
       .from('ordenes_trabajo')
-      .select('*')
+      .select('id, estado, prioridad')
       .order('created_at', { ascending: false })
 
-    const tasks: Task[] = ordenes && !ordenesError
-      ? ordenes.map(ordenToTask)
-      : []
+    const totalOps = ordenes && !ordenesError ? ordenes.length : 0
+    const opsEnProceso = ordenes && !ordenesError 
+      ? ordenes.filter((o: any) => o.estado !== 'Finalizado' && o.estado !== 'Entregado').length 
+      : 0
+    const opsUrgentes = ordenes && !ordenesError 
+      ? ordenes.filter((o: any) => o.prioridad === 'Alta').length 
+      : 0
 
-    // Cargar historial de movimientos directamente desde Supabase
-    const { data: historial, error: historialError } = await supabase
+    // Cargar usuarios
+    const { data: usuarios } = await supabase.from('usuarios').select('id')
+    const teamMembers = usuarios ? usuarios.length : 0
+
+    // Cargar historial
+    const { data: historial } = await supabase
       .from('historial_movimientos')
-      .select('*')
-      .order('fecha_movimiento', { ascending: false })
+      .select('id')
       .limit(100)
+    const activity = historial ? historial.length : 0
 
-    const activity: ActivityEvent[] = historial && !historialError
-      ? historial.map(historialToActivity)
-      : []
-
-    // Cargar usuarios directamente desde Supabase
-    const { data: usuarios, error: usuariosError } = await supabase
-      .from('usuarios')
-      .select('*')
-
-    const teamMembers: TeamMember[] = usuarios && !usuariosError
-      ? mapUsuariosToTeamMembers(usuarios as UsuarioRecord[])
-      : []
-
-    return { tasks, activity, teamMembers }
+    return { totalOps, opsEnProceso, opsUrgentes, teamMembers, activity }
   } catch (error) {
     console.error('Error cargando datos del sistema:', error)
-    return { tasks: [], activity: [], teamMembers: [] }
+    return { totalOps: 0, opsEnProceso: 0, opsUrgentes: 0, teamMembers: 0, activity: 0 }
   }
 }
 
 // Procesar mensaje y generar respuesta con PlotAI
-async function processMessage(message: string, userId: number, userName: string) {
+async function processMessage(message: string, userName: string) {
   try {
-    // Cargar datos del sistema
-    const { tasks, activity, teamMembers } = await loadSystemData()
+    if (!genAI) {
+      return '⚠️ PlotAI no está configurado. Por favor, configura GEMINI_API_KEY en Vercel.'
+    }
 
-    // Generar respuesta con PlotAI
-    const response = await generateContent({
-      contents: message,
-      tasks,
-      activity,
-      teamMembers,
-      userName: userName || `Usuario ${userId}`,
-      useCompleteContext: true,
-      useMemory: true,
-      learnFromResponse: true,
-    })
+    // Cargar datos básicos
+    const data = await loadSystemData()
 
-    return response
+    // Crear contexto del sistema
+    const systemContext = `Eres PlotAI, un asistente inteligente especializado en gestión de producción gráfica e imprenta.
+
+CONTEXTO DEL SISTEMA:
+- Total de OPs: ${data.totalOps}
+- OPs en Proceso: ${data.opsEnProceso}
+- OPs Urgentes: ${data.opsUrgentes}
+- Miembros del Equipo: ${data.teamMembers}
+- Movimientos Recientes: ${data.activity}
+
+SIEMPRE responde en ESPAÑOL (español argentino). Sé profesional, preciso y útil.`
+
+    // Generar respuesta con Gemini
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+    const prompt = `${systemContext}\n\nUsuario (${userName}): ${message}\n\nPlotAI:`
+    
+    const result = await model.generateContent(prompt)
+    const response = result.response
+    const text = response.text()
+
+    return text || 'Lo siento, no pude generar una respuesta. Por favor, intenta de nuevo.'
   } catch (error) {
     console.error('Error procesando mensaje con PlotAI:', error)
     return 'Lo siento, hubo un error al procesar tu mensaje. Por favor, intenta de nuevo.'
@@ -221,21 +213,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (text === '/status') {
-      const { tasks, activity, teamMembers } = await loadSystemData()
-      const totalOps = tasks.length
-      const opsEnProceso = tasks.filter(t => 
-        t.status !== 'finalizado-taller' && t.status !== 'almacen-entrega'
-      ).length
-      const opsUrgentes = tasks.filter(t => t.priority === 'alta').length
-
+      const data = await loadSystemData()
       await sendTelegramMessage(
         chatId,
         `📊 Estado del Sistema:\n\n` +
-        `📋 Total OPs: ${totalOps}\n` +
-        `⚙️ En Proceso: ${opsEnProceso}\n` +
-        `🔴 Urgentes: ${opsUrgentes}\n` +
-        `👥 Equipo: ${teamMembers.length} miembros\n` +
-        `📝 Movimientos recientes: ${activity.length}`
+        `📋 Total OPs: ${data.totalOps}\n` +
+        `⚙️ En Proceso: ${data.opsEnProceso}\n` +
+        `🔴 Urgentes: ${data.opsUrgentes}\n` +
+        `👥 Equipo: ${data.teamMembers} miembros\n` +
+        `📝 Movimientos recientes: ${data.activity}`
       )
       return // Ya respondimos 200
     }
@@ -246,7 +232,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await sendTypingAction(chatId)
 
       // Procesar mensaje y generar respuesta
-      const response = await processMessage(text, userId, userName)
+      const response = await processMessage(text, userName)
 
       // Enviar respuesta
       await sendTelegramMessage(chatId, response)
@@ -256,4 +242,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Ya respondimos 200, solo logueamos el error
   }
 }
-
