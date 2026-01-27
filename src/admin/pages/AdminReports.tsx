@@ -160,10 +160,21 @@ export default function AdminReports({
         teamMembers,
         dateRange,
         userName: usuario?.nombre || 'Admin',
-        ventas: facturas,
-        clientes,
-        presupuestos,
-        metrics
+        metrics: {
+          totalOps: metrics.totalOps,
+          opsEnProceso: metrics.opsEnProceso,
+          opsCompletadas: metrics.opsCompletadas,
+          opsUrgentes: metrics.opsUrgentes,
+          opsAtrasadas: metrics.opsAtrasadas,
+          totalFacturas: metrics.totalFacturas,
+          facturasEmitidas: metrics.facturasEmitidas,
+          totalVentas: metrics.totalVentas,
+          totalPresupuestos: metrics.totalPresupuestos,
+          presupuestosAceptados: metrics.presupuestosAceptados,
+          valorPresupuestos: metrics.valorPresupuestos,
+          totalClientes: metrics.totalClientes,
+          clientesActivos: metrics.clientesActivos
+        }
       })
 
       setGeneratedReport(report)
