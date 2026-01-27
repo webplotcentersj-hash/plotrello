@@ -160,7 +160,14 @@ const Header = ({
               </a>
             )}
             {canManageCaja && onNavigateToCaja && (
-              <button className="brand-button" onClick={onNavigateToCaja}>
+              <button 
+                className="brand-button" 
+                onClick={(e) => {
+                  e.preventDefault()
+                  console.log('Navegando a Caja Dashboard')
+                  onNavigateToCaja()
+                }}
+              >
                 💰 Caja
               </button>
             )}
