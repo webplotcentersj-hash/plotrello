@@ -4,7 +4,7 @@ import './GlobalAlertScreen.css'
 
 const GlobalAlertScreen = () => {
   const [isVisible, setIsVisible] = useState(false)
-  const [alertMessage, setAlertMessage] = useState('ALERTA GLOBAL')
+  const [alertMessage, setAlertMessage] = useState('ALERTA')
   const [sentBy, setSentBy] = useState<string | null>(null)
   const [timestamp, setTimestamp] = useState<string | null>(null)
 
@@ -31,7 +31,7 @@ const GlobalAlertScreen = () => {
           if (data?.message) {
             setAlertMessage(data.message)
           } else {
-            setAlertMessage('ALERTA GLOBAL')
+            setAlertMessage('ALERTA')
           }
           setSentBy(data?.sentBy || null)
           setTimestamp(data?.timestamp || null)
@@ -84,7 +84,7 @@ const GlobalAlertScreen = () => {
   return (
     <div className="global-alert-screen">
       <div className="alert-content">
-        <div className="alert-title">ALERTA GLOBAL</div>
+        <div className="alert-title">ALERTA</div>
         <div className="alert-text">{alertMessage}</div>
         {sentBy && (
           <div className="alert-meta">

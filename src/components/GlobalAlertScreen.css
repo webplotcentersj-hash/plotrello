@@ -23,7 +23,7 @@
 
 .alert-content {
   text-align: center;
-  color: white;
+  color: #ffffff;
 }
 
 .alert-text {
@@ -31,7 +31,8 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 20px;
-  text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  text-shadow: 0 0 18px rgba(0, 0, 0, 0.8);
   animation: alert-pulse 1s ease-in-out infinite;
   margin-bottom: 40px;
 }
