@@ -132,12 +132,24 @@ const ChatPage = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const normalizeHandle = (value: string) => {
+    if (!value) return ''
+    const lower = value.toLowerCase().trim()
+    // Cortar por espacio o arroba para quedarnos con el “usuario”
+    const withoutEmail = lower.split('@')[0]
+    return withoutEmail.split(' ')[0]
+  }
+
   const findMentionedMembers = (text: string): TeamMember[] => {
-    const mentions = Array.from(text.matchAll(/@([\w.\-]+)/g)).map((m) => m[1].toLowerCase())
-    if (mentions.length === 0) return []
-    return resolvedMembers.filter((member) =>
-      mentions.some((m) => member.name.toLowerCase().includes(m))
-    )
+    const mentionMatches = Array.from(text.matchAll(/@([\w.\-]+)/g))
+    const mentionHandles = mentionMatches.map((m) => normalizeHandle(m[1]))
+    if (mentionHandles.length === 0) return []
+
+    return resolvedMembers.filter((member) => {
+      const memberHandle = normalizeHandle(member.name)
+      if (!memberHandle) return false
+      return mentionHandles.includes(memberHandle)
+    })
   }
 
   // Generar respuesta de PlotAI integrada al chat cuando se lo menciona
