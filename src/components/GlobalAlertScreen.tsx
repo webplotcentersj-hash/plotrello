@@ -4,7 +4,9 @@ import './GlobalAlertScreen.css'
 
 const GlobalAlertScreen = () => {
   const [isVisible, setIsVisible] = useState(false)
-  const [alertMessage, setAlertMessage] = useState('ALERTA')
+  const [alertMessage, setAlertMessage] = useState('ALERTA GLOBAL')
+  const [sentBy, setSentBy] = useState<string | null>(null)
+  const [timestamp, setTimestamp] = useState<string | null>(null)
 
   useEffect(() => {
     if (!supabase) return
@@ -17,10 +19,22 @@ const GlobalAlertScreen = () => {
         { event: 'global-alert' },
         (payload) => {
           console.log('🚨 Alerta global recibida:', payload)
-          const data = payload.payload as { message?: string }
+          const data = payload.payload as { active?: boolean; message?: string; sentBy?: string; timestamp?: string }
+
+          // Si viene active:false, apagar alerta en todos los dispositivos
+          if (data && data.active === false) {
+            setIsVisible(false)
+            return
+          }
+
+          // Activar alerta
           if (data?.message) {
             setAlertMessage(data.message)
+          } else {
+            setAlertMessage('ALERTA GLOBAL')
           }
+          setSentBy(data?.sentBy || null)
+          setTimestamp(data?.timestamp || null)
           setIsVisible(true)
           
           // Reproducir sonido de alerta
@@ -65,19 +79,24 @@ const GlobalAlertScreen = () => {
     }
   }
 
-  const handleClose = () => {
-    setIsVisible(false)
-  }
-
   if (!isVisible) return null
 
   return (
     <div className="global-alert-screen">
       <div className="alert-content">
+        <div className="alert-title">ALERTA GLOBAL</div>
         <div className="alert-text">{alertMessage}</div>
-        <button className="alert-close-btn" onClick={handleClose}>
-          Cerrar
-        </button>
+        {sentBy && (
+          <div className="alert-meta">
+            Enviada por <strong>{sentBy}</strong>
+            {timestamp && (
+              <span className="alert-time">
+                {' '}
+                • {new Date(timestamp).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

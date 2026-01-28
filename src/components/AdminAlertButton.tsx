@@ -5,7 +5,8 @@ import './AdminAlertButton.css'
 
 const AdminAlertButton = () => {
   const { isAdmin, usuario } = useAuth()
-  const [isSending, setIsSending] = useState(false)
+  const [isSendingActivate, setIsSendingActivate] = useState(false)
+  const [isSendingDeactivate, setIsSendingDeactivate] = useState(false)
 
   if (!isAdmin) return null
 
@@ -13,44 +14,88 @@ const AdminAlertButton = () => {
     if (!supabase || !usuario) return
 
     const confirmed = window.confirm(
-      '¿Estás seguro de enviar una alerta global a todos los usuarios?\n\nEsto mostrará una pantalla roja con "ALERTA" en todos los dispositivos conectados.'
+      '¿Estás seguro de enviar una ALERTA GLOBAL a todos los usuarios?\n\nSe mostrará una pantalla roja de alerta en todos los dispositivos conectados hasta que la desactives.'
     )
 
     if (!confirmed) return
 
-    setIsSending(true)
+    setIsSendingActivate(true)
     try {
       const channel = supabase.channel('global-alerts')
-      
+
       await channel.send({
         type: 'broadcast',
         event: 'global-alert',
         payload: {
-          message: 'ALERTA',
+          active: true,
+          message: 'ALERTA GLOBAL',
           sentBy: usuario.nombre || 'Administrador',
           timestamp: new Date().toISOString()
         }
       })
 
-      console.log('✅ Alerta global enviada')
+      console.log('✅ Alerta global activada')
     } catch (error) {
       console.error('❌ Error enviando alerta global:', error)
       alert('Error al enviar la alerta. Intenta nuevamente.')
     } finally {
-      setIsSending(false)
+      setIsSendingActivate(false)
+    }
+  }
+
+  const clearGlobalAlert = async () => {
+    if (!supabase || !usuario) return
+
+    const confirmed = window.confirm(
+      '¿Querés desactivar la ALERTA GLOBAL en todos los dispositivos?'
+    )
+
+    if (!confirmed) return
+
+    setIsSendingDeactivate(true)
+    try {
+      const channel = supabase.channel('global-alerts')
+
+      await channel.send({
+        type: 'broadcast',
+        event: 'global-alert',
+        payload: {
+          active: false,
+          sentBy: usuario.nombre || 'Administrador',
+          timestamp: new Date().toISOString()
+        }
+      })
+
+      console.log('✅ Alerta global desactivada')
+    } catch (error) {
+      console.error('❌ Error desactivando alerta global:', error)
+      alert('Error al desactivar la alerta. Intenta nuevamente.')
+    } finally {
+      setIsSendingDeactivate(false)
     }
   }
 
   return (
-    <button
-      className="admin-alert-button"
-      onClick={sendGlobalAlert}
-      disabled={isSending}
-      title="Enviar alerta global a todos los usuarios"
-    >
-      {isSending ? '⏳' : '🚨'}
-      <span className="alert-button-text">Alerta Global</span>
-    </button>
+    <div className="admin-alert-button-group">
+      <button
+        className="admin-alert-button primary"
+        onClick={sendGlobalAlert}
+        disabled={isSendingActivate}
+        title="Enviar ALERTA GLOBAL a todos los usuarios"
+      >
+        {isSendingActivate ? '⏳' : '🚨'}
+        <span className="alert-button-text">Alerta Global</span>
+      </button>
+      <button
+        className="admin-alert-button secondary"
+        onClick={clearGlobalAlert}
+        disabled={isSendingDeactivate}
+        title="Desactivar ALERTA GLOBAL en todos los usuarios"
+      >
+        {isSendingDeactivate ? '⏳' : '✖'}
+        <span className="alert-button-text">Desactivar</span>
+      </button>
+    </div>
   )
 }
 
