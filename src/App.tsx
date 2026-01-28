@@ -652,7 +652,14 @@ function AppRoutes({
       />
       <Route
         path="/chat"
-        element={<ChatPage onBack={() => navigate('/')} teamMembers={teamMembers} />}
+        element={
+          <ChatPage
+            onBack={() => navigate('/')}
+            teamMembers={teamMembers}
+            tasks={tasks}
+            activity={activity}
+          />
+        }
       />
       <Route
         path="/consulta-cliente"

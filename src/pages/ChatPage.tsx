@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import type { TeamMember } from '../types/board'
+import type { TeamMember, Task, ActivityEvent } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { apiService } from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
+import { generateContent, getSystemContext } from '../services/plotAIService'
 import './ChatPage.css'
 
 type ChatMessage = {
@@ -62,7 +63,17 @@ type FileAttachment = {
   uploading?: boolean
 }
 
-const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: TeamMember[] }) => {
+const ChatPage = ({
+  onBack,
+  teamMembers,
+  tasks,
+  activity
+}: {
+  onBack: () => void
+  teamMembers: TeamMember[]
+  tasks: Task[]
+  activity: ActivityEvent[]
+}) => {
   const { usuario } = useAuth()
   const resolvedMembers =
     teamMembers.length > 0
@@ -100,6 +111,7 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
   const [filterToDate, setFilterToDate] = useState<string>('')
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
   const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [isPlotAILoading, setIsPlotAILoading] = useState(false)
   const [lastSeenOthers, setLastSeenOthers] = useState<Record<string, Date | null>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -126,6 +138,70 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
     return resolvedMembers.filter((member) =>
       mentions.some((m) => member.name.toLowerCase().includes(m))
     )
+  }
+
+  // Generar respuesta de PlotAI integrada al chat cuando se lo menciona
+  const handlePlotAIReply = async (originalText: string) => {
+    if (!originalText.trim()) return
+
+    try {
+      setIsPlotAILoading(true)
+
+      const systemContext = getSystemContext(tasks, activity, teamMembers)
+
+      // Historial reciente de la conversación en este canal
+      const recentMessages = channelMessages.slice(-10)
+      const conversationHistory = recentMessages
+        .map((msg) => `${msg.userName}: ${msg.content}`)
+        .join('\n\n')
+
+      const nombreUsuario = usuario?.nombre || undefined
+
+      const prompt = `Estás participando en el canal de chat interno "#${currentChannel}" de un equipo de producción gráfica.\n` +
+        `Responde como PlotAI dentro de la conversación, en tono profesional pero cercano, SIEMPRE en español argentino.\n\n` +
+        `Mensaje del usuario: "${originalText}".`
+
+      const respuesta = await generateContent({
+        contents: prompt,
+        systemContext,
+        conversationHistory,
+        tasks,
+        activity,
+        teamMembers,
+        userName: nombreUsuario
+      })
+
+      const aiMessage: ChatMessage = {
+        id: `plotai-${Date.now()}`,
+        userId: 'plotai',
+        userName: 'PlotAI',
+        userAvatar: '🤖',
+        content: respuesta,
+        timestamp: new Date(),
+        channel: currentChannel,
+        type: 'message',
+        status: 'sent'
+      }
+
+      setMessages((prev) => [...prev, aiMessage])
+    } catch (error) {
+      console.error('❌ Error en PlotAI integrado al chat:', error)
+      const errorMessage: ChatMessage = {
+        id: `plotai-error-${Date.now()}`,
+        userId: 'plotai',
+        userName: 'PlotAI',
+        userAvatar: '⚠️',
+        content:
+          'Lo siento, tuve un problema para responder como PlotAI en este momento. Probá de nuevo en unos segundos o consultá al administrador.',
+        timestamp: new Date(),
+        channel: currentChannel,
+        type: 'message',
+        status: 'error'
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsPlotAILoading(false)
+    }
   }
 
   // Cargar mensajes reales del canal
@@ -647,6 +723,15 @@ const ChatPage = ({ onBack, teamMembers }: { onBack: () => void; teamMembers: Te
         }
         setIsShaking(true)
         setTimeout(() => setIsShaking(false), 1200)
+      }
+
+      // Si el mensaje menciona a PlotAI o empieza con /plotai, generar respuesta de IA dentro del chat
+      const textForAI = savedContent || finalContent
+      if (textForAI) {
+        const lower = textForAI.toLowerCase()
+        if (lower.includes('@plotai') || lower.startsWith('/plotai')) {
+          void handlePlotAIReply(textForAI)
+        }
       }
     } catch (error) {
       console.error('❌ Excepción al enviar mensaje:', error)
