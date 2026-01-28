@@ -9,8 +9,9 @@
 /* Sidebar */
 .chat-sidebar {
   width: 260px;
-  background: var(--surface-card);
-  border-right: 1px solid var(--surface-border);
+  /* Fondo oscuro tipo panel lateral */
+  background: linear-gradient(180deg, #050816, #111827);
+  border-right: 1px solid rgba(15, 23, 42, 0.9);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -71,7 +72,8 @@
 
 .sidebar-section {
   padding: 12px 0;
-  border-bottom: 1px solid var(--surface-border);
+  border-bottom: 1px solid rgba(30, 64, 175, 0.4);
+  background: rgba(15, 23, 42, 0.8);
 }
 
 .section-header {
@@ -80,7 +82,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
+  color: #9ca3af; /* gris claro sobre fondo oscuro */
 }
 
 .channels-list {
@@ -89,11 +91,11 @@
 }
 
 .channel-item {
-  background: none;
+  background: transparent;
   border: none;
   padding: 8px 16px;
   text-align: left;
-  color: var(--text-secondary);
+  color: #e5e7eb;
   cursor: pointer;
   display: flex;
   align-items: center;
