@@ -185,19 +185,33 @@ const ChatPage = ({
         userName: nombreUsuario
       })
 
-      const aiMessage: ChatMessage = {
-        id: `plotai-${Date.now()}`,
-        userId: 'plotai',
-        userName: 'PlotAI',
-        userAvatar: '🤖',
-        content: respuesta,
-        timestamp: new Date(),
-        channel: currentChannel,
-        type: 'message',
-        status: 'sent'
+      // Guardar la respuesta de PlotAI en la base para que la vean TODOS los usuarios
+      const roomId = getRoomIdForChannel(currentChannel)
+      if (supabase && usuario?.id) {
+        await supabase.from('chat_messages').insert({
+          room_id: roomId,
+          id_usuario: usuario.id,
+          nombre_usuario: 'PlotAI',
+          mensaje: respuesta,
+          reply_to_id: null,
+          estado_entrega: 'sent'
+        })
+        // El mensaje real llegará a este y a otros clientes vía Realtime
+      } else {
+        // Fallback local si no hay Supabase (modo demo)
+        const aiMessage: ChatMessage = {
+          id: `plotai-${Date.now()}`,
+          userId: 'plotai',
+          userName: 'PlotAI',
+          userAvatar: '🤖',
+          content: respuesta,
+          timestamp: new Date(),
+          channel: currentChannel,
+          type: 'message',
+          status: 'sent'
+        }
+        setMessages((prev) => [...prev, aiMessage])
       }
-
-      setMessages((prev) => [...prev, aiMessage])
     } catch (error) {
       console.error('❌ Error en PlotAI integrado al chat:', error)
       const errorMessage: ChatMessage = {
