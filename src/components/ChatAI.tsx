@@ -24,7 +24,7 @@ const ChatAI = ({ tasks, teamMembers, activity, onClose }: ChatAIProps) => {
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! Soy PlotAI, tu asistente inteligente para el sistema Trello Plot. Puedo ayudarte a:\n\n- Analizar tareas y órdenes de trabajo\n- Consultar estadísticas y métricas\n- Identificar cuellos de botella\n- Analizar archivos que subas\n- Responder preguntas sobre el estado del proyecto\n\n¿En qué puedo ayudarte hoy?',
+      content: '¡Hola! Soy PlotAI, tu asistente inteligente para la plataforma Plotlab. Puedo ayudarte a:\n\n- Analizar tareas y órdenes de trabajo\n- Consultar estadísticas y métricas\n- Ver ventas y presupuestos\n- Analizar archivos que subas\n- Responder preguntas sobre el estado del sistema completo\n\n¿En qué puedo ayudarte hoy?',
       timestamp: new Date()
     }
   ])
@@ -163,7 +163,7 @@ const ChatAI = ({ tasks, teamMembers, activity, onClose }: ChatAIProps) => {
       const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
 
       // Construir el contexto del sistema
-      const systemPrompt = `Sos Plotlab, el asistente inteligente de todo el sistema Plotrello (producción, ventas, clientes, compras, RRHH, dashboards, chat y herramientas). Tenés acceso completo al sistema Trello Plot.
+      const systemPrompt = `Sos PlotAI, el asistente inteligente de toda la plataforma Plotlab (producción, ventas, clientes, compras, RRHH, dashboards, chat y herramientas). Tenés acceso completo al sistema Plotlab.
 
 CONTEXTO DEL SISTEMA:
 - Total de tareas: ${systemContext.totalTasks}
