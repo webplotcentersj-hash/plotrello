@@ -72,6 +72,26 @@ export interface CompleteSystemContext {
     total: number
     activos: number
   }
+
+  // Ventas / Facturación
+  ventas?: {
+    totalFacturas: number
+    facturasEmitidas: number
+    totalVentas: number
+    promedioTicket: number
+    porTipoComprobante: Record<string, number>
+  }
+
+  // Presupuestos de ventas
+  presupuestosVentas?: {
+    total: number
+    aceptados: number
+    rechazados: number
+    cancelados: number
+    convertidos: number
+    valorTotal: number
+    valorAceptados: number
+  }
   
   // Actividad Reciente
   actividadReciente: Array<{
@@ -124,7 +144,9 @@ export async function getCompleteSystemContext(
       proveedoresData,
       historialMovimientos,
       tiempoTrabajoData,
-      chatMessagesData
+      chatMessagesData,
+      facturasData,
+      presupuestosVentasData
     ] = await Promise.all([
       // Órdenes de Trabajo
       supabase
@@ -194,6 +216,18 @@ export async function getCompleteSystemContext(
         .select('nombre_usuario, mensaje, timestamp')
         .order('timestamp', { ascending: false })
         .limit(20)
+        .then(r => r.data || []),
+
+      // Facturas de venta (para contexto de ventas)
+      supabase
+        .from('facturas_venta')
+        .select('id, estado, total, tipo_comprobante')
+        .then(r => r.data || []),
+
+      // Presupuestos de ventas
+      supabase
+        .from('presupuestos_ventas')
+        .select('id, estado, precio_total')
         .then(r => r.data || [])
     ])
     
@@ -365,6 +399,28 @@ export async function getCompleteSystemContext(
         : 0
     })
     
+    // Procesar ventas (facturas)
+    const totalFacturas = facturasData.length
+    const facturasEmitidas = facturasData.filter((f: any) => f.estado === 'Emitida').length
+    const totalVentas = facturasData.reduce((acc: number, f: any) => acc + (f.total || 0), 0)
+    const promedioTicket = totalFacturas > 0 ? totalVentas / totalFacturas : 0
+    const porTipoComprobante: Record<string, number> = {}
+    facturasData.forEach((f: any) => {
+      if (!f.tipo_comprobante) return
+      porTipoComprobante[f.tipo_comprobante] = (porTipoComprobante[f.tipo_comprobante] || 0) + 1
+    })
+
+    // Procesar presupuestos de ventas
+    const totalPresupuestosVentas = presupuestosVentasData.length
+    const presupuestosAceptados = presupuestosVentasData.filter((p: any) => p.estado === 'aceptado' || p.estado === 'Aceptado').length
+    const presupuestosRechazados = presupuestosVentasData.filter((p: any) => p.estado === 'rechazado' || p.estado === 'Rechazado').length
+    const presupuestosCancelados = presupuestosVentasData.filter((p: any) => p.estado === 'cancelado' || p.estado === 'Cancelado').length
+    const presupuestosConvertidos = presupuestosVentasData.filter((p: any) => p.estado === 'convertido' || p.estado === 'Convertido').length
+    const valorTotalPresupuestos = presupuestosVentasData.reduce((acc: number, p: any) => acc + (p.precio_total || 0), 0)
+    const valorPresupuestosAceptados = presupuestosVentasData
+      .filter((p: any) => p.estado === 'aceptado' || p.estado === 'Aceptado')
+      .reduce((acc: number, p: any) => acc + (p.precio_total || 0), 0)
+
     // Generar alertas
     const alertas: Array<{
       tipo: string
@@ -450,6 +506,22 @@ export async function getCompleteSystemContext(
         total: proveedoresData.length,
         activos: proveedoresData.filter(p => p.activo).length
       },
+      ventas: {
+        totalFacturas,
+        facturasEmitidas,
+        totalVentas,
+        promedioTicket,
+        porTipoComprobante
+      },
+      presupuestosVentas: {
+        total: totalPresupuestosVentas,
+        aceptados: presupuestosAceptados,
+        rechazados: presupuestosRechazados,
+        cancelados: presupuestosCancelados,
+        convertidos: presupuestosConvertidos,
+        valorTotal: valorTotalPresupuestos,
+        valorAceptados: valorPresupuestosAceptados
+      },
       actividadReciente,
       rendimiento: {
         promedioTiempoCompletado,
@@ -479,6 +551,22 @@ export async function getCompleteSystemContext(
       materiales: { total: 0, masUsados: [] },
       pedidosCompras: { total: 0, pendientes: 0, aprobados: 0, enCompra: 0, completados: 0 },
       proveedores: { total: 0, activos: 0 },
+      ventas: {
+        totalFacturas: 0,
+        facturasEmitidas: 0,
+        totalVentas: 0,
+        promedioTicket: 0,
+        porTipoComprobante: {}
+      },
+      presupuestosVentas: {
+        total: 0,
+        aceptados: 0,
+        rechazados: 0,
+        cancelados: 0,
+        convertidos: 0,
+        valorTotal: 0,
+        valorAceptados: 0
+      },
       actividadReciente: [],
       rendimiento: { promedioTiempoCompletado: 0, tasaCompletacion: 0, eficienciaPorSector: {} },
       alertas: []
@@ -554,6 +642,24 @@ Total: ${context.pedidosCompras.total}
 === PROVEEDORES ===
 Total: ${context.proveedores.total}
 - Activos: ${context.proveedores.activos}
+
+=== VENTAS / FACTURACIÓN ===
+Total de facturas: ${context.ventas?.totalFacturas ?? 0}
+- Facturas emitidas: ${context.ventas?.facturasEmitidas ?? 0}
+- Total vendido (monto): $${(context.ventas?.totalVentas ?? 0).toLocaleString('es-AR')}
+- Ticket promedio: $${(context.ventas?.promedioTicket ?? 0).toLocaleString('es-AR')}
+
+Por tipo de comprobante:
+${context.ventas ? Object.entries(context.ventas.porTipoComprobante).map(([tipo, count]) => `  - ${tipo}: ${count}`).join('\n') : '  (sin datos)'}
+
+=== PRESUPUESTOS DE VENTAS ===
+Total de presupuestos: ${context.presupuestosVentas?.total ?? 0}
+- Aceptados: ${context.presupuestosVentas?.aceptados ?? 0}
+- Rechazados: ${context.presupuestosVentas?.rechazados ?? 0}
+- Cancelados: ${context.presupuestosVentas?.cancelados ?? 0}
+- Convertidos a venta: ${context.presupuestosVentas?.convertidos ?? 0}
+- Valor total presupuestado: $${(context.presupuestosVentas?.valorTotal ?? 0).toLocaleString('es-AR')}
+- Valor aceptado: $${(context.presupuestosVentas?.valorAceptados ?? 0).toLocaleString('es-AR')}
 
 === RENDIMIENTO ===
 - Promedio tiempo completado: ${context.rendimiento.promedioTiempoCompletado.toFixed(1)} minutos
