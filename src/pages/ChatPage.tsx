@@ -147,6 +147,20 @@ const ChatPage = ({
     try {
       setIsPlotAILoading(true)
 
+      // Mensaje de sistema para que el usuario vea que PlotAI fue invocado
+      const thinkingMessage: ChatMessage = {
+        id: `plotai-thinking-${Date.now()}`,
+        userId: 'plotai',
+        userName: 'PlotAI',
+        userAvatar: '🤖',
+        content: 'Estoy pensando la mejor respuesta con los datos del sistema…',
+        timestamp: new Date(),
+        channel: currentChannel,
+        type: 'message',
+        status: 'sending'
+      }
+      setMessages((prev) => [...prev, thinkingMessage])
+
       const systemContext = getSystemContext(tasks, activity, teamMembers)
 
       // Historial reciente de la conversación en este canal
