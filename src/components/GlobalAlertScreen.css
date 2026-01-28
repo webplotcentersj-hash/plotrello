@@ -27,6 +27,10 @@
   background: transparent;
 }
 
+.alert-title {
+  display: none;
+}
+
 .alert-text {
   font-size: 140px;
   font-weight: 900;

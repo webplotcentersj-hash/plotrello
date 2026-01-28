@@ -84,7 +84,6 @@ const GlobalAlertScreen = () => {
   return (
     <div className="global-alert-screen">
       <div className="alert-content">
-        <div className="alert-title">ALERTA</div>
         <div className="alert-text">{alertMessage}</div>
         {sentBy && (
           <div className="alert-meta">
