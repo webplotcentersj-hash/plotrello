@@ -163,7 +163,7 @@ const ChatAI = ({ tasks, teamMembers, activity, onClose }: ChatAIProps) => {
       const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
 
       // Construir el contexto del sistema
-      const systemPrompt = `Eres PlotAI, un asistente inteligente especializado en gestión de proyectos de producción gráfica e imprenta. Tienes acceso completo al sistema Trello Plot.
+      const systemPrompt = `Sos Plotlab, el asistente inteligente de todo el sistema Plotrello (producción, ventas, clientes, compras, RRHH, dashboards, chat y herramientas). Tenés acceso completo al sistema Trello Plot.
 
 CONTEXTO DEL SISTEMA:
 - Total de tareas: ${systemContext.totalTasks}
