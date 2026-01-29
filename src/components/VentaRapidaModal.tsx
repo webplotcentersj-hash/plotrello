@@ -222,11 +222,13 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         throw new Error(ventaResponse.error || 'Error al crear venta')
       }
 
+      const ventaData = ventaResponse.data
+
       // Mostrar de inmediato "Venta realizada" y el cartel (no depender de obtenerVentas)
       const ahora = new Date().toISOString()
       const ventaMinima: Venta = {
-        id: ventaResponse.data.id,
-        numero_venta: ventaResponse.data.numero_venta,
+        id: ventaData.id,
+        numero_venta: ventaData.numero_venta,
         id_op: 0,
         numero_op: '',
         cliente_nombre: clienteFinal.nombre,
@@ -240,7 +242,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         updated_at: ahora,
         items: itemsVenta.map(item => ({
           id: 0,
-          id_venta: ventaResponse.data.id,
+          id_venta: ventaData.id,
           id_articulo_stock: item.id_articulo_stock ?? undefined,
           codigo_articulo: item.codigo_articulo ?? undefined,
           descripcion: item.descripcion,
@@ -259,7 +261,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       for (const item of itemsVenta) {
         try {
           const itemResponse = await apiService.agregarItemVenta({
-            id_venta: ventaResponse.data.id,
+            id_venta: ventaData.id,
             id_articulo_stock: item.id_articulo_stock,
             codigo_articulo: item.codigo_articulo,
             descripcion: item.descripcion,
@@ -283,7 +285,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
-          const ventaCompleta = ventasResponse.data.find(v => v.id === ventaResponse.data!.id)
+          const ventaCompleta = ventasResponse.data.find(v => v.id === ventaData.id)
           if (ventaCompleta) setVentaCreada(ventaCompleta)
         }
       } catch (e) {
@@ -293,8 +295,8 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       // Disparar evento personalizado para que el CRM se actualice si está abierto
       window.dispatchEvent(new CustomEvent('venta-creada', { 
         detail: { 
-          ventaId: ventaResponse.data.id, 
-          numeroVenta: ventaResponse.data.numero_venta 
+          ventaId: ventaData.id, 
+          numeroVenta: ventaData.numero_venta 
         }
       }))
       
