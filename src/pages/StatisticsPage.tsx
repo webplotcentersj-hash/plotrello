@@ -54,6 +54,16 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
   const [operatorFilter, setOperatorFilter] = useState<string>('all')
   const [backendPeriodStats, setBackendPeriodStats] = useState<any>(null)
   const [backendUserStats, setBackendUserStats] = useState<any[]>([])
+  const [facturas, setFacturas] = useState<any[]>([])
+  const [presupuestosVentas, setPresupuestosVentas] = useState<any[]>([])
+  const [clientesWeb, setClientesWeb] = useState<any[]>([])
+  const [pedidosPendientes, setPedidosPendientes] = useState<any[]>([])
+  const [pedidosCompra, setPedidosCompra] = useState<any[]>([])
+  const [articulosStock, setArticulosStock] = useState<any[]>([])
+  const [stockBajo, setStockBajo] = useState<any[]>([])
+  const [movimientosStock, setMovimientosStock] = useState<any[]>([])
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [backendLoading, setBackendLoading] = useState<boolean>(false)
   const [backendError, setBackendError] = useState<string | null>(null)
   const { isAdmin, loading } = useAuth()
@@ -121,6 +131,51 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
         if (!cancelled) {
           setBackendUserStats(userResults)
         }
+
+        // Ventas, presupuestos y clientes (ámbitos medibles)
+        const [facturasResp, presupResp, clientesResp] = await Promise.all([
+          apiService.getFacturas({ fechaDesde: dateFrom, fechaHasta: dateTo }),
+          apiService.getPresupuestosVentasAdmin({ fecha_desde: dateFrom, fecha_hasta: dateTo }),
+          apiService.getClientesWeb()
+        ])
+        if (!cancelled) {
+          if (facturasResp.success && facturasResp.data) setFacturas(Array.isArray(facturasResp.data) ? facturasResp.data : [])
+          else setFacturas([])
+          if (presupResp.success && presupResp.data) setPresupuestosVentas(Array.isArray(presupResp.data) ? presupResp.data : [])
+          else setPresupuestosVentas([])
+          if (clientesResp.success && clientesResp.data) setClientesWeb(Array.isArray(clientesResp.data) ? clientesResp.data : [])
+          else setClientesWeb([])
+        }
+
+        // Pedidos web, compras, stock (ámbitos medibles)
+        const [pedWebResp, comprasResp, stockResp, stockBajoResp, movResp] = await Promise.all([
+          apiService.getPedidosPendientes(),
+          apiService.getPedidosCompra(),
+          apiService.getArticulosStock().catch(() => ({ success: true, data: [] })),
+          apiService.getArticulosStock(undefined, true).catch(() => ({ success: true, data: [] })),
+          apiService.getMovimientosStock({ fecha_desde: dateFrom, fecha_hasta: dateTo }).catch(() => ({ success: true, data: [] }))
+        ])
+        if (!cancelled) {
+          if (pedWebResp.success && pedWebResp.data) setPedidosPendientes(Array.isArray(pedWebResp.data) ? pedWebResp.data : [])
+          else setPedidosPendientes([])
+          if (comprasResp.success && comprasResp.data) {
+            const list = Array.isArray(comprasResp.data) ? comprasResp.data : []
+            const fromTs = new Date(dateFrom).getTime()
+            const toTs = new Date(dateTo).getTime() + 24 * 60 * 60 * 1000
+            const inPeriod = list.filter((p: any) => {
+              const t = p.fecha_solicitud ? new Date(p.fecha_solicitud).getTime() : 0
+              return t >= fromTs && t <= toTs
+            })
+            setPedidosCompra(inPeriod)
+          } else setPedidosCompra([])
+          if (stockResp.success && stockResp.data) setArticulosStock(Array.isArray(stockResp.data) ? stockResp.data : [])
+          else setArticulosStock([])
+          if (stockBajoResp.success && stockBajoResp.data) setStockBajo(Array.isArray(stockBajoResp.data) ? stockBajoResp.data : [])
+          else setStockBajo([])
+          if (movResp.success && movResp.data) setMovimientosStock(Array.isArray(movResp.data) ? movResp.data : [])
+          else setMovimientosStock([])
+          setLastUpdated(new Date())
+        }
       } catch (error: any) {
         if (!cancelled) {
           setBackendError(error?.message || 'Error obteniendo estadísticas')
@@ -135,7 +190,14 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     return () => {
       cancelled = true
     }
-  }, [dateFrom, dateTo, safeTeamMembers])
+  }, [dateFrom, dateTo, safeTeamMembers, refreshTrigger])
+
+  // Auto-refresh cada 60s para sensación de tiempo real
+  useEffect(() => {
+    if (!dateFrom || !dateTo) return
+    const interval = setInterval(() => setRefreshTrigger((t) => t + 1), 60000)
+    return () => clearInterval(interval)
+  }, [dateFrom, dateTo])
 
   const filteredTasks = useMemo(() => {
     return safeTasks.filter((task) => {
@@ -708,6 +770,112 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     }).sort((a, b) => b.count - a.count)
   }, [filteredTasks])
 
+  // ========== VENTAS / FACTURACIÓN ==========
+  const statsVentas = useMemo(() => {
+    const list = Array.isArray(facturas) ? facturas : []
+    const emitidas = list.filter((f: any) => f.estado === 'Emitida')
+    const totalMonto = emitidas.reduce((sum: number, f: any) => sum + (Number(f.total) || 0), 0)
+    const porTipo: Record<string, number> = {}
+    emitidas.forEach((f: any) => {
+      const t = f.tipo_comprobante || 'Otro'
+      porTipo[t] = (porTipo[t] || 0) + 1
+    })
+    const chartPorTipo = Object.entries(porTipo).map(([name, value]) => ({ name, value }))
+    return {
+      total: list.length,
+      emitidas: emitidas.length,
+      borrador: list.filter((f: any) => f.estado === 'Borrador').length,
+      anuladas: list.filter((f: any) => f.estado === 'Anulada' || f.estado === 'Cancelada').length,
+      totalMonto,
+      chartPorTipo
+    }
+  }, [facturas])
+
+  // ========== CLIENTES ==========
+  const statsClientes = useMemo(() => {
+    const list = Array.isArray(clientesWeb) ? clientesWeb : []
+    const fromTs = dateFrom ? new Date(dateFrom).getTime() : 0
+    const toTs = dateTo ? new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 : Infinity
+    const nuevosEnPeriodo = list.filter((c: any) => {
+      const created = c.created_at ? new Date(c.created_at).getTime() : 0
+      return created >= fromTs && created <= toTs
+    })
+    return {
+      total: list.length,
+      nuevosEnPeriodo: nuevosEnPeriodo.length
+    }
+  }, [clientesWeb, dateFrom, dateTo])
+
+  // ========== PRESUPUESTOS DE VENTAS ==========
+  const statsPresupuestos = useMemo(() => {
+    const list = Array.isArray(presupuestosVentas) ? presupuestosVentas : []
+    const porEstado: Record<string, number> = {}
+    let montoAceptados = 0
+    let montoConvertidos = 0
+    list.forEach((p: any) => {
+      const e = (p.estado || 'otro').toString().toLowerCase()
+      porEstado[e] = (porEstado[e] || 0) + 1
+      const precio = Number(p.precio_total) || 0
+      if (e === 'aceptado') montoAceptados += precio
+      if (e === 'convertido') montoConvertidos += precio
+    })
+    const chartPorEstado = Object.entries(porEstado).map(([name, value]) => ({ name, value }))
+    return {
+      total: list.length,
+      aceptados: porEstado.aceptado || 0,
+      rechazados: porEstado.rechazado || 0,
+      convertidos: porEstado.convertido || 0,
+      enviados: porEstado.enviado || 0,
+      borrador: porEstado.borrador || 0,
+      montoAceptados,
+      montoConvertidos,
+      chartPorEstado
+    }
+  }, [presupuestosVentas])
+
+  // ========== PEDIDOS WEB (pendientes) ==========
+  const statsPedidosWeb = useMemo(() => {
+    const list = Array.isArray(pedidosPendientes) ? pedidosPendientes : []
+    const porEstado: Record<string, number> = {}
+    list.forEach((p: any) => {
+      const e = (p.estado || 'otro').toString()
+      porEstado[e] = (porEstado[e] || 0) + 1
+    })
+    const chartPorEstado = Object.entries(porEstado).map(([name, value]) => ({ name, value }))
+    return { total: list.length, chartPorEstado }
+  }, [pedidosPendientes])
+
+  // ========== COMPRAS (pedidos de compra en período) ==========
+  const statsCompras = useMemo(() => {
+    const list = Array.isArray(pedidosCompra) ? pedidosCompra : []
+    const porEstado: Record<string, number> = {}
+    list.forEach((p: any) => {
+      const e = (p.estado || 'otro').toString()
+      porEstado[e] = (porEstado[e] || 0) + 1
+    })
+    const chartPorEstado = Object.entries(porEstado).map(([name, value]) => ({ name, value }))
+    return { total: list.length, chartPorEstado }
+  }, [pedidosCompra])
+
+  // ========== STOCK ==========
+  const statsStock = useMemo(() => {
+    const list = Array.isArray(articulosStock) ? articulosStock : []
+    const bajos = Array.isArray(stockBajo) ? stockBajo : []
+    const movs = Array.isArray(movimientosStock) ? movimientosStock : []
+    const porTipo: Record<string, number> = {}
+    movs.forEach((m: any) => {
+      const t = (m.tipo_movimiento || 'otro').toString()
+      porTipo[t] = (porTipo[t] || 0) + 1
+    })
+    const chartMovs = Object.entries(porTipo).map(([name, value]) => ({ name, value }))
+    return {
+      totalArticulos: list.length,
+      stockBajo: bajos.length,
+      movimientosEnPeriodo: movs.length,
+      chartMovs
+    }
+  }, [articulosStock, stockBajo, movimientosStock])
+
   const exportCsv = (filename: string, rows: any[], columns: string[]) => {
     if (!rows || rows.length === 0) {
       alert('No hay datos para exportar.')
@@ -750,6 +918,20 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     addLine(`Rango: ${dateFrom || 'inicio'} - ${dateTo || 'hoy'}`)
     addLine(`Sector: ${sectorFilter === 'all' ? 'Todos' : sectorFilter}`)
     addLine(`Operario: ${operatorFilter === 'all' ? 'Todos' : operatorFilter}`)
+    line += 4
+
+    addLine('Ventas / Facturación:', true)
+    addLine(`- Facturas totales: ${statsVentas.total} | Emitidas: ${statsVentas.emitidas} | Monto emitido: $${formatNumber(statsVentas.totalMonto, 0)}`)
+    addLine('Clientes (portal):', true)
+    addLine(`- Total: ${statsClientes.total} | Nuevos en período: ${statsClientes.nuevosEnPeriodo}`)
+    addLine('Presupuestos de ventas:', true)
+    addLine(`- Total: ${statsPresupuestos.total} | Aceptados: ${statsPresupuestos.aceptados} | Convertidos: ${statsPresupuestos.convertidos} | Monto: $${formatNumber(statsPresupuestos.montoAceptados + statsPresupuestos.montoConvertidos, 0)}`)
+    addLine('Pedidos web (pendientes):', true)
+    addLine(`- Total: ${statsPedidosWeb.total}`)
+    addLine('Compras (período):', true)
+    addLine(`- Pedidos de compra: ${statsCompras.total}`)
+    addLine('Stock:', true)
+    addLine(`- Artículos: ${statsStock.totalArticulos} | Stock bajo: ${statsStock.stockBajo} | Movimientos: ${statsStock.movimientosEnPeriodo}`)
     line += 4
 
     addLine('Órdenes por estado:', true)
@@ -861,6 +1043,12 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
             </button>
           </div>
           <h1>Estadísticas y Reportes</h1>
+          {lastUpdated && (
+            <div className="stats-live-indicator" key={lastUpdated.getTime()}>
+              <span className="stats-live-dot" />
+              <span>Última actualización: {lastUpdated.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+            </div>
+          )}
         </div>
         <div className="stats-filters">
           <div className="filter-group">
@@ -972,6 +1160,165 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
           </div>
         )}
 
+        {/* Ventas · Clientes · Presupuestos */}
+        <div className="stats-row">
+          <div className="stat-card">
+            <h3>💰 Ventas / Facturación</h3>
+            <p className="stat-subtitle">Período {dateFrom} → {dateTo}</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsVentas.total)}</div>
+                <div className="stat-label">Facturas totales</div>
+              </div>
+              <div>
+                <div className="stat-value success">{formatNumber(statsVentas.emitidas)}</div>
+                <div className="stat-label">Emitidas</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsVentas.borrador)}</div>
+                <div className="stat-label">Borrador</div>
+              </div>
+              <div>
+                <div className="stat-value">${formatNumber(statsVentas.totalMonto, 0)}</div>
+                <div className="stat-label">Monto emitido</div>
+              </div>
+            </div>
+            {statsVentas.chartPorTipo.length > 0 && (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={statsVentas.chartPorTipo} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#1a1d2e', border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <Bar dataKey="value" fill="#22c55e" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="stat-card">
+            <h3>👥 Clientes</h3>
+            <p className="stat-subtitle">Clientes web (portal)</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsClientes.total)}</div>
+                <div className="stat-label">Total clientes</div>
+              </div>
+              <div>
+                <div className="stat-value success">{formatNumber(statsClientes.nuevosEnPeriodo)}</div>
+                <div className="stat-label">Nuevos en período</div>
+              </div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <h3>📋 Presupuestos de ventas</h3>
+            <p className="stat-subtitle">Período {dateFrom} → {dateTo}</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsPresupuestos.total)}</div>
+                <div className="stat-label">Total</div>
+              </div>
+              <div>
+                <div className="stat-value success">{formatNumber(statsPresupuestos.aceptados)}</div>
+                <div className="stat-label">Aceptados</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsPresupuestos.convertidos)}</div>
+                <div className="stat-label">Convertidos a OP</div>
+              </div>
+              <div>
+                <div className="stat-value">${formatNumber(statsPresupuestos.montoAceptados + statsPresupuestos.montoConvertidos, 0)}</div>
+                <div className="stat-label">Monto (acept.+conv.)</div>
+              </div>
+            </div>
+            {statsPresupuestos.chartPorEstado.length > 0 && (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={statsPresupuestos.chartPorEstado} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#1a1d2e', border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Pedidos web · Compras · Stock */}
+        <div className="stats-row">
+          <div className="stat-card stats-card-live">
+            <h3>🛒 Pedidos web (pendientes)</h3>
+            <p className="stat-subtitle">Estado actual</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsPedidosWeb.total)}</div>
+                <div className="stat-label">Pendientes</div>
+              </div>
+            </div>
+            {statsPedidosWeb.chartPorEstado.length > 0 && (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={statsPedidosWeb.chartPorEstado} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#1a1d2e', border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <Bar dataKey="value" fill="#0ea5e9" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="stat-card stats-card-live">
+            <h3>📦 Compras (período)</h3>
+            <p className="stat-subtitle">{dateFrom} → {dateTo}</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsCompras.total)}</div>
+                <div className="stat-label">Pedidos de compra</div>
+              </div>
+            </div>
+            {statsCompras.chartPorEstado.length > 0 && (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={statsCompras.chartPorEstado} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#1a1d2e', border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="stat-card stats-card-live">
+            <h3>📊 Stock</h3>
+            <p className="stat-subtitle">Artículos y movimientos</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsStock.totalArticulos)}</div>
+                <div className="stat-label">Artículos</div>
+              </div>
+              <div>
+                <div className="stat-value warning">{formatNumber(statsStock.stockBajo)}</div>
+                <div className="stat-label">Stock bajo</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsStock.movimientosEnPeriodo)}</div>
+                <div className="stat-label">Movimientos (período)</div>
+              </div>
+            </div>
+            {statsStock.chartMovs.length > 0 && (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={statsStock.chartMovs} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#1a1d2e', border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
         {backendUserStats && backendUserStats.length > 0 && (
           <div className="stat-card full-width">
             <h3>Productividad por usuario (datos reales)</h3>
@@ -1025,6 +1372,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
+                  isAnimationActive
+                  animationDuration={800}
+                  animationEasing="ease-out"
                 >
                   {ordersByStatus.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1050,6 +1400,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
+                    isAnimationActive
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   >
                     {topClients.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1075,6 +1428,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                     data={distributionBySector}
                     cx="50%"
                     cy="50%"
+                    isAnimationActive
+                    animationDuration={800}
+                    animationEasing="ease-out"
                     labelLine={false}
                     label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
                     outerRadius={100}
@@ -1109,7 +1465,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Órdenes" fill="#a855f7" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Órdenes" fill="#a855f7" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1129,7 +1485,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Movimientos" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Movimientos" fill="#22c55e" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1149,7 +1505,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Tiempo Promedio (horas)" fill="#38bdf8" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Tiempo Promedio (horas)" fill="#38bdf8" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1172,7 +1528,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Tiempo Promedio (días)" fill="#f97316" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Tiempo Promedio (días)" fill="#f97316" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1195,7 +1551,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Promedio (días)" fill="#60a5fa" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Promedio (días)" fill="#60a5fa" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1218,7 +1574,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                <Bar dataKey="Promedio (días)" fill="#34d399" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Promedio (días)" fill="#34d399" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1293,9 +1649,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1319,9 +1675,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1345,7 +1701,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="value" fill="#a855f7" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#a855f7" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
