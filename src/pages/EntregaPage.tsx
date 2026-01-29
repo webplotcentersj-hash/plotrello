@@ -7,6 +7,18 @@ import jsPDF from 'jspdf'
 import type { OrdenTrabajo } from '../types/api'
 import './EntregaPage.css'
 
+function buildWhatsAppLink(phone?: string | null): string {
+  if (!phone || !phone.trim()) return '#'
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 8) return '#'
+  let num = digits
+  if (num.startsWith('54')) num = num.slice(2)
+  if (num.startsWith('15') && num.length >= 10) num = '9' + num.slice(2)
+  else if (num.length <= 10 && !num.startsWith('9')) num = '9' + num
+  if (!num.startsWith('54')) num = '54' + num
+  return `https://wa.me/${num}?text=${encodeURIComponent('Su orden fue entregada. Cualquier duda estamos a disposición.')}`
+}
+
 const EntregaPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -20,6 +32,7 @@ const EntregaPage = () => {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<{ entregadoA?: string; firma?: string }>({})
   const [success, setSuccess] = useState(false)
+  const [firmaCargadaDesdeTablet, setFirmaCargadaDesdeTablet] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const comprobanteRef = useRef<HTMLDivElement>(null)
 
@@ -28,6 +41,8 @@ const EntregaPage = () => {
       loadOrden()
     }
   }, [id])
+
+  const FIRMA_CLIENTE_STORAGE_PREFIX = 'firma_cliente_'
 
   const loadOrden = async () => {
     setLoading(true)
@@ -40,6 +55,25 @@ const EntregaPage = () => {
         if (ordenEncontrada) {
           setOrden(ordenEncontrada)
           setEntregadoA(ordenEncontrada.cliente || '')
+          // Precargar firma si el cliente firmó en la tablet (backend) o misma pestaña (sessionStorage)
+          let data: { firmaDataUrl?: string; entregadoA?: string; dniRetira?: string } | null = null
+          const firmaRes = await apiService.getFirmaCliente(ordenEncontrada.numero_op)
+          if (firmaRes.success && firmaRes.data) data = firmaRes.data
+          if (!data) {
+            try {
+              const key = FIRMA_CLIENTE_STORAGE_PREFIX + ordenEncontrada.numero_op
+              const stored = sessionStorage.getItem(key)
+              if (stored) data = JSON.parse(stored) as typeof data
+            } catch {
+              /* ignorar */
+            }
+          }
+          if (data?.firmaDataUrl) {
+            setFirmaDataUrl(data.firmaDataUrl)
+            setFirmaCargadaDesdeTablet(true)
+          }
+          if (data?.entregadoA) setEntregadoA(data.entregadoA)
+          if (data?.dniRetira) setDniRetira(data.dniRetira)
         } else {
           alert('Orden no encontrada')
           navigate('/mostrador/ordenes-listas')
@@ -224,10 +258,26 @@ const EntregaPage = () => {
       }
 
       setSuccess(true)
-      // Esperar un momento para mostrar el éxito antes de redirigir
-      setTimeout(() => {
-        navigate('/mostrador/ordenes-listas')
-      }, 1500)
+      // Descargar comprobante PDF automáticamente al entregar
+      try {
+        if (comprobanteRef.current && orden) {
+          const canvas = await html2canvas(comprobanteRef.current, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+          })
+          const imgData = canvas.toDataURL('image/png')
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+          const pdfWidth = pdf.internal.pageSize.getWidth()
+          const pdfHeight = pdf.internal.pageSize.getHeight()
+          const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height)
+          pdf.addImage(imgData, 'PNG', 0, 0, canvas.width * ratio, canvas.height * ratio)
+          pdf.save(`Comprobante_Entrega_OP_${orden.numero_op}.pdf`)
+        }
+      } catch (e) {
+        console.warn('No se pudo generar PDF automático:', e)
+      }
     } catch (error) {
       console.error('Error marcando orden como entregada:', error)
       setErrors({ firma: 'Error inesperado al procesar la entrega' })
@@ -304,16 +354,32 @@ const EntregaPage = () => {
             <h1>📋 Procesar Entrega - OP #{orden.numero_op}</h1>
             <p className="subtitle">{orden.cliente}</p>
           </div>
-          <button
-            className="btn-secondary"
-            onClick={() => navigate('/mostrador/ordenes-listas')}
-          >
-            ← Volver
-          </button>
+          <div className="header-actions">
+            <a
+              href={`/firma-cliente/${encodeURIComponent(orden.numero_op)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-firma-tablet"
+              title="Abrir en otra pestaña o dispositivo para que el cliente firme"
+            >
+              📱 Firma en tablet
+            </a>
+            <button
+              className="btn-secondary"
+              onClick={() => navigate('/mostrador/ordenes-listas')}
+            >
+              ← Volver
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="entrega-content">
+        {firmaCargadaDesdeTablet && (
+          <div className="firma-tablet-banner">
+            📱 Firma del cliente cargada desde la tablet. Revisá los datos y confirmá la entrega.
+          </div>
+        )}
         {/* Información de la Orden */}
         <section className="orden-info-section">
           <h2>Información de la Orden</h2>
@@ -509,14 +575,35 @@ const EntregaPage = () => {
           </div>
         </section>
 
-        {/* Mensaje de éxito */}
+        {/* Mensaje de éxito y acciones posteriores */}
         {success && (
-          <div className="success-banner">
-            <span>✅ Orden marcada como entregada exitosamente. Redirigiendo...</span>
+          <div className="success-banner success-banner-full">
+            <h3>✅ Orden entregada</h3>
+            <p>El comprobante se descargó automáticamente. Podés notificar al cliente por WhatsApp si tiene número cargado.</p>
+            <div className="success-actions">
+              {(orden.whatsapp_link || orden.telefono_cliente) && (
+                <a
+                  href={orden.whatsapp_link?.trim() || buildWhatsAppLink(orden.telefono_cliente)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-whatsapp"
+                >
+                  📱 Abrir WhatsApp para notificar al cliente
+                </a>
+              )}
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/mostrador/ordenes-listas')}
+                type="button"
+              >
+                Volver a Órdenes Listas
+              </button>
+            </div>
           </div>
         )}
 
         {/* Acciones */}
+        {!success && (
         <section className="acciones-section">
           <button
             className="btn-secondary"
@@ -529,12 +616,13 @@ const EntregaPage = () => {
           <button
             className="btn-primary"
             onClick={handleMarcarEntregada}
-            disabled={saving || success}
+            disabled={saving}
             type="button"
           >
-            {saving ? '⏳ Guardando...' : success ? '✅ Entregada' : '✅ Marcar como Entregada'}
+            {saving ? '⏳ Guardando...' : '✅ Marcar como Entregada'}
           </button>
         </section>
+        )}
       </div>
     </div>
   )

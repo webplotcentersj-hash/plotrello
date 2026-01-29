@@ -296,6 +296,65 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  /** Guarda la firma del cliente desde la tablet (anon). Uso real: tablet y PC distintos. */
+  async saveFirmaCliente(
+    numeroOp: string,
+    datos: { firmaDataUrl: string; entregadoA: string; dniRetira?: string }
+  ): Promise<ApiResponse<void>> {
+    const client = supabase
+    if (!client) return { success: false, error: 'Supabase no configurado' }
+    const opNormalized = typeof numeroOp === 'string' ? numeroOp.trim() : String(numeroOp).trim()
+    if (!opNormalized) return { success: false, error: 'Número de OP no válido' }
+    try {
+      const { error } = await client
+        .from('firmas_entrega_cliente')
+        .upsert(
+          {
+            numero_op: opNormalized,
+            firma_data_url: datos.firmaDataUrl,
+            entregado_a: datos.entregadoA,
+            dni_retira: datos.dniRetira || null,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'numero_op' }
+        )
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al guardar la firma' }
+    }
+  }
+
+  /** Obtiene la firma del cliente guardada desde la tablet (usuario logueado en PC). */
+  async getFirmaCliente(
+    numeroOp: string
+  ): Promise<
+    ApiResponse<{ firmaDataUrl: string; entregadoA: string; dniRetira?: string } | null>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado', data: null }
+    const opNormalized = typeof numeroOp === 'string' ? numeroOp.trim() : String(numeroOp).trim()
+    if (!opNormalized) return { success: true, data: null }
+    try {
+      const { data, error } = await supabase
+        .from('firmas_entrega_cliente')
+        .select('firma_data_url, entregado_a, dni_retira')
+        .eq('numero_op', opNormalized)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message, data: null }
+      if (!data) return { success: true, data: null }
+      return {
+        success: true,
+        data: {
+          firmaDataUrl: data.firma_data_url,
+          entregadoA: data.entregado_a,
+          dniRetira: data.dni_retira ?? undefined
+        }
+      }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al obtener la firma', data: null }
+    }
+  }
+
   async getOrdenes(): Promise<ApiResponse<OrdenTrabajo[]>> {
     if (supabase) {
       try {

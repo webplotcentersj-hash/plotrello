@@ -14,6 +14,7 @@ const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const GanttPage = lazy(() => import('./pages/GanttPage'))
 const OpViewPage = lazy(() => import('./pages/OpViewPage'))
 const OpPublicPage = lazy(() => import('./pages/OpPublicPage'))
+const FirmaClientePage = lazy(() => import('./pages/FirmaClientePage'))
 const HerramientaPage = lazy(() => import('./pages/HerramientaPage'))
 const MostradorDashboardPage = lazy(() => import('./pages/MostradorDashboardPage'))
 const DisenoDashboardPage = lazy(() => import('./pages/DisenoDashboardPage'))
@@ -465,6 +466,7 @@ function App() {
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
           <Route path="/dashboard-pantallas" element={<DashboardPantallasPage />} />
           <Route path="/op-public/:opNumber" element={<OpPublicPage />} />
+          <Route path="/firma-cliente/:opNumber" element={<FirmaClientePage />} />
           <Route path="/brief/:token" element={<BriefPublicoPage />} />
           <Route
             path="/login"
