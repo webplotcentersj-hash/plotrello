@@ -834,6 +834,13 @@ const MostradorDashboardPage = () => {
             <div className="accion-icon">⭐</div>
             <div className="accion-label">Clientes Frecuentes</div>
           </button>
+          <button 
+            className="accion-card"
+            onClick={() => navigate('/mostrador/cuenta-corriente')}
+          >
+            <div className="accion-icon">📒</div>
+            <div className="accion-label">Cuenta Corriente</div>
+          </button>
           {isAdmin && (
             <button 
               className="accion-card"

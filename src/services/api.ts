@@ -2293,6 +2293,57 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  // ========== CUENTA CORRIENTE (MOSTRADOR) ==========
+  async listClientesCuentaCorriente(): Promise<ApiResponse<ClienteRecord[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data: rows, error: err1 } = await supabase
+        .from('clientes_cuenta_corriente')
+        .select('id_cliente')
+        .order('id', { ascending: false })
+      if (err1) return { success: false, error: err1.message }
+      const ids = (rows || []).map((r: { id_cliente: number }) => r.id_cliente).filter(Boolean)
+      if (ids.length === 0) return { success: true, data: [] }
+      const { data: clientes, error: err2 } = await supabase
+        .from('clientes')
+        .select('*')
+        .in('id', ids)
+      if (err2) return { success: false, error: err2.message }
+      const order = ids as number[]
+      const ordered = (clientes || []).slice().sort((a: ClienteRecord, b: ClienteRecord) => order.indexOf(a.id) - order.indexOf(b.id))
+      return { success: true, data: ordered as ClienteRecord[] }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar clientes con cuenta corriente' }
+    }
+  }
+
+  async agregarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { error } = await supabase
+        .from('clientes_cuenta_corriente')
+        .insert({ id_cliente: idCliente })
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al agregar cliente' }
+    }
+  }
+
+  async quitarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { error } = await supabase
+        .from('clientes_cuenta_corriente')
+        .delete()
+        .eq('id_cliente', idCliente)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al quitar cliente' }
+    }
+  }
+
   // ========== CHAT ==========
   async getMensajesChat(canal: string, limit: number = 50): Promise<ApiResponse<ChatMessageUI[]>> {
     if (supabase) {

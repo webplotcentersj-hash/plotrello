@@ -1,0 +1,238 @@
+.cuenta-corriente-page {
+  min-height: 100vh;
+  background: var(--surface-base);
+  padding: 24px;
+}
+
+.cuenta-corriente-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  color: var(--text-primary);
+}
+
+.cuenta-corriente-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: cc-spin 1s linear infinite;
+}
+
+@keyframes cc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cuenta-corriente-header {
+  margin-bottom: 24px;
+}
+
+.cuenta-corriente-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.cuenta-corriente-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 2rem;
+  color: var(--text-primary);
+}
+
+.cuenta-corriente-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.cuenta-corriente-header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cuenta-corriente-error {
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  color: #ef4444;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cuenta-corriente-error button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 1rem;
+}
+
+.cuenta-corriente-agregar {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.cuenta-corriente-agregar-label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cuenta-corriente-busqueda {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cuenta-corriente-input {
+  flex: 1;
+  max-width: 400px;
+  padding: 10px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.cuenta-corriente-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.cuenta-corriente-buscando {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.cuenta-corriente-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.cuenta-corriente-resultado-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--surface-border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cuenta-corriente-resultado-item:last-child {
+  border-bottom: none;
+}
+
+.cuenta-corriente-resultado-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-primary);
+}
+
+.cuenta-corriente-resultado-info span {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.cuenta-corriente-sin-resultados {
+  margin: 12px 0 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.cuenta-corriente-lista h2 {
+  margin: 0 0 16px 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.cuenta-corriente-empty {
+  padding: 40px 24px;
+  text-align: center;
+  background: var(--surface-card);
+  border: 1px dashed var(--surface-border);
+  border-radius: 12px;
+  color: var(--text-muted);
+}
+
+.cuenta-corriente-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.cuenta-corriente-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  border-left: 4px solid #10b981;
+}
+
+.cuenta-corriente-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.cuenta-corriente-card-nombre {
+  font-size: 1.1rem;
+}
+
+.cuenta-corriente-card-empresa {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.btn-small.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.btn-small.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+@media (max-width: 600px) {
+  .cuenta-corriente-page {
+    padding: 16px;
+  }
+  .cuenta-corriente-header-content {
+    flex-direction: column;
+  }
+  .cuenta-corriente-cards {
+    grid-template-columns: 1fr;
+  }
+}

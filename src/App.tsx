@@ -27,6 +27,7 @@ const EntregaPage = lazy(() => import('./pages/EntregaPage'))
 const CalendarioEntregasPage = lazy(() => import('./pages/CalendarioEntregasPage'))
 const ReportesMostradorPage = lazy(() => import('./pages/ReportesMostradorPage'))
 const ClientesFrecuentesPage = lazy(() => import('./pages/ClientesFrecuentesPage'))
+const CuentaCorrientePage = lazy(() => import('./pages/CuentaCorrientePage'))
 const ComprasDashboardPage = lazy(() => import('./pages/ComprasDashboardPage'))
 const PedidoCompraDetallePage = lazy(() => import('./pages/PedidoCompraDetallePage'))
 const ReportesStockPage = lazy(() => import('./pages/ReportesStockPage'))
@@ -718,6 +719,10 @@ function AppRoutes({
       <Route
         path="/mostrador/clientes-frecuentes"
         element={<ClientesFrecuentesPage />}
+      />
+      <Route
+        path="/mostrador/cuenta-corriente"
+        element={<CuentaCorrientePage />}
       />
       <Route
         path="/crm-ventas"
