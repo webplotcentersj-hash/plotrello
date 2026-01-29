@@ -248,32 +248,48 @@ class ApiService {
   // ========== ORDENES DE TRABAJO ==========
   async getOrdenByOpNumber(opNumber: string): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
-      // Crear cliente sin autenticación para acceso público
+      // Normalizar: decode URI (por si viene del QR/URL) y quitar espacios
+      let opNormalized: string
+      try {
+        opNormalized = typeof opNumber === 'string'
+          ? decodeURIComponent(opNumber).trim()
+          : String(opNumber).trim()
+      } catch {
+        opNormalized = String(opNumber).trim()
+      }
+      if (!opNormalized) {
+        return { success: false, error: 'Número de OP no válido' }
+      }
+
+      // Crear cliente sin autenticación para acceso público (página QR cliente)
       const { createClient } = await import('@supabase/supabase-js')
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      
+
       if (!supabaseUrl || !supabaseAnonKey) {
         return { success: false, error: 'Configuración de Supabase no encontrada' }
       }
 
       const publicClient = createClient(supabaseUrl, supabaseAnonKey)
-      
-      const { data, error } = await publicClient
+
+      // Hay varias filas con el mismo numero_op (una por sector); tomar la ficha principal (es_duplicado = false) o la primera
+      const { data: rows, error } = await publicClient
         .from('ordenes_trabajo')
         .select('*')
-        .eq('numero_op', opNumber)
-        .maybeSingle()
+        .eq('numero_op', opNormalized)
+        .order('es_duplicado', { ascending: true, nullsFirst: false })
+        .limit(1)
 
       if (error) {
         console.error('Error fetching orden by OP number:', error)
         return { success: false, error: error.message }
       }
-      
+
+      const data = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
       if (!data) {
         return { success: false, error: 'Orden no encontrada' }
       }
-      
+
       return { success: true, data: data as OrdenTrabajo }
     }
 
