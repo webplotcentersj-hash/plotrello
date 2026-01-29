@@ -97,11 +97,18 @@
   border: 2px solid rgba(255, 255, 255, 0.3);
 }
 .venta-realizada-cartel-texto {
-  margin: 0 0 20px 0;
+  margin: 0 0 12px 0;
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
+
+.venta-realizada-cartel-hint {
+  margin: 0 0 16px 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
 .venta-realizada-cartel-btn {
   background: #fff !important;
   color: #059669 !important;
@@ -113,6 +120,11 @@
 }
 .venta-realizada-cartel-btn:hover {
   background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.venta-realizada-cartel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-close {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import apiService from '../services/api'
 import type { ClienteRecord, Venta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
@@ -50,6 +50,18 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
   const [showCartelVentaRealizada, setShowCartelVentaRealizada] = useState(false)
+  const [cartelAceptarEnabled, setCartelAceptarEnabled] = useState(false)
+  const convertirRef = useRef<HTMLDivElement>(null)
+
+  // Habilitar "Aceptar" del cartel después de 2.5 s para que se lea "Venta realizada"
+  useEffect(() => {
+    if (!showCartelVentaRealizada) {
+      setCartelAceptarEnabled(false)
+      return
+    }
+    const t = setTimeout(() => setCartelAceptarEnabled(true), 2500)
+    return () => clearTimeout(t)
+  }, [showCartelVentaRealizada])
 
   // Buscar clientes (desde 1 letra)
   useEffect(() => {
@@ -256,6 +268,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       }
       setVentaCreada(ventaMinima)
       setShowCartelVentaRealizada(true)
+      setCartelAceptarEnabled(false)
 
       // Agregar items a la venta (el stock se descuenta automáticamente en agregarItemVenta)
       for (const item of itemsVenta) {
@@ -427,10 +440,19 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
           <div className="venta-realizada-cartel">
             <div className="venta-realizada-cartel-box">
               <p className="venta-realizada-cartel-texto">VENTA REALIZADA</p>
+              {!cartelAceptarEnabled && (
+                <p className="venta-realizada-cartel-hint">Podés cerrar en unos segundos...</p>
+              )}
               <button
                 type="button"
                 className="btn-primary venta-realizada-cartel-btn"
-                onClick={() => setShowCartelVentaRealizada(false)}
+                onClick={() => {
+                  setShowCartelVentaRealizada(false)
+                  setTimeout(() => {
+                    convertirRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }, 100)
+                }}
+                disabled={!cartelAceptarEnabled}
               >
                 Aceptar
               </button>
@@ -451,7 +473,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
 
         {/* En el mismo modal: opción de convertir a OP (visible sin scroll) */}
         {ventaCreada && (
-          <div className="venta-realizada-convertir">
+          <div className="venta-realizada-convertir" ref={convertirRef}>
             {ventaCreada.numero_op ? (
               <p className="venta-realizada-convertir-ok">✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong></p>
             ) : (
