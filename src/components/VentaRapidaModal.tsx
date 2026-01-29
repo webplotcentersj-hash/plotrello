@@ -474,6 +474,24 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
           </div>
         )}
 
+        {/* En el mismo modal: opción de convertir a OP (visible sin scroll) */}
+        {ventaCreada && (
+          <div className="venta-realizada-convertir">
+            {ventaCreada.numero_op ? (
+              <p className="venta-realizada-convertir-ok">✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong></p>
+            ) : (
+              <button
+                type="button"
+                className="btn-primary btn-convertir-op-modal"
+                onClick={handleConvertirAOP}
+                disabled={guardando}
+              >
+                {guardando ? 'Convirtiendo...' : '📋 Convertirla a OP'}
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="venta-rapida-modal-content">
           {/* Información del vendedor */}
           <div className="form-group">
@@ -800,20 +818,9 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
             <div className="venta-creada-info">
               <div className="success-message">
                 <strong>Venta realizada</strong> — Nº {ventaCreada.numero_venta}
-                {ventaCreada.numero_op ? (
+                {ventaCreada.numero_op && (
                   <div style={{ marginTop: '8px', fontSize: '0.95rem' }}>
                     ✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong>
-                  </div>
-                ) : (
-                  <div className="venta-creada-actions">
-                    <button
-                      type="button"
-                      className="btn-primary btn-convertir-op"
-                      onClick={handleConvertirAOP}
-                      disabled={guardando}
-                    >
-                      {guardando ? 'Convirtiendo...' : '📋 Convertirla a OP'}
-                    </button>
                   </div>
                 )}
               </div>
@@ -822,11 +829,6 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         </div>
 
         <div className="venta-rapida-modal-footer">
-          {!ventaCreada && (
-            <p className="venta-rapida-footer-hint">
-              Complete cliente e ítems y toque <strong>Guardar Venta</strong>. Luego aparecerá «Venta realizada» y el botón <strong>Convertirla a OP</strong>.
-            </p>
-          )}
           <div className="venta-rapida-footer-buttons">
           <button className="btn-secondary" onClick={onClose}>
             {ventaCreada ? 'Cerrar' : 'Cancelar'}

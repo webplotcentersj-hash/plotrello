@@ -51,6 +51,31 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* En el mismo modal: opción Convertirla a OP (visible sin scroll) */
+.venta-realizada-convertir {
+  padding: 16px 24px;
+  background: rgba(16, 185, 129, 0.08);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.25);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.venta-realizada-convertir .btn-convertir-op-modal {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.venta-realizada-convertir-ok {
+  margin: 0;
+  color: #10b981;
+  font-size: 1rem;
+}
+
+.venta-realizada-convertir-ok strong {
+  color: #10b981;
+}
+
 /* Cartel VENTA REALIZADA al generar la venta */
 .venta-realizada-cartel {
   position: absolute;
