@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
 import type { ClienteRecord } from '../types/api'
+import QRPrintView from './QRPrintView'
 import './FichaNoOPModal.css'
 
 type FichaNoOPModalProps = {
@@ -25,6 +26,7 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
   const [buscandoClientes, setBuscandoClientes] = useState(false)
+  const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const clienteInputRef = useRef<HTMLInputElement>(null)
 
@@ -168,17 +170,30 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
         return
       }
 
-      onSuccess()
-      onClose()
+      const created = response.data
+      if (created?.numero_op && created?.cliente) {
+        setQrPrintData({ opNumber: created.numero_op, cliente: created.cliente })
+      } else {
+        onSuccess()
+        onClose()
+      }
     } catch (error) {
       console.error('Error creando ficha:', error)
       alert('Error al crear la ficha')
     }
   }
 
+  const handleCloseQR = () => {
+    setQrPrintData(null)
+    onSuccess()
+    onClose()
+  }
+
   return (
-    <div className="ficha-no-op-modal-overlay" onClick={onClose}>
-      <div className="ficha-no-op-modal" onClick={(e) => e.stopPropagation()}>
+    <>
+      {!qrPrintData && (
+      <div className="ficha-no-op-modal-overlay" onClick={onClose}>
+        <div className="ficha-no-op-modal" onClick={(e) => e.stopPropagation()}>
         <div className="ficha-no-op-modal-header">
           <h2>Crear Nueva Ficha</h2>
           <button className="close-button" onClick={onClose}>×</button>
@@ -345,8 +360,17 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
             Crear
           </button>
         </div>
+        </div>
       </div>
-    </div>
+      )}
+      {qrPrintData && (
+        <QRPrintView
+          opNumber={qrPrintData.opNumber}
+          cliente={qrPrintData.cliente}
+          onClose={handleCloseQR}
+        />
+      )}
+    </>
   )
 }
 

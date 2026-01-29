@@ -8,50 +8,60 @@ const OpPublicPage = () => {
   const { opNumber } = useParams<{ opNumber: string }>()
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadOrden = async () => {
-      if (!opNumber) {
-        setError('Número de OP no proporcionado')
-        setLoading(false)
-        return
-      }
+  const publicUrl = typeof window !== 'undefined' ? window.location.href : ''
 
-      try {
-        const response = await apiService.getOrdenByOpNumber(opNumber)
-        if (response.success && response.data) {
-          const ordenData = response.data as OrdenTrabajo
-          setOrden(ordenData)
-        } else {
-          setError('No se encontró la orden de trabajo')
-        }
-      } catch (err) {
-        setError('Error al cargar la orden')
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+  const loadOrden = async (isRefresh = false) => {
+    if (!opNumber) {
+      setError('Número de OP no proporcionado')
+      setLoading(false)
+      return
     }
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+    setError(null)
+    try {
+      const response = await apiService.getOrdenByOpNumber(opNumber)
+      if (response.success && response.data) {
+        const ordenData = response.data as OrdenTrabajo
+        setOrden(ordenData)
+      } else {
+        setError('No se encontró la orden de trabajo')
+      }
+    } catch (err) {
+      setError('Error al cargar la orden')
+      console.error(err)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
 
+  useEffect(() => {
     loadOrden()
   }, [opNumber])
 
+  // Estado mostrado al cliente: texto corto y personalizado ("tu orden")
   const estadoDisplay = useMemo(() => {
     if (!orden) return 'No disponible'
     
     const estadosMap: Record<string, string> = {
-      'Pendiente': 'Pendiente',
-      'Diseño Gráfico': 'En Diseño',
-      'Diseño en Proceso': 'En Diseño',
-      'En Espera': 'En Espera',
-      'Imprenta (Área de Impresión)': 'En Imprenta',
-      'Taller de Imprenta': 'En Taller',
-      'Taller Gráfico': 'En Taller Gráfico',
-      'Instalaciones': 'En Instalaciones',
-      'Metalúrgica': 'En Metalúrgica',
-      'Finalizado en Taller': 'Finalizado',
-      'Almacén de Entrega': 'Listo para Entrega',
+      'Pendiente': 'Recibimos tu pedido',
+      'Asesor Técnico': 'Revisando tu pedido',
+      'Presupuestos': 'Preparando tu presupuesto',
+      'Finalizado Asesor Presupuestos': 'Tu presupuesto está listo',
+      'Diseño Gráfico': 'Diseñando tu trabajo',
+      'Diseño en Proceso': 'Diseñando tu trabajo',
+      'En Espera': 'En cola de producción',
+      'Imprenta (Área de Impresión)': 'Imprimiendo tu trabajo',
+      'Taller de Imprenta': 'En taller de impresión',
+      'Taller Gráfico': 'En taller gráfico',
+      'Instalaciones': 'Instalando tu trabajo',
+      'Metalúrgica': 'Fabricando estructuras',
+      'Finalizado en Taller': 'Listo en taller',
+      'Almacén de Entrega': 'Listo para retirar',
       'Entregado o Instalado': 'Entregado'
     }
     
@@ -64,6 +74,9 @@ const OpPublicPage = () => {
     
     const colorMap: Record<string, string> = {
       'Pendiente': '#6B7280',
+      'Asesor Técnico': '#8b5cf6', // Violeta
+      'Presupuestos': '#8b5cf6',
+      'Finalizado Asesor Presupuestos': '#10b981',
       'Diseño Gráfico': '#f97316', // Naranja
       'Diseño en Proceso': '#f97316',
       'En Espera': '#6B7280',
@@ -82,28 +95,31 @@ const OpPublicPage = () => {
     return colorMap[orden.estado] || '#6B7280'
   }, [orden])
 
-  // Descripción del estado/sector - explica qué función cumple cada sector
+  // Descripción personalizada para el cliente (tuteo, mensaje claro)
   const estadoDescripcion = useMemo(() => {
     if (!orden) return ''
     
     const descripcionesMap: Record<string, string> = {
-      'Pendiente': 'La orden está pendiente de asignación a un sector',
-      'Diseño Gráfico': 'Se está diseñando la pieza gráfica, creando la identidad visual y preparando los archivos para producción',
-      'Diseño en Proceso': 'El diseño está siendo desarrollado y revisado',
-      'En Espera': 'La orden está en espera de ser procesada',
-      'Imprenta (Área de Impresión)': 'Se está imprimiendo en equipos digitales de alta calidad',
-      'Taller de Imprenta': 'Se están realizando trabajos de impresión offset, acabados y post-impresión',
-      'Taller Gráfico': 'Se están realizando trabajos de corte, ploteo, laminado, termoformado y acabados especiales en materiales gráficos',
-      'Instalaciones': 'Se están realizando trabajos de instalación, montaje y colocación de piezas gráficas en el lugar de destino',
-      'Metalúrgica': 'Se están fabricando estructuras metálicas, marcos, soportes y elementos de herrería para las piezas gráficas',
-      'Finalizado en Taller': 'Los trabajos de taller han sido completados',
-      'Almacén de Entrega': 'La orden está lista y disponible para ser retirada o entregada',
-      'Mostrador': 'La orden está en el área de atención al cliente, lista para consultas o retiro',
-      'Caja': 'La orden está en el área de facturación y cobro',
-      'Entregado o Instalado': 'La orden ha sido entregada al cliente o instalada en su ubicación final'
+      'Pendiente': 'Tu pedido fue recibido. Pronto lo asignaremos a producción.',
+      'Asesor Técnico': 'Estamos revisando las especificaciones de tu trabajo para planificar los siguientes pasos.',
+      'Presupuestos': 'Estamos preparando tu presupuesto. Te contactaremos cuando esté listo.',
+      'Finalizado Asesor Presupuestos': 'Tu presupuesto está listo. Podés aprobarlo para que avancemos con la producción.',
+      'Diseño Gráfico': 'Estamos diseñando tu pieza y preparando los archivos para imprimir.',
+      'Diseño en Proceso': 'Seguimos trabajando en el diseño. Cualquier cambio lo coordinamos con vos.',
+      'En Espera': 'Tu trabajo está en cola. En breve lo tomamos para producción.',
+      'Imprenta (Área de Impresión)': 'Tu trabajo se está imprimiendo en nuestros equipos.',
+      'Taller de Imprenta': 'Estamos en la etapa de impresión y acabados.',
+      'Taller Gráfico': 'Estamos con corte, ploteo o acabados de tu trabajo.',
+      'Instalaciones': 'Estamos instalando o colocando tu trabajo en el lugar acordado.',
+      'Metalúrgica': 'Estamos fabricando las estructuras o soportes de tu trabajo.',
+      'Finalizado en Taller': 'El trabajo en taller ya está terminado. Próximo paso: entrega o instalación.',
+      'Almacén de Entrega': '¡Tu pedido está listo! Podés pasar a retirarlo o coordinamos la entrega.',
+      'Mostrador': 'Tu pedido está en mostrador. Podés acercarte a retirarlo.',
+      'Caja': 'Tu pedido está en caja. Podés pasar a retirarlo y abonar.',
+      'Entregado o Instalado': 'Tu pedido fue entregado o instalado. ¡Gracias por confiar en nosotros!'
     }
     
-    return descripcionesMap[orden.estado] || 'Estado de la orden'
+    return descripcionesMap[orden.estado] || 'Te mantendremos informado sobre el avance de tu pedido.'
   }, [orden])
 
   if (loading) {
@@ -152,12 +168,31 @@ const OpPublicPage = () => {
         <div className="op-public-content">
           <div className="estado-section">
             <div className="estado-badge" style={{ backgroundColor: `${estadoColor}20`, borderColor: estadoColor }}>
-              <span className="estado-label" style={{ color: '#1f2937' }}>Estado:</span>
+              <span className="estado-label" style={{ color: '#1f2937' }}>Tu pedido:</span>
               <span className="estado-value" style={{ color: estadoColor, fontWeight: '700' }}>{estadoDisplay}</span>
             </div>
             {estadoDescripcion && (
               <p className="estado-descripcion">{estadoDescripcion}</p>
             )}
+            <p className="estado-ayuda">Este enlace muestra el estado actual de tu orden. Podés actualizar cuando quieras para ver los cambios.</p>
+            <div className="op-public-actions">
+              <button
+                type="button"
+                className="btn-actualizar-estado"
+                onClick={() => loadOrden(true)}
+                disabled={refreshing}
+              >
+                {refreshing ? 'Actualizando...' : 'Actualizar estado'}
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Estado de mi orden ${orden.numero_op} (${orden.cliente}): ${estadoDisplay}\n${publicUrl}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-compartir-whatsapp"
+              >
+                Compartir por WhatsApp
+              </a>
+            </div>
           </div>
 
           {orden.descripcion && (
