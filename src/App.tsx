@@ -708,6 +708,14 @@ function AppRoutes({
         element={<ReportesMostradorPage />}
       />
       <Route
+        path="/mostrador/ventas"
+        element={<CRMVentasPage />}
+      />
+      <Route
+        path="/mostrador/ventas/reportes"
+        element={<ReportesVentasPage />}
+      />
+      <Route
         path="/mostrador/clientes-frecuentes"
         element={<ClientesFrecuentesPage />}
       />
