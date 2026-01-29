@@ -248,20 +248,22 @@ class ApiService {
   // ========== ORDENES DE TRABAJO ==========
   async getOrdenByOpNumber(opNumber: string): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
-      // Normalizar: decode URI (por si viene del QR/URL) y quitar espacios
-      let opNormalized: string
+      // Normalizar: decode URI, quitar espacios, y opcionalmente quitar prefijo "OP-" (la BD suele tener "1", "2")
+      let raw: string
       try {
-        opNormalized = typeof opNumber === 'string'
+        raw = typeof opNumber === 'string'
           ? decodeURIComponent(opNumber).trim()
           : String(opNumber).trim()
       } catch {
-        opNormalized = String(opNumber).trim()
+        raw = String(opNumber).trim()
       }
-      if (!opNormalized) {
+      if (!raw) {
         return { success: false, error: 'Número de OP no válido' }
       }
+      // Sin prefijo para coincidir con BD (ej: "OP-1" -> "1")
+      const opNormalized = raw.replace(/^OP-?/i, '').trim() || raw
 
-      // Crear cliente sin autenticación para acceso público (página QR cliente)
+      // Crear cliente sin autenticación para acceso público (página QR cliente / tablet firma)
       const { createClient } = await import('@supabase/supabase-js')
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -272,20 +274,32 @@ class ApiService {
 
       const publicClient = createClient(supabaseUrl, supabaseAnonKey)
 
-      // Hay varias filas con el mismo numero_op (una por sector); tomar la ficha principal (es_duplicado = false) o la primera
-      const { data: rows, error } = await publicClient
-        .from('ordenes_trabajo')
-        .select('*')
-        .eq('numero_op', opNormalized)
-        .order('es_duplicado', { ascending: true, nullsFirst: false })
-        .limit(1)
+      // Intentar primero valor normalizado; si no hay filas, intentar con el valor raw (por si la BD tiene "OP-1")
+      const toTry = opNormalized === raw ? [opNormalized] : [opNormalized, raw]
+      let data: unknown = null
+      let error: { message: string } | null = null
 
-      if (error) {
-        console.error('Error fetching orden by OP number:', error)
-        return { success: false, error: error.message }
+      for (const num of toTry) {
+        const { data: rows, error: err } = await publicClient
+          .from('ordenes_trabajo')
+          .select('*')
+          .eq('numero_op', num)
+          .order('es_duplicado', { ascending: true, nullsFirst: false })
+          .limit(1)
+        error = err
+        if (err) {
+          console.error('Error fetching orden by OP number:', err)
+          break
+        }
+        if (Array.isArray(rows) && rows.length > 0) {
+          data = rows[0]
+          break
+        }
       }
 
-      const data = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+      if (error) {
+        return { success: false, error: error.message }
+      }
       if (!data) {
         return { success: false, error: 'Orden no encontrada' }
       }
