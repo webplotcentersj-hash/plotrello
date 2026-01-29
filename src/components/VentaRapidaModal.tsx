@@ -445,9 +445,16 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
     <div className="venta-rapida-modal-overlay" onClick={ventaCreada ? undefined : onClose}>
       <div className="venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
         <div className="venta-rapida-modal-header">
-          <h2>💰 Venta Rápida</h2>
+          <h2>{ventaCreada ? '✅ Venta realizada' : '💰 Venta Rápida'}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
+
+        {ventaCreada && (
+          <div className="venta-realizada-banner">
+            Venta realizada — Nº {ventaCreada.numero_venta}
+            {ventaCreada.numero_op && ` • OP: ${ventaCreada.numero_op}`}
+          </div>
+        )}
 
         <div className="venta-rapida-modal-content">
           {/* Información del vendedor */}
@@ -774,10 +781,21 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
           {ventaCreada && (
             <div className="venta-creada-info">
               <div className="success-message">
-                ✓ Venta creada: <strong>{ventaCreada.numero_venta}</strong>
-                {ventaCreada.numero_op && (
+                <strong>Venta realizada</strong> — Nº {ventaCreada.numero_venta}
+                {ventaCreada.numero_op ? (
                   <div style={{ marginTop: '8px', fontSize: '0.95rem' }}>
                     ✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong>
+                  </div>
+                ) : (
+                  <div className="venta-creada-actions">
+                    <button
+                      type="button"
+                      className="btn-primary btn-convertir-op"
+                      onClick={handleConvertirAOP}
+                      disabled={guardando}
+                    >
+                      {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
+                    </button>
                   </div>
                 )}
               </div>
