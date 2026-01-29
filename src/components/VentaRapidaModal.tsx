@@ -222,6 +222,39 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         throw new Error(ventaResponse.error || 'Error al crear venta')
       }
 
+      // Mostrar de inmediato "Venta realizada" y el cartel (no depender de obtenerVentas)
+      const ahora = new Date().toISOString()
+      const ventaMinima: Venta = {
+        id: ventaResponse.data.id,
+        numero_venta: ventaResponse.data.numero_venta,
+        id_op: 0,
+        numero_op: '',
+        cliente_nombre: clienteFinal.nombre,
+        valor_total: calcularSubtotal(),
+        fecha_venta: fechaVenta,
+        estado_pago: esCuentaCorriente ? 'Pendiente' : 'Pagado',
+        metodo_pago: condicionVenta,
+        id_vendedor: usuarioId,
+        nombre_vendedor: usuarioNombre,
+        created_at: ahora,
+        updated_at: ahora,
+        items: itemsVenta.map(item => ({
+          id: 0,
+          id_venta: ventaResponse.data.id,
+          id_articulo_stock: item.id_articulo_stock ?? undefined,
+          codigo_articulo: item.codigo_articulo ?? undefined,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          precio_total: item.cantidad * item.precio_unitario - (item.descuento || 0),
+          descuento: item.descuento ?? undefined,
+          observaciones: item.observaciones ?? undefined,
+          created_at: ahora
+        }))
+      }
+      setVentaCreada(ventaMinima)
+      setShowCartelVentaRealizada(true)
+
       // Agregar items a la venta (el stock se descuenta automáticamente en agregarItemVenta)
       for (const item of itemsVenta) {
         try {
@@ -246,74 +279,15 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         }
       }
 
-      // Obtener la venta completa con items para mostrarla
-      // IMPORTANTE: Establecer ventaCreada ANTES de llamar a onSuccess para que el modal no se cierre
+      // Opcional: actualizar con la venta completa desde el servidor (no bloquea la UI)
       try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
           const ventaCompleta = ventasResponse.data.find(v => v.id === ventaResponse.data!.id)
-          if (ventaCompleta) {
-            setVentaCreada(ventaCompleta)
-          } else {
-            // Si no se encuentra, crear la venta con los items que tenemos
-            if (ventaResponse.data) {
-              const ventaData = ventaResponse.data
-              setVentaCreada({
-                ...ventaData,
-                items: itemsVenta.map(item => ({
-                  id: 0,
-                  id_venta: ventaData.id,
-                  id_articulo_stock: item.id_articulo_stock,
-                  codigo_articulo: item.codigo_articulo,
-                  descripcion: item.descripcion,
-                  cantidad: item.cantidad,
-                  precio_unitario: item.precio_unitario,
-                  descuento: item.descuento,
-                  observaciones: item.observaciones || null
-                }))
-              } as Venta)
-            }
-          }
-        } else {
-          // Fallback: crear la venta con los datos que tenemos
-          if (ventaResponse.data) {
-            const ventaData = ventaResponse.data
-            setVentaCreada({
-              ...ventaData,
-              items: itemsVenta.map(item => ({
-                id: 0,
-                id_venta: ventaData.id,
-                id_articulo_stock: item.id_articulo_stock,
-                codigo_articulo: item.codigo_articulo,
-                descripcion: item.descripcion,
-                cantidad: item.cantidad,
-                precio_unitario: item.precio_unitario,
-                descuento: item.descuento,
-                observaciones: item.observaciones || null
-              }))
-            } as Venta)
-          }
+          if (ventaCompleta) setVentaCreada(ventaCompleta)
         }
-      } catch (error) {
-        console.error('Error obteniendo venta completa:', error)
-        // Fallback: establecer la venta básica si tenemos los datos
-        if (ventaResponse.success && ventaResponse.data) {
-          const ventaData = ventaResponse.data
-          setVentaCreada({
-            ...ventaData,
-            items: itemsVenta.map(item => ({
-              id: 0,
-              id_venta: ventaData.id,
-              id_articulo_stock: item.id_articulo_stock,
-              codigo_articulo: item.codigo_articulo,
-              descripcion: item.descripcion,
-              cantidad: item.cantidad,
-              precio_unitario: item.precio_unitario,
-              descuento: item.descuento,
-              observaciones: item.observaciones || null
-            }))
-          } as Venta)
-        }
+      } catch (e) {
+        console.error('Error obteniendo venta completa:', e)
       }
 
       // Disparar evento personalizado para que el CRM se actualice si está abierto
@@ -324,12 +298,11 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         }
       }))
       
-      // Llamar a onSuccess para recargar datos en el dashboard
-      if (onSuccess) {
-        onSuccess()
+      try {
+        if (onSuccess) onSuccess()
+      } catch (e) {
+        console.error('Error en onSuccess:', e)
       }
-      // Mostrar cartel "VENTA REALIZADA"
-      setShowCartelVentaRealizada(true)
       
       // NO cerrar el modal - permitir convertir a OP desde aquí
     } catch (error: any) {
