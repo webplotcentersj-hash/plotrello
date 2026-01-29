@@ -822,6 +822,12 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         </div>
 
         <div className="venta-rapida-modal-footer">
+          {!ventaCreada && (
+            <p className="venta-rapida-footer-hint">
+              Complete cliente e ítems y toque <strong>Guardar Venta</strong>. Luego aparecerá «Venta realizada» y el botón <strong>Convertirla a OP</strong>.
+            </p>
+          )}
+          <div className="venta-rapida-footer-buttons">
           <button className="btn-secondary" onClick={onClose}>
             {ventaCreada ? 'Cerrar' : 'Cancelar'}
           </button>
@@ -886,6 +892,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

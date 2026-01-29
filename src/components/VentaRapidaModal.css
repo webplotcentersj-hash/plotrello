@@ -429,9 +429,30 @@
   padding: 20px 24px;
   border-top: 1px solid var(--surface-border);
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  background: var(--surface-base);
+  flex-shrink: 0;
+}
+
+.venta-rapida-footer-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.venta-rapida-footer-hint strong {
+  color: #10b981;
+}
+
+.venta-rapida-footer-buttons {
+  display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: var(--surface-base);
+  flex-wrap: wrap;
 }
 
 .btn-primary,
