@@ -2320,9 +2320,9 @@ class ApiService {
   async agregarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { error } = await supabase
-        .from('clientes_cuenta_corriente')
-        .insert({ id_cliente: idCliente })
+      const { error } = await supabase.rpc('agregar_cliente_cuenta_corriente', {
+        p_id_cliente: idCliente
+      })
       if (error) return { success: false, error: error.message }
       return { success: true }
     } catch (e: any) {
@@ -2333,10 +2333,9 @@ class ApiService {
   async quitarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { error } = await supabase
-        .from('clientes_cuenta_corriente')
-        .delete()
-        .eq('id_cliente', idCliente)
+      const { error } = await supabase.rpc('quitar_cliente_cuenta_corriente', {
+        p_id_cliente: idCliente
+      })
       if (error) return { success: false, error: error.message }
       return { success: true }
     } catch (e: any) {
