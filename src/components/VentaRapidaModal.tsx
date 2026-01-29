@@ -49,6 +49,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
 
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
+  const [showCartelVentaRealizada, setShowCartelVentaRealizada] = useState(false)
 
   // Buscar clientes (desde 1 letra)
   useEffect(() => {
@@ -327,6 +328,8 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
       if (onSuccess) {
         onSuccess()
       }
+      // Mostrar cartel "VENTA REALIZADA"
+      setShowCartelVentaRealizada(true)
       
       // NO cerrar el modal - permitir convertir a OP desde aquí
     } catch (error: any) {
@@ -444,6 +447,21 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
   return (
     <div className="venta-rapida-modal-overlay" onClick={ventaCreada ? undefined : onClose}>
       <div className="venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Cartel VENTA REALIZADA al generar la venta */}
+        {showCartelVentaRealizada && (
+          <div className="venta-realizada-cartel">
+            <div className="venta-realizada-cartel-box">
+              <p className="venta-realizada-cartel-texto">VENTA REALIZADA</p>
+              <button
+                type="button"
+                className="btn-primary venta-realizada-cartel-btn"
+                onClick={() => setShowCartelVentaRealizada(false)}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        )}
         <div className="venta-rapida-modal-header">
           <h2>{ventaCreada ? '✅ Venta realizada' : '💰 Venta Rápida'}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
@@ -794,7 +812,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
                       onClick={handleConvertirAOP}
                       disabled={guardando}
                     >
-                      {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
+                      {guardando ? 'Convirtiendo...' : '📋 Convertirla a OP'}
                     </button>
                   </div>
                 )}
@@ -824,7 +842,7 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
                   disabled={guardando}
                   style={{ minWidth: '160px', padding: '12px 20px' }}
                 >
-                  {guardando ? 'Convirtiendo...' : '📋 Convertir a OP'}
+                  {guardando ? 'Convirtiendo...' : '📋 Convertirla a OP'}
                 </button>
               )}
               {ventaCreada.numero_op && (

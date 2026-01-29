@@ -13,6 +13,7 @@
 }
 
 .venta-rapida-modal {
+  position: relative;
   background: var(--surface-card);
   border-radius: 16px;
   width: 100%;
@@ -48,6 +49,45 @@
   font-weight: 600;
   text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Cartel VENTA REALIZADA al generar la venta */
+.venta-realizada-cartel {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 16px;
+}
+.venta-realizada-cartel-box {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: #fff;
+  padding: 32px 40px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+.venta-realizada-cartel-texto {
+  margin: 0 0 20px 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.venta-realizada-cartel-btn {
+  background: #fff !important;
+  color: #059669 !important;
+  border: none;
+  padding: 12px 28px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.venta-realizada-cartel-btn:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
 }
 
 .btn-close {
