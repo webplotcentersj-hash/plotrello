@@ -59,6 +59,76 @@ const HerramientaPage = ({ onBack }: HerramientaPageProps) => {
                 <span className="herramienta-url">aitools.plotcenter.com.ar</span>
               </div>
             </a>
+
+            <a
+              href="https://qr.plotcenter.com.ar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="herramienta-link-card"
+            >
+              <div className="herramienta-icon">📱</div>
+              <div className="herramienta-content">
+                <h3>Generador QR / Link WhatsApp</h3>
+                <p>Crear enlace de WhatsApp y código QR para escanear</p>
+                <span className="herramienta-url">qr.plotcenter.com.ar</span>
+              </div>
+            </a>
+
+            <a
+              href="https://generadorqr.plotcenter.com.ar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="herramienta-link-card"
+            >
+              <div className="herramienta-icon">📷</div>
+              <div className="herramienta-content">
+                <h3>Generador de Códigos QR</h3>
+                <p>Crear códigos QR con URL o texto, color personalizable y descarga de imagen</p>
+                <span className="herramienta-url">generadorqr.plotcenter.com.ar</span>
+              </div>
+            </a>
+
+            <a
+              href="https://wcag.plotcenter.com.ar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="herramienta-link-card"
+            >
+              <div className="herramienta-icon">♿</div>
+              <div className="herramienta-content">
+                <h3>Verificador de Contraste WCAG</h3>
+                <p>Comprobar ratio de contraste y cumplimiento de accesibilidad (WCAG 2.1)</p>
+                <span className="herramienta-url">wcag.plotcenter.com.ar</span>
+              </div>
+            </a>
+
+            <a
+              href="https://resizer.plotcenter.com.ar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="herramienta-link-card"
+            >
+              <div className="herramienta-icon">🖼️</div>
+              <div className="herramienta-content">
+                <h3>Studio Resizer Pro</h3>
+                <p>Redimensionar y exportar diseños a múltiples formatos con ajuste de encuadre</p>
+                <span className="herramienta-url">resizer.plotcenter.com.ar</span>
+              </div>
+            </a>
+
+            <a
+              href="https://extractor.plotcenter.com.ar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="herramienta-link-card"
+            >
+              <div className="herramienta-icon">🎨</div>
+              <div className="herramienta-content">
+                <h3>Color Intelligence Studio</h3>
+                <p>Extraer paletas de imágenes, HEX/RGB/CMYK y armonías cromáticas</p>
+                <span className="herramienta-url">extractor.plotcenter.com.ar</span>
+              </div>
+            </a>
           </div>
           
           {loading && (
