@@ -237,11 +237,16 @@ export async function getCompleteSystemContext(
         .then(r => r.data || []),
 
       // Cuenta Corriente (Mostrador): clientes habilitados a comprar a cuenta
-      supabase
-        .from('clientes_cuenta_corriente')
-        .select('id', { count: 'exact', head: true })
-        .then(r => ({ count: r.count ?? 0 }))
-        .catch(() => ({ count: 0 }))
+      (async (): Promise<{ count: number }> => {
+        try {
+          const r = await supabase
+            .from('clientes_cuenta_corriente')
+            .select('id', { count: 'exact', head: true })
+          return { count: r.count ?? 0 }
+        } catch {
+          return { count: 0 }
+        }
+      })()
     ])
     
     // Procesar datos de órdenes
@@ -253,15 +258,13 @@ export async function getCompleteSystemContext(
     let completadasHoy = 0
     let enProceso = 0
     
-    ordenesData.forEach(orden => {
-      // Por estado
-      ordenesPorEstado[orden.estado] = (ordenesPorEstado[orden.estado] || 0) + 1
-      
-      // Por prioridad
-      ordenesPorPrioridad[orden.prioridad] = (ordenesPorPrioridad[orden.prioridad] || 0) + 1
-      
-      // Por sector
-      ordenesPorSector[orden.sector] = (ordenesPorSector[orden.sector] || 0) + 1
+    ordenesData.forEach((orden: { estado?: string; prioridad?: string; sector?: string; fecha_entrega?: string; entregado?: boolean; fecha_entrega_efectiva?: string }) => {
+      const est = orden.estado ?? ''
+      const pri = orden.prioridad ?? ''
+      const sec = orden.sector ?? ''
+      ordenesPorEstado[est] = (ordenesPorEstado[est] || 0) + 1
+      ordenesPorPrioridad[pri] = (ordenesPorPrioridad[pri] || 0) + 1
+      ordenesPorSector[sec] = (ordenesPorSector[sec] || 0) + 1
       
       // Urgentes
       if (orden.prioridad === 'Alta' || orden.prioridad === 'Urgente') {
@@ -288,27 +291,27 @@ export async function getCompleteSystemContext(
     })
     
     // Procesar clientes
-    const clientesActivos = clientesData.filter(c => c.activo).length
-    const clientesWeb = clientesData.filter(c => c.es_cliente_web).length
-    const clientesNuevosMes = clientesData.filter(c => {
+    const clientesActivos = clientesData.filter((c: { activo?: boolean }) => c.activo).length
+    const clientesWeb = clientesData.filter((c: { es_cliente_web?: boolean }) => c.es_cliente_web).length
+    const clientesNuevosMes = clientesData.filter((c: { created_at?: string }) => {
       if (!c.created_at) return false
       const fechaCreacion = new Date(c.created_at)
       return fechaCreacion >= inicioMes
     }).length
     
     // Procesar pedidos web
-    const pedidosPendientes = pedidosWebData.filter(p => p.estado === 'pendiente').length
-    const pedidosEnRevision = pedidosWebData.filter(p => p.estado === 'en_revision').length
-    const pedidosConvertidos = pedidosWebData.filter(p => 
+    const pedidosPendientes = pedidosWebData.filter((p: { estado?: string }) => p.estado === 'pendiente').length
+    const pedidosEnRevision = pedidosWebData.filter((p: { estado?: string }) => p.estado === 'en_revision').length
+    const pedidosConvertidos = pedidosWebData.filter((p: { estado?: string }) =>
       p.estado === 'convertido_completo' || p.estado === 'convertido_parcial'
     ).length
-    const pedidosCancelados = pedidosWebData.filter(p => p.estado === 'cancelado').length
-    const pedidosUrgentes = pedidosWebData.filter(p => p.es_urgente).length
-    
+    const pedidosCancelados = pedidosWebData.filter((p: { estado?: string }) => p.estado === 'cancelado').length
+    const pedidosUrgentes = pedidosWebData.filter((p: { es_urgente?: boolean }) => p.es_urgente).length
+
     // Procesar artículos
-    const articulosActivos = articulosData.filter(a => a.activo).length
+    const articulosActivos = articulosData.filter((a: { activo?: boolean }) => a.activo).length
     const articulosPorCategoria: Record<string, number> = {}
-    articulosData.forEach(art => {
+    articulosData.forEach((art: { categoria?: string }) => {
       if (art.categoria) {
         articulosPorCategoria[art.categoria] = (articulosPorCategoria[art.categoria] || 0) + 1
       }
@@ -317,8 +320,8 @@ export async function getCompleteSystemContext(
     // Procesar usuarios
     const usuariosPorRol: Record<string, number> = {}
     let usuariosOnline = 0
-    usuariosData.forEach(usuario => {
-      usuariosPorRol[usuario.rol] = (usuariosPorRol[usuario.rol] || 0) + 1
+    usuariosData.forEach((usuario: { rol?: string; last_seen?: string }) => {
+      usuariosPorRol[usuario.rol!] = (usuariosPorRol[usuario.rol!] || 0) + 1
       if (usuario.last_seen) {
         const lastSeen = new Date(usuario.last_seen)
         const minutosDesdeUltimaVez = (now.getTime() - lastSeen.getTime()) / (1000 * 60)
@@ -330,8 +333,9 @@ export async function getCompleteSystemContext(
     
     // Obtener materiales más usados
     const materialesUsados: Record<number, number> = {}
-    materialesData.forEach(mat => {
-      materialesUsados[mat.id_material] = (materialesUsados[mat.id_material] || 0) + (mat.cantidad || 1)
+    materialesData.forEach((mat: { id_material?: number; cantidad?: number }) => {
+      const id = mat.id_material!
+      materialesUsados[id] = (materialesUsados[id] || 0) + (mat.cantidad || 1)
     })
     
     // Obtener detalles de materiales más usados
@@ -348,17 +352,17 @@ export async function getCompleteSystemContext(
           .then(r => r.data || [])
       : []
     
-    const materialesMasUsados = materialesDetalles.map(mat => ({
+    const materialesMasUsados = materialesDetalles.map((mat: { id?: number; codigo?: string; descripcion?: string }) => ({
       codigo: mat.codigo || 'N/A',
-      descripcion: mat.descripcion,
-      vecesUsado: materialesUsados[mat.id]
+      descripcion: mat.descripcion || '',
+      vecesUsado: materialesUsados[mat.id!] ?? 0
     }))
     
     // Procesar pedidos de compras
-    const pedidosComprasPendientes = pedidosComprasData.filter(p => p.estado === 'Pendiente').length
-    const pedidosComprasAprobados = pedidosComprasData.filter(p => p.estado === 'Aprobado').length
-    const pedidosComprasEnCompra = pedidosComprasData.filter(p => p.estado === 'En Compra').length
-    const pedidosComprasCompletados = pedidosComprasData.filter(p => p.estado === 'Completado').length
+    const pedidosComprasPendientes = pedidosComprasData.filter((p: { estado?: string }) => p.estado === 'Pendiente').length
+    const pedidosComprasAprobados = pedidosComprasData.filter((p: { estado?: string }) => p.estado === 'Aprobado').length
+    const pedidosComprasEnCompra = pedidosComprasData.filter((p: { estado?: string }) => p.estado === 'En Compra').length
+    const pedidosComprasCompletados = pedidosComprasData.filter((p: { estado?: string }) => p.estado === 'Completado').length
     
     // Procesar actividad reciente
     const actividadReciente: Array<{
@@ -368,21 +372,21 @@ export async function getCompleteSystemContext(
       timestamp: string
     }> = []
     
-    historialMovimientos.forEach(mov => {
+    historialMovimientos.forEach((mov: { estado_anterior?: string; estado_nuevo?: string; nombre_usuario?: string; timestamp?: string }) => {
       actividadReciente.push({
         tipo: 'movimiento',
         descripcion: `OP movida de ${mov.estado_anterior || 'N/A'} a ${mov.estado_nuevo || 'N/A'}`,
         usuario: mov.nombre_usuario || 'Desconocido',
-        timestamp: mov.timestamp
+        timestamp: mov.timestamp || ''
       })
     })
-    
-    chatMessagesData.forEach(msg => {
+
+    chatMessagesData.forEach((msg: { mensaje?: string; nombre_usuario?: string; timestamp?: string }) => {
       actividadReciente.push({
         tipo: 'chat',
-        descripcion: msg.mensaje?.substring(0, 50) || '',
+        descripcion: (msg.mensaje || '').substring(0, 50),
         usuario: msg.nombre_usuario || 'Desconocido',
-        timestamp: msg.timestamp
+        timestamp: msg.timestamp || ''
       })
     })
     
@@ -391,22 +395,22 @@ export async function getCompleteSystemContext(
     
     // Calcular métricas de rendimiento
     const tiemposCompletados = tiempoTrabajoData
-      .filter(t => t.tiempo_minutos)
-      .map(t => t.tiempo_minutos || 0)
-    
+      .filter((t: { tiempo_minutos?: number }) => t.tiempo_minutos)
+      .map((t: { tiempo_minutos?: number }) => t.tiempo_minutos || 0)
+
     const promedioTiempoCompletado = tiemposCompletados.length > 0
-      ? tiemposCompletados.reduce((a, b) => a + b, 0) / tiemposCompletados.length
+      ? tiemposCompletados.reduce((a: number, b: number) => a + b, 0) / tiemposCompletados.length
       : 0
     
     const totalOrdenes = ordenesData.length
-    const ordenesCompletadas = ordenesData.filter(o => o.entregado).length
+    const ordenesCompletadas = ordenesData.filter((o: { entregado?: boolean }) => o.entregado).length
     const tasaCompletacion = totalOrdenes > 0 ? (ordenesCompletadas / totalOrdenes) * 100 : 0
     
     // Eficiencia por sector (simplificado)
     const eficienciaPorSector: Record<string, number> = {}
     Object.keys(ordenesPorSector).forEach(sector => {
-      const ordenesSector = ordenesData.filter(o => o.sector === sector)
-      const completadasSector = ordenesSector.filter(o => o.entregado).length
+      const ordenesSector = ordenesData.filter((o: { sector?: string }) => o.sector === sector)
+      const completadasSector = ordenesSector.filter((o: { entregado?: boolean }) => o.entregado).length
       eficienciaPorSector[sector] = ordenesSector.length > 0
         ? (completadasSector / ordenesSector.length) * 100
         : 0
@@ -517,7 +521,7 @@ export async function getCompleteSystemContext(
       },
       proveedores: {
         total: proveedoresData.length,
-        activos: proveedoresData.filter(p => p.activo).length
+        activos: proveedoresData.filter((p: { activo?: boolean }) => p.activo).length
       },
       ventas: {
         totalFacturas,
