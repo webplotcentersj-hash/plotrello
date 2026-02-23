@@ -13,6 +13,7 @@ import EtapaInstalacionesSelector from './EtapaInstalacionesSelector'
 import HistorialEtapasInstalaciones from './HistorialEtapasInstalaciones'
 import EtapaTallerImprentaSelector from './EtapaTallerImprentaSelector'
 import HistorialEtapasTallerImprenta from './HistorialEtapasTallerImprenta'
+import EtapaImpresionDigitalSelector from './EtapaImpresionDigitalSelector'
 import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
 import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
@@ -99,6 +100,7 @@ const TaskCard = ({
   const [showEtapasTallerModal, setShowEtapasTallerModal] = useState(false)
   const [showEtapasInstalacionesModal, setShowEtapasInstalacionesModal] = useState(false)
   const [showEtapasTallerImprentaModal, setShowEtapasTallerImprentaModal] = useState(false)
+  const [showEtapasImpresionDigitalModal, setShowEtapasImpresionDigitalModal] = useState(false)
   const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
@@ -107,6 +109,7 @@ const TaskCard = ({
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
   const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
   const isTallerImprenta = task.assignedSector === 'Taller de Imprenta' || task.status === 'taller-imprenta'
+  const isImprentaArea = task.assignedSector === 'Imprenta (Área de Impresión)' || task.status === 'imprenta'
   const isMetalurgica = task.assignedSector === 'Metalúrgica' || task.status === 'metalurgica'
 
   // Helper para obtener color e icono de etapa por sector
@@ -176,6 +179,29 @@ const TaskCard = ({
       return { color: colores[etapa] || '#6b7280', icon: iconos[etapa] || '📍' }
     }
     
+    // Imprenta (Área de Impresión) - Impresión Digital
+    if (sector === 'Imprenta (Área de Impresión)') {
+      const colores: Record<string, string> = {
+        'En Proceso': '#3b82f6',
+        'Pausa': '#f59e0b',
+        'Fichas técnicas': '#8b5cf6',
+        'Delivery': '#06b6d4',
+        'Taller de Imprenta': '#22c55e',
+        'Para Embalar': '#eab308',
+        'Embalado': '#10b981'
+      }
+      const iconos: Record<string, string> = {
+        'En Proceso': '⚙️',
+        'Pausa': '⏸️',
+        'Fichas técnicas': '📋',
+        'Delivery': '🚚',
+        'Taller de Imprenta': '🖨️',
+        'Para Embalar': '📦',
+        'Embalado': '✅'
+      }
+      return { color: colores[etapa] || '#6b7280', icon: iconos[etapa] || '📍' }
+    }
+    
     // Metalúrgica
     if (sector === 'Metalúrgica') {
       const colores: Record<string, string> = {
@@ -223,6 +249,13 @@ const TaskCard = ({
         etapa: task.etapaTallerImprenta,
         fechaInicio: task.etapaTallerImprentaFechaInicio,
         info: getEtapaInfo('Taller de Imprenta', task.etapaTallerImprenta)
+      }
+    }
+    if (isImprentaArea && task.etapaImpresionDigital) {
+      return {
+        etapa: task.etapaImpresionDigital,
+        fechaInicio: task.etapaImpresionDigitalFechaInicio,
+        info: getEtapaInfo('Imprenta (Área de Impresión)', task.etapaImpresionDigital)
       }
     }
     if (isMetalurgica && task.etapaMetalurgica) {
@@ -888,6 +921,23 @@ const TaskCard = ({
               </div>
             )}
 
+            {/* Sección Imprenta (Área de Impresión) - Modal IMPRESIÓN DIGITAL */}
+            {isImprentaArea && hasOrdenId && (
+              <div className="task-impresion-digital-section">
+                <button
+                  type="button"
+                  className="btn-view-etapas"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowEtapasImpresionDigitalModal(true)
+                  }}
+                  title="Abrir Impresión Digital"
+                >
+                  {task.etapaImpresionDigital ? `📍 ${task.etapaImpresionDigital}` : '🖨️ IMPRESIÓN DIGITAL'}
+                </button>
+              </div>
+            )}
+
             {/* Sección específica de Taller de Imprenta - Visible para imprenta y admin */}
             {isTallerImprenta && hasOrdenId && (isAdmin || canManageTallerImprenta) && (
               <div className="task-taller-imprenta-section">
@@ -1439,6 +1489,40 @@ const TaskCard = ({
                   // La actualización se maneja mediante el evento 'update-task-etapa'
                   // No es necesario recargar todas las tareas
                 }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal IMPRESIÓN DIGITAL - Columna Imprenta (Área de Impresión) */}
+      {showEtapasImpresionDigitalModal && hasOrdenId && (
+        <div
+          className="modal-overlay subtasks-modal"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowEtapasImpresionDigitalModal(false)
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '600px' }}
+          >
+            <header className="modal-header">
+              <h3>IMPRESIÓN DIGITAL - OP {task.opNumber}</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowEtapasImpresionDigitalModal(false)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <EtapaImpresionDigitalSelector
+                ordenId={ordenId}
+                etapaActual={task.etapaImpresionDigital}
+                onEtapaChange={() => setShowEtapasImpresionDigitalModal(false)}
               />
             </div>
           </div>

@@ -6243,6 +6243,36 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async actualizarEtapaImpresionDigital(
+    ordenId: number,
+    nuevaEtapa: string,
+    nombreUsuario: string
+  ): Promise<ApiResponse<{ etapa_impresion_digital: string | null; etapa_impresion_digital_fecha_inicio: string | null }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('actualizar_etapa_impresion_digital', {
+          p_id_orden: ordenId,
+          p_nueva_etapa: nuevaEtapa,
+          p_nombre_usuario: nombreUsuario
+        })
+        if (error) return { success: false, error: error.message }
+        const row = Array.isArray(data) && data.length > 0 ? data[0] : null
+        return {
+          success: true,
+          data: row
+            ? {
+                etapa_impresion_digital: row.etapa_impresion_digital ?? null,
+                etapa_impresion_digital_fecha_inicio: row.etapa_impresion_digital_fecha_inicio ?? null
+              }
+            : { etapa_impresion_digital: null, etapa_impresion_digital_fecha_inicio: null }
+        }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async actualizarEtapaMetalurgica(
     ordenId: number,
     nuevaEtapa: string,

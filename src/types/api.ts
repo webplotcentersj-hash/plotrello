@@ -36,6 +36,8 @@ export interface OrdenTrabajo {
   etapa_instalaciones_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Instalaciones
   etapa_taller_imprenta?: string | null // Etapa actual dentro de Taller de Imprenta
   etapa_taller_imprenta_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Taller de Imprenta
+  etapa_impresion_digital?: string | null // Etapa en Imprenta (Área de Impresión): En Proceso, Pausa, Fichas técnicas, etc.
+  etapa_impresion_digital_fecha_inicio?: string | null // Fecha de inicio de la etapa actual
   etapa_metalurgica?: string | null // Etapa actual dentro de Metalúrgica
   etapa_metalurgica_fecha_inicio?: string | null // Fecha de inicio de la etapa actual en Metalúrgica
   id_pedido_cliente?: number | null // ID del pedido web que originó esta OP

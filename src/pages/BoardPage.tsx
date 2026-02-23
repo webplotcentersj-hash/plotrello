@@ -252,7 +252,7 @@ const BoardPage = ({
         ordenId: number
         etapa: string
         fechaInicio?: string | null
-        tipo: 'taller_grafico' | 'instalaciones' | 'taller_imprenta' | 'metalurgica'
+        tipo: 'taller_grafico' | 'instalaciones' | 'taller_imprenta' | 'impresion_digital' | 'metalurgica'
       }>
       const { ordenId, etapa, fechaInicio, tipo } = customEvent.detail
 
@@ -273,6 +273,9 @@ const BoardPage = ({
             } else if (tipo === 'taller_imprenta') {
               updates.etapaTallerImprenta = etapa
               updates.etapaTallerImprentaFechaInicio = fechaInicio || undefined
+            } else if (tipo === 'impresion_digital') {
+              updates.etapaImpresionDigital = etapa
+              updates.etapaImpresionDigitalFechaInicio = fechaInicio || undefined
             } else if (tipo === 'metalurgica') {
               updates.etapaMetalurgica = etapa
               updates.etapaMetalurgicaFechaInicio = fechaInicio || undefined

@@ -69,6 +69,8 @@ export interface Task {
   etapaInstalacionesFechaInicio?: string | null // Fecha de inicio de la etapa actual en Instalaciones
   etapaTallerImprenta?: string | null // Etapa actual dentro de Taller de Imprenta
   etapaTallerImprentaFechaInicio?: string | null // Fecha de inicio de la etapa actual en Taller de Imprenta
+  etapaImpresionDigital?: string | null // Etapa en Imprenta (Área de Impresión): En Proceso, Pausa, Fichas técnicas, etc.
+  etapaImpresionDigitalFechaInicio?: string | null // Fecha de inicio de la etapa actual
   etapaMetalurgica?: string | null // Etapa actual dentro de Metalúrgica
   etapaMetalurgicaFechaInicio?: string | null // Fecha de inicio de la etapa actual en Metalúrgica
   briefPublico?: string | null // Brief público del proyecto
