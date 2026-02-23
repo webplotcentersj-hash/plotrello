@@ -34,6 +34,17 @@ try {
   ai = null
 }
 
+/** Conocimiento actual del sistema para que PlotAI esté al día con las últimas funcionalidades */
+const PLOTAI_SYSTEM_KNOWLEDGE = `
+CONOCIMIENTO ACTUAL DEL SISTEMA (actualizado):
+- **Imprenta (Área de Impresión)**: En esta columna del tablero hay un modal "IMPRESIÓN DIGITAL" con etapas: En Proceso, Pausa, Fichas técnicas, Delivery, Taller de Imprenta, Para Embalar, Embalado. El usuario puede abrirlo desde la ficha para cambiar la etapa interna de la OP.
+- **Mostrador**: Incluye Ventas (venta rápida, convertir venta a OP), Reportes de ventas, y **Cuenta Corriente**: clientes habilitados para comprar a cuenta en mostrador; se gestionan desde "Cuenta Corriente" en el dashboard de Mostrador.
+- **Entrega**: Existe la opción "Firma en tablet": se abre la ruta /firma-cliente/:numeroOP para que el cliente firme en una tablet (nombre de quien retira, DNI, firma digital). La firma se guarda y se puede ver desde la pantalla de entrega en PC.
+- **Columnas del tablero**: Diseño Gráfico, Diseño en Proceso, En Espera, Imprenta (Área de Impresión), Taller de Imprenta, Taller Gráfico, Instalaciones, Metalúrgica, Finalizado en Taller, Almacén de Entrega. Cada columna puede tener sub-etapas (ej. Taller Gráfico, Instalaciones, Taller de Imprenta, Metalúrgica, Impresión Digital en Imprenta).
+- **Ventas**: Se pueden crear ventas directas desde Mostrador; después de una venta se puede "Convertirla a OP" para generar una orden de trabajo vinculada.
+- Usá siempre los datos del contexto proporcionado para dar números y estados exactos; si te preguntan por estas funcionalidades, explicá cómo funcionan con precisión.
+`
+
 export interface SystemContext {
   totalTasks: number
   completedTasks: number
@@ -223,6 +234,8 @@ ${formatCompleteContextForPrompt(completeContext)}
 
 ${kanbanContext}
 
+${PLOTAI_SYSTEM_KNOWLEDGE}
+
 INSTRUCCIONES AGÉNTICAS CRÍTICAS (PRECISIÓN Y PROFESIONALISMO):
 - **PRECISIÓN ABSOLUTA**: SIEMPRE usa datos REALES del sistema. NUNCA inventes información, números, nombres de OPs, operarios, estados, o fechas.
 - **INFORMACIÓN VERIFICABLE**: Cuando menciones una OP específica, estado, operario, o movimiento, debe estar EXACTAMENTE en el contexto del kanban proporcionado arriba.
@@ -298,6 +311,8 @@ ${systemContext.teamMembers.map((m) => `- ${m.name} (${m.role})`).join('\n')}
 COLUMNAS DEL TABLERO:
 ${systemContext.columns.map((c) => `- ${c.label} (${c.id}): ${c.description}`).join('\n')}
 
+${PLOTAI_SYSTEM_KNOWLEDGE}
+
 INSTRUCCIONES AGÉNTICAS:
 - Responde en español de manera clara, profesional, conversacional y accionable
 - Usa el nombre del usuario cuando sea apropiado para personalizar la conversación
@@ -332,10 +347,10 @@ INSTRUCCIONES AGÉNTICAS:
       prompt += memoriaTexto
     }
 
-    // Detectar si la pregunta es sobre el manual o la aplicación
-    const esPreguntaManual = /manual|documentaci[oó]n|instrucciones|gu[ií]a|ayuda|c[oó]mo|qu[eé]|d[oó]nde|cu[aá]ndo|funciona|uso|tutorial/i.test(contents)
+    // Detectar si la pregunta es sobre el manual, la aplicación o qué sabe PlotAI
+    const esPreguntaManual = /manual|documentaci[oó]n|instrucciones|gu[ií]a|ayuda|c[oó]mo|qu[eé]|d[oó]nde|cu[aá]ndo|funciona|uso|tutorial|sistema|plotlab|funciones|caracter[ií]sticas|cuenta corriente|impresi[oó]n digital|firma|mostrador|ventas|entrega/i.test(contents)
     
-    // Agregar manual del usuario si es relevante
+    // Agregar manual del usuario si es relevante (más contexto = respuestas más precisas)
     let manualTexto = ''
     if (esPreguntaManual || useCompleteContext) {
       try {

@@ -114,6 +114,11 @@ export interface CompleteSystemContext {
     severidad: 'baja' | 'media' | 'alta' | 'critica'
     mensaje: string
   }>
+
+  // Mostrador: Cuenta Corriente
+  cuentaCorriente?: {
+    total: number // Clientes habilitados para comprar a cuenta en Mostrador
+  }
 }
 
 /**
@@ -146,7 +151,8 @@ export async function getCompleteSystemContext(
       tiempoTrabajoData,
       chatMessagesData,
       facturasData,
-      presupuestosVentasData
+      presupuestosVentasData,
+      cuentaCorrienteRes
     ] = await Promise.all([
       // Órdenes de Trabajo
       supabase
@@ -228,7 +234,14 @@ export async function getCompleteSystemContext(
       supabase
         .from('presupuestos_ventas')
         .select('id, estado, precio_total')
-        .then(r => r.data || [])
+        .then(r => r.data || []),
+
+      // Cuenta Corriente (Mostrador): clientes habilitados a comprar a cuenta
+      supabase
+        .from('clientes_cuenta_corriente')
+        .select('id', { count: 'exact', head: true })
+        .then(r => ({ count: r.count ?? 0 }))
+        .catch(() => ({ count: 0 }))
     ])
     
     // Procesar datos de órdenes
@@ -528,7 +541,10 @@ export async function getCompleteSystemContext(
         tasaCompletacion,
         eficienciaPorSector
       },
-      alertas
+      alertas,
+      cuentaCorriente: {
+        total: (cuentaCorrienteRes as { count?: number })?.count ?? 0
+      }
     }
   } catch (error) {
     console.error('Error obteniendo contexto completo del sistema:', error)
@@ -569,7 +585,8 @@ export async function getCompleteSystemContext(
       },
       actividadReciente: [],
       rendimiento: { promedioTiempoCompletado: 0, tasaCompletacion: 0, eficienciaPorSector: {} },
-      alertas: []
+      alertas: [],
+      cuentaCorriente: { total: 0 }
     }
   }
 }
@@ -670,6 +687,9 @@ ${Object.entries(context.rendimiento.eficienciaPorSector).map(([sector, eficienc
 
 === ACTIVIDAD RECIENTE ===
 ${context.actividadReciente.slice(0, 10).map(a => `[${a.tipo.toUpperCase()}] ${a.usuario}: ${a.descripcion} (${new Date(a.timestamp).toLocaleString('es-AR')})`).join('\n')}
+
+=== MOSTRADOR - CUENTA CORRIENTE ===
+Clientes habilitados para comprar a cuenta en Mostrador: ${context.cuentaCorriente?.total ?? 0}
 
 === ALERTAS ===
 ${context.alertas.length > 0 
