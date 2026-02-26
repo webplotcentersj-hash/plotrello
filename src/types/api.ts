@@ -719,6 +719,7 @@ export interface Notification {
   orden_id: number | null
   pedido_id: number | null
   solicitud_id?: number | null
+  solicitud_chat_id?: number | null
   capacitacion_id?: number | null
   oportunidad_id?: number | null
   venta_id?: number | null

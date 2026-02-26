@@ -221,8 +221,9 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     
     try {
       // Navegar según el tipo de notificación
-      if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
-        // Es una notificación de mención del chat
+      if (notification.solicitud_chat_id) {
+        navigate(`/atencion-publico?solicitud_chat=${notification.solicitud_chat_id}`)
+      } else if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
         navigate('/chat')
       } else if (notification.pedido_id) {
         // Es una notificación relacionada con un pedido de compra

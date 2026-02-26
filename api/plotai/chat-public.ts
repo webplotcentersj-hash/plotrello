@@ -356,37 +356,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const solicitudAtencion = detectSolicitudAtencionHumano(message)
     let notificacionEnviada = false
+    let solicitudChatId: number | null = null
+    const historialParaSolicitud = [
+      ...history.map((p) => ({ role: p.role, text: (p.parts?.[0]?.text ?? '').slice(0, 2000) })),
+      { role: 'user' as const, text: message.slice(0, 2000) }
+    ]
     if (solicitudAtencion.solicita && solicitudAtencion.rol && supabase) {
       const clienteNombre = nombre || 'Cliente desde chat'
       try {
-        const { data: solicitudRow } = await supabase
+        const { data: solicitudRow, error: insertErr } = await supabase
           .from('solicitudes_atencion_chat')
           .insert({
             cliente_nombre: clienteNombre,
             sector_solicitado: solicitudAtencion.sectorLabel,
             rol_solicitado: solicitudAtencion.rol,
             mensaje_cliente: message.slice(0, 500),
-            estado: 'pendiente'
+            estado: 'pendiente',
+            historial_mensajes: historialParaSolicitud
           })
           .select('id')
           .single()
 
+        if (insertErr || !solicitudRow?.id) throw insertErr || new Error('No id')
+
         const tituloEspecial = '💬 Un cliente quiere hablar con tu sector'
         const mensajeCorto = message.slice(0, 180) + (message.length > 180 ? '...' : '')
         const descripcionEspecial =
-          `${clienteNombre} solicitó hablar con ${solicitudAtencion.sectorLabel} desde el chat de la web.\n\nMensaje: "${mensajeCorto}"` +
-          (solicitudRow?.id ? `\n\nSolicitud #${solicitudRow.id} — Ver en Atención al público.` : '')
+          `${clienteNombre} solicitó hablar con ${solicitudAtencion.sectorLabel} desde el chat de la web.\n\nMensaje: "${mensajeCorto}"\n\nAbrí esta notificación para ver la conversación y responder.`
 
-        const { error: rpcError } = await supabase.rpc('enviar_notificacion_masiva', {
-          p_titulo: tituloEspecial,
-          p_descripcion: descripcionEspecial,
-          p_tipo: 'mention',
-          p_rol_filtro: solicitudAtencion.rol,
-          p_sector_filtro: null,
-          p_enviar_a_todos: false,
-          p_id_usuario_emisor: null
-        })
-        if (!rpcError) notificacionEnviada = true
+        const { data: usuariosRol } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('rol', solicitudAtencion.rol)
+
+        if (usuariosRol && usuariosRol.length > 0) {
+          for (const u of usuariosRol) {
+            await supabase.from('user_notifications').insert({
+              user_id: u.id,
+              title: tituloEspecial,
+              description: descripcionEspecial,
+              type: 'mention',
+              is_read: false,
+              solicitud_chat_id: solicitudRow.id
+            })
+          }
+          notificacionEnviada = true
+          solicitudChatId = solicitudRow.id
+        }
       } catch (e) {
         console.error('Error registrando/notificando solicitud de atención:', e)
       }
@@ -439,7 +455,8 @@ CÓMO TRATAR AL CLIENTE:
 
     res.status(200).json({
       success: true,
-      reply: text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+      reply: text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.',
+      ...(solicitudChatId != null && { solicitud_id: solicitudChatId })
     })
   } catch (error: any) {
     console.error('Error en chat-public:', error)

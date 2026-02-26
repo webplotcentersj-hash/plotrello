@@ -2395,6 +2395,55 @@ class ApiService {
     }
   }
 
+  async getSolicitudAtencionChat(id: number): Promise<ApiResponse<{
+    id: number
+    cliente_nombre: string | null
+    sector_solicitado: string
+    rol_solicitado: string | null
+    mensaje_cliente: string | null
+    estado: string
+    historial_mensajes: Array<{ role: string; text: string }>
+    respuestas_staff: Array<{ autor: string; texto: string; created_at?: string }>
+    created_at: string
+  }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('solicitudes_atencion_chat')
+        .select('id, cliente_nombre, sector_solicitado, rol_solicitado, mensaje_cliente, estado, historial_mensajes, respuestas_staff, created_at')
+        .eq('id', id)
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as any }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al cargar solicitud' }
+    }
+  }
+
+  async addRespuestaSolicitudChat(
+    id: number,
+    params: { autor: string; texto: string }
+  ): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data: row } = await supabase
+        .from('solicitudes_atencion_chat')
+        .select('respuestas_staff')
+        .eq('id', id)
+        .single()
+      const current = (Array.isArray((row as any)?.respuestas_staff) ? (row as any).respuestas_staff : []) as Array<{ autor: string; texto: string; created_at?: string }>
+      const nueva = [...current, { ...params, created_at: new Date().toISOString() }]
+      const { error } = await supabase
+        .from('solicitudes_atencion_chat')
+        .update({ respuestas_staff: nueva })
+        .eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al enviar respuesta' }
+    }
+  }
+
   // ========== CHAT ==========
   async getMensajesChat(canal: string, limit: number = 50): Promise<ApiResponse<ChatMessageUI[]>> {
     if (supabase) {

@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import './AtencionPublicoDashboardPage.css'
+
+type SolicitudChat = {
+  id: number
+  cliente_nombre: string | null
+  sector_solicitado: string
+  rol_solicitado: string | null
+  mensaje_cliente: string | null
+  estado: string
+  historial_mensajes: Array<{ role: string; text: string }>
+  respuestas_staff: Array<{ autor: string; texto: string; created_at?: string }>
+  created_at: string
+}
 
 type Conversacion = {
   id: number
@@ -31,12 +43,17 @@ type Reclamo = {
 
 const AtencionPublicoDashboardPage = () => {
   const navigate = useNavigate()
-  const { canAccessAtencionPublico } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { canAccessAtencionPublico, usuario } = useAuth()
   const [activeTab, setActiveTab] = useState<'mensajes' | 'reclamos'>('mensajes')
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
   const [reclamos, setReclamos] = useState<Reclamo[]>([])
   const [loadingConv, setLoadingConv] = useState(false)
   const [loadingReclamos, setLoadingReclamos] = useState(false)
+  const [solicitudChat, setSolicitudChat] = useState<SolicitudChat | null>(null)
+  const [loadingSolicitud, setLoadingSolicitud] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [sendingReply, setSendingReply] = useState(false)
 
   const loadConversaciones = async () => {
     setLoadingConv(true)
@@ -64,12 +81,60 @@ const AtencionPublicoDashboardPage = () => {
     }
   }
 
+  const solicitudChatId = searchParams.get('solicitud_chat')
+  const loadSolicitudChat = async (id: number) => {
+    setLoadingSolicitud(true)
+    try {
+      const res = await apiService.getSolicitudAtencionChat(id)
+      if (res.success && res.data) setSolicitudChat(res.data)
+      else setSolicitudChat(null)
+    } catch {
+      setSolicitudChat(null)
+    } finally {
+      setLoadingSolicitud(false)
+    }
+  }
+
   useEffect(() => {
     if (canAccessAtencionPublico) {
       loadConversaciones()
       loadReclamos()
     }
   }, [canAccessAtencionPublico])
+
+  useEffect(() => {
+    if (canAccessAtencionPublico && solicitudChatId) {
+      const id = parseInt(solicitudChatId, 10)
+      if (!isNaN(id)) loadSolicitudChat(id)
+    } else {
+      setSolicitudChat(null)
+    }
+  }, [canAccessAtencionPublico, solicitudChatId])
+
+  const sendReply = async () => {
+    if (!solicitudChat || !replyText.trim() || sendingReply) return
+    setSendingReply(true)
+    try {
+      const res = await apiService.addRespuestaSolicitudChat(solicitudChat.id, {
+        autor: usuario?.nombre || 'Equipo',
+        texto: replyText.trim()
+      })
+      if (res.success) {
+        setReplyText('')
+        await loadSolicitudChat(solicitudChat.id)
+      }
+    } finally {
+      setSendingReply(false)
+    }
+  }
+
+  const closeConversacion = () => {
+    setSearchParams((p) => {
+      p.delete('solicitud_chat')
+      return p
+    })
+    setSolicitudChat(null)
+  }
 
   const formatFecha = (s: string) => {
     try {
@@ -119,6 +184,65 @@ const AtencionPublicoDashboardPage = () => {
           </p>
         </div>
       </header>
+
+      {solicitudChatId && (
+        <section className="atencion-publico-conversacion-panel">
+          {loadingSolicitud ? (
+            <div className="atencion-publico-loading">Cargando conversación...</div>
+          ) : solicitudChat ? (
+            <>
+              <div className="atencion-publico-conversacion-header">
+                <h2>💬 Conversación con {solicitudChat.cliente_nombre || 'cliente'}</h2>
+                <p className="atencion-publico-conversacion-meta">
+                  Solicitó hablar con <strong>{solicitudChat.sector_solicitado}</strong> · Solicitud #{solicitudChat.id}
+                </p>
+                <button type="button" className="atencion-publico-cerrar-conversacion" onClick={closeConversacion}>
+                  Cerrar
+                </button>
+              </div>
+              <div className="atencion-publico-conversacion-mensajes">
+                {solicitudChat.historial_mensajes?.map((m, i) => (
+                  <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
+                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'Asistente'}</span>
+                    <p className="atencion-publico-msg-text">{m.text}</p>
+                  </div>
+                ))}
+                {solicitudChat.respuestas_staff?.map((r, i) => (
+                  <div key={`staff-${i}`} className="atencion-publico-msg atencion-publico-msg--staff">
+                    <span className="atencion-publico-msg-role">{r.autor}</span>
+                    <p className="atencion-publico-msg-text">{r.texto}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="atencion-publico-conversacion-reply">
+                <textarea
+                  placeholder="Escribí tu respuesta al cliente..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  className="atencion-publico-reply-input"
+                  rows={3}
+                  disabled={sendingReply}
+                />
+                <button
+                  type="button"
+                  className="atencion-publico-reply-send"
+                  onClick={sendReply}
+                  disabled={sendingReply || !replyText.trim()}
+                >
+                  {sendingReply ? 'Enviando...' : 'Enviar respuesta'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="atencion-publico-empty">
+              <p>Solicitud no encontrada.</p>
+              <button type="button" className="link-button" onClick={closeConversacion}>
+                Volver
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="atencion-publico-container">
         {/* Chat: embed para web + link interno */}
