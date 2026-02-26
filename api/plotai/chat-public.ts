@@ -359,17 +359,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (solicitudAtencion.solicita && solicitudAtencion.rol && supabase) {
       const clienteNombre = nombre || 'Cliente desde chat'
       try {
-        await supabase.from('solicitudes_atencion_chat').insert({
-          cliente_nombre: clienteNombre,
-          sector_solicitado: solicitudAtencion.sectorLabel,
-          rol_solicitado: solicitudAtencion.rol,
-          mensaje_cliente: message.slice(0, 500),
-          estado: 'pendiente'
-        })
+        const { data: solicitudRow } = await supabase
+          .from('solicitudes_atencion_chat')
+          .insert({
+            cliente_nombre: clienteNombre,
+            sector_solicitado: solicitudAtencion.sectorLabel,
+            rol_solicitado: solicitudAtencion.rol,
+            mensaje_cliente: message.slice(0, 500),
+            estado: 'pendiente'
+          })
+          .select('id')
+          .single()
+
+        const tituloEspecial = '💬 Un cliente quiere hablar con tu sector'
+        const mensajeCorto = message.slice(0, 180) + (message.length > 180 ? '...' : '')
+        const descripcionEspecial =
+          `${clienteNombre} solicitó hablar con ${solicitudAtencion.sectorLabel} desde el chat de la web.\n\nMensaje: "${mensajeCorto}"` +
+          (solicitudRow?.id ? `\n\nSolicitud #${solicitudRow.id} — Ver en Atención al público.` : '')
+
         const { error: rpcError } = await supabase.rpc('enviar_notificacion_masiva', {
-          p_titulo: 'Solicitud de atención desde chat',
-          p_descripcion: `${clienteNombre} quiere hablar con ${solicitudAtencion.sectorLabel}. Mensaje: "${message.slice(0, 200)}${message.length > 200 ? '...' : ''}"`,
-          p_tipo: 'warning',
+          p_titulo: tituloEspecial,
+          p_descripcion: descripcionEspecial,
+          p_tipo: 'mention',
           p_rol_filtro: solicitudAtencion.rol,
           p_sector_filtro: null,
           p_enviar_a_todos: false,
