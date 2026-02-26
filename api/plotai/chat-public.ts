@@ -190,7 +190,6 @@ INSTRUCCIONES:
 - No inventes estados de órdenes ni datos de clientes que no aparezcan en el contexto.`
 
     const ai = new GoogleGenAI({ apiKey })
-    const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
     const history = Array.isArray(body.history) ? body.history : []
     let conversation = systemPrompt + '\n\n---\n\n'
@@ -201,9 +200,12 @@ INSTRUCCIONES:
     }
     conversation += `Usuario: ${message}\n\nAsistente:`
 
-    const result = await model.generateContent(conversation)
-    const response = result.response
-    const text = response.text()
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: conversation
+    })
+
+    const text = (response as any)?.text ?? ''
 
     res.status(200).json({
       success: true,

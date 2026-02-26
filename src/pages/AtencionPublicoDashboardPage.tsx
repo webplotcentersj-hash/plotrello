@@ -147,9 +147,9 @@ const AtencionPublicoDashboardPage = () => {
           </div>
           <div className="atencion-publico-embed-code">
             <h4>Código para incrustar en WordPress (plotcenter.com.ar)</h4>
-            <p className="atencion-publico-embed-code-hint">Reemplazá <code>TU_DOMINIO_DE_LA_APP</code> por la URL donde está desplegada esta aplicación (ej. tu proyecto en Vercel).</p>
+            <p className="atencion-publico-embed-code-hint">Copiá este iframe en la web de Plot Center (WordPress) para mostrar el chat.</p>
             <pre className="atencion-publico-pre">{`<iframe
-  src="https://TU_DOMINIO_DE_LA_APP/embed/chat"
+  src="https://plotrello.vercel.app/embed/chat"
   title="Chat Plot Center"
   width="100%"
   height="500"
