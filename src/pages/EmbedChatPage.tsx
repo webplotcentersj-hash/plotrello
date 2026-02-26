@@ -7,6 +7,7 @@ export default function EmbedChatPage() {
   const [nombre, setNombre] = useState('')
   const [dni, setDni] = useState('')
   const [cuit, setCuit] = useState('')
+  const [op, setOp] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -17,7 +18,7 @@ export default function EmbedChatPage() {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, loading])
 
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const chatApi = `${apiBase}/api/plotai/chat-public`
@@ -45,6 +46,7 @@ export default function EmbedChatPage() {
           nombre: nombre.trim() || undefined,
           dni: dni.trim() || undefined,
           cuit: cuit.trim() || undefined,
+          op: op.trim() || undefined,
           history
         })
       })
@@ -65,15 +67,22 @@ export default function EmbedChatPage() {
 
   return (
     <div className="embed-chat">
-      <div className="embed-chat-header">
-        <span className="embed-chat-title">Plot Center</span>
-        <span className="embed-chat-subtitle">Asistente virtual</span>
-      </div>
+      <header className="embed-chat-header">
+        <div className="embed-chat-header-inner">
+          <div className="embed-chat-logo">
+            <span className="embed-chat-logo-icon">◆</span>
+            <div>
+              <span className="embed-chat-title">Plot Center</span>
+              <span className="embed-chat-subtitle">Asistente virtual</span>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      {showIdentificacion && (
-        <div className="embed-chat-identificacion">
+      {showIdentificacion ? (
+        <section className="embed-chat-identificacion">
           <p className="embed-chat-identificacion-text">
-            Indicá nombre, DNI o CUIT (acá o en el chat, ej. &quot;me llamo Juan Pérez&quot;, &quot;mi DNI es 20123456&quot;) para que el asistente sepa con quién habla y pueda consultar tus OPs y datos.
+            Opcional: nombre, DNI, CUIT o número de OP para consultar tus trabajos.
           </p>
           <div className="embed-chat-identificacion-fields">
             <input
@@ -82,6 +91,7 @@ export default function EmbedChatPage() {
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               className="embed-chat-input-field"
+              aria-label="Nombre o empresa"
             />
             <input
               type="text"
@@ -89,6 +99,7 @@ export default function EmbedChatPage() {
               value={dni}
               onChange={(e) => setDni(e.target.value)}
               className="embed-chat-input-field"
+              aria-label="DNI"
             />
             <input
               type="text"
@@ -96,6 +107,15 @@ export default function EmbedChatPage() {
               value={cuit}
               onChange={(e) => setCuit(e.target.value)}
               className="embed-chat-input-field"
+              aria-label="CUIT"
+            />
+            <input
+              type="text"
+              placeholder="Nº OP"
+              value={op}
+              onChange={(e) => setOp(e.target.value)}
+              className="embed-chat-input-field embed-chat-input-op"
+              aria-label="Número de OP"
             />
           </div>
           <button
@@ -105,40 +125,48 @@ export default function EmbedChatPage() {
           >
             Ocultar
           </button>
-        </div>
-      )}
-      {!showIdentificacion && (
+        </section>
+      ) : (
         <button
           type="button"
-          className="embed-chat-link"
+          className="embed-chat-link embed-chat-link-bar"
           onClick={() => setShowIdentificacion(true)}
         >
-          Identificarme (nombre, DNI, CUIT)
+          Identificarme (nombre, DNI, CUIT u OP)
         </button>
       )}
 
       <div className="embed-chat-messages">
         {messages.length === 0 && !loading && (
           <div className="embed-chat-welcome">
-            Hola. Si querés que consulte tus trabajos (OPs), decime tu nombre, DNI o CUIT (ej. &quot;me llamo María García&quot; o &quot;mi DNI es 20123456&quot;). También puedo ayudarte con info de Plot Center y contacto.
+            <p>Hola. Escribí tu consulta: podés decir tu <strong>nombre, DNI, CUIT</strong> o el <strong>número de OP</strong> y te doy el estado de tus trabajos. También info de Plot Center y contacto.</p>
           </div>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`embed-chat-msg embed-chat-msg--${m.role}`}>
-            {m.parts?.[0]?.text}
+            <span className="embed-chat-msg-text">{m.parts?.[0]?.text}</span>
           </div>
         ))}
         {loading && (
-          <div className="embed-chat-msg embed-chat-msg--model embed-chat-msg--loading">
-            ...
+          <div className="embed-chat-msg embed-chat-msg--model embed-chat-msg--typing">
+            <div className="embed-chat-typing">
+              <span className="embed-chat-typing-dot" />
+              <span className="embed-chat-typing-dot" />
+              <span className="embed-chat-typing-dot" />
+            </div>
+            <span className="embed-chat-typing-label">Plot Center está escribiendo...</span>
           </div>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="embed-chat-anchor" />
       </div>
 
-      {error && <div className="embed-chat-error">{error}</div>}
+      {error && (
+        <div className="embed-chat-error" role="alert">
+          {error}
+        </div>
+      )}
 
-      <div className="embed-chat-footer">
+      <footer className="embed-chat-footer">
         <input
           type="text"
           placeholder="Escribí tu mensaje..."
@@ -147,16 +175,19 @@ export default function EmbedChatPage() {
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           className="embed-chat-input"
           disabled={loading}
+          aria-label="Mensaje"
         />
         <button
           type="button"
           className="embed-chat-send"
           onClick={sendMessage}
           disabled={loading || !input.trim()}
+          aria-label="Enviar"
         >
-          Enviar
+          <span className="embed-chat-send-icon">↑</span>
+          <span className="embed-chat-send-text">Enviar</span>
         </button>
-      </div>
+      </footer>
     </div>
   )
 }
