@@ -73,7 +73,7 @@ export default function EmbedChatPage() {
       {showIdentificacion && (
         <div className="embed-chat-identificacion">
           <p className="embed-chat-identificacion-text">
-            Opcional: indicá nombre, DNI o CUIT para que podamos consultar tus trabajos y datos.
+            Indicá nombre, DNI o CUIT (acá o en el chat, ej. &quot;me llamo Juan Pérez&quot;, &quot;mi DNI es 20123456&quot;) para que el asistente sepa con quién habla y pueda consultar tus OPs y datos.
           </p>
           <div className="embed-chat-identificacion-fields">
             <input
@@ -120,7 +120,7 @@ export default function EmbedChatPage() {
       <div className="embed-chat-messages">
         {messages.length === 0 && !loading && (
           <div className="embed-chat-welcome">
-            Hola. Escribí tu consulta y te ayudo con información de Plot Center, estado de tus trabajos o contacto.
+            Hola. Si querés que consulte tus trabajos (OPs), decime tu nombre, DNI o CUIT (ej. &quot;me llamo María García&quot; o &quot;mi DNI es 20123456&quot;). También puedo ayudarte con info de Plot Center y contacto.
           </div>
         )}
         {messages.map((m, i) => (

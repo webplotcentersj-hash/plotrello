@@ -45,6 +45,84 @@ type Body = {
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
 }
 
+/** Extrae nombre, DNI o CUIT del texto del mensaje para identificar al cliente (ej. "me llamo Juan Pérez", "mi DNI es 20123456"). */
+function extractIdentificacionFromText(text: string): {
+  nombre?: string
+  dni?: string
+  cuit?: string
+} {
+  const t = text.trim()
+  if (!t) return {}
+
+  const out: { nombre?: string; dni?: string; cuit?: string } = {}
+
+  // Nombre: "me llamo X", "soy X", "mi nombre es X", "nombre: X"
+  const nameRe = /\b(?:me\s+llamo|soy|mi\s+nombre\s+es|nombre\s*:)\s*([^.,;\n]+)/i
+  const nameMatch = t.match(nameRe)
+  if (nameMatch) {
+    const name = nameMatch[1].trim().replace(/\s+/g, ' ')
+    if (name.length > 1 && name.length < 80) out.nombre = name
+  }
+
+  // DNI: "DNI 12345678", "mi DNI es 123", "dni: 123"
+  const dniRe = /\b(?:dni|documento)\s*:?\s*(\d[\d.\s-]*\d|\d{7,8})/gi
+  const dniMatch = dniRe.exec(t)
+  if (dniMatch) {
+    const num = dniMatch[1].replace(/\D/g, '')
+    if (num.length >= 7) out.dni = num
+  }
+
+  // CUIT: "CUIT 20-12345678-9", "mi CUIT es 20123456789", "cuit: 20-12345678-9"
+  const cuitRe = /\b(?:cuit|cui)\s*:?\s*(\d[\d.\s-]*\d)/gi
+  const cuitMatch = cuitRe.exec(t)
+  if (cuitMatch) {
+    const num = cuitMatch[1].replace(/\D/g, '')
+    if (num.length >= 10) out.cuit = num
+  }
+
+  return out
+}
+
+/** Detecta si el cliente pide hablar con un humano o con un sector. Devuelve rol (para notificación) y etiqueta para el mensaje. */
+function detectSolicitudAtencionHumano(text: string): {
+  solicita: boolean
+  rol: string | null
+  sectorLabel: string
+} {
+  const t = text.trim().toLowerCase()
+  if (!t) return { solicita: false, rol: null, sectorLabel: '' }
+
+  const sectorKeywords: Array<{ keys: string[]; rol: string; label: string }> = [
+    { keys: ['diseño', 'diseno', 'diseñador', 'diseñadora', 'grafica', 'gráfica'], rol: 'diseno', label: 'Diseño Gráfico' },
+    { keys: ['mostrador', 'atención al público', 'atencion al publico', 'ventas'], rol: 'mostrador', label: 'Mostrador' },
+    { keys: ['imprenta', 'impresión', 'impresion'], rol: 'imprenta', label: 'Imprenta' },
+    { keys: ['taller gráfico', 'taller grafico', 'acabados', 'montaje'], rol: 'taller-grafico', label: 'Taller Gráfico' },
+    { keys: ['caja', 'cobro', 'pago'], rol: 'caja', label: 'Caja' },
+    { keys: ['instalacion', 'instalaciones', 'instalador'], rol: 'instalaciones', label: 'Instalaciones' },
+    { keys: ['compras', 'insumos'], rol: 'compras', label: 'Compras' },
+    { keys: ['administración', 'administracion', 'gerencia'], rol: 'administracion', label: 'Administración' }
+  ]
+
+  for (const s of sectorKeywords) {
+    if (s.keys.some((k) => t.includes(k))) {
+      if (
+        /\b(?:hablar|hablar con|quiero|necesito|me comunico|contactar|que me llamen|llamen|atender|atención|atencion)\b/.test(t) ||
+        /\b(?:humano|persona|alguien|alguien de|un responsable)\b/.test(t)
+      ) {
+        return { solicita: true, rol: s.rol, sectorLabel: s.label }
+      }
+    }
+  }
+
+  if (
+    /\b(?:hablar con (?:un |una )?(?:humano|persona|alguien|operador|asesor)|quiero (?:hablar|que me llamen)|necesito (?:hablar|que me atiendan|hablar con alguien)|me (?:pueden |podés )?(?:llamar|contactar)|atención humana|atencion humana)\b/i.test(t)
+  ) {
+    return { solicita: true, rol: 'mostrador', sectorLabel: 'Mostrador (atención al cliente)' }
+  }
+
+  return { solicita: false, rol: null, sectorLabel: '' }
+}
+
 async function findClientAndOrders(
   nombre?: string,
   dni?: string,
@@ -169,29 +247,84 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { clientContext, ordersContext } = await findClientAndOrders(
-      body.nombre,
-      body.dni,
-      body.cuit
+    const history = Array.isArray(body.history) ? body.history : []
+    const allUserTexts = [
+      ...history.filter((p) => p.role === 'user').map((p) => (p.parts?.[0]?.text ?? '')),
+      message
+    ]
+    const extracted = allUserTexts.reduce(
+      (acc, txt) => {
+        const e = extractIdentificacionFromText(txt)
+        if (e.nombre) acc.nombre = e.nombre
+        if (e.dni) acc.dni = e.dni
+        if (e.cuit) acc.cuit = e.cuit
+        return acc
+      },
+      {} as { nombre?: string; dni?: string; cuit?: string }
     )
+    const nombre = (body.nombre && body.nombre.trim()) || extracted.nombre
+    const dni = (body.dni && body.dni.trim()) || extracted.dni
+    const cuit = (body.cuit && body.cuit.trim()) || extracted.cuit
 
-    const systemPrompt = `Eres el asistente virtual de Plot Center (web: https://plotcenter.com.ar/). Responde SIEMPRE en español (español argentino). Sé amable, profesional y conciso.
+    const { clientContext, ordersContext } = await findClientAndOrders(nombre, dni, cuit)
+
+    const solicitudAtencion = detectSolicitudAtencionHumano(message)
+    let notificacionEnviada = false
+    if (solicitudAtencion.solicita && solicitudAtencion.rol && supabase) {
+      const clienteNombre = nombre || 'Cliente desde chat'
+      try {
+        await supabase.from('solicitudes_atencion_chat').insert({
+          cliente_nombre: clienteNombre,
+          sector_solicitado: solicitudAtencion.sectorLabel,
+          rol_solicitado: solicitudAtencion.rol,
+          mensaje_cliente: message.slice(0, 500),
+          estado: 'pendiente'
+        })
+        const { error: rpcError } = await supabase.rpc('enviar_notificacion_masiva', {
+          p_titulo: 'Solicitud de atención desde chat',
+          p_descripcion: `${clienteNombre} quiere hablar con ${solicitudAtencion.sectorLabel}. Mensaje: "${message.slice(0, 200)}${message.length > 200 ? '...' : ''}"`,
+          p_tipo: 'warning',
+          p_rol_filtro: solicitudAtencion.rol,
+          p_sector_filtro: null,
+          p_enviar_a_todos: false,
+          p_id_usuario_emisor: null
+        })
+        if (!rpcError) notificacionEnviada = true
+      } catch (e) {
+        console.error('Error registrando/notificando solicitud de atención:', e)
+      }
+    }
+
+    const notaSolicitud =
+      notificacionEnviada
+        ? `\n\nNOTA IMPORTANTE: El cliente acaba de pedir hablar con ${solicitudAtencion.sectorLabel}. Ya se envió la notificación al sector. En tu respuesta debés confirmarle que recibimos su pedido y que alguien del sector lo va a contactar a la brevedad.`
+        : ''
+
+    const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente. Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
+
+IDIOMA Y TONO:
+- Responde SIEMPRE en español (argentino): podés usar "vos", "tu trabajo", "te cuento", "cualquier cosa escribinos".
+- Sé cálido y humano: agradecé, usá "por favor" cuando corresponda, mostrá que te importa resolver la consulta.
+- Adaptá el tono al cliente: si hace una pregunta corta, respondé concreto; si cuenta un problema o inquietud, mostrá empatía antes de dar la solución.
+- Si tenés el nombre del cliente, usalo: "Hola, María", "Juan, tu OP...", "te cuento, Pedro...". Eso hace que la conversación sea personal.
 
 CONOCIMIENTO DE LA EMPRESA:
 ${PLOT_CENTER_KNOWLEDGE}
 
-IDENTIFICACIÓN DEL VISITANTE Y SUS TRABAJOS:
+CLIENTE CON QUIEN ESTÁS HABLANDO (usá esto para personalizar y dar datos correctos):
 ${clientContext}
 ${ordersContext ? '\n' + ordersContext : ''}
 
-INSTRUCCIONES:
-- Usa solo la información anterior sobre la empresa y, si corresponde, sobre el cliente y sus trabajos.
-- Si te piden datos que no tienes (ej. precios exactos, plazos no indicados), invita a contactar por teléfono (2646212163) o email (contacto@plotcenter.com.ar).
-- No inventes estados de órdenes ni datos de clientes que no aparezcan en el contexto.`
+CÓMO TRATAR AL CLIENTE:
+- Si pregunta por "mi trabajo", "la orden", "¿está listo?", asumí que habla de sus OPs; si tenés el estado en el contexto, decilo claro (número de OP, estado, fecha de entrega si aplica).
+- Si no está identificado y pregunta por trabajos u órdenes, pedile amablemente que se presente con nombre, DNI o CUIT: "Para poder decirte el estado de tus trabajos necesito que me indiques tu nombre, DNI o CUIT."
+- Si algo no está en tus datos (precios exactos, plazos que no figuran, cambios de pedido), ofrecé el canal correcto: "Para eso te conviene hablar directo por teléfono (2646212163) o por contacto@plotcenter.com.ar, así te dan el dato exacto."
+- No inventes nunca estados de órdenes, precios ni datos del cliente. Solo usá lo que está en el contexto de arriba.
+- Resumí cuando haya mucho dato (ej. varias OPs) y destacá lo más importante. Si hay una sola OP, podés ser más detallado.
+- Cerrando: si resolviste la duda, podés cerrar con "¿Necesitás algo más?" o "Cualquier cosa, estamos acá." Si no pudiste resolver, dejá claro el siguiente paso (llamar, escribir, acercarse).`
 
     const ai = new GoogleGenAI({ apiKey })
 
-    const history = Array.isArray(body.history) ? body.history : []
     let conversation = systemPrompt + '\n\n---\n\n'
     for (const p of history.slice(-10)) {
       const role = p.role === 'user' ? 'Usuario' : 'Asistente'
