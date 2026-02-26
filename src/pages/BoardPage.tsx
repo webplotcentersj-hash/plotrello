@@ -46,6 +46,7 @@ type BoardPageProps = {
   onNavigateToRecursosHumanos?: () => void
   onNavigateToClientesWeb?: () => void
   onNavigateToAsesorPresupuestos?: () => void
+  onNavigateToAtencionPublico?: () => void
   onNavigateToFlota?: () => void
   onNavigateToERP?: () => void
   onLogout?: () => void
@@ -75,6 +76,7 @@ const BoardPage = ({
   onNavigateToRecursosHumanos,
   onNavigateToClientesWeb,
   onNavigateToAsesorPresupuestos,
+  onNavigateToAtencionPublico,
   onNavigateToFlota,
   onNavigateToERP,
   onLogout,
@@ -717,6 +719,7 @@ const BoardPage = ({
             onNavigateToRecursosHumanos={onNavigateToRecursosHumanos}
             onNavigateToClientesWeb={onNavigateToClientesWeb}
             onNavigateToAsesorPresupuestos={onNavigateToAsesorPresupuestos}
+            onNavigateToAtencionPublico={onNavigateToAtencionPublico}
             onNavigateToFlota={onNavigateToFlota}
             onNavigateToERP={onNavigateToERP}
         onSolicitarProductos={() => setIsSolicitarProductosOpen(true)}

@@ -32,6 +32,19 @@
   ],
   "headers": [
     {
+      "source": "/embed/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://plotcenter.com.ar https://www.plotcenter.com.ar"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {

@@ -80,6 +80,8 @@ export function useAuth() {
   const canManageAsesorTecnico = !!usuario && (usuario.rol === 'asesor-tecnico' || usuario.rol === 'administracion')
   // Puede gestionar presupuestos: presupuestos o administracion (también asesor-tecnico por vinculación)
   const canManagePresupuestos = !!usuario && (usuario.rol === 'presupuestos' || usuario.rol === 'asesor-tecnico' || usuario.rol === 'administracion')
+  // Atención al público: admin, mostrador y presupuestos
+  const canAccessAtencionPublico = !!usuario && (adminRoles.includes(usuario.rol) || usuario.rol === 'mostrador' || usuario.rol === 'presupuestos')
 
   return {
     usuario,
@@ -104,6 +106,7 @@ export function useAuth() {
     canManageRecursosHumanos,
     canManageAsesorTecnico,
     canManagePresupuestos,
+    canAccessAtencionPublico,
     loading,
     setUsuario
   }

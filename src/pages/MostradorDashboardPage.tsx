@@ -841,6 +841,13 @@ const MostradorDashboardPage = () => {
             <div className="accion-icon">📒</div>
             <div className="accion-label">Cuenta Corriente</div>
           </button>
+          <button
+            className="accion-card"
+            onClick={() => navigate('/atencion-publico')}
+          >
+            <div className="accion-icon">📞</div>
+            <div className="accion-label">Atención al público</div>
+          </button>
           {isAdmin && (
             <button 
               className="accion-card"

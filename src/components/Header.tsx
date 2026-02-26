@@ -24,6 +24,7 @@ type HeaderProps = {
   onNavigateToRecursosHumanos?: () => void
   onNavigateToClientesWeb?: () => void
   onNavigateToAsesorPresupuestos?: () => void
+  onNavigateToAtencionPublico?: () => void
   onNavigateToFlota?: () => void
   onNavigateToERP?: () => void
   onSolicitarProductos?: () => void
@@ -50,6 +51,7 @@ const Header = ({
   onNavigateToRecursosHumanos,
   onNavigateToClientesWeb,
   onNavigateToAsesorPresupuestos,
+  onNavigateToAtencionPublico,
   onNavigateToFlota,
   onNavigateToERP,
   onSolicitarProductos,
@@ -59,7 +61,7 @@ const Header = ({
   isMostrador = false,
   isDiseno = false
 }: HeaderProps) => {
-  const { canManageCompras, canManageCaja, canManageRecursosHumanos, isAdmin: isAdminFromAuth, isAsesorTecnico, isPresupuestos } = useAuth()
+  const { canManageCompras, canManageCaja, canManageRecursosHumanos, isAdmin: isAdminFromAuth, isAsesorTecnico, isPresupuestos, canAccessAtencionPublico } = useAuth()
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -190,6 +192,11 @@ const Header = ({
             {canAccessAsesorPresupuestos && onNavigateToAsesorPresupuestos && (
               <button className="brand-button" onClick={onNavigateToAsesorPresupuestos}>
                 📐 DT
+              </button>
+            )}
+            {canAccessAtencionPublico && onNavigateToAtencionPublico && (
+              <button className="brand-button" onClick={onNavigateToAtencionPublico}>
+                📞 Atención al público
               </button>
             )}
             {onNavigateToFlota && (

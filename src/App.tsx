@@ -28,6 +28,8 @@ const CalendarioEntregasPage = lazy(() => import('./pages/CalendarioEntregasPage
 const ReportesMostradorPage = lazy(() => import('./pages/ReportesMostradorPage'))
 const ClientesFrecuentesPage = lazy(() => import('./pages/ClientesFrecuentesPage'))
 const CuentaCorrientePage = lazy(() => import('./pages/CuentaCorrientePage'))
+const AtencionPublicoDashboardPage = lazy(() => import('./pages/AtencionPublicoDashboardPage'))
+const EmbedChatPage = lazy(() => import('./pages/EmbedChatPage'))
 const ComprasDashboardPage = lazy(() => import('./pages/ComprasDashboardPage'))
 const PedidoCompraDetallePage = lazy(() => import('./pages/PedidoCompraDetallePage'))
 const ReportesStockPage = lazy(() => import('./pages/ReportesStockPage'))
@@ -464,6 +466,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Rutas públicas */}
+          <Route path="/embed/chat" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando chat...</div>}><EmbedChatPage /></Suspense>} />
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
           <Route path="/dashboard-pantallas" element={<DashboardPantallasPage />} />
           <Route path="/op-public/:opNumber" element={<OpPublicPage />} />
@@ -619,6 +622,7 @@ function AppRoutes({
             onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
             onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
             onNavigateToAsesorPresupuestos={() => navigate('/asesor-presupuestos')}
+            onNavigateToAtencionPublico={() => navigate('/atencion-publico')}
             onNavigateToFlota={() => navigate('/flota')}
             onNavigateToERP={() => navigate('/erp')}
             onLogout={onLogout}
@@ -723,6 +727,10 @@ function AppRoutes({
       <Route
         path="/mostrador/cuenta-corriente"
         element={<CuentaCorrientePage />}
+      />
+      <Route
+        path="/atencion-publico"
+        element={<AtencionPublicoDashboardPage />}
       />
       <Route
         path="/crm-ventas"

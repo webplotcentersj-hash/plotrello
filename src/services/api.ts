@@ -2343,6 +2343,58 @@ class ApiService {
     }
   }
 
+  // ========== ATENCIÓN AL PÚBLICO ==========
+  async listConversacionesAtencion(): Promise<ApiResponse<Array<{
+    id: number
+    cliente_nombre: string | null
+    cliente_email: string | null
+    canal: string
+    ultimo_mensaje_preview: string | null
+    estado: string
+    usuario_asignado_id: number | null
+    created_at: string
+    updated_at: string
+  }>>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('atencion_conversaciones')
+        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, usuario_asignado_id, created_at, updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(100)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as any }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar conversaciones' }
+    }
+  }
+
+  async listReclamosAtencion(): Promise<ApiResponse<Array<{
+    id: number
+    cliente_nombre: string | null
+    cliente_email: string | null
+    descripcion: string
+    estado: string
+    prioridad: string
+    notas_internas: string | null
+    usuario_asignado_id: number | null
+    created_at: string
+    updated_at: string
+  }>>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('atencion_reclamos')
+        .select('id, cliente_nombre, cliente_email, descripcion, estado, prioridad, notas_internas, usuario_asignado_id, created_at, updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(100)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as any }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar reclamos' }
+    }
+  }
+
   // ========== CHAT ==========
   async getMensajesChat(canal: string, limit: number = 50): Promise<ApiResponse<ChatMessageUI[]>> {
     if (supabase) {
