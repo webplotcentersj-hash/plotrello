@@ -43,6 +43,7 @@ type Body = {
   dni?: string
   cuit?: string
   op?: string
+  conversation_id?: number
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
 }
 
@@ -451,11 +452,56 @@ CÓMO TRATAR AL CLIENTE:
       contents: conversation
     })
 
-    const text = (response as any)?.text ?? ''
+    const replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+
+    let conversationId: number | null = null
+    const clienteNombreConv = nombre || 'Cliente web'
+    if (supabase) {
+      try {
+        if (body.conversation_id && Number.isInteger(Number(body.conversation_id))) {
+          const idConv = Number(body.conversation_id)
+          const { data: conv } = await supabase
+            .from('atencion_conversaciones')
+            .select('historial_mensajes')
+            .eq('id', idConv)
+            .single()
+          const hist = (Array.isArray((conv as any)?.historial_mensajes) ? (conv as any).historial_mensajes : []) as Array<{ role: string; text: string }>
+          const updated = [...hist, { role: 'user', text: message.slice(0, 5000) }, { role: 'model', text: replyText.slice(0, 5000) }]
+          await supabase
+            .from('atencion_conversaciones')
+            .update({
+              historial_mensajes: updated,
+              ultimo_mensaje_preview: message.slice(0, 200),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', idConv)
+          conversationId = idConv
+        } else {
+          const { data: newConv } = await supabase
+            .from('atencion_conversaciones')
+            .insert({
+              cliente_nombre: clienteNombreConv,
+              canal: 'chat_web',
+              ultimo_mensaje_preview: message.slice(0, 200),
+              estado: 'abierto',
+              historial_mensajes: [
+                { role: 'user', text: message.slice(0, 5000) },
+                { role: 'model', text: replyText.slice(0, 5000) }
+              ]
+            })
+            .select('id')
+            .single()
+          if ((newConv as any)?.id) conversationId = (newConv as any).id
+        }
+      } catch (e) {
+        console.error('Error guardando conversación:', e)
+      }
+    }
 
     res.status(200).json({
       success: true,
-      reply: text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.',
+      reply: replyText,
+      ...(conversationId != null && { conversation_id: conversationId }),
       ...(solicitudChatId != null && { solicitud_id: solicitudChatId })
     })
   } catch (error: any) {

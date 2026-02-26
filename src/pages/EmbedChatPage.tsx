@@ -13,9 +13,23 @@ export default function EmbedChatPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showIdentificacion, setShowIdentificacion] = useState(true)
+  const [conversationId, setConversationId] = useState<number | null>(() => {
+    try {
+      const s = typeof localStorage !== 'undefined' ? localStorage.getItem('embed_chat_conversation_id') : null
+      const n = s ? parseInt(s, 10) : NaN
+      return Number.isInteger(n) ? n : null
+    } catch {
+      return null
+    }
+  })
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  useEffect(() => {
+    if (conversationId != null && typeof localStorage !== 'undefined') {
+      localStorage.setItem('embed_chat_conversation_id', String(conversationId))
+    }
+  }, [conversationId])
   useEffect(() => {
     scrollToBottom()
   }, [messages, loading])
@@ -47,6 +61,7 @@ export default function EmbedChatPage() {
           dni: dni.trim() || undefined,
           cuit: cuit.trim() || undefined,
           op: op.trim() || undefined,
+          conversation_id: conversationId ?? undefined,
           history
         })
       })
@@ -58,6 +73,7 @@ export default function EmbedChatPage() {
       }
       const reply = data.reply || 'No pude generar una respuesta.'
       setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
+      if (data.conversation_id != null) setConversationId(data.conversation_id)
     } catch (e) {
       setError('Error de conexión. Intentá de nuevo.')
     } finally {

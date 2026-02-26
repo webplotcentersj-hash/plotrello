@@ -1,45 +1,65 @@
 .atencion-publico-page {
   min-height: 100vh;
-  background: var(--surface-base);
-  padding: 24px;
+  background: linear-gradient(180deg, #f8fafc 0%, var(--surface-base) 220px);
+  padding: 0 0 32px;
 }
 
 .atencion-publico-header {
-  margin-bottom: 24px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+  color: #fff;
+  padding: 20px 24px 28px;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
 }
 
 .atencion-publico-header-content {
   max-width: 1000px;
+  margin: 0 auto;
 }
 
 .atencion-publico-header-top {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .atencion-publico-page .back-button {
   padding: 8px 16px;
-  background: var(--surface-card);
-  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 8px;
-  color: var(--text-primary);
+  color: #e2e8f0;
   cursor: pointer;
   font-size: 0.95rem;
 }
 
 .atencion-publico-page .back-button:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.atencion-publico-header-titulo {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.atencion-publico-header-icon {
+  font-size: 2.2rem;
+  line-height: 1;
 }
 
 .atencion-publico-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 2rem;
-  color: var(--text-primary);
+  margin: 0 0 6px 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
 }
 
 .atencion-publico-subtitle {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
 
 .atencion-publico-forbidden {
@@ -49,9 +69,11 @@
 
 .atencion-publico-container {
   max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
 }
 
 .atencion-publico-chat-ia h2,
@@ -111,8 +133,9 @@
 .atencion-publico-panel {
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .atencion-publico-tabs {
@@ -194,9 +217,9 @@
 }
 
 .atencion-publico-list-item {
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--surface-border);
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
 }
 
 .atencion-publico-list-item:last-child {
@@ -205,6 +228,19 @@
 
 .atencion-publico-list-item:hover {
   background: var(--surface-hover);
+}
+
+.atencion-publico-list-item-clickable {
+  cursor: pointer;
+}
+
+.atencion-publico-list-item-clickable:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.atencion-publico-list-item-clickable:focus {
+  outline: none;
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .atencion-publico-item-header {
@@ -347,15 +383,20 @@
   white-space: pre;
 }
 
-/* Panel conversación con cliente (desde notificación) */
+/* Panel conversación con cliente (desde notificación o lista) */
 .atencion-publico-conversacion-panel {
   max-width: 1000px;
-  margin: 0 auto 24px;
-  padding: 20px;
+  margin: 0 auto 28px;
+  padding: 24px;
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.atencion-publico-panel-conversacion {
+  margin-left: 24px;
+  margin-right: 24px;
 }
 
 .atencion-publico-conversacion-header {

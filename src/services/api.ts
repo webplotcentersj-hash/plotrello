@@ -2369,6 +2369,31 @@ class ApiService {
     }
   }
 
+  async getConversacionAtencion(id: number): Promise<ApiResponse<{
+    id: number
+    cliente_nombre: string | null
+    cliente_email: string | null
+    canal: string
+    ultimo_mensaje_preview: string | null
+    estado: string
+    historial_mensajes: Array<{ role: string; text: string }>
+    created_at: string
+    updated_at: string
+  }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('atencion_conversaciones')
+        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, historial_mensajes, created_at, updated_at')
+        .eq('id', id)
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as any }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al cargar conversación' }
+    }
+  }
+
   async listReclamosAtencion(): Promise<ApiResponse<Array<{
     id: number
     cliente_nombre: string | null

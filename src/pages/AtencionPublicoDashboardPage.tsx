@@ -28,6 +28,18 @@ type Conversacion = {
   updated_at: string
 }
 
+type ConversacionDetalle = {
+  id: number
+  cliente_nombre: string | null
+  cliente_email: string | null
+  canal: string
+  ultimo_mensaje_preview: string | null
+  estado: string
+  historial_mensajes: Array<{ role: string; text: string }>
+  created_at: string
+  updated_at: string
+}
+
 type Reclamo = {
   id: number
   cliente_nombre: string | null
@@ -54,6 +66,8 @@ const AtencionPublicoDashboardPage = () => {
   const [loadingSolicitud, setLoadingSolicitud] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
+  const [conversacionDetalle, setConversacionDetalle] = useState<ConversacionDetalle | null>(null)
+  const [loadingConversacion, setLoadingConversacion] = useState(false)
 
   const loadConversaciones = async () => {
     setLoadingConv(true)
@@ -82,6 +96,21 @@ const AtencionPublicoDashboardPage = () => {
   }
 
   const solicitudChatId = searchParams.get('solicitud_chat')
+  const conversacionId = searchParams.get('conversacion')
+
+  const loadConversacionDetalle = async (id: number) => {
+    setLoadingConversacion(true)
+    try {
+      const res = await apiService.getConversacionAtencion(id)
+      if (res.success && res.data) setConversacionDetalle(res.data)
+      else setConversacionDetalle(null)
+    } catch {
+      setConversacionDetalle(null)
+    } finally {
+      setLoadingConversacion(false)
+    }
+  }
+
   const loadSolicitudChat = async (id: number) => {
     setLoadingSolicitud(true)
     try {
@@ -111,6 +140,15 @@ const AtencionPublicoDashboardPage = () => {
     }
   }, [canAccessAtencionPublico, solicitudChatId])
 
+  useEffect(() => {
+    if (canAccessAtencionPublico && conversacionId) {
+      const id = parseInt(conversacionId, 10)
+      if (!isNaN(id)) loadConversacionDetalle(id)
+    } else {
+      setConversacionDetalle(null)
+    }
+  }, [canAccessAtencionPublico, conversacionId])
+
   const sendReply = async () => {
     if (!solicitudChat || !replyText.trim() || sendingReply) return
     setSendingReply(true)
@@ -134,6 +172,18 @@ const AtencionPublicoDashboardPage = () => {
       return p
     })
     setSolicitudChat(null)
+  }
+
+  const openConversacion = (id: number) => {
+    setSearchParams({ conversacion: String(id) })
+  }
+
+  const closeConversacionDetalle = () => {
+    setSearchParams((p) => {
+      p.delete('conversacion')
+      return p
+    })
+    setConversacionDetalle(null)
   }
 
   const formatFecha = (s: string) => {
@@ -178,10 +228,15 @@ const AtencionPublicoDashboardPage = () => {
               ← Volver al Tablero
             </button>
           </div>
-          <h1>📞 Atención al público</h1>
-          <p className="atencion-publico-subtitle">
-            Mensajes con clientes, estado de reclamos. Chat con IA para clientes en la web (Plot Center): conoce la base de clientes, estado de trabajos y datos de la empresa.
-          </p>
+          <div className="atencion-publico-header-titulo">
+            <span className="atencion-publico-header-icon">📞</span>
+            <div>
+              <h1>Atención al público</h1>
+              <p className="atencion-publico-subtitle">
+                Conversaciones del chat web, solicitudes de contacto y reclamos.
+              </p>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -237,6 +292,44 @@ const AtencionPublicoDashboardPage = () => {
             <div className="atencion-publico-empty">
               <p>Solicitud no encontrada.</p>
               <button type="button" className="link-button" onClick={closeConversacion}>
+                Volver
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {conversacionId && !solicitudChatId && (
+        <section className="atencion-publico-conversacion-panel atencion-publico-panel-conversacion">
+          {loadingConversacion ? (
+            <div className="atencion-publico-loading">Cargando conversación...</div>
+          ) : conversacionDetalle ? (
+            <>
+              <div className="atencion-publico-conversacion-header">
+                <h2>💬 {conversacionDetalle.cliente_nombre || 'Cliente web'}</h2>
+                <p className="atencion-publico-conversacion-meta">
+                  Canal: {conversacionDetalle.canal} · {formatFecha(conversacionDetalle.updated_at)}
+                </p>
+                <button type="button" className="atencion-publico-cerrar-conversacion" onClick={closeConversacionDetalle}>
+                  Cerrar
+                </button>
+              </div>
+              <div className="atencion-publico-conversacion-mensajes">
+                {conversacionDetalle.historial_mensajes?.map((m, i) => (
+                  <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
+                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'Asistente'}</span>
+                    <p className="atencion-publico-msg-text">{m.text}</p>
+                  </div>
+                ))}
+                {(!conversacionDetalle.historial_mensajes || conversacionDetalle.historial_mensajes.length === 0) && (
+                  <p className="atencion-publico-empty">Sin mensajes en esta conversación.</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="atencion-publico-empty">
+              <p>Conversación no encontrada.</p>
+              <button type="button" className="link-button" onClick={closeConversacionDetalle}>
                 Volver
               </button>
             </div>
@@ -308,14 +401,21 @@ const AtencionPublicoDashboardPage = () => {
                 <div className="atencion-publico-loading">Cargando...</div>
               ) : conversaciones.length === 0 ? (
                 <div className="atencion-publico-empty">
-                  <p>No hay conversaciones aún. Cuando el chat esté incrustado en la web (WordPress), las conversaciones aparecerán acá.</p>
+                  <p>No hay conversaciones aún. Las charlas del chat web (plotcenter.com.ar) se guardan acá automáticamente.</p>
                 </div>
               ) : (
                 <ul className="atencion-publico-list">
                   {conversaciones.map((c) => (
-                    <li key={c.id} className="atencion-publico-list-item">
+                    <li
+                      key={c.id}
+                      className="atencion-publico-list-item atencion-publico-list-item-clickable"
+                      onClick={() => openConversacion(c.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <div className="atencion-publico-item-header">
-                        <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Sin nombre'}</span>
+                        <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
                         <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
                       </div>
                       <div className="atencion-publico-item-meta">{c.canal} · {formatFecha(c.updated_at)}</div>
