@@ -452,6 +452,7 @@ CÓMO TRATAR AL CLIENTE:
       contents: conversation
     })
 
+    const text = (response as any)?.text ?? ''
     const replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
 
     let conversationId: number | null = null
