@@ -421,8 +421,8 @@ const AtencionPublicoDashboardPage = () => {
             <pre className="atencion-publico-pre">{`<iframe id="plotai-widget-iframe"
   src="https://plotrello.vercel.app/embed/chat-widget"
   title="Chat Plot Center"
-  width="72"
-  height="72"
+  width="88"
+  height="88"
   style="border: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;"
 ></iframe>
 <script>

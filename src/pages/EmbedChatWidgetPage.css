@@ -44,19 +44,39 @@
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.4);
 }
 
+.embed-widget-button {
+  position: relative;
+}
+
+.embed-widget-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #fff;
+  animation: embed-widget-badge-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes embed-widget-badge-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.1); }
+}
+
 .embed-widget-button-icon {
   font-size: 1.6rem;
   line-height: 1;
 }
 
-/* Panel flotante */
+/* Panel: ocupa todo el iframe para no cortarse */
 .embed-widget-panel {
   position: fixed;
-  bottom: 90px;
-  right: 24px;
+  inset: 0;
   z-index: 99999;
-  width: min(380px, calc(100vw - 48px));
-  height: min(560px, calc(100vh - 120px));
+  width: 100%;
+  height: 100%;
   border-radius: 16px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
   overflow: hidden;
@@ -162,13 +182,5 @@
     right: 16px;
     width: 56px;
     height: 56px;
-  }
-
-  .embed-widget-panel {
-    bottom: 78px;
-    right: 16px;
-    left: 16px;
-    width: auto;
-    height: min(520px, calc(100vh - 100px));
   }
 }

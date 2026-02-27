@@ -15,6 +15,7 @@ export default function EmbedChatWidgetPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasNewStaffReply, setHasNewStaffReply] = useState(false)
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
       const storage = typeof sessionStorage !== 'undefined' ? sessionStorage : null
@@ -48,10 +49,16 @@ export default function EmbedChatWidgetPage() {
     }
   }, [])
 
-  const IFRAME_CLOSED_WIDTH = 72
-  const IFRAME_CLOSED_HEIGHT = 72
+  const IFRAME_CLOSED_WIDTH = 88
+  const IFRAME_CLOSED_HEIGHT = 88
   const IFRAME_OPEN_WIDTH = 400
-  const IFRAME_OPEN_HEIGHT = 600
+  const IFRAME_OPEN_HEIGHT = 580
+
+  useEffect(() => {
+    if (open && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [open])
 
   useEffect(() => {
     try {
@@ -71,17 +78,37 @@ export default function EmbedChatWidgetPage() {
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const respuestasApi = `${apiBase}/api/plotai/conversation-respuestas`
 
+  const prevStaffCountRef = useRef(0)
+
   useEffect(() => {
     if (conversationId == null) {
       setStaffReplies([])
+      prevStaffCountRef.current = 0
       return
     }
-    if (!open) return
     const fetchRespuestas = async () => {
       try {
         const res = await fetch(`${respuestasApi}?conversation_id=${conversationId}`)
         const data = await res.json().catch(() => ({}))
-        if (Array.isArray(data.respuestas_staff)) setStaffReplies(data.respuestas_staff)
+        if (Array.isArray(data.respuestas_staff)) {
+          const prev = prevStaffCountRef.current
+          const next = data.respuestas_staff.length
+          setStaffReplies(data.respuestas_staff)
+          if (next > prev && prev > 0) {
+            setHasNewStaffReply(true)
+            try {
+              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                new Notification('Plot Center', {
+                  body: 'Te respondieron en el chat.',
+                  icon: PLOTAI_LOGO
+                })
+              }
+            } catch {
+              // ignore
+            }
+          }
+          prevStaffCountRef.current = next
+        }
       } catch {
         // ignore
       }
@@ -135,10 +162,14 @@ export default function EmbedChatWidgetPage() {
       <button
         type="button"
         className="embed-widget-button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => !o)
+          if (!open) setHasNewStaffReply(false)
+        }}
         aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
         aria-expanded={open}
       >
+        {hasNewStaffReply && !open && <span className="embed-widget-badge" aria-hidden />}
         <span className="embed-widget-button-icon">{open ? '✕' : '💬'}</span>
       </button>
 

@@ -416,6 +416,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? `\n\nNOTA IMPORTANTE: El cliente acaba de pedir hablar con ${solicitudAtencion.sectorLabel}. Ya se envió la notificación al sector. En tu respuesta debés confirmarle que recibimos su pedido y que alguien del sector lo va a contactar a la brevedad.`
         : ''
 
+    let replyText: string
+    let skipGemini = false
+    if (body.conversation_id && Number.isInteger(Number(body.conversation_id)) && supabase) {
+      const { data: convStaff } = await supabase
+        .from('atencion_conversaciones')
+        .select('respuestas_staff')
+        .eq('id', Number(body.conversation_id))
+        .single()
+      const staffReplies = Array.isArray((convStaff as any)?.respuestas_staff) ? (convStaff as any).respuestas_staff : []
+      if (staffReplies.length > 0) {
+        skipGemini = true
+        replyText = 'Un integrante del equipo ya te está atendiendo. Tu mensaje fue enviado; te responderán a la brevedad.'
+      }
+    }
+
+    if (!skipGemini) {
     const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente. Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
 
 IDIOMA Y TONO:
@@ -455,7 +471,8 @@ CÓMO TRATAR AL CLIENTE:
     })
 
     const text = (response as any)?.text ?? ''
-    const replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+    replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+    }
 
     let conversationId: number | null = null
     const clienteNombreConv = nombre || 'Cliente web'
