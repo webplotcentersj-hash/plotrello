@@ -16,24 +16,10 @@ export default function EmbedChatWidgetPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasNewStaffReply, setHasNewStaffReply] = useState(false)
-  const [conversationId, setConversationId] = useState<number | null>(() => {
-    try {
-      const storage = typeof sessionStorage !== 'undefined' ? sessionStorage : null
-      const s = storage?.getItem('embed_widget_conversation_id') ?? null
-      const n = s ? parseInt(s, 10) : NaN
-      return Number.isInteger(n) ? n : null
-    } catch {
-      return null
-    }
-  })
+  const [conversationId, setConversationId] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  useEffect(() => {
-    if (conversationId != null && typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('embed_widget_conversation_id', String(conversationId))
-    }
-  }, [conversationId])
   useEffect(() => {
     scrollToBottom()
   }, [messages, loading, staffReplies])

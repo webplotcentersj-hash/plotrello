@@ -17,57 +17,63 @@
 /* Botón flotante */
 .embed-widget-button {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 20px;
+  right: 20px;
   z-index: 99998;
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #f97316, #ea580c);
+  background: linear-gradient(145deg, #fb923c 0%, #ea580c 50%, #c2410c 100%);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.45);
+  box-shadow:
+    0 2px 8px rgba(234, 88, 12, 0.35),
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
 }
 
 .embed-widget-button:hover {
-  transform: scale(1.06);
-  box-shadow: 0 6px 24px rgba(249, 115, 22, 0.5);
+  transform: scale(1.08);
+  box-shadow:
+    0 4px 12px rgba(234, 88, 12, 0.45),
+    0 6px 20px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .embed-widget-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.4);
-}
-
-.embed-widget-button {
-  position: relative;
+  box-shadow:
+    0 0 0 3px rgba(249, 115, 22, 0.5),
+    0 2px 8px rgba(234, 88, 12, 0.35);
 }
 
 .embed-widget-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 14px;
-  height: 14px;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #22c55e;
-  border: 2px solid #fff;
+  border: 2px solid #ea580c;
   animation: embed-widget-badge-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes embed-widget-badge-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.1); }
+  50% { opacity: 0.9; transform: scale(1.08); }
 }
 
 .embed-widget-button-icon {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
 /* Panel: ocupa todo el iframe para no cortarse */
