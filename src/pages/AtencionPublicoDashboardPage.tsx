@@ -417,14 +417,27 @@ const AtencionPublicoDashboardPage = () => {
           <div className="atencion-publico-embed-code">
             <h4>Código para incrustar en WordPress (plotcenter.com.ar)</h4>
             <p className="atencion-publico-embed-code-hint">Elegí una opción y copiá el iframe en la web de Plot Center.</p>
-            <p className="atencion-publico-embed-option-label"><strong>Opción 1 — Botón flotante (recomendado):</strong> se ve un botón en la esquina; al tocarlo se abre el chat en un panel flotante. Usá un iframe de al menos 400×600 para que el panel se vea completo.</p>
-            <pre className="atencion-publico-pre">{`<iframe
+            <p className="atencion-publico-embed-option-label"><strong>Opción 1 — Botón flotante (recomendado):</strong> iframe chico que no tapa la página; al abrir el chat se agranda solo. Copiá el iframe y el script para que no afecte al resto del WordPress.</p>
+            <pre className="atencion-publico-pre">{`<iframe id="plotai-widget-iframe"
   src="https://plotrello.vercel.app/embed/chat-widget"
   title="Chat Plot Center"
-  width="400"
-  height="600"
+  width="72"
+  height="72"
   style="border: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;"
-></iframe>`}</pre>
+></iframe>
+<script>
+(function() {
+  var ORIGIN = 'https://plotrello.vercel.app';
+  window.addEventListener('message', function(e) {
+    if (e.origin !== ORIGIN || !e.data || e.data.type !== 'plotai-widget-resize') return;
+    var iframe = document.getElementById('plotai-widget-iframe');
+    if (iframe) {
+      iframe.style.width = e.data.width + 'px';
+      iframe.style.height = e.data.height + 'px';
+    }
+  });
+})();
+</script>`}</pre>
             <p className="atencion-publico-embed-option-label"><strong>Opción 2 — Chat en página:</strong> el chat ocupa un bloque fijo en la página.</p>
             <pre className="atencion-publico-pre">{`<iframe
   src="https://plotrello.vercel.app/embed/chat"

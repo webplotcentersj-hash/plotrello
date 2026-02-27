@@ -1,5 +1,5 @@
-/* Variables */
-.embed-chat {
+/* Solo aplican dentro de la página embed o del widget (no afectan al resto de la app) */
+.embed-chat-scope .embed-chat {
   --embed-bg: #0f1115;
   --embed-surface: #181b21;
   --embed-surface-hover: #1e2229;
@@ -17,7 +17,7 @@
   --embed-font: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
-.embed-chat {
+.embed-chat-scope .embed-chat {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -31,7 +31,7 @@
 }
 
 /* Header */
-.embed-chat-header {
+.embed-chat-scope .embed-chat-header {
   flex-shrink: 0;
   padding: clamp(10px, 2.5vw, 14px) clamp(14px, 4vw, 20px);
   background: var(--embed-surface);
@@ -39,18 +39,18 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.embed-chat-header-inner {
+.embed-chat-scope .embed-chat-header-inner {
   max-width: 720px;
   margin: 0 auto;
 }
 
-.embed-chat-logo {
+.embed-chat-scope .embed-chat-logo {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.embed-chat-logo-icon {
+.embed-chat-scope .embed-chat-logo-icon {
   width: 40px;
   height: 40px;
   display: flex;
@@ -63,7 +63,7 @@
   flex-shrink: 0;
 }
 
-.embed-chat-title {
+.embed-chat-scope .embed-chat-title {
   display: block;
   font-weight: 700;
   font-size: clamp(1.05rem, 2.5vw, 1.2rem);
@@ -71,7 +71,7 @@
   letter-spacing: -0.02em;
 }
 
-.embed-chat-subtitle {
+.embed-chat-scope .embed-chat-subtitle {
   display: block;
   font-size: clamp(0.75rem, 1.8vw, 0.85rem);
   color: var(--embed-text-muted);
@@ -79,28 +79,28 @@
 }
 
 /* Identificación */
-.embed-chat-identificacion {
+.embed-chat-scope .embed-chat-identificacion {
   flex-shrink: 0;
   padding: clamp(10px, 2.5vw, 14px) clamp(14px, 4vw, 20px);
   background: var(--embed-surface);
   border-bottom: 1px solid var(--embed-border);
 }
 
-.embed-chat-identificacion-text {
+.embed-chat-scope .embed-chat-identificacion-text {
   margin: 0 0 10px;
   font-size: clamp(0.8rem, 2vw, 0.9rem);
   color: var(--embed-text-muted);
   line-height: 1.4;
 }
 
-.embed-chat-identificacion-fields {
+.embed-chat-scope .embed-chat-identificacion-fields {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr));
   gap: 8px;
   margin-bottom: 8px;
 }
 
-.embed-chat-input-field {
+.embed-chat-scope .embed-chat-input-field {
   padding: 10px 12px;
   border: 1px solid var(--embed-border);
   border-radius: var(--embed-radius-sm);
@@ -111,27 +111,27 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.embed-chat-input-field::placeholder {
+.embed-chat-scope .embed-chat-input-field::placeholder {
   color: var(--embed-text-muted);
 }
 
-.embed-chat-input-field:focus {
+.embed-chat-scope .embed-chat-input-field:focus {
   outline: none;
   border-color: var(--embed-accent);
   box-shadow: 0 0 0 3px var(--embed-accent-soft);
 }
 
-.embed-chat-input-op {
+.embed-chat-scope .embed-chat-input-op {
   grid-column: span 1;
 }
 
 @media (min-width: 380px) {
-  .embed-chat-identificacion-fields {
+  .embed-chat-scope .embed-chat-identificacion-fields {
     grid-template-columns: 1fr 1fr 1fr 80px;
   }
 }
 
-.embed-chat-link {
+.embed-chat-scope .embed-chat-link {
   background: none;
   border: none;
   color: var(--embed-accent);
@@ -141,12 +141,12 @@
   font-family: inherit;
 }
 
-.embed-chat-link:hover {
+.embed-chat-scope .embed-chat-link:hover {
   text-decoration: underline;
   color: var(--embed-accent-hover);
 }
 
-.embed-chat-link-bar {
+.embed-chat-scope .embed-chat-link-bar {
   display: block;
   padding: 8px clamp(14px, 4vw, 20px);
   text-align: left;
@@ -154,7 +154,7 @@
 }
 
 /* Messages area */
-.embed-chat-messages {
+.embed-chat-scope .embed-chat-messages {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -165,23 +165,23 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.embed-chat-welcome {
+.embed-chat-scope .embed-chat-welcome {
   padding: 16px 0;
 }
 
-.embed-chat-welcome p {
+.embed-chat-scope .embed-chat-welcome p {
   margin: 0;
   color: var(--embed-text-muted);
   font-size: clamp(0.9rem, 2.2vw, 1rem);
   line-height: 1.5;
 }
 
-.embed-chat-welcome strong {
+.embed-chat-scope .embed-chat-welcome strong {
   color: var(--embed-text);
   font-weight: 600;
 }
 
-.embed-chat-msg {
+.embed-chat-scope .embed-chat-msg {
   max-width: min(92%, 420px);
   padding: 12px 16px;
   border-radius: var(--embed-radius);
@@ -203,7 +203,7 @@
   }
 }
 
-.embed-chat-msg--user {
+.embed-chat-scope .embed-chat-msg--user {
   align-self: flex-end;
   background: var(--embed-user-bubble);
   color: var(--embed-user-text);
@@ -211,32 +211,32 @@
   box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
 }
 
-.embed-chat-msg--model {
+.embed-chat-scope .embed-chat-msg--model {
   align-self: flex-start;
   background: var(--embed-surface);
   border: 1px solid var(--embed-border);
   border-bottom-left-radius: 6px;
 }
 
-.embed-chat-msg-text {
+.embed-chat-scope .embed-chat-msg-text {
   display: block;
 }
 
 /* Typing indicator */
-.embed-chat-msg--typing {
+.embed-chat-scope .embed-chat-msg--typing {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 14px 18px;
 }
 
-.embed-chat-typing {
+.embed-chat-scope .embed-chat-typing {
   display: flex;
   align-items: center;
   gap: 5px;
 }
 
-.embed-chat-typing-dot {
+.embed-chat-scope .embed-chat-typing-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -244,27 +244,27 @@
   animation: embed-typing-bounce 1.2s ease-in-out infinite;
 }
 
-.embed-chat-typing-dot:nth-child(1) { animation-delay: 0s; }
-.embed-chat-typing-dot:nth-child(2) { animation-delay: 0.15s; }
-.embed-chat-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+.embed-chat-scope .embed-chat-typing-dot:nth-child(1) { animation-delay: 0s; }
+.embed-chat-scope .embed-chat-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.embed-chat-scope .embed-chat-typing-dot:nth-child(3) { animation-delay: 0.3s; }
 
 @keyframes embed-typing-bounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.6; }
   30% { transform: translateY(-5px); opacity: 1; }
 }
 
-.embed-chat-typing-label {
+.embed-chat-scope .embed-chat-typing-label {
   font-size: 0.8rem;
   color: var(--embed-text-muted);
 }
 
-.embed-chat-anchor {
+.embed-chat-scope .embed-chat-anchor {
   height: 4px;
   flex-shrink: 0;
 }
 
 /* Error */
-.embed-chat-error {
+.embed-chat-scope .embed-chat-error {
   flex-shrink: 0;
   padding: 10px clamp(14px, 4vw, 20px);
   background: rgba(185, 28, 28, 0.2);
@@ -274,7 +274,7 @@
 }
 
 /* Footer */
-.embed-chat-footer {
+.embed-chat-scope .embed-chat-footer {
   flex-shrink: 0;
   display: flex;
   gap: 10px;
@@ -284,7 +284,7 @@
   box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.embed-chat-input {
+.embed-chat-scope .embed-chat-input {
   flex: 1;
   min-width: 0;
   padding: 12px 16px;
@@ -297,22 +297,22 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.embed-chat-input::placeholder {
+.embed-chat-scope .embed-chat-input::placeholder {
   color: var(--embed-text-muted);
 }
 
-.embed-chat-input:focus {
+.embed-chat-scope .embed-chat-input:focus {
   outline: none;
   border-color: var(--embed-accent);
   box-shadow: 0 0 0 3px var(--embed-accent-soft);
 }
 
-.embed-chat-input:disabled {
+.embed-chat-scope .embed-chat-input:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
 
-.embed-chat-send {
+.embed-chat-scope .embed-chat-send {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -329,32 +329,32 @@
   flex-shrink: 0;
 }
 
-.embed-chat-send:hover:not(:disabled) {
+.embed-chat-scope .embed-chat-send:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);
 }
 
-.embed-chat-send:active:not(:disabled) {
+.embed-chat-scope .embed-chat-send:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.embed-chat-send:disabled {
+.embed-chat-scope .embed-chat-send:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
 }
 
-.embed-chat-send-icon {
+.embed-chat-scope .embed-chat-send-icon {
   font-size: 1.1em;
   line-height: 1;
 }
 
-.embed-chat-send-text {
+.embed-chat-scope .embed-chat-send-text {
   display: none;
 }
 
 @media (min-width: 360px) {
-  .embed-chat-send-text {
+  .embed-chat-scope .embed-chat-send-text {
     display: inline;
   }
 }

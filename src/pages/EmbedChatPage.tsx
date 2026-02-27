@@ -82,7 +82,8 @@ export default function EmbedChatPage() {
   }
 
   return (
-    <div className="embed-chat">
+    <div className="embed-chat-scope">
+      <div className="embed-chat">
       <header className="embed-chat-header">
         <div className="embed-chat-header-inner">
           <div className="embed-chat-logo">
@@ -204,6 +205,7 @@ export default function EmbedChatPage() {
           <span className="embed-chat-send-text">Enviar</span>
         </button>
       </footer>
+      </div>
     </div>
   )
 }

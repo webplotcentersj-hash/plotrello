@@ -17,7 +17,8 @@ export default function EmbedChatWidgetPage() {
   const [error, setError] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
-      const s = typeof localStorage !== 'undefined' ? localStorage.getItem('embed_chat_conversation_id') : null
+      const storage = typeof sessionStorage !== 'undefined' ? sessionStorage : null
+      const s = storage?.getItem('embed_widget_conversation_id') ?? null
       const n = s ? parseInt(s, 10) : NaN
       return Number.isInteger(n) ? n : null
     } catch {
@@ -28,8 +29,8 @@ export default function EmbedChatWidgetPage() {
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   useEffect(() => {
-    if (conversationId != null && typeof localStorage !== 'undefined') {
-      localStorage.setItem('embed_chat_conversation_id', String(conversationId))
+    if (conversationId != null && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('embed_widget_conversation_id', String(conversationId))
     }
   }, [conversationId])
   useEffect(() => {
@@ -47,11 +48,35 @@ export default function EmbedChatWidgetPage() {
     }
   }, [])
 
+  const IFRAME_CLOSED_WIDTH = 72
+  const IFRAME_CLOSED_HEIGHT = 72
+  const IFRAME_OPEN_WIDTH = 400
+  const IFRAME_OPEN_HEIGHT = 600
+
+  useEffect(() => {
+    try {
+      if (window.parent !== window) {
+        const w = open ? IFRAME_OPEN_WIDTH : IFRAME_CLOSED_WIDTH
+        const h = open ? IFRAME_OPEN_HEIGHT : IFRAME_CLOSED_HEIGHT
+        window.parent.postMessage(
+          { type: 'plotai-widget-resize', open, width: w, height: h },
+          '*'
+        )
+      }
+    } catch {
+      // ignore
+    }
+  }, [open])
+
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const respuestasApi = `${apiBase}/api/plotai/conversation-respuestas`
 
   useEffect(() => {
-    if (!open || conversationId == null) return
+    if (conversationId == null) {
+      setStaffReplies([])
+      return
+    }
+    if (!open) return
     const fetchRespuestas = async () => {
       try {
         const res = await fetch(`${respuestasApi}?conversation_id=${conversationId}`)
@@ -106,7 +131,7 @@ export default function EmbedChatWidgetPage() {
   }
 
   return (
-    <div className="embed-widget-wrap">
+    <div className="embed-widget-wrap embed-chat-scope">
       <button
         type="button"
         className="embed-widget-button"
