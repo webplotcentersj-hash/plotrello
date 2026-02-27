@@ -2485,16 +2485,30 @@ class ApiService {
     try {
       const { data: row } = await supabase
         .from('solicitudes_atencion_chat')
-        .select('respuestas_staff')
+        .select('respuestas_staff, atencion_conversacion_id')
         .eq('id', id)
         .single()
       const current = (Array.isArray((row as any)?.respuestas_staff) ? (row as any).respuestas_staff : []) as Array<{ autor: string; texto: string; created_at?: string }>
-      const nueva = [...current, { ...params, created_at: new Date().toISOString() }]
+      const nuevaRespuesta = { ...params, created_at: new Date().toISOString() }
+      const nueva = [...current, nuevaRespuesta]
       const { error } = await supabase
         .from('solicitudes_atencion_chat')
         .update({ respuestas_staff: nueva })
         .eq('id', id)
       if (error) return { success: false, error: error.message }
+      const convId = (row as any)?.atencion_conversacion_id
+      if (convId != null && Number.isInteger(Number(convId))) {
+        const { data: convRow } = await supabase
+          .from('atencion_conversaciones')
+          .select('respuestas_staff')
+          .eq('id', convId)
+          .single()
+        const currentConv = (Array.isArray((convRow as any)?.respuestas_staff) ? (convRow as any).respuestas_staff : []) as Array<{ autor: string; texto: string; created_at?: string }>
+        await supabase
+          .from('atencion_conversaciones')
+          .update({ respuestas_staff: [...currentConv, nuevaRespuesta], updated_at: new Date().toISOString() })
+          .eq('id', convId)
+      }
       return { success: true }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al enviar respuesta' }

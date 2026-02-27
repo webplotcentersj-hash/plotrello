@@ -365,6 +365,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (solicitudAtencion.solicita && solicitudAtencion.rol && supabase) {
       const clienteNombre = nombre || 'Cliente desde chat'
       try {
+        const convIdForSolicitud = body.conversation_id && Number.isInteger(Number(body.conversation_id)) ? Number(body.conversation_id) : null
         const { data: solicitudRow, error: insertErr } = await supabase
           .from('solicitudes_atencion_chat')
           .insert({
@@ -373,7 +374,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             rol_solicitado: solicitudAtencion.rol,
             mensaje_cliente: message.slice(0, 500),
             estado: 'pendiente',
-            historial_mensajes: historialParaSolicitud
+            historial_mensajes: historialParaSolicitud,
+            atencion_conversacion_id: convIdForSolicitud
           })
           .select('id')
           .single()
