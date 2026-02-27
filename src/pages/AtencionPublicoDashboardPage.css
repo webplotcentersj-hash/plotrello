@@ -365,6 +365,16 @@
   color: var(--text-muted);
 }
 
+.atencion-publico-embed-option-label {
+  margin: 12px 0 6px 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.atencion-publico-embed-option-label:first-of-type {
+  margin-top: 0;
+}
+
 .atencion-publico-embed-code-hint code {
   background: rgba(0, 0, 0, 0.1);
   padding: 2px 6px;

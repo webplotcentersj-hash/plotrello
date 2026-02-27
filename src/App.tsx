@@ -30,6 +30,7 @@ const ClientesFrecuentesPage = lazy(() => import('./pages/ClientesFrecuentesPage
 const CuentaCorrientePage = lazy(() => import('./pages/CuentaCorrientePage'))
 const AtencionPublicoDashboardPage = lazy(() => import('./pages/AtencionPublicoDashboardPage'))
 const EmbedChatPage = lazy(() => import('./pages/EmbedChatPage'))
+const EmbedChatWidgetPage = lazy(() => import('./pages/EmbedChatWidgetPage'))
 const ComprasDashboardPage = lazy(() => import('./pages/ComprasDashboardPage'))
 const PedidoCompraDetallePage = lazy(() => import('./pages/PedidoCompraDetallePage'))
 const ReportesStockPage = lazy(() => import('./pages/ReportesStockPage'))
@@ -467,6 +468,7 @@ function App() {
         <Routes>
           {/* Rutas públicas */}
           <Route path="/embed/chat" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando chat...</div>}><EmbedChatPage /></Suspense>} />
+          <Route path="/embed/chat-widget" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}><EmbedChatWidgetPage /></Suspense>} />
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
           <Route path="/dashboard-pantallas" element={<DashboardPantallasPage />} />
           <Route path="/op-public/:opNumber" element={<OpPublicPage />} />
