@@ -3,12 +3,15 @@ import './EmbedChatPage.css'
 import './EmbedChatWidgetPage.css'
 
 const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
+const POLL_INTERVAL_MS = 4000
 
 type ChatMessage = { role: 'user' | 'model'; parts: { text: string }[] }
+type StaffReply = { autor: string; texto: string; created_at?: string }
 
 export default function EmbedChatWidgetPage() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [staffReplies, setStaffReplies] = useState<StaffReply[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +34,7 @@ export default function EmbedChatWidgetPage() {
   }, [conversationId])
   useEffect(() => {
     scrollToBottom()
-  }, [messages, loading])
+  }, [messages, loading, staffReplies])
 
   useEffect(() => {
     const prevHtml = document.documentElement.style.background
@@ -45,6 +48,24 @@ export default function EmbedChatWidgetPage() {
   }, [])
 
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
+  const respuestasApi = `${apiBase}/api/plotai/conversation-respuestas`
+
+  useEffect(() => {
+    if (!open || conversationId == null) return
+    const fetchRespuestas = async () => {
+      try {
+        const res = await fetch(`${respuestasApi}?conversation_id=${conversationId}`)
+        const data = await res.json().catch(() => ({}))
+        if (Array.isArray(data.respuestas_staff)) setStaffReplies(data.respuestas_staff)
+      } catch {
+        // ignore
+      }
+    }
+    fetchRespuestas()
+    const interval = setInterval(fetchRespuestas, POLL_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [open, conversationId])
+
   const chatApi = `${apiBase}/api/plotai/chat-public`
 
   const sendMessage = async () => {
@@ -128,6 +149,12 @@ export default function EmbedChatWidgetPage() {
               {messages.map((m, i) => (
                 <div key={i} className={`embed-chat-msg embed-chat-msg--${m.role}`}>
                   <span className="embed-chat-msg-text">{m.parts?.[0]?.text}</span>
+                </div>
+              ))}
+              {staffReplies.map((r, i) => (
+                <div key={`staff-${i}`} className="embed-chat-msg embed-chat-msg--staff">
+                  <span className="embed-chat-msg-role">Equipo · {r.autor}</span>
+                  <span className="embed-chat-msg-text">{r.texto}</span>
                 </div>
               ))}
               {loading && (
