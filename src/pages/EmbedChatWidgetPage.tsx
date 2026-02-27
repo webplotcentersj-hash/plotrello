@@ -2,19 +2,16 @@ import { useState, useRef, useEffect } from 'react'
 import './EmbedChatPage.css'
 import './EmbedChatWidgetPage.css'
 
+const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
+
 type ChatMessage = { role: 'user' | 'model'; parts: { text: string }[] }
 
 export default function EmbedChatWidgetPage() {
   const [open, setOpen] = useState(false)
-  const [nombre, setNombre] = useState('')
-  const [dni, setDni] = useState('')
-  const [cuit, setCuit] = useState('')
-  const [op, setOp] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showIdentificacion, setShowIdentificacion] = useState(true)
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
       const s = typeof localStorage !== 'undefined' ? localStorage.getItem('embed_chat_conversation_id') : null
@@ -36,6 +33,17 @@ export default function EmbedChatWidgetPage() {
     scrollToBottom()
   }, [messages, loading])
 
+  useEffect(() => {
+    const prevHtml = document.documentElement.style.background
+    const prevBody = document.body.style.background
+    document.documentElement.style.background = 'transparent'
+    document.body.style.background = 'transparent'
+    return () => {
+      document.documentElement.style.background = prevHtml
+      document.body.style.background = prevBody
+    }
+  }, [])
+
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const chatApi = `${apiBase}/api/plotai/chat-public`
 
@@ -56,10 +64,6 @@ export default function EmbedChatWidgetPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
-          nombre: nombre.trim() || undefined,
-          dni: dni.trim() || undefined,
-          cuit: cuit.trim() || undefined,
-          op: op.trim() || undefined,
           conversation_id: conversationId ?? undefined,
           history
         })
@@ -81,7 +85,7 @@ export default function EmbedChatWidgetPage() {
   }
 
   return (
-    <>
+    <div className="embed-widget-wrap">
       <button
         type="button"
         className="embed-widget-button"
@@ -98,9 +102,9 @@ export default function EmbedChatWidgetPage() {
             <header className="embed-chat-header">
               <div className="embed-chat-header-inner">
                 <div className="embed-chat-logo">
-                  <span className="embed-chat-logo-icon">◆</span>
+                  <img src={PLOTAI_LOGO} alt="" className="embed-chat-logo-img" />
                   <div>
-                    <span className="embed-chat-title">Plot Center</span>
+                    <span className="embed-chat-title">PlotAI</span>
                     <span className="embed-chat-subtitle">Asistente virtual</span>
                   </div>
                 </div>
@@ -115,63 +119,10 @@ export default function EmbedChatWidgetPage() {
               </div>
             </header>
 
-            {showIdentificacion ? (
-              <section className="embed-chat-identificacion">
-                <p className="embed-chat-identificacion-text">
-                  Opcional: nombre, DNI, CUIT u OP para consultar tus trabajos.
-                </p>
-                <div className="embed-chat-identificacion-fields">
-                  <input
-                    type="text"
-                    placeholder="Nombre o empresa"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    className="embed-chat-input-field"
-                    aria-label="Nombre o empresa"
-                  />
-                  <input
-                    type="text"
-                    placeholder="DNI"
-                    value={dni}
-                    onChange={(e) => setDni(e.target.value)}
-                    className="embed-chat-input-field"
-                    aria-label="DNI"
-                  />
-                  <input
-                    type="text"
-                    placeholder="CUIT"
-                    value={cuit}
-                    onChange={(e) => setCuit(e.target.value)}
-                    className="embed-chat-input-field"
-                    aria-label="CUIT"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nº OP"
-                    value={op}
-                    onChange={(e) => setOp(e.target.value)}
-                    className="embed-chat-input-field embed-chat-input-op"
-                    aria-label="Número de OP"
-                  />
-                </div>
-                <button type="button" className="embed-chat-link" onClick={() => setShowIdentificacion(false)}>
-                  Ocultar
-                </button>
-              </section>
-            ) : (
-              <button
-                type="button"
-                className="embed-chat-link embed-chat-link-bar"
-                onClick={() => setShowIdentificacion(true)}
-              >
-                Identificarme (nombre, DNI, CUIT u OP)
-              </button>
-            )}
-
             <div className="embed-chat-messages">
               {messages.length === 0 && !loading && (
                 <div className="embed-chat-welcome">
-                  <p>Hola. Escribí tu consulta: <strong>nombre, DNI, CUIT</strong> o <strong>número de OP</strong> para el estado de tus trabajos. También info y contacto.</p>
+                  <p>Hola. Escribí tu consulta y te ayudo con información y contacto de Plot Center.</p>
                 </div>
               )}
               {messages.map((m, i) => (
@@ -186,7 +137,7 @@ export default function EmbedChatWidgetPage() {
                     <span className="embed-chat-typing-dot" />
                     <span className="embed-chat-typing-dot" />
                   </div>
-                  <span className="embed-chat-typing-label">Plot Center está escribiendo...</span>
+                  <span className="embed-chat-typing-label">PlotAI está escribiendo...</span>
                 </div>
               )}
               <div ref={messagesEndRef} className="embed-chat-anchor" />
@@ -223,6 +174,6 @@ export default function EmbedChatWidgetPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }
