@@ -395,12 +395,12 @@
 
 /* Panel conversación con cliente (desde notificación o lista) */
 .atencion-publico-conversacion-panel {
-  max-width: 1000px;
+  max-width: 720px;
   margin: 0 auto 28px;
-  padding: 24px;
+  padding: 28px;
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -420,9 +420,15 @@
   border-bottom: 1px solid var(--surface-border);
 }
 
+.atencion-publico-conversacion-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
 .atencion-publico-conversacion-header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -448,15 +454,17 @@
 }
 
 .atencion-publico-conversacion-mensajes {
-  max-height: 320px;
+  max-height: 380px;
+  min-height: 120px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 16px;
   background: var(--surface-base);
-  border-radius: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
 }
 
 .atencion-publico-msg {
@@ -499,10 +507,19 @@
   word-break: break-word;
 }
 
+.atencion-publico-reply-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
 .atencion-publico-conversacion-reply {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-top: 4px;
 }
 
 .atencion-publico-reply-input {

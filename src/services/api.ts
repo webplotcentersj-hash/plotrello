@@ -2377,6 +2377,7 @@ class ApiService {
     ultimo_mensaje_preview: string | null
     estado: string
     historial_mensajes: Array<{ role: string; text: string }>
+    respuestas_staff: Array<{ autor: string; texto: string; created_at?: string }>
     created_at: string
     updated_at: string
   }>> {
@@ -2384,13 +2385,44 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_conversaciones')
-        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, historial_mensajes, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, historial_mensajes, respuestas_staff, created_at, updated_at')
         .eq('id', id)
         .single()
       if (error) return { success: false, error: error.message }
-      return { success: true, data: data as any }
+      const row = data as any
+      return {
+        success: true,
+        data: {
+          ...row,
+          respuestas_staff: Array.isArray(row?.respuestas_staff) ? row.respuestas_staff : []
+        }
+      }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al cargar conversación' }
+    }
+  }
+
+  async addRespuestaConversacionAtencion(
+    id: number,
+    params: { autor: string; texto: string }
+  ): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data: row } = await supabase
+        .from('atencion_conversaciones')
+        .select('respuestas_staff')
+        .eq('id', id)
+        .single()
+      const current = (Array.isArray((row as any)?.respuestas_staff) ? (row as any).respuestas_staff : []) as Array<{ autor: string; texto: string; created_at?: string }>
+      const nueva = [...current, { ...params, created_at: new Date().toISOString() }]
+      const { error } = await supabase
+        .from('atencion_conversaciones')
+        .update({ respuestas_staff: nueva, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al enviar respuesta' }
     }
   }
 

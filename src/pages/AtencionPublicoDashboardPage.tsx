@@ -36,6 +36,7 @@ type ConversacionDetalle = {
   ultimo_mensaje_preview: string | null
   estado: string
   historial_mensajes: Array<{ role: string; text: string }>
+  respuestas_staff: Array<{ autor: string; texto: string; created_at?: string }>
   created_at: string
   updated_at: string
 }
@@ -68,6 +69,8 @@ const AtencionPublicoDashboardPage = () => {
   const [sendingReply, setSendingReply] = useState(false)
   const [conversacionDetalle, setConversacionDetalle] = useState<ConversacionDetalle | null>(null)
   const [loadingConversacion, setLoadingConversacion] = useState(false)
+  const [replyConversacionText, setReplyConversacionText] = useState('')
+  const [sendingReplyConversacion, setSendingReplyConversacion] = useState(false)
 
   const loadConversaciones = async () => {
     setLoadingConv(true)
@@ -184,6 +187,24 @@ const AtencionPublicoDashboardPage = () => {
       return p
     })
     setConversacionDetalle(null)
+    setReplyConversacionText('')
+  }
+
+  const sendReplyConversacion = async () => {
+    if (!conversacionDetalle || !replyConversacionText.trim() || sendingReplyConversacion) return
+    setSendingReplyConversacion(true)
+    try {
+      const res = await apiService.addRespuestaConversacionAtencion(conversacionDetalle.id, {
+        autor: usuario?.nombre || 'Equipo',
+        texto: replyConversacionText.trim()
+      })
+      if (res.success) {
+        setReplyConversacionText('')
+        await loadConversacionDetalle(conversacionDetalle.id)
+      }
+    } finally {
+      setSendingReplyConversacion(false)
+    }
   }
 
   const formatFecha = (s: string) => {
@@ -247,10 +268,12 @@ const AtencionPublicoDashboardPage = () => {
           ) : solicitudChat ? (
             <>
               <div className="atencion-publico-conversacion-header">
-                <h2>💬 Conversación con {solicitudChat.cliente_nombre || 'cliente'}</h2>
-                <p className="atencion-publico-conversacion-meta">
-                  Solicitó hablar con <strong>{solicitudChat.sector_solicitado}</strong> · Solicitud #{solicitudChat.id}
-                </p>
+                <div className="atencion-publico-conversacion-header-left">
+                  <h2>💬 Conversación con {solicitudChat.cliente_nombre || 'cliente'}</h2>
+                  <p className="atencion-publico-conversacion-meta">
+                    Solicitó hablar con <strong>{solicitudChat.sector_solicitado}</strong> · Solicitud #{solicitudChat.id}
+                  </p>
+                </div>
                 <button type="button" className="atencion-publico-cerrar-conversacion" onClick={closeConversacion}>
                   Cerrar
                 </button>
@@ -258,7 +281,7 @@ const AtencionPublicoDashboardPage = () => {
               <div className="atencion-publico-conversacion-mensajes">
                 {solicitudChat.historial_mensajes?.map((m, i) => (
                   <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
-                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'Asistente'}</span>
+                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
                     <p className="atencion-publico-msg-text">{m.text}</p>
                   </div>
                 ))}
@@ -270,6 +293,7 @@ const AtencionPublicoDashboardPage = () => {
                 ))}
               </div>
               <div className="atencion-publico-conversacion-reply">
+                <label className="atencion-publico-reply-label">Responder al cliente</label>
                 <textarea
                   placeholder="Escribí tu respuesta al cliente..."
                   value={replyText}
@@ -306,24 +330,52 @@ const AtencionPublicoDashboardPage = () => {
           ) : conversacionDetalle ? (
             <>
               <div className="atencion-publico-conversacion-header">
-                <h2>💬 {conversacionDetalle.cliente_nombre || 'Cliente web'}</h2>
-                <p className="atencion-publico-conversacion-meta">
-                  Canal: {conversacionDetalle.canal} · {formatFecha(conversacionDetalle.updated_at)}
-                </p>
+                <div className="atencion-publico-conversacion-header-left">
+                  <h2>💬 {conversacionDetalle.cliente_nombre || 'Cliente web'}</h2>
+                  <p className="atencion-publico-conversacion-meta">
+                    Canal: {conversacionDetalle.canal} · {formatFecha(conversacionDetalle.updated_at)}
+                  </p>
+                </div>
                 <button type="button" className="atencion-publico-cerrar-conversacion" onClick={closeConversacionDetalle}>
                   Cerrar
                 </button>
               </div>
               <div className="atencion-publico-conversacion-mensajes">
                 {conversacionDetalle.historial_mensajes?.map((m, i) => (
-                  <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
-                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'Asistente'}</span>
+                  <div key={`h-${i}`} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
+                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
                     <p className="atencion-publico-msg-text">{m.text}</p>
                   </div>
                 ))}
-                {(!conversacionDetalle.historial_mensajes || conversacionDetalle.historial_mensajes.length === 0) && (
+                {conversacionDetalle.respuestas_staff?.map((r, i) => (
+                  <div key={`s-${i}`} className="atencion-publico-msg atencion-publico-msg--staff">
+                    <span className="atencion-publico-msg-role">{r.autor}</span>
+                    <p className="atencion-publico-msg-text">{r.texto}</p>
+                  </div>
+                ))}
+                {(!conversacionDetalle.historial_mensajes || conversacionDetalle.historial_mensajes.length === 0) &&
+                  (!conversacionDetalle.respuestas_staff || conversacionDetalle.respuestas_staff.length === 0) && (
                   <p className="atencion-publico-empty">Sin mensajes en esta conversación.</p>
                 )}
+              </div>
+              <div className="atencion-publico-conversacion-reply">
+                <label className="atencion-publico-reply-label">Responder al cliente</label>
+                <textarea
+                  placeholder="Escribí tu respuesta..."
+                  value={replyConversacionText}
+                  onChange={(e) => setReplyConversacionText(e.target.value)}
+                  className="atencion-publico-reply-input"
+                  rows={3}
+                  disabled={sendingReplyConversacion}
+                />
+                <button
+                  type="button"
+                  className="atencion-publico-reply-send"
+                  onClick={sendReplyConversacion}
+                  disabled={sendingReplyConversacion || !replyConversacionText.trim()}
+                >
+                  {sendingReplyConversacion ? 'Enviando...' : 'Enviar respuesta'}
+                </button>
               </div>
             </>
           ) : (
