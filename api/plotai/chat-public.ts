@@ -461,14 +461,19 @@ CÓMO TRATAR AL CLIENTE:
       try {
         if (body.conversation_id && Number.isInteger(Number(body.conversation_id))) {
           const idConv = Number(body.conversation_id)
-          const { data: conv } = await supabase
+          const { data: conv, error: selectErr } = await supabase
             .from('atencion_conversaciones')
             .select('historial_mensajes')
             .eq('id', idConv)
             .single()
-          const hist = (Array.isArray((conv as any)?.historial_mensajes) ? (conv as any).historial_mensajes : []) as Array<{ role: string; text: string }>
+          let hist: Array<{ role: string; text: string }> = Array.isArray((conv as any)?.historial_mensajes) ? (conv as any).historial_mensajes : []
+          if (selectErr && Array.isArray(history) && history.length > 0) {
+            hist = history.map((p) => ({ role: p.role, text: (p.parts?.[0]?.text ?? '').slice(0, 5000) }))
+          } else if (selectErr) {
+            console.error('Error leyendo conversación para actualizar:', selectErr)
+          }
           const updated = [...hist, { role: 'user', text: message.slice(0, 5000) }, { role: 'model', text: replyText.slice(0, 5000) }]
-          await supabase
+          const { error: updateErr } = await supabase
             .from('atencion_conversaciones')
             .update({
               historial_mensajes: updated,
@@ -476,9 +481,10 @@ CÓMO TRATAR AL CLIENTE:
               updated_at: new Date().toISOString()
             })
             .eq('id', idConv)
+          if (updateErr) console.error('Error actualizando conversación:', updateErr)
           conversationId = idConv
         } else {
-          const { data: newConv } = await supabase
+          const { data: newConv, error: insertErr } = await supabase
             .from('atencion_conversaciones')
             .insert({
               cliente_nombre: clienteNombreConv,
@@ -492,6 +498,7 @@ CÓMO TRATAR AL CLIENTE:
             })
             .select('id')
             .single()
+          if (insertErr) console.error('Error creando conversación:', insertErr)
           if ((newConv as any)?.id) conversationId = (newConv as any).id
         }
       } catch (e) {
