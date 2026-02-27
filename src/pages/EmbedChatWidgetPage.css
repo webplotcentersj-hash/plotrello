@@ -1,11 +1,21 @@
-/* Evitar recorte del botón: sin margen ni overflow en el iframe */
-html.embed-widget-page,
+/* Evitar recorte del botón: iframe ocupa todo el espacio y no recorta */
+html.embed-widget-page {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
 html.embed-widget-page body {
   margin: 0 !important;
   padding: 0 !important;
   overflow: visible !important;
-  min-width: 100%;
-  min-height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
 }
 
 /* Fondo transparente: no afectar el diseño de la página WordPress */
@@ -28,15 +38,15 @@ html.embed-widget-page body {
   flex-shrink: 0;
 }
 
-/* Botón flotante: cabe entero en el iframe (tamaño con vmin) y centrado para verse redondo */
+/* Botón flotante: tamaño que quepa en ancho Y alto del iframe para verse siempre redondo */
 .embed-widget-button {
   position: fixed;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 99998;
-  width: min(56px, calc(100vmin - 20px));
-  height: min(56px, calc(100vmin - 20px));
+  width: min(56px, calc(100vw - 24px), calc(100vh - 24px));
+  height: min(56px, calc(100vw - 24px), calc(100vh - 24px));
   max-width: 56px;
   max-height: 56px;
   border-radius: 50%;
@@ -207,7 +217,7 @@ html.embed-widget-page body {
 
 @media (max-width: 420px) {
   .embed-widget-button {
-    width: min(52px, calc(100vmin - 20px));
-    height: min(52px, calc(100vmin - 20px));
+    width: min(52px, calc(100vw - 24px), calc(100vh - 24px));
+    height: min(52px, calc(100vw - 24px), calc(100vh - 24px));
   }
 }
