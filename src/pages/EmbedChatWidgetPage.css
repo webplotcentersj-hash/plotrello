@@ -1,9 +1,22 @@
+/* Evitar recorte del botón: sin margen ni overflow en el iframe */
+html.embed-widget-page,
+html.embed-widget-page body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  min-width: 100%;
+  min-height: 100%;
+}
+
 /* Fondo transparente: no afectar el diseño de la página WordPress */
 .embed-widget-wrap {
   background: transparent !important;
+  width: 100%;
+  height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   overflow: visible;
+  position: relative;
 }
 
 /* Logo PlotAI en el header del panel */
@@ -15,17 +28,17 @@
   flex-shrink: 0;
 }
 
-/* Botón flotante: centrado en el iframe para que se vea redondo (no recortado) */
+/* Botón flotante: cabe entero en el iframe (tamaño con vmin) y centrado para verse redondo */
 .embed-widget-button {
   position: fixed;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 99998;
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
-  min-height: 56px;
+  width: min(56px, calc(100vmin - 20px));
+  height: min(56px, calc(100vmin - 20px));
+  max-width: 56px;
+  max-height: 56px;
   border-radius: 50%;
   border: none;
   background: radial-gradient(circle at 30% 30%, #fb923c, #ea580c 50%, #c2410c);
@@ -41,6 +54,7 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .embed-widget-button:hover {
@@ -193,9 +207,7 @@
 
 @media (max-width: 420px) {
   .embed-widget-button {
-    width: 52px;
-    height: 52px;
-    min-width: 52px;
-    min-height: 52px;
+    width: min(52px, calc(100vmin - 20px));
+    height: min(52px, calc(100vmin - 20px));
   }
 }

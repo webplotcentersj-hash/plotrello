@@ -25,13 +25,30 @@ export default function EmbedChatWidgetPage() {
   }, [messages, loading, staffReplies])
 
   useEffect(() => {
-    const prevHtml = document.documentElement.style.background
-    const prevBody = document.body.style.background
-    document.documentElement.style.background = 'transparent'
-    document.body.style.background = 'transparent'
+    const root = document.documentElement
+    root.classList.add('embed-widget-page')
+    const html = root.style
+    const body = document.body.style
+    const prevBgHtml = html.background
+    const prevBgBody = body.background
+    const prevOverflowHtml = html.overflow
+    const prevOverflowBody = body.overflow
+    const prevMarginBody = body.margin
+    const prevPaddingBody = body.padding
+    html.background = 'transparent'
+    body.background = 'transparent'
+    html.overflow = 'visible'
+    body.overflow = 'visible'
+    body.margin = '0'
+    body.padding = '0'
     return () => {
-      document.documentElement.style.background = prevHtml
-      document.body.style.background = prevBody
+      root.classList.remove('embed-widget-page')
+      html.background = prevBgHtml
+      body.background = prevBgBody
+      html.overflow = prevOverflowHtml
+      body.overflow = prevOverflowBody
+      body.margin = prevMarginBody
+      body.padding = prevPaddingBody
     }
   }, [])
 
