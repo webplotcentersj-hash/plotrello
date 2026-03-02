@@ -36,12 +36,13 @@ html.embed-widget-page body {
   flex-shrink: 0;
 }
 
-/* Botón flotante: anclado abajo al centro para que no se corte si el iframe recorta */
+/* Botón flotante: esquina inferior derecha con margen para que no se corte ni un borde */
 .embed-widget-button {
   position: fixed;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
+  right: 12px;
+  bottom: 12px;
+  left: auto;
+  transform: none;
   z-index: 99998;
   width: var(--embed-btn-size, 48px);
   height: var(--embed-btn-size, 48px);
@@ -66,7 +67,7 @@ html.embed-widget-page body {
 }
 
 .embed-widget-button:hover {
-  transform: translateX(-50%) scale(1.08);
+  transform: scale(1.08);
   box-shadow:
     0 4px 12px rgba(234, 88, 12, 0.45),
     0 6px 20px rgba(0, 0, 0, 0.18),
@@ -81,7 +82,7 @@ html.embed-widget-page body {
 }
 
 .embed-widget-button:focus:hover {
-  transform: translateX(-50%) scale(1.08);
+  transform: scale(1.08);
 }
 
 .embed-widget-badge {
