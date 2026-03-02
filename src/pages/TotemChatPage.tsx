@@ -23,6 +23,11 @@ export default function TotemChatPage() {
   const recognitionRef = useRef<{ start?: () => void } | null>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
   const isListeningRef = useRef(false)
+  const historyRef = useRef(history)
+  const conversationIdRef = useRef<number | null>(conversationId)
+
+  historyRef.current = history
+  conversationIdRef.current = conversationId
 
   const speak = useCallback((text: string) => {
     return new Promise<void>((resolve) => {
@@ -43,25 +48,32 @@ export default function TotemChatPage() {
 
   const sendToChat = useCallback(async (userText: string): Promise<string | null> => {
     const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
+    const currentHistory = historyRef.current
+    const currentConvId = conversationIdRef.current
     const res = await fetch(`${apiBase}${CHAT_API}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: userText,
-        conversation_id: conversationId ?? undefined,
-        history: history.map((m) => ({ role: m.role, parts: m.parts }))
+        conversation_id: currentConvId ?? undefined,
+        history: currentHistory.map((m) => ({ role: m.role, parts: m.parts }))
       })
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) return null
-    if (data.conversation_id != null) setConversationId(data.conversation_id)
-    setHistory((prev) => [
-      ...prev,
+    if (data.conversation_id != null) {
+      setConversationId(data.conversation_id)
+      conversationIdRef.current = data.conversation_id
+    }
+    const newHistory: Array<{ role: 'user' | 'model'; parts: { text: string }[] }> = [
+      ...currentHistory,
       { role: 'user', parts: [{ text: userText }] },
       ...(data.reply ? [{ role: 'model' as const, parts: [{ text: data.reply }] }] : [])
-    ])
+    ]
+    historyRef.current = newHistory
+    setHistory(newHistory)
     return data.reply && String(data.reply).trim() ? data.reply : null
-  }, [conversationId, history])
+  }, [])
 
   const startListening = useCallback(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -208,33 +220,40 @@ export default function TotemChatPage() {
         <video ref={videoRef} className="totem-video" muted playsInline />
         <canvas ref={canvasRef} className="totem-canvas" aria-hidden />
       </div>
+      <div className="totem-bg-glow" aria-hidden />
       <div className="totem-scanline" aria-hidden />
       <div className="totem-ui">
-        <div className="totem-robot-face" role="img" aria-label={`Estado: ${state}`}>
-          <div className="totem-robot-eyes">
-            <div className="totem-robot-eye totem-robot-eye--l" />
-            <div className="totem-robot-eye totem-robot-eye--r" />
-          </div>
-          <div className="totem-robot-mouth">
-            {(state === 'listening' || state === 'speaking') && (
-              <>
-                <span className="totem-robot-bar" />
-                <span className="totem-robot-bar" />
-                <span className="totem-robot-bar" />
-                <span className="totem-robot-bar" />
-                <span className="totem-robot-bar" />
-                <span className="totem-robot-bar" />
-                <span className="totem-robot-bar" />
-              </>
+        <div className="totem-robot">
+          <div className="totem-robot-halo" aria-hidden />
+          <div className="totem-robot-antenna totem-robot-antenna--l" />
+          <div className="totem-robot-antenna totem-robot-antenna--r" />
+          <div className="totem-robot-face" role="img" aria-label={`Estado: ${state}`}>
+            <div className="totem-robot-eyes">
+              <div className="totem-robot-eye totem-robot-eye--l">
+                <span className="totem-robot-eye-shine" />
+              </div>
+              <div className="totem-robot-eye totem-robot-eye--r">
+                <span className="totem-robot-eye-shine" />
+              </div>
+            </div>
+            <div className="totem-robot-mouth">
+              {(state === 'listening' || state === 'speaking') && (
+                <>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <span key={i} className="totem-robot-bar" style={{ animationDelay: `${i * 0.05}s` }} />
+                  ))}
+                </>
+              )}
+            </div>
+            {state === 'thinking' && (
+              <div className="totem-robot-thinking">
+                <span className="totem-robot-dot" />
+                <span className="totem-robot-dot" />
+                <span className="totem-robot-dot" />
+              </div>
             )}
           </div>
-          {state === 'thinking' && (
-            <div className="totem-robot-thinking">
-              <span className="totem-robot-dot" />
-              <span className="totem-robot-dot" />
-              <span className="totem-robot-dot" />
-            </div>
-          )}
+          <div className="totem-robot-name">PlotAI</div>
         </div>
         <p className="totem-state totem-state--label">
           {state === 'idle' && 'ACERCATE O TOCÁ PARA HABLAR'}
