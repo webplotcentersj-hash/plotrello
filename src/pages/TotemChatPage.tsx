@@ -3,7 +3,9 @@ import './TotemChatPage.css'
 
 const GREETING_SPEECH = 'Hola, ¿cómo estás? ¿En qué te puedo ayudar?'
 const CHAT_API = '/api/plotai/chat-public'
+const IMAGE_API = '/api/plotai/generate-image'
 const MOTION_THRESHOLD = 0.08
+const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
 
@@ -14,6 +16,7 @@ export default function TotemChatPage() {
   const [conversationId, setConversationId] = useState<number | null>(null)
   const [history, setHistory] = useState<Array<{ role: 'user' | 'model'; parts: { text: string }[] }>>([])
   const [lastText, setLastText] = useState<string>('')
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
 
@@ -95,7 +98,30 @@ export default function TotemChatPage() {
       isListeningRef.current = false
       setLastText(t)
       setState('thinking')
-      const reply = await sendToChat(t)
+      setGeneratedImageUrl(null)
+      const wantsImage = IMAGE_TRIGGER.test(t)
+      let reply: string | null = null
+      if (wantsImage) {
+        const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
+        try {
+          const imgRes = await fetch(`${apiBase}${IMAGE_API}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: t, aspectRatio: '1:1' })
+          })
+          const imgData = await imgRes.json().catch(() => ({}))
+          if (imgData?.dataUrl) {
+            setGeneratedImageUrl(imgData.dataUrl)
+            reply = 'Acá está la imagen.'
+          } else {
+            reply = (imgData?.error as string) || 'No pude generar la imagen. Probá de nuevo.'
+          }
+        } catch {
+          reply = 'No pude generar la imagen en este momento.'
+        }
+      } else {
+        reply = await sendToChat(t)
+      }
       setState('speaking')
       if (reply) {
         await speak(reply)
@@ -103,7 +129,6 @@ export default function TotemChatPage() {
       }
       isListeningRef.current = true
       setState('listening')
-      // Reiniciar reconocimiento para la siguiente frase (onend ya se disparó con isListeningRef en false)
       setTimeout(() => recognitionRef.current?.start?.(), 100)
     }
     rec.onerror = () => {
@@ -263,8 +288,12 @@ export default function TotemChatPage() {
           {state === 'speaking' && 'HABLANDO...'}
         </p>
         {lastText && <p className="totem-subtitle">{lastText}</p>}
+        {generatedImageUrl && (
+          <div className="totem-generated-image-wrap">
+            <img src={generatedImageUrl} alt="Imagen generada" className="totem-generated-image" />
+          </div>
+        )}
         {error && <p className="totem-error">{error}</p>}
-        <div className="totem-brand">Plot Center · Asistente por voz</div>
       </div>
     </div>
   )

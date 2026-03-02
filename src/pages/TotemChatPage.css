@@ -1,9 +1,16 @@
-/* Robot atractivo: cabeza, halo, antenas, ojos con brillo, igualador de voz */
+/* Robot: colores #eb671b, layout centrado, más vivo, imagen generada */
+
+:root {
+  --totem-accent: #eb671b;
+  --totem-accent-rgb: 235, 103, 27;
+  --totem-think: #f0a050;
+  --totem-think-rgb: 240, 160, 80;
+}
 
 .totem-page {
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse 120% 100% at 50% 40%, #0a0e14 0%, #05070a 50%, #020304 100%);
+  background: radial-gradient(ellipse 120% 100% at 50% 40%, #0d0a08 0%, #080605 50%, #040302 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15,7 +22,7 @@
 .totem-video-wrap {
   position: absolute;
   inset: 0;
-  opacity: 0.08;
+  opacity: 0.06;
   pointer-events: none;
 }
 
@@ -29,7 +36,6 @@
   display: none;
 }
 
-/* Glow de fondo que reacciona al estado */
 .totem-bg-glow {
   position: absolute;
   inset: 0;
@@ -37,30 +43,31 @@
   pointer-events: none;
   background: radial-gradient(
     ellipse 80% 60% at 50% 35%,
-    rgba(0, 212, 255, 0.06) 0%,
+    rgba(var(--totem-accent-rgb), 0.08) 0%,
     transparent 55%
   );
   opacity: 0;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.5s ease;
 }
 
 .totem-page[data-state="listening"] .totem-bg-glow,
 .totem-page[data-state="speaking"] .totem-bg-glow {
   opacity: 1;
-  animation: totem-bg-pulse 3s ease-in-out infinite;
+  animation: totem-bg-pulse 2.2s ease-in-out infinite;
 }
 
 .totem-page[data-state="thinking"] .totem-bg-glow {
   opacity: 1;
   background: radial-gradient(
     ellipse 80% 60% at 50% 35%,
-    rgba(255, 200, 80, 0.05) 0%,
+    rgba(var(--totem-think-rgb), 0.08) 0%,
     transparent 55%
   );
+  animation: totem-bg-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes totem-bg-pulse {
-  0%, 100% { opacity: 0.7; }
+  0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
 }
 
@@ -73,48 +80,52 @@
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.04) 2px,
-    rgba(0, 0, 0, 0.04) 4px
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
   );
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .totem-ui {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 2rem;
-  max-width: 92vw;
+  padding: clamp(1rem, 3vw, 2rem);
+  max-width: min(92vw, 420px);
+  gap: 0.75rem;
 }
 
-/* Contenedor del robot (cabeza completa) */
 .totem-robot {
   position: relative;
-  margin: 0 auto 1.5rem;
+  flex-shrink: 0;
+  margin-bottom: 0.25rem;
 }
 
-/* Halo exterior que pulsa */
 .totem-robot-halo {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: clamp(220px, 52vw, 320px);
-  height: clamp(220px, 52vw, 320px);
+  width: clamp(200px, 48vw, 280px);
+  height: clamp(200px, 48vw, 280px);
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(0, 212, 255, 0.12) 0%,
-    rgba(0, 212, 255, 0.04) 40%,
+    rgba(var(--totem-accent-rgb), 0.15) 0%,
+    rgba(var(--totem-accent-rgb), 0.04) 42%,
     transparent 70%
   );
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.35s ease;
 }
 
 .totem-page[data-state="idle"] .totem-robot-halo {
   opacity: 1;
-  animation: totem-halo-idle 2.5s ease-in-out infinite;
+  animation: totem-halo-idle 2s ease-in-out infinite;
 }
 
 .totem-page[data-state="listening"] .totem-robot-halo,
@@ -122,271 +133,284 @@
   opacity: 1;
   background: radial-gradient(
     circle,
-    rgba(0, 212, 255, 0.2) 0%,
-    rgba(0, 212, 255, 0.06) 45%,
+    rgba(var(--totem-accent-rgb), 0.22) 0%,
+    rgba(var(--totem-accent-rgb), 0.07) 45%,
     transparent 70%
   );
-  animation: totem-halo-active 2s ease-in-out infinite;
+  animation: totem-halo-active 1.6s ease-in-out infinite;
 }
 
 .totem-page[data-state="thinking"] .totem-robot-halo {
   opacity: 1;
   background: radial-gradient(
     circle,
-    rgba(255, 200, 80, 0.15) 0%,
-    rgba(255, 200, 80, 0.04) 45%,
+    rgba(var(--totem-think-rgb), 0.18) 0%,
+    rgba(var(--totem-think-rgb), 0.05) 45%,
     transparent 70%
   );
-  animation: totem-halo-think 1.2s ease-in-out infinite;
+  animation: totem-halo-think 1s ease-in-out infinite;
 }
 
 @keyframes totem-halo-idle {
-  0%, 100% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.6; }
-  50% { transform: translate(-50%, -50%) scale(1.02); opacity: 1; }
+  0%, 100% { transform: translate(-50%, -50%) scale(0.96); opacity: 0.7; }
+  50% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
 }
 
 @keyframes totem-halo-active {
   0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.08); }
+  50% { transform: translate(-50%, -50%) scale(1.1); }
 }
 
-@keyframes totem-halo-think {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
-}
-
-/* Antenas */
 .totem-robot-antenna {
   position: absolute;
-  top: -14px;
+  top: -12px;
   width: 4px;
-  height: 20px;
-  background: linear-gradient(to top, rgba(0, 212, 255, 0.5), rgba(0, 212, 255, 0.15));
+  height: 18px;
+  background: linear-gradient(to top, var(--totem-accent), rgba(var(--totem-accent-rgb), 0.3));
   border-radius: 2px;
   transform-origin: bottom center;
 }
 
 .totem-robot-antenna--l {
-  left: 22%;
-  transform: rotate(-12deg);
-  animation: totem-antenna-l 3s ease-in-out infinite;
+  left: 24%;
+  transform: rotate(-10deg);
+  animation: totem-antenna 2.2s ease-in-out infinite;
 }
 
 .totem-robot-antenna--r {
-  right: 22%;
-  transform: rotate(12deg);
-  animation: totem-antenna-r 3s ease-in-out infinite 0.3s;
+  right: 24%;
+  transform: rotate(10deg);
+  animation: totem-antenna 2.2s ease-in-out infinite 0.25s;
 }
 
-@keyframes totem-antenna-l {
-  0%, 100% { opacity: 0.75; }
+@keyframes totem-antenna {
+  0%, 100% { opacity: 0.7; }
   50% { opacity: 1; }
 }
 
-@keyframes totem-antenna-r {
-  0%, 100% { opacity: 0.75; }
-  50% { opacity: 1; }
-}
-
-/* Cara del robot: visor principal */
 .totem-robot-face {
-  width: clamp(180px, 42vw, 260px);
-  height: clamp(180px, 42vw, 260px);
-  background: linear-gradient(165deg, #0e1116 0%, #161c24 35%, #0d1014 70%, #080a0d 100%);
-  border: 2px solid rgba(0, 212, 255, 0.35);
-  border-radius: 28px;
+  width: clamp(160px, 40vw, 240px);
+  height: clamp(160px, 40vw, 240px);
+  background: linear-gradient(165deg, #0f0d0b 0%, #161210 35%, #0c0a08 70%, #070504 100%);
+  border: 2px solid rgba(var(--totem-accent-rgb), 0.4);
+  border-radius: 26px;
   box-shadow:
-    inset 0 0 60px rgba(0, 212, 255, 0.06),
-    inset 0 -20px 40px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(0, 0, 0, 0.4),
-    0 0 80px rgba(0, 212, 255, 0.12);
+    inset 0 0 50px rgba(var(--totem-accent-rgb), 0.06),
+    inset 0 -18px 36px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.3),
+    0 0 70px rgba(var(--totem-accent-rgb), 0.15);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.1rem;
+  gap: 1rem;
   position: relative;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  transition: border-color 0.25s, box-shadow 0.25s;
+  animation: totem-face-float 4s ease-in-out infinite;
 }
 
 .totem-page[data-state="listening"] .totem-robot-face,
 .totem-page[data-state="speaking"] .totem-robot-face {
-  border-color: rgba(0, 212, 255, 0.55);
+  border-color: rgba(var(--totem-accent-rgb), 0.65);
   box-shadow:
-    inset 0 0 60px rgba(0, 212, 255, 0.08),
-    inset 0 -20px 40px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(0, 212, 255, 0.2),
-    0 0 100px rgba(0, 212, 255, 0.2);
+    inset 0 0 55px rgba(var(--totem-accent-rgb), 0.1),
+    inset 0 -18px 36px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(var(--totem-accent-rgb), 0.25),
+    0 0 90px rgba(var(--totem-accent-rgb), 0.25);
+  animation: totem-face-float 3s ease-in-out infinite;
 }
 
 .totem-page[data-state="thinking"] .totem-robot-face {
-  border-color: rgba(255, 200, 80, 0.4);
+  border-color: rgba(var(--totem-think-rgb), 0.5);
   box-shadow:
-    inset 0 0 50px rgba(255, 200, 80, 0.05),
-    0 0 60px rgba(255, 200, 80, 0.1);
+    inset 0 0 45px rgba(var(--totem-think-rgb), 0.06),
+    0 0 55px rgba(var(--totem-think-rgb), 0.12);
+  animation: totem-face-float 2.5s ease-in-out infinite;
 }
 
-/* Ojos con brillo */
+@keyframes totem-face-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
 .totem-robot-eyes {
   display: flex;
-  gap: clamp(28px, 7vw, 56px);
+  gap: clamp(24px, 6vw, 48px);
   align-items: center;
 }
 
 .totem-robot-eye {
-  width: clamp(18px, 4.5vw, 28px);
-  height: clamp(18px, 4.5vw, 28px);
+  width: clamp(16px, 4vw, 24px);
+  height: clamp(16px, 4vw, 24px);
   border-radius: 50%;
-  background: rgba(0, 212, 255, 0.25);
+  background: rgba(var(--totem-accent-rgb), 0.3);
   box-shadow:
-    0 0 20px rgba(0, 212, 255, 0.2),
-    inset 0 -2px 8px rgba(0, 0, 0, 0.4);
+    0 0 18px rgba(var(--totem-accent-rgb), 0.25),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4);
   position: relative;
   overflow: hidden;
-  transition: background 0.25s, box-shadow 0.25s;
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .totem-robot-eye-shine {
   position: absolute;
-  top: 15%;
-  left: 20%;
-  width: 35%;
-  height: 35%;
+  top: 18%;
+  left: 22%;
+  width: 32%;
+  height: 32%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
 }
 
 .totem-page[data-state="idle"] .totem-robot-eye {
-  animation: totem-eye-idle 2.5s ease-in-out infinite;
+  animation: totem-eye-idle 2s ease-in-out infinite;
 }
 
 .totem-page[data-state="greeting"] .totem-robot-eye,
 .totem-page[data-state="listening"] .totem-robot-eye,
 .totem-page[data-state="speaking"] .totem-robot-eye {
-  background: rgba(0, 212, 255, 0.95);
+  background: var(--totem-accent);
   box-shadow:
-    0 0 28px rgba(0, 212, 255, 0.8),
-    0 0 50px rgba(0, 212, 255, 0.3),
-    inset 0 -2px 8px rgba(0, 0, 0, 0.2);
+    0 0 24px rgba(var(--totem-accent-rgb), 0.85),
+    0 0 45px rgba(var(--totem-accent-rgb), 0.35),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .totem-page[data-state="thinking"] .totem-robot-eye {
-  background: rgba(255, 200, 80, 0.9);
+  background: var(--totem-think);
   box-shadow:
-    0 0 24px rgba(255, 200, 80, 0.6),
-    0 0 40px rgba(255, 200, 80, 0.2);
+    0 0 22px rgba(var(--totem-think-rgb), 0.7),
+    0 0 38px rgba(var(--totem-think-rgb), 0.25);
 }
 
 @keyframes totem-eye-idle {
-  0%, 100% { opacity: 0.6; filter: brightness(0.8); }
-  50% { opacity: 1; filter: brightness(1.1); }
+  0%, 100% { opacity: 0.65; filter: brightness(0.85); }
+  50% { opacity: 1; filter: brightness(1.15); }
 }
 
-/* Boca = igualador de voz */
 .totem-robot-mouth {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 32px;
+  gap: 4px;
+  min-height: 28px;
 }
 
 .totem-robot-bar {
-  width: 6px;
-  height: 10px;
-  background: linear-gradient(to top, rgba(0, 212, 255, 0.4), rgba(0, 212, 255, 0.8));
-  border-radius: 3px;
-  animation: totem-bar 0.55s ease-in-out infinite;
+  width: 5px;
+  height: 8px;
+  background: linear-gradient(to top, rgba(var(--totem-accent-rgb), 0.5), rgba(var(--totem-accent-rgb), 0.9));
+  border-radius: 2px;
+  animation: totem-bar 0.5s ease-in-out infinite;
   transform-origin: center bottom;
 }
 
 .totem-page[data-state="speaking"] .totem-robot-bar {
-  animation-duration: 0.35s;
-  background: linear-gradient(to top, rgba(0, 212, 255, 0.6), rgba(0, 230, 255, 1));
-  box-shadow: 0 0 12px rgba(0, 212, 255, 0.5);
+  animation-duration: 0.3s;
+  background: linear-gradient(to top, rgba(var(--totem-accent-rgb), 0.7), var(--totem-accent));
+  box-shadow: 0 0 10px rgba(var(--totem-accent-rgb), 0.5);
 }
 
 @keyframes totem-bar {
-  0%, 100% { transform: scaleY(0.35); opacity: 0.7; }
-  50% { transform: scaleY(1.15); opacity: 1; }
+  0%, 100% { transform: scaleY(0.3); opacity: 0.75; }
+  50% { transform: scaleY(1.2); opacity: 1; }
 }
 
-/* Pensando: puntos */
 .totem-robot-thinking {
   position: absolute;
-  bottom: 1.35rem;
+  bottom: 1.2rem;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
 .totem-robot-dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: rgba(255, 200, 80, 0.95);
-  box-shadow: 0 0 14px rgba(255, 200, 80, 0.6);
-  animation: totem-dot 0.9s ease-in-out infinite;
+  background: var(--totem-think);
+  box-shadow: 0 0 12px rgba(var(--totem-think-rgb), 0.65);
+  animation: totem-dot 0.75s ease-in-out infinite;
 }
 
 .totem-robot-dot:nth-child(1) { animation-delay: 0s; }
-.totem-robot-dot:nth-child(2) { animation-delay: 0.15s; }
-.totem-robot-dot:nth-child(3) { animation-delay: 0.3s; }
+.totem-robot-dot:nth-child(2) { animation-delay: 0.12s; }
+.totem-robot-dot:nth-child(3) { animation-delay: 0.24s; }
 
 @keyframes totem-dot {
-  0%, 100% { transform: scale(0.75); opacity: 0.6; }
-  50% { transform: scale(1.2); opacity: 1; }
+  0%, 100% { transform: scale(0.7); opacity: 0.6; }
+  50% { transform: scale(1.25); opacity: 1; }
 }
 
-/* Nombre debajo de la cara */
 .totem-robot-name {
-  margin-top: 0.75rem;
-  font-size: clamp(1rem, 2.5vw, 1.35rem);
+  margin-top: 0.5rem;
+  font-size: clamp(0.95rem, 2.2vw, 1.2rem);
   font-weight: 700;
-  letter-spacing: 0.2em;
-  color: rgba(0, 212, 255, 0.95);
-  text-shadow: 0 0 24px rgba(0, 212, 255, 0.5);
+  letter-spacing: 0.18em;
+  color: var(--totem-accent);
+  text-shadow: 0 0 20px rgba(var(--totem-accent-rgb), 0.5);
 }
 
-/* Etiquetas HUD */
 .totem-state {
-  font-size: clamp(0.8rem, 2vw, 1.1rem);
-  color: rgba(255, 255, 255, 0.45);
-  margin: 0 0 0.5rem;
-  letter-spacing: 0.14em;
+  font-size: clamp(0.78rem, 1.9vw, 1.05rem);
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+  letter-spacing: 0.12em;
 }
 
 .totem-state--label {
   font-weight: 600;
-  color: rgba(0, 212, 255, 0.95);
-  text-shadow: 0 0 24px rgba(0, 212, 255, 0.35);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 20px rgba(var(--totem-accent-rgb), 0.4);
 }
 
 .totem-subtitle {
-  font-size: clamp(0.9rem, 2vw, 1.1rem);
-  color: rgba(255, 255, 255, 0.75);
-  margin: 0 0 0.5rem;
-  max-height: 4em;
+  font-size: clamp(0.85rem, 1.9vw, 1.05rem);
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  max-height: 3.5em;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  line-height: 1.45;
+  line-height: 1.4;
+}
+
+.totem-generated-image-wrap {
+  margin-top: 0.5rem;
+  width: min(85vw, 280px);
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid rgba(var(--totem-accent-rgb), 0.4);
+  box-shadow: 0 0 30px rgba(var(--totem-accent-rgb), 0.2);
+  animation: totem-image-in 0.4s ease-out;
+}
+
+.totem-generated-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@keyframes totem-image-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .totem-error {
   color: #ff6b6b;
-  font-size: 0.9rem;
-  margin: 0.5rem 0 0;
-}
-
-.totem-brand {
-  margin-top: 1.5rem;
-  font-size: clamp(0.72rem, 1.7vw, 0.9rem);
-  color: rgba(255, 255, 255, 0.2);
-  letter-spacing: 0.1em;
+  font-size: 0.88rem;
+  margin: 0;
 }
