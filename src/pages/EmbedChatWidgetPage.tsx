@@ -5,20 +5,21 @@ import './EmbedChatWidgetPage.css'
 const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
 const POLL_INTERVAL_MS = 4000
 
-/** Ícono de burbuja de chat (mensaje) para el botón flotante */
+/** Ícono de chat atractivo: burbuja con puntos de conversación */
 function ChatBubbleIcon({ className }: { className?: string }) {
   return (
     <svg
       className={className}
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="currentColor"
       aria-hidden
     >
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      {/* Burbuja principal */}
+      <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.06L1.5 22l5.18-1.5A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" opacity="0.95" />
+      {/* Puntos de mensaje (más visibles) */}
+      <circle cx="8.5" cy="11.5" r="1.25" fill="rgba(255,255,255,0.9)" />
+      <circle cx="12" cy="11.5" r="1.25" fill="rgba(255,255,255,0.9)" />
+      <circle cx="15.5" cy="11.5" r="1.25" fill="rgba(255,255,255,0.9)" />
     </svg>
   )
 }
