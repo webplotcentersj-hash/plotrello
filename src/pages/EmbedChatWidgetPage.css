@@ -14,17 +14,15 @@ html.embed-widget-page body {
   overflow: visible !important;
   width: 100% !important;
   height: 100% !important;
-  min-height: 100vh !important;
-  min-height: 100dvh !important;
+  min-height: 0 !important;
 }
 
-/* Fondo transparente: no afectar el diseño de la página WordPress */
+/* Fondo transparente: no afectar el diseño de la página WordPress; altura = iframe */
 .embed-widget-wrap {
   background: transparent !important;
   width: 100%;
   height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 0;
   overflow: visible;
   position: relative;
 }
@@ -38,12 +36,12 @@ html.embed-widget-page body {
   flex-shrink: 0;
 }
 
-/* Botón flotante: tamaño desde JS (--embed-btn-size) para que siempre quepa y se vea redondo */
+/* Botón flotante: anclado abajo al centro para que no se corte si el iframe recorta */
 .embed-widget-button {
   position: fixed;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  bottom: 10px;
+  transform: translateX(-50%);
   z-index: 99998;
   width: var(--embed-btn-size, 48px);
   height: var(--embed-btn-size, 48px);
@@ -68,7 +66,7 @@ html.embed-widget-page body {
 }
 
 .embed-widget-button:hover {
-  transform: translate(-50%, -50%) scale(1.08);
+  transform: translateX(-50%) scale(1.08);
   box-shadow:
     0 4px 12px rgba(234, 88, 12, 0.45),
     0 6px 20px rgba(0, 0, 0, 0.18),
@@ -83,7 +81,7 @@ html.embed-widget-page body {
 }
 
 .embed-widget-button:focus:hover {
-  transform: translate(-50%, -50%) scale(1.08);
+  transform: translateX(-50%) scale(1.08);
 }
 
 .embed-widget-badge {
