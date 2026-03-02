@@ -104,9 +104,24 @@ html.embed-widget-page body {
 }
 
 .embed-widget-button-icon {
-  font-size: clamp(1rem, calc(var(--embed-btn-size, 48px) * 0.28), 1.5rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+
+.embed-widget-button-chat-icon {
+  width: clamp(20px, calc(var(--embed-btn-size, 48px) * 0.5), 28px);
+  height: clamp(20px, calc(var(--embed-btn-size, 48px) * 0.5), 28px);
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.embed-widget-button-close {
+  font-size: clamp(1rem, calc(var(--embed-btn-size, 48px) * 0.32), 1.4rem);
+  font-weight: 300;
+  line-height: 1;
 }
 
 /* Panel: ocupa todo el iframe para no cortarse */
@@ -216,7 +231,11 @@ html.embed-widget-page body {
 }
 
 @media (max-width: 420px) {
-  .embed-widget-button-icon {
-    font-size: clamp(0.9rem, calc(var(--embed-btn-size, 48px) * 0.26), 1.35rem);
+  .embed-widget-button-chat-icon {
+    width: clamp(18px, calc(var(--embed-btn-size, 48px) * 0.48), 24px);
+    height: clamp(18px, calc(var(--embed-btn-size, 48px) * 0.48), 24px);
+  }
+  .embed-widget-button-close {
+    font-size: clamp(0.9rem, calc(var(--embed-btn-size, 48px) * 0.3), 1.25rem);
   }
 }
