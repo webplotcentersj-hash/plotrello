@@ -24,6 +24,25 @@ export default function EmbedChatWidgetPage() {
     scrollToBottom()
   }, [messages, loading, staffReplies])
 
+  const [viewportSize, setViewportSize] = useState({ w: 88, h: 88 })
+
+  useEffect(() => {
+    const updateSize = () => {
+      setViewportSize({ w: window.innerWidth, h: window.innerHeight })
+    }
+    updateSize()
+    window.addEventListener('resize', updateSize)
+    return () => window.removeEventListener('resize', updateSize)
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const margin = 16
+    const btnMax = Math.min(56, viewportSize.w - margin, viewportSize.h - margin)
+    root.style.setProperty('--embed-btn-size', `${Math.max(32, btnMax)}px`)
+    return () => { root.style.removeProperty('--embed-btn-size') }
+  }, [viewportSize])
+
   useEffect(() => {
     const root = document.documentElement
     root.classList.add('embed-widget-page')

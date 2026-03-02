@@ -38,17 +38,17 @@ html.embed-widget-page body {
   flex-shrink: 0;
 }
 
-/* Botón flotante: tamaño que quepa en ancho Y alto del iframe para verse siempre redondo */
+/* Botón flotante: tamaño desde JS (--embed-btn-size) para que siempre quepa y se vea redondo */
 .embed-widget-button {
   position: fixed;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 99998;
-  width: min(56px, calc(100vw - 24px), calc(100vh - 24px));
-  height: min(56px, calc(100vw - 24px), calc(100vh - 24px));
-  max-width: 56px;
-  max-height: 56px;
+  width: var(--embed-btn-size, 48px);
+  height: var(--embed-btn-size, 48px);
+  min-width: 32px;
+  min-height: 32px;
   border-radius: 50%;
   border: none;
   background: radial-gradient(circle at 30% 30%, #fb923c, #ea580c 50%, #c2410c);
@@ -61,7 +61,7 @@ html.embed-widget-page body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, width 0.15s ease, height 0.15s ease;
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
@@ -104,7 +104,7 @@ html.embed-widget-page body {
 }
 
 .embed-widget-button-icon {
-  font-size: 1.5rem;
+  font-size: clamp(1rem, calc(var(--embed-btn-size, 48px) * 0.28), 1.5rem);
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
@@ -216,8 +216,7 @@ html.embed-widget-page body {
 }
 
 @media (max-width: 420px) {
-  .embed-widget-button {
-    width: min(52px, calc(100vw - 24px), calc(100vh - 24px));
-    height: min(52px, calc(100vw - 24px), calc(100vh - 24px));
+  .embed-widget-button-icon {
+    font-size: clamp(0.9rem, calc(var(--embed-btn-size, 48px) * 0.26), 1.35rem);
   }
 }
