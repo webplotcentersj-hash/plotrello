@@ -57,7 +57,7 @@ export default function EmbedChatWidgetPage() {
   useEffect(() => {
     const root = document.documentElement
     const margin = 24
-    const btnMax = Math.min(56, viewportSize.w - margin, viewportSize.h - margin)
+    const btnMax = Math.min(96, viewportSize.w - margin, viewportSize.h - margin)
     root.style.setProperty('--embed-btn-size', `${Math.max(32, btnMax)}px`)
     return () => { root.style.removeProperty('--embed-btn-size') }
   }, [viewportSize])

@@ -44,10 +44,10 @@ html.embed-widget-page body {
   left: auto;
   transform: none;
   z-index: 99998;
-  width: var(--embed-btn-size, 48px);
-  height: var(--embed-btn-size, 48px);
-  min-width: 36px;
-  min-height: 36px;
+  width: var(--embed-btn-size, 64px);
+  height: var(--embed-btn-size, 64px);
+  min-width: 48px;
+  min-height: 48px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -111,14 +111,14 @@ html.embed-widget-page body {
 }
 
 .embed-widget-button-chat-icon {
-  width: clamp(28px, calc(var(--embed-btn-size, 48px) * 0.65), 40px);
-  height: clamp(28px, calc(var(--embed-btn-size, 48px) * 0.65), 40px);
+  width: clamp(48px, calc(var(--embed-btn-size, 64px) * 0.75), 72px);
+  height: clamp(48px, calc(var(--embed-btn-size, 64px) * 0.75), 72px);
   color: inherit;
   flex-shrink: 0;
 }
 
 .embed-widget-button-close {
-  font-size: clamp(1.1rem, calc(var(--embed-btn-size, 48px) * 0.36), 1.5rem);
+  font-size: clamp(1.1rem, calc(var(--embed-btn-size, 64px) * 0.32), 1.5rem);
   font-weight: 300;
   line-height: 1;
   color: #1f2937;
@@ -234,10 +234,10 @@ html.embed-widget-page body {
 
 @media (max-width: 420px) {
   .embed-widget-button-chat-icon {
-    width: clamp(18px, calc(var(--embed-btn-size, 48px) * 0.48), 24px);
-    height: clamp(18px, calc(var(--embed-btn-size, 48px) * 0.48), 24px);
+    width: clamp(36px, calc(var(--embed-btn-size, 64px) * 0.7), 56px);
+    height: clamp(36px, calc(var(--embed-btn-size, 64px) * 0.7), 56px);
   }
   .embed-widget-button-close {
-    font-size: clamp(0.9rem, calc(var(--embed-btn-size, 48px) * 0.3), 1.25rem);
+    font-size: clamp(0.9rem, calc(var(--embed-btn-size, 64px) * 0.28), 1.25rem);
   }
 }
