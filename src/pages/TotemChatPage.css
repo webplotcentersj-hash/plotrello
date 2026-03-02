@@ -163,29 +163,44 @@
 
 .totem-robot-antenna {
   position: absolute;
-  top: -12px;
+  top: -14px;
   width: 4px;
-  height: 18px;
-  background: linear-gradient(to top, var(--totem-accent), rgba(var(--totem-accent-rgb), 0.3));
+  height: 20px;
+  background: linear-gradient(to top, var(--totem-accent), rgba(var(--totem-accent-rgb), 0.35));
   border-radius: 2px;
   transform-origin: bottom center;
 }
 
+.totem-robot-antenna-tip {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--totem-accent);
+  box-shadow: 0 0 10px rgba(var(--totem-accent-rgb), 0.8);
+}
+
 .totem-robot-antenna--l {
   left: 24%;
-  transform: rotate(-10deg);
-  animation: totem-antenna 2.2s ease-in-out infinite;
+  animation: totem-antenna-wiggle-l 2s ease-in-out infinite;
 }
 
 .totem-robot-antenna--r {
   right: 24%;
-  transform: rotate(10deg);
-  animation: totem-antenna 2.2s ease-in-out infinite 0.25s;
+  animation: totem-antenna-wiggle-r 2s ease-in-out infinite 0.2s;
 }
 
-@keyframes totem-antenna {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+@keyframes totem-antenna-wiggle-l {
+  0%, 100% { transform: rotate(-14deg); }
+  50% { transform: rotate(-6deg); }
+}
+
+@keyframes totem-antenna-wiggle-r {
+  0%, 100% { transform: rotate(14deg); }
+  50% { transform: rotate(6deg); }
 }
 
 .totem-robot-face {
@@ -240,13 +255,13 @@
 }
 
 .totem-robot-eye {
-  width: clamp(16px, 4vw, 24px);
-  height: clamp(16px, 4vw, 24px);
+  width: clamp(18px, 4.2vw, 26px);
+  height: clamp(18px, 4.2vw, 26px);
   border-radius: 50%;
-  background: rgba(var(--totem-accent-rgb), 0.3);
+  background: rgba(var(--totem-accent-rgb), 0.35);
   box-shadow:
-    0 0 18px rgba(var(--totem-accent-rgb), 0.25),
-    inset 0 -2px 6px rgba(0, 0, 0, 0.4);
+    0 0 20px rgba(var(--totem-accent-rgb), 0.3),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.35);
   position: relative;
   overflow: hidden;
   transition: background 0.2s, box-shadow 0.2s;
@@ -254,17 +269,29 @@
 
 .totem-robot-eye-shine {
   position: absolute;
-  top: 18%;
-  left: 22%;
-  width: 32%;
-  height: 32%;
+  top: 20%;
+  left: 24%;
+  width: 30%;
+  height: 30%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+  animation: totem-eye-shine 4s ease-in-out infinite;
+}
+
+.totem-robot-eye--r .totem-robot-eye-shine {
+  animation-delay: 0.5s;
+}
+
+@keyframes totem-eye-shine {
+  0%, 100% { transform: translate(0, 0); opacity: 1; }
+  25% { transform: translate(1px, -1px); opacity: 0.95; }
+  50% { transform: translate(-1px, 0); opacity: 1; }
+  75% { transform: translate(0, 1px); opacity: 0.95; }
 }
 
 .totem-page[data-state="idle"] .totem-robot-eye {
-  animation: totem-eye-idle 2s ease-in-out infinite;
+  animation: totem-eye-idle 2s ease-in-out infinite, totem-eye-blink 4s ease-in-out infinite;
 }
 
 .totem-page[data-state="greeting"] .totem-robot-eye,
@@ -272,21 +299,38 @@
 .totem-page[data-state="speaking"] .totem-robot-eye {
   background: var(--totem-accent);
   box-shadow:
-    0 0 24px rgba(var(--totem-accent-rgb), 0.85),
-    0 0 45px rgba(var(--totem-accent-rgb), 0.35),
-    inset 0 -2px 6px rgba(0, 0, 0, 0.2);
+    0 0 26px rgba(var(--totem-accent-rgb), 0.9),
+    0 0 50px rgba(var(--totem-accent-rgb), 0.4),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.2);
+  animation: totem-eye-live 3s ease-in-out infinite, totem-eye-blink 5s ease-in-out infinite;
+}
+
+.totem-page[data-state="listening"] .totem-robot-eye--r,
+.totem-page[data-state="speaking"] .totem-robot-eye--r {
+  animation-delay: 0.25s, 0.2s;
 }
 
 .totem-page[data-state="thinking"] .totem-robot-eye {
   background: var(--totem-think);
   box-shadow:
-    0 0 22px rgba(var(--totem-think-rgb), 0.7),
-    0 0 38px rgba(var(--totem-think-rgb), 0.25);
+    0 0 24px rgba(var(--totem-think-rgb), 0.75),
+    0 0 40px rgba(var(--totem-think-rgb), 0.3);
+  animation: totem-eye-live 2.5s ease-in-out infinite;
 }
 
 @keyframes totem-eye-idle {
-  0%, 100% { opacity: 0.65; filter: brightness(0.85); }
-  50% { opacity: 1; filter: brightness(1.15); }
+  0%, 100% { opacity: 0.7; filter: brightness(0.9); }
+  50% { opacity: 1; filter: brightness(1.1); }
+}
+
+@keyframes totem-eye-blink {
+  0%, 45%, 55%, 100% { transform: scaleY(1); }
+  48%, 52% { transform: scaleY(0.12); }
+}
+
+@keyframes totem-eye-live {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.2); }
 }
 
 .totem-robot-mouth {
@@ -315,6 +359,22 @@
 @keyframes totem-bar {
   0%, 100% { transform: scaleY(0.3); opacity: 0.75; }
   50% { transform: scaleY(1.2); opacity: 1; }
+}
+
+.totem-robot-smile {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 16px;
+  border-bottom: 3px solid rgba(var(--totem-accent-rgb), 0.65);
+  border-radius: 0 0 40px 40px;
+  opacity: 0.9;
+}
+
+.totem-page[data-state="thinking"] .totem-robot-smile {
+  opacity: 0;
 }
 
 .totem-robot-thinking {
@@ -354,30 +414,64 @@
   text-shadow: 0 0 20px rgba(var(--totem-accent-rgb), 0.5);
 }
 
+.totem-conversation-box {
+  width: 100%;
+  padding: 1rem 1.15rem;
+  background: rgba(18, 14, 10, 0.85);
+  border: 1px solid rgba(var(--totem-accent-rgb), 0.35);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 24px rgba(var(--totem-accent-rgb), 0.08);
+  position: relative;
+  min-height: 2.5rem;
+}
+
+.totem-conversation-box::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid rgba(var(--totem-accent-rgb), 0.25);
+}
+
+.totem-conversation-box .totem-state {
+  margin: 0 0 0.35rem;
+}
+
+.totem-conversation-box .totem-state:last-child {
+  margin-bottom: 0;
+}
+
+.totem-conversation-box .totem-subtitle {
+  margin: 0;
+}
+
 .totem-state {
   font-size: clamp(0.78rem, 1.9vw, 1.05rem);
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0;
+  color: rgba(255, 255, 255, 0.45);
   letter-spacing: 0.12em;
 }
 
 .totem-state--label {
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 0 20px rgba(var(--totem-accent-rgb), 0.4);
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 18px rgba(var(--totem-accent-rgb), 0.35);
 }
 
 .totem-subtitle {
   font-size: clamp(0.85rem, 1.9vw, 1.05rem);
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
   max-height: 3.5em;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  line-height: 1.4;
+  line-height: 1.42;
 }
 
 .totem-generated-image-wrap {

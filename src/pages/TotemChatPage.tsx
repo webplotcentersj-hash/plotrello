@@ -9,6 +9,14 @@ const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
 
+/** Quita emojis y símbolos para que el TTS no los lea. */
+function stripEmojisForTTS(text: string): string {
+  return text
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F1E0}-\u{1F1FF}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 type TotemState = 'idle' | 'greeting' | 'listening' | 'thinking' | 'speaking'
 
 export default function TotemChatPage() {
@@ -33,13 +41,15 @@ export default function TotemChatPage() {
   conversationIdRef.current = conversationId
 
   const speak = useCallback((text: string) => {
+    const clean = stripEmojisForTTS(text)
+    if (!clean) return Promise.resolve()
     return new Promise<void>((resolve) => {
       if (!('speechSynthesis' in window)) {
         resolve()
         return
       }
       window.speechSynthesis.cancel()
-      const u = new SpeechSynthesisUtterance(text)
+      const u = new SpeechSynthesisUtterance(clean)
       u.lang = 'es-AR'
       u.rate = 0.95
       u.onend = () => resolve()
@@ -250,8 +260,12 @@ export default function TotemChatPage() {
       <div className="totem-ui">
         <div className="totem-robot">
           <div className="totem-robot-halo" aria-hidden />
-          <div className="totem-robot-antenna totem-robot-antenna--l" />
-          <div className="totem-robot-antenna totem-robot-antenna--r" />
+          <div className="totem-robot-antenna totem-robot-antenna--l">
+            <span className="totem-robot-antenna-tip" aria-hidden />
+          </div>
+          <div className="totem-robot-antenna totem-robot-antenna--r">
+            <span className="totem-robot-antenna-tip" aria-hidden />
+          </div>
           <div className="totem-robot-face" role="img" aria-label={`Estado: ${state}`}>
             <div className="totem-robot-eyes">
               <div className="totem-robot-eye totem-robot-eye--l">
@@ -270,6 +284,7 @@ export default function TotemChatPage() {
                 </>
               )}
             </div>
+            <div className="totem-robot-smile" aria-hidden />
             {state === 'thinking' && (
               <div className="totem-robot-thinking">
                 <span className="totem-robot-dot" />
@@ -280,14 +295,16 @@ export default function TotemChatPage() {
           </div>
           <div className="totem-robot-name">PlotAI</div>
         </div>
-        <p className="totem-state totem-state--label">
-          {state === 'idle' && 'ACERCATE O TOCÁ PARA HABLAR'}
-          {state === 'greeting' && 'INICIANDO...'}
-          {state === 'listening' && 'ESCUCHANDO...'}
-          {state === 'thinking' && 'PROCESANDO...'}
-          {state === 'speaking' && 'HABLANDO...'}
-        </p>
-        {lastText && <p className="totem-subtitle">{lastText}</p>}
+        <div className="totem-conversation-box">
+          <p className="totem-state totem-state--label">
+            {state === 'idle' && 'ACERCATE O TOCÁ PARA HABLAR'}
+            {state === 'greeting' && 'INICIANDO...'}
+            {state === 'listening' && 'ESCUCHANDO...'}
+            {state === 'thinking' && 'PROCESANDO...'}
+            {state === 'speaking' && 'HABLANDO...'}
+          </p>
+          {lastText && <p className="totem-subtitle">{lastText}</p>}
+        </div>
         {generatedImageUrl && (
           <div className="totem-generated-image-wrap">
             <img src={generatedImageUrl} alt="Imagen generada" className="totem-generated-image" />
