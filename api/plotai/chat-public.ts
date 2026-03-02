@@ -214,7 +214,7 @@ async function findClientAndOrders(
   const hasAny = n || e || d || c
   if (!hasAny) {
     return {
-      clientContext: 'El visitante no se ha identificado. Para buscar sus trabajos necesitás su nombre, el nombre de la empresa a la que pertenece, DNI o CUIT. Pedile amablemente: "¿Me decís tu nombre o el nombre de tu empresa?"',
+      clientContext: 'El visitante aún no dio nombre, empresa, DNI ni CUIT. Solo cuando pregunte por su trabajo u orden pedile: "¿Me decís tu nombre, DNI, CUIT o número de OP para buscarlo?"',
       ordersContext: ''
     }
   }
@@ -482,14 +482,13 @@ CLIENTE CON QUIEN ESTÁS HABLANDO (usá esto para personalizar y dar datos corre
 ${clientContext}
 ${ordersContext ? '\n' + ordersContext : ''}
 
-CÓMO TRATAR AL CLIENTE:
-- Al comenzar, si no tenés nombre ni empresa del visitante, saludalo y preguntale: "¿Me decís tu nombre o el nombre de la empresa a la que pertenecés? Así busco el estado de tus trabajos."
-- Si pregunta por "mi trabajo", "la orden", "¿está listo?", asumí que habla de sus OPs; si tenés el estado en el contexto, decilo claro (número de OP, estado, fecha de entrega si aplica).
-- Si no está identificado y pregunta por trabajos, pedile nombre o empresa: "¿Me decís tu nombre o el de tu empresa? Así busco tus trabajos." Con nombre o empresa alcanza; no hace falta DNI o CUIT.
-- Si algo no está en tus datos (precios exactos, plazos que no figuran, cambios de pedido), ofrecé el canal correcto: "Para eso te conviene hablar directo por teléfono (2646212163) o por contacto@plotcenter.com.ar, así te dan el dato exacto."
-- No inventes nunca estados de órdenes, precios ni datos del cliente. Solo usá lo que está en el contexto de arriba.
-- Resumí cuando haya mucho dato (ej. varias OPs) y destacá lo más importante. Si hay una sola OP, podés ser más detallado.
-- Cerrando: si resolviste la duda, podés cerrar con "¿Necesitás algo más?" o "Cualquier cosa, estamos acá." Si no pudiste resolver, dejá claro el siguiente paso (llamar, escribir, acercarse).`
+CÓMO TRATAR AL CLIENTE (atención al público):
+- Saludo y atención general: respondé con buena onda a cualquier consulta (horarios, servicios, contacto, ubicación). No pidas datos del cliente al inicio; solo ayudá con lo que pregunten.
+- Solo cuando el visitante pregunte por SU trabajo, su orden o su OP (ej. "¿cómo va mi trabajo?", "¿está listo?", "quiero saber el estado de mi orden", "mi OP", "cuándo me lo entregan"), ahí sí pedile identificación: "Para buscar tu trabajo necesito que me indiques tu nombre, DNI, CUIT o número de OP." Con uno de esos alcanza.
+- Si ya te dio nombre, empresa, DNI, CUIT u OP y tenés el contexto de arriba, decile el estado de sus trabajos con claridad (número de OP, estado, fecha de entrega si aplica).
+- Si algo no está en tus datos (precios exactos, plazos que no figuran, cambios de pedido), ofrecé el canal correcto: "Para eso te conviene hablar directo por teléfono (2646212163) o por contacto@plotcenter.com.ar."
+- No inventes nunca estados de órdenes, precios ni datos del cliente. Solo usá lo que está en el contexto.
+- Resumí cuando haya mucho dato (varias OPs) y destacá lo importante. Cerrando: "¿Necesitás algo más?" o "Cualquier cosa, estamos acá."`
 
     const ai = new GoogleGenAI({ apiKey })
 

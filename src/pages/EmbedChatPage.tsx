@@ -156,7 +156,7 @@ export default function EmbedChatPage() {
       <div className="embed-chat-messages">
         {messages.length === 0 && !loading && (
           <div className="embed-chat-welcome">
-            <p>Hola. ¿Me decís tu <strong>nombre</strong> o el nombre de la <strong>empresa</strong> a la que pertenecés? Así busco el estado de tus trabajos. También podés indicar DNI, CUIT o número de OP.</p>
+            <p>Hola, soy el asistente de Plot Center. Escribí tu consulta: servicios, contacto, horarios o lo que necesites. Si preguntás por <strong>tu trabajo u orden</strong>, te voy a pedir tu nombre, DNI, CUIT u OP para buscarlo.</p>
           </div>
         )}
         {messages.map((m, i) => (

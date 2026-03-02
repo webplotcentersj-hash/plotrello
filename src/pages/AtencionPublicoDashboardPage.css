@@ -700,6 +700,56 @@
   gap: 8px;
 }
 
+.atencion-publico-block-title-toggle {
+  width: 100%;
+  padding: 10px 0;
+  margin: 0 0 0 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.atencion-publico-block-title-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.atencion-publico-block-title-chevron {
+  display: inline-block;
+  width: 1em;
+  font-size: 0.75em;
+  color: var(--text-muted);
+}
+
+.atencion-publico-block-count {
+  margin-left: 6px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.atencion-publico-biblioteca-content {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.atencion-publico-biblioteca-content[hidden] {
+  display: none;
+}
+
+.atencion-publico-biblioteca-search {
+  margin-bottom: 12px;
+}
+
+.atencion-publico-block-biblioteca .atencion-publico-block-title-toggle {
+  margin-bottom: 0;
+}
+
 .atencion-publico-live-dot {
   width: 8px;
   height: 8px;

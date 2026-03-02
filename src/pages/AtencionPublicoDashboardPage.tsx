@@ -103,6 +103,8 @@ const AtencionPublicoDashboardPage = () => {
   const [replyConversacionText, setReplyConversacionText] = useState('')
   const [sendingReplyConversacion, setSendingReplyConversacion] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [bibliotecaAbierta, setBibliotecaAbierta] = useState(false)
+  const [searchBiblioteca, setSearchBiblioteca] = useState('')
   const [modalEmbed, setModalEmbed] = useState(false)
   const [modalConversacionId, setModalConversacionId] = useState<number | null>(null)
   const [modalSolicitudId, setModalSolicitudId] = useState<number | null>(null)
@@ -280,6 +282,18 @@ const AtencionPublicoDashboardPage = () => {
     bib.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     return { conversacionesHoy: hoy, conversacionesBiblioteca: bib }
   }, [conversaciones, q])
+
+  const bibliotecaFiltrada = useMemo(() => {
+    const qb = searchBiblioteca.trim().toLowerCase()
+    if (!qb) return conversacionesBiblioteca
+    return conversacionesBiblioteca.filter(
+      (c) =>
+        (c.cliente_nombre || '').toLowerCase().includes(qb) ||
+        (c.cliente_email || '').toLowerCase().includes(qb) ||
+        (c.ultimo_mensaje_preview || '').toLowerCase().includes(qb) ||
+        (c.canal || '').toLowerCase().includes(qb)
+    )
+  }, [conversacionesBiblioteca, searchBiblioteca])
 
   const formatFecha = (s: string) => {
     try {
@@ -510,29 +524,56 @@ const AtencionPublicoDashboardPage = () => {
                     </div>
                   )}
                   {conversacionesBiblioteca.length > 0 && (
-                    <div className="atencion-publico-block">
-                      <h4 className="atencion-publico-block-title">Biblioteca de conversaciones</h4>
-                      <ul className="atencion-publico-list">
-                        {conversacionesBiblioteca.map((c) => (
-                          <li
-                            key={c.id}
-                            className="atencion-publico-list-item atencion-publico-list-item-clickable"
-                            onClick={() => openConversacion(c.id)}
-                            onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
-                            role="button"
-                            tabIndex={0}
-                          >
-                            <div className="atencion-publico-item-header">
-                              <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
-                              <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
-                              <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
-                            </div>
-                            {c.ultimo_mensaje_preview && (
-                              <p className="atencion-publico-item-preview">{c.ultimo_mensaje_preview}</p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="atencion-publico-block atencion-publico-block-biblioteca">
+                      <button
+                        type="button"
+                        className="atencion-publico-block-title atencion-publico-block-title-toggle"
+                        onClick={() => setBibliotecaAbierta((b) => !b)}
+                        aria-expanded={bibliotecaAbierta}
+                        aria-controls="atencion-publico-biblioteca-content"
+                      >
+                        <span className="atencion-publico-block-title-chevron" aria-hidden>
+                          {bibliotecaAbierta ? '▼' : '▶'}
+                        </span>
+                        Biblioteca de conversaciones
+                        <span className="atencion-publico-block-count">({conversacionesBiblioteca.length})</span>
+                      </button>
+                      <div id="atencion-publico-biblioteca-content" className="atencion-publico-biblioteca-content" hidden={!bibliotecaAbierta}>
+                        <div className="atencion-publico-search-row atencion-publico-biblioteca-search">
+                          <input
+                            type="search"
+                            placeholder="Buscar en la biblioteca..."
+                            value={searchBiblioteca}
+                            onChange={(e) => setSearchBiblioteca(e.target.value)}
+                            className="atencion-publico-search"
+                            aria-label="Buscar en biblioteca"
+                          />
+                        </div>
+                        <ul className="atencion-publico-list">
+                          {bibliotecaFiltrada.map((c) => (
+                            <li
+                              key={c.id}
+                              className="atencion-publico-list-item atencion-publico-list-item-clickable"
+                              onClick={() => openConversacion(c.id)}
+                              onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <div className="atencion-publico-item-header">
+                                <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
+                                <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
+                                <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
+                              </div>
+                              {c.ultimo_mensaje_preview && (
+                                <p className="atencion-publico-item-preview">{c.ultimo_mensaje_preview}</p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        {bibliotecaFiltrada.length === 0 && (
+                          <p className="atencion-publico-empty">Ningún resultado para &quot;{searchBiblioteca}&quot;.</p>
+                        )}
+                      </div>
                     </div>
                   )}
                   {conversacionesHoy.length === 0 && conversacionesBiblioteca.length === 0 && (
