@@ -1,8 +1,39 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import './AtencionPublicoDashboardPage.css'
+
+const REFRESH_INTERVAL_MS = 25000
+
+function isToday(dateStr: string): boolean {
+  try {
+    const d = new Date(dateStr)
+    const today = new Date()
+    return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()
+  } catch {
+    return false
+  }
+}
+
+function tiempoRelativo(dateStr: string): string {
+  try {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+    const diffH = Math.floor(diffMin / 60)
+    const diffD = Math.floor(diffH / 24)
+    if (diffMin < 1) return 'Ahora'
+    if (diffMin < 60) return `Hace ${diffMin} min`
+    if (diffH < 24 && d.getDate() === now.getDate()) return `Hoy ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`
+    if (diffD === 1) return 'Ayer'
+    if (diffD < 7) return `Hace ${diffD} días`
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return dateStr
+  }
+}
 
 type SolicitudChat = {
   id: number
@@ -71,6 +102,10 @@ const AtencionPublicoDashboardPage = () => {
   const [loadingConversacion, setLoadingConversacion] = useState(false)
   const [replyConversacionText, setReplyConversacionText] = useState('')
   const [sendingReplyConversacion, setSendingReplyConversacion] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [modalEmbed, setModalEmbed] = useState(false)
+  const [modalConversacionId, setModalConversacionId] = useState<number | null>(null)
+  const [modalSolicitudId, setModalSolicitudId] = useState<number | null>(null)
 
   const loadConversaciones = async () => {
     setLoadingConv(true)
@@ -135,22 +170,44 @@ const AtencionPublicoDashboardPage = () => {
   }, [canAccessAtencionPublico])
 
   useEffect(() => {
-    if (canAccessAtencionPublico && solicitudChatId) {
-      const id = parseInt(solicitudChatId, 10)
-      if (!isNaN(id)) loadSolicitudChat(id)
-    } else {
-      setSolicitudChat(null)
-    }
-  }, [canAccessAtencionPublico, solicitudChatId])
+    if (!canAccessAtencionPublico) return
+    const t = setInterval(loadConversaciones, REFRESH_INTERVAL_MS)
+    return () => clearInterval(t)
+  }, [canAccessAtencionPublico])
 
   useEffect(() => {
-    if (canAccessAtencionPublico && conversacionId) {
-      const id = parseInt(conversacionId, 10)
-      if (!isNaN(id)) loadConversacionDetalle(id)
-    } else {
+    if (canAccessAtencionPublico && modalSolicitudId) {
+      loadSolicitudChat(modalSolicitudId)
+    } else if (!modalSolicitudId) {
+      setSolicitudChat(null)
+    }
+  }, [canAccessAtencionPublico, modalSolicitudId])
+
+  useEffect(() => {
+    if (canAccessAtencionPublico && modalConversacionId) {
+      loadConversacionDetalle(modalConversacionId)
+    } else if (!modalConversacionId) {
       setConversacionDetalle(null)
     }
-  }, [canAccessAtencionPublico, conversacionId])
+  }, [canAccessAtencionPublico, modalConversacionId])
+
+  useEffect(() => {
+    const sid = searchParams.get('solicitud_chat')
+    const cid = searchParams.get('conversacion')
+    if (sid) {
+      const id = parseInt(sid, 10)
+      if (!isNaN(id)) {
+        setModalConversacionId(null)
+        setModalSolicitudId(id)
+      }
+    } else if (cid) {
+      const id = parseInt(cid, 10)
+      if (!isNaN(id)) {
+        setModalSolicitudId(null)
+        setModalConversacionId(id)
+      }
+    }
+  }, [searchParams])
 
   const sendReply = async () => {
     if (!solicitudChat || !replyText.trim() || sendingReply) return
@@ -174,11 +231,17 @@ const AtencionPublicoDashboardPage = () => {
       p.delete('solicitud_chat')
       return p
     })
+    setModalSolicitudId(null)
     setSolicitudChat(null)
   }
 
   const openConversacion = (id: number) => {
-    setSearchParams({ conversacion: String(id) })
+    setModalConversacionId(id)
+  }
+
+  const openSolicitud = (id: number) => {
+    setSearchParams({ solicitud_chat: String(id) })
+    setModalSolicitudId(id)
   }
 
   const closeConversacionDetalle = () => {
@@ -186,6 +249,7 @@ const AtencionPublicoDashboardPage = () => {
       p.delete('conversacion')
       return p
     })
+    setModalConversacionId(null)
     setConversacionDetalle(null)
     setReplyConversacionText('')
   }
@@ -206,6 +270,24 @@ const AtencionPublicoDashboardPage = () => {
       setSendingReplyConversacion(false)
     }
   }
+
+  const q = searchQuery.trim().toLowerCase()
+  const { conversacionesHoy, conversacionesBiblioteca } = useMemo(() => {
+    const hoy: Conversacion[] = []
+    const bib: Conversacion[] = []
+    for (const c of conversaciones) {
+      const match = !q || (c.cliente_nombre || '').toLowerCase().includes(q) ||
+        (c.cliente_email || '').toLowerCase().includes(q) ||
+        (c.ultimo_mensaje_preview || '').toLowerCase().includes(q) ||
+        (c.canal || '').toLowerCase().includes(q)
+      if (!match) continue
+      if (isToday(c.updated_at)) hoy.push(c)
+      else bib.push(c)
+    }
+    hoy.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    bib.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    return { conversacionesHoy: hoy, conversacionesBiblioteca: bib }
+  }, [conversaciones, q])
 
   const formatFecha = (s: string) => {
     try {
@@ -261,164 +343,17 @@ const AtencionPublicoDashboardPage = () => {
         </div>
       </header>
 
-      {solicitudChatId && (
-        <section className="atencion-publico-conversacion-panel">
-          {loadingSolicitud ? (
-            <div className="atencion-publico-loading">Cargando conversación...</div>
-          ) : solicitudChat ? (
-            <>
-              <div className="atencion-publico-conversacion-header">
-                <div className="atencion-publico-conversacion-header-left">
-                  <h2>💬 Conversación con {solicitudChat.cliente_nombre || 'cliente'}</h2>
-                  <p className="atencion-publico-conversacion-meta">
-                    Solicitó hablar con <strong>{solicitudChat.sector_solicitado}</strong> · Solicitud #{solicitudChat.id}
-                  </p>
-                </div>
-                <button type="button" className="atencion-publico-cerrar-conversacion" onClick={closeConversacion}>
-                  Cerrar
-                </button>
-              </div>
-              <div className="atencion-publico-conversacion-mensajes">
-                {solicitudChat.historial_mensajes?.map((m, i) => (
-                  <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
-                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
-                    <p className="atencion-publico-msg-text">{m.text}</p>
-                  </div>
-                ))}
-                {solicitudChat.respuestas_staff?.map((r, i) => (
-                  <div key={`staff-${i}`} className="atencion-publico-msg atencion-publico-msg--staff">
-                    <span className="atencion-publico-msg-role">{r.autor}</span>
-                    <p className="atencion-publico-msg-text">{r.texto}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="atencion-publico-conversacion-reply">
-                <label className="atencion-publico-reply-label">Responder al cliente</label>
-                <textarea
-                  placeholder="Escribí tu respuesta al cliente..."
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  className="atencion-publico-reply-input"
-                  rows={3}
-                  disabled={sendingReply}
-                />
-                <button
-                  type="button"
-                  className="atencion-publico-reply-send"
-                  onClick={sendReply}
-                  disabled={sendingReply || !replyText.trim()}
-                >
-                  {sendingReply ? 'Enviando...' : 'Enviar respuesta'}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="atencion-publico-empty">
-              <p>Solicitud no encontrada.</p>
-              <button type="button" className="link-button" onClick={closeConversacion}>
-                Volver
-              </button>
-            </div>
-          )}
-        </section>
-      )}
-
-      {conversacionId && !solicitudChatId && (
-        <section className="atencion-publico-conversacion-panel atencion-publico-panel-conversacion">
-          {loadingConversacion ? (
-            <div className="atencion-publico-loading">Cargando conversación...</div>
-          ) : conversacionDetalle ? (
-            <>
-              <div className="atencion-publico-conversacion-header">
-                <div className="atencion-publico-conversacion-header-left">
-                  <h2>💬 {conversacionDetalle.cliente_nombre || 'Cliente web'}</h2>
-                  <p className="atencion-publico-conversacion-meta">
-                    Canal: {conversacionDetalle.canal} · {formatFecha(conversacionDetalle.updated_at)}
-                  </p>
-                </div>
-                <button type="button" className="atencion-publico-cerrar-conversacion" onClick={closeConversacionDetalle}>
-                  Cerrar
-                </button>
-              </div>
-              <div className="atencion-publico-conversacion-mensajes">
-                {conversacionDetalle.historial_mensajes?.map((m, i) => (
-                  <div key={`h-${i}`} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
-                    <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
-                    <p className="atencion-publico-msg-text">{m.text}</p>
-                  </div>
-                ))}
-                {conversacionDetalle.respuestas_staff?.map((r, i) => (
-                  <div key={`s-${i}`} className="atencion-publico-msg atencion-publico-msg--staff">
-                    <span className="atencion-publico-msg-role">{r.autor}</span>
-                    <p className="atencion-publico-msg-text">{r.texto}</p>
-                  </div>
-                ))}
-                {(!conversacionDetalle.historial_mensajes || conversacionDetalle.historial_mensajes.length === 0) &&
-                  (!conversacionDetalle.respuestas_staff || conversacionDetalle.respuestas_staff.length === 0) && (
-                  <p className="atencion-publico-empty">Sin mensajes en esta conversación.</p>
-                )}
-              </div>
-              <div className="atencion-publico-conversacion-reply">
-                <label className="atencion-publico-reply-label">Responder al cliente</label>
-                <textarea
-                  placeholder="Escribí tu respuesta..."
-                  value={replyConversacionText}
-                  onChange={(e) => setReplyConversacionText(e.target.value)}
-                  className="atencion-publico-reply-input"
-                  rows={3}
-                  disabled={sendingReplyConversacion}
-                />
-                <button
-                  type="button"
-                  className="atencion-publico-reply-send"
-                  onClick={sendReplyConversacion}
-                  disabled={sendingReplyConversacion || !replyConversacionText.trim()}
-                >
-                  {sendingReplyConversacion ? 'Enviando...' : 'Enviar respuesta'}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="atencion-publico-empty">
-              <p>Conversación no encontrada.</p>
-              <button type="button" className="link-button" onClick={closeConversacionDetalle}>
-                Volver
-              </button>
-            </div>
-          )}
-        </section>
-      )}
-
-      <div className="atencion-publico-container">
-        {/* Chat: embed para web + link interno */}
-        <section className="atencion-publico-chat-ia">
-          <h2>🤖 Chat con IA</h2>
-          <p>El chat para clientes (Gemini) está disponible para la web <a href="https://plotcenter.com.ar/" target="_blank" rel="noopener noreferrer">plotcenter.com.ar</a>. Si el cliente se identifica con <strong>nombre, DNI o CUIT</strong>, la IA sabe quién es, conoce el estado de sus trabajos y los datos de la empresa.</p>
-          <div className="atencion-publico-embed-actions">
-            <a href="/embed/chat" target="_blank" rel="noopener noreferrer" className="atencion-publico-card atencion-publico-card-chat atencion-publico-card-link">
-              <span className="atencion-publico-card-icon">🌐</span>
-              <div className="atencion-publico-card-body">
-                <h3>Abrir chat público (vista previa)</h3>
-                <p>Mismo chat que se incrusta en la web. Probá identificándote con nombre, DNI o CUIT.</p>
-              </div>
-            </a>
-            <button
-              type="button"
-              className="atencion-publico-card atencion-publico-card-chat"
-              onClick={() => navigate('/chat')}
-            >
-              <span className="atencion-publico-card-icon">💬</span>
-              <div className="atencion-publico-card-body">
-                <h3>Chat del equipo (PlotAI)</h3>
-                <p>Escribí <strong>@plotai</strong> o <strong>/plotai</strong> para consultar con la IA.</p>
-              </div>
-            </button>
-          </div>
-          <div className="atencion-publico-embed-code">
-            <h4>Código para incrustar en WordPress (plotcenter.com.ar)</h4>
-            <p className="atencion-publico-embed-code-hint">Elegí una opción y copiá el iframe en la web de Plot Center.</p>
-            <p className="atencion-publico-embed-option-label"><strong>Opción 1 — Botón flotante (recomendado):</strong> iframe chico que no tapa la página; al abrir el chat se agranda solo. Copiá el iframe y el script para que no afecte al resto del WordPress.</p>
-            <pre className="atencion-publico-pre">{`<iframe id="plotai-widget-iframe"
+      {/* Modal: conversación, solicitud o código embed */}
+      {(modalSolicitudId != null || modalConversacionId != null || modalEmbed) && (
+        <div className="atencion-publico-modal-overlay" onClick={() => { if (modalEmbed) setModalEmbed(false); else if (modalSolicitudId) closeConversacion(); else closeConversacionDetalle(); }}>
+          <div className="atencion-publico-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="atencion-publico-modal-close" onClick={() => { if (modalEmbed) setModalEmbed(false); else if (modalSolicitudId) closeConversacion(); else closeConversacionDetalle(); }} aria-label="Cerrar">✕</button>
+            {modalEmbed && (
+              <div className="atencion-publico-modal-embed">
+                <h3>Código para incrustar en WordPress</h3>
+                <p className="atencion-publico-embed-code-hint">Copiá el iframe y el script en la web de Plot Center (plotcenter.com.ar).</p>
+                <p className="atencion-publico-embed-option-label"><strong>Opción 1 — Botón flotante (recomendado)</strong></p>
+                <pre className="atencion-publico-pre">{`<iframe id="plotai-widget-iframe"
   src="https://plotrello.vercel.app/embed/chat-widget"
   title="Chat Plot Center"
   width="88"
@@ -431,25 +366,91 @@ const AtencionPublicoDashboardPage = () => {
   window.addEventListener('message', function(e) {
     if (e.origin !== ORIGIN || !e.data || e.data.type !== 'plotai-widget-resize') return;
     var iframe = document.getElementById('plotai-widget-iframe');
-    if (iframe) {
-      iframe.style.width = e.data.width + 'px';
-      iframe.style.height = e.data.height + 'px';
-    }
+    if (iframe) { iframe.style.width = e.data.width + 'px'; iframe.style.height = e.data.height + 'px'; }
   });
 })();
 </script>`}</pre>
-            <p className="atencion-publico-embed-option-label"><strong>Opción 2 — Chat en página:</strong> el chat ocupa un bloque fijo en la página.</p>
-            <pre className="atencion-publico-pre">{`<iframe
-  src="https://plotrello.vercel.app/embed/chat"
-  title="Chat Plot Center"
-  width="100%"
-  height="500"
-  style="border: none; border-radius: 8px;"
-></iframe>`}</pre>
+                <p className="atencion-publico-embed-option-label"><strong>Opción 2 — Chat en página</strong></p>
+                <pre className="atencion-publico-pre">{`<iframe src="https://plotrello.vercel.app/embed/chat" title="Chat Plot Center" width="100%" height="500" style="border: none; border-radius: 8px;"></iframe>`}</pre>
+              </div>
+            )}
+            {modalSolicitudId != null && !modalEmbed && (
+              loadingSolicitud ? (
+                <div className="atencion-publico-loading">Cargando...</div>
+              ) : solicitudChat ? (
+                <>
+                  <div className="atencion-publico-conversacion-header">
+                    <div className="atencion-publico-conversacion-header-left">
+                      <h2>💬 {solicitudChat.cliente_nombre || 'Cliente'}</h2>
+                      <p className="atencion-publico-conversacion-meta">Solicitó <strong>{solicitudChat.sector_solicitado}</strong> · #{solicitudChat.id}</p>
+                    </div>
+                  </div>
+                  <div className="atencion-publico-conversacion-mensajes">
+                    {solicitudChat.historial_mensajes?.map((m, i) => (
+                      <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
+                        <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
+                        <p className="atencion-publico-msg-text">{m.text}</p>
+                      </div>
+                    ))}
+                    {solicitudChat.respuestas_staff?.map((r, i) => (
+                      <div key={`staff-${i}`} className="atencion-publico-msg atencion-publico-msg--staff">
+                        <span className="atencion-publico-msg-role">{r.autor}</span>
+                        <p className="atencion-publico-msg-text">{r.texto}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="atencion-publico-conversacion-reply">
+                    <label className="atencion-publico-reply-label">Responder al cliente</label>
+                    <textarea placeholder="Escribí tu respuesta..." value={replyText} onChange={(e) => setReplyText(e.target.value)} className="atencion-publico-reply-input" rows={3} disabled={sendingReply} />
+                    <button type="button" className="atencion-publico-reply-send" onClick={sendReply} disabled={sendingReply || !replyText.trim()}>{sendingReply ? 'Enviando...' : 'Enviar'}</button>
+                  </div>
+                </>
+              ) : (
+                <div className="atencion-publico-empty"><p>Solicitud no encontrada.</p><button type="button" className="link-button" onClick={closeConversacion}>Cerrar</button></div>
+              )
+            )}
+            {modalConversacionId != null && !modalEmbed && (
+              loadingConversacion ? (
+                <div className="atencion-publico-loading">Cargando...</div>
+              ) : conversacionDetalle ? (
+                <>
+                  <div className="atencion-publico-conversacion-header">
+                    <div className="atencion-publico-conversacion-header-left">
+                      <h2>💬 {conversacionDetalle.cliente_nombre || 'Cliente web'}</h2>
+                      <p className="atencion-publico-conversacion-meta">{conversacionDetalle.canal} · {tiempoRelativo(conversacionDetalle.updated_at)}</p>
+                    </div>
+                  </div>
+                  <div className="atencion-publico-conversacion-mensajes">
+                    {conversacionDetalle.historial_mensajes?.map((m, i) => (
+                      <div key={`h-${i}`} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
+                        <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
+                        <p className="atencion-publico-msg-text">{m.text}</p>
+                      </div>
+                    ))}
+                    {conversacionDetalle.respuestas_staff?.map((r, i) => (
+                      <div key={`s-${i}`} className="atencion-publico-msg atencion-publico-msg--staff">
+                        <span className="atencion-publico-msg-role">{r.autor}</span>
+                        <p className="atencion-publico-msg-text">{r.texto}</p>
+                      </div>
+                    ))}
+                    {(!conversacionDetalle.historial_mensajes?.length && !conversacionDetalle.respuestas_staff?.length) && <p className="atencion-publico-empty">Sin mensajes.</p>}
+                  </div>
+                  <div className="atencion-publico-conversacion-reply">
+                    <label className="atencion-publico-reply-label">Responder al cliente</label>
+                    <textarea placeholder="Escribí tu respuesta..." value={replyConversacionText} onChange={(e) => setReplyConversacionText(e.target.value)} className="atencion-publico-reply-input" rows={3} disabled={sendingReplyConversacion} />
+                    <button type="button" className="atencion-publico-reply-send" onClick={sendReplyConversacion} disabled={sendingReplyConversacion || !replyConversacionText.trim()}>{sendingReplyConversacion ? 'Enviando...' : 'Enviar'}</button>
+                  </div>
+                </>
+              ) : (
+                <div className="atencion-publico-empty"><p>Conversación no encontrada.</p><button type="button" className="link-button" onClick={closeConversacionDetalle}>Cerrar</button></div>
+              )
+            )}
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* Tabs: Mensajes | Reclamos */}
+      <div className="atencion-publico-container">
+        {/* Primero: Mensajes y conversaciones */}
         <section className="atencion-publico-panel">
           <div className="atencion-publico-tabs">
             <button
@@ -470,35 +471,84 @@ const AtencionPublicoDashboardPage = () => {
 
           {activeTab === 'mensajes' && (
             <div className="atencion-publico-content">
-              <h3>Conversaciones con clientes</h3>
+              <div className="atencion-publico-search-row">
+                <input
+                  type="search"
+                  placeholder="Buscar por nombre, mensaje o canal..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="atencion-publico-search"
+                  aria-label="Buscar conversaciones"
+                />
+              </div>
               {loadingConv ? (
                 <div className="atencion-publico-loading">Cargando...</div>
               ) : conversaciones.length === 0 ? (
                 <div className="atencion-publico-empty">
-                  <p>No hay conversaciones aún. Las charlas del chat web (plotcenter.com.ar) se guardan acá automáticamente.</p>
+                  <p>No hay conversaciones aún. Las charlas del chat web se guardan acá automáticamente.</p>
                 </div>
               ) : (
-                <ul className="atencion-publico-list">
-                  {conversaciones.map((c) => (
-                    <li
-                      key={c.id}
-                      className="atencion-publico-list-item atencion-publico-list-item-clickable"
-                      onClick={() => openConversacion(c.id)}
-                      onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div className="atencion-publico-item-header">
-                        <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
-                        <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
-                      </div>
-                      <div className="atencion-publico-item-meta">{c.canal} · {formatFecha(c.updated_at)}</div>
-                      {c.ultimo_mensaje_preview && (
-                        <p className="atencion-publico-item-preview">{c.ultimo_mensaje_preview}</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  {conversacionesHoy.length > 0 && (
+                    <div className="atencion-publico-block">
+                      <h4 className="atencion-publico-block-title">
+                        <span className="atencion-publico-live-dot" aria-hidden /> Hoy
+                      </h4>
+                      <ul className="atencion-publico-list">
+                        {conversacionesHoy.map((c) => (
+                          <li
+                            key={c.id}
+                            className="atencion-publico-list-item atencion-publico-list-item-clickable atencion-publico-list-item-live"
+                            onClick={() => openConversacion(c.id)}
+                            onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <div className="atencion-publico-item-header">
+                              <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
+                              <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
+                              <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
+                            </div>
+                            {c.ultimo_mensaje_preview && (
+                              <p className="atencion-publico-item-preview">{c.ultimo_mensaje_preview}</p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {conversacionesBiblioteca.length > 0 && (
+                    <div className="atencion-publico-block">
+                      <h4 className="atencion-publico-block-title">Biblioteca de conversaciones</h4>
+                      <ul className="atencion-publico-list">
+                        {conversacionesBiblioteca.map((c) => (
+                          <li
+                            key={c.id}
+                            className="atencion-publico-list-item atencion-publico-list-item-clickable"
+                            onClick={() => openConversacion(c.id)}
+                            onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <div className="atencion-publico-item-header">
+                              <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
+                              <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
+                              <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
+                            </div>
+                            {c.ultimo_mensaje_preview && (
+                              <p className="atencion-publico-item-preview">{c.ultimo_mensaje_preview}</p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {conversacionesHoy.length === 0 && conversacionesBiblioteca.length === 0 && (
+                    <div className="atencion-publico-empty">
+                      <p>No hay resultados para &quot;{searchQuery}&quot;.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -529,6 +579,35 @@ const AtencionPublicoDashboardPage = () => {
               )}
             </div>
           )}
+        </section>
+
+        {/* Al final: Chat con IA y código del widget (abre en modal) */}
+        <section className="atencion-publico-chat-ia atencion-publico-chat-ia-footer">
+          <h2>🤖 Chat con IA en la web</h2>
+          <p>El chat para clientes está en <a href="https://plotcenter.com.ar/" target="_blank" rel="noopener noreferrer">plotcenter.com.ar</a>. El cliente puede decir su <strong>nombre o empresa</strong> y la IA busca sus trabajos.</p>
+          <div className="atencion-publico-embed-actions">
+            <a href="/embed/chat" target="_blank" rel="noopener noreferrer" className="atencion-publico-card atencion-publico-card-chat atencion-publico-card-link">
+              <span className="atencion-publico-card-icon">🌐</span>
+              <div className="atencion-publico-card-body">
+                <h3>Vista previa del chat público</h3>
+                <p>Abrir en nueva pestaña.</p>
+              </div>
+            </a>
+            <button type="button" className="atencion-publico-card atencion-publico-card-chat" onClick={() => navigate('/chat')}>
+              <span className="atencion-publico-card-icon">💬</span>
+              <div className="atencion-publico-card-body">
+                <h3>Chat del equipo</h3>
+                <p>@plotai o /plotai en el chat interno.</p>
+              </div>
+            </button>
+            <button type="button" className="atencion-publico-card atencion-publico-card-chat atencion-publico-card-embed" onClick={() => setModalEmbed(true)}>
+              <span className="atencion-publico-card-icon">📋</span>
+              <div className="atencion-publico-card-body">
+                <h3>Ver código del widget</h3>
+                <p>Iframe y script para WordPress.</p>
+              </div>
+            </button>
+          </div>
         </section>
       </div>
     </div>
