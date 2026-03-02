@@ -246,7 +246,7 @@ export default function EmbedChatWidgetPage() {
             <div className="embed-chat-messages">
               {messages.length === 0 && !loading && (
                 <div className="embed-chat-welcome">
-                  <p>Hola. Escribí tu consulta y te ayudo con información y contacto de Plot Center.</p>
+                  <p>Hola. ¿Me decís tu <strong>nombre</strong> o el nombre de la <strong>empresa</strong> a la que pertenecés? Así busco el estado de tus trabajos y te ayudo con lo que necesites.</p>
                 </div>
               )}
               {messages.map((m, i) => (

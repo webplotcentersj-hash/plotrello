@@ -40,6 +40,7 @@ CONTACTO:
 type Body = {
   message?: string
   nombre?: string
+  empresa?: string
   dni?: string
   cuit?: string
   op?: string
@@ -57,23 +58,46 @@ function extractOpFromText(text: string): string | null {
   return null
 }
 
-/** Extrae nombre, DNI o CUIT del texto del mensaje para identificar al cliente (ej. "me llamo Juan Pérez", "mi DNI es 20123456"). */
+/** Extrae nombre, empresa, DNI o CUIT del texto del mensaje para identificar al cliente. */
 function extractIdentificacionFromText(text: string): {
   nombre?: string
+  empresa?: string
   dni?: string
   cuit?: string
 } {
   const t = text.trim()
   if (!t) return {}
 
-  const out: { nombre?: string; dni?: string; cuit?: string } = {}
+  const out: { nombre?: string; empresa?: string; dni?: string; cuit?: string } = {}
 
-  // Nombre: "me llamo X", "soy X", "mi nombre es X", "nombre: X"
-  const nameRe = /\b(?:me\s+llamo|soy|mi\s+nombre\s+es|nombre\s*:)\s*([^.,;\n]+)/i
+  // Empresa: "empresa X", "trabajo en X", "soy de (la empresa) X", "pertenezco a X", "la empresa es X"
+  const empresaRe = /\b(?:empresa\s+(?:es\s+)?|trabajo\s+en\s+|soy\s+de\s+(?:la\s+empresa\s+)?|pertenezco\s+a\s+(?:la\s+)?|la\s+empresa\s+es\s+)([^.,;\n]+)/i
+  const empresaMatch = t.match(empresaRe)
+  if (empresaMatch) {
+    const emp = empresaMatch[1].trim().replace(/\s+/g, ' ')
+    if (emp.length > 1 && emp.length < 80) out.empresa = emp
+  }
+  if (!out.empresa && /\bempresa\s*:\s*([^.,;\n]+)/i.test(t)) {
+    const m = t.match(/\bempresa\s*:\s*([^.,;\n]+)/i)
+    if (m) {
+      const emp = m[1].trim().replace(/\s+/g, ' ')
+      if (emp.length > 1 && emp.length < 80) out.empresa = emp
+    }
+  }
+
+  // Nombre: "me llamo X", "soy X", "mi nombre es X", "nombre: X" (evitar capturar "soy de...")
+  const nameRe = /\b(?:me\s+llamo|mi\s+nombre\s+es|nombre\s*:)\s*([^.,;\n]+)/i
   const nameMatch = t.match(nameRe)
   if (nameMatch) {
     const name = nameMatch[1].trim().replace(/\s+/g, ' ')
     if (name.length > 1 && name.length < 80) out.nombre = name
+  }
+  if (!out.nombre && /\bsoy\s+([^.,;\n]+)/i.test(t) && !/\bsoy\s+de\s+/i.test(t)) {
+    const m = t.match(/\bsoy\s+([^.,;\n]+)/i)
+    if (m) {
+      const name = m[1].trim().replace(/\s+/g, ' ')
+      if (name.length > 1 && name.length < 80) out.nombre = name
+    }
   }
 
   // DNI: "DNI 12345678", "mi DNI es 123", "dni: 123"
@@ -175,7 +199,8 @@ function detectSolicitudAtencionHumano(text: string): {
 async function findClientAndOrders(
   nombre?: string,
   dni?: string,
-  cuit?: string
+  cuit?: string,
+  empresa?: string
 ): Promise<{ clientContext: string; ordersContext: string }> {
   if (!supabase) {
     return { clientContext: '', ordersContext: '' }
@@ -183,22 +208,18 @@ async function findClientAndOrders(
 
   const trim = (s?: string) => (s && typeof s === 'string' ? s.trim() : '')
   const n = trim(nombre)
+  const e = trim(empresa)
   const d = trim(dni)
   const c = trim(cuit)
-  const searchTerms: string[] = []
-  if (n) searchTerms.push(n)
-  if (d) searchTerms.push(d)
-  if (c) searchTerms.push(c)
-  if (searchTerms.length === 0) {
+  const hasAny = n || e || d || c
+  if (!hasAny) {
     return {
-      clientContext: 'El visitante no se ha identificado (nombre, DNI o CUIT). Si pregunta por un trabajo u orden, pide amablemente que se identifique con nombre, DNI o CUIT para poder consultar su información.',
+      clientContext: 'El visitante no se ha identificado. Para buscar sus trabajos necesitás su nombre, el nombre de la empresa a la que pertenece, DNI o CUIT. Pedile amablemente: "¿Me decís tu nombre o el nombre de tu empresa?"',
       ordersContext: ''
     }
   }
 
   let clientRow: Record<string, unknown> | null = null
-  const q = searchTerms[0]
-
   const digitsOnly = (s: string) => s.replace(/\D/g, '')
 
   if (d || c) {
@@ -224,6 +245,18 @@ async function findClientAndOrders(
       if (byDoc2) clientRow = byDoc2 as Record<string, unknown>
     }
   }
+  if (!clientRow && e && e.length >= 2) {
+    const empresaSafe = e.replace(/%/g, '')
+    const { data: byEmpresa } = await supabase
+      .from('clientes')
+      .select('*')
+      .ilike('empresa', `%${empresaSafe}%`)
+      .limit(15)
+    const rows = (byEmpresa || []) as Record<string, unknown>[]
+    const eLower = e.toLowerCase()
+    const match = rows.find((r) => String(r.empresa || '').toLowerCase().includes(eLower)) || rows[0]
+    if (match) clientRow = match
+  }
   if (!clientRow && n && n.length >= 2) {
     const parts = n.split(/\s+/).filter(Boolean)
     const firstPart = (parts[0] || n).replace(/%/g, '')
@@ -246,7 +279,7 @@ async function findClientAndOrders(
 
   const clientContext = clientRow
     ? `CLIENTE IDENTIFICADO: ${[clientRow.nombre, clientRow.apellido, clientRow.empresa].filter(Boolean).join(' ')}. DNI/CUIT: ${clientRow.dni_cuit || '—'}. Tel: ${clientRow.telefono || '—'}. Email: ${clientRow.email || '—'}.`
-    : 'No se encontró un cliente con los datos indicados. Si el visitante insiste, sugiere que verifique nombre, DNI o CUIT o que se contacte por teléfono o email.'
+    : 'No se encontró un cliente con ese nombre o empresa. Sugerile que verifique o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).'
 
   const clienteNombre = clientRow
     ? [clientRow.nombre, clientRow.apellido].filter(Boolean).join(' ').trim() || String(clientRow.empresa || '')
@@ -330,13 +363,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (acc, txt) => {
         const e = extractIdentificacionFromText(txt)
         if (e.nombre) acc.nombre = e.nombre
+        if (e.empresa) acc.empresa = e.empresa
         if (e.dni) acc.dni = e.dni
         if (e.cuit) acc.cuit = e.cuit
         return acc
       },
-      {} as { nombre?: string; dni?: string; cuit?: string }
+      {} as { nombre?: string; empresa?: string; dni?: string; cuit?: string }
     )
     const nombre = (body.nombre && body.nombre.trim()) || extracted.nombre
+    const empresa = (body.empresa && body.empresa.trim()) || extracted.empresa
     const dni = (body.dni && body.dni.trim()) || extracted.dni
     const cuit = (body.cuit && body.cuit.trim()) || extracted.cuit
     const opFromBody = body.op && body.op.trim() ? body.op.trim().replace(/\D/g, '') : null
@@ -350,7 +385,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       clientContext = byOp.clientContext
       ordersContext = byOp.ordersContext
     } else {
-      const byClient = await findClientAndOrders(nombre, dni, cuit)
+      const byClient = await findClientAndOrders(nombre, dni, cuit, empresa)
       clientContext = byClient.clientContext
       ordersContext = byClient.ordersContext
     }
@@ -448,8 +483,9 @@ ${clientContext}
 ${ordersContext ? '\n' + ordersContext : ''}
 
 CÓMO TRATAR AL CLIENTE:
+- Al comenzar, si no tenés nombre ni empresa del visitante, saludalo y preguntale: "¿Me decís tu nombre o el nombre de la empresa a la que pertenecés? Así busco el estado de tus trabajos."
 - Si pregunta por "mi trabajo", "la orden", "¿está listo?", asumí que habla de sus OPs; si tenés el estado en el contexto, decilo claro (número de OP, estado, fecha de entrega si aplica).
-- Si no está identificado y pregunta por trabajos u órdenes, pedile amablemente que se presente con nombre, DNI o CUIT: "Para poder decirte el estado de tus trabajos necesito que me indiques tu nombre, DNI o CUIT."
+- Si no está identificado y pregunta por trabajos, pedile nombre o empresa: "¿Me decís tu nombre o el de tu empresa? Así busco tus trabajos." Con nombre o empresa alcanza; no hace falta DNI o CUIT.
 - Si algo no está en tus datos (precios exactos, plazos que no figuran, cambios de pedido), ofrecé el canal correcto: "Para eso te conviene hablar directo por teléfono (2646212163) o por contacto@plotcenter.com.ar, así te dan el dato exacto."
 - No inventes nunca estados de órdenes, precios ni datos del cliente. Solo usá lo que está en el contexto de arriba.
 - Resumí cuando haya mucho dato (ej. varias OPs) y destacá lo más importante. Si hay una sola OP, podés ser más detallado.
