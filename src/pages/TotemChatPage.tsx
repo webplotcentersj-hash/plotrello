@@ -20,7 +20,7 @@ export default function TotemChatPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const recognitionRef = useRef<{ start?: () => void } | null>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
   const isListeningRef = useRef(false)
 
@@ -73,7 +73,7 @@ export default function TotemChatPage() {
     rec.continuous = false
     rec.interimResults = false
     rec.lang = 'es-AR'
-    rec.onresult = async (e: SpeechRecognitionEvent) => {
+    rec.onresult = async (e: { results?: { [i: number]: { [j: number]: { transcript?: string } } } }) => {
       const t = e.results?.[0]?.[0]?.transcript?.trim()
       if (!t) {
         isListeningRef.current = true
