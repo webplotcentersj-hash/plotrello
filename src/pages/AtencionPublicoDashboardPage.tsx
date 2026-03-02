@@ -133,9 +133,6 @@ const AtencionPublicoDashboardPage = () => {
     }
   }
 
-  const solicitudChatId = searchParams.get('solicitud_chat')
-  const conversacionId = searchParams.get('conversacion')
-
   const loadConversacionDetalle = async (id: number) => {
     setLoadingConversacion(true)
     try {
@@ -237,11 +234,6 @@ const AtencionPublicoDashboardPage = () => {
 
   const openConversacion = (id: number) => {
     setModalConversacionId(id)
-  }
-
-  const openSolicitud = (id: number) => {
-    setSearchParams({ solicitud_chat: String(id) })
-    setModalSolicitudId(id)
   }
 
   const closeConversacionDetalle = () => {
