@@ -188,8 +188,9 @@ export default function EmbedChatWidgetPage() {
         setLoading(false)
         return
       }
-      const reply = data.reply || 'No pude generar una respuesta.'
-      setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
+      const reply = data.reply != null && data.reply !== '' ? data.reply : null
+      if (reply) setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
+      else setMessages((prev) => prev)
       if (data.conversation_id != null) setConversationId(data.conversation_id)
     } catch (e) {
       setError('Error de conexión. Intentá de nuevo.')
@@ -246,7 +247,7 @@ export default function EmbedChatWidgetPage() {
             <div className="embed-chat-messages">
               {messages.length === 0 && !loading && (
                 <div className="embed-chat-welcome">
-                  <p>Hola, soy el asistente de Plot Center. Escribí tu consulta y te ayudo: servicios, contacto, horarios o lo que necesites. Si preguntás por <strong>tu trabajo u orden</strong>, te voy a pedir tu nombre, DNI, CUIT u OP para buscarlo.</p>
+                  <p>Hola.</p>
                 </div>
               )}
               {messages.map((m, i) => (

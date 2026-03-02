@@ -55,6 +55,7 @@ type Conversacion = {
   ultimo_mensaje_preview: string | null
   estado: string
   usuario_asignado_id: number | null
+  respuestas_staff?: Array<{ autor: string; texto: string; created_at?: string }>
   created_at: string
   updated_at: string
 }
@@ -504,7 +505,7 @@ const AtencionPublicoDashboardPage = () => {
                         {conversacionesHoy.map((c) => (
                           <li
                             key={c.id}
-                            className="atencion-publico-list-item atencion-publico-list-item-clickable atencion-publico-list-item-live"
+                            className={`atencion-publico-list-item atencion-publico-list-item-clickable atencion-publico-list-item-live${(c.respuestas_staff?.length ?? 0) > 0 ? ' atencion-publico-list-item-staff' : ''}`}
                             onClick={() => openConversacion(c.id)}
                             onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
                             role="button"
@@ -553,7 +554,7 @@ const AtencionPublicoDashboardPage = () => {
                           {bibliotecaFiltrada.map((c) => (
                             <li
                               key={c.id}
-                              className="atencion-publico-list-item atencion-publico-list-item-clickable"
+                              className={`atencion-publico-list-item atencion-publico-list-item-clickable${(c.respuestas_staff?.length ?? 0) > 0 ? ' atencion-publico-list-item-staff' : ''}`}
                               onClick={() => openConversacion(c.id)}
                               onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id)}
                               role="button"

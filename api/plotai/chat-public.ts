@@ -451,18 +451,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? `\n\nNOTA IMPORTANTE: El cliente acaba de pedir hablar con ${solicitudAtencion.sectorLabel}. Ya se envió la notificación al sector. En tu respuesta debés confirmarle que recibimos su pedido y que alguien del sector lo va a contactar a la brevedad.`
         : ''
 
-    let replyText: string
+    const STAFF_ATTENDING_MSG = 'Un integrante del equipo ya te está atendiendo. Tu mensaje fue enviado; te responderán a la brevedad.'
+    let replyText: string = ''
     let skipGemini = false
     if (body.conversation_id && Number.isInteger(Number(body.conversation_id)) && supabase) {
-      const { data: convStaff } = await supabase
+      const { data: convRow } = await supabase
         .from('atencion_conversaciones')
-        .select('respuestas_staff')
+        .select('respuestas_staff, historial_mensajes')
         .eq('id', Number(body.conversation_id))
         .single()
-      const staffReplies = Array.isArray((convStaff as any)?.respuestas_staff) ? (convStaff as any).respuestas_staff : []
+      const staffReplies = Array.isArray((convRow as any)?.respuestas_staff) ? (convRow as any).respuestas_staff : []
       if (staffReplies.length > 0) {
         skipGemini = true
-        replyText = 'Un integrante del equipo ya te está atendiendo. Tu mensaje fue enviado; te responderán a la brevedad.'
+        const hist: Array<{ role: string; text: string }> = Array.isArray((convRow as any)?.historial_mensajes) ? (convRow as any).historial_mensajes : []
+        const yaDijoAtendiendo = hist.some((h) => h.role === 'model' && (h.text || '').trim() === STAFF_ATTENDING_MSG.trim())
+        replyText = yaDijoAtendiendo ? '' : STAFF_ATTENDING_MSG
       }
     }
 
@@ -526,7 +529,9 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           } else if (selectErr) {
             console.error('Error leyendo conversación para actualizar:', selectErr)
           }
-          const updated = [...hist, { role: 'user', text: message.slice(0, 5000) }, { role: 'model', text: replyText.slice(0, 5000) }]
+          const updated = replyText
+            ? [...hist, { role: 'user', text: message.slice(0, 5000) }, { role: 'model', text: replyText.slice(0, 5000) }]
+            : [...hist, { role: 'user', text: message.slice(0, 5000) }]
           const { error: updateErr } = await supabase
             .from('atencion_conversaciones')
             .update({

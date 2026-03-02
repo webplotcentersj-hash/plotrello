@@ -775,6 +775,16 @@
   border-left: 3px solid rgba(34, 197, 94, 0.4);
 }
 
+/* Conversaciones donde ya respondió el equipo (humanos) */
+.atencion-publico-list-item-staff {
+  background: rgba(59, 130, 246, 0.08);
+  border-left: 3px solid #3b82f6;
+}
+
+.atencion-publico-list-item-staff:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
 .atencion-publico-chat-ia-footer {
   margin-top: 8px;
   padding-top: 24px;
