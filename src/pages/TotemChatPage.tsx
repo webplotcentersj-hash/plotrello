@@ -91,6 +91,8 @@ export default function TotemChatPage() {
       }
       isListeningRef.current = true
       setState('listening')
+      // Reiniciar reconocimiento para la siguiente frase (onend ya se disparó con isListeningRef en false)
+      setTimeout(() => recognitionRef.current?.start?.(), 100)
     }
     rec.onerror = () => {
       isListeningRef.current = true
