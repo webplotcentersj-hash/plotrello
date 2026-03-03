@@ -119,6 +119,37 @@ function extractIdentificacionFromText(text: string): {
   return out
 }
 
+/** Columnas de ubicación/etapa en ordenes_trabajo (lectura explícita para no depender de nombres mágicos). */
+const ORDEN_UBICACION_SELECT =
+  'numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, telefono_cliente, email_cliente, sector, ubicacion_final, etapa_taller_grafico, etapa_impresion_digital, etapa_taller_imprenta, etapa_instalaciones, etapa_metalurgica'
+
+/** Arma el texto "dónde está" a partir de las columnas de ubicación de una orden. */
+function buildDondeEsta(o: Record<string, unknown>): string {
+  const estado = (o.estado != null && String(o.estado).trim()) ? String(o.estado).trim() : null
+  const sector = (o.sector != null && String(o.sector).trim()) ? String(o.sector).trim() : null
+  const ubicacionFinal = (o.ubicacion_final != null && String(o.ubicacion_final).trim()) ? String(o.ubicacion_final).trim() : null
+  const etapaTg = (o.etapa_taller_grafico != null && String(o.etapa_taller_grafico).trim()) ? String(o.etapa_taller_grafico).trim() : null
+  const etapaImp = (o.etapa_impresion_digital != null && String(o.etapa_impresion_digital).trim()) ? String(o.etapa_impresion_digital).trim() : null
+  const etapaTi = (o.etapa_taller_imprenta != null && String(o.etapa_taller_imprenta).trim()) ? String(o.etapa_taller_imprenta).trim() : null
+  const etapaInst = (o.etapa_instalaciones != null && String(o.etapa_instalaciones).trim()) ? String(o.etapa_instalaciones).trim() : null
+  const etapaMet = (o.etapa_metalurgica != null && String(o.etapa_metalurgica).trim()) ? String(o.etapa_metalurgica).trim() : null
+
+  const partes: string[] = []
+  if (estado) partes.push(`Estado: ${estado}`)
+  if (sector) partes.push(`Sector: ${sector}`)
+  if (ubicacionFinal) partes.push(`Lugar: ${ubicacionFinal}`)
+  if (etapaTg) partes.push(`Etapa (Taller Gráfico): ${etapaTg}`)
+  if (etapaImp) partes.push(`Etapa (Impresión): ${etapaImp}`)
+  if (etapaTi) partes.push(`Etapa (Taller Imprenta): ${etapaTi}`)
+  if (etapaInst) partes.push(`Etapa (Instalaciones): ${etapaInst}`)
+  if (etapaMet) partes.push(`Etapa (Metalúrgica): ${etapaMet}`)
+
+  if (partes.length === 0) return 'Sin datos de ubicación.'
+  return partes.join('. ')
+}
+
+const LISTO_RETIRO_ESTADOS = ['Finalizado en Taller', 'Almacén de Entrega', 'Almacén de entrega', 'Mostrador', 'Caja']
+
 /** Busca una orden por número de OP y arma contexto de esa OP y del cliente. Si no hay OP en BD, devuelve mensaje claro. */
 async function getContextByOp(
   numeroOp: string
@@ -129,13 +160,13 @@ async function getContextByOp(
 
   const { data: ordenesList, error } = await supabase
     .from('ordenes_trabajo')
-    .select('numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, telefono_cliente, email_cliente, sector, ubicacion_final')
+    .select(ORDEN_UBICACION_SELECT)
     .ilike('numero_op', `%${opNorm}%`)
     .limit(10)
 
   const orden = (ordenesList && ordenesList.length > 0)
     ? (ordenesList as Array<Record<string, unknown>>).find(
-        (o) => String(o.numero_op || '').replace(/\D/g, '') === opNorm
+        (o) => String(o.numero_op ?? '').replace(/\D/g, '') === opNorm
       ) || ordenesList[0]
     : null
 
@@ -147,18 +178,14 @@ async function getContextByOp(
   }
 
   const o = orden as Record<string, unknown>
-  const estado = String(o.estado || '—')
-  const sector = String(o.sector || '—')
-  const ubicacionFinal = o.ubicacion_final ? String(o.ubicacion_final).trim() : ''
-  const dondeEsta = ubicacionFinal
-    ? `Ubicación actual: ${estado} (${sector}). Lugar: ${ubicacionFinal}.`
-    : `Ubicación actual: ${estado} (${sector}).`
-  const listoRetiro = ['Finalizado en Taller', 'Almacén de Entrega', 'Almacén de entrega', 'Mostrador', 'Caja'].includes(estado)
+  const estado = (o.estado != null && String(o.estado).trim()) ? String(o.estado).trim() : '—'
+  const dondeEsta = buildDondeEsta(o)
+  const listoRetiro = LISTO_RETIRO_ESTADOS.includes(estado)
   const clientContext =
-    `CLIENTE DE LA OP: ${o.cliente || '—'}. DNI/CUIT: ${o.dni_cuit || '—'}. Tel: ${o.telefono_cliente || '—'}. Email: ${o.email_cliente || '—'}.`
+    `CLIENTE DE LA OP: ${o.cliente ?? '—'}. DNI/CUIT: ${o.dni_cuit ?? '—'}. Tel: ${o.telefono_cliente ?? '—'}. Email: ${o.email_cliente ?? '—'}.`
   const ordersContext =
     'INFORMACIÓN DE LA OP CONSULTADA (en tiempo real):\n' +
-    `- OP ${o.numero_op}: ${o.descripcion || 'Sin descripción'} | Estado: ${estado} | Prioridad: ${o.prioridad || '—'} | Fecha entrega: ${o.fecha_entrega || '—'}\n` +
+    `- OP ${o.numero_op ?? '—'}: ${o.descripcion ?? 'Sin descripción'} | Estado: ${estado} | Prioridad: ${o.prioridad ?? '—'} | Fecha entrega: ${o.fecha_entrega ?? '—'}\n` +
     `  Dónde está: ${dondeEsta}` +
     (listoRetiro ? '\n  LISTO PARA RETIRO: esta OP ya puede ser retirada. Avisale al cliente que puede pasar a buscarla.' : '')
 
@@ -299,46 +326,32 @@ async function findClientAndOrders(
   if (clienteNombre || clienteDoc) {
     const { data: ordenes } = await supabase
       .from('ordenes_trabajo')
-      .select('numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, sector, ubicacion_final')
+      .select(ORDEN_UBICACION_SELECT)
       .order('fecha_creacion', { ascending: false })
       .limit(30)
 
-    const list = (ordenes || []) as Array<{
-      numero_op?: string
-      cliente?: string
-      dni_cuit?: string
-      descripcion?: string
-      estado?: string
-      prioridad?: string
-      fecha_entrega?: string
-      fecha_creacion?: string
-      sector?: string
-      ubicacion_final?: string
-    }>
+    const list = (ordenes || []) as Array<Record<string, unknown>>
     const docNorm = digitsOnly(clienteDoc)
-    const clienteNombreLower = clienteNombre.toLowerCase()
+    const clienteNombreLower = clienteNombre.toLowerCase().trim()
     const filtered = list.filter((o) => {
-      const oDoc = digitsOnly(String(o.dni_cuit || ''))
-      const oCliente = String(o.cliente || '').toLowerCase()
-      const matchDoc = docNorm && oDoc && oDoc.length >= 6 && oDoc === docNorm
+      const oDoc = digitsOnly(String(o.dni_cuit ?? ''))
+      const oCliente = String(o.cliente ?? '').toLowerCase().trim()
+      const matchDoc = docNorm.length >= 6 && oDoc.length >= 6 && oDoc === docNorm
       const matchName =
-        clienteNombre &&
+        clienteNombreLower.length >= 2 &&
         (oCliente.includes(clienteNombreLower) ||
-          clienteNombreLower.split(/\s+/).every((p) => oCliente.includes(p)))
+          clienteNombreLower.split(/\s+/).filter(Boolean).every((p) => oCliente.includes(p)))
       return matchDoc || matchName
     })
-    const listoRetiroEstados = ['Finalizado en Taller', 'Almacén de Entrega', 'Almacén de entrega', 'Mostrador', 'Caja']
     if (filtered.length > 0) {
       ordersContext =
         'ESTADO DE TRABAJOS DEL CLIENTE (en tiempo real, órdenes recientes):\n' +
         filtered
           .map((o) => {
-            const est = o.estado || '—'
-            const sec = o.sector || '—'
-            const ubi = o.ubicacion_final ? String(o.ubicacion_final).trim() : ''
-            const donde = ubi ? `Dónde está: ${est} (${sec}). Lugar: ${ubi}.` : `Dónde está: ${est} (${sec}).`
-            const retiro = listoRetiroEstados.includes(est) ? ' LISTO PARA RETIRO: puede pasar a buscarla.' : ''
-            return `- OP ${o.numero_op}: ${o.descripcion || 'Sin descripción'} | Estado: ${est} | Prioridad: ${o.prioridad || '—'} | Fecha entrega: ${o.fecha_entrega || '—'}\n  ${donde}${retiro}`
+            const est = (o.estado != null && String(o.estado).trim()) ? String(o.estado).trim() : '—'
+            const donde = buildDondeEsta(o)
+            const retiro = LISTO_RETIRO_ESTADOS.includes(est) ? ' LISTO PARA RETIRO: puede pasar a buscarla.' : ''
+            return `- OP ${o.numero_op ?? '—'}: ${o.descripcion ?? 'Sin descripción'} | Estado: ${est} | Prioridad: ${o.prioridad ?? '—'} | Fecha entrega: ${o.fecha_entrega ?? '—'}\n  Dónde está: ${donde}.${retiro}`
           })
           .join('\n')
     } else {
