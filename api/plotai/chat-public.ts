@@ -129,7 +129,7 @@ async function getContextByOp(
 
   const { data: ordenesList, error } = await supabase
     .from('ordenes_trabajo')
-    .select('numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, telefono_cliente, email_cliente')
+    .select('numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, telefono_cliente, email_cliente, sector, ubicacion_final')
     .ilike('numero_op', `%${opNorm}%`)
     .limit(10)
 
@@ -147,11 +147,20 @@ async function getContextByOp(
   }
 
   const o = orden as Record<string, unknown>
+  const estado = String(o.estado || '—')
+  const sector = String(o.sector || '—')
+  const ubicacionFinal = o.ubicacion_final ? String(o.ubicacion_final).trim() : ''
+  const dondeEsta = ubicacionFinal
+    ? `Ubicación actual: ${estado} (${sector}). Lugar: ${ubicacionFinal}.`
+    : `Ubicación actual: ${estado} (${sector}).`
+  const listoRetiro = ['Finalizado en Taller', 'Almacén de Entrega', 'Almacén de entrega', 'Mostrador', 'Caja'].includes(estado)
   const clientContext =
     `CLIENTE DE LA OP: ${o.cliente || '—'}. DNI/CUIT: ${o.dni_cuit || '—'}. Tel: ${o.telefono_cliente || '—'}. Email: ${o.email_cliente || '—'}.`
   const ordersContext =
-    'INFORMACIÓN DE LA OP CONSULTADA:\n' +
-    `- OP ${o.numero_op}: ${o.descripcion || 'Sin descripción'} | Estado: ${o.estado || '—'} | Prioridad: ${o.prioridad || '—'} | Fecha entrega: ${o.fecha_entrega || '—'}`
+    'INFORMACIÓN DE LA OP CONSULTADA (en tiempo real):\n' +
+    `- OP ${o.numero_op}: ${o.descripcion || 'Sin descripción'} | Estado: ${estado} | Prioridad: ${o.prioridad || '—'} | Fecha entrega: ${o.fecha_entrega || '—'}\n` +
+    `  Dónde está: ${dondeEsta}` +
+    (listoRetiro ? '\n  LISTO PARA RETIRO: esta OP ya puede ser retirada. Avisale al cliente que puede pasar a buscarla.' : '')
 
   return { clientContext, ordersContext }
 }
@@ -290,7 +299,7 @@ async function findClientAndOrders(
   if (clienteNombre || clienteDoc) {
     const { data: ordenes } = await supabase
       .from('ordenes_trabajo')
-      .select('numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion')
+      .select('numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, sector, ubicacion_final')
       .order('fecha_creacion', { ascending: false })
       .limit(30)
 
@@ -303,6 +312,8 @@ async function findClientAndOrders(
       prioridad?: string
       fecha_entrega?: string
       fecha_creacion?: string
+      sector?: string
+      ubicacion_final?: string
     }>
     const docNorm = digitsOnly(clienteDoc)
     const clienteNombreLower = clienteNombre.toLowerCase()
@@ -316,14 +327,19 @@ async function findClientAndOrders(
           clienteNombreLower.split(/\s+/).every((p) => oCliente.includes(p)))
       return matchDoc || matchName
     })
+    const listoRetiroEstados = ['Finalizado en Taller', 'Almacén de Entrega', 'Almacén de entrega', 'Mostrador', 'Caja']
     if (filtered.length > 0) {
       ordersContext =
-        'ESTADO DE TRABAJOS DEL CLIENTE (órdenes recientes):\n' +
+        'ESTADO DE TRABAJOS DEL CLIENTE (en tiempo real, órdenes recientes):\n' +
         filtered
-          .map(
-            (o) =>
-              `- OP ${o.numero_op}: ${o.descripcion || 'Sin descripción'} | Estado: ${o.estado || '—'} | Prioridad: ${o.prioridad || '—'} | Fecha entrega: ${o.fecha_entrega || '—'}`
-          )
+          .map((o) => {
+            const est = o.estado || '—'
+            const sec = o.sector || '—'
+            const ubi = o.ubicacion_final ? String(o.ubicacion_final).trim() : ''
+            const donde = ubi ? `Dónde está: ${est} (${sec}). Lugar: ${ubi}.` : `Dónde está: ${est} (${sec}).`
+            const retiro = listoRetiroEstados.includes(est) ? ' LISTO PARA RETIRO: puede pasar a buscarla.' : ''
+            return `- OP ${o.numero_op}: ${o.descripcion || 'Sin descripción'} | Estado: ${est} | Prioridad: ${o.prioridad || '—'} | Fecha entrega: ${o.fecha_entrega || '—'}\n  ${donde}${retiro}`
+          })
           .join('\n')
     } else {
       ordersContext =
@@ -496,6 +512,8 @@ CÓMO TRATAR AL CLIENTE (atención al público):
 - Saludo y atención general: respondé con buena onda a cualquier consulta (horarios, servicios, contacto, ubicación). No pidas datos al inicio; solo ayudá con lo que pregunten.
 - Solo cuando pregunte por SU trabajo u orden, pedile: "Para buscar tu trabajo necesito que me indiques tu nombre, DNI, CUIT o número de OP." Con uno alcanza.
 - Para OPs y trabajos: citá SOLO los números, estados y fechas que aparecen en "CLIENTE CON QUIEN ESTÁS HABLANDO". Si ahí dice que no se encontró la OP o que no hay órdenes, decilo sin inventar nada.
+- UBICACIÓN EN TIEMPO REAL: en el contexto figura "Dónde está" para cada OP. Decile al cliente dónde está su trabajo (ej. "Tu OP 12345 está en Taller Gráfico", "está en Almacén de Entrega").
+- LISTO PARA RETIRO: cuando en el contexto diga "LISTO PARA RETIRO" para una OP, avisale claramente que ya puede pasar a retirarla (ej. "Tu pedido ya está listo, podés pasar a retirarlo por 9 de Julio 622 (Oeste)" o "Ya está en Almacén de Entrega, cuando quieras podés venir a buscarlo").
 - NUNCA escribas placeholders como "[Aquí iría...]" ni relleno. Si tenés el dato, decilo; si no, decí que no lo tenés y ofrecé contacto (2646212163 o contacto@plotcenter.com.ar).
 - Resumí cuando haya muchas OPs. Cerrando: "¿Necesitás algo más?" o "Cualquier cosa, estamos acá."`
 
