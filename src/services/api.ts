@@ -1793,10 +1793,7 @@ class ApiService {
 
   async getUsuarios(): Promise<ApiResponse<UsuarioRecord[]>> {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nombre, rol')
-        .order('nombre', { ascending: true })
+      const { data, error } = await supabase.rpc('listar_usuarios')
 
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as UsuarioRecord[]) ?? [] }

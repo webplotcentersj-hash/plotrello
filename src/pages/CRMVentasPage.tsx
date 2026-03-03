@@ -14,7 +14,7 @@ import './CRMVentasPage.css'
 
 const CRMVentasPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, usuario, loading: authLoading } = useAuth()
+  const { isAdmin, isMostrador, isPresupuestos, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas' | 'presupuestos'>('oportunidades')
   
@@ -154,16 +154,16 @@ const CRMVentasPage = () => {
   useEffect(() => {
     if (authLoading) return // Esperar a que termine de cargar el usuario
     
-    if (!isAdmin && !isMostrador) {
+    if (!isAdmin && !isMostrador && !isPresupuestos) {
       navigate('/')
       return
     }
     
     // Solo cargar datos si tiene permisos
-    if (isAdmin || isMostrador) {
+    if (isAdmin || isMostrador || isPresupuestos) {
       loadData()
     }
-  }, [isAdmin, isMostrador, navigate, authLoading])
+  }, [isAdmin, isMostrador, isPresupuestos, navigate, authLoading])
 
   // Escuchar eventos de venta creada desde otros componentes
   useEffect(() => {

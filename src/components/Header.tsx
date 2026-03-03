@@ -136,12 +136,12 @@ const Header = ({
                 🛠️ Nueva Herramienta
               </button>
             )}
-            {(isMostrador || isAdmin) && onNavigateToMostrador && (
+            {(isMostrador || isAdmin || isPresupuestos) && onNavigateToMostrador && (
               <button className="brand-button" onClick={onNavigateToMostrador}>
                 📋 Dashboard Mostrador
               </button>
             )}
-            {(isMostrador || isAdmin) && (
+            {(isMostrador || isAdmin || isPresupuestos) && (
               <a
                 href="/crm-ventas"
                 className="brand-button"
@@ -184,7 +184,7 @@ const Header = ({
                 👥 Recursos Humanos
               </button>
             )}
-            {(isAdmin || isMostrador) && onNavigateToClientesWeb && (
+            {(isAdmin || isMostrador || isPresupuestos) && onNavigateToClientesWeb && (
               <button className="brand-button" onClick={onNavigateToClientesWeb}>
                 🌐 Clientes Web
               </button>
