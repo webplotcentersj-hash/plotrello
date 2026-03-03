@@ -135,6 +135,11 @@ const BuscarClientePage = () => {
     return column?.accent || '#6b7280'
   }
 
+  const nombreCompletoCliente = (c: ClienteRecord) => {
+    const n = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
+    return n || c.nombre || '—'
+  }
+
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString('es-AR', {
@@ -189,7 +194,10 @@ const BuscarClientePage = () => {
                 onClick={() => seleccionarCliente(cliente)}
               >
                 <div className="cliente-info">
-                  <h3>{cliente.nombre}</h3>
+                  <h3>{nombreCompletoCliente(cliente)}</h3>
+                  {cliente.empresa && (
+                    <p className="cliente-empresa">{cliente.empresa}</p>
+                  )}
                   {cliente.dni_cuit && (
                     <p className="cliente-dni">DNI/CUIT: {cliente.dni_cuit}</p>
                   )}
@@ -218,7 +226,10 @@ const BuscarClientePage = () => {
         <div className="cliente-detalle">
           <div className="cliente-header">
             <div>
-              <h2>{clienteSeleccionado.nombre}</h2>
+              <h2>{nombreCompletoCliente(clienteSeleccionado)}</h2>
+              {clienteSeleccionado.empresa && (
+                <p className="cliente-empresa-header">{clienteSeleccionado.empresa}</p>
+              )}
               <div className="cliente-meta">
                 {clienteSeleccionado.dni_cuit && (
                   <span>DNI/CUIT: {clienteSeleccionado.dni_cuit}</span>

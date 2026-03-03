@@ -2238,13 +2238,15 @@ class ApiService {
         return { success: true, data: [] }
       }
 
-      // Buscar directamente en la tabla clientes usando múltiples campos
-      // Usar ilike para búsqueda case-insensitive
-      // La sintaxis correcta para PostgREST es: campo.ilike.*patron*
+      // Escapar % y _ en el texto del usuario para que no actúen como comodines en ILIKE
+      const escapeIlike = (s: string) => String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+      const patron = `*${escapeIlike(queryTrimmed)}*`
+
+      // Buscar en clientes por nombre, apellido, dni_cuit, teléfono, email, empresa (PostgREST usa * como %)
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
-        .or(`nombre.ilike.*${queryTrimmed}*,apellido.ilike.*${queryTrimmed}*,dni_cuit.ilike.*${queryTrimmed}*,telefono.ilike.*${queryTrimmed}*,email.ilike.*${queryTrimmed}*,empresa.ilike.*${queryTrimmed}*`)
+        .or(`nombre.ilike.${patron},apellido.ilike.${patron},dni_cuit.ilike.${patron},telefono.ilike.${patron},email.ilike.${patron},empresa.ilike.${patron}`)
         .limit(50)
         .order('nombre', { ascending: true })
 

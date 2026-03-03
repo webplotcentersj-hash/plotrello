@@ -124,6 +124,13 @@
   color: var(--text-primary);
 }
 
+.cliente-empresa,
+.cliente-empresa-header {
+  margin: 2px 0 6px 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
 .cliente-dni,
 .cliente-contacto {
   margin: 4px 0;
