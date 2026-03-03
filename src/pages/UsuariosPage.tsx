@@ -12,6 +12,8 @@ const UsuariosPage = () => {
   const [loadingUsuarios, setLoadingUsuarios] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const roleOptions: Array<{ value: UserRole; label: string; color: string }> = [
+    { value: 'administracion', label: 'Administración', color: '#eb671b' },
+    { value: 'gerencia', label: 'Gerencia', color: '#0ea5e9' },
     { value: 'diseno', label: 'Diseño', color: '#f97316' },
     { value: 'imprenta', label: 'Imprenta', color: '#38bdf8' },
     { value: 'taller-grafico', label: 'Taller Gráfico', color: '#6366f1' },
@@ -20,8 +22,9 @@ const UsuariosPage = () => {
     { value: 'caja', label: 'Caja', color: '#facc15' },
     { value: 'mostrador', label: 'Mostrador', color: '#10b981' },
     { value: 'compras', label: 'Compras', color: '#8b5cf6' },
-    { value: 'recursos-humanos', label: 'Recursos Humanos', color: '#f472b6' },
-    { value: 'gerencia', label: 'Gerencia', color: '#0ea5e9' }
+    { value: 'asesor-tecnico', label: 'Asesor Técnico', color: '#06b6d4' },
+    { value: 'presupuestos', label: 'Presupuestos', color: '#f59e0b' },
+    { value: 'recursos-humanos', label: 'Recursos Humanos', color: '#f472b6' }
   ]
 
   const [formData, setFormData] = useState({
@@ -33,6 +36,7 @@ const UsuariosPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [updatingRolId, setUpdatingRolId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -52,9 +56,7 @@ const UsuariosPage = () => {
     try {
       const response = await apiService.getUsuarios()
       if (response.success && response.data) {
-        // Filtrar solo usuarios no admin
-        const usuariosNoAdmin = response.data.filter((u) => u.rol !== 'administracion')
-        setUsuarios(usuariosNoAdmin)
+        setUsuarios(response.data)
       } else {
         setError('Error al cargar usuarios')
       }
@@ -116,16 +118,25 @@ const UsuariosPage = () => {
     }
   }
 
-  const getRolLabel = (rol: UserRole) => {
-    const option = roleOptions.find((r) => r.value === rol)
-    if (rol === 'administracion') return 'Administración'
-    return option?.label || rol
-  }
-
-  const getRolColor = (rol: UserRole) => {
-    if (rol === 'administracion') return '#eb671b'
-    const option = roleOptions.find((r) => r.value === rol)
-    return option?.color || '#6b7280'
+  const handleChangeRol = async (usuario: UsuarioRecord, newRol: UserRole) => {
+    if (newRol === usuario.rol) return
+    setError(null)
+    setSuccess(null)
+    setUpdatingRolId(usuario.id)
+    try {
+      const response = await apiService.updateUsuario(usuario.id, { rol: newRol })
+      if (response.success) {
+        setSuccess(`Rol de "${usuario.nombre}" actualizado a ${roleOptions.find((r) => r.value === newRol)?.label ?? newRol}`)
+        await loadUsuarios()
+      } else {
+        setError(response.error || 'Error al actualizar rol')
+      }
+    } catch (err) {
+      console.error('Error actualizando rol:', err)
+      setError('Error al actualizar rol. Intenta de nuevo.')
+    } finally {
+      setUpdatingRolId(null)
+    }
   }
 
   if (loading) {
@@ -230,7 +241,7 @@ const UsuariosPage = () => {
                     </option>
                   ))}
                 </select>
-                <small className="form-hint">Los usuarios del rol Administración deben crearse desde la base de datos</small>
+                <small className="form-hint">Solo administradores pueden acceder a esta página y crear usuarios de cualquier rol.</small>
               </div>
 
               <div className="form-group">
@@ -313,11 +324,23 @@ const UsuariosPage = () => {
                     </div>
                     <div className="usuario-info">
                       <h3>{usuario.nombre}</h3>
-                      <div
-                        className="usuario-rol-badge"
-                        style={{ backgroundColor: getRolColor(usuario.rol) }}
-                      >
-                        {getRolLabel(usuario.rol)}
+                      <div className="usuario-rol-edit">
+                        <select
+                          className="usuario-rol-select"
+                          value={usuario.rol}
+                          onChange={(e) => handleChangeRol(usuario, e.target.value as UserRole)}
+                          disabled={updatingRolId === usuario.id}
+                          title="Cambiar rol"
+                        >
+                          {roleOptions.map((role) => (
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
+                          ))}
+                        </select>
+                        {updatingRolId === usuario.id && (
+                          <span className="usuario-rol-saving">Guardando...</span>
+                        )}
                       </div>
                     </div>
                   </div>

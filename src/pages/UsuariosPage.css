@@ -313,6 +313,40 @@
   color: #ffffff;
 }
 
+.usuario-rol-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.usuario-rol-select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.usuario-rol-select:hover:not(:disabled) {
+  border-color: rgba(235, 103, 27, 0.5);
+}
+
+.usuario-rol-select:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.usuario-rol-saving {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
 .usuario-id {
   display: flex;
   align-items: center;
