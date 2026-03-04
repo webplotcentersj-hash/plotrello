@@ -5,16 +5,19 @@ import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import './ClienteConsultaPage.css'
 
+const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
+
 const ClienteConsultaPage = () => {
-  const [dni, setDni] = useState('')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
   const [historial, setHistorial] = useState<Record<number, HistorialMovimiento[]>>({})
   const [error, setError] = useState<string | null>(null)
 
   const handleSearch = async () => {
-    if (!dni.trim()) {
-      setError('Por favor ingresa un DNI o CUIT')
+    const term = search.trim()
+    if (!term) {
+      setError('Ingresá nombre, apellido, empresa, número de OP o DNI/CUIT para buscar.')
       return
     }
 
@@ -24,18 +27,33 @@ const ClienteConsultaPage = () => {
     setHistorial({})
 
     try {
-      // Buscar todas las órdenes
       const response = await apiService.getOrdenes()
-      
+
       if (response.success && response.data) {
-        // Filtrar por DNI/CUIT
-        const dniNormalized = dni.trim().toUpperCase()
-        const ordenesFiltradas = response.data.filter(
-          (orden) => orden.dni_cuit && orden.dni_cuit.toUpperCase() === dniNormalized
-        )
+        const searchDigits = digitsOnly(term)
+        const searchLower = term.toLowerCase()
+        const searchWords = searchLower.split(/\s+/).filter((w) => w.length >= 2)
+
+        const ordenesFiltradas = response.data.filter((orden) => {
+          const ordenDni = digitsOnly(orden.dni_cuit ?? '')
+          const ordenOp = digitsOnly(orden.numero_op ?? '')
+          const clienteLower = (orden.cliente ?? '').toLowerCase()
+
+          if (searchDigits.length >= 6) {
+            if (ordenDni === searchDigits) return true
+          }
+          if (searchDigits.length >= 2) {
+            if (ordenOp === searchDigits || ordenOp.includes(searchDigits)) return true
+          }
+          if (searchLower.length >= 2 && clienteLower) {
+            if (clienteLower.includes(searchLower)) return true
+            if (searchWords.length > 0 && searchWords.every((w) => clienteLower.includes(w))) return true
+          }
+          return false
+        })
 
         if (ordenesFiltradas.length === 0) {
-          setError('No se encontraron pedidos para este DNI/CUIT')
+          setError('No se encontraron pedidos con ese nombre, empresa, número de OP o DNI/CUIT.')
           setLoading(false)
           return
         }
@@ -117,7 +135,7 @@ const ClienteConsultaPage = () => {
             />
             <div className="header-text">
               <h1>Consulta el Estado de tu Pedido</h1>
-              <p>Ingresa tu DNI o CUIT para ver el estado de tus órdenes de trabajo</p>
+              <p>Ingresá nombre, apellido, empresa, número de OP o DNI/CUIT para ver tus órdenes</p>
             </div>
           </div>
         </header>
@@ -125,25 +143,24 @@ const ClienteConsultaPage = () => {
         <div className="consulta-form-section">
           <div className="search-box">
             <div className="input-group">
-              <label htmlFor="dni-input">DNI / CUIT</label>
+              <label htmlFor="consulta-search">Buscar por</label>
               <input
-                id="dni-input"
+                id="consulta-search"
                 type="text"
-                value={dni}
-                onChange={(e) => setDni(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearch()
-                  }
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearch()
                 }}
-                placeholder="Ej: 12345678 o 20-12345678-9"
+                placeholder="Nombre, apellido, empresa, Nº OP o DNI/CUIT"
                 className="dni-input"
                 disabled={loading}
+                autoComplete="off"
               />
             </div>
             <button
               onClick={handleSearch}
-              disabled={loading || !dni.trim()}
+              disabled={loading || !search.trim()}
               className="search-button"
             >
               {loading ? (

@@ -48,13 +48,20 @@ type Body = {
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
 }
 
-/** Extrae número de OP del texto (ej. "op 123", "la orden 456", "número 789", "OP-100"). */
+/** Normaliza número de OP: solo dígitos, sin espacios ni guiones. */
+function normalizeOp(op: string): string {
+  return (op || '').trim().replace(/\D/g, '')
+}
+
+/** Extrae número de OP del texto (ej. "op 123", "la orden 456", "número 789", "OP-100", "91830"). */
 function extractOpFromText(text: string): string | null {
   const t = text.trim()
   const match = t.match(/\b(?:op|orden|numero|número|nro|#)\s*[:\-]?\s*(\d{2,8})\b/i)
   if (match) return match[1]
-  const onlyNum = t.match(/^\s*(\d{3,8})\s*$/)
+  const onlyNum = t.match(/^\s*(\d{2,8})\s*$/)
   if (onlyNum) return onlyNum[1]
+  const digitsInText = t.replace(/\D/g, '')
+  if (digitsInText.length >= 2 && digitsInText.length <= 8) return digitsInText
   return null
 }
 
@@ -119,6 +126,8 @@ function extractIdentificacionFromText(text: string): {
   return out
 }
 
+const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
+
 /** Columnas de ubicación/etapa en ordenes_trabajo (lectura explícita para no depender de nombres mágicos). */
 const ORDEN_UBICACION_SELECT =
   'numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, telefono_cliente, email_cliente, sector, ubicacion_final, etapa_taller_grafico, etapa_impresion_digital, etapa_taller_imprenta, etapa_instalaciones, etapa_metalurgica'
@@ -150,29 +159,29 @@ function buildDondeEsta(o: Record<string, unknown>): string {
 
 const LISTO_RETIRO_ESTADOS = ['Finalizado en Taller', 'Almacén de Entrega', 'Almacén de entrega', 'Mostrador', 'Caja']
 
-/** Busca una orden por número de OP y arma contexto de esa OP y del cliente. Si no hay OP en BD, devuelve mensaje claro. */
+/** Busca una orden por número de OP y arma contexto. Prueba coincidencia exacta y parcial por dígitos. */
 async function getContextByOp(
   numeroOp: string
 ): Promise<{ clientContext: string; ordersContext: string }> {
   if (!supabase) return { clientContext: '', ordersContext: '' }
-  const opNorm = numeroOp.replace(/\D/g, '').trim()
+  const opNorm = normalizeOp(numeroOp)
   if (!opNorm) return { clientContext: '', ordersContext: '' }
 
+  const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
+
+  // Buscar por número de OP (coincidencia por dígitos: "91830", "OP-91830", etc.)
   const { data: ordenesList, error } = await supabase
     .from('ordenes_trabajo')
     .select(ORDEN_UBICACION_SELECT)
     .ilike('numero_op', `%${opNorm}%`)
-    .limit(10)
+    .limit(15)
 
-  const orden = (ordenesList && ordenesList.length > 0)
-    ? (ordenesList as Array<Record<string, unknown>>).find(
-        (o) => String(o.numero_op ?? '').replace(/\D/g, '') === opNorm
-      ) || ordenesList[0]
-    : null
+  const list = (ordenesList || []) as Array<Record<string, unknown>>
+  const orden = list.find((o) => digitsOnly(String(o.numero_op ?? '')) === opNorm) || list[0] || null
 
   if (error || !orden) {
     return {
-      clientContext: `El visitante consulta por la OP ${numeroOp}. No se encontró ninguna orden de trabajo con ese número en la base de datos. Sugerile que verifique el número o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).`,
+      clientContext: `El visitante consulta por la OP ${numeroOp}. No se encontró ninguna orden de trabajo con ese número. Sugerile que verifique el número o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).`,
       ordersContext: ''
     }
   }
@@ -256,31 +265,38 @@ async function findClientAndOrders(
   }
 
   let clientRow: Record<string, unknown> | null = null
-  const digitsOnly = (s: string) => s.replace(/\D/g, '')
+  const dDigits = digitsOnly(d)
+  const cDigits = digitsOnly(c)
+  const docDigits = dDigits.length >= 7 ? dDigits : cDigits.length >= 10 ? cDigits : ''
 
+  // 1) Búsqueda por DNI/CUIT (normalizado: solo dígitos; DNI 7-8, CUIT 10-11)
   if (d || c) {
     const doc = (d || c).trim()
-    const docDigits = digitsOnly(doc)
-    if (docDigits.length >= 6) {
+    const num = digitsOnly(doc)
+    if (num.length >= 6) {
       const { data: byDoc } = await supabase
         .from('clientes')
         .select('*')
-        .ilike('dni_cuit', `%${docDigits}%`)
-        .limit(5)
+        .ilike('dni_cuit', `%${num}%`)
+        .limit(10)
       const rows = (byDoc || []) as Record<string, unknown>[]
-      const match = rows.find((r) => digitsOnly(String(r.dni_cuit || '')) === docDigits) || rows[0]
+      const match = rows.find((r) => digitsOnly(String(r.dni_cuit || '')) === num) || rows[0]
       if (match) clientRow = match
     }
-    if (!clientRow && doc.length >= 4) {
+    if (!clientRow && doc.replace(/\D/g, '').length >= 4) {
+      const safe = doc.replace(/%/g, '')
       const { data: byDoc2 } = await supabase
         .from('clientes')
         .select('*')
-        .ilike('dni_cuit', `%${doc.replace(/%/g, '')}%`)
-        .limit(1)
-        .maybeSingle()
-      if (byDoc2) clientRow = byDoc2 as Record<string, unknown>
+        .ilike('dni_cuit', `%${safe}%`)
+        .limit(5)
+      const rows = (byDoc2 || []) as Record<string, unknown>[]
+      const numOnly = digitsOnly(doc)
+      const match = rows.find((r) => digitsOnly(String(r.dni_cuit || '')) === numOnly) || rows[0]
+      if (match) clientRow = match
     }
   }
+  // 2) Búsqueda por empresa
   if (!clientRow && e && e.length >= 2) {
     const empresaSafe = e.replace(/%/g, '')
     const { data: byEmpresa } = await supabase
@@ -293,15 +309,16 @@ async function findClientAndOrders(
     const match = rows.find((r) => String(r.empresa || '').toLowerCase().includes(eLower)) || rows[0]
     if (match) clientRow = match
   }
+  // 3) Búsqueda por nombre (nombre, apellido o nombre completo en empresa)
   if (!clientRow && n && n.length >= 2) {
     const parts = n.split(/\s+/).filter(Boolean)
     const firstPart = (parts[0] || n).replace(/%/g, '')
-    const empresaSafe = n.replace(/%/g, '')
+    const allPartsSafe = n.replace(/%/g, ' ')
     const { data: byName } = await supabase
       .from('clientes')
       .select('*')
-      .or(`nombre.ilike.%${firstPart}%,apellido.ilike.%${firstPart}%,empresa.ilike.%${empresaSafe}%`)
-      .limit(15)
+      .or(`nombre.ilike.%${firstPart}%,apellido.ilike.%${firstPart}%,empresa.ilike.%${allPartsSafe}%`)
+      .limit(20)
     const rows = (byName || []) as Record<string, unknown>[]
     const nLower = n.toLowerCase()
     const fullMatch = rows.find(
@@ -315,49 +332,52 @@ async function findClientAndOrders(
 
   const clientContext = clientRow
     ? `CLIENTE IDENTIFICADO: ${[clientRow.nombre, clientRow.apellido, clientRow.empresa].filter(Boolean).join(' ')}. DNI/CUIT: ${clientRow.dni_cuit || '—'}. Tel: ${clientRow.telefono || '—'}. Email: ${clientRow.email || '—'}.`
-    : 'No se encontró un cliente con ese nombre o empresa. Sugerile que verifique o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).'
+    : 'No se encontró un cliente con ese nombre, DNI/CUIT o empresa. Sugerile que verifique los datos o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).'
 
   const clienteNombre = clientRow
     ? [clientRow.nombre, clientRow.apellido].filter(Boolean).join(' ').trim() || String(clientRow.empresa || '')
     : ''
   const clienteDoc = clientRow ? String(clientRow.dni_cuit || '') : (d || c)
+  const docNorm = digitsOnly(clienteDoc)
+  const nombreParaOrdenes = (n || clienteNombre).toLowerCase().trim()
+
+  // Órdenes: buscar por cliente en BD y/o filtrar en memoria; si hay DNI/CUIT o nombre, también buscar directo en ordenes_trabajo
   let ordersContext = ''
+  const { data: ordenes } = await supabase
+    .from('ordenes_trabajo')
+    .select(ORDEN_UBICACION_SELECT)
+    .order('fecha_creacion', { ascending: false })
+    .limit(80)
 
-  if (clienteNombre || clienteDoc) {
-    const { data: ordenes } = await supabase
-      .from('ordenes_trabajo')
-      .select(ORDEN_UBICACION_SELECT)
-      .order('fecha_creacion', { ascending: false })
-      .limit(30)
+  const list = (ordenes || []) as Array<Record<string, unknown>>
+  const filtered: Array<Record<string, unknown>> = []
 
-    const list = (ordenes || []) as Array<Record<string, unknown>>
-    const docNorm = digitsOnly(clienteDoc)
-    const clienteNombreLower = clienteNombre.toLowerCase().trim()
-    const filtered = list.filter((o) => {
-      const oDoc = digitsOnly(String(o.dni_cuit ?? ''))
-      const oCliente = String(o.cliente ?? '').toLowerCase().trim()
-      const matchDoc = docNorm.length >= 6 && oDoc.length >= 6 && oDoc === docNorm
-      const matchName =
-        clienteNombreLower.length >= 2 &&
-        (oCliente.includes(clienteNombreLower) ||
-          clienteNombreLower.split(/\s+/).filter(Boolean).every((p) => oCliente.includes(p)))
-      return matchDoc || matchName
-    })
-    if (filtered.length > 0) {
-      ordersContext =
-        'ESTADO DE TRABAJOS DEL CLIENTE (en tiempo real, órdenes recientes):\n' +
-        filtered
-          .map((o) => {
-            const est = (o.estado != null && String(o.estado).trim()) ? String(o.estado).trim() : '—'
-            const donde = buildDondeEsta(o)
-            const retiro = LISTO_RETIRO_ESTADOS.includes(est) ? ' LISTO PARA RETIRO: puede pasar a buscarla.' : ''
-            return `- OP ${o.numero_op ?? '—'}: ${o.descripcion ?? 'Sin descripción'} | Estado: ${est} | Prioridad: ${o.prioridad ?? '—'} | Fecha entrega: ${o.fecha_entrega ?? '—'}\n  Dónde está: ${donde}.${retiro}`
-          })
-          .join('\n')
-    } else {
-      ordersContext =
-        'El cliente no tiene órdenes de trabajo registradas recientes, o no coinciden los datos. Puedes ofrecerle que se comunique por teléfono o email para confirmar.'
-    }
+  for (const o of list) {
+    const oDoc = digitsOnly(String(o.dni_cuit ?? ''))
+    const oCliente = String(o.cliente ?? '').toLowerCase().trim()
+    const matchDoc = docNorm.length >= 6 && oDoc.length >= 6 && oDoc === docNorm
+    const matchNombre =
+      nombreParaOrdenes.length >= 2 &&
+      (oCliente.includes(nombreParaOrdenes) ||
+        nombreParaOrdenes.split(/\s+/).filter(Boolean).every((p) => p.length >= 2 && oCliente.includes(p)))
+    if (matchDoc || matchNombre) filtered.push(o)
+  }
+
+  if (filtered.length > 0) {
+    ordersContext =
+      'ESTADO DE TRABAJOS DEL CLIENTE (en tiempo real, órdenes recientes):\n' +
+      filtered
+        .slice(0, 15)
+        .map((o) => {
+          const est = (o.estado != null && String(o.estado).trim()) ? String(o.estado).trim() : '—'
+          const donde = buildDondeEsta(o)
+          const retiro = LISTO_RETIRO_ESTADOS.includes(est) ? ' LISTO PARA RETIRO: puede pasar a buscarla.' : ''
+          return `- OP ${o.numero_op ?? '—'}: ${o.descripcion ?? 'Sin descripción'} | Estado: ${est} | Prioridad: ${o.prioridad ?? '—'} | Fecha entrega: ${o.fecha_entrega ?? '—'}\n  Dónde está: ${donde}.${retiro}`
+        })
+        .join('\n')
+  } else {
+    ordersContext =
+      'El cliente no tiene órdenes de trabajo registradas recientes con ese nombre o DNI/CUIT. Podés ofrecerle que se comunique por teléfono o email para confirmar.'
   }
 
   return { clientContext, ordersContext }
@@ -401,11 +421,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     )
     const nombre = (body.nombre && body.nombre.trim()) || extracted.nombre
     const empresa = (body.empresa && body.empresa.trim()) || extracted.empresa
-    const dni = (body.dni && body.dni.trim()) || extracted.dni
-    const cuit = (body.cuit && body.cuit.trim()) || extracted.cuit
-    const opFromBody = body.op && body.op.trim() ? body.op.trim().replace(/\D/g, '') : null
+    const dniRaw = (body.dni && body.dni.trim()) || extracted.dni
+    const cuitRaw = (body.cuit && body.cuit.trim()) || extracted.cuit
+    const dni = dniRaw ? digitsOnly(dniRaw).length >= 7 ? digitsOnly(dniRaw) : dniRaw.trim() : undefined
+    const cuit = cuitRaw ? digitsOnly(cuitRaw).length >= 10 ? digitsOnly(cuitRaw) : cuitRaw.trim() : undefined
+    const opFromBody = body.op && body.op.trim() ? normalizeOp(body.op) : null
     const opFromMsg = allUserTexts.map(extractOpFromText).find(Boolean)
-    const numeroOp = opFromBody || opFromMsg
+    const numeroOp = (opFromBody && opFromBody.length >= 2) ? opFromBody : (opFromMsg || null)
 
     let clientContext: string
     let ordersContext: string

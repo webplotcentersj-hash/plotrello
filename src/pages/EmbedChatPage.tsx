@@ -37,6 +37,16 @@ export default function EmbedChatPage() {
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const chatApi = `${apiBase}/api/plotai/chat-public`
 
+  const normalizeForSearch = (value: string, digitsOnly = false) => {
+    const t = value.trim()
+    if (!t) return undefined
+    if (digitsOnly) {
+      const num = t.replace(/\D/g, '')
+      return num.length >= 2 ? num : t
+    }
+    return t
+  }
+
   const sendMessage = async () => {
     const text = input.trim()
     if (!text || loading) return
@@ -57,10 +67,10 @@ export default function EmbedChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
-          nombre: nombre.trim() || undefined,
-          dni: dni.trim() || undefined,
-          cuit: cuit.trim() || undefined,
-          op: op.trim() || undefined,
+          nombre: normalizeForSearch(nombre),
+          dni: normalizeForSearch(dni, true),
+          cuit: normalizeForSearch(cuit, true),
+          op: normalizeForSearch(op, true),
           conversation_id: conversationId ?? undefined,
           history
         })
