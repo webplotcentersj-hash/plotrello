@@ -128,6 +128,29 @@ function extractIdentificacionFromText(text: string): {
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
+/** Detecta si el mensaje del cliente parece ser para iniciar un proyecto nuevo (pedir diseño / presupuesto / brief). */
+function detectBriefIntent(text: string): boolean {
+  const t = (text || '').toLowerCase()
+  if (!t.trim()) return false
+  if (t.includes('brief')) return true
+  if (/(presupuesto|cotizaci[óo]n|cotizacion|quiero un diseño|quiero un diseno|quiero hacer un logo|necesito un logo|hacer un folleto|folleto nuevo|carteler[ií]a|ploteo|dise[ñn]o web|diseño web|pagina web|p[áa]gina web|nuevo proyecto|proyecto nuevo)/.test(t)) {
+    return true
+  }
+  return false
+}
+
+/** Construye la URL base del sitio (para armar links públicos) usando headers de la request o una variable de entorno. */
+function buildBaseUrl(req: VercelRequest): string {
+  const envBase = process.env.BRIEF_BASE_URL
+  if (envBase && envBase.trim()) {
+    return envBase.replace(/\/+$/, '')
+  }
+  const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
+  const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || ''
+  if (!host) return ''
+  return `${proto}://${host}`
+}
+
 /** Columnas de ubicación/etapa en ordenes_trabajo (lectura explícita para no depender de nombres mágicos). */
 const ORDEN_UBICACION_SELECT =
   'numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, telefono_cliente, email_cliente, sector, ubicacion_final, etapa_taller_grafico, etapa_impresion_digital, etapa_taller_imprenta, etapa_instalaciones, etapa_metalurgica'
@@ -520,6 +543,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Si no hay un humano atendiendo todavía, detectar si el cliente quiere iniciar un proyecto nuevo
+    // y ofrecerle directamente el formulario de brief para que lo complete.
+    let briefToken: string | null = null
+    let briefUrl: string | null = null
+    if (!skipGemini && supabase && !numeroOp && detectBriefIntent(message)) {
+      try {
+        const { data: token, error: rpcError } = await supabase.rpc('crear_brief_publico', {
+          p_creado_por: null
+        })
+        if (!rpcError && token) {
+          briefToken = typeof token === 'string' ? token : String(token)
+          const baseUrl = buildBaseUrl(req)
+          if (baseUrl) {
+            briefUrl = `${baseUrl.replace(/\/+$/, '')}/brief/${briefToken}`
+          }
+
+          // Guardar nombre/empresa si los tenemos, para que en el dashboard se vea quién es el cliente.
+          try {
+            if (nombre || empresa) {
+              await supabase
+                .from('briefs_publicos')
+                .update({
+                  cliente_nombre_completo: nombre || null,
+                  cliente_empresa: empresa || null
+                })
+                .eq('token', briefToken)
+            }
+          } catch (e) {
+            console.warn('No se pudo actualizar datos del brief recién creado:', e)
+          }
+
+          const linkTexto = briefUrl || `formulario de brief (token: ${briefToken})`
+          replyText =
+            `¡Genial! Para poder ayudarte bien con tu proyecto, necesito que completes un formulario de brief con los detalles.\n\n` +
+            `Ingresá a este enlace y completalo tranquilo:\n\n${linkTexto}\n\n` +
+            `Ahí te vamos a pedir objetivo, medidas, textos, estilo de diseño y todo lo importante. ` +
+            `Una vez que lo completes, nuestro equipo lo recibe y te contacta para seguir con tu pedido.`
+          skipGemini = true
+        }
+      } catch (e) {
+        console.error('Error creando brief desde el chat:', e)
+      }
+    }
+
     if (!skipGemini) {
     const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente. Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
 
@@ -628,7 +695,13 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       success: true,
       reply: replyText,
       ...(conversationId != null && { conversation_id: conversationId }),
-      ...(solicitudChatId != null && { solicitud_id: solicitudChatId })
+      ...(solicitudChatId != null && { solicitud_id: solicitudChatId }),
+      ...(briefToken && {
+        brief: {
+          token: briefToken,
+          ...(briefUrl ? { url: briefUrl } : {})
+        }
+      })
     })
   } catch (error: any) {
     console.error('Error en chat-public:', error)
