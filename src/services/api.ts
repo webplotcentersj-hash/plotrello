@@ -776,6 +776,20 @@ class ApiService {
     return { success: true, data: nuevo }
   }
 
+  /** Dispara en segundo plano el envío de email al cliente cuando la orden pasa a Almacén de Entrega. */
+  private triggerEmailOrdenLista(ordenId: number, estadoAnterior: string | null, ordenActualizada: OrdenTrabajo) {
+    if (typeof window === 'undefined') return
+    if (ordenActualizada.estado !== 'Almacén de Entrega' || estadoAnterior === 'Almacén de Entrega') return
+    if (!ordenActualizada.email_cliente?.trim()) return
+    const origin = (window as Window).location?.origin
+    if (!origin) return
+    fetch(`${origin}/api/notify-orden-lista`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ordenId })
+    }).catch(() => {})
+  }
+
   async updateOrden(id: number, orden: Partial<OrdenTrabajo>): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       // Capturar supabase en variable local para TypeScript
@@ -901,6 +915,7 @@ class ApiService {
               
               // Descontar stock si hay materiales asociados (solo si se actualizaron materiales)
               // Nota: En actualización no descontamos automáticamente, solo al crear
+              this.triggerEmailOrdenLista(id, estadoAnterior, fullOrden as OrdenTrabajo)
               return { success: true, data: fullOrden as OrdenTrabajo }
             }
             
@@ -1022,11 +1037,13 @@ class ApiService {
                 return { success: false, error: finalAttempt.error.message }
               }
               console.log('✅ Orden actualizada sin algunas columnas opcionales')
+              this.triggerEmailOrdenLista(id, estadoAnterior, finalAttempt.data as OrdenTrabajo)
               return { success: true, data: finalAttempt.data as OrdenTrabajo }
             }
 
             // Éxito después de eliminar columnas faltantes
             console.log(`✅ Orden actualizada. Columnas eliminadas: ${missingColumns.join(', ')}`)
+            this.triggerEmailOrdenLista(id, estadoAnterior, fallback.data as OrdenTrabajo)
             return { success: true, data: fallback.data as OrdenTrabajo }
           } else {
             // El error menciona "column" pero no menciona ninguna columna específica de contacto
@@ -1043,6 +1060,7 @@ class ApiService {
               return { success: false, error: finalAttempt.error.message }
             }
             console.log('✅ Orden actualizada sin columnas de contacto (fallback)')
+            this.triggerEmailOrdenLista(id, estadoAnterior, finalAttempt.data as OrdenTrabajo)
             return { success: true, data: finalAttempt.data as OrdenTrabajo }
           }
         }
@@ -1133,6 +1151,7 @@ class ApiService {
         await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo, comentario, accionTipo, cambiosDetallados)
       }
 
+      this.triggerEmailOrdenLista(id, estadoAnterior, data as OrdenTrabajo)
       return { success: true, data: data as OrdenTrabajo }
     }
 
