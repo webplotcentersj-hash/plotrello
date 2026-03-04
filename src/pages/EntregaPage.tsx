@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import { supabase } from '../services/supabaseClient'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import type { OrdenTrabajo } from '../types/api'
@@ -42,42 +43,75 @@ const EntregaPage = () => {
     }
   }, [id])
 
+  // Suscripción Realtime: cuando el cliente firma en la tablet, la firma se ve al instante aquí
+  useEffect(() => {
+    const client = supabase
+    if (!orden?.numero_op || !client) return
+    const numeroOp = orden.numero_op.trim()
+    const channel = client
+      .channel(`firma-cliente-${numeroOp}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'firmas_entrega_cliente',
+          filter: `numero_op=eq.${numeroOp}`
+        },
+        (payload) => {
+          const row = payload.new as { firma_data_url?: string; entregado_a?: string; dni_retira?: string } | undefined
+          if (row?.firma_data_url) {
+            setFirmaDataUrl(row.firma_data_url)
+            setFirmaCargadaDesdeTablet(true)
+          }
+          if (row?.entregado_a) setEntregadoA(row.entregado_a)
+          if (row?.dni_retira) setDniRetira(row.dni_retira)
+        }
+      )
+      .subscribe()
+    return () => {
+      client.removeChannel(channel)
+    }
+  }, [orden?.id, orden?.numero_op])
+
   const FIRMA_CLIENTE_STORAGE_PREFIX = 'firma_cliente_'
 
   const loadOrden = async () => {
+    const ordenId = id ? Number(id) : NaN
+    if (!id || Number.isNaN(ordenId)) {
+      setLoading(false)
+      navigate('/mostrador/ordenes-listas')
+      return
+    }
     setLoading(true)
     try {
-      const response = await apiService.getOrdenes()
+      const response = await apiService.getOrden(ordenId)
       if (response.success && response.data) {
-        const ordenEncontrada = response.data.find(
-          (o) => o.id?.toString() === id
-        )
-        if (ordenEncontrada) {
-          setOrden(ordenEncontrada)
-          setEntregadoA(ordenEncontrada.cliente || '')
-          // Precargar firma si el cliente firmó en la tablet (backend) o misma pestaña (sessionStorage)
-          let data: { firmaDataUrl?: string; entregadoA?: string; dniRetira?: string } | null = null
-          const firmaRes = await apiService.getFirmaCliente(ordenEncontrada.numero_op)
-          if (firmaRes.success && firmaRes.data) data = firmaRes.data
-          if (!data) {
-            try {
-              const key = FIRMA_CLIENTE_STORAGE_PREFIX + ordenEncontrada.numero_op
-              const stored = sessionStorage.getItem(key)
-              if (stored) data = JSON.parse(stored) as typeof data
-            } catch {
-              /* ignorar */
-            }
+        const ordenEncontrada = response.data
+        setOrden(ordenEncontrada)
+        setEntregadoA(ordenEncontrada.cliente || '')
+        // Precargar firma si el cliente firmó en la tablet (backend) o misma pestaña (sessionStorage)
+        let data: { firmaDataUrl?: string; entregadoA?: string; dniRetira?: string } | null = null
+        const firmaRes = await apiService.getFirmaCliente(ordenEncontrada.numero_op)
+        if (firmaRes.success && firmaRes.data) data = firmaRes.data
+        if (!data) {
+          try {
+            const key = FIRMA_CLIENTE_STORAGE_PREFIX + ordenEncontrada.numero_op
+            const stored = sessionStorage.getItem(key)
+            if (stored) data = JSON.parse(stored) as typeof data
+          } catch {
+            /* ignorar */
           }
-          if (data?.firmaDataUrl) {
-            setFirmaDataUrl(data.firmaDataUrl)
-            setFirmaCargadaDesdeTablet(true)
-          }
-          if (data?.entregadoA) setEntregadoA(data.entregadoA)
-          if (data?.dniRetira) setDniRetira(data.dniRetira)
-        } else {
-          alert('Orden no encontrada')
-          navigate('/mostrador/ordenes-listas')
         }
+        if (data?.firmaDataUrl) {
+          setFirmaDataUrl(data.firmaDataUrl)
+          setFirmaCargadaDesdeTablet(true)
+        }
+        if (data?.entregadoA) setEntregadoA(data.entregadoA)
+        if (data?.dniRetira) setDniRetira(data.dniRetira)
+      } else {
+        alert(response.error || 'Orden no encontrada')
+        navigate('/mostrador/ordenes-listas')
       }
     } catch (error) {
       console.error('Error cargando orden:', error)

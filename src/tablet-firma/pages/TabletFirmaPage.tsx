@@ -24,22 +24,21 @@ export default function TabletFirmaPage() {
   }, [id])
 
   const loadOrden = async () => {
+    const ordenId = id ? Number(id) : NaN
+    if (!id || Number.isNaN(ordenId)) {
+      setError('Identificador de orden no válido')
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const response = await apiService.getOrdenes()
+      const response = await apiService.getOrden(ordenId)
       if (response.success && response.data) {
-        const ordenEncontrada = response.data.find(
-          (o) => o.id?.toString() === id
-        )
-        if (ordenEncontrada) {
-          setOrden(ordenEncontrada)
-          setEntregadoA(ordenEncontrada.cliente || '')
-        } else {
-          setError('Orden no encontrada')
-        }
+        setOrden(response.data)
+        setEntregadoA(response.data.cliente || '')
       } else {
-        setError('Error al cargar la orden')
+        setError(response.error || 'Orden no encontrada')
       }
     } catch (err) {
       console.error('Error cargando orden:', err)
@@ -180,11 +179,29 @@ export default function TabletFirmaPage() {
     setSuccess(false)
 
     try {
-      // Necesitamos el usuario actual - en modo kiosco podemos usar un usuario por defecto
-      // o pedir que se configure en la tablet
-      const usuarioId = parseInt(localStorage.getItem('usuario_id') || '1')
+      const numeroOp = orden.numero_op?.trim()
+      if (!numeroOp) {
+        setError('Orden sin número de OP')
+        setSaving(false)
+        return
+      }
+
+      // 1) Guardar firma en firmas_entrega_cliente para que se vea en vivo en mostrador (Realtime)
+      const saveFirmaRes = await apiService.saveFirmaCliente(numeroOp, {
+        firmaDataUrl,
+        entregadoA: entregadoA.trim(),
+        dniRetira: dniRetira.trim() || undefined
+      })
+      if (!saveFirmaRes.success) {
+        setError(saveFirmaRes.error || 'Error al guardar la firma')
+        setSaving(false)
+        return
+      }
+
+      // 2) Marcar orden como entregada (ordenes_trabajo)
+      const usuarioId = parseInt(localStorage.getItem('usuario_id') || '1', 10)
       const usuarioData = localStorage.getItem('usuario')
-      const usuarioNombre = usuarioData ? JSON.parse(usuarioData).nombre : 'Tablet Firma'
+      const usuarioNombre = usuarioData ? (JSON.parse(usuarioData) as { nombre?: string }).nombre : 'Tablet Firma'
 
       const response = await apiService.procesarEntrega(orden.id!, {
         firmaDataUrl,
@@ -192,7 +209,7 @@ export default function TabletFirmaPage() {
         dniRetira: dniRetira.trim() || undefined,
         observaciones: undefined,
         usuarioId,
-        usuarioNombre
+        usuarioNombre: usuarioNombre || 'Tablet Firma'
       })
 
       if (!response.success) {

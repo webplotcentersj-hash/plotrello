@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Infraestructura App y Base de Datos - Plot Lab</title>
+  <style>
+    @media print { body { font-size: 10pt; } .page-break { page-break-before: always; } }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; color: #1a1a1a; line-height: 1.45; }
+    h1 { font-size: 1.75rem; border-bottom: 2px solid #eb671b; padding-bottom: 8px; }
+    h2 { font-size: 1.35rem; margin-top: 28px; color: #333; }
+    h3 { font-size: 1.1rem; margin-top: 20px; color: #555; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    tr:nth-child(even) { background: #fafafa; }
+    code, .mono { font-family: 'Consolas', monospace; font-size: 0.85em; }
+    ul { margin: 8px 0; padding-left: 24px; }
+    .roles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: 12px 0; }
+    .role-pill { background: #eee; padding: 6px 12px; border-radius: 6px; font-size: 0.9rem; }
+    small { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Infraestructura de la aplicación y base de datos</h1>
+  <p><strong>Plot Lab / Plotrello</strong> — Documento generado para referencia técnica (app + BD + funciones + roles).</p>
+  <p><strong>Guardar como PDF:</strong> Menú del navegador → <em>Imprimir</em> (o Ctrl+P) → Destino: <em>Guardar como PDF</em> → Guardar.</p>
+
+  <h2>1. Stack de la aplicación</h2>
+  <table>
+    <tr><th>Capa</th><th>Tecnología</th></tr>
+    <tr><td>Frontend</td><td>React 19, TypeScript, Vite 7</td></tr>
+    <tr><td>Routing</td><td>React Router v7</td></tr>
+    <tr><td>Backend / Datos</td><td>Supabase (PostgreSQL, Realtime, Storage, RPC)</td></tr>
+    <tr><td>UI / Gráficos</td><td>CSS modular, Recharts, @hello-pangea/dnd</td></tr>
+    <tr><td>Otros</td><td>date-fns, jspdf, html2canvas, qrcode, xlsx, marked, Google Generative AI (PlotAI)</td></tr>
+  </table>
+
+  <h2>2. Entradas de la aplicación</h2>
+  <ul>
+    <li><strong>index.html</strong> → App principal (tablero, mostrador, compras, RRHH, CRM, etc.).</li>
+    <li><strong>admin.html</strong> → App admin (dashboard y reportes).</li>
+    <li><strong>tablet-firma.html</strong> → App tablet para firma de entrega.</li>
+  </ul>
+
+  <h2>3. Estructura de <code>src/</code></h2>
+  <ul>
+    <li><strong>main.tsx, App.tsx</strong> — Entrada y rutas.</li>
+    <li><strong>components/</strong> — Board, TaskCard, Header, Login, NotificationsDropdown, ChatAI, PlotAI, modales, etc.</li>
+    <li><strong>pages/</strong> — BoardPage, MostradorDashboardPage, CRMVentasPage, ComprasDashboardPage, RecursosHumanos*, Cliente*, etc.</li>
+    <li><strong>services/</strong> — api.ts (Supabase + RPC), supabaseClient.ts, plotAIService.ts, plotAIContextService.ts.</li>
+    <li><strong>hooks/</strong> — useAuth, useApiData, useClienteAuth.</li>
+    <li><strong>types/</strong> — api.ts, board.ts, pedidos.ts.</li>
+    <li><strong>utils/</strong> — sectorPermissions.ts, dataMappers.ts, dateUtils.ts, exportUtils.ts.</li>
+    <li><strong>admin/</strong> — App admin (admin.html).</li>
+    <li><strong>tablet-firma/</strong> — App tablet firma.</li>
+  </ul>
+
+  <h2>4. Base de datos (Supabase / PostgreSQL)</h2>
+  <p>Esquema <code>public</code>. Autenticación custom vía tabla <code>usuarios</code> y RPC <code>login_usuario</code>.</p>
+
+  <h3>4.1 Tablas del esquema public</h3>
+  <table>
+    <thead>
+      <tr><th>Tabla</th><th>Columnas</th><th>RLS</th></tr>
+    </thead>
+    <tbody id="tables-body"></tbody>
+  </table>
+
+  <h2 class="page-break">5. Roles de la aplicación</h2>
+  <p>Valores del campo <code>usuarios.rol</code> usados para permisos en la app:</p>
+  <div class="roles-grid" id="roles-container"></div>
+  <table>
+    <tr><th>Rol (valor)</th><th>Nombre en app</th></tr>
+    <tr><td>administracion</td><td>Administración</td></tr>
+    <tr><td>gerencia</td><td>Gerencia</td></tr>
+    <tr><td>diseno</td><td>Diseño</td></tr>
+    <tr><td>imprenta</td><td>Imprenta</td></tr>
+    <tr><td>taller-grafico</td><td>Taller Gráfico</td></tr>
+    <tr><td>instalaciones</td><td>Instalaciones</td></tr>
+    <tr><td>metalurgica</td><td>Metalúrgica</td></tr>
+    <tr><td>caja</td><td>Caja</td></tr>
+    <tr><td>mostrador</td><td>Mostrador</td></tr>
+    <tr><td>compras</td><td>Compras</td></tr>
+    <tr><td>asesor-tecnico</td><td>Asesor Técnico</td></tr>
+    <tr><td>presupuestos</td><td>Presupuestos</td></tr>
+    <tr><td>recursos-humanos</td><td>Recursos Humanos</td></tr>
+  </table>
+
+  <h2 class="page-break">6. Funciones (RPC) de la base de datos</h2>
+  <p>Funciones en <code>public</code> llamables desde la app (Supabase RPC). Solo se listan nombres; argumentos y tipo de retorno están en la BD.</p>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Nombre función</th></tr>
+    </thead>
+    <tbody id="functions-body"></tbody>
+  </table>
+
+  <p style="margin-top: 32px;"><small>Generado para Plot Lab. Para exportar a PDF: Archivo → Imprimir → Guardar como PDF.</small></p>
+  <script>
+    const tables = [
+      { name: 'alertas_enviadas', columns: 4, rls: false },
+      { name: 'alertas_vencimiento', columns: 6, rls: false },
+      { name: 'archivos_adjuntos', columns: 5, rls: false },
+      { name: 'articulos_empresa', columns: 14, rls: false },
+      { name: 'articulos_empresa_imagenes', columns: 6, rls: false },
+      { name: 'asistencia', columns: 10, rls: true },
+      { name: 'atencion_conversaciones', columns: 11, rls: true },
+      { name: 'atencion_reclamos', columns: 10, rls: true },
+      { name: 'atenciones_mostrador', columns: 10, rls: false },
+      { name: 'ausencias', columns: 13, rls: true },
+      { name: 'briefs_publicos', columns: 29, rls: false },
+      { name: 'briefs_tokens_pendientes', columns: 4, rls: false },
+      { name: 'capacitaciones', columns: 21, rls: true },
+      { name: 'capacitaciones_inscripciones', columns: 13, rls: true },
+      { name: 'categorias_articulos', columns: 3, rls: false },
+      { name: 'chat_last_seen', columns: 3, rls: false },
+      { name: 'chat_messages', columns: 10, rls: false },
+      { name: 'chat_rooms', columns: 4, rls: false },
+      { name: 'citas_asesor_tecnico', columns: 15, rls: false },
+      { name: 'clientes', columns: 16, rls: false },
+      { name: 'clientes_cuenta_corriente', columns: 3, rls: true },
+      { name: 'clientes_web', columns: 13, rls: false },
+      { name: 'comentarios_orden', columns: 6, rls: false },
+      { name: 'comparacion_presupuestos', columns: 8, rls: false },
+      { name: 'conciliaciones_bancarias', columns: 16, rls: false },
+      { name: 'cuentas_por_cobrar', columns: 13, rls: false },
+      { name: 'cuentas_por_pagar', columns: 14, rls: false },
+      { name: 'enlaces_adjuntos', columns: 5, rls: false },
+      { name: 'etiquetas_disponibles', columns: 6, rls: true },
+      { name: 'evaluaciones', columns: 19, rls: true },
+      { name: 'evaluaciones_criterios', columns: 8, rls: true },
+      { name: 'firmas_entrega_cliente', columns: 7, rls: true },
+      { name: 'galeria_trabajos', columns: 15, rls: false },
+      { name: 'historial_etapas_instalaciones', columns: 11, rls: false },
+      { name: 'historial_etapas_metalurgica', columns: 11, rls: false },
+      { name: 'historial_etapas_taller_grafico', columns: 11, rls: false },
+      { name: 'historial_etapas_taller_imprenta', columns: 11, rls: false },
+      { name: 'historial_movimientos', columns: 14, rls: false },
+      { name: 'horarios_empleados', columns: 13, rls: true },
+      { name: 'impresora_historial_estado', columns: 8, rls: false },
+      { name: 'impresora_uso', columns: 10, rls: false },
+      { name: 'impresoras', columns: 8, rls: false },
+      { name: 'legajos_empleados', columns: 20, rls: false },
+      { name: 'libro_actas_sectores', columns: 11, rls: true },
+      { name: 'materiales', columns: 3, rls: false },
+      { name: 'mensajes_pedidos_clientes', columns: 8, rls: false },
+      { name: 'menu_platos', columns: 5, rls: true },
+      { name: 'menu_selecciones', columns: 6, rls: true },
+      { name: 'menus_diarios', columns: 5, rls: true },
+      { name: 'movimientos_bancarios', columns: 18, rls: false },
+      { name: 'notificaciones', columns: 7, rls: false },
+      { name: 'notificaciones_vistas', columns: 4, rls: false },
+      { name: 'online_users', columns: 3, rls: false },
+      { name: 'oportunidades_venta', columns: 22, rls: false },
+      { name: 'orden_materiales', columns: 4, rls: false },
+      { name: 'orden_sectores', columns: 4, rls: false },
+      { name: 'ordenes_trabajo', columns: 81, rls: false },
+      { name: 'pagos', columns: 21, rls: false },
+      { name: 'pedidos_clientes', columns: 30, rls: false },
+      { name: 'pedidos_clientes_archivos', columns: 8, rls: false },
+      { name: 'pedidos_clientes_items', columns: 9, rls: false },
+      { name: 'pedidos_compras', columns: 24, rls: false },
+      { name: 'pedidos_compras_comentarios', columns: 7, rls: false },
+      { name: 'pedidos_compras_items', columns: 14, rls: false },
+      { name: 'precios_historial', columns: 11, rls: false },
+      { name: 'prediction_metrics', columns: 11, rls: false },
+      { name: 'preferencias_clientes', columns: 7, rls: true },
+      { name: 'presupuestos', columns: 20, rls: false },
+      { name: 'presupuestos_clientes', columns: 15, rls: false },
+      { name: 'presupuestos_clientes_items', columns: 9, rls: false },
+      { name: 'presupuestos_items', columns: 11, rls: false },
+      { name: 'presupuestos_ventas', columns: 23, rls: false },
+      { name: 'presupuestos_ventas_items', columns: 11, rls: false },
+      { name: 'proveedores', columns: 19, rls: false },
+      { name: 'proveedores_productos', columns: 13, rls: false },
+      { name: 'revisiones_orden', columns: 9, rls: true },
+      { name: 'sectores', columns: 6, rls: false },
+      { name: 'seguimientos_venta', columns: 8, rls: false },
+      { name: 'smart_alerts', columns: 9, rls: false },
+      { name: 'solicitudes_atencion_chat', columns: 12, rls: true },
+      { name: 'solicitudes_permisos', columns: 17, rls: true },
+      { name: 'stats_cache', columns: 5, rls: false },
+      { name: 'stock_movimientos', columns: 15, rls: false },
+      { name: 'subcategorias_articulos', columns: 4, rls: false },
+      { name: 'tarea_subitems', columns: 10, rls: false },
+      { name: 'tareas', columns: 6, rls: false },
+      { name: 'tiempo_trabajo', columns: 12, rls: false },
+      { name: 'trending_metrics', columns: 7, rls: false },
+      { name: 'turnos', columns: 9, rls: true },
+      { name: 'user_notifications', columns: 14, rls: false },
+      { name: 'usuario_sectores', columns: 4, rls: false },
+      { name: 'usuarios', columns: 5, rls: true },
+      { name: 'ventas', columns: 21, rls: false },
+      { name: 'ventas_items', columns: 11, rls: false }
+    ];
+    const functions = [
+      'actualizar_acta_sector','actualizar_articulo_empresa','actualizar_brief_publico','actualizar_brief_publico_completo','actualizar_capacitacion','actualizar_categoria_articulo','actualizar_cita_asesor','actualizar_cliente','actualizar_criterio_evaluacion','actualizar_estado_presupuesto_venta','actualizar_etapa_impresion_digital','actualizar_etapa_instalaciones','actualizar_etapa_metalurgica','actualizar_etapa_taller_grafico','actualizar_etapa_taller_imprenta','actualizar_evaluacion','actualizar_orden_imagenes_articulo_empresa','actualizar_pedido_cliente','actualizar_presupuesto_cliente','actualizar_subcategoria_articulo','actualizar_usuario','agregar_cliente_cuenta_corriente','agregar_criterio_evaluacion','agregar_etiqueta_disponible','agregar_imagen_articulo_empresa','agregar_item_venta','agregar_trabajo_galeria','aprobar_evaluacion','aprobar_rechazar_ausencia','aprobar_rechazar_inscripcion','aprobar_rechazar_solicitud','aprobar_revision_orden','asociar_brief_a_orden','autenticar_cliente','buscar_clientes','buscar_o_crear_cliente','calcular_carga_trabajo_operario','calcular_metros_cuadrados','cancelar_inscripcion','cancelar_pedido_cliente','cancelar_seleccion_menu','cancelar_solicitud','chat_last_seen_otros','chat_marcar_leido','chat_toggle_reaccion','check_orden_deadlines','check_stalled_ordenes','contar_mensajes_canal','convertir_pedido_a_op','convertir_presupuesto_a_pedido_cliente','crear_acta_sector','crear_actualizar_horario','crear_actualizar_legajo','crear_actualizar_menu_diario','crear_actualizar_turno','crear_articulo_empresa','crear_atencion_mostrador','crear_ausencia','crear_brief_publico','crear_capacitacion','crear_cita_asesor','crear_cliente','crear_evaluacion','crear_mensaje_pedido','crear_mensaje_pedido_cliente','crear_oportunidad_venta','crear_pedido_cliente','crear_presupuesto_cliente','crear_presupuesto_venta','crear_solicitud_permiso','crear_usuario','crear_venta_directa','create_orden_with_contact','debug_login_usuario','eliminar_acta_sector','eliminar_articulo_empresa','eliminar_ausencia','eliminar_capacitacion','eliminar_categoria_articulo','eliminar_cita_asesor','eliminar_criterio_evaluacion','eliminar_evaluacion','eliminar_horario','eliminar_imagen_articulo_empresa','eliminar_menu_diario','eliminar_solicitud','eliminar_subcategoria_articulo','eliminar_turno','eliminar_usuario','enviar_notificacion_masiva','enviar_presupuesto_cliente','extraer_dimensiones_cm','finalizar_tiempo_trabajo','generar_brief_token','generar_codigo_articulo_empresa','generar_color_aleatorio','generar_numero_ficha_no_op','generar_numero_pedido_cliente','generar_numero_presupuesto_cliente','generar_numero_presupuesto_venta','get_argentina_date','get_argentina_time','get_user_id_from_nombre','get_users_by_sector','get_usuarios_diseno_admin','guardar_categoria_articulo','guardar_preferencias_cliente','guardar_subcategoria_articulo','iniciar_tiempo_trabajo','inscribirse_capacitacion','listar_actas_sector','listar_briefs_pendientes','listar_presupuestos_clientes_admin','listar_presupuestos_ventas_admin','listar_usuarios','login_usuario','logout_usuario','marcar_usuario_online','notificar_checklist_ficha_no_op','notificar_todos_usuarios','notificar_usuarios_taller_grafico','notify_all_users','notify_brief_completed','notify_cambio_etapa_instalaciones','notify_cambio_etapa_metalurgica','notify_cambio_etapa_taller_grafico','notify_cambio_etapa_taller_imprenta','notify_estado_change','notify_new_brief','notify_new_comment','notify_new_orden','notify_operario_assignment','notify_orden_state_change','obtener_acta_sector','obtener_asistencia','obtener_atenciones_mostrador','obtener_ausencias','obtener_balance_general','obtener_brief_por_token','obtener_capacitaciones','obtener_capacitaciones_usuario','obtener_categorias_articulos','obtener_categorias_galeria','obtener_citas_asesor','obtener_clientes_web','obtener_color_etiqueta','obtener_criterios_evaluacion','obtener_datos_historicos_cliente','obtener_detalle_pedido_cliente','obtener_detalle_presupuesto_cliente','obtener_detalle_presupuesto_venta','obtener_estadisticas_notificaciones','obtener_estadisticas_periodo','obtener_estadisticas_sector','obtener_estadisticas_usuario','obtener_etiquetas_disponibles','obtener_evaluaciones','obtener_flujo_caja','obtener_historial_etapas_instalaciones','obtener_historial_etapas_metalurgica','obtener_historial_etapas_taller_grafico','obtener_historial_etapas_taller_imprenta','obtener_horarios_usuario','obtener_imagenes_articulo_empresa','obtener_inscripciones_capacitacion','obtener_legajo_empleado','obtener_mensajes_pedido','obtener_menu_dia_actual','obtener_menus_diarios','obtener_op_por_numero_cliente','obtener_operario_disponible','obtener_orden_por_brief_token','obtener_pedidos_cliente','obtener_preferencias_cliente','obtener_presupuestos_cliente','obtener_resumen_cuentas','obtener_revisiones_orden','obtener_seleccion_usuario_menu','obtener_selecciones_menu','obtener_solicitudes_permisos','obtener_subcategorias_articulos','obtener_tiempo_trabajo_orden','obtener_tiempo_usuario','obtener_todas_preferencias_clientes','obtener_trabajos_galeria','obtener_turnos','obtener_usuarios_online','obtener_ventas','quitar_cliente_cuenta_corriente','rechazar_revision_orden','registrar_asistencia_capacitacion','registrar_cambio_manual','registrar_entrada','registrar_salida','registrar_tiempo_manual','seleccionar_plato_menu','solicitar_revision_orden','transformar_ficha_no_op_a_op','validar_sectores_kanban','verificar_alertas_vencimiento','verificar_ocupacion_impresoras','verificar_y_unificar_fichas'
+    ];
+    const tbody = document.getElementById('tables-body');
+    tables.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td class="mono">' + t.name + '</td><td>' + t.columns + '</td><td>' + (t.rls ? 'Sí' : 'No') + '</td>';
+      tbody.appendChild(tr);
+    });
+    const roles = ['Administración','Gerencia','Diseño','Imprenta','Taller Gráfico','Instalaciones','Metalúrgica','Caja','Mostrador','Compras','Asesor Técnico','Presupuestos','Recursos Humanos'];
+    const rolesContainer = document.getElementById('roles-container');
+    roles.forEach(r => { const d = document.createElement('div'); d.className = 'role-pill'; d.textContent = r; rolesContainer.appendChild(d); });
+    const fbody = document.getElementById('functions-body');
+    functions.forEach((f, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td class="mono">' + f + '</td>';
+      fbody.appendChild(tr);
+    });
+  </script>
+</body>
+</html>
