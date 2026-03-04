@@ -13,6 +13,8 @@ export default function TabletFirmaPage() {
   const [entregadoA, setEntregadoA] = useState('')
   const [dniRetira, setDniRetira] = useState('')
   const [saving, setSaving] = useState(false)
+  const [guardandoFirma, setGuardandoFirma] = useState(false)
+  const [firmaGuardadaOk, setFirmaGuardadaOk] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -159,6 +161,45 @@ export default function TabletFirmaPage() {
     if (!ctx) return
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     setFirmaDataUrl(null)
+    setFirmaGuardadaOk(false)
+  }
+
+  /** Solo guarda la firma en firmas_entrega_cliente para que se vea en mostrador (sin marcar orden entregada). */
+  const handleGuardarFirma = async () => {
+    if (!orden) return
+    if (!firmaDataUrl) {
+      setError('Por favor, firma primero')
+      return
+    }
+    if (!entregadoA.trim()) {
+      setError('Por favor, ingresa el nombre de quien retira')
+      return
+    }
+    const numeroOp = orden.numero_op?.trim()
+    if (!numeroOp) {
+      setError('Orden sin número de OP')
+      return
+    }
+    setGuardandoFirma(true)
+    setError(null)
+    try {
+      const res = await apiService.saveFirmaCliente(numeroOp, {
+        firmaDataUrl,
+        entregadoA: entregadoA.trim(),
+        dniRetira: dniRetira.trim() || undefined
+      })
+      if (res.success) {
+        setFirmaGuardadaOk(true)
+        setTimeout(() => setFirmaGuardadaOk(false), 4000)
+      } else {
+        setError(res.error || 'Error al guardar la firma')
+      }
+    } catch (err) {
+      console.error('Error guardando firma:', err)
+      setError('Error al guardar la firma')
+    } finally {
+      setGuardandoFirma(false)
+    }
   }
 
   const handleProcesarEntrega = async () => {
@@ -349,11 +390,27 @@ export default function TabletFirmaPage() {
           </div>
         )}
 
+        {firmaGuardadaOk && (
+          <div className="message-banner success">
+            <span>✅ Firma guardada. Se ve en mostrador.</span>
+          </div>
+        )}
+
         {success && (
           <div className="message-banner success">
             <span>✅ Orden procesada exitosamente. Redirigiendo...</span>
           </div>
         )}
+
+        {/* Guardar firma (solo envía a mostrador, no cierra la entrega) */}
+        <button
+          type="button"
+          className="btn-guardar-firma"
+          onClick={handleGuardarFirma}
+          disabled={guardandoFirma || saving || success || !firmaDataUrl || !entregadoA.trim()}
+        >
+          {guardandoFirma ? '⏳ Guardando...' : '💾 Guardar firma'}
+        </button>
 
         {/* Botón principal */}
         <button

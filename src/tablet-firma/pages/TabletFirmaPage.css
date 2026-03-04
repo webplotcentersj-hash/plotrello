@@ -294,11 +294,38 @@
   }
 }
 
+/* Botón Guardar firma (secundario) */
+.btn-guardar-firma {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 18px 24px;
+  background: transparent;
+  color: #eb671b;
+  border: 3px solid #eb671b;
+  border-radius: 16px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-guardar-firma:hover:not(:disabled) {
+  background: rgba(235, 103, 27, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-guardar-firma:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Botón principal - GRANDE */
 .btn-firma-large {
   width: 100%;
   max-width: 600px;
-  margin: 0 auto;
+  margin: 12px auto 0;
   padding: 24px;
   background: linear-gradient(135deg, #eb671b 0%, #d45a17 100%);
   color: #fff;
