@@ -35,6 +35,7 @@ export default function EmbedChatWidgetPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasNewStaffReply, setHasNewStaffReply] = useState(false)
+  const [briefUrl, setBriefUrl] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -192,6 +193,12 @@ export default function EmbedChatWidgetPage() {
       if (reply) setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
       else setMessages((prev) => prev)
       if (data.conversation_id != null) setConversationId(data.conversation_id)
+      if (data.brief && (data.brief.url || data.brief.token)) {
+        const url = typeof data.brief.url === 'string' && data.brief.url
+          ? data.brief.url
+          : `${apiBase}/brief/${data.brief.token}`
+        setBriefUrl(url)
+      }
     } catch (e) {
       setError('Error de conexión. Intentá de nuevo.')
     } finally {
@@ -277,6 +284,23 @@ export default function EmbedChatWidgetPage() {
             {error && (
               <div className="embed-chat-error" role="alert">
                 {error}
+              </div>
+            )}
+
+            {briefUrl && (
+              <div className="embed-brief-banner">
+                <div className="embed-brief-text">
+                  <strong>Formulario de brief listo</strong>
+                  <span>Completalo para que podamos ayudarte mejor con tu proyecto.</span>
+                </div>
+                <a
+                  href={briefUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="embed-brief-button"
+                >
+                  Abrir formulario
+                </a>
               </div>
             )}
 

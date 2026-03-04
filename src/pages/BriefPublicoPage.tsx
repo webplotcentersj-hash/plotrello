@@ -241,9 +241,18 @@ const BriefPublicoPage = () => {
       <div className="brief-container">
         <header className="brief-header">
           <div className="brief-logo">
-            <h1>📋 Formulario de Brief</h1>
-            <p className="brief-subtitle">Plot Center SRL</p>
-            <p className="brief-address">9 de Julio 622 - Oeste, Capital. San Juan · Argentina</p>
+            <div className="brief-logo-main">
+              <img
+                src="https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png"
+                alt="Plot Center"
+                className="brief-logo-img"
+              />
+              <div className="brief-logo-text">
+                <h1>Formulario de Brief</h1>
+                <p className="brief-subtitle">Plot Center</p>
+                <p className="brief-address">9 de Julio 622 (Oeste), Capital · San Juan · Argentina</p>
+              </div>
+            </div>
           </div>
           {orden && (
             <div className="orden-info">

@@ -54,19 +54,35 @@
 
 .brief-header {
   margin-bottom: 32px;
-  text-align: center;
   border-bottom: 2px solid #e5e7eb;
   padding-bottom: 24px;
 }
 
-.brief-header h1 {
-  margin: 0 0 8px 0;
-  color: #1f2937;
-  font-size: 2rem;
+.brief-logo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.brief-logo {
-  text-align: center;
+.brief-logo-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.brief-logo-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.brief-logo-text h1 {
+  margin: 0 0 4px 0;
+  color: #1f2937;
+  font-size: 1.9rem;
 }
 
 .brief-subtitle {
@@ -238,11 +254,20 @@
   }
 
   .brief-container {
-    padding: 24px;
+    padding: 24px 20px;
   }
 
-  .brief-header h1 {
+  .brief-logo-text h1 {
     font-size: 1.5rem;
+  }
+
+  .brief-logo-main {
+    align-items: flex-start;
+  }
+
+  .brief-logo-img {
+    width: 48px;
+    height: 48px;
   }
 
   .form-row {

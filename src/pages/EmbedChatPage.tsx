@@ -12,6 +12,7 @@ export default function EmbedChatPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [briefUrl, setBriefUrl] = useState<string | null>(null)
   const [showIdentificacion, setShowIdentificacion] = useState(true)
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
@@ -84,6 +85,12 @@ export default function EmbedChatPage() {
       const reply = data.reply || 'No pude generar una respuesta.'
       setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
       if (data.conversation_id != null) setConversationId(data.conversation_id)
+      if (data.brief && (data.brief.url || data.brief.token)) {
+        const url = typeof data.brief.url === 'string' && data.brief.url
+          ? data.brief.url
+          : `${apiBase}/brief/${data.brief.token}`
+        setBriefUrl(url)
+      }
     } catch (e) {
       setError('Error de conexión. Intentá de nuevo.')
     } finally {
@@ -190,6 +197,23 @@ export default function EmbedChatPage() {
       {error && (
         <div className="embed-chat-error" role="alert">
           {error}
+        </div>
+      )}
+
+      {briefUrl && (
+        <div className="embed-brief-banner">
+          <div className="embed-brief-text">
+            <strong>Formulario de brief listo</strong>
+            <span>Completalo para que podamos ayudarte mejor con tu proyecto.</span>
+          </div>
+          <a
+            href={briefUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="embed-brief-button"
+          >
+            Abrir formulario
+          </a>
         </div>
       )}
 

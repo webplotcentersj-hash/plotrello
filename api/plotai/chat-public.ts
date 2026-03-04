@@ -128,12 +128,15 @@ function extractIdentificacionFromText(text: string): {
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
-/** Detecta si el mensaje del cliente parece ser para iniciar un proyecto nuevo (pedir diseño / presupuesto / brief). */
+/** Detecta si el mensaje del cliente pide explícitamente que le mandemos un formulario/brief. */
 function detectBriefIntent(text: string): boolean {
   const t = (text || '').toLowerCase()
   if (!t.trim()) return false
-  if (t.includes('brief')) return true
-  if (/(presupuesto|cotizaci[óo]n|cotizacion|quiero un diseño|quiero un diseno|quiero hacer un logo|necesito un logo|hacer un folleto|folleto nuevo|carteler[ií]a|ploteo|dise[ñn]o web|diseño web|pagina web|p[áa]gina web|nuevo proyecto|proyecto nuevo)/.test(t)) {
+  // Pedidos explícitos de formulario/enlace de brief
+  if (/(enviame|envíame|mandame|pasame|pasar|enviar|enviarlo|link|enlace|formulario|form)\s*(de)?\s*(brief|presupuesto|proyecto)?/.test(t)) {
+    return true
+  }
+  if (/(brief|formulario)\s*(para|del)?\s*(proyecto|trabajo|pedido)?\s*(por favor|pf|pls)?/.test(t)) {
     return true
   }
   return false
