@@ -213,34 +213,67 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     }
   }
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
       markAsRead(notification.id)
     }
     setIsOpen(false)
-    
-    try {
-      // Navegar según el tipo de notificación
-      if (notification.solicitud_chat_id) {
-        navigate(`/atencion-publico?solicitud_chat=${notification.solicitud_chat_id}`)
-      } else if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
-        navigate('/chat')
-      } else if (notification.pedido_id) {
-        // Es una notificación relacionada con un pedido de compra
-        navigate(`/compras/pedidos/${notification.pedido_id}`)
-      } else if (notification.orden_id) {
-        // Es una notificación relacionada con una orden
-        navigate('/')
-      } else {
-        // Si no hay navegación específica, solo cerrar el dropdown
-        console.log('Notificación sin navegación específica:', notification)
-      }
-    } catch (error) {
-      console.error('Error navegando desde notificación:', error)
-    }
-    
+
     if (onNotificationClick) {
       onNotificationClick(notification)
+    }
+
+    try {
+      // Atención al público / chat de solicitud
+      if (notification.solicitud_chat_id != null) {
+        navigate(`/atencion-publico?solicitud_chat=${notification.solicitud_chat_id}`)
+        return
+      }
+      // Menciones en el chat
+      if (notification.type === 'mention' || notification.description?.includes('te mencionó')) {
+        navigate('/chat')
+        return
+      }
+      // Pedido de compra
+      if (notification.pedido_id != null) {
+        navigate(`/compras/pedidos/${notification.pedido_id}`)
+        return
+      }
+      // Orden de trabajo: obtener número de OP y abrir vista de OP
+      if (notification.orden_id != null) {
+        const res = await apiService.getOrden(notification.orden_id)
+        if (res.success && res.data?.numero_op) {
+          navigate(`/op/${encodeURIComponent(res.data.numero_op)}`)
+        } else {
+          navigate('/')
+        }
+        return
+      }
+      // Venta (CRM)
+      if (notification.venta_id != null) {
+        navigate(`/crm-ventas?ventaId=${notification.venta_id}`)
+        return
+      }
+      // Oportunidad (CRM)
+      if (notification.oportunidad_id != null) {
+        navigate(`/crm-ventas?oportunidadId=${notification.oportunidad_id}`)
+        return
+      }
+      // Solicitud de permiso / RRHH
+      if (notification.solicitud_id != null) {
+        navigate('/rrhh/permisos')
+        return
+      }
+      // Capacitación
+      if (notification.capacitacion_id != null) {
+        navigate('/rrhh/capacitaciones')
+        return
+      }
+      // Sin enlace específico: ir al tablero
+      navigate('/')
+    } catch (error) {
+      console.error('Error navegando desde notificación:', error)
+      navigate('/')
     }
   }
 
