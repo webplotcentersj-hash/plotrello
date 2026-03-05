@@ -24,6 +24,12 @@ export default function EmbedChatPage() {
     }
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [pendingImage, setPendingImage] = useState<{
+    mimeType: string
+    data: string
+    previewUrl: string
+  } | null>(null)
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   useEffect(() => {
@@ -38,6 +44,57 @@ export default function EmbedChatPage() {
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const chatApi = `${apiBase}/api/plotai/chat-public`
 
+  const downscaleImageToJpeg = async (file: File) => {
+    const objectUrl = URL.createObjectURL(file)
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image()
+        el.onload = () => resolve(el)
+        el.onerror = () => reject(new Error('No se pudo leer la imagen'))
+        el.src = objectUrl
+      })
+      const maxSide = 1280
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight))
+      const w = Math.max(1, Math.round(img.naturalWidth * scale))
+      const h = Math.max(1, Math.round(img.naturalHeight * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('No se pudo crear canvas')
+      ctx.drawImage(img, 0, 0, w, h)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+      return dataUrl
+    } finally {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }
+
+  const handlePickImage = async (file: File | null) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('Solo se permiten imágenes.')
+      return
+    }
+    setError(null)
+    try {
+      const dataUrl = file.size > 900_000 ? await downscaleImageToJpeg(file) : await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => reject(new Error('No se pudo leer la imagen'))
+        reader.readAsDataURL(file)
+      })
+      const [meta, b64] = dataUrl.split(',')
+      const mimeType = meta?.match(/data:([^;]+);base64/i)?.[1] || 'image/jpeg'
+      if (!b64) throw new Error('Imagen inválida')
+      setPendingImage({ mimeType, data: b64, previewUrl: dataUrl })
+    } catch {
+      setError('No pude procesar la imagen. Probá con otra.')
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   const normalizeForSearch = (value: string, digitsOnly = false) => {
     const t = value.trim()
     if (!t) return undefined
@@ -50,11 +107,13 @@ export default function EmbedChatPage() {
 
   const sendMessage = async () => {
     const text = input.trim()
-    if (!text || loading) return
+    if ((!text && !pendingImage) || loading) return
 
-    const userMsg: ChatMessage = { role: 'user', parts: [{ text }] }
+    const userMsgText = text || (pendingImage ? '📷 Imagen enviada' : '')
+    const userMsg: ChatMessage = { role: 'user', parts: [{ text: userMsgText }] }
     setMessages((prev) => [...prev, userMsg])
     setInput('')
+    setPendingImage(null)
     setLoading(true)
     setError(null)
 
@@ -68,6 +127,7 @@ export default function EmbedChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
+          ...(pendingImage ? { images: [{ mimeType: pendingImage.mimeType, data: pendingImage.data }] } : {}),
           nombre: normalizeForSearch(nombre),
           dni: normalizeForSearch(dni, true),
           cuit: normalizeForSearch(cuit, true),
@@ -217,7 +277,38 @@ export default function EmbedChatPage() {
         </div>
       )}
 
+      {pendingImage && (
+        <div className="embed-attach-preview" aria-label="Imagen adjunta">
+          <img src={pendingImage.previewUrl} alt="Imagen adjunta" className="embed-attach-preview-img" />
+          <button
+            type="button"
+            className="embed-attach-remove"
+            onClick={() => setPendingImage(null)}
+            aria-label="Quitar imagen"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <footer className="embed-chat-footer">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="embed-attach-input"
+          onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+        />
+        <button
+          type="button"
+          className="embed-attach"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading}
+          aria-label="Adjuntar foto"
+          title="Adjuntar foto"
+        >
+          📎
+        </button>
         <input
           type="text"
           placeholder="Escribí tu mensaje..."
@@ -232,7 +323,7 @@ export default function EmbedChatPage() {
           type="button"
           className="embed-chat-send"
           onClick={sendMessage}
-          disabled={loading || !input.trim()}
+          disabled={loading || (!input.trim() && !pendingImage)}
           aria-label="Enviar"
         >
           <span className="embed-chat-send-icon">↑</span>

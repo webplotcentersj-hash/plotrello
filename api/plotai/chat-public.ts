@@ -44,8 +44,10 @@ type Body = {
   dni?: string
   cuit?: string
   op?: string
+  telefono?: string
   conversation_id?: number
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
+  images?: Array<{ mimeType: string; data: string }>
 }
 
 /** Normaliza número de OP: solo dígitos, sin espacios ni guiones. */
@@ -127,6 +129,25 @@ function extractIdentificacionFromText(text: string): {
 }
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
+
+/** Extrae un teléfono del texto (acepta formatos con +, espacios, guiones). */
+function extractTelefonoFromText(text: string): string | null {
+  const t = (text || '').trim()
+  if (!t) return null
+
+  // Si el usuario lo declara explícitamente
+  const explicit = t.match(/\b(?:tel[eé]fono|telefono|cel|celular|whatsapp|wsp|wp)\s*[:\-]?\s*(\+?\d[\d\s().-]{6,}\d)\b/i)
+  const candidate = explicit?.[1] || null
+  const raw = candidate || t
+
+  // Buscar un bloque de números suficientemente largo
+  const m = raw.match(/(\+?\d[\d\s().-]{6,}\d)/)
+  if (!m) return null
+
+  const digits = m[1].replace(/\D/g, '')
+  if (digits.length < 7 || digits.length > 15) return null
+  return digits
+}
 
 /** Detecta si el mensaje del cliente pide explícitamente que le mandemos un formulario/brief. */
 function detectBriefIntent(text: string): boolean {
@@ -423,8 +444,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Body
   const message = (body?.message || '').trim()
-  if (!message) {
-    res.status(400).json({ error: 'message es requerido' })
+  const images = Array.isArray(body.images) ? body.images : []
+  const hasImages = images.length > 0
+  if (!message && !hasImages) {
+    res.status(400).json({ error: 'message o images es requerido' })
     return
   }
 
@@ -441,12 +464,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (e.empresa) acc.empresa = e.empresa
         if (e.dni) acc.dni = e.dni
         if (e.cuit) acc.cuit = e.cuit
+        const tel = extractTelefonoFromText(txt)
+        if (tel) acc.telefono = tel
         return acc
       },
-      {} as { nombre?: string; empresa?: string; dni?: string; cuit?: string }
+      {} as { nombre?: string; empresa?: string; dni?: string; cuit?: string; telefono?: string }
     )
     const nombre = (body.nombre && body.nombre.trim()) || extracted.nombre
     const empresa = (body.empresa && body.empresa.trim()) || extracted.empresa
+    const telefono = (body.telefono && body.telefono.trim()) || extracted.telefono
     const dniRaw = (body.dni && body.dni.trim()) || extracted.dni
     const cuitRaw = (body.cuit && body.cuit.trim()) || extracted.cuit
     const dni = dniRaw ? digitsOnly(dniRaw).length >= 7 ? digitsOnly(dniRaw) : dniRaw.trim() : undefined
@@ -454,6 +480,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const opFromBody = body.op && body.op.trim() ? normalizeOp(body.op) : null
     const opFromMsg = allUserTexts.map(extractOpFromText).find(Boolean)
     const numeroOp = (opFromBody && opFromBody.length >= 2) ? opFromBody : (opFromMsg || null)
+
+    // Pedir nombre+teléfono en el 2º o 3º mensaje del cliente (si todavía no los tenemos).
+    // Consideramos que un envío de imagen cuenta como mensaje.
+    const userMsgCount = history.filter((p) => p.role === 'user').length + (message ? 1 : 0) + (hasImages && !message ? 1 : 0)
+    const shouldAskContact = (userMsgCount === 2 || userMsgCount === 3) && (!nombre || !telefono)
 
     let clientContext: string
     let ordersContext: string
@@ -591,6 +622,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!skipGemini) {
+      if (shouldAskContact) {
+        const thanksImg = hasImages ? '¡Gracias por la imagen! ' : ''
+        replyText =
+          `${thanksImg}Antes de seguir, ¿me pasás tu nombre y un teléfono de contacto? ` +
+          `Ejemplo: "Juan Pérez, 2644xxxxxx".`
+        skipGemini = true
+      }
+    }
+
+    if (!skipGemini) {
     const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente. Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
 
 REGLA CRÍTICA — NO ALUCINAR (obligatorio):
@@ -630,12 +671,37 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       const text = (p.parts && p.parts[0]?.text) || ''
       conversation += `${role}: ${text}\n\n`
     }
-    conversation += `Usuario: ${message}\n\nAsistente:`
+    conversation += `Usuario: ${message || (hasImages ? '[Imagen adjunta]' : '')}\n\n`
+    if (hasImages) {
+      conversation += `INSTRUCCIÓN EXTRA: El usuario adjuntó una o más imágenes. Interpretalas con cuidado y respondé en español. Si te falta información, preguntá.\n\n`
+    }
+    conversation += `Asistente:`
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: conversation
-    })
+    const safeImages = images
+      .filter((img) => img && typeof img.mimeType === 'string' && typeof img.data === 'string')
+      .slice(0, 2)
+      .filter((img) => /^image\//.test(img.mimeType))
+      .filter((img) => img.data.length > 0 && img.data.length < 2_500_000)
+
+    const response = safeImages.length > 0
+      ? await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: conversation },
+                ...safeImages.map((img) => ({
+                  inlineData: { mimeType: img.mimeType, data: img.data }
+                }))
+              ]
+            }
+          ]
+        } as any)
+      : await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: conversation
+        })
 
     const text = (response as any)?.text ?? ''
     replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
@@ -658,15 +724,22 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           } else if (selectErr) {
             console.error('Error leyendo conversación para actualizar:', selectErr)
           }
+          const userTextForHist = message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : '')
           const updated = replyText
-            ? [...hist, { role: 'user', text: message.slice(0, 5000) }, { role: 'model', text: replyText.slice(0, 5000) }]
-            : [...hist, { role: 'user', text: message.slice(0, 5000) }]
+            ? [...hist, { role: 'user', text: userTextForHist }, { role: 'model', text: replyText.slice(0, 5000) }]
+            : [...hist, { role: 'user', text: userTextForHist }]
+          const contactName = nombre || (empresa ? `Cliente (${empresa})` : null)
+          const updatePayload: Record<string, unknown> = {
+            historial_mensajes: updated,
+            ultimo_mensaje_preview: message.slice(0, 200),
+            updated_at: new Date().toISOString()
+          }
+          if (contactName) updatePayload.cliente_nombre = contactName
+          if (telefono) updatePayload.cliente_telefono = telefono
           const { error: updateErr } = await supabase
             .from('atencion_conversaciones')
             .update({
-              historial_mensajes: updated,
-              ultimo_mensaje_preview: message.slice(0, 200),
-              updated_at: new Date().toISOString()
+              ...(updatePayload as any)
             })
             .eq('id', idConv)
           if (updateErr) console.error('Error actualizando conversación:', updateErr)
@@ -675,12 +748,13 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           const { data: newConv, error: insertErr } = await supabase
             .from('atencion_conversaciones')
             .insert({
-              cliente_nombre: clienteNombreConv,
+              cliente_nombre: nombre || clienteNombreConv,
+              cliente_telefono: telefono || null,
               canal: 'chat_web',
               ultimo_mensaje_preview: message.slice(0, 200),
               estado: 'abierto',
               historial_mensajes: [
-                { role: 'user', text: message.slice(0, 5000) },
+                { role: 'user', text: message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : '') },
                 { role: 'model', text: replyText.slice(0, 5000) }
               ]
             })
