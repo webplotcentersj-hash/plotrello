@@ -495,7 +495,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const dni = dniRaw ? digitsOnly(dniRaw).length >= 7 ? digitsOnly(dniRaw) : dniRaw.trim() : undefined
     const cuit = cuitRaw ? digitsOnly(cuitRaw).length >= 10 ? digitsOnly(cuitRaw) : cuitRaw.trim() : undefined
     const opFromBody = body.op && body.op.trim() ? normalizeOp(body.op) : null
-    const opFromMsg = allUserTexts.map(extractOpFromText).find(Boolean)
+    // Solo considerar OP en textos donde el usuario hable explícitamente de OP / orden / número
+    const opFromMsgRaw = allUserTexts
+      .map((txt) => {
+        const t = (txt || '').toLowerCase()
+        if (!/(op\b|orden\b|nro\b|número\b|numero\b|#)/.test(t)) return null
+        return extractOpFromText(txt)
+      })
+      .find(Boolean)
+    let opFromMsg = opFromMsgRaw
+    if (opFromMsg && telefono) {
+      const opDigits = normalizeOp(opFromMsg)
+      const telDigits = digitsOnly(telefono)
+      // Si el número que parece OP es exactamente el mismo que el teléfono,
+      // asumir que es teléfono y NO tratarlo como OP.
+      if (opDigits && telDigits && opDigits === telDigits) {
+        opFromMsg = null
+      }
+    }
     const numeroOp = (opFromBody && opFromBody.length >= 2) ? opFromBody : (opFromMsg || null)
 
     // Pedir nombre+teléfono en el 2º o 3º mensaje del cliente (si todavía no los tenemos).
@@ -712,71 +729,53 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     const imageDataUrlForHist =
       safeImages[0] ? `data:${safeImages[0].mimeType};base64,${safeImages[0].data}` : null
 
-    try {
-      const response = safeImages.length > 0
-        ? await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { text: conversation },
-                  ...safeImages.map((img) => ({
-                    inlineData: { mimeType: img.mimeType, data: img.data }
-                  }))
-                ]
-              }
-            ]
-          } as any)
-        : await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: conversation
-          })
+    const response = safeImages.length > 0
+      ? await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: conversation },
+                ...safeImages.map((img) => ({
+                  inlineData: { mimeType: img.mimeType, data: img.data }
+                }))
+              ]
+            }
+          ]
+        } as any)
+      : await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: conversation
+        })
 
-      const text = (response as any)?.text ?? ''
-      replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
-    } catch (e) {
-      console.error('Error llamando a Gemini en chat-public:', e)
-      replyText =
-        replyText ||
-        'En este momento tengo un problema técnico para generar la respuesta automática. Podés seguir chateando igual y, si lo preferís, un integrante del equipo puede ayudarte por acá o por teléfono/WhatsApp al 2646212163.'
-    }
+    const text = (response as any)?.text ?? ''
+    replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
     }
 
     let conversationId: number | null = null
     const clienteNombreConv = nombre || 'Cliente web'
     if (supabase) {
       try {
-        const hasId = body.conversation_id && Number.isInteger(Number(body.conversation_id))
-        let existingHist: Array<{ role: string; text: string; imageDataUrl?: string }> | null = null
-        let existingId: number | null = null
-
-        if (hasId) {
+        if (body.conversation_id && Number.isInteger(Number(body.conversation_id))) {
           const idConv = Number(body.conversation_id)
           const { data: conv, error: selectErr } = await supabase
             .from('atencion_conversaciones')
-            .select('id, historial_mensajes')
+            .select('historial_mensajes')
             .eq('id', idConv)
             .single()
-          if (!selectErr && conv) {
-            existingId = idConv
-            existingHist = Array.isArray((conv as any)?.historial_mensajes)
-              ? (conv as any).historial_mensajes
-              : []
+          let hist: Array<{ role: string; text: string }> = Array.isArray((conv as any)?.historial_mensajes) ? (conv as any).historial_mensajes : []
+          if (selectErr && Array.isArray(history) && history.length > 0) {
+            hist = history.map((p) => ({ role: p.role, text: (p.parts?.[0]?.text ?? '').slice(0, 5000) }))
           } else if (selectErr) {
-            console.warn('No se encontró conversación existente, se creará una nueva:', selectErr.message)
+            console.error('Error leyendo conversación para actualizar:', selectErr)
           }
-
-        }
-
-        if (existingId != null && existingHist) {
-          // Actualizar conversación existente
           const userTextForHist = message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : '')
           const userEntry: any = { role: 'user', text: userTextForHist }
           if (imageDataUrlForHist) userEntry.imageDataUrl = imageDataUrlForHist
           const updated = replyText
-            ? [...existingHist, userEntry, { role: 'model', text: replyText.slice(0, 5000) }]
-            : [...existingHist, userEntry]
+            ? [...hist, userEntry, { role: 'model', text: replyText.slice(0, 5000) }]
+            : [...hist, userEntry]
           const contactName = nombre || (empresa ? `Cliente (${empresa})` : null)
           const updatePayload: Record<string, unknown> = {
             historial_mensajes: updated,
@@ -787,12 +786,13 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           if (telefono) updatePayload.cliente_telefono = telefono
           const { error: updateErr } = await supabase
             .from('atencion_conversaciones')
-            .update(updatePayload as any)
-            .eq('id', existingId)
+            .update({
+              ...(updatePayload as any)
+            })
+            .eq('id', idConv)
           if (updateErr) console.error('Error actualizando conversación:', updateErr)
-          conversationId = existingId
+          conversationId = idConv
         } else {
-          // Crear una nueva conversación (aunque el cliente haya mandado un conversation_id inválido)
           const { data: newConv, error: insertErr } = await supabase
             .from('atencion_conversaciones')
             .insert({
