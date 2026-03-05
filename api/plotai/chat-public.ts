@@ -740,25 +740,36 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     const clienteNombreConv = nombre || 'Cliente web'
     if (supabase) {
       try {
-        if (body.conversation_id && Number.isInteger(Number(body.conversation_id))) {
+        const hasId = body.conversation_id && Number.isInteger(Number(body.conversation_id))
+        let existingHist: Array<{ role: string; text: string; imageDataUrl?: string }> | null = null
+        let existingId: number | null = null
+
+        if (hasId) {
           const idConv = Number(body.conversation_id)
           const { data: conv, error: selectErr } = await supabase
             .from('atencion_conversaciones')
-            .select('historial_mensajes')
+            .select('id, historial_mensajes')
             .eq('id', idConv)
             .single()
-          let hist: Array<{ role: string; text: string }> = Array.isArray((conv as any)?.historial_mensajes) ? (conv as any).historial_mensajes : []
-          if (selectErr && Array.isArray(history) && history.length > 0) {
-            hist = history.map((p) => ({ role: p.role, text: (p.parts?.[0]?.text ?? '').slice(0, 5000) }))
+          if (!selectErr && conv) {
+            existingId = idConv
+            existingHist = Array.isArray((conv as any)?.historial_mensajes)
+              ? (conv as any).historial_mensajes
+              : []
           } else if (selectErr) {
-            console.error('Error leyendo conversación para actualizar:', selectErr)
+            console.warn('No se encontró conversación existente, se creará una nueva:', selectErr.message)
           }
+
+        }
+
+        if (existingId != null && existingHist) {
+          // Actualizar conversación existente
           const userTextForHist = message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : '')
           const userEntry: any = { role: 'user', text: userTextForHist }
           if (imageDataUrlForHist) userEntry.imageDataUrl = imageDataUrlForHist
           const updated = replyText
-            ? [...hist, userEntry, { role: 'model', text: replyText.slice(0, 5000) }]
-            : [...hist, userEntry]
+            ? [...existingHist, userEntry, { role: 'model', text: replyText.slice(0, 5000) }]
+            : [...existingHist, userEntry]
           const contactName = nombre || (empresa ? `Cliente (${empresa})` : null)
           const updatePayload: Record<string, unknown> = {
             historial_mensajes: updated,
@@ -769,13 +780,12 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           if (telefono) updatePayload.cliente_telefono = telefono
           const { error: updateErr } = await supabase
             .from('atencion_conversaciones')
-            .update({
-              ...(updatePayload as any)
-            })
-            .eq('id', idConv)
+            .update(updatePayload as any)
+            .eq('id', existingId)
           if (updateErr) console.error('Error actualizando conversación:', updateErr)
-          conversationId = idConv
+          conversationId = existingId
         } else {
+          // Crear una nueva conversación (aunque el cliente haya mandado un conversation_id inválido)
           const { data: newConv, error: insertErr } = await supabase
             .from('atencion_conversaciones')
             .insert({
