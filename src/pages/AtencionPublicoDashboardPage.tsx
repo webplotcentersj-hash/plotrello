@@ -430,7 +430,7 @@ const AtencionPublicoDashboardPage = () => {
                 <>
                   <div className="atencion-publico-conversacion-header">
                     <div className="atencion-publico-conversacion-header-left">
-                      <h2>💬 {conversacionDetalle.cliente_nombre || 'Cliente web'}</h2>
+                      <h2>💬 {conversacionDetalle.cliente_nombre || conversacionDetalle.cliente_email || 'Cliente'}</h2>
                       <p className="atencion-publico-conversacion-meta">{conversacionDetalle.canal} · {tiempoRelativo(conversacionDetalle.updated_at)}</p>
                     </div>
                   </div>
