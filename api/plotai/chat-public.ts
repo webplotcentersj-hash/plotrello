@@ -228,7 +228,7 @@ async function getContextByOp(
 
   if (error || !orden) {
     return {
-      clientContext: `El visitante consulta por la OP ${numeroOp}. No se encontró ninguna orden de trabajo con ese número. Sugerile que verifique el número o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).`,
+      clientContext: `El visitante consulta por la OP ${numeroOp}. No se encontró ninguna orden de trabajo con ese número. Podés sugerirle que verifique el número o que se contacte con Plot Center por teléfono o WhatsApp al 2646212163, o por email a contacto@plotcenter.com.ar.`,
       ordersContext: ''
     }
   }
@@ -393,7 +393,7 @@ async function findClientAndOrders(
 
   const clientContext = clientRow
     ? `CLIENTE IDENTIFICADO: ${[clientRow.nombre, clientRow.apellido, clientRow.empresa].filter(Boolean).join(' ')}. DNI/CUIT: ${clientRow.dni_cuit || '—'}. Tel: ${clientRow.telefono || '—'}. Email: ${clientRow.email || '—'}.`
-    : 'No se encontró un cliente con ese nombre, DNI/CUIT o empresa. Sugerile que verifique los datos o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).'
+    : 'No se encontró un cliente con ese nombre, DNI/CUIT, teléfono o empresa. Podés decirle que no vemos sus datos todavía y ofrecerle seguir por este chat o, si prefiere, por teléfono/WhatsApp (2646212163) o email (contacto@plotcenter.com.ar).'
 
   const clienteNombre = clientRow
     ? [clientRow.nombre, clientRow.apellido].filter(Boolean).join(' ').trim() || String(clientRow.empresa || '')
@@ -664,7 +664,7 @@ REGLA CRÍTICA — NO ALUCINAR (obligatorio):
 - Solo podés usar información que aparezca EXPLÍCITAMENTE en las secciones "CONOCIMIENTO DE LA EMPRESA" y "CLIENTE CON QUIEN ESTÁS HABLANDO" más abajo.
 - NUNCA inventes: números de OP, fechas de entrega, estados de órdenes, precios, nombres de clientes, teléfonos, emails, direcciones ni ningún otro dato.
 - Si el contexto dice "No se encontró" o "no tiene órdenes" o "no hay coincidencias", decilo tal cual; no digas que sí hay datos.
-- Si no tenés un dato (ej. precio, fecha, estado), no lo inventes: decí que no lo tenés y sugerí contactar por teléfono (2646212163) o email (contacto@plotcenter.com.ar).
+- Si no tenés un dato (ej. precio, fecha, estado), no lo inventes: decí que no lo tenés y podés ofrecer que un humano del equipo siga la conversación (por este chat, por teléfono/WhatsApp al 2646212163 o por email a contacto@plotcenter.com.ar).
 - Para datos de Plot Center (dirección, teléfono, servicios) usá ÚNICAMENTE lo que está en CONOCIMIENTO DE LA EMPRESA.
 
 IDIOMA Y TONO:
@@ -686,7 +686,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
 - Para OPs y trabajos: citá SOLO los números, estados y fechas que aparecen en "CLIENTE CON QUIEN ESTÁS HABLANDO". Si ahí dice que no se encontró la OP o que no hay órdenes, decilo sin inventar nada.
 - UBICACIÓN EN TIEMPO REAL: en el contexto figura "Dónde está" para cada OP. Decile al cliente dónde está su trabajo (ej. "Tu OP 12345 está en Taller Gráfico", "está en Almacén de Entrega").
 - LISTO PARA RETIRO: cuando en el contexto diga "LISTO PARA RETIRO" para una OP, avisale claramente que ya puede pasar a retirarla (ej. "Tu pedido ya está listo, podés pasar a retirarlo por 9 de Julio 622 (Oeste)" o "Ya está en Almacén de Entrega, cuando quieras podés venir a buscarlo").
-- NUNCA escribas placeholders como "[Aquí iría...]" ni relleno. Si tenés el dato, decilo; si no, decí que no lo tenés y ofrecé contacto (2646212163 o contacto@plotcenter.com.ar).
+- NUNCA escribas placeholders como "[Aquí iría...]" ni relleno. Si tenés el dato, decilo; si no, decí que no lo tenés y ofrecé que un humano del equipo puede ayudarte (por este chat o por teléfono/WhatsApp al 2646212163 o email contacto@plotcenter.com.ar).
 - Resumí cuando haya muchas OPs. Cerrando: "¿Necesitás algo más?" o "Cualquier cosa, estamos acá."`
 
     const ai = new GoogleGenAI({ apiKey })
@@ -708,6 +708,8 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       .slice(0, 2)
       .filter((img) => /^image\//.test(img.mimeType))
       .filter((img) => img.data.length > 0 && img.data.length < 2_500_000)
+    const imageDataUrlForHist =
+      safeImages[0] ? `data:${safeImages[0].mimeType};base64,${safeImages[0].data}` : null
 
     const response = safeImages.length > 0
       ? await ai.models.generateContent({
@@ -751,9 +753,11 @@ CÓMO TRATAR AL CLIENTE (atención al público):
             console.error('Error leyendo conversación para actualizar:', selectErr)
           }
           const userTextForHist = message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : '')
+          const userEntry: any = { role: 'user', text: userTextForHist }
+          if (imageDataUrlForHist) userEntry.imageDataUrl = imageDataUrlForHist
           const updated = replyText
-            ? [...hist, { role: 'user', text: userTextForHist }, { role: 'model', text: replyText.slice(0, 5000) }]
-            : [...hist, { role: 'user', text: userTextForHist }]
+            ? [...hist, userEntry, { role: 'model', text: replyText.slice(0, 5000) }]
+            : [...hist, userEntry]
           const contactName = nombre || (empresa ? `Cliente (${empresa})` : null)
           const updatePayload: Record<string, unknown> = {
             historial_mensajes: updated,
@@ -780,7 +784,11 @@ CÓMO TRATAR AL CLIENTE (atención al público):
               ultimo_mensaje_preview: message.slice(0, 200),
               estado: 'abierto',
               historial_mensajes: [
-                { role: 'user', text: message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : '') },
+                {
+                  role: 'user',
+                  text: message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : ''),
+                  ...(imageDataUrlForHist ? { imageDataUrl: imageDataUrlForHist } : {})
+                },
                 { role: 'model', text: replyText.slice(0, 5000) }
               ]
             })

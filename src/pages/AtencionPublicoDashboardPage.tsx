@@ -397,6 +397,13 @@ const AtencionPublicoDashboardPage = () => {
                       <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
                         <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
                         <p className="atencion-publico-msg-text">{m.text}</p>
+                        {(m as any).imageDataUrl && (
+                          <img
+                            src={(m as any).imageDataUrl}
+                            alt="Imagen enviada por el cliente"
+                            className="atencion-publico-msg-image"
+                          />
+                        )}
                       </div>
                     ))}
                     {solicitudChat.respuestas_staff?.map((r, i) => (
@@ -432,6 +439,13 @@ const AtencionPublicoDashboardPage = () => {
                       <div key={`h-${i}`} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
                         <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
                         <p className="atencion-publico-msg-text">{m.text}</p>
+                        {(m as any).imageDataUrl && (
+                          <img
+                            src={(m as any).imageDataUrl}
+                            alt="Imagen enviada por el cliente"
+                            className="atencion-publico-msg-image"
+                          />
+                        )}
                       </div>
                     ))}
                     {conversacionDetalle.respuestas_staff?.map((r, i) => (
