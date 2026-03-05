@@ -44,10 +44,8 @@ type Body = {
   dni?: string
   cuit?: string
   op?: string
-  telefono?: string
   conversation_id?: number
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
-  images?: Array<{ mimeType: string; data: string }>
 }
 
 /** Normaliza número de OP: solo dígitos, sin espacios ni guiones. */
@@ -130,51 +128,6 @@ function extractIdentificacionFromText(text: string): {
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
-/** Extrae un teléfono del texto (acepta formatos con +, espacios, guiones). */
-function extractTelefonoFromText(text: string): string | null {
-  const t = (text || '').trim()
-  if (!t) return null
-
-  // Si el usuario lo declara explícitamente
-  const explicit = t.match(/\b(?:tel[eé]fono|telefono|cel|celular|whatsapp|wsp|wp)\s*[:\-]?\s*(\+?\d[\d\s().-]{6,}\d)\b/i)
-  const candidate = explicit?.[1] || null
-  const raw = candidate || t
-
-  // Buscar un bloque de números suficientemente largo
-  const m = raw.match(/(\+?\d[\d\s().-]{6,}\d)/)
-  if (!m) return null
-
-  const digits = m[1].replace(/\D/g, '')
-  if (digits.length < 7 || digits.length > 15) return null
-  return digits
-}
-
-/** Detecta si el mensaje del cliente pide explícitamente que le mandemos un formulario/brief. */
-function detectBriefIntent(text: string): boolean {
-  const t = (text || '').toLowerCase()
-  if (!t.trim()) return false
-  // Pedidos explícitos de formulario/enlace de brief
-  if (/(enviame|envíame|mandame|pasame|pasar|enviar|enviarlo|link|enlace|formulario|form)\s*(de)?\s*(brief|presupuesto|proyecto)?/.test(t)) {
-    return true
-  }
-  if (/(brief|formulario)\s*(para|del)?\s*(proyecto|trabajo|pedido)?\s*(por favor|pf|pls)?/.test(t)) {
-    return true
-  }
-  return false
-}
-
-/** Construye la URL base del sitio (para armar links públicos) usando headers de la request o una variable de entorno. */
-function buildBaseUrl(req: VercelRequest): string {
-  const envBase = process.env.BRIEF_BASE_URL
-  if (envBase && envBase.trim()) {
-    return envBase.replace(/\/+$/, '')
-  }
-  const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
-  const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || ''
-  if (!host) return ''
-  return `${proto}://${host}`
-}
-
 /** Columnas de ubicación/etapa en ordenes_trabajo (lectura explícita para no depender de nombres mágicos). */
 const ORDEN_UBICACION_SELECT =
   'numero_op, cliente, dni_cuit, descripcion, estado, prioridad, fecha_entrega, fecha_creacion, telefono_cliente, email_cliente, sector, ubicacion_final, etapa_taller_grafico, etapa_impresion_digital, etapa_taller_imprenta, etapa_instalaciones, etapa_metalurgica'
@@ -228,7 +181,7 @@ async function getContextByOp(
 
   if (error || !orden) {
     return {
-      clientContext: `El visitante consulta por la OP ${numeroOp}. No se encontró ninguna orden de trabajo con ese número. Podés sugerirle que verifique el número o que se contacte con Plot Center por teléfono o WhatsApp al 2646212163, o por email a contacto@plotcenter.com.ar.`,
+      clientContext: `El visitante consulta por la OP ${numeroOp}. No se encontró ninguna orden de trabajo con ese número. Sugerile que verifique el número o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).`,
       ordersContext: ''
     }
   }
@@ -292,8 +245,7 @@ async function findClientAndOrders(
   nombre?: string,
   dni?: string,
   cuit?: string,
-  empresa?: string,
-  telefono?: string
+  empresa?: string
 ): Promise<{ clientContext: string; ordersContext: string }> {
   if (!supabase) {
     return { clientContext: '', ordersContext: '' }
@@ -304,8 +256,7 @@ async function findClientAndOrders(
   const e = trim(empresa)
   const d = trim(dni)
   const c = trim(cuit)
-  const t = trim(telefono)
-  const hasAny = n || e || d || c || t
+  const hasAny = n || e || d || c
   if (!hasAny) {
     return {
       clientContext: 'El visitante aún no dio nombre, empresa, DNI ni CUIT. Solo cuando pregunte por su trabajo u orden pedile: "¿Me decís tu nombre, DNI, CUIT o número de OP para buscarlo?"',
@@ -316,7 +267,6 @@ async function findClientAndOrders(
   let clientRow: Record<string, unknown> | null = null
   const dDigits = digitsOnly(d)
   const cDigits = digitsOnly(c)
-  const tDigits = digitsOnly(t)
   const docDigits = dDigits.length >= 7 ? dDigits : cDigits.length >= 10 ? cDigits : ''
 
   // 1) Búsqueda por DNI/CUIT (normalizado: solo dígitos; DNI 7-8, CUIT 10-11)
@@ -346,18 +296,7 @@ async function findClientAndOrders(
       if (match) clientRow = match
     }
   }
-  // 2) Búsqueda por teléfono
-  if (!clientRow && tDigits.length >= 6) {
-    const { data: byTel } = await supabase
-      .from('clientes')
-      .select('*')
-      .ilike('telefono', `%${tDigits}%`)
-      .limit(10)
-    const rows = (byTel || []) as Record<string, unknown>[]
-    const match = rows.find((r) => digitsOnly(String(r.telefono || '')) === tDigits) || rows[0]
-    if (match) clientRow = match
-  }
-  // 3) Búsqueda por empresa
+  // 2) Búsqueda por empresa
   if (!clientRow && e && e.length >= 2) {
     const empresaSafe = e.replace(/%/g, '')
     const { data: byEmpresa } = await supabase
@@ -370,7 +309,7 @@ async function findClientAndOrders(
     const match = rows.find((r) => String(r.empresa || '').toLowerCase().includes(eLower)) || rows[0]
     if (match) clientRow = match
   }
-  // 4) Búsqueda por nombre (nombre, apellido o nombre completo en empresa)
+  // 3) Búsqueda por nombre (nombre, apellido o nombre completo en empresa)
   if (!clientRow && n && n.length >= 2) {
     const parts = n.split(/\s+/).filter(Boolean)
     const firstPart = (parts[0] || n).replace(/%/g, '')
@@ -393,14 +332,13 @@ async function findClientAndOrders(
 
   const clientContext = clientRow
     ? `CLIENTE IDENTIFICADO: ${[clientRow.nombre, clientRow.apellido, clientRow.empresa].filter(Boolean).join(' ')}. DNI/CUIT: ${clientRow.dni_cuit || '—'}. Tel: ${clientRow.telefono || '—'}. Email: ${clientRow.email || '—'}.`
-    : 'No se encontró un cliente con ese nombre, DNI/CUIT, teléfono o empresa. Podés decirle que no vemos sus datos todavía y ofrecerle seguir por este chat o, si prefiere, por teléfono/WhatsApp (2646212163) o email (contacto@plotcenter.com.ar).'
+    : 'No se encontró un cliente con ese nombre, DNI/CUIT o empresa. Sugerile que verifique los datos o que se contacte por teléfono (2646212163) o email (contacto@plotcenter.com.ar).'
 
   const clienteNombre = clientRow
     ? [clientRow.nombre, clientRow.apellido].filter(Boolean).join(' ').trim() || String(clientRow.empresa || '')
     : ''
   const clienteDoc = clientRow ? String(clientRow.dni_cuit || '') : (d || c)
   const docNorm = digitsOnly(clienteDoc)
-  const telNorm = tDigits
   const nombreParaOrdenes = (n || clienteNombre).toLowerCase().trim()
 
   // Órdenes: buscar por cliente en BD y/o filtrar en memoria; si hay DNI/CUIT o nombre, también buscar directo en ordenes_trabajo
@@ -416,15 +354,13 @@ async function findClientAndOrders(
 
   for (const o of list) {
     const oDoc = digitsOnly(String(o.dni_cuit ?? ''))
-    const oTel = digitsOnly(String(o.telefono_cliente ?? ''))
     const oCliente = String(o.cliente ?? '').toLowerCase().trim()
     const matchDoc = docNorm.length >= 6 && oDoc.length >= 6 && oDoc === docNorm
-    const matchTel = telNorm.length >= 6 && oTel.length >= 6 && oTel === telNorm
     const matchNombre =
       nombreParaOrdenes.length >= 2 &&
       (oCliente.includes(nombreParaOrdenes) ||
         nombreParaOrdenes.split(/\s+/).filter(Boolean).every((p) => p.length >= 2 && oCliente.includes(p)))
-    if (matchDoc || matchTel || matchNombre) filtered.push(o)
+    if (matchDoc || matchNombre) filtered.push(o)
   }
 
   if (filtered.length > 0) {
@@ -461,10 +397,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Body
   const message = (body?.message || '').trim()
-  const images = Array.isArray(body.images) ? body.images : []
-  const hasImages = images.length > 0
-  if (!message && !hasImages) {
-    res.status(400).json({ error: 'message o images es requerido' })
+  if (!message) {
+    res.status(400).json({ error: 'message es requerido' })
     return
   }
 
@@ -481,53 +415,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (e.empresa) acc.empresa = e.empresa
         if (e.dni) acc.dni = e.dni
         if (e.cuit) acc.cuit = e.cuit
-        const tel = extractTelefonoFromText(txt)
-        if (tel) acc.telefono = tel
         return acc
       },
-      {} as { nombre?: string; empresa?: string; dni?: string; cuit?: string; telefono?: string }
+      {} as { nombre?: string; empresa?: string; dni?: string; cuit?: string }
     )
     const nombre = (body.nombre && body.nombre.trim()) || extracted.nombre
     const empresa = (body.empresa && body.empresa.trim()) || extracted.empresa
-    const telefono = (body.telefono && body.telefono.trim()) || extracted.telefono
     const dniRaw = (body.dni && body.dni.trim()) || extracted.dni
     const cuitRaw = (body.cuit && body.cuit.trim()) || extracted.cuit
     const dni = dniRaw ? digitsOnly(dniRaw).length >= 7 ? digitsOnly(dniRaw) : dniRaw.trim() : undefined
     const cuit = cuitRaw ? digitsOnly(cuitRaw).length >= 10 ? digitsOnly(cuitRaw) : cuitRaw.trim() : undefined
     const opFromBody = body.op && body.op.trim() ? normalizeOp(body.op) : null
-    // Solo considerar OP en textos donde el usuario hable explícitamente de OP / orden / número
-    const opFromMsgRaw = allUserTexts
-      .map((txt) => {
-        const t = (txt || '').toLowerCase()
-        if (!/(op\b|orden\b|nro\b|número\b|numero\b|#)/.test(t)) return null
-        return extractOpFromText(txt)
-      })
-      .find(Boolean)
-    let opFromMsg = opFromMsgRaw
-    if (opFromMsg && telefono) {
-      const opDigits = normalizeOp(opFromMsg)
-      const telDigits = digitsOnly(telefono)
-      // Si el número que parece OP es exactamente el mismo que el teléfono,
-      // asumir que es teléfono y NO tratarlo como OP.
-      if (opDigits && telDigits && opDigits === telDigits) {
-        opFromMsg = null
-      }
-    }
+    const opFromMsg = allUserTexts.map(extractOpFromText).find(Boolean)
     const numeroOp = (opFromBody && opFromBody.length >= 2) ? opFromBody : (opFromMsg || null)
-
-    // Pedir nombre+teléfono en el 2º o 3º mensaje del cliente (si todavía no los tenemos).
-    // Consideramos que un envío de imagen cuenta como mensaje.
-    const userMsgCount = history.filter((p) => p.role === 'user').length + (message ? 1 : 0) + (hasImages && !message ? 1 : 0)
-    const alreadyAskedContact = history.some(
-      (p) =>
-        p.role === 'model' &&
-        typeof p.parts?.[0]?.text === 'string' &&
-        p.parts[0].text.includes('¿me pasás tu nombre y un teléfono de contacto?')
-    )
-    const shouldAskContact =
-      !alreadyAskedContact &&
-      (userMsgCount === 2 || userMsgCount === 3) &&
-      (!nombre || !telefono)
 
     let clientContext: string
     let ordersContext: string
@@ -536,7 +436,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       clientContext = byOp.clientContext
       ordersContext = byOp.ordersContext
     } else {
-      const byClient = await findClientAndOrders(nombre, dni, cuit, empresa, telefono)
+      const byClient = await findClientAndOrders(nombre, dni, cuit, empresa)
       clientContext = byClient.clientContext
       ordersContext = byClient.ordersContext
     }
@@ -620,60 +520,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Si no hay un humano atendiendo todavía, detectar si el cliente quiere iniciar un proyecto nuevo
-    // y ofrecerle directamente el formulario de brief para que lo complete.
-    let briefToken: string | null = null
-    let briefUrl: string | null = null
-    if (!skipGemini && supabase && !numeroOp && detectBriefIntent(message)) {
-      try {
-        const { data: token, error: rpcError } = await supabase.rpc('crear_brief_publico', {
-          p_creado_por: null
-        })
-        if (!rpcError && token) {
-          briefToken = typeof token === 'string' ? token : String(token)
-          const baseUrl = buildBaseUrl(req)
-          if (baseUrl) {
-            briefUrl = `${baseUrl.replace(/\/+$/, '')}/brief/${briefToken}`
-          }
-
-          // Guardar nombre/empresa si los tenemos, para que en el dashboard se vea quién es el cliente.
-          try {
-            if (nombre || empresa) {
-              await supabase
-                .from('briefs_publicos')
-                .update({
-                  cliente_nombre_completo: nombre || null,
-                  cliente_empresa: empresa || null
-                })
-                .eq('token', briefToken)
-            }
-          } catch (e) {
-            console.warn('No se pudo actualizar datos del brief recién creado:', e)
-          }
-
-          const linkTexto = briefUrl || `formulario de brief (token: ${briefToken})`
-          replyText =
-            `¡Genial! Para poder ayudarte bien con tu proyecto, necesito que completes un formulario de brief con los detalles.\n\n` +
-            `Ingresá a este enlace y completalo tranquilo:\n\n${linkTexto}\n\n` +
-            `Ahí te vamos a pedir objetivo, medidas, textos, estilo de diseño y todo lo importante. ` +
-            `Una vez que lo completes, nuestro equipo lo recibe y te contacta para seguir con tu pedido.`
-          skipGemini = true
-        }
-      } catch (e) {
-        console.error('Error creando brief desde el chat:', e)
-      }
-    }
-
-    if (!skipGemini) {
-      if (shouldAskContact) {
-        const thanksImg = hasImages ? '¡Gracias por la imagen! ' : ''
-        replyText =
-          `${thanksImg}Antes de seguir, ¿me pasás tu nombre y un teléfono de contacto? ` +
-          `Ejemplo: "Juan Pérez, 2644xxxxxx".`
-        skipGemini = true
-      }
-    }
-
     if (!skipGemini) {
     const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente. Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
 
@@ -681,8 +527,7 @@ REGLA CRÍTICA — NO ALUCINAR (obligatorio):
 - Solo podés usar información que aparezca EXPLÍCITAMENTE en las secciones "CONOCIMIENTO DE LA EMPRESA" y "CLIENTE CON QUIEN ESTÁS HABLANDO" más abajo.
 - NUNCA inventes: números de OP, fechas de entrega, estados de órdenes, precios, nombres de clientes, teléfonos, emails, direcciones ni ningún otro dato.
 - Si el contexto dice "No se encontró" o "no tiene órdenes" o "no hay coincidencias", decilo tal cual; no digas que sí hay datos.
-- Si no tenés un dato (ej. precio, fecha, estado), no lo inventes: decí que no lo tenés y podés ofrecer que un humano del equipo siga la conversación (por este chat, por teléfono/WhatsApp al 2646212163 o por email a contacto@plotcenter.com.ar).
-- Muy importante: NO repitas el teléfono y el mail en todas las respuestas. Úsalos como opción de contacto solo cuando realmente haga falta (por ejemplo, si no podés resolver algo por chat o el cliente pide explícitamente otra vía) y, como máximo, una vez cada varias respuestas en la misma conversación.
+- Si no tenés un dato (ej. precio, fecha, estado), no lo inventes: decí que no lo tenés y sugerí contactar por teléfono (2646212163) o email (contacto@plotcenter.com.ar).
 - Para datos de Plot Center (dirección, teléfono, servicios) usá ÚNICAMENTE lo que está en CONOCIMIENTO DE LA EMPRESA.
 
 IDIOMA Y TONO:
@@ -704,7 +549,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
 - Para OPs y trabajos: citá SOLO los números, estados y fechas que aparecen en "CLIENTE CON QUIEN ESTÁS HABLANDO". Si ahí dice que no se encontró la OP o que no hay órdenes, decilo sin inventar nada.
 - UBICACIÓN EN TIEMPO REAL: en el contexto figura "Dónde está" para cada OP. Decile al cliente dónde está su trabajo (ej. "Tu OP 12345 está en Taller Gráfico", "está en Almacén de Entrega").
 - LISTO PARA RETIRO: cuando en el contexto diga "LISTO PARA RETIRO" para una OP, avisale claramente que ya puede pasar a retirarla (ej. "Tu pedido ya está listo, podés pasar a retirarlo por 9 de Julio 622 (Oeste)" o "Ya está en Almacén de Entrega, cuando quieras podés venir a buscarlo").
-- NUNCA escribas placeholders como "[Aquí iría...]" ni relleno. Si tenés el dato, decilo; si no, decí que no lo tenés y ofrecé que un humano del equipo puede ayudarte (por este chat o, si el cliente lo pide, por teléfono/WhatsApp al 2646212163 o email contacto@plotcenter.com.ar). No vuelvas a repetir el mismo párrafo de contacto en cada mensaje.
+- NUNCA escribas placeholders como "[Aquí iría...]" ni relleno. Si tenés el dato, decilo; si no, decí que no lo tenés y ofrecé contacto (2646212163 o contacto@plotcenter.com.ar).
 - Resumí cuando haya muchas OPs. Cerrando: "¿Necesitás algo más?" o "Cualquier cosa, estamos acá."`
 
     const ai = new GoogleGenAI({ apiKey })
@@ -715,39 +560,12 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       const text = (p.parts && p.parts[0]?.text) || ''
       conversation += `${role}: ${text}\n\n`
     }
-    conversation += `Usuario: ${message || (hasImages ? '[Imagen adjunta]' : '')}\n\n`
-    if (hasImages) {
-      conversation += `INSTRUCCIÓN EXTRA: El usuario adjuntó una o más imágenes. Interpretalas con cuidado y respondé en español. Si te falta información, preguntá.\n\n`
-    }
-    conversation += `Asistente:`
+    conversation += `Usuario: ${message}\n\nAsistente:`
 
-    const safeImages = images
-      .filter((img) => img && typeof img.mimeType === 'string' && typeof img.data === 'string')
-      .slice(0, 2)
-      .filter((img) => /^image\//.test(img.mimeType))
-      .filter((img) => img.data.length > 0 && img.data.length < 2_500_000)
-    const imageDataUrlForHist =
-      safeImages[0] ? `data:${safeImages[0].mimeType};base64,${safeImages[0].data}` : null
-
-    const response = safeImages.length > 0
-      ? await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: conversation },
-                ...safeImages.map((img) => ({
-                  inlineData: { mimeType: img.mimeType, data: img.data }
-                }))
-              ]
-            }
-          ]
-        } as any)
-      : await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: conversation
-        })
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: conversation
+    })
 
     const text = (response as any)?.text ?? ''
     replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
@@ -770,24 +588,15 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           } else if (selectErr) {
             console.error('Error leyendo conversación para actualizar:', selectErr)
           }
-          const userTextForHist = message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : '')
-          const userEntry: any = { role: 'user', text: userTextForHist }
-          if (imageDataUrlForHist) userEntry.imageDataUrl = imageDataUrlForHist
           const updated = replyText
-            ? [...hist, userEntry, { role: 'model', text: replyText.slice(0, 5000) }]
-            : [...hist, userEntry]
-          const contactName = nombre || (empresa ? `Cliente (${empresa})` : null)
-          const updatePayload: Record<string, unknown> = {
-            historial_mensajes: updated,
-            ultimo_mensaje_preview: message.slice(0, 200),
-            updated_at: new Date().toISOString()
-          }
-          if (contactName) updatePayload.cliente_nombre = contactName
-          if (telefono) updatePayload.cliente_telefono = telefono
+            ? [...hist, { role: 'user', text: message.slice(0, 5000) }, { role: 'model', text: replyText.slice(0, 5000) }]
+            : [...hist, { role: 'user', text: message.slice(0, 5000) }]
           const { error: updateErr } = await supabase
             .from('atencion_conversaciones')
             .update({
-              ...(updatePayload as any)
+              historial_mensajes: updated,
+              ultimo_mensaje_preview: message.slice(0, 200),
+              updated_at: new Date().toISOString()
             })
             .eq('id', idConv)
           if (updateErr) console.error('Error actualizando conversación:', updateErr)
@@ -796,17 +605,12 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           const { data: newConv, error: insertErr } = await supabase
             .from('atencion_conversaciones')
             .insert({
-              cliente_nombre: nombre || clienteNombreConv,
-              cliente_telefono: telefono || null,
+              cliente_nombre: clienteNombreConv,
               canal: 'chat_web',
               ultimo_mensaje_preview: message.slice(0, 200),
               estado: 'abierto',
               historial_mensajes: [
-                {
-                  role: 'user',
-                  text: message ? message.slice(0, 5000) : (hasImages ? '[Imagen adjunta]' : ''),
-                  ...(imageDataUrlForHist ? { imageDataUrl: imageDataUrlForHist } : {})
-                },
+                { role: 'user', text: message.slice(0, 5000) },
                 { role: 'model', text: replyText.slice(0, 5000) }
               ]
             })
@@ -824,13 +628,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       success: true,
       reply: replyText,
       ...(conversationId != null && { conversation_id: conversationId }),
-      ...(solicitudChatId != null && { solicitud_id: solicitudChatId }),
-      ...(briefToken && {
-        brief: {
-          token: briefToken,
-          ...(briefUrl ? { url: briefUrl } : {})
-        }
-      })
+      ...(solicitudChatId != null && { solicitud_id: solicitudChatId })
     })
   } catch (error: any) {
     console.error('Error en chat-public:', error)
