@@ -292,7 +292,8 @@ async function findClientAndOrders(
   nombre?: string,
   dni?: string,
   cuit?: string,
-  empresa?: string
+  empresa?: string,
+  telefono?: string
 ): Promise<{ clientContext: string; ordersContext: string }> {
   if (!supabase) {
     return { clientContext: '', ordersContext: '' }
@@ -303,7 +304,8 @@ async function findClientAndOrders(
   const e = trim(empresa)
   const d = trim(dni)
   const c = trim(cuit)
-  const hasAny = n || e || d || c
+  const t = trim(telefono)
+  const hasAny = n || e || d || c || t
   if (!hasAny) {
     return {
       clientContext: 'El visitante aún no dio nombre, empresa, DNI ni CUIT. Solo cuando pregunte por su trabajo u orden pedile: "¿Me decís tu nombre, DNI, CUIT o número de OP para buscarlo?"',
@@ -314,6 +316,7 @@ async function findClientAndOrders(
   let clientRow: Record<string, unknown> | null = null
   const dDigits = digitsOnly(d)
   const cDigits = digitsOnly(c)
+  const tDigits = digitsOnly(t)
   const docDigits = dDigits.length >= 7 ? dDigits : cDigits.length >= 10 ? cDigits : ''
 
   // 1) Búsqueda por DNI/CUIT (normalizado: solo dígitos; DNI 7-8, CUIT 10-11)
@@ -343,7 +346,18 @@ async function findClientAndOrders(
       if (match) clientRow = match
     }
   }
-  // 2) Búsqueda por empresa
+  // 2) Búsqueda por teléfono
+  if (!clientRow && tDigits.length >= 6) {
+    const { data: byTel } = await supabase
+      .from('clientes')
+      .select('*')
+      .ilike('telefono', `%${tDigits}%`)
+      .limit(10)
+    const rows = (byTel || []) as Record<string, unknown>[]
+    const match = rows.find((r) => digitsOnly(String(r.telefono || '')) === tDigits) || rows[0]
+    if (match) clientRow = match
+  }
+  // 3) Búsqueda por empresa
   if (!clientRow && e && e.length >= 2) {
     const empresaSafe = e.replace(/%/g, '')
     const { data: byEmpresa } = await supabase
@@ -356,7 +370,7 @@ async function findClientAndOrders(
     const match = rows.find((r) => String(r.empresa || '').toLowerCase().includes(eLower)) || rows[0]
     if (match) clientRow = match
   }
-  // 3) Búsqueda por nombre (nombre, apellido o nombre completo en empresa)
+  // 4) Búsqueda por nombre (nombre, apellido o nombre completo en empresa)
   if (!clientRow && n && n.length >= 2) {
     const parts = n.split(/\s+/).filter(Boolean)
     const firstPart = (parts[0] || n).replace(/%/g, '')
@@ -386,6 +400,7 @@ async function findClientAndOrders(
     : ''
   const clienteDoc = clientRow ? String(clientRow.dni_cuit || '') : (d || c)
   const docNorm = digitsOnly(clienteDoc)
+  const telNorm = tDigits
   const nombreParaOrdenes = (n || clienteNombre).toLowerCase().trim()
 
   // Órdenes: buscar por cliente en BD y/o filtrar en memoria; si hay DNI/CUIT o nombre, también buscar directo en ordenes_trabajo
@@ -401,13 +416,15 @@ async function findClientAndOrders(
 
   for (const o of list) {
     const oDoc = digitsOnly(String(o.dni_cuit ?? ''))
+    const oTel = digitsOnly(String(o.telefono_cliente ?? ''))
     const oCliente = String(o.cliente ?? '').toLowerCase().trim()
     const matchDoc = docNorm.length >= 6 && oDoc.length >= 6 && oDoc === docNorm
+    const matchTel = telNorm.length >= 6 && oTel.length >= 6 && oTel === telNorm
     const matchNombre =
       nombreParaOrdenes.length >= 2 &&
       (oCliente.includes(nombreParaOrdenes) ||
         nombreParaOrdenes.split(/\s+/).filter(Boolean).every((p) => p.length >= 2 && oCliente.includes(p)))
-    if (matchDoc || matchNombre) filtered.push(o)
+    if (matchDoc || matchTel || matchNombre) filtered.push(o)
   }
 
   if (filtered.length > 0) {
@@ -484,7 +501,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Pedir nombre+teléfono en el 2º o 3º mensaje del cliente (si todavía no los tenemos).
     // Consideramos que un envío de imagen cuenta como mensaje.
     const userMsgCount = history.filter((p) => p.role === 'user').length + (message ? 1 : 0) + (hasImages && !message ? 1 : 0)
-    const shouldAskContact = (userMsgCount === 2 || userMsgCount === 3) && (!nombre || !telefono)
+    const alreadyAskedContact = history.some(
+      (p) =>
+        p.role === 'model' &&
+        typeof p.parts?.[0]?.text === 'string' &&
+        p.parts[0].text.includes('¿me pasás tu nombre y un teléfono de contacto?')
+    )
+    const shouldAskContact =
+      !alreadyAskedContact &&
+      (userMsgCount === 2 || userMsgCount === 3) &&
+      (!nombre || !telefono)
 
     let clientContext: string
     let ordersContext: string
@@ -493,7 +519,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       clientContext = byOp.clientContext
       ordersContext = byOp.ordersContext
     } else {
-      const byClient = await findClientAndOrders(nombre, dni, cuit, empresa)
+      const byClient = await findClientAndOrders(nombre, dni, cuit, empresa, telefono)
       clientContext = byClient.clientContext
       ordersContext = byClient.ordersContext
     }

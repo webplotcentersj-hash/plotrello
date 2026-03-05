@@ -227,6 +227,12 @@
   display: block;
 }
 
+.embed-chat-scope .embed-chat-link-inline {
+  color: var(--embed-accent);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
 /* Typing indicator */
 .embed-chat-scope .embed-chat-msg--typing {
   display: flex;

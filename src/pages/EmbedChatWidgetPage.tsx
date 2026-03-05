@@ -168,6 +168,37 @@ export default function EmbedChatWidgetPage() {
 
   const chatApi = `${apiBase}/api/plotai/chat-public`
 
+  const renderMessageText = (text: string) => {
+    const urlRegex = /((https?:\/\/|www\.)\S+|\/brief\/[A-Za-z0-9._-]+)/g
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = urlRegex.exec(text)) !== null) {
+      const [full] = match
+      const index = match.index
+      if (index > lastIndex) {
+        parts.push(text.slice(lastIndex, index))
+      }
+      const href = full.startsWith('http') ? full : full.startsWith('www.') ? `https://${full}` : `${apiBase}${full}`
+      parts.push(
+        <a
+          key={`${href}-${index}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="embed-chat-link-inline"
+        >
+          {full}
+        </a>
+      )
+      lastIndex = index + full.length
+    }
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex))
+    }
+    return parts
+  }
+
   const downscaleImageToJpeg = async (file: File) => {
     const objectUrl = URL.createObjectURL(file)
     try {
@@ -318,7 +349,9 @@ export default function EmbedChatWidgetPage() {
               )}
               {messages.map((m, i) => (
                 <div key={i} className={`embed-chat-msg embed-chat-msg--${m.role}`}>
-                  <span className="embed-chat-msg-text">{m.parts?.[0]?.text}</span>
+                  <span className="embed-chat-msg-text">
+                    {renderMessageText(m.parts?.[0]?.text || '')}
+                  </span>
                 </div>
               ))}
               {staffReplies.map((r, i) => (
