@@ -46,6 +46,7 @@ type Body = {
   op?: string
   conversation_id?: number
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
+  images?: Array<{ mimeType: string; data: string }>
 }
 
 /** Normaliza número de OP: solo dígitos, sin espacios ni guiones. */
@@ -397,8 +398,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Body
   const message = (body?.message || '').trim()
-  if (!message) {
-    res.status(400).json({ error: 'message es requerido' })
+  const images = Array.isArray(body?.images) ? body.images! : []
+  const hasImages = images.length > 0
+  if (!message && !hasImages) {
+    res.status(400).json({ error: 'message o images es requerido' })
     return
   }
 
@@ -552,7 +555,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
 - UBICACIÓN EN TIEMPO REAL: en el contexto figura "Dónde está" para cada OP. Decile al cliente dónde está su trabajo (ej. "Tu OP 12345 está en Taller Gráfico", "está en Almacén de Entrega").
 - LISTO PARA RETIRO: cuando en el contexto diga "LISTO PARA RETIRO" para una OP, avisale claramente que ya puede pasar a retirarla (ej. "Tu pedido ya está listo, podés pasar a retirarlo por 9 de Julio 622 (Oeste)" o "Ya está en Almacén de Entrega, cuando quieras podés venir a buscarlo").
 - NUNCA escribas placeholders como "[Aquí iría...]" ni relleno. Si tenés el dato, decilo; si no, decí que no lo tenés y, si hace falta, ofrecé que un humano del equipo puede ayudarte (por este mismo chat o por los medios de contacto).
-- Cuando el cliente cuente una idea de diseño o producto (ej. qué quiere hacer, qué está imaginando), usá tu capacidad generativa para proponer ejemplos concretos y creativos: sugerí formatos, tamaños, materiales o enfoques de diseño acordes a lo que cuenta, siempre como ideas/ejemplos que después el equipo de Plot Center puede ajustar.
+- Cuando el cliente cuente una idea de diseño o producto (ej. qué quiere hacer, qué está imaginando) o adjunte una IMAGEN, usá tu capacidad generativa para proponer ejemplos concretos y creativos: describí brevemente lo que ves en la imagen (si la hay) y sugerí formatos, tamaños, materiales o enfoques de diseño acordes a lo que cuenta, siempre como ideas/ejemplos que después el equipo de Plot Center puede ajustar.
 - Resumí cuando haya muchas OPs. Cerrando: "¿Necesitás algo más?" o "Cualquier cosa, estamos acá."`
 
     const ai = new GoogleGenAI({ apiKey })
@@ -563,12 +566,38 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       const text = (p.parts && p.parts[0]?.text) || ''
       conversation += `${role}: ${text}\n\n`
     }
-    conversation += `Usuario: ${message}\n\nAsistente:`
+    if (hasImages) {
+      conversation += `Usuario: [El cliente adjuntó una o más imágenes] ${message || ''}\n\n`
+      conversation += `NOTA PARA EL ASISTENTE: Tenés acceso a las imágenes adjuntas. Describí brevemente lo que ves y usalo como referencia para proponer ideas concretas de diseño o formatos.\n\nAsistente:`
+    } else {
+      conversation += `Usuario: ${message}\n\nAsistente:`
+    }
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: conversation
-    })
+    const safeImages = images
+      .filter((img) => img && typeof img.mimeType === 'string' && typeof img.data === 'string')
+      .slice(0, 2)
+      .filter((img) => /^image\//.test(img.mimeType))
+      .filter((img) => img.data.length > 0 && img.data.length < 2_500_000)
+
+    const response = safeImages.length > 0
+      ? await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: conversation },
+                ...safeImages.map((img) => ({
+                  inlineData: { mimeType: img.mimeType, data: img.data }
+                }))
+              ]
+            }
+          ]
+        } as any)
+      : await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: conversation
+        })
 
     const text = (response as any)?.text ?? ''
     replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
