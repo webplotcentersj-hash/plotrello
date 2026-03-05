@@ -712,28 +712,35 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     const imageDataUrlForHist =
       safeImages[0] ? `data:${safeImages[0].mimeType};base64,${safeImages[0].data}` : null
 
-    const response = safeImages.length > 0
-      ? await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: conversation },
-                ...safeImages.map((img) => ({
-                  inlineData: { mimeType: img.mimeType, data: img.data }
-                }))
-              ]
-            }
-          ]
-        } as any)
-      : await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: conversation
-        })
+    try {
+      const response = safeImages.length > 0
+        ? await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: conversation },
+                  ...safeImages.map((img) => ({
+                    inlineData: { mimeType: img.mimeType, data: img.data }
+                  }))
+                ]
+              }
+            ]
+          } as any)
+        : await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: conversation
+          })
 
-    const text = (response as any)?.text ?? ''
-    replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+      const text = (response as any)?.text ?? ''
+      replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+    } catch (e) {
+      console.error('Error llamando a Gemini en chat-public:', e)
+      replyText =
+        replyText ||
+        'En este momento tengo un problema técnico para generar la respuesta automática. Podés seguir chateando igual y, si lo preferís, un integrante del equipo puede ayudarte por acá o por teléfono/WhatsApp al 2646212163.'
+    }
     }
 
     let conversationId: number | null = null
