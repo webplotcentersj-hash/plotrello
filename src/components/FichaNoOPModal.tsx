@@ -15,7 +15,7 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   const { usuario } = useAuth()
   const [nombreCliente, setNombreCliente] = useState('')
   const [datosContacto, setDatosContacto] = useState('')
-  const [especificaciones, setEspecificaciones] = useState('')
+  const [observaciones, setObservaciones] = useState('')
   const [driveLink, setDriveLink] = useState('')
   const [ubicacionLink, setUbicacionLink] = useState('')
   const [prioridad, setPrioridad] = useState('Baja')
@@ -148,7 +148,7 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     const payload = {
       numero_op: 'FICHA-', // La base de datos generará el número completo automáticamente
       cliente: clienteFinal.nombre,
-      descripcion: especificaciones.trim() || null,
+      descripcion: observaciones.trim() || null,
       estado: 'Asesor Técnico',
       prioridad: prioridad,
       sector: 'Asesor Técnico',
@@ -266,13 +266,24 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
           </div>
 
           <div className="form-group">
-            <label>Especificaciones</label>
+            <label>Observaciones</label>
             <textarea
-              placeholder="Especificaciones"
-              value={especificaciones}
-              onChange={(e) => setEspecificaciones(e.target.value)}
+              placeholder="Observaciones"
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
               rows={4}
             />
+          </div>
+
+          <div className="form-group ficha-relevos-link">
+            <a
+              href="https://drive.google.com/drive/folders/1oKUBRK--_CHznUs4OZUkdIxlEwzpiuZp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link-relevos"
+            >
+              📷 Ver fotos de relevos
+            </a>
           </div>
 
           <div className="form-group">
@@ -340,14 +351,18 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
             </div>
           </div>
 
-          <div className="form-group checkbox-group">
-            <label className="checkbox-label">
+          <div className="form-group checkbox-group checkbox-relevos">
+            <label className="checkbox-label checkbox-relevos-label">
               <input
                 type="checkbox"
                 checked={planillaPreliminar}
                 onChange={(e) => setPlanillaPreliminar(e.target.checked)}
+                className="checkbox-relevos-input"
               />
-              <span>Marcar como Planilla Preliminar</span>
+              <div className="checkbox-relevos-content">
+                <span className="checkbox-relevos-text">Relevos / Planilla Preliminar</span>
+                <span className="checkbox-relevos-hint">Indica que la ficha está lista para que el otro sector avance</span>
+              </div>
             </label>
           </div>
         </div>

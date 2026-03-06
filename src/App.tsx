@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import type { TaskStatus } from './types/board'
 import BoardPage from './pages/BoardPage'
@@ -91,6 +91,7 @@ import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import SolicitudesPermisosFloatingButton from './components/SolicitudesPermisosFloatingButton'
+import { useAuth } from './hooks/useAuth'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
 import type {
   HistorialMovimiento,
@@ -99,7 +100,6 @@ import type {
   SectorRecord,
   UsuarioRecord
 } from './types/api'
-import { useAuth } from './hooks/useAuth'
 import './app.css'
 import apiService from './services/api'
 import { historialToActivity, ordenToTask } from './utils/dataMappers'
@@ -535,6 +535,8 @@ function App() {
   )
 }
 
+const ASESOR_PRESUPUESTOS_STATUSES = ['asesor-tecnico', 'presupuestos', 'finalizado-asesor-presupuestos']
+
 function AppRoutes({
   tasks,
   setTasks,
@@ -561,6 +563,17 @@ function AppRoutes({
   materiales: MaterialRecord[]
 }) {
   const navigate = useNavigate()
+  const { isAdmin, isPresupuestos } = useAuth()
+
+  // Los movimientos de asesor técnico/presupuestos solo los ven admin y presupuestos
+  const filteredActivity = useMemo(() => {
+    if (isAdmin || isPresupuestos) return activity
+    return activity.filter((ev) => {
+      const fromAsesor = ASESOR_PRESUPUESTOS_STATUSES.includes(ev.from || '')
+      const toAsesor = ASESOR_PRESUPUESTOS_STATUSES.includes(ev.to || '')
+      return !fromAsesor && !toAsesor
+    })
+  }, [activity, isAdmin, isPresupuestos])
 
   return (
     <>
@@ -610,7 +623,7 @@ function AppRoutes({
           <BoardPage
             tasks={tasks}
             setTasks={setTasks}
-            activity={activity}
+            activity={filteredActivity}
             setActivity={setActivity}
             teamMembers={teamMembers}
             onNavigateToStats={() => navigate('/statistics')}
@@ -643,7 +656,7 @@ function AppRoutes({
         element={
           <StatisticsPage
             tasks={tasks}
-            activity={activity}
+            activity={filteredActivity}
             teamMembers={teamMembers}
             onBack={() => navigate('/')}
           />
@@ -668,7 +681,7 @@ function AppRoutes({
             onBack={() => navigate('/')}
             teamMembers={teamMembers}
             tasks={tasks}
-            activity={activity}
+            activity={filteredActivity}
           />
         }
       />
@@ -813,7 +826,7 @@ function AppRoutes({
         element={
           <AsesorPresupuestosPage
             tasks={tasks}
-            activity={activity}
+            activity={filteredActivity}
             teamMembers={teamMembers}
             sectores={sectores}
             materialesCatalog={materiales}

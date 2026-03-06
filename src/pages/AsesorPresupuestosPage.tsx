@@ -55,6 +55,14 @@ const AsesorPresupuestosPage = ({
   // Verificar permisos
   const canAccess = isAdmin || isAsesorTecnico || isPresupuestos
 
+  // Para la agenda: asesor técnico ve la suya; admin y presupuestos ven la del primer asesor técnico
+  const idAsesorParaAgenda = useMemo(() => {
+    if (!usuario) return null
+    if (isAsesorTecnico) return usuario.id
+    const asesor = teamMembers.find((m) => m.role === 'asesor-tecnico')
+    return asesor ? parseInt(asesor.id, 10) : null
+  }, [usuario, isAsesorTecnico, teamMembers])
+
   // Filtrar tareas solo de Asesor Técnico y Presupuestos
   const filteredTasks = useMemo(() => {
     if (!canAccess) return []
@@ -323,7 +331,14 @@ const AsesorPresupuestosPage = ({
             </div>
           </>
         ) : (
-          usuario && <AgendaAsesorTecnico idAsesor={usuario.id} />
+          idAsesorParaAgenda != null ? (
+            <AgendaAsesorTecnico idAsesor={idAsesorParaAgenda} />
+          ) : (
+            <div className="agenda-sin-asesor">
+              <p>No hay asesores técnicos en el sistema para mostrar la agenda.</p>
+              <p>La agenda muestra las citas de mediciones y visitas del asesor técnico.</p>
+            </div>
+          )
         )}
 
         {taskToEdit && (

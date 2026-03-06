@@ -211,7 +211,7 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                 {citasDeHoy.map(cita => (
                   <div
                     key={cita.id}
-                    className="cita-item"
+                    className={`cita-item estado-${cita.estado}`}
                     onClick={() => handleCitaClick(cita)}
                   >
                     <div className="cita-item-header">

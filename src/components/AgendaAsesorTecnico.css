@@ -299,6 +299,57 @@
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
+/* Mismos colores que en el calendario para Citas de Hoy */
+.cita-item.estado-programada {
+  background: #fff3cd;
+  border-color: #fbbf24;
+}
+
+.cita-item.estado-confirmada {
+  background: #d1ecf1;
+  border-color: #0ea5e9;
+}
+
+.cita-item.estado-en_curso {
+  background: #d4edda;
+  border-color: #10b981;
+}
+
+.cita-item.estado-completada {
+  background: #d1fae5;
+  border-color: #059669;
+}
+
+.cita-item.estado-cancelada {
+  background: #f8d7da;
+  border-color: #ef4444;
+}
+
+.cita-item.estado-programada:hover {
+  background: #fff3cd;
+  border-color: #f59e0b;
+}
+
+.cita-item.estado-confirmada:hover {
+  background: #d1ecf1;
+  border-color: #0284c7;
+}
+
+.cita-item.estado-en_curso:hover {
+  background: #d4edda;
+  border-color: #059669;
+}
+
+.cita-item.estado-completada:hover {
+  background: #d1fae5;
+  border-color: #047857;
+}
+
+.cita-item.estado-cancelada:hover {
+  background: #f8d7da;
+  border-color: #dc2626;
+}
+
 .cita-item-header {
   display: flex;
   justify-content: space-between;
