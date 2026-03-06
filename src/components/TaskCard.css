@@ -1379,3 +1379,48 @@ body.compact-mode .task-actions {
   max-width: 200px;
 }
 
+/* Tarjeta seleccionada (para flechas del teclado) */
+.task-card.is-selected {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4), 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Menú contextual (clic derecho) */
+.task-card-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 200px;
+  padding: 6px 0;
+  background: rgba(15, 16, 30, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+}
+
+.task-card-context-menu .context-menu-title {
+  padding: 8px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.task-card-context-menu .context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.task-card-context-menu .context-menu-item:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
+

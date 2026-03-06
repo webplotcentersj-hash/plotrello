@@ -101,6 +101,7 @@ const BoardPage = ({
   const [isSolicitarProductosOpen, setIsSolicitarProductosOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -228,6 +229,29 @@ const BoardPage = ({
 
       if (isTyping) return
 
+      // Flechas para mover tarjeta seleccionada entre columnas
+      if (selectedTaskId && (key === 'arrowleft' || key === 'arrowright')) {
+        const task = filteredTasks.find((t) => t.id === selectedTaskId)
+        if (task) {
+          const idx = BOARD_COLUMNS.findIndex((c) => c.id === task.status)
+          if (idx >= 0) {
+            const nextIdx = key === 'arrowleft' ? idx - 1 : idx + 1
+            if (nextIdx >= 0 && nextIdx < BOARD_COLUMNS.length) {
+              event.preventDefault()
+              handleMoveTask(selectedTaskId, BOARD_COLUMNS[nextIdx].id)
+            }
+          }
+        }
+        return
+      }
+
+      // Escape para deseleccionar
+      if (selectedTaskId && key === 'escape') {
+        event.preventDefault()
+        setSelectedTaskId(null)
+        return
+      }
+
       // "c" para nueva orden
       if (key === 'c') {
         event.preventDefault()
@@ -245,7 +269,7 @@ const BoardPage = ({
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [])
+  }, [selectedTaskId, filteredTasks])
 
   // Listener para actualizar solo la etapa de una tarea sin recargar todo
   useEffect(() => {
@@ -765,6 +789,8 @@ const BoardPage = ({
             sectores={sectores}
             onMarkDelivered={handleMarkDelivered}
             activity={activity}
+            selectedTaskId={selectedTaskId}
+            onSelectTask={setSelectedTaskId}
           />
         </section>
 

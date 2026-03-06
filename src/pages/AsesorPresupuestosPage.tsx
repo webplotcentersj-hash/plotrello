@@ -52,6 +52,7 @@ const AsesorPresupuestosPage = ({
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'kanban' | 'agenda'>('kanban')
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Verificar permisos
@@ -338,6 +339,8 @@ const AsesorPresupuestosPage = ({
                 columns={ASESOR_PRESUPUESTOS_COLUMNS}
                 sectores={sectores}
                 activity={activity}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={setSelectedTaskId}
               />
             </div>
           </>

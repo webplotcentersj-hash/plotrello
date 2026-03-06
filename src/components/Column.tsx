@@ -1,6 +1,6 @@
 import type { Ref } from 'react'
 import { type DroppableProvided } from '@hello-pangea/dnd'
-import type { ColumnConfig, Task, TeamMember, ActivityEvent } from '../types/board'
+import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
 
@@ -18,6 +18,10 @@ type ColumnProps = {
   sectores?: SectorRecord[]
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
   activity?: ActivityEvent[]
+  onMoveTask?: (taskId: string, destination: TaskStatus) => void
+  columns?: ColumnConfig[]
+  selectedTaskId?: string | null
+  onSelectTask?: (taskId: string | null) => void
 }
 
 const Column = ({
@@ -33,7 +37,11 @@ const Column = ({
   onDeleteTask,
   sectores,
   onMarkDelivered,
-  activity
+  activity,
+  onMoveTask,
+  columns = [],
+  selectedTaskId,
+  onSelectTask
 }: ColumnProps) => {
   // Calcular el porcentaje de carga de la columna
   const loadPercentage = maxTasksInColumn > 0 ? (tasks.length / maxTasksInColumn) * 100 : 0
@@ -64,6 +72,10 @@ const Column = ({
             onMarkDelivered={onMarkDelivered}
             activity={activity}
             members={members}
+            onMoveTask={onMoveTask}
+            columns={columns}
+            isSelected={selectedTaskId === task.id}
+            onSelect={onSelectTask}
           />
         ))}
         {droppableProvided.placeholder}

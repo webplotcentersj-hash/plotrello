@@ -16,6 +16,8 @@ type BoardProps = {
   sectores?: SectorRecord[]
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
   activity?: ActivityEvent[]
+  selectedTaskId?: string | null
+  onSelectTask?: (taskId: string | null) => void
 }
 
 const Board = ({
@@ -28,7 +30,9 @@ const Board = ({
   onDeleteTask,
   sectores,
   onMarkDelivered,
-  activity
+  activity,
+  selectedTaskId,
+  onSelectTask
 }: BoardProps) => {
   const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({
     'diseno-grafico': null,
@@ -93,6 +97,10 @@ const Board = ({
                   sectores={sectores}
                   onMarkDelivered={onMarkDelivered}
                   activity={activity}
+                  onMoveTask={onMoveTask}
+                  columns={columns}
+                  selectedTaskId={selectedTaskId}
+                  onSelectTask={onSelectTask}
                 />
               )}
             </Droppable>

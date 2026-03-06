@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import clsx from 'clsx'
-import type { ActivityEvent, Task, TeamMember } from '../types/board'
+import type { ActivityEvent, Task, TaskStatus, TeamMember, ColumnConfig } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -30,6 +30,10 @@ type TaskCardProps = {
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
   activity?: ActivityEvent[]
   members?: TeamMember[]
+  onMoveTask?: (taskId: string, destination: TaskStatus) => void
+  columns?: ColumnConfig[]
+  isSelected?: boolean
+  onSelect?: (taskId: string | null) => void
 }
 
 const formatShortDate = (value: string) =>
@@ -74,7 +78,11 @@ const TaskCard = ({
   isDraggable = true,
   onMarkDelivered,
   activity = [],
-  members = []
+  members = [],
+  onMoveTask,
+  columns = [],
+  isSelected = false,
+  onSelect
 }: TaskCardProps) => {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
@@ -103,7 +111,19 @@ const TaskCard = ({
   const [showEtapasImpresionDigitalModal, setShowEtapasImpresionDigitalModal] = useState(false)
   const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
+
+  // Cerrar menú contextual al hacer clic fuera
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const t = setTimeout(() => document.addEventListener('click', close), 0)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('click', close)
+    }
+  }, [contextMenu])
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
@@ -313,9 +333,15 @@ const TaskCard = ({
             'planilla-preliminar': task.planillaPreliminar,
             'ficha-tecnica-cargada': task.fichaTecnicaCargada,
             'presupuesto-enviado': task.presupuestoEnviadoCliente,
-            'is-collapsed': !isExpanded
+            'is-collapsed': !isExpanded,
+            'is-selected': isSelected
           }, extraClassName)}
           ref={ref}
+          onClick={() => onSelect?.(task.id)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            if (onMoveTask && columns.length) setContextMenu({ x: e.clientX, y: e.clientY })
+          }}
           {...restProps}
         >
           {task.priority === 'alta' && (
@@ -1310,6 +1336,30 @@ const TaskCard = ({
   return (
     <>
       {cardContent}
+      {contextMenu && onMoveTask && columns.length > 0 && (
+        <div
+          className="task-card-context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="context-menu-title">Mover a →</div>
+          {columns
+            .filter((c) => c.id !== task.status)
+            .map((col) => (
+              <button
+                key={col.id}
+                type="button"
+                className="context-menu-item"
+                onClick={() => {
+                  onMoveTask(task.id, col.id)
+                  setContextMenu(null)
+                }}
+              >
+                {col.label}
+              </button>
+            ))}
+        </div>
+      )}
       {showQRPrint && qrPrintData && (
         <QRPrintView
           opNumber={qrPrintData.opNumber}
