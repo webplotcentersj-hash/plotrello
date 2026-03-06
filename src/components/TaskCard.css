@@ -1379,13 +1379,15 @@ body.compact-mode .task-actions {
   max-width: 200px;
 }
 
-/* Flechas para mover entre columnas */
+/* Flechas para mover entre columnas - costado izquierdo, centradas verticalmente */
 .task-move-arrows {
   display: flex;
+  flex-direction: row;
   gap: 4px;
   position: absolute;
-  top: 8px;
   left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 10;
   opacity: 0;
   transition: opacity 0.2s ease;
