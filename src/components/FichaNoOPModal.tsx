@@ -352,7 +352,7 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
           </div>
 
           <div className="form-group checkbox-group checkbox-relevos">
-            <label className="checkbox-label checkbox-relevos-label">
+            <label className={`checkbox-label checkbox-relevos-label ${planillaPreliminar ? 'checkbox-relevos-checked' : ''}`}>
               <input
                 type="checkbox"
                 checked={planillaPreliminar}
@@ -360,7 +360,10 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
                 className="checkbox-relevos-input"
               />
               <div className="checkbox-relevos-content">
-                <span className="checkbox-relevos-text">Relevos / Planilla Preliminar</span>
+                <span className="checkbox-relevos-text">
+                  {planillaPreliminar && <span className="checkbox-check-icon">✓ </span>}
+                  Relevos / Planilla Preliminar
+                </span>
                 <span className="checkbox-relevos-hint">Indica que la ficha está lista para que el otro sector avance</span>
               </div>
             </label>

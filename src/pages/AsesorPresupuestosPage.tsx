@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
 import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
@@ -41,6 +42,7 @@ const AsesorPresupuestosPage = ({
   onLogout,
   onReloadData
 }: AsesorPresupuestosPageProps) => {
+  const navigate = useNavigate()
   const { isAdmin, isAsesorTecnico, isPresupuestos, usuario } = useAuth()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
@@ -265,7 +267,16 @@ const AsesorPresupuestosPage = ({
 
       <div className="asesor-presupuestos-content">
         <div className="asesor-presupuestos-header">
-          <h1>Asesor Técnico y Presupuestos</h1>
+          <div className="asesor-presupuestos-header-top">
+            <h1>Asesor Técnico y Presupuestos</h1>
+            <button
+              type="button"
+              className="btn-volver-tablero"
+              onClick={() => navigate('/')}
+            >
+              ← Volver a tablero general
+            </button>
+          </div>
           <p className="subtitle">Gestión de mediciones, factibilidad y presupuestos</p>
         </div>
 

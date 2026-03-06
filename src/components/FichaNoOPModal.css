@@ -296,21 +296,51 @@
 }
 
 /* Checkbox Relevos mejorado */
+/* Estado desmarcado: amarillo suave */
 .checkbox-relevos-label {
   display: flex;
   align-items: flex-start;
   gap: 14px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%);
+  background: linear-gradient(135deg, #fefce8 0%, #fef9c3 50%, #fef08a 100%);
   border-radius: 12px;
-  border: 2px solid #f59e0b;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+  border: 2px solid #eab308;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.15);
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
 }
 
 .checkbox-relevos-label:hover {
-  background: linear-gradient(135deg, #fde68a 0%, #fcd34d 50%, #fbbf24 100%);
-  border-color: #d97706;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, #fef9c3 0%, #fef08a 50%, #fde047 100%);
+  border-color: #ca8a04;
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.25);
+}
+
+/* Estado marcado: verde fuerte - cambio de color muy visible */
+.checkbox-relevos-label.checkbox-relevos-checked {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%) !important;
+  border: 3px solid #166534 !important;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.25) !important;
+}
+
+.checkbox-relevos-label.checkbox-relevos-checked .checkbox-relevos-text {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.checkbox-relevos-label.checkbox-relevos-checked .checkbox-relevos-hint {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.checkbox-relevos-label.checkbox-relevos-checked .checkbox-relevos-input {
+  accent-color: #ffffff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.checkbox-check-icon {
+  display: inline-block;
+  font-weight: 800;
+  font-size: 1.1em;
+  margin-right: 4px;
 }
 
 .checkbox-relevos-input {
