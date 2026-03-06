@@ -1379,6 +1379,44 @@ body.compact-mode .task-actions {
   max-width: 200px;
 }
 
+/* Flechas para mover entre columnas */
+.task-move-arrows {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.task-card:hover .task-move-arrows,
+.task-card.is-selected .task-move-arrows {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.task-move-arrows .task-move-arrow {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.task-move-arrows .task-move-arrow:hover {
+  background: rgba(99, 102, 241, 0.4);
+  transform: scale(1.05);
+}
+
 /* Tarjeta seleccionada (para flechas del teclado) */
 .task-card.is-selected {
   border-color: rgba(99, 102, 241, 0.6);

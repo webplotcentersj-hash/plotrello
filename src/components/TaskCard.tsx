@@ -364,6 +364,42 @@ const TaskCard = ({
               📋
             </div>
           )}
+          {/* Flechas para mover entre columnas */}
+          {onMoveTask && columns.length > 0 && (() => {
+            const idx = columns.findIndex((c) => c.id === task.status)
+            const prevCol = idx > 0 ? columns[idx - 1] : null
+            const nextCol = idx >= 0 && idx < columns.length - 1 ? columns[idx + 1] : null
+            return (prevCol || nextCol) ? (
+              <div className="task-move-arrows">
+                {prevCol && (
+                  <button
+                    type="button"
+                    className="task-action-btn task-move-arrow"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onMoveTask(task.id, prevCol.id)
+                    }}
+                    title={`Mover a ${prevCol.label}`}
+                  >
+                    ←
+                  </button>
+                )}
+                {nextCol && (
+                  <button
+                    type="button"
+                    className="task-action-btn task-move-arrow"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onMoveTask(task.id, nextCol.id)
+                    }}
+                    title={`Mover a ${nextCol.label}`}
+                  >
+                    →
+                  </button>
+                )}
+              </div>
+            ) : null
+          })()}
           <div className="task-actions">
             {onEdit && (
               <button
