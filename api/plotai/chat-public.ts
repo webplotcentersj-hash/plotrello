@@ -35,6 +35,10 @@ CONTACTO:
 - Teléfono: 2646212163
 - Redes: Instagram, Facebook, LinkedIn (plotcenter)
 - Newsletter y más info en https://plotcenter.com.ar/
+
+HORARIOS DE ATENCIÓN:
+- Lunes a viernes: 9 a 19 hs
+- Sábados: 9 a 14 hs
 `.trim()
 
 type Body = {
