@@ -1,6 +1,6 @@
 .reclamos-publico-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0b0d17 0%, #1a1d2e 50%, #0b0d17 100%);
+  background: linear-gradient(135deg, #050608 0%, #0b0d17 50%, #0d1018 100%);
   padding: 40px 20px;
   display: flex;
   justify-content: center;
@@ -11,7 +11,7 @@
 .reclamos-publico-container {
   width: 100%;
   max-width: 560px;
-  background: rgba(11, 13, 23, 0.95);
+  background: rgba(8, 10, 18, 0.98);
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -69,8 +69,8 @@
 .reclamos-publico-field select,
 .reclamos-publico-field textarea {
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   color: #fff;
   font-size: 1rem;
@@ -93,10 +93,16 @@
 .reclamos-publico-field select {
   cursor: pointer;
   appearance: none;
+  background-color: rgba(0, 0, 0, 0.35);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23fff' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
   padding-right: 40px;
+}
+
+.reclamos-publico-field select option {
+  background: #0d1018;
+  color: #fff;
 }
 
 .reclamos-publico-field textarea {
