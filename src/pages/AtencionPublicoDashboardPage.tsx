@@ -577,7 +577,9 @@ const AtencionPublicoDashboardPage = () => {
                               {clienteEnLinea(c.updated_at) && (
                                 <span className="atencion-publico-badge atencion-publico-badge-online" title="Cliente activo recientemente">En línea</span>
                               )}
-                              <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
+                              {c.visto_por_staff_at && (
+                                <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
+                              )}
                               <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
                             </div>
                             {c.ultimo_mensaje_preview && (
@@ -632,7 +634,9 @@ const AtencionPublicoDashboardPage = () => {
                                 {clienteEnLinea(c.updated_at) && (
                                   <span className="atencion-publico-badge atencion-publico-badge-online" title="Cliente activo recientemente">En línea</span>
                                 )}
-                                <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
+                                {c.visto_por_staff_at && (
+                                  <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
+                                )}
                                 <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
                               </div>
                               {c.ultimo_mensaje_preview && (
