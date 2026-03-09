@@ -2370,6 +2370,7 @@ class ApiService {
     ultimo_mensaje_preview: string | null
     estado: string
     usuario_asignado_id: number | null
+    visto_por_staff_at: string | null
     respuestas_staff?: Array<{ autor: string; texto: string; created_at?: string }>
     created_at: string
     updated_at: string
@@ -2378,7 +2379,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_conversaciones')
-        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, usuario_asignado_id, respuestas_staff, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, usuario_asignado_id, visto_por_staff_at, respuestas_staff, created_at, updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) return { success: false, error: error.message }
@@ -2397,6 +2398,7 @@ class ApiService {
     estado: string
     historial_mensajes: Array<{ role: string; text: string }>
     respuestas_staff: Array<{ autor: string; texto: string; created_at?: string }>
+    visto_por_staff_at: string | null
     created_at: string
     updated_at: string
   }>> {
@@ -2404,16 +2406,24 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_conversaciones')
-        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, historial_mensajes, respuestas_staff, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, historial_mensajes, respuestas_staff, visto_por_staff_at, created_at, updated_at')
         .eq('id', id)
         .single()
       if (error) return { success: false, error: error.message }
       const row = data as any
+      // Marcar como visto/abierto por staff si aún no lo está
+      if (!row?.visto_por_staff_at) {
+        await supabase
+          .from('atencion_conversaciones')
+          .update({ visto_por_staff_at: new Date().toISOString() })
+          .eq('id', id)
+      }
       return {
         success: true,
         data: {
           ...row,
-          respuestas_staff: Array.isArray(row?.respuestas_staff) ? row.respuestas_staff : []
+          respuestas_staff: Array.isArray(row?.respuestas_staff) ? row.respuestas_staff : [],
+          visto_por_staff_at: row?.visto_por_staff_at || new Date().toISOString()
         }
       }
     } catch (e: any) {
@@ -2471,6 +2481,68 @@ class ApiService {
     }
   }
 
+  async updateReclamoAtencion(
+    id: number,
+    updates: { estado?: string; prioridad?: string; usuario_asignado_id?: number | null; notas_internas?: string | null }
+  ): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (updates.estado != null) payload.estado = updates.estado
+      if (updates.prioridad != null) payload.prioridad = updates.prioridad
+      if (updates.usuario_asignado_id !== undefined) payload.usuario_asignado_id = updates.usuario_asignado_id
+      if (updates.notas_internas !== undefined) payload.notas_internas = updates.notas_internas
+      const { error } = await supabase.from('atencion_reclamos').update(payload).eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al actualizar reclamo' }
+    }
+  }
+
+  async crearReclamoAtencion(reclamo: {
+    cliente_nombre?: string | null
+    cliente_email?: string | null
+    descripcion: string
+    prioridad?: string
+    estado?: string
+  }): Promise<ApiResponse<{ id: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('atencion_reclamos')
+        .insert({
+          cliente_nombre: reclamo.cliente_nombre || null,
+          cliente_email: reclamo.cliente_email || null,
+          descripcion: reclamo.descripcion,
+          prioridad: reclamo.prioridad || 'media',
+          estado: reclamo.estado || 'nuevo'
+        })
+        .select('id')
+        .single()
+      if (error) return { success: false, error: error.message }
+      const reclamoId = (data as any).id
+      // Notificar a usuarios con acceso a atención (admin, mostrador)
+      try {
+        const { data: usuarios } = await supabase.from('usuarios').select('id').or('rol.eq.administracion,rol.eq.mostrador,rol.eq.gerencia').limit(20)
+        const ids = (usuarios || []).map((u: any) => u.id).filter(Boolean)
+        const descCorta = reclamo.descripcion.length > 80 ? reclamo.descripcion.slice(0, 77) + '...' : reclamo.descripcion
+        for (const uid of ids) {
+          await this.createNotification({
+            user_id: uid,
+            title: '📋 Nuevo reclamo',
+            description: `${reclamo.cliente_nombre || reclamo.cliente_email || 'Cliente'}: ${descCorta}`,
+            type: 'warning',
+            reclamo_id: reclamoId
+          })
+        }
+      } catch (_) { /* ignorar errores de notificación */ }
+      return { success: true, data: { id: reclamoId } }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al crear reclamo' }
+    }
+  }
+
   async getSolicitudAtencionChat(id: number): Promise<ApiResponse<{
     id: number
     cliente_nombre: string | null
@@ -2480,17 +2552,32 @@ class ApiService {
     estado: string
     historial_mensajes: Array<{ role: string; text: string }>
     respuestas_staff: Array<{ autor: string; texto: string; created_at?: string }>
+    visto_por_staff_at: string | null
     created_at: string
   }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
       const { data, error } = await supabase
         .from('solicitudes_atencion_chat')
-        .select('id, cliente_nombre, sector_solicitado, rol_solicitado, mensaje_cliente, estado, historial_mensajes, respuestas_staff, created_at')
+        .select('id, cliente_nombre, sector_solicitado, rol_solicitado, mensaje_cliente, estado, historial_mensajes, respuestas_staff, visto_por_staff_at, created_at')
         .eq('id', id)
         .single()
       if (error) return { success: false, error: error.message }
-      return { success: true, data: data as any }
+      const row = data as any
+      // Marcar como visto/abierto por staff si aún no lo está
+      if (!row?.visto_por_staff_at) {
+        await supabase
+          .from('solicitudes_atencion_chat')
+          .update({ visto_por_staff_at: new Date().toISOString() })
+          .eq('id', id)
+      }
+      return {
+        success: true,
+        data: {
+          ...row,
+          visto_por_staff_at: row?.visto_por_staff_at || new Date().toISOString()
+        }
+      }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al cargar solicitud' }
     }
@@ -3367,6 +3454,8 @@ class ApiService {
     capacitacion_id?: number
     oportunidad_id?: number
     venta_id?: number
+    solicitud_chat_id?: number
+    reclamo_id?: number
   }): Promise<ApiResponse<Notification>> {
     if (supabase) {
       const { data, error } = await supabase
@@ -3382,6 +3471,8 @@ class ApiService {
           capacitacion_id: notification.capacitacion_id || null,
           oportunidad_id: notification.oportunidad_id || null,
           venta_id: notification.venta_id || null,
+          solicitud_chat_id: notification.solicitud_chat_id || null,
+          reclamo_id: notification.reclamo_id || null,
           is_read: false
         })
         .select()

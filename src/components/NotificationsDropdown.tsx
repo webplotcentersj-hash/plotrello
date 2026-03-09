@@ -229,6 +229,11 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         navigate(`/atencion-publico?solicitud_chat=${notification.solicitud_chat_id}`)
         return
       }
+      // Reclamo de atención al público
+      if (notification.reclamo_id != null) {
+        navigate(`/atencion-publico?tab=reclamos`)
+        return
+      }
       // Menciones en el chat
       if (notification.type === 'mention' || notification.description?.includes('te mencionó')) {
         navigate('/chat')

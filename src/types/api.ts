@@ -723,6 +723,7 @@ export interface Notification {
   capacitacion_id?: number | null
   oportunidad_id?: number | null
   venta_id?: number | null
+  reclamo_id?: number | null
   is_read: boolean
   timestamp: string
 }

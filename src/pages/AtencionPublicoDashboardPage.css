@@ -807,3 +807,63 @@
 .atencion-publico-card-embed:hover {
   border-color: rgba(139, 92, 246, 0.4);
 }
+
+/* Reclamos: header con botón crear */
+.atencion-publico-reclamos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.atencion-publico-reclamos-header h3 {
+  margin: 0;
+}
+
+.atencion-publico-item-notas {
+  margin: 6px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Formularios en modales (editar/crear reclamo) */
+.atencion-publico-form-group {
+  margin-bottom: 16px;
+}
+
+.atencion-publico-form-group label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.atencion-publico-form-group input,
+.atencion-publico-form-group select,
+.atencion-publico-form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: var(--surface-base);
+  color: var(--text-primary);
+}
+
+.atencion-publico-form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.atencion-publico-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--surface-border);
+}

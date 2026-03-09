@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import { supabase } from '../services/supabaseClient'
 import './AtencionPublicoDashboardPage.css'
 
 const REFRESH_INTERVAL_MS = 25000
@@ -55,6 +56,7 @@ type Conversacion = {
   ultimo_mensaje_preview: string | null
   estado: string
   usuario_asignado_id: number | null
+  visto_por_staff_at?: string | null
   respuestas_staff?: Array<{ autor: string; texto: string; created_at?: string }>
   created_at: string
   updated_at: string
@@ -109,6 +111,10 @@ const AtencionPublicoDashboardPage = () => {
   const [modalEmbed, setModalEmbed] = useState(false)
   const [modalConversacionId, setModalConversacionId] = useState<number | null>(null)
   const [modalSolicitudId, setModalSolicitudId] = useState<number | null>(null)
+  const [modalReclamoEditar, setModalReclamoEditar] = useState<Reclamo | null>(null)
+  const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '' })
+  const [showCrearReclamo, setShowCrearReclamo] = useState(false)
+  const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media' })
 
   const loadConversaciones = async () => {
     setLoadingConv(true)
@@ -169,9 +175,32 @@ const AtencionPublicoDashboardPage = () => {
     }
   }, [canAccessAtencionPublico])
 
+  // Realtime: conversaciones y reclamos
+  useEffect(() => {
+    if (!canAccessAtencionPublico || !supabase) return
+    const ch = supabase
+      .channel(`atencion:${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'atencion_conversaciones' }, () => {
+        void loadConversaciones()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'atencion_reclamos' }, () => {
+        void loadReclamos()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_atencion_chat' }, () => {
+        void loadConversaciones()
+      })
+      .subscribe()
+    return () => {
+      void ch.unsubscribe()
+    }
+  }, [canAccessAtencionPublico])
+
   useEffect(() => {
     if (!canAccessAtencionPublico) return
-    const t = setInterval(loadConversaciones, REFRESH_INTERVAL_MS)
+    const t = setInterval(() => {
+      loadConversaciones()
+      loadReclamos()
+    }, REFRESH_INTERVAL_MS)
     return () => clearInterval(t)
   }, [canAccessAtencionPublico])
 
@@ -194,6 +223,10 @@ const AtencionPublicoDashboardPage = () => {
   useEffect(() => {
     const sid = searchParams.get('solicitud_chat')
     const cid = searchParams.get('conversacion')
+    const tab = searchParams.get('tab')
+    if (tab === 'reclamos') {
+      setActiveTab('reclamos')
+    }
     if (sid) {
       const id = parseInt(sid, 10)
       if (!isNaN(id)) {
@@ -527,6 +560,9 @@ const AtencionPublicoDashboardPage = () => {
                           >
                             <div className="atencion-publico-item-header">
                               <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
+                              {!c.visto_por_staff_at && (
+                                <span className="atencion-publico-badge atencion-publico-badge-nuevo" title="No abierto por el staff">● No leído</span>
+                              )}
                               <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
                               <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
                             </div>
@@ -576,6 +612,9 @@ const AtencionPublicoDashboardPage = () => {
                             >
                               <div className="atencion-publico-item-header">
                                 <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
+                                {!c.visto_por_staff_at && (
+                                  <span className="atencion-publico-badge atencion-publico-badge-nuevo" title="No abierto por el staff">● No leído</span>
+                                )}
                                 <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
                                 <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
                               </div>
@@ -603,7 +642,12 @@ const AtencionPublicoDashboardPage = () => {
 
           {activeTab === 'reclamos' && (
             <div className="atencion-publico-content">
-              <h3>Reclamos</h3>
+              <div className="atencion-publico-reclamos-header">
+                <h3>Reclamos</h3>
+                <button type="button" className="btn-primary" onClick={() => setShowCrearReclamo(true)}>
+                  ➕ Crear reclamo
+                </button>
+              </div>
               {loadingReclamos ? (
                 <div className="atencion-publico-loading">Cargando...</div>
               ) : reclamos.length === 0 ? (
@@ -613,14 +657,27 @@ const AtencionPublicoDashboardPage = () => {
               ) : (
                 <ul className="atencion-publico-list">
                   {reclamos.map((r) => (
-                    <li key={r.id} className="atencion-publico-list-item">
+                    <li
+                      key={r.id}
+                      className="atencion-publico-list-item atencion-publico-list-item-clickable"
+                      onClick={() => {
+                        setModalReclamoEditar(r)
+                        setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '' })
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && (setModalReclamoEditar(r), setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '' }))}
+                    >
                       <div className="atencion-publico-item-header">
                         <span className="atencion-publico-item-nombre">{r.cliente_nombre || r.cliente_email || 'Sin nombre'}</span>
                         <span className={`atencion-publico-badge atencion-publico-badge-${r.estado}`}>{estadoLabel(r.estado)}</span>
                         <span className={`atencion-publico-badge atencion-publico-prioridad-${r.prioridad}`}>{r.prioridad}</span>
                       </div>
                       <p className="atencion-publico-item-desc">{r.descripcion}</p>
-                      <div className="atencion-publico-item-meta">{formatFecha(r.updated_at)}</div>
+                      {r.notas_internas && (
+                        <p className="atencion-publico-item-notas">📝 {r.notas_internas}</p>
+                      )}
+                      <div className="atencion-publico-item-meta">{formatFecha(r.updated_at)} · Clic para editar</div>
                     </li>
                   ))}
                 </ul>
@@ -658,6 +715,151 @@ const AtencionPublicoDashboardPage = () => {
           </div>
         </section>
       </div>
+
+      {/* Modal editar reclamo */}
+      {modalReclamoEditar && (
+        <div className="atencion-publico-modal-overlay" onClick={() => setModalReclamoEditar(null)}>
+          <div className="atencion-publico-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="atencion-publico-modal-close" onClick={() => setModalReclamoEditar(null)} aria-label="Cerrar">✕</button>
+            <h3>Editar reclamo #{modalReclamoEditar.id}</h3>
+            <p className="atencion-publico-item-desc">{modalReclamoEditar.descripcion}</p>
+            <div className="atencion-publico-form-group">
+              <label>Estado</label>
+              <select
+                value={reclamoEditForm.estado}
+                onChange={(e) => setReclamoEditForm((f) => ({ ...f, estado: e.target.value }))}
+              >
+                <option value="nuevo">Nuevo</option>
+                <option value="abierto">Abierto</option>
+                <option value="en_curso">En curso</option>
+                <option value="en_revision">En revisión</option>
+                <option value="resuelto">Resuelto</option>
+                <option value="cerrado">Cerrado</option>
+              </select>
+            </div>
+            <div className="atencion-publico-form-group">
+              <label>Prioridad</label>
+              <select
+                value={reclamoEditForm.prioridad}
+                onChange={(e) => setReclamoEditForm((f) => ({ ...f, prioridad: e.target.value }))}
+              >
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+            <div className="atencion-publico-form-group">
+              <label>Notas internas</label>
+              <textarea
+                value={reclamoEditForm.notas_internas}
+                onChange={(e) => setReclamoEditForm((f) => ({ ...f, notas_internas: e.target.value }))}
+                rows={3}
+                placeholder="Notas para el equipo..."
+              />
+            </div>
+            <div className="atencion-publico-modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setModalReclamoEditar(null)}>Cancelar</button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={async () => {
+                  const res = await apiService.updateReclamoAtencion(modalReclamoEditar.id, {
+                    estado: reclamoEditForm.estado,
+                    prioridad: reclamoEditForm.prioridad,
+                    notas_internas: reclamoEditForm.notas_internas || null
+                  })
+                  if (res.success) {
+                    await loadReclamos()
+                    setModalReclamoEditar(null)
+                  } else {
+                    alert(res.error || 'Error al actualizar')
+                  }
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal crear reclamo */}
+      {showCrearReclamo && (
+        <div className="atencion-publico-modal-overlay" onClick={() => setShowCrearReclamo(false)}>
+          <div className="atencion-publico-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="atencion-publico-modal-close" onClick={() => setShowCrearReclamo(false)} aria-label="Cerrar">✕</button>
+            <h3>Crear reclamo</h3>
+            <div className="atencion-publico-form-group">
+              <label>Cliente (opcional)</label>
+              <input
+                type="text"
+                value={nuevoReclamoForm.cliente_nombre}
+                onChange={(e) => setNuevoReclamoForm((f) => ({ ...f, cliente_nombre: e.target.value }))}
+                placeholder="Nombre del cliente"
+              />
+            </div>
+            <div className="atencion-publico-form-group">
+              <label>Email (opcional)</label>
+              <input
+                type="email"
+                value={nuevoReclamoForm.cliente_email}
+                onChange={(e) => setNuevoReclamoForm((f) => ({ ...f, cliente_email: e.target.value }))}
+                placeholder="email@ejemplo.com"
+              />
+            </div>
+            <div className="atencion-publico-form-group">
+              <label>Descripción *</label>
+              <textarea
+                value={nuevoReclamoForm.descripcion}
+                onChange={(e) => setNuevoReclamoForm((f) => ({ ...f, descripcion: e.target.value }))}
+                rows={4}
+                placeholder="Describí el reclamo..."
+                required
+              />
+            </div>
+            <div className="atencion-publico-form-group">
+              <label>Prioridad</label>
+              <select
+                value={nuevoReclamoForm.prioridad}
+                onChange={(e) => setNuevoReclamoForm((f) => ({ ...f, prioridad: e.target.value }))}
+              >
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+            <div className="atencion-publico-modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setShowCrearReclamo(false)}>Cancelar</button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={async () => {
+                  if (!nuevoReclamoForm.descripcion.trim()) {
+                    alert('La descripción es obligatoria')
+                    return
+                  }
+                  const res = await apiService.crearReclamoAtencion({
+                    cliente_nombre: nuevoReclamoForm.cliente_nombre || null,
+                    cliente_email: nuevoReclamoForm.cliente_email || null,
+                    descripcion: nuevoReclamoForm.descripcion.trim(),
+                    prioridad: nuevoReclamoForm.prioridad,
+                    estado: 'nuevo'
+                  })
+                  if (res.success) {
+                    await loadReclamos()
+                    setShowCrearReclamo(false)
+                    setNuevoReclamoForm({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media' })
+                  } else {
+                    alert(res.error || 'Error al crear reclamo')
+                  }
+                }}
+              >
+                Crear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
