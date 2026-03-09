@@ -2460,6 +2460,7 @@ class ApiService {
     id: number
     cliente_nombre: string | null
     cliente_email: string | null
+    cliente_telefono: string | null
     descripcion: string
     estado: string
     prioridad: string
@@ -2473,7 +2474,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_reclamos')
-        .select('id, cliente_nombre, cliente_email, descripcion, estado, prioridad, notas_internas, usuario_asignado_id, sector_id, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, cliente_telefono, descripcion, estado, prioridad, notas_internas, usuario_asignado_id, sector_id, created_at, updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) return { success: false, error: error.message }
@@ -2517,6 +2518,7 @@ class ApiService {
   async crearReclamoAtencion(reclamo: {
     cliente_nombre?: string | null
     cliente_email?: string | null
+    cliente_telefono?: string | null
     descripcion: string
     prioridad?: string
     estado?: string
@@ -2530,7 +2532,8 @@ class ApiService {
         p_descripcion: reclamo.descripcion,
         p_prioridad: reclamo.prioridad || 'media',
         p_estado: reclamo.estado || 'nuevo',
-        p_sector_id: reclamo.sector_id ?? null
+        p_sector_id: reclamo.sector_id ?? null,
+        p_cliente_telefono: reclamo.cliente_telefono || null
       })
       if (error) return { success: false, error: error.message }
       const reclamoId = (data as any)?.id
@@ -2538,6 +2541,26 @@ class ApiService {
       return { success: true, data: { id: reclamoId } }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al crear reclamo' }
+    }
+  }
+
+  async buscarReclamosPublico(email: string, telefono: string): Promise<ApiResponse<Array<{
+    id: number
+    descripcion: string
+    estado: string
+    created_at: string
+  }>>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('buscar_reclamos_publico', {
+        p_email: email?.trim() || null,
+        p_telefono: telefono?.trim() || null
+      })
+      if (error) return { success: false, error: error.message }
+      const rows = (data || []) as Array<{ id: number; descripcion: string; estado: string; created_at: string }>
+      return { success: true, data: rows }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al buscar reclamos' }
     }
   }
 

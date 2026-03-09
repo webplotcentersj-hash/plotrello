@@ -13,10 +13,20 @@ const SECTORES = [
   { id: 7, nombre: 'Caja' }
 ]
 
+const ESTADO_LABELS: Record<string, string> = {
+  nuevo: 'Nuevo',
+  abierto: 'Abierto',
+  en_curso: 'En curso',
+  en_revision: 'En revisión',
+  resuelto: 'Resuelto',
+  cerrado: 'Cerrado'
+}
+
 const ReclamosPublicoPage = () => {
   const [form, setForm] = useState({
     cliente_nombre: '',
     cliente_email: '',
+    cliente_telefono: '',
     descripcion: '',
     prioridad: 'media' as 'baja' | 'media' | 'alta' | 'urgente',
     sector_id: null as number | null
@@ -24,6 +34,15 @@ const ReclamosPublicoPage = () => {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [reclamoId, setReclamoId] = useState<number | null>(null)
+
+  // Buscador
+  const [searchEmail, setSearchEmail] = useState('')
+  const [searchTelefono, setSearchTelefono] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [reclamosEncontrados, setReclamosEncontrados] = useState<Array<{ id: number; descripcion: string; estado: string; created_at: string }>>([])
+  const [activeTab, setActiveTab] = useState<'form' | 'buscar'>('form')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,8 +54,14 @@ const ReclamosPublicoPage = () => {
       return
     }
 
-    if (!form.cliente_nombre.trim() && !form.cliente_email.trim()) {
-      setError('Ingresá tu nombre o email para que podamos contactarte.')
+    const email = form.cliente_email.trim()
+    const telefono = form.cliente_telefono.trim().replace(/\D/g, '')
+    if (!email) {
+      setError('El email es obligatorio.')
+      return
+    }
+    if (!telefono || telefono.length < 8) {
+      setError('El teléfono es obligatorio (mínimo 8 dígitos).')
       return
     }
 
@@ -44,16 +69,18 @@ const ReclamosPublicoPage = () => {
     try {
       const res = await apiService.crearReclamoAtencion({
         cliente_nombre: form.cliente_nombre.trim() || null,
-        cliente_email: form.cliente_email.trim() || null,
+        cliente_email: email,
+        cliente_telefono: form.cliente_telefono.trim() || null,
         descripcion: desc,
         prioridad: form.prioridad,
         sector_id: form.sector_id,
         estado: 'nuevo'
       })
 
-      if (res.success) {
+      if (res.success && res.data) {
         setSuccess(true)
-        setForm({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media', sector_id: null })
+        setReclamoId(res.data.id)
+        setForm({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', descripcion: '', prioridad: 'media', sector_id: null })
       } else {
         setError(res.error || 'No se pudo enviar el reclamo. Intentá nuevamente.')
       }
@@ -65,20 +92,61 @@ const ReclamosPublicoPage = () => {
     }
   }
 
-  if (success) {
+  const handleBuscar = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSearchError(null)
+    setReclamosEncontrados([])
+
+    const email = searchEmail.trim()
+    const telefono = searchTelefono.trim().replace(/\D/g, '')
+    if (!email && (!telefono || telefono.length < 8)) {
+      setSearchError('Ingresá tu email o teléfono (mínimo 8 dígitos) para buscar.')
+      return
+    }
+
+    setSearching(true)
+    try {
+      const res = await apiService.buscarReclamosPublico(email || '', telefono || '')
+      if (res.success && res.data) {
+        setReclamosEncontrados(res.data)
+        if (res.data.length === 0) {
+          setSearchError('No se encontraron reclamos con ese email o teléfono.')
+        }
+      } else {
+        setSearchError(res.error || 'Error al buscar.')
+      }
+    } catch (err: unknown) {
+      setSearchError(err instanceof Error ? err.message : 'Error al buscar.')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const formatFecha = (s: string) => {
+    try {
+      return new Date(s).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    } catch {
+      return s
+    }
+  }
+
+  if (success && reclamoId != null) {
     return (
       <div className="reclamos-publico-page">
         <div className="reclamos-publico-container">
           <div className="reclamos-publico-success">
             <span className="reclamos-publico-success-icon">✓</span>
             <h1>Reclamo enviado</h1>
+            <p className="reclamos-publico-success-id">
+              Tu número de reclamo es: <strong>#{reclamoId}</strong>
+            </p>
             <p>
-              Tu reclamo fue recibido correctamente. Nos pondremos en contacto a la brevedad.
+              Guardá este número para consultar el estado. Nos pondremos en contacto a la brevedad.
             </p>
             <button
               type="button"
               className="reclamos-publico-btn reclamos-publico-btn-secondary"
-              onClick={() => setSuccess(false)}
+              onClick={() => { setSuccess(false); setReclamoId(null) }}
             >
               Enviar otro reclamo
             </button>
@@ -93,91 +161,181 @@ const ReclamosPublicoPage = () => {
       <div className="reclamos-publico-container">
         <header className="reclamos-publico-header">
           <h1>Formulario de reclamos</h1>
-          <p>Completá el formulario y te responderemos lo antes posible.</p>
+          <p>Completá el formulario y te responderemos lo antes posible. Podés consultar el estado con tu email o teléfono.</p>
         </header>
 
-        <form className="reclamos-publico-form" onSubmit={handleSubmit}>
-          {error && (
-            <div className="reclamos-publico-error" role="alert">
-              {error}
-            </div>
-          )}
-
-          <div className="reclamos-publico-field">
-            <label htmlFor="nombre">Nombre</label>
-            <input
-              id="nombre"
-              type="text"
-              value={form.cliente_nombre}
-              onChange={(e) => setForm((f) => ({ ...f, cliente_nombre: e.target.value }))}
-              placeholder="Tu nombre o empresa"
-              autoComplete="name"
-            />
-          </div>
-
-          <div className="reclamos-publico-field">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={form.cliente_email}
-              onChange={(e) => setForm((f) => ({ ...f, cliente_email: e.target.value }))}
-              placeholder="email@ejemplo.com"
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="reclamos-publico-field">
-            <label htmlFor="descripcion">Descripción del reclamo *</label>
-            <textarea
-              id="descripcion"
-              value={form.descripcion}
-              onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-              rows={5}
-              placeholder="Describí tu reclamo con el mayor detalle posible..."
-              required
-            />
-          </div>
-
-          <div className="reclamos-publico-row">
-            <div className="reclamos-publico-field">
-              <label htmlFor="prioridad">Prioridad</label>
-              <select
-                id="prioridad"
-                value={form.prioridad}
-                onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value as typeof form.prioridad }))}
-              >
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="urgente">Urgente</option>
-              </select>
-            </div>
-
-            <div className="reclamos-publico-field">
-              <label htmlFor="sector">Área relacionada</label>
-              <select
-                id="sector"
-                value={form.sector_id ?? ''}
-                onChange={(e) => setForm((f) => ({ ...f, sector_id: e.target.value ? Number(e.target.value) : null }))}
-              >
-                {SECTORES.map((s) => (
-                  <option key={s.id ?? 'none'} value={s.id ?? ''}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
+        <div className="reclamos-publico-tabs">
           <button
-            type="submit"
-            className="reclamos-publico-btn reclamos-publico-btn-primary"
-            disabled={sending}
+            type="button"
+            className={`reclamos-publico-tab ${activeTab === 'form' ? 'active' : ''}`}
+            onClick={() => setActiveTab('form')}
           >
-            {sending ? 'Enviando...' : 'Enviar reclamo'}
+            Nuevo reclamo
           </button>
-        </form>
+          <button
+            type="button"
+            className={`reclamos-publico-tab ${activeTab === 'buscar' ? 'active' : ''}`}
+            onClick={() => setActiveTab('buscar')}
+          >
+            Consultar estado
+          </button>
+        </div>
+
+        {activeTab === 'form' && (
+          <form className="reclamos-publico-form" onSubmit={handleSubmit}>
+            {error && (
+              <div className="reclamos-publico-error" role="alert">
+                {error}
+              </div>
+            )}
+
+            <div className="reclamos-publico-field">
+              <label htmlFor="nombre">Nombre</label>
+              <input
+                id="nombre"
+                type="text"
+                value={form.cliente_nombre}
+                onChange={(e) => setForm((f) => ({ ...f, cliente_nombre: e.target.value }))}
+                placeholder="Tu nombre o empresa"
+                autoComplete="name"
+              />
+            </div>
+
+            <div className="reclamos-publico-field">
+              <label htmlFor="email">Email *</label>
+              <input
+                id="email"
+                type="email"
+                value={form.cliente_email}
+                onChange={(e) => setForm((f) => ({ ...f, cliente_email: e.target.value }))}
+                placeholder="email@ejemplo.com"
+                autoComplete="email"
+                required
+              />
+            </div>
+
+            <div className="reclamos-publico-field">
+              <label htmlFor="telefono">Teléfono *</label>
+              <input
+                id="telefono"
+                type="tel"
+                value={form.cliente_telefono}
+                onChange={(e) => setForm((f) => ({ ...f, cliente_telefono: e.target.value }))}
+                placeholder="11 1234-5678"
+                autoComplete="tel"
+                required
+              />
+            </div>
+
+            <div className="reclamos-publico-field">
+              <label htmlFor="descripcion">Descripción del reclamo *</label>
+              <textarea
+                id="descripcion"
+                value={form.descripcion}
+                onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+                rows={5}
+                placeholder="Describí tu reclamo con el mayor detalle posible..."
+                required
+              />
+            </div>
+
+            <div className="reclamos-publico-row">
+              <div className="reclamos-publico-field">
+                <label htmlFor="prioridad">Prioridad</label>
+                <select
+                  id="prioridad"
+                  value={form.prioridad}
+                  onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value as typeof form.prioridad }))}
+                >
+                  <option value="baja">Baja</option>
+                  <option value="media">Media</option>
+                  <option value="alta">Alta</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+              </div>
+
+              <div className="reclamos-publico-field">
+                <label htmlFor="sector">Área relacionada</label>
+                <select
+                  id="sector"
+                  value={form.sector_id ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, sector_id: e.target.value ? Number(e.target.value) : null }))}
+                >
+                  {SECTORES.map((s) => (
+                    <option key={s.id ?? 'none'} value={s.id ?? ''}>
+                      {s.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="reclamos-publico-btn reclamos-publico-btn-primary"
+              disabled={sending}
+            >
+              {sending ? 'Enviando...' : 'Enviar reclamo'}
+            </button>
+          </form>
+        )}
+
+        {activeTab === 'buscar' && (
+          <div className="reclamos-publico-buscar">
+            <form onSubmit={handleBuscar} className="reclamos-publico-form">
+              {searchError && (
+                <div className="reclamos-publico-error" role="alert">
+                  {searchError}
+                </div>
+              )}
+              <div className="reclamos-publico-field">
+                <label htmlFor="search-email">Email</label>
+                <input
+                  id="search-email"
+                  type="email"
+                  value={searchEmail}
+                  onChange={(e) => { setSearchEmail(e.target.value); setSearchError(null) }}
+                  placeholder="email@ejemplo.com"
+                />
+              </div>
+              <div className="reclamos-publico-field">
+                <label htmlFor="search-telefono">Teléfono</label>
+                <input
+                  id="search-telefono"
+                  type="tel"
+                  value={searchTelefono}
+                  onChange={(e) => { setSearchTelefono(e.target.value); setSearchError(null) }}
+                  placeholder="11 1234-5678"
+                />
+              </div>
+              <button
+                type="submit"
+                className="reclamos-publico-btn reclamos-publico-btn-primary"
+                disabled={searching}
+              >
+                {searching ? 'Buscando...' : 'Buscar mis reclamos'}
+              </button>
+            </form>
+
+            {reclamosEncontrados.length > 0 && (
+              <div className="reclamos-publico-resultados">
+                <h3>Reclamos encontrados</h3>
+                {reclamosEncontrados.map((r) => (
+                  <div key={r.id} className="reclamos-publico-reclamo-card">
+                    <div className="reclamos-publico-reclamo-header">
+                      <span className="reclamos-publico-reclamo-id">#{r.id}</span>
+                      <span className={`reclamos-publico-reclamo-estado estado-${r.estado}`}>
+                        {ESTADO_LABELS[r.estado] || r.estado}
+                      </span>
+                    </div>
+                    <p className="reclamos-publico-reclamo-desc">{r.descripcion}</p>
+                    <p className="reclamos-publico-reclamo-fecha">{formatFecha(r.created_at)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

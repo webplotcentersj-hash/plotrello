@@ -97,6 +97,7 @@ type Reclamo = {
   id: number
   cliente_nombre: string | null
   cliente_email: string | null
+  cliente_telefono?: string | null
   descripcion: string
   estado: string
   prioridad: string
@@ -135,7 +136,7 @@ const AtencionPublicoDashboardPage = () => {
   const [modalReclamoEditar, setModalReclamoEditar] = useState<Reclamo | null>(null)
   const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '', usuario_asignado_id: null as number | null, sector_id: null as number | null })
   const [showCrearReclamo, setShowCrearReclamo] = useState(false)
-  const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media', sector_id: null as number | null })
+  const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', descripcion: '', prioridad: 'media', sector_id: null as number | null })
   const [usuarios, setUsuarios] = useState<Array<{ id: number; nombre: string }>>([])
   const [sectores, setSectores] = useState<Sector[]>([])
   const [searchReclamos, setSearchReclamos] = useState('')
@@ -370,12 +371,14 @@ const AtencionPublicoDashboardPage = () => {
   const reclamosFiltrados = useMemo(() => {
     let list = reclamos
     const q = searchReclamos.trim().toLowerCase()
-    if (q) {
+    const qDigits = searchReclamos.trim().replace(/\D/g, '')
+    if (q || qDigits) {
       list = list.filter(
         (r) =>
-          (r.cliente_nombre || '').toLowerCase().includes(q) ||
-          (r.cliente_email || '').toLowerCase().includes(q) ||
-          (r.descripcion || '').toLowerCase().includes(q)
+          (q && (r.cliente_nombre || '').toLowerCase().includes(q)) ||
+          (q && (r.cliente_email || '').toLowerCase().includes(q)) ||
+          (qDigits.length >= 2 && (r.cliente_telefono || '').replace(/\D/g, '').includes(qDigits)) ||
+          (q && (r.descripcion || '').toLowerCase().includes(q))
       )
     }
     if (filtroEstadoReclamos) {
@@ -766,7 +769,8 @@ const AtencionPublicoDashboardPage = () => {
                       onKeyDown={(e) => e.key === 'Enter' && (setModalReclamoEditar(r), setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '', usuario_asignado_id: r.usuario_asignado_id ?? null, sector_id: r.sector_id ?? null }))}
                     >
                       <div className="atencion-publico-item-header">
-                        <span className="atencion-publico-item-nombre">{r.cliente_nombre || r.cliente_email || 'Sin nombre'}</span>
+                        <span className="atencion-publico-item-id">#{r.id}</span>
+                        <span className="atencion-publico-item-nombre">{r.cliente_nombre || r.cliente_email || r.cliente_telefono || 'Sin nombre'}</span>
                         <span className={`atencion-publico-badge atencion-publico-badge-${r.estado}`}>{estadoLabel(r.estado)}</span>
                         <span className={`atencion-publico-badge atencion-publico-prioridad-${r.prioridad}`}>{r.prioridad}</span>
                       </div>
@@ -937,6 +941,15 @@ const AtencionPublicoDashboardPage = () => {
               />
             </div>
             <div className="atencion-publico-form-group">
+              <label>Teléfono (opcional)</label>
+              <input
+                type="tel"
+                value={nuevoReclamoForm.cliente_telefono}
+                onChange={(e) => setNuevoReclamoForm((f) => ({ ...f, cliente_telefono: e.target.value }))}
+                placeholder="11 1234-5678"
+              />
+            </div>
+            <div className="atencion-publico-form-group">
               <label>Descripción *</label>
               <textarea
                 value={nuevoReclamoForm.descripcion}
@@ -982,6 +995,7 @@ const AtencionPublicoDashboardPage = () => {
                   const res = await apiService.crearReclamoAtencion({
                     cliente_nombre: nuevoReclamoForm.cliente_nombre || null,
                     cliente_email: nuevoReclamoForm.cliente_email || null,
+                    cliente_telefono: nuevoReclamoForm.cliente_telefono || null,
                     descripcion: nuevoReclamoForm.descripcion.trim(),
                     prioridad: nuevoReclamoForm.prioridad,
                     sector_id: nuevoReclamoForm.sector_id,
@@ -990,7 +1004,7 @@ const AtencionPublicoDashboardPage = () => {
                   if (res.success) {
                     await loadReclamos()
                     setShowCrearReclamo(false)
-                    setNuevoReclamoForm({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media', sector_id: null })
+                    setNuevoReclamoForm({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', descripcion: '', prioridad: 'media', sector_id: null })
                   } else {
                     alert(res.error || 'Error al crear reclamo')
                   }

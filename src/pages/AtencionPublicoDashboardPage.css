@@ -251,6 +251,12 @@
   margin-bottom: 6px;
 }
 
+.atencion-publico-item-id {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+}
+
 .atencion-publico-item-nombre {
   font-weight: 600;
   color: var(--text-primary);

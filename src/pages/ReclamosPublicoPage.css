@@ -37,6 +37,35 @@
   font-size: 0.95rem;
 }
 
+.reclamos-publico-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 40px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reclamos-publico-tab {
+  padding: 14px 24px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.reclamos-publico-tab:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.reclamos-publico-tab.active {
+  color: #eb671b;
+  border-bottom-color: #eb671b;
+}
+
 .reclamos-publico-form {
   padding: 32px 40px 40px;
   display: flex;
@@ -184,9 +213,95 @@
   color: #fff;
 }
 
+.reclamos-publico-success-id {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.reclamos-publico-success-id strong {
+  color: #eb671b;
+  font-size: 1.25rem;
+}
+
 .reclamos-publico-success p {
   margin: 0;
   color: rgba(255, 255, 255, 0.75);
   font-size: 1rem;
   line-height: 1.5;
+}
+
+.reclamos-publico-buscar {
+  padding: 0 40px 40px;
+}
+
+.reclamos-publico-resultados {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reclamos-publico-resultados h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.reclamos-publico-reclamo-card {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.reclamos-publico-reclamo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.reclamos-publico-reclamo-id {
+  font-weight: 700;
+  color: #eb671b;
+  font-size: 1rem;
+}
+
+.reclamos-publico-reclamo-estado {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.reclamos-publico-reclamo-estado.estado-nuevo,
+.reclamos-publico-reclamo-estado.estado-abierto {
+  background: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.reclamos-publico-reclamo-estado.estado-en_curso,
+.reclamos-publico-reclamo-estado.estado-en_revision {
+  background: rgba(234, 179, 8, 0.3);
+  color: #fde047;
+}
+
+.reclamos-publico-reclamo-estado.estado-resuelto,
+.reclamos-publico-reclamo-estado.estado-cerrado {
+  background: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.reclamos-publico-reclamo-desc {
+  margin: 0 0 8px 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.reclamos-publico-reclamo-fecha {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
 }
