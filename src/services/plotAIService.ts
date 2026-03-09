@@ -42,6 +42,7 @@ CONOCIMIENTO ACTUAL DEL SISTEMA (actualizado):
 - **Entrega**: Existe la opción "Firma en tablet": se abre la ruta /firma-cliente/:numeroOP para que el cliente firme en una tablet (nombre de quien retira, DNI, firma digital). La firma se guarda y se puede ver desde la pantalla de entrega en PC.
 - **Columnas del tablero**: Diseño Gráfico, Diseño en Proceso, En Espera, Imprenta (Área de Impresión), Taller de Imprenta, Taller Gráfico, Instalaciones, Metalúrgica, Finalizado en Taller, Almacén de Entrega. Cada columna puede tener sub-etapas (ej. Taller Gráfico, Instalaciones, Taller de Imprenta, Metalúrgica, Impresión Digital en Imprenta).
 - **Ventas**: Se pueden crear ventas directas desde Mostrador; después de una venta se puede "Convertirla a OP" para generar una orden de trabajo vinculada.
+- **Reclamos (Atención al público)**: Los reclamos de clientes se gestionan en /atencion-publico, pestaña "Estado de reclamos". Podés informar sobre reclamos (cantidad, estados, recientes), sugerir crear uno cuando un usuario reporte un problema con un cliente, y guiar al usuario a esa sección. Los reclamos pueden asignarse a sectores (Diseño, Taller, Mostrador, etc.) y generan notificaciones.
 - Usá siempre los datos del contexto proporcionado para dar números y estados exactos; si te preguntan por estas funcionalidades, explicá cómo funcionan con precisión.
 `
 

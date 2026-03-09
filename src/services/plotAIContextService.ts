@@ -119,6 +119,15 @@ export interface CompleteSystemContext {
   cuentaCorriente?: {
     total: number // Clientes habilitados para comprar a cuenta en Mostrador
   }
+
+  // Atención al público: Reclamos
+  reclamos?: {
+    total: number
+    porEstado: Record<string, number>
+    nuevos: number
+    enCurso: number
+    recientes: Array<{ id: number; cliente: string; descripcion: string; estado: string }>
+  }
 }
 
 /**
@@ -152,7 +161,8 @@ export async function getCompleteSystemContext(
       chatMessagesData,
       facturasData,
       presupuestosVentasData,
-      cuentaCorrienteRes
+      cuentaCorrienteRes,
+      reclamosData
     ] = await Promise.all([
       // Órdenes de Trabajo
       supabase
@@ -246,7 +256,15 @@ export async function getCompleteSystemContext(
         } catch {
           return { count: 0 }
         }
-      })()
+      })(),
+
+      // Reclamos (Atención al público)
+      supabase
+        .from('atencion_reclamos')
+        .select('id, cliente_nombre, cliente_email, descripcion, estado, prioridad, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50)
+        .then(r => r.data || [])
     ])
     
     // Procesar datos de órdenes
@@ -471,6 +489,33 @@ export async function getCompleteSystemContext(
     
     // Contar usuarios trabajando
     const usuariosTrabajando = ordenesData.filter((o: any) => o.usuario_trabajando_id).length
+
+    // Procesar reclamos (Atención al público)
+    const reclamosPorEstado: Record<string, number> = {}
+    let reclamosNuevos = 0
+    let reclamosEnCurso = 0
+    const reclamosRecientes: Array<{ id: number; cliente: string; descripcion: string; estado: string }> = []
+    reclamosData.forEach((r: any) => {
+      const est = r.estado || 'nuevo'
+      reclamosPorEstado[est] = (reclamosPorEstado[est] || 0) + 1
+      if (est === 'nuevo') reclamosNuevos++
+      if (['nuevo', 'abierto', 'en_curso', 'en_revision'].includes(est)) reclamosEnCurso++
+      if (reclamosRecientes.length < 10) {
+        reclamosRecientes.push({
+          id: r.id,
+          cliente: r.cliente_nombre || r.cliente_email || 'Sin nombre',
+          descripcion: (r.descripcion || '').slice(0, 80),
+          estado: est
+        })
+      }
+    })
+    if (reclamosNuevos > 0) {
+      alertas.push({
+        tipo: 'reclamos',
+        severidad: reclamosNuevos > 5 ? 'alta' : 'media',
+        mensaje: `${reclamosNuevos} reclamo(s) nuevo(s) sin atender en Atención al público`
+      })
+    }
     
     return {
       ordenes: {
@@ -548,6 +593,13 @@ export async function getCompleteSystemContext(
       alertas,
       cuentaCorriente: {
         total: (cuentaCorrienteRes as { count?: number })?.count ?? 0
+      },
+      reclamos: {
+        total: reclamosData.length,
+        porEstado: reclamosPorEstado,
+        nuevos: reclamosNuevos,
+        enCurso: reclamosEnCurso,
+        recientes: reclamosRecientes
       }
     }
   } catch (error) {
@@ -590,7 +642,14 @@ export async function getCompleteSystemContext(
       actividadReciente: [],
       rendimiento: { promedioTiempoCompletado: 0, tasaCompletacion: 0, eficienciaPorSector: {} },
       alertas: [],
-      cuentaCorriente: { total: 0 }
+      cuentaCorriente: { total: 0 },
+      reclamos: {
+        total: 0,
+        porEstado: {},
+        nuevos: 0,
+        enCurso: 0,
+        recientes: []
+      }
     }
   }
 }
@@ -694,6 +753,17 @@ ${context.actividadReciente.slice(0, 10).map(a => `[${a.tipo.toUpperCase()}] ${a
 
 === MOSTRADOR - CUENTA CORRIENTE ===
 Clientes habilitados para comprar a cuenta en Mostrador: ${context.cuentaCorriente?.total ?? 0}
+
+=== RECLAMOS (Atención al público) ===
+Total: ${context.reclamos?.total ?? 0}
+- Nuevos (sin abrir): ${context.reclamos?.nuevos ?? 0}
+- En curso (nuevo/abierto/en_curso/en_revision): ${context.reclamos?.enCurso ?? 0}
+
+Por estado:
+${context.reclamos ? Object.entries(context.reclamos.porEstado).map(([estado, count]) => `  - ${estado}: ${count}`).join('\n') : '  (sin datos)'}
+
+Reclamos recientes:
+${context.reclamos?.recientes?.length ? context.reclamos.recientes.map(r => `  #${r.id} - ${r.cliente}: ${r.descripcion}... [${r.estado}]`).join('\n') : '  (ninguno)'}
 
 === ALERTAS ===
 ${context.alertas.length > 0 

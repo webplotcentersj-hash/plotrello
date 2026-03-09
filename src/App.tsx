@@ -20,6 +20,7 @@ const MostradorDashboardPage = lazy(() => import('./pages/MostradorDashboardPage
 const DisenoDashboardPage = lazy(() => import('./pages/DisenoDashboardPage'))
 const GaleriaTrabajosPage = lazy(() => import('./pages/GaleriaTrabajosPage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
+const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
 const BriefsPendientesPage = lazy(() => import('./pages/BriefsPendientesPage'))
 const OrdenesListasPage = lazy(() => import('./pages/OrdenesListasPage'))
 const BuscarClientePage = lazy(() => import('./pages/BuscarClientePage'))
@@ -476,6 +477,7 @@ function App() {
           <Route path="/op-public/:opNumber" element={<OpPublicPage />} />
           <Route path="/firma-cliente/:opNumber" element={<FirmaClientePage />} />
           <Route path="/brief/:token" element={<BriefPublicoPage />} />
+          <Route path="/reclamos" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><ReclamosPublicoPage /></Suspense>} />
           <Route
             path="/login"
             element={
