@@ -2371,6 +2371,7 @@ class ApiService {
     estado: string
     usuario_asignado_id: number | null
     visto_por_staff_at: string | null
+    historial_mensajes?: Array<{ role: string; text: string }>
     respuestas_staff?: Array<{ autor: string; texto: string; created_at?: string }>
     created_at: string
     updated_at: string
@@ -2379,7 +2380,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_conversaciones')
-        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, usuario_asignado_id, visto_por_staff_at, respuestas_staff, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, usuario_asignado_id, visto_por_staff_at, historial_mensajes, respuestas_staff, created_at, updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) return { success: false, error: error.message }

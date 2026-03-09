@@ -682,6 +682,30 @@
 /* Buscador */
 .atencion-publico-search-row {
   margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.atencion-publico-search-row .atencion-publico-search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.atencion-publico-filter-select {
+  padding: 10px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: var(--surface-base);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  min-width: 160px;
+}
+
+.atencion-publico-filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
 }
 
 .atencion-publico-search {
@@ -844,6 +868,12 @@
   font-size: 0.85rem;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.atencion-publico-item-asignado {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 /* Formularios en modales (editar/crear reclamo) */

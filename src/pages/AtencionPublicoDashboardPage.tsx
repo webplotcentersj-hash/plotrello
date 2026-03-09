@@ -28,6 +28,12 @@ function clienteEnLinea(updatedAt: string, umbralMinutos = 2): boolean {
   }
 }
 
+function mensajesSinLeer(c: Conversacion): number {
+  if (c.visto_por_staff_at) return 0
+  const hist = c.historial_mensajes ?? []
+  return hist.filter((m) => m.role === 'user').length
+}
+
 function tiempoRelativo(dateStr: string): string {
   try {
     const d = new Date(dateStr)
@@ -68,6 +74,7 @@ type Conversacion = {
   estado: string
   usuario_asignado_id: number | null
   visto_por_staff_at?: string | null
+  historial_mensajes?: Array<{ role: string; text: string }>
   respuestas_staff?: Array<{ autor: string; texto: string; created_at?: string }>
   created_at: string
   updated_at: string
@@ -123,9 +130,12 @@ const AtencionPublicoDashboardPage = () => {
   const [modalConversacionId, setModalConversacionId] = useState<number | null>(null)
   const [modalSolicitudId, setModalSolicitudId] = useState<number | null>(null)
   const [modalReclamoEditar, setModalReclamoEditar] = useState<Reclamo | null>(null)
-  const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '' })
+  const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '', usuario_asignado_id: null as number | null })
   const [showCrearReclamo, setShowCrearReclamo] = useState(false)
   const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media' })
+  const [usuarios, setUsuarios] = useState<Array<{ id: number; nombre: string }>>([])
+  const [searchReclamos, setSearchReclamos] = useState('')
+  const [filtroEstadoReclamos, setFiltroEstadoReclamos] = useState<string>('')
 
   const loadConversaciones = async () => {
     setLoadingConv(true)
@@ -185,6 +195,15 @@ const AtencionPublicoDashboardPage = () => {
       loadReclamos()
     }
   }, [canAccessAtencionPublico])
+
+  useEffect(() => {
+    if (!canAccessAtencionPublico || activeTab !== 'reclamos') return
+    const load = async () => {
+      const res = await apiService.getUsuarios()
+      if (res.success && res.data) setUsuarios(res.data)
+    }
+    void load()
+  }, [canAccessAtencionPublico, activeTab])
 
   // Realtime: conversaciones y reclamos
   useEffect(() => {
@@ -339,6 +358,23 @@ const AtencionPublicoDashboardPage = () => {
         (c.canal || '').toLowerCase().includes(qb)
     )
   }, [conversacionesBiblioteca, searchBiblioteca])
+
+  const reclamosFiltrados = useMemo(() => {
+    let list = reclamos
+    const q = searchReclamos.trim().toLowerCase()
+    if (q) {
+      list = list.filter(
+        (r) =>
+          (r.cliente_nombre || '').toLowerCase().includes(q) ||
+          (r.cliente_email || '').toLowerCase().includes(q) ||
+          (r.descripcion || '').toLowerCase().includes(q)
+      )
+    }
+    if (filtroEstadoReclamos) {
+      list = list.filter((r) => r.estado === filtroEstadoReclamos)
+    }
+    return list
+  }, [reclamos, searchReclamos, filtroEstadoReclamos])
 
   const formatFecha = (s: string) => {
     try {
@@ -572,7 +608,9 @@ const AtencionPublicoDashboardPage = () => {
                             <div className="atencion-publico-item-header">
                               <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
                               {!c.visto_por_staff_at && (
-                                <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">● No leído</span>
+                                <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">
+                                    ● No leído{mensajesSinLeer(c) > 0 ? ` (${mensajesSinLeer(c)})` : ''}
+                                  </span>
                               )}
                               {clienteEnLinea(c.updated_at) && (
                                 <span className="atencion-publico-badge atencion-publico-badge-online" title="Cliente activo recientemente">En línea</span>
@@ -629,7 +667,9 @@ const AtencionPublicoDashboardPage = () => {
                               <div className="atencion-publico-item-header">
                                 <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
                                 {!c.visto_por_staff_at && (
-                                  <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">● No leído</span>
+                                  <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">
+                                    ● No leído{mensajesSinLeer(c) > 0 ? ` (${mensajesSinLeer(c)})` : ''}
+                                  </span>
                                 )}
                                 {clienteEnLinea(c.updated_at) && (
                                   <span className="atencion-publico-badge atencion-publico-badge-online" title="Cliente activo recientemente">En línea</span>
@@ -669,25 +709,53 @@ const AtencionPublicoDashboardPage = () => {
                   ➕ Crear reclamo
                 </button>
               </div>
+              <div className="atencion-publico-search-row">
+                <input
+                  type="search"
+                  placeholder="Buscar por cliente o descripción..."
+                  value={searchReclamos}
+                  onChange={(e) => setSearchReclamos(e.target.value)}
+                  className="atencion-publico-search"
+                  aria-label="Buscar reclamos"
+                />
+                <select
+                  value={filtroEstadoReclamos}
+                  onChange={(e) => setFiltroEstadoReclamos(e.target.value)}
+                  className="atencion-publico-filter-select"
+                  aria-label="Filtrar por estado"
+                >
+                  <option value="">Todos los estados</option>
+                  <option value="nuevo">Nuevo</option>
+                  <option value="abierto">Abierto</option>
+                  <option value="en_curso">En curso</option>
+                  <option value="en_revision">En revisión</option>
+                  <option value="resuelto">Resuelto</option>
+                  <option value="cerrado">Cerrado</option>
+                </select>
+              </div>
               {loadingReclamos ? (
                 <div className="atencion-publico-loading">Cargando...</div>
               ) : reclamos.length === 0 ? (
                 <div className="atencion-publico-empty">
                   <p>No hay reclamos registrados.</p>
                 </div>
+              ) : reclamosFiltrados.length === 0 ? (
+                <div className="atencion-publico-empty">
+                  <p>No hay resultados para la búsqueda.</p>
+                </div>
               ) : (
                 <ul className="atencion-publico-list">
-                  {reclamos.map((r) => (
+                  {reclamosFiltrados.map((r) => (
                     <li
                       key={r.id}
                       className="atencion-publico-list-item atencion-publico-list-item-clickable"
                       onClick={() => {
                         setModalReclamoEditar(r)
-                        setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '' })
+                        setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '', usuario_asignado_id: r.usuario_asignado_id ?? null })
                       }}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && (setModalReclamoEditar(r), setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '' }))}
+                      onKeyDown={(e) => e.key === 'Enter' && (setModalReclamoEditar(r), setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '', usuario_asignado_id: r.usuario_asignado_id ?? null }))}
                     >
                       <div className="atencion-publico-item-header">
                         <span className="atencion-publico-item-nombre">{r.cliente_nombre || r.cliente_email || 'Sin nombre'}</span>
@@ -695,6 +763,9 @@ const AtencionPublicoDashboardPage = () => {
                         <span className={`atencion-publico-badge atencion-publico-prioridad-${r.prioridad}`}>{r.prioridad}</span>
                       </div>
                       <p className="atencion-publico-item-desc">{r.descripcion}</p>
+                      {r.usuario_asignado_id && (
+                        <p className="atencion-publico-item-asignado">👤 Asignado a: {usuarios.find((u) => u.id === r.usuario_asignado_id)?.nombre ?? `#${r.usuario_asignado_id}`}</p>
+                      )}
                       {r.notas_internas && (
                         <p className="atencion-publico-item-notas">📝 {r.notas_internas}</p>
                       )}
@@ -770,6 +841,18 @@ const AtencionPublicoDashboardPage = () => {
               </select>
             </div>
             <div className="atencion-publico-form-group">
+              <label>Asignar a</label>
+              <select
+                value={reclamoEditForm.usuario_asignado_id ?? ''}
+                onChange={(e) => setReclamoEditForm((f) => ({ ...f, usuario_asignado_id: e.target.value ? Number(e.target.value) : null }))}
+              >
+                <option value="">Sin asignar</option>
+                {usuarios.map((u) => (
+                  <option key={u.id} value={u.id}>{u.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div className="atencion-publico-form-group">
               <label>Notas internas</label>
               <textarea
                 value={reclamoEditForm.notas_internas}
@@ -787,6 +870,7 @@ const AtencionPublicoDashboardPage = () => {
                   const res = await apiService.updateReclamoAtencion(modalReclamoEditar.id, {
                     estado: reclamoEditForm.estado,
                     prioridad: reclamoEditForm.prioridad,
+                    usuario_asignado_id: reclamoEditForm.usuario_asignado_id,
                     notas_internas: reclamoEditForm.notas_internas || null
                   })
                   if (res.success) {
