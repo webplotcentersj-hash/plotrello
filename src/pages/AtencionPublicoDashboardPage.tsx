@@ -17,6 +17,17 @@ function isToday(dateStr: string): boolean {
   }
 }
 
+function clienteEnLinea(updatedAt: string, umbralMinutos = 2): boolean {
+  try {
+    const d = new Date(updatedAt)
+    const now = new Date()
+    const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000)
+    return diffMin < umbralMinutos
+  } catch {
+    return false
+  }
+}
+
 function tiempoRelativo(dateStr: string): string {
   try {
     const d = new Date(dateStr)
@@ -561,7 +572,10 @@ const AtencionPublicoDashboardPage = () => {
                             <div className="atencion-publico-item-header">
                               <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
                               {!c.visto_por_staff_at && (
-                                <span className="atencion-publico-badge atencion-publico-badge-nuevo" title="No abierto por el staff">● No leído</span>
+                                <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">● No leído</span>
+                              )}
+                              {clienteEnLinea(c.updated_at) && (
+                                <span className="atencion-publico-badge atencion-publico-badge-online" title="Cliente activo recientemente">En línea</span>
                               )}
                               <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
                               <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
@@ -613,7 +627,10 @@ const AtencionPublicoDashboardPage = () => {
                               <div className="atencion-publico-item-header">
                                 <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
                                 {!c.visto_por_staff_at && (
-                                  <span className="atencion-publico-badge atencion-publico-badge-nuevo" title="No abierto por el staff">● No leído</span>
+                                  <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">● No leído</span>
+                                )}
+                                {clienteEnLinea(c.updated_at) && (
+                                  <span className="atencion-publico-badge atencion-publico-badge-online" title="Cliente activo recientemente">En línea</span>
                                 )}
                                 <span className={`atencion-publico-badge atencion-publico-badge-${c.estado}`}>{estadoLabel(c.estado)}</span>
                                 <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>

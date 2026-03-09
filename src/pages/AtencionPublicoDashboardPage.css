@@ -261,12 +261,29 @@
   padding: 2px 8px;
   border-radius: 6px;
   font-weight: 500;
+  margin-right: 4px;
+  white-space: nowrap;
 }
 
-.atencion-publico-badge-abierto,
+.atencion-publico-badge-abierto {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
 .atencion-publico-badge-nuevo {
   background: rgba(59, 130, 246, 0.2);
   color: #3b82f6;
+}
+
+/* No leído: color distinto a Abierto (naranja/ámbar) */
+.atencion-publico-badge-no-leido {
+  background: rgba(245, 158, 11, 0.25);
+  color: #d97706;
+}
+
+.atencion-publico-badge-online {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
 }
 
 .atencion-publico-badge-en_curso,
