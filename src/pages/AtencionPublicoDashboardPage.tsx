@@ -775,6 +775,13 @@ const AtencionPublicoDashboardPage = () => {
                         <span className={`atencion-publico-badge atencion-publico-prioridad-${r.prioridad}`}>{r.prioridad}</span>
                       </div>
                       <p className="atencion-publico-item-desc">{r.descripcion}</p>
+                      {(r.cliente_email || r.cliente_telefono) && (
+                        <p className="atencion-publico-item-contacto">
+                          {r.cliente_email && <span>✉️ {r.cliente_email}</span>}
+                          {r.cliente_email && r.cliente_telefono && ' · '}
+                          {r.cliente_telefono && <span>📞 {r.cliente_telefono}</span>}
+                        </p>
+                      )}
                       {r.sector_id && (
                         <p className="atencion-publico-item-asignado">🏭 Sector: {sectores.find((s) => s.id === r.sector_id)?.nombre ?? `#${r.sector_id}`}</p>
                       )}
@@ -829,6 +836,13 @@ const AtencionPublicoDashboardPage = () => {
           <div className="atencion-publico-modal atencion-publico-modal-dark" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="atencion-publico-modal-close" onClick={() => setModalReclamoEditar(null)} aria-label="Cerrar">✕</button>
             <h3>Editar reclamo #{modalReclamoEditar.id}</h3>
+            {(modalReclamoEditar.cliente_email || modalReclamoEditar.cliente_telefono) && (
+              <p className="atencion-publico-modal-contacto">
+                {modalReclamoEditar.cliente_email && <span>✉️ {modalReclamoEditar.cliente_email}</span>}
+                {modalReclamoEditar.cliente_email && modalReclamoEditar.cliente_telefono && ' · '}
+                {modalReclamoEditar.cliente_telefono && <span>📞 {modalReclamoEditar.cliente_telefono}</span>}
+              </p>
+            )}
             <p className="atencion-publico-item-desc">{modalReclamoEditar.descripcion}</p>
             <div className="atencion-publico-form-group">
               <label>Estado</label>
