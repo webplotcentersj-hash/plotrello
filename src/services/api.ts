@@ -2501,7 +2501,12 @@ class ApiService {
         const { data: r } = await supabase.from('atencion_reclamos').select('cliente_nombre, cliente_email, descripcion').eq('id', id).single()
         const row = r as any
         const cliente = row?.cliente_nombre || row?.cliente_email || 'Cliente'
-        await this.notificarReclamoASector(id, updates.sector_id, cliente, row?.descripcion || '', false)
+        await supabase.rpc('notificar_reclamo_sector', {
+          p_reclamo_id: id,
+          p_sector_id: updates.sector_id,
+          p_cliente_label: cliente,
+          p_descripcion: row?.descripcion || ''
+        })
       }
       return { success: true }
     } catch (e: any) {
@@ -2530,46 +2535,10 @@ class ApiService {
       if (error) return { success: false, error: error.message }
       const reclamoId = (data as any)?.id
       if (!reclamoId) return { success: false, error: 'No se obtuvo el ID del reclamo' }
-      await this.notificarReclamoASector(reclamoId, reclamo.sector_id ?? null, reclamo.cliente_nombre || reclamo.cliente_email || 'Cliente', reclamo.descripcion, true)
       return { success: true, data: { id: reclamoId } }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al crear reclamo' }
     }
-  }
-
-  private async notificarReclamoASector(
-    reclamoId: number,
-    sectorId: number | null,
-    clienteLabel: string,
-    descripcion: string,
-    esNuevo: boolean
-  ): Promise<void> {
-    if (!supabase) return
-    try {
-      const descCorta = descripcion.length > 80 ? descripcion.slice(0, 77) + '...' : descripcion
-      const titulo = esNuevo ? '📋 Nuevo reclamo' : '📋 Reclamo asignado a tu sector'
-      const desc = `${clienteLabel}: ${descCorta}`
-
-      let ids: number[] = []
-      if (sectorId) {
-        const rolPorSector: Record<number, string> = {
-          1: 'diseno', 2: 'imprenta', 3: 'taller-grafico', 4: 'instalaciones', 5: 'metalurgica',
-          6: 'mostrador', 7: 'caja', 30: 'asesor-tecnico', 31: 'presupuestos', 32: 'recursos-humanos'
-        }
-        const rol = rolPorSector[sectorId]
-        if (rol) {
-          const { data: usuariosSector } = await supabase.from('usuarios').select('id').eq('rol', rol).limit(20)
-          ids = (usuariosSector || []).map((u: any) => u.id).filter(Boolean)
-        }
-      }
-      if (ids.length === 0) {
-        const { data: usuarios } = await supabase.from('usuarios').select('id').or('rol.eq.administracion,rol.eq.mostrador,rol.eq.gerencia').limit(20)
-        ids = (usuarios || []).map((u: any) => u.id).filter(Boolean)
-      }
-      for (const uid of ids) {
-        await this.createNotification({ user_id: uid, title: titulo, description: desc, type: 'warning', reclamo_id: reclamoId })
-      }
-    } catch (_) { /* ignorar */ }
   }
 
   async getSolicitudAtencionChat(id: number): Promise<ApiResponse<{
