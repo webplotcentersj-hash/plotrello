@@ -102,9 +102,12 @@ type Reclamo = {
   prioridad: string
   notas_internas: string | null
   usuario_asignado_id: number | null
+  sector_id: number | null
   created_at: string
   updated_at: string
 }
+
+type Sector = { id: number; nombre: string }
 
 const AtencionPublicoDashboardPage = () => {
   const navigate = useNavigate()
@@ -130,10 +133,11 @@ const AtencionPublicoDashboardPage = () => {
   const [modalConversacionId, setModalConversacionId] = useState<number | null>(null)
   const [modalSolicitudId, setModalSolicitudId] = useState<number | null>(null)
   const [modalReclamoEditar, setModalReclamoEditar] = useState<Reclamo | null>(null)
-  const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '', usuario_asignado_id: null as number | null })
+  const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '', usuario_asignado_id: null as number | null, sector_id: null as number | null })
   const [showCrearReclamo, setShowCrearReclamo] = useState(false)
-  const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media' })
+  const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media', sector_id: null as number | null })
   const [usuarios, setUsuarios] = useState<Array<{ id: number; nombre: string }>>([])
+  const [sectores, setSectores] = useState<Sector[]>([])
   const [searchReclamos, setSearchReclamos] = useState('')
   const [filtroEstadoReclamos, setFiltroEstadoReclamos] = useState<string>('')
 
@@ -199,8 +203,12 @@ const AtencionPublicoDashboardPage = () => {
   useEffect(() => {
     if (!canAccessAtencionPublico || activeTab !== 'reclamos') return
     const load = async () => {
-      const res = await apiService.getUsuarios()
-      if (res.success && res.data) setUsuarios(res.data)
+      const [usuariosRes, sectoresRes] = await Promise.all([
+        apiService.getUsuarios(),
+        apiService.getSectores()
+      ])
+      if (usuariosRes.success && usuariosRes.data) setUsuarios(usuariosRes.data)
+      if (sectoresRes.success && sectoresRes.data) setSectores(sectoresRes.data.filter((s) => s.activo !== false) as Sector[])
     }
     void load()
   }, [canAccessAtencionPublico, activeTab])
@@ -702,7 +710,7 @@ const AtencionPublicoDashboardPage = () => {
           )}
 
           {activeTab === 'reclamos' && (
-            <div className="atencion-publico-content">
+            <div className="atencion-publico-content atencion-publico-reclamos-dark">
               <div className="atencion-publico-reclamos-header">
                 <h3>Reclamos</h3>
                 <button type="button" className="btn-primary" onClick={() => setShowCrearReclamo(true)}>
@@ -751,11 +759,11 @@ const AtencionPublicoDashboardPage = () => {
                       className="atencion-publico-list-item atencion-publico-list-item-clickable"
                       onClick={() => {
                         setModalReclamoEditar(r)
-                        setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '', usuario_asignado_id: r.usuario_asignado_id ?? null })
+                        setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '', usuario_asignado_id: r.usuario_asignado_id ?? null, sector_id: r.sector_id ?? null })
                       }}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && (setModalReclamoEditar(r), setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '', usuario_asignado_id: r.usuario_asignado_id ?? null }))}
+                      onKeyDown={(e) => e.key === 'Enter' && (setModalReclamoEditar(r), setReclamoEditForm({ estado: r.estado, prioridad: r.prioridad, notas_internas: r.notas_internas || '', usuario_asignado_id: r.usuario_asignado_id ?? null, sector_id: r.sector_id ?? null }))}
                     >
                       <div className="atencion-publico-item-header">
                         <span className="atencion-publico-item-nombre">{r.cliente_nombre || r.cliente_email || 'Sin nombre'}</span>
@@ -763,6 +771,9 @@ const AtencionPublicoDashboardPage = () => {
                         <span className={`atencion-publico-badge atencion-publico-prioridad-${r.prioridad}`}>{r.prioridad}</span>
                       </div>
                       <p className="atencion-publico-item-desc">{r.descripcion}</p>
+                      {r.sector_id && (
+                        <p className="atencion-publico-item-asignado">🏭 Sector: {sectores.find((s) => s.id === r.sector_id)?.nombre ?? `#${r.sector_id}`}</p>
+                      )}
                       {r.usuario_asignado_id && (
                         <p className="atencion-publico-item-asignado">👤 Asignado a: {usuarios.find((u) => u.id === r.usuario_asignado_id)?.nombre ?? `#${r.usuario_asignado_id}`}</p>
                       )}
@@ -810,8 +821,8 @@ const AtencionPublicoDashboardPage = () => {
 
       {/* Modal editar reclamo */}
       {modalReclamoEditar && (
-        <div className="atencion-publico-modal-overlay" onClick={() => setModalReclamoEditar(null)}>
-          <div className="atencion-publico-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="atencion-publico-modal-overlay atencion-publico-modal-dark" onClick={() => setModalReclamoEditar(null)}>
+          <div className="atencion-publico-modal atencion-publico-modal-dark" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="atencion-publico-modal-close" onClick={() => setModalReclamoEditar(null)} aria-label="Cerrar">✕</button>
             <h3>Editar reclamo #{modalReclamoEditar.id}</h3>
             <p className="atencion-publico-item-desc">{modalReclamoEditar.descripcion}</p>
@@ -838,6 +849,18 @@ const AtencionPublicoDashboardPage = () => {
                 <option value="baja">Baja</option>
                 <option value="media">Media</option>
                 <option value="alta">Alta</option>
+              </select>
+            </div>
+            <div className="atencion-publico-form-group">
+              <label>Enviar al sector</label>
+              <select
+                value={reclamoEditForm.sector_id ?? ''}
+                onChange={(e) => setReclamoEditForm((f) => ({ ...f, sector_id: e.target.value ? Number(e.target.value) : null }))}
+              >
+                <option value="">Sin sector</option>
+                {sectores.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
               </select>
             </div>
             <div className="atencion-publico-form-group">
@@ -870,6 +893,7 @@ const AtencionPublicoDashboardPage = () => {
                   const res = await apiService.updateReclamoAtencion(modalReclamoEditar.id, {
                     estado: reclamoEditForm.estado,
                     prioridad: reclamoEditForm.prioridad,
+                    sector_id: reclamoEditForm.sector_id,
                     usuario_asignado_id: reclamoEditForm.usuario_asignado_id,
                     notas_internas: reclamoEditForm.notas_internas || null
                   })
@@ -890,8 +914,8 @@ const AtencionPublicoDashboardPage = () => {
 
       {/* Modal crear reclamo */}
       {showCrearReclamo && (
-        <div className="atencion-publico-modal-overlay" onClick={() => setShowCrearReclamo(false)}>
-          <div className="atencion-publico-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="atencion-publico-modal-overlay atencion-publico-modal-dark" onClick={() => setShowCrearReclamo(false)}>
+          <div className="atencion-publico-modal atencion-publico-modal-dark" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="atencion-publico-modal-close" onClick={() => setShowCrearReclamo(false)} aria-label="Cerrar">✕</button>
             <h3>Crear reclamo</h3>
             <div className="atencion-publico-form-group">
@@ -933,6 +957,18 @@ const AtencionPublicoDashboardPage = () => {
                 <option value="alta">Alta</option>
               </select>
             </div>
+            <div className="atencion-publico-form-group">
+              <label>Enviar al sector</label>
+              <select
+                value={nuevoReclamoForm.sector_id ?? ''}
+                onChange={(e) => setNuevoReclamoForm((f) => ({ ...f, sector_id: e.target.value ? Number(e.target.value) : null }))}
+              >
+                <option value="">Sin sector</option>
+                {sectores.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
             <div className="atencion-publico-modal-actions">
               <button type="button" className="btn-secondary" onClick={() => setShowCrearReclamo(false)}>Cancelar</button>
               <button
@@ -948,12 +984,13 @@ const AtencionPublicoDashboardPage = () => {
                     cliente_email: nuevoReclamoForm.cliente_email || null,
                     descripcion: nuevoReclamoForm.descripcion.trim(),
                     prioridad: nuevoReclamoForm.prioridad,
+                    sector_id: nuevoReclamoForm.sector_id,
                     estado: 'nuevo'
                   })
                   if (res.success) {
                     await loadReclamos()
                     setShowCrearReclamo(false)
-                    setNuevoReclamoForm({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media' })
+                    setNuevoReclamoForm({ cliente_nombre: '', cliente_email: '', descripcion: '', prioridad: 'media', sector_id: null })
                   } else {
                     alert(res.error || 'Error al crear reclamo')
                   }

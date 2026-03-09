@@ -2465,6 +2465,7 @@ class ApiService {
     prioridad: string
     notas_internas: string | null
     usuario_asignado_id: number | null
+    sector_id: number | null
     created_at: string
     updated_at: string
   }>>> {
@@ -2472,7 +2473,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_reclamos')
-        .select('id, cliente_nombre, cliente_email, descripcion, estado, prioridad, notas_internas, usuario_asignado_id, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, descripcion, estado, prioridad, notas_internas, usuario_asignado_id, sector_id, created_at, updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) return { success: false, error: error.message }
@@ -2484,7 +2485,7 @@ class ApiService {
 
   async updateReclamoAtencion(
     id: number,
-    updates: { estado?: string; prioridad?: string; usuario_asignado_id?: number | null; notas_internas?: string | null }
+    updates: { estado?: string; prioridad?: string; usuario_asignado_id?: number | null; sector_id?: number | null; notas_internas?: string | null }
   ): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
@@ -2492,9 +2493,16 @@ class ApiService {
       if (updates.estado != null) payload.estado = updates.estado
       if (updates.prioridad != null) payload.prioridad = updates.prioridad
       if (updates.usuario_asignado_id !== undefined) payload.usuario_asignado_id = updates.usuario_asignado_id
+      if (updates.sector_id !== undefined) payload.sector_id = updates.sector_id
       if (updates.notas_internas !== undefined) payload.notas_internas = updates.notas_internas
       const { error } = await supabase.from('atencion_reclamos').update(payload).eq('id', id)
       if (error) return { success: false, error: error.message }
+      if (updates.sector_id !== undefined && updates.sector_id != null) {
+        const { data: r } = await supabase.from('atencion_reclamos').select('cliente_nombre, cliente_email, descripcion').eq('id', id).single()
+        const row = r as any
+        const cliente = row?.cliente_nombre || row?.cliente_email || 'Cliente'
+        await this.notificarReclamoASector(id, updates.sector_id, cliente, row?.descripcion || '', false)
+      }
       return { success: true }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al actualizar reclamo' }
@@ -2507,41 +2515,61 @@ class ApiService {
     descripcion: string
     prioridad?: string
     estado?: string
+    sector_id?: number | null
   }): Promise<ApiResponse<{ id: number }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase
-        .from('atencion_reclamos')
-        .insert({
-          cliente_nombre: reclamo.cliente_nombre || null,
-          cliente_email: reclamo.cliente_email || null,
-          descripcion: reclamo.descripcion,
-          prioridad: reclamo.prioridad || 'media',
-          estado: reclamo.estado || 'nuevo'
-        })
-        .select('id')
-        .single()
+      const { data, error } = await supabase.rpc('crear_reclamo_atencion', {
+        p_cliente_nombre: reclamo.cliente_nombre || null,
+        p_cliente_email: reclamo.cliente_email || null,
+        p_descripcion: reclamo.descripcion,
+        p_prioridad: reclamo.prioridad || 'media',
+        p_estado: reclamo.estado || 'nuevo',
+        p_sector_id: reclamo.sector_id ?? null
+      })
       if (error) return { success: false, error: error.message }
-      const reclamoId = (data as any).id
-      // Notificar a usuarios con acceso a atención (admin, mostrador)
-      try {
-        const { data: usuarios } = await supabase.from('usuarios').select('id').or('rol.eq.administracion,rol.eq.mostrador,rol.eq.gerencia').limit(20)
-        const ids = (usuarios || []).map((u: any) => u.id).filter(Boolean)
-        const descCorta = reclamo.descripcion.length > 80 ? reclamo.descripcion.slice(0, 77) + '...' : reclamo.descripcion
-        for (const uid of ids) {
-          await this.createNotification({
-            user_id: uid,
-            title: '📋 Nuevo reclamo',
-            description: `${reclamo.cliente_nombre || reclamo.cliente_email || 'Cliente'}: ${descCorta}`,
-            type: 'warning',
-            reclamo_id: reclamoId
-          })
-        }
-      } catch (_) { /* ignorar errores de notificación */ }
+      const reclamoId = (data as any)?.id
+      if (!reclamoId) return { success: false, error: 'No se obtuvo el ID del reclamo' }
+      await this.notificarReclamoASector(reclamoId, reclamo.sector_id ?? null, reclamo.cliente_nombre || reclamo.cliente_email || 'Cliente', reclamo.descripcion, true)
       return { success: true, data: { id: reclamoId } }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al crear reclamo' }
     }
+  }
+
+  private async notificarReclamoASector(
+    reclamoId: number,
+    sectorId: number | null,
+    clienteLabel: string,
+    descripcion: string,
+    esNuevo: boolean
+  ): Promise<void> {
+    if (!supabase) return
+    try {
+      const descCorta = descripcion.length > 80 ? descripcion.slice(0, 77) + '...' : descripcion
+      const titulo = esNuevo ? '📋 Nuevo reclamo' : '📋 Reclamo asignado a tu sector'
+      const desc = `${clienteLabel}: ${descCorta}`
+
+      let ids: number[] = []
+      if (sectorId) {
+        const rolPorSector: Record<number, string> = {
+          1: 'diseno', 2: 'imprenta', 3: 'taller-grafico', 4: 'instalaciones', 5: 'metalurgica',
+          6: 'mostrador', 7: 'caja', 30: 'asesor-tecnico', 31: 'presupuestos', 32: 'recursos-humanos'
+        }
+        const rol = rolPorSector[sectorId]
+        if (rol) {
+          const { data: usuariosSector } = await supabase.from('usuarios').select('id').eq('rol', rol).limit(20)
+          ids = (usuariosSector || []).map((u: any) => u.id).filter(Boolean)
+        }
+      }
+      if (ids.length === 0) {
+        const { data: usuarios } = await supabase.from('usuarios').select('id').or('rol.eq.administracion,rol.eq.mostrador,rol.eq.gerencia').limit(20)
+        ids = (usuarios || []).map((u: any) => u.id).filter(Boolean)
+      }
+      for (const uid of ids) {
+        await this.createNotification({ user_id: uid, title: titulo, description: desc, type: 'warning', reclamo_id: reclamoId })
+      }
+    } catch (_) { /* ignorar */ }
   }
 
   async getSolicitudAtencionChat(id: number): Promise<ApiResponse<{
