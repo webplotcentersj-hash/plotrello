@@ -1,140 +1,135 @@
 .brief-publico-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(160deg, #0d1117 0%, #161b22 40%, #1a1a2e 100%);
   padding: 40px 20px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Variante oscura para portal de clientes */
-.brief-publico-page--cliente {
-  background: linear-gradient(160deg, #0d1117 0%, #161b22 40%, #1a1a2e 100%);
-}
-
-.brief-publico-page--cliente .brief-container {
+.brief-publico-page .brief-container {
   background: linear-gradient(145deg, rgba(26, 29, 46, 0.95) 0%, rgba(22, 33, 62, 0.9) 100%);
   border: 2px solid rgba(235, 103, 27, 0.3);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.brief-publico-page--cliente .brief-header {
+.brief-publico-page .brief-header {
   border-bottom-color: rgba(235, 103, 27, 0.3);
 }
 
-.brief-publico-page--cliente .brief-logo-text h1 {
+.brief-publico-page .brief-logo-text h1 {
   color: #fff;
 }
 
-.brief-publico-page--cliente .brief-address {
+.brief-publico-page .brief-address {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.brief-publico-page--cliente .orden-info {
+.brief-publico-page .orden-info {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.brief-publico-page--cliente .orden-info p,
-.brief-publico-page--cliente .orden-info strong {
+.brief-publico-page .orden-info p,
+.brief-publico-page .orden-info strong {
   color: #fff;
 }
 
-.brief-publico-page--cliente .form-section h2 {
+.brief-publico-page .form-section h2 {
   color: #fff !important;
   border-bottom-color: rgba(235, 103, 27, 0.4);
 }
 
-.brief-publico-page--cliente .section-description {
+.brief-publico-page .section-description {
   color: #fff !important;
 }
 
-.brief-publico-page--cliente .form-section h3 {
+.brief-publico-page .form-section h3 {
   color: #fff !important;
 }
 
-.brief-publico-page--cliente .form-group label {
+.brief-publico-page .form-group label {
   color: #fff !important;
 }
 
-.brief-publico-page--cliente .form-group input,
-.brief-publico-page--cliente .form-group textarea,
-.brief-publico-page--cliente .form-group select {
-  background: rgba(26, 29, 46, 0.6) !important;
-  border-color: rgba(235, 103, 27, 0.3);
-  color: #fff !important;
+.brief-publico-page .form-group input,
+.brief-publico-page .form-group textarea,
+.brief-publico-page .form-group select {
+  background: #fff !important;
+  border-color: rgba(235, 103, 27, 0.4);
+  color: #1f2937 !important;
 }
 
-.brief-publico-page--cliente .form-group input::placeholder,
-.brief-publico-page--cliente .form-group textarea::placeholder {
-  color: #9ca3af;
+.brief-publico-page .form-group input::placeholder,
+.brief-publico-page .form-group textarea::placeholder {
+  color: #6b7280;
 }
 
-.brief-publico-page--cliente .form-group small {
+.brief-publico-page .form-group small {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.brief-publico-page--cliente .urgent-label {
+.brief-publico-page .urgent-label {
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.4);
 }
 
-.brief-publico-page--cliente .urgent-label:hover {
+.brief-publico-page .urgent-label:hover {
   background: rgba(239, 68, 68, 0.2);
 }
 
-.brief-publico-page--cliente .urgent-label span {
+.brief-publico-page .urgent-label span {
   color: #fff;
 }
 
-.brief-publico-page--cliente .urgent-warning {
+.brief-publico-page .urgent-warning {
   background: rgba(239, 68, 68, 0.2);
   color: #fecaca;
   border-color: rgba(239, 68, 68, 0.5);
 }
 
-.brief-publico-page--cliente .checkbox-label {
+.brief-publico-page .checkbox-label {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-.brief-publico-page--cliente .checkbox-label:hover {
+.brief-publico-page .checkbox-label:hover {
   background: rgba(235, 103, 27, 0.1);
   border-color: rgba(235, 103, 27, 0.4);
 }
 
-.brief-publico-page--cliente .checkbox-label span {
+.brief-publico-page .checkbox-label span {
   color: #fff;
 }
 
-.brief-publico-page--cliente .checkbox-label input[type="checkbox"]:checked + span {
+.brief-publico-page .checkbox-label input[type="checkbox"]:checked + span {
   color: #eb671b;
 }
 
-.brief-publico-page--cliente .bases-condiciones {
+.brief-publico-page .bases-condiciones {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.brief-publico-page--cliente .base-item h4 {
+.brief-publico-page .base-item h4 {
   color: #fff;
 }
 
-.brief-publico-page--cliente .base-item p {
+.brief-publico-page .base-item p {
   color: rgba(255, 255, 255, 0.9);
 }
 
-.brief-publico-page--cliente .brief-footer {
+.brief-publico-page .brief-footer {
   border-top-color: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.85);
 }
 
-.brief-publico-page--cliente .btn-submit {
+.brief-publico-page .btn-submit {
   background: linear-gradient(135deg, #eb671b 0%, #d45a15 100%);
   box-shadow: 0 4px 20px rgba(235, 103, 27, 0.4);
 }
 
-.brief-publico-page--cliente .btn-submit:hover:not(:disabled) {
+.brief-publico-page .btn-submit:hover:not(:disabled) {
   box-shadow: 0 6px 28px rgba(235, 103, 27, 0.5);
 }
 
@@ -223,7 +218,7 @@
   font-size: 1.2rem;
 }
 
-.brief-publico-page--cliente .brief-subtitle {
+.brief-publico-page .brief-subtitle {
   color: #fff !important;
 }
 
