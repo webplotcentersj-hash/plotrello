@@ -70,11 +70,23 @@ export default function TallerGraficoInventarioPage() {
   ) || 1
 
   const getTintaColor = (item: InventarioItem) => {
-    const desc = (item.descripcion || '').toLowerCase()
-    if (desc.includes('magenta')) return '#ec4899'
-    if (desc.includes('cyan')) return '#38bdf8'
-    if (desc.includes('yellow')) return '#facc15'
-    if (desc.includes('black') || desc.includes('negra')) return '#111827'
+    const text = `${item.marca || ''} ${item.descripcion || ''}`.toUpperCase()
+
+    // Colores por nombre completo
+    if (text.includes('MAGENTA')) return '#ec4899'
+    if (text.includes('CYAN')) return '#38bdf8'
+    if (text.includes('YELLOW') || text.includes('AMARILLO')) return '#facc15'
+    if (text.includes('BLACK') || text.includes('NEGRA')) return '#111827'
+
+    // Colores por inicial al final (ej: ... 1.222kg M / C / Y / K)
+    const trimmed = text.trim()
+    const lastToken = trimmed.split(/\s+/).pop() || ''
+    if (lastToken === 'M') return '#ec4899'
+    if (lastToken === 'C') return '#38bdf8'
+    if (lastToken === 'Y') return '#facc15'
+    if (lastToken === 'K') return '#111827'
+
+    // Color por defecto para otras tintas
     return '#6366f1'
   }
 
