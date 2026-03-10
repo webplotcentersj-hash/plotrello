@@ -81,21 +81,21 @@ export default function ClienteBriefsPage() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
 
-  const loadBriefs = useCallback(async () => {
+  const loadBriefs = useCallback(async (silent = false) => {
     if (!cliente) return
-    setLoading(true)
-    setError('')
+    if (!silent) setLoading(true)
+    if (!silent) setError('')
     try {
       const response = await apiService.listarBriefsPorCliente(cliente.id)
       if (response.success && response.data) {
         setBriefs(response.data)
-      } else {
+      } else if (!silent) {
         setError(response.error || 'Error al cargar pedidos de diseño')
       }
     } catch (err) {
-      setError('Error de conexión')
+      if (!silent) setError('Error de conexión')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [cliente])
 
@@ -105,8 +105,19 @@ export default function ClienteBriefsPage() {
       navigate('/cliente/login')
       return
     }
-    loadBriefs()
+    loadBriefs(false)
   }, [cliente, authLoading, navigate, loadBriefs])
+
+  // Actualización automática: refresca cada 45 s para que el cliente vea el avance del proyecto
+  useEffect(() => {
+    if (!cliente || authLoading) return
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadBriefs(true)
+      }
+    }, 45000)
+    return () => clearInterval(interval)
+  }, [cliente, authLoading, loadBriefs])
 
   const handleNuevoBrief = async () => {
     if (!cliente) return
