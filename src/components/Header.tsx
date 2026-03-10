@@ -211,6 +211,14 @@ const Header = ({
                 🧴 Inventario Taller Gráfico
               </a>
             )}
+            {isAdmin && (
+              <a
+                href="/taller-grafico/dashboard"
+                className="brand-button"
+              >
+                📊 Panel Niveles TG
+              </a>
+            )}
             {canAccessAtencionPublico && onNavigateToAtencionPublico && (
               <button className="brand-button" onClick={onNavigateToAtencionPublico}>
                 📞 Atención al público
