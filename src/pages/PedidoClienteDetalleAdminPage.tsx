@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { PedidoClienteDetalle } from '../types/api'
+import type { PedidoClienteDetalle, MensajePedidoClienteRecord } from '../types/api'
 import './PedidoClienteDetalleAdminPage.css'
 
 export default function PedidoClienteDetalleAdminPage() {
@@ -12,6 +12,11 @@ export default function PedidoClienteDetalleAdminPage() {
   const [detalle, setDetalle] = useState<PedidoClienteDetalle | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [mensajes, setMensajes] = useState<MensajePedidoClienteRecord[]>([])
+  const [nuevoMensaje, setNuevoMensaje] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [errorMensaje, setErrorMensaje] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -41,6 +46,69 @@ export default function PedidoClienteDetalleAdminPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadMensajes = async () => {
+    if (!detalle?.pedido) return
+    const { id: pedidoId, id_cliente } = detalle.pedido
+    try {
+      const response = await apiService.obtenerMensajesPedido(pedidoId, id_cliente)
+      if (response.success && response.data) {
+        setMensajes(response.data)
+      }
+    } catch (err) {
+      console.error('Error al cargar mensajes:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (detalle?.pedido) {
+      loadMensajes()
+      const interval = setInterval(loadMensajes, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [detalle?.pedido?.id, detalle?.pedido?.id_cliente])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [mensajes])
+
+  const enviarMensaje = async () => {
+    if (!detalle?.pedido || !nuevoMensaje.trim()) return
+    setEnviando(true)
+    setErrorMensaje('')
+    try {
+      const response = await apiService.crearMensajePedido(
+        detalle.pedido.id,
+        detalle.pedido.id_cliente,
+        nuevoMensaje.trim(),
+        false
+      )
+      if (response.success) {
+        setNuevoMensaje('')
+        loadMensajes()
+      } else {
+        setErrorMensaje(response.error || 'Error al enviar mensaje')
+      }
+    } catch (err) {
+      setErrorMensaje('Error al enviar mensaje')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  const formatDateMsg = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+    if (minutes < 1) return 'Ahora'
+    if (minutes < 60) return `Hace ${minutes} min`
+    if (hours < 24) return `Hace ${hours} h`
+    if (days < 7) return `Hace ${days} días`
+    return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
   const getEstadoColor = (estado: string) => {
@@ -337,6 +405,58 @@ export default function PedidoClienteDetalleAdminPage() {
             </div>
           </section>
         )}
+
+        {/* Mensajes con el cliente */}
+        <section className="info-section mensajes-section">
+          <h2>💬 Mensajes con el Cliente</h2>
+          <div className="mensajes-admin-container">
+            <div className="mensajes-admin-list">
+              {mensajes.length === 0 ? (
+                <div className="mensajes-admin-empty">
+                  <p>No hay mensajes aún. El cliente puede escribir desde su portal.</p>
+                </div>
+              ) : (
+                mensajes.map((mensaje) => (
+                  <div
+                    key={mensaje.id}
+                    className={`mensaje-admin-item ${mensaje.es_del_cliente ? 'cliente' : 'staff'}`}
+                  >
+                    <div className="mensaje-admin-header">
+                      <span className="mensaje-admin-autor">
+                        {mensaje.es_del_cliente
+                          ? `${pedido.cliente?.nombre || 'Cliente'} ${pedido.cliente?.apellido || ''}`.trim()
+                          : mensaje.nombre_usuario || 'Equipo'}
+                      </span>
+                      <span className="mensaje-admin-fecha">{formatDateMsg(mensaje.fecha_creacion)}</span>
+                    </div>
+                    <div className="mensaje-admin-texto">{mensaje.mensaje}</div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            <div className="mensajes-admin-input">
+              {errorMensaje && <div className="mensaje-error">{errorMensaje}</div>}
+              <div className="mensajes-admin-input-group">
+                <textarea
+                  className="mensajes-admin-textarea"
+                  placeholder="Escribir respuesta al cliente..."
+                  value={nuevoMensaje}
+                  onChange={(e) => setNuevoMensaje(e.target.value)}
+                  rows={3}
+                  disabled={enviando}
+                />
+                <button
+                  className="mensajes-admin-btn-enviar"
+                  onClick={enviarMensaje}
+                  disabled={!nuevoMensaje.trim() || enviando}
+                >
+                  {enviando ? 'Enviando...' : 'Enviar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   )

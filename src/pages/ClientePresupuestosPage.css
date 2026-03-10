@@ -1,8 +1,8 @@
 .cliente-presupuestos-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 40%, #21262d 100%);
   background-attachment: fixed;
-  color: #e5ecf5;
+  color: #fff;
   padding: 20px;
   position: relative;
 }
@@ -15,9 +15,9 @@
   right: 0;
   bottom: 0;
   background: 
-    radial-gradient(circle at 20% 50%, rgba(249, 115, 22, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 40% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 50%, rgba(235, 103, 27, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
@@ -28,7 +28,15 @@
 }
 
 .cliente-presupuestos-header {
+  background: rgba(13, 17, 23, 0.98);
+  border-bottom: 2px solid rgba(235, 103, 27, 0.4);
+  padding: 24px;
   margin-bottom: 30px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-radius: 0 0 16px 16px;
 }
 
 .cliente-presupuestos-header-content {
@@ -60,18 +68,26 @@
 }
 
 .cliente-presupuestos-filter-select {
-  padding: 10px 15px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: #e5ecf5;
+  padding: 12px 18px;
+  background: rgba(26, 29, 46, 0.8);
+  border: 2px solid rgba(235, 103, 27, 0.3);
+  border-radius: 10px;
+  color: #fff;
   font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s;
 }
 
 .cliente-presupuestos-filter-select:focus {
   outline: none;
-  border-color: #f97316;
+  border-color: #eb671b;
+  box-shadow: 0 0 0 3px rgba(235, 103, 27, 0.2);
+}
+
+.cliente-presupuestos-filter-select option {
+  background: #1a1a2e;
+  color: #fff;
 }
 
 .cliente-presupuestos-empty {
@@ -95,24 +111,24 @@
 }
 
 .cliente-presupuesto-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 1px solid rgba(249, 115, 22, 0.2);
+  background: linear-gradient(135deg, rgba(26, 29, 46, 0.9) 0%, rgba(22, 33, 62, 0.85) 100%);
+  border: 2px solid rgba(235, 103, 27, 0.25);
   border-radius: 16px;
   padding: 24px;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
   box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .cliente-presupuesto-card:hover {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border-color: rgba(249, 115, 22, 0.6);
+  background: linear-gradient(135deg, rgba(26, 29, 46, 0.98) 0%, rgba(22, 33, 62, 0.95) 100%);
+  border-color: rgba(235, 103, 27, 0.5);
   transform: translateY(-4px);
   box-shadow: 
-    0 8px 24px rgba(249, 115, 22, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 12px 32px rgba(235, 103, 27, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .cliente-presupuesto-card-header {
@@ -147,7 +163,7 @@
 }
 
 .cliente-presupuesto-card-date {
-  color: #9ca3af;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 0.9rem;
 }
 
@@ -168,7 +184,7 @@
 }
 
 .cliente-presupuesto-info-item .label {
-  color: #9ca3af;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .cliente-presupuesto-info-item .value {
@@ -280,5 +296,50 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cliente-presupuestos-header-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .cliente-presupuestos-header-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .cliente-presupuestos-header-actions {
+    flex-direction: column;
+  }
+
+  .cliente-presupuestos-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cliente-presupuestos-filter-select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .cliente-presupuestos-page {
+    padding: 8px;
+  }
+
+  .cliente-presupuesto-card {
+    padding: 16px;
+  }
+
+  .cliente-presupuesto-card-actions {
+    flex-direction: column;
+  }
+
+  .btn-view,
+  .btn-edit,
+  .btn-send {
+    width: 100%;
+  }
 }
 

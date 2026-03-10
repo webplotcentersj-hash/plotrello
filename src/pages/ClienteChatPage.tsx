@@ -27,7 +27,7 @@ export default function ClienteChatPage() {
   if (!cliente) return null
 
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
-  const embedUrl = `${apiBase}/embed/chat`
+  const embedUrl = `${apiBase}/embed/chat?hideForm=1`
 
   return (
     <div className="cliente-chat-page">

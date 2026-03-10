@@ -4,6 +4,7 @@ import './EmbedChatPage.css'
 type ChatMessage = { role: 'user' | 'model'; parts: { text: string }[] }
 
 export default function EmbedChatPage() {
+  const hideFormFromPortal = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('hideForm') === '1'
   const [nombre, setNombre] = useState('')
   const [dni, setDni] = useState('')
   const [cuit, setCuit] = useState('')
@@ -13,7 +14,7 @@ export default function EmbedChatPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [briefUrl, setBriefUrl] = useState<string | null>(null)
-  const [showIdentificacion, setShowIdentificacion] = useState(true)
+  const [showIdentificacion, setShowIdentificacion] = useState(!hideFormFromPortal)
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
       const s = typeof localStorage !== 'undefined' ? localStorage.getItem('embed_chat_conversation_id') : null
@@ -204,7 +205,7 @@ export default function EmbedChatPage() {
         </div>
       </header>
 
-      {showIdentificacion ? (
+      {!hideFormFromPortal && (showIdentificacion ? (
         <section className="embed-chat-identificacion">
           <p className="embed-chat-identificacion-text">
             Opcional: nombre, DNI, CUIT o número de OP para consultar tus trabajos.
@@ -259,7 +260,7 @@ export default function EmbedChatPage() {
         >
           Identificarme (nombre, DNI, CUIT u OP)
         </button>
-      )}
+      ))}
 
       <div className="embed-chat-messages">
         {messages.length === 0 && !loading && (

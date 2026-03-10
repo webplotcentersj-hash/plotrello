@@ -169,10 +169,12 @@ export default function ClienteDashboardPage() {
               🤖 Chat PlotAI
             </button>
             <button 
-              className="btn-secondary"
+              className="btn-icon btn-notificaciones"
               onClick={() => navigate('/cliente/notificaciones')}
+              title="Notificaciones"
+              aria-label="Notificaciones"
             >
-              🔔 Notificaciones
+              🔔
             </button>
             <button 
               className="btn-logout"

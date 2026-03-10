@@ -55,10 +55,18 @@
 }
 
 .form-section {
-  background: linear-gradient(135deg, rgba(235, 103, 27, 0.1) 0%, rgba(26, 29, 46, 0.8) 100%);
-  border: 2px solid rgba(235, 103, 27, 0.2);
-  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(26, 29, 46, 0.9) 0%, rgba(22, 33, 62, 0.85) 100%);
+  border: 2px solid rgba(235, 103, 27, 0.25);
+  border-radius: 20px;
   padding: 32px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.form-section:hover {
+  border-color: rgba(235, 103, 27, 0.4);
+  box-shadow: 0 12px 40px rgba(235, 103, 27, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .form-section h2 {
@@ -78,7 +86,7 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: #fff;
   font-size: 14px;
 }
 
