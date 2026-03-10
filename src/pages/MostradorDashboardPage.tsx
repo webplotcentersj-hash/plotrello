@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
 import VentaRapidaModal from '../components/VentaRapidaModal'
-import type { OrdenTrabajo, Venta } from '../types/api'
+import type { OrdenTrabajo, Venta, PedidoClienteRecord } from '../types/api'
 import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './MostradorDashboardPage.css'
@@ -77,6 +77,9 @@ const MostradorDashboardPage = () => {
     ordenesCreadas: 0,
     ordenesEntregadas: 0
   })
+
+  // Pedidos del portal de clientes (con mensajes)
+  const [pedidosClientes, setPedidosClientes] = useState<(PedidoClienteRecord & { cliente?: { nombre?: string; empresa?: string } })[]>([])
 
   // CRM de Ventas
   const [ventasRecientes, setVentasRecientes] = useState<Venta[]>([])
@@ -311,6 +314,12 @@ const MostradorDashboardPage = () => {
 
         // Cargar ventas
         await loadVentasData()
+
+        // Cargar pedidos del portal de clientes (pendientes, en revisión, aprobados)
+        const pedidosResp = await apiService.getPedidosPendientes()
+        if (pedidosResp.success && pedidosResp.data) {
+          setPedidosClientes(pedidosResp.data)
+        }
 
         // Cargar métricas si es admin (después de cargar todos los datos)
         if (isAdmin) {
@@ -843,6 +852,16 @@ const MostradorDashboardPage = () => {
           </button>
           <button 
             className="accion-card"
+            onClick={() => navigate('/clientes-web/pedidos')}
+          >
+            <div className="accion-icon">💬</div>
+            <div className="accion-label">Pedidos y Mensajes del Portal</div>
+            {pedidosClientes.length > 0 && (
+              <span className="badge">{pedidosClientes.length}</span>
+            )}
+          </button>
+          <button 
+            className="accion-card"
             onClick={() => navigate('/clientes-web/gestion')}
           >
             <div className="accion-icon">👤</div>
@@ -908,6 +927,65 @@ const MostradorDashboardPage = () => {
                   onClick={() => navigate(`/mostrador/entrega/${orden.id}`)}
                 >
                   Ver Detalles
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Pedidos del Portal de Clientes (con mensajes) */}
+      <section className="pedidos-portal-section">
+        <div className="section-header">
+          <h2>💬 Pedidos y Mensajes del Portal</h2>
+          <button 
+            className="btn-link"
+            onClick={() => navigate('/clientes-web/pedidos')}
+          >
+            Ver todos →
+          </button>
+        </div>
+        {pedidosClientes.length === 0 ? (
+          <div className="empty-state">
+            <p>No hay pedidos pendientes del portal de clientes</p>
+          </div>
+        ) : (
+          <div className="ordenes-grid pedidos-portal-grid">
+            {pedidosClientes.slice(0, 6).map((pedido) => (
+              <div 
+                key={pedido.id} 
+                className="orden-card pedido-portal-card"
+                onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="orden-header">
+                  <h3>{pedido.numero_pedido}</h3>
+                  <span 
+                    className="badge" 
+                    style={{ 
+                      background: pedido.estado === 'pendiente' ? '#f59e0b' : 
+                                  pedido.estado === 'en_revision' ? '#3b82f6' : '#10b981',
+                      color: 'white'
+                    }}
+                  >
+                    {pedido.estado === 'pendiente' ? 'Pendiente' : 
+                     pedido.estado === 'en_revision' ? 'En revisión' : 'Aprobado'}
+                  </span>
+                </div>
+                <div className="orden-cliente">
+                  {(pedido as any).cliente?.nombre || (pedido as any).cliente?.empresa || 'Cliente'}
+                </div>
+                <div className="orden-fecha">
+                  {new Date(pedido.fecha_pedido).toLocaleDateString('es-AR')}
+                </div>
+                <button 
+                  className="btn-small"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)
+                  }}
+                >
+                  Ver y responder mensajes
                 </button>
               </div>
             ))}

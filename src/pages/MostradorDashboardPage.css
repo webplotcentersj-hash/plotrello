@@ -249,8 +249,17 @@
 
 /* Órdenes Listas */
 .ordenes-listas-section,
-.pendientes-section {
+.pendientes-section,
+.pedidos-portal-section {
   margin-bottom: 32px;
+}
+
+.pedidos-portal-section .orden-card.pedido-portal-card {
+  border-left: 4px solid #8b5cf6;
+}
+
+.pedidos-portal-section .orden-card.pedido-portal-card:hover {
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
 }
 
 .section-header {
