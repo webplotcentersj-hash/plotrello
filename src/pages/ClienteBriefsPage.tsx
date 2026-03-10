@@ -78,6 +78,7 @@ export default function ClienteBriefsPage() {
   const navigate = useNavigate()
   const [briefs, setBriefs] = useState<BriefRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
 
@@ -108,14 +109,14 @@ export default function ClienteBriefsPage() {
     loadBriefs(false)
   }, [cliente, authLoading, navigate, loadBriefs])
 
-  // Actualización automática: refresca cada 45 s para que el cliente vea el avance del proyecto
+  // Actualización automática: refresca cada 30 s para que el cliente vea el avance del proyecto
   useEffect(() => {
     if (!cliente || authLoading) return
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadBriefs(true)
       }
-    }, 45000)
+    }, 30000)
     return () => clearInterval(interval)
   }, [cliente, authLoading, loadBriefs])
 
@@ -221,10 +222,27 @@ export default function ClienteBriefsPage() {
         )}
 
         <div className="cliente-briefs-section">
-          <h2>Mis Pedidos de Diseño (Briefs)</h2>
-          <p className="section-desc">
-            Aquí podés ver el estado de tus pedidos de diseño. Creá un nuevo brief para solicitar un trabajo de diseño gráfico.
-          </p>
+          <div className="cliente-briefs-section-header">
+            <div>
+              <h2>Mis Pedidos de Diseño (Briefs)</h2>
+              <p className="section-desc">
+                Aquí podés ver el estado de tus pedidos de diseño. Creá un nuevo brief para solicitar un trabajo de diseño gráfico.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-actualizar-briefs"
+              onClick={async () => {
+                setRefreshing(true)
+                await loadBriefs(true)
+                setRefreshing(false)
+              }}
+              disabled={refreshing}
+              title="Actualizar estado de los pedidos"
+            >
+              {refreshing ? 'Actualizando...' : '↻ Actualizar'}
+            </button>
+          </div>
 
           {briefs.length === 0 ? (
             <div className="cliente-empty-state">
@@ -260,15 +278,22 @@ export default function ClienteBriefsPage() {
                     </div>
                   </div>
                   <div className="brief-card-body">
-                    {brief.objetivo_proyecto && (
-                      <p className="brief-objetivo">{brief.objetivo_proyecto}</p>
-                    )}
-                    {brief.brief_publico && (
-                      <p className="brief-desc">{brief.brief_publico.slice(0, 120)}...</p>
-                    )}
-                    {brief.id_orden_asociada && brief.numero_op && (
+                    {/* Estado del pedido: siempre visible */}
+                    <div
+                      className="brief-estado-pedido"
+                      style={{
+                        borderLeftColor: getEstadoColor(brief),
+                        backgroundColor: `${getEstadoColor(brief)}18`
+                      }}
+                    >
+                      <span className="brief-estado-pedido-label">Estado:</span>
+                      <span className="brief-estado-pedido-valor">{getEstadoLabel(brief)}</span>
+                    </div>
+                    {brief.id_orden_asociada && (
                       <div className="brief-etapas">
-                        <p className="brief-etapas-titulo">OP {brief.numero_op} — Etapas del pedido:</p>
+                        <p className="brief-etapas-titulo">
+                          OP {brief.numero_op || brief.id_orden_asociada} — Avance del proyecto
+                        </p>
                         <div className="brief-etapas-lista">
                           {getEtapasActivas(brief).length > 0 ? (
                             getEtapasActivas(brief).map(({ sector, etapa }) => (
@@ -284,6 +309,12 @@ export default function ClienteBriefsPage() {
                           )}
                         </div>
                       </div>
+                    )}
+                    {brief.objetivo_proyecto && (
+                      <p className="brief-objetivo">{brief.objetivo_proyecto}</p>
+                    )}
+                    {brief.brief_publico && (
+                      <p className="brief-desc">{brief.brief_publico.slice(0, 120)}...</p>
                     )}
                     {brief.tipo_producto_servicio && brief.tipo_producto_servicio.length > 0 && (
                       <div className="brief-tags">

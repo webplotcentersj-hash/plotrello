@@ -48,6 +48,15 @@
   padding: 32px 24px;
 }
 
+.cliente-briefs-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
 .cliente-briefs-section h2 {
   margin: 0 0 8px 0;
   font-size: 1.5rem;
@@ -56,10 +65,32 @@
 }
 
 .section-desc {
-  margin: 0 0 24px 0;
+  margin: 0;
   color: #fff !important;
   font-size: 0.95rem;
   opacity: 0.95;
+}
+
+.btn-actualizar-briefs {
+  padding: 8px 16px;
+  background: rgba(235, 103, 27, 0.3);
+  border: 1px solid rgba(235, 103, 27, 0.6);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.btn-actualizar-briefs:hover:not(:disabled) {
+  background: rgba(235, 103, 27, 0.5);
+}
+
+.btn-actualizar-briefs:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .cliente-briefs-list {
@@ -117,6 +148,30 @@
   color: #fff;
 }
 
+.brief-estado-pedido {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border-left: 4px solid;
+}
+
+.brief-estado-pedido-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.brief-estado-pedido-valor {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
 .brief-card-body .brief-objetivo,
 .brief-card-body .brief-desc {
   margin: 0 0 8px 0;
@@ -128,10 +183,10 @@
 
 .brief-etapas {
   margin: 12px 0;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
-  border-left: 3px solid rgba(235, 103, 27, 0.5);
+  border-left: 4px solid rgba(235, 103, 27, 0.7);
 }
 
 .brief-etapas-titulo {
