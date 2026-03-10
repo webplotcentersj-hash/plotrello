@@ -23,6 +23,7 @@ export default function TallerGraficoInventarioPage() {
   const [error, setError] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
   const [newItem, setNewItem] = useState<{
     sector: string
     categoria: string
@@ -41,7 +42,18 @@ export default function TallerGraficoInventarioPage() {
     cantidad_unidades: ''
   })
 
-  const tintaItems = items.filter((item) => {
+  const filteredItems = items.filter((item) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return (
+      (item.sector || '').toLowerCase().includes(q) ||
+      (item.categoria || '').toLowerCase().includes(q) ||
+      (item.marca || '').toLowerCase().includes(q) ||
+      (item.descripcion || '').toLowerCase().includes(q)
+    )
+  })
+
+  const tintaItems = filteredItems.filter((item) => {
     const sector = (item.sector || '').toLowerCase()
     const categoria = (item.categoria || '').toLowerCase()
     const desc = (item.descripcion || '').toLowerCase()
@@ -136,6 +148,15 @@ export default function TallerGraficoInventarioPage() {
       </header>
 
       <main className="tg-main">
+        <div className="tg-search-row">
+          <input
+            className="tg-input tg-search-input"
+            placeholder="Buscar por sector, categoría, marca o descripción..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
         <section className="tg-nuevo-item">
           <h2>Agregar insumo</h2>
           <div className="tg-nuevo-grid">
@@ -305,9 +326,9 @@ export default function TallerGraficoInventarioPage() {
             <p className="tg-empty-sub">{error}</p>
           </div>
         )}
-        {!error && items.length === 0 ? (
+        {!error && filteredItems.length === 0 ? (
           <div className="tg-empty">
-            <p>No hay insumos cargados todavía.</p>
+            <p>No hay insumos que coincidan con la búsqueda.</p>
             <p className="tg-empty-sub">
               El inventario se llena a partir de la tabla `inventario_taller_grafico` en Supabase.
             </p>
@@ -327,7 +348,7 @@ export default function TallerGraficoInventarioPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr key={item.id}>
                     <td>{item.sector || '-'}</td>
                     <td>{item.categoria || '-'}</td>

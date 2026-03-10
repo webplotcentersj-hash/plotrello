@@ -52,6 +52,14 @@
   margin: 0 auto;
 }
 
+.tg-search-row {
+  margin-bottom: 16px;
+}
+
+.tg-search-input {
+  max-width: 420px;
+}
+
 .tg-nuevo-item {
   margin-bottom: 28px;
   padding: 18px 20px 14px;
