@@ -52,6 +52,48 @@
   margin: 0 auto;
 }
 
+.tg-nuevo-item {
+  margin-bottom: 28px;
+  padding: 18px 20px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(17, 24, 39, 0.95));
+}
+
+.tg-nuevo-item h2 {
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+}
+
+.tg-nuevo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 14px;
+  align-items: flex-end;
+}
+
+.tg-nuevo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tg-nuevo-field-wide {
+  grid-column: span 2;
+}
+
+.tg-nuevo-field label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.tg-nuevo-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
 .tg-tintas-section {
   margin-bottom: 32px;
 }

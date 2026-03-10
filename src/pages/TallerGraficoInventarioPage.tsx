@@ -22,12 +22,33 @@ export default function TallerGraficoInventarioPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [newItem, setNewItem] = useState<{
+    sector: string
+    categoria: string
+    marca: string
+    descripcion: string
+    ancho: string
+    largo: string
+    cantidad_unidades: string
+  }>({
+    sector: 'Taller Grafico',
+    categoria: '',
+    marca: '',
+    descripcion: '',
+    ancho: '',
+    largo: '',
+    cantidad_unidades: ''
+  })
 
-  const tintaItems = items.filter(
-    (item) =>
-      (item.sector && item.sector.toLowerCase().includes('taller grafico')) &&
-      (item.categoria && item.categoria.toLowerCase() === 'tintas')
-  )
+  const tintaItems = items.filter((item) => {
+    const sector = (item.sector || '').toLowerCase()
+    const categoria = (item.categoria || '').toLowerCase()
+    const desc = (item.descripcion || '').toLowerCase()
+    const esTallerGrafico = sector.includes('taller') && sector.includes('graf')
+    const esTinta = categoria.includes('tinta') || desc.includes('tinta')
+    return esTallerGrafico && esTinta
+  })
 
   const maxCantidadTinta = tintaItems.reduce(
     (max, item) => Math.max(max, item.cantidad_unidades ?? 0),
@@ -115,6 +136,129 @@ export default function TallerGraficoInventarioPage() {
       </header>
 
       <main className="tg-main">
+        <section className="tg-nuevo-item">
+          <h2>Agregar insumo</h2>
+          <div className="tg-nuevo-grid">
+            <div className="tg-nuevo-field">
+              <label>SECTOR</label>
+              <input
+                className="tg-input"
+                value={newItem.sector}
+                onChange={(e) => setNewItem((prev) => ({ ...prev, sector: e.target.value }))}
+              />
+            </div>
+            <div className="tg-nuevo-field">
+              <label>categoria</label>
+              <input
+                className="tg-input"
+                value={newItem.categoria}
+                onChange={(e) => setNewItem((prev) => ({ ...prev, categoria: e.target.value }))}
+              />
+            </div>
+            <div className="tg-nuevo-field">
+              <label>marca</label>
+              <input
+                className="tg-input"
+                value={newItem.marca}
+                onChange={(e) => setNewItem((prev) => ({ ...prev, marca: e.target.value }))}
+              />
+            </div>
+            <div className="tg-nuevo-field tg-nuevo-field-wide">
+              <label>Descripcion</label>
+              <input
+                className="tg-input"
+                value={newItem.descripcion}
+                onChange={(e) => setNewItem((prev) => ({ ...prev, descripcion: e.target.value }))}
+              />
+            </div>
+            <div className="tg-nuevo-field">
+              <label>ANCHO</label>
+              <input
+                type="number"
+                step="0.01"
+                className="tg-input tg-input-number"
+                value={newItem.ancho}
+                onChange={(e) => setNewItem((prev) => ({ ...prev, ancho: e.target.value }))}
+              />
+            </div>
+            <div className="tg-nuevo-field">
+              <label>LARGO</label>
+              <input
+                type="number"
+                step="0.01"
+                className="tg-input tg-input-number"
+                value={newItem.largo}
+                onChange={(e) => setNewItem((prev) => ({ ...prev, largo: e.target.value }))}
+              />
+            </div>
+            <div className="tg-nuevo-field">
+              <label>CANTIDAD DE UNIDADES</label>
+              <input
+                type="number"
+                className="tg-input tg-input-number"
+                value={newItem.cantidad_unidades}
+                onChange={(e) =>
+                  setNewItem((prev) => ({ ...prev, cantidad_unidades: e.target.value }))
+                }
+              />
+            </div>
+            <div className="tg-nuevo-actions">
+              <button
+                type="button"
+                className="tg-save-button"
+                disabled={creating}
+                onClick={async () => {
+                  if (!supabase) return
+                  if (!newItem.descripcion.trim()) {
+                    setError('La descripción es obligatoria para crear un insumo.')
+                    return
+                  }
+                  setCreating(true)
+                  setError(null)
+                  try {
+                    const payload = {
+                      sector: newItem.sector || null,
+                      categoria: newItem.categoria || null,
+                      marca: newItem.marca || null,
+                      descripcion: newItem.descripcion || null,
+                      ancho: newItem.ancho ? Number(newItem.ancho) : null,
+                      largo: newItem.largo ? Number(newItem.largo) : null,
+                      cantidad_unidades: newItem.cantidad_unidades
+                        ? Number(newItem.cantidad_unidades)
+                        : null
+                    }
+                    const { data, error: err } = await supabase
+                      .from('inventario_taller_grafico')
+                      .insert(payload)
+                      .select()
+                      .single()
+                    if (err) {
+                      setError(err.message)
+                    } else if (data) {
+                      setItems((prev) => [...prev, data as InventarioItem])
+                      setNewItem({
+                        sector: 'Taller Grafico',
+                        categoria: '',
+                        marca: '',
+                        descripcion: '',
+                        ancho: '',
+                        largo: '',
+                        cantidad_unidades: ''
+                      })
+                    }
+                  } catch (e) {
+                    setError('Error al crear insumo')
+                  } finally {
+                    setCreating(false)
+                  }
+                }}
+              >
+                {creating ? 'Creando…' : 'Agregar insumo'}
+              </button>
+            </div>
+          </div>
+        </section>
+
         {tintaItems.length > 0 && (
           <section className="tg-tintas-section">
             <h2>Niveles de Tintas</h2>
