@@ -65,13 +65,9 @@ const BriefsPendientesPage = () => {
   }
 
   const handleCrearOP = (brief: BriefPendiente) => {
-    // Guardar el token del brief en localStorage para que TaskCreateModal lo use
+    // Guardar el token y pasar por state para que BoardPage abra el modal al cargar
     localStorage.setItem('brief_token_seleccionado', brief.token)
-    navigate('/')
-    // Abrir el modal de creación de OP (se manejará desde BoardPage)
-    window.dispatchEvent(new CustomEvent('open-create-modal-with-brief', { 
-      detail: { briefToken: brief.token } 
-    }))
+    navigate('/', { state: { openCreateModalWithBrief: brief.token } })
   }
 
   if (loading) {

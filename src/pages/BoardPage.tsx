@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
 import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
@@ -87,6 +88,8 @@ const BoardPage = ({
   materialesCatalog
 }: BoardPageProps) => {
   const { usuario, isAdmin, isMostrador, isDiseno } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [sectorFilter, setSectorFilter] = useState<string>('todos')
@@ -114,6 +117,30 @@ const BoardPage = ({
     }
     return undefined
   }, [actionError, actionSuccess])
+
+  // Abrir modal de crear OP con brief cuando se navega desde BriefsPendientesPage
+  useEffect(() => {
+    const state = location.state as { openCreateModalWithBrief?: string } | null
+    if (state?.openCreateModalWithBrief) {
+      localStorage.setItem('brief_token_seleccionado', state.openCreateModalWithBrief)
+      setIsCreateModalOpen(true)
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state, location.pathname, navigate])
+
+  // Escuchar evento por si se dispara cuando ya estamos en el board
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<{ briefToken?: string }>
+      const token = ev.detail?.briefToken
+      if (token) {
+        localStorage.setItem('brief_token_seleccionado', token)
+        setIsCreateModalOpen(true)
+      }
+    }
+    window.addEventListener('open-create-modal-with-brief', handler)
+    return () => window.removeEventListener('open-create-modal-with-brief', handler)
+  }, [])
 
   const sanitizeWorkerName = (value?: string | null) => {
     if (!value) return undefined
