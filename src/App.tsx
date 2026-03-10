@@ -71,6 +71,7 @@ const FacturaDetallePage = lazy(() => import('./pages/FacturaDetallePage'))
 const CrearFacturaPage = lazy(() => import('./pages/CrearFacturaPage'))
 const AsientosContablesPage = lazy(() => import('./pages/AsientosContablesPage'))
 const ConfiguracionAFIPPage = lazy(() => import('./pages/ConfiguracionAFIPPage'))
+const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInventarioPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -708,6 +709,10 @@ function AppRoutes({
       <Route
         path="/impresoras"
         element={<ImpresorasPage />}
+      />
+      <Route
+        path="/taller-grafico/inventario"
+        element={<TallerGraficoInventarioPage />}
       />
       <Route
         path="/herramienta"

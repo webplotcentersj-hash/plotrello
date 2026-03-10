@@ -1,0 +1,248 @@
+.tg-inventario-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0b1120 0%, #111827 40%, #020617 100%);
+  color: #f9fafb;
+  padding: 32px 40px;
+}
+
+.tg-inventario-page--denied {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tg-header {
+  max-width: 1200px;
+  margin: 0 auto 24px auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.tg-header-left h1 {
+  margin: 0 0 4px 0;
+  font-size: 1.6rem;
+}
+
+.tg-header-left p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.tg-main {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tg-tintas-section {
+  margin-bottom: 32px;
+}
+
+.tg-tintas-section h2 {
+  margin: 0 0 6px 0;
+  font-size: 1.3rem;
+}
+
+.tg-tintas-sub {
+  margin: 0 0 14px 0;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.tg-tintas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.tg-tinta-card {
+  background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.25), transparent 55%),
+    rgba(15, 23, 42, 0.95);
+  border-radius: 14px;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  padding: 14px 16px 12px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.8);
+}
+
+.tg-tinta-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tg-tinta-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.8);
+}
+
+.tg-tinta-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tg-tinta-desc {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.tg-tinta-marca {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.tg-tinta-bar-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(31, 41, 55, 0.9);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.tg-tinta-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.tg-tinta-meta {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.tg-loading {
+  max-width: 1200px;
+  margin: 80px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #e5e7eb;
+}
+
+.tg-spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 3px solid rgba(249, 250, 251, 0.1);
+  border-top-color: #f97316;
+  animation: tg-spin 1s linear infinite;
+}
+
+@keyframes tg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tg-empty {
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 16px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  padding: 32px 28px;
+  text-align: left;
+  color: #e5e7eb;
+}
+
+.tg-empty p {
+  margin: 0 0 4px 0;
+}
+
+.tg-empty-sub {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.tg-table-wrapper {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+.tg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tg-table thead {
+  background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+}
+
+.tg-table th,
+.tg-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+}
+
+.tg-table th {
+  text-align: left;
+  font-weight: 600;
+  color: #d1d5db;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tg-table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.tg-table tbody tr:nth-child(odd) {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.tg-table tbody tr:hover {
+  background: rgba(30, 64, 175, 0.4);
+}
+
+.tg-low {
+  color: #facc15;
+  font-weight: 600;
+}
+
+.tg-card {
+  background: rgba(15, 23, 42, 0.95);
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 28px 30px;
+  max-width: 480px;
+  text-align: center;
+  color: #e5e7eb;
+}
+
+.tg-card--denied h1 {
+  margin: 0 0 8px 0;
+}
+
+.tg-card--denied p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+  .tg-inventario-page {
+    padding: 24px 16px;
+  }
+
+  .tg-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tg-table-wrapper {
+    overflow-x: auto;
+  }
+}
+
