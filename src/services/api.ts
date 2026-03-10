@@ -6822,6 +6822,117 @@ class ApiService {
   }
 
   /**
+   * Obtener todos los clientes (con y sin acceso web)
+   */
+  async getClientes(todos?: boolean): Promise<ApiResponse<ClienteRecord[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      let query = supabase.from('clientes').select('*').order('nombre', { ascending: true })
+      if (!todos) {
+        query = query.eq('es_cliente_web', true)
+      }
+      const { data, error } = await query
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as ClienteRecord[]) ?? [] }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar clientes' }
+    }
+  }
+
+  /**
+   * Crear cliente sin acceso web (solo datos)
+   */
+  async crearClienteSinAcceso(cliente: {
+    nombre: string
+    apellido?: string
+    empresa?: string
+    telefono?: string
+    email?: string
+    dni_cuit?: string
+    direccion?: string
+  }): Promise<ApiResponse<ClienteRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('crear_cliente_sin_acceso', {
+        p_nombre: cliente.nombre,
+        p_apellido: cliente.apellido || null,
+        p_empresa: cliente.empresa || null,
+        p_telefono: cliente.telefono || null,
+        p_email: cliente.email || null,
+        p_dni_cuit: cliente.dni_cuit || null,
+        p_direccion: cliente.direccion || null
+      })
+      if (error) return { success: false, error: error.message }
+      if (!data || data.length === 0) return { success: false, error: 'No se pudo crear el cliente' }
+      const created = data[0] as { id: number }
+      const { data: full } = await supabase.from('clientes').select('*').eq('id', created.id).single()
+      return { success: true, data: full as ClienteRecord }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al crear cliente' }
+    }
+  }
+
+  /**
+   * Habilitar acceso web a un cliente existente (dar usuario y contraseña)
+   */
+  async habilitarAccesoCliente(id: number, usuario: string, password: string): Promise<ApiResponse<ClienteRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('habilitar_acceso_cliente', {
+        p_id: id,
+        p_usuario: usuario.trim(),
+        p_password: password
+      })
+      if (error) return { success: false, error: error.message }
+      if (!data || data.length === 0) return { success: false, error: 'No se pudo habilitar acceso' }
+      const { data: full } = await supabase.from('clientes').select('*').eq('id', id).single()
+      return { success: true, data: full as ClienteRecord }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al habilitar acceso' }
+    }
+  }
+
+  /**
+   * Quitar acceso web a un cliente (sin borrarlo)
+   */
+  async quitarAccesoCliente(id: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { error } = await supabase.rpc('quitar_acceso_cliente', { p_id: id })
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al quitar acceso' }
+    }
+  }
+
+  /**
+   * Actualizar datos de un cliente (cualquiera, con o sin acceso web)
+   */
+  async actualizarClienteDatos(
+    id: number,
+    datos: { nombre?: string; apellido?: string; empresa?: string; telefono?: string; email?: string; dni_cuit?: string; direccion?: string }
+  ): Promise<ApiResponse<ClienteRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (datos.nombre !== undefined) payload.nombre = datos.nombre
+      if (datos.apellido !== undefined) payload.apellido = datos.apellido
+      if (datos.empresa !== undefined) payload.empresa = datos.empresa
+      if (datos.telefono !== undefined) payload.telefono = datos.telefono
+      if (datos.email !== undefined) payload.email = datos.email
+      if (datos.dni_cuit !== undefined) payload.dni_cuit = datos.dni_cuit
+      if (datos.direccion !== undefined) payload.direccion = datos.direccion
+      const { error } = await supabase.from('clientes').update(payload).eq('id', id)
+      if (error) return { success: false, error: error.message }
+      const { data } = await supabase.from('clientes').select('*').eq('id', id).single()
+      return { success: true, data: data as ClienteRecord }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al actualizar cliente' }
+    }
+  }
+
+  /**
    * Obtener artículos de empresa (catálogo)
    */
   async getArticulosEmpresa(visibleClientes?: boolean, incluirInactivos?: boolean): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {

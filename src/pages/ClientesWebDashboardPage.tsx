@@ -94,7 +94,7 @@ const ClientesWebDashboardPage = () => {
     <div className="clientes-web-dashboard">
       <header className="clientes-web-dashboard-header">
         <div className="clientes-web-header-content">
-          <h1>🌐 Gestión de Clientes Web</h1>
+          <h1>Clientes</h1>
           <button className="btn-back" onClick={() => navigate('/')}>
             ← Volver al Tablero
           </button>
@@ -171,7 +171,7 @@ const ClientesWebDashboardPage = () => {
             >
               <div className="clientes-web-action-icon">👤</div>
               <h3>Gestión de Clientes</h3>
-              <p>Crear, editar y gestionar clientes web</p>
+              <p>Crear, editar y gestionar clientes (con o sin acceso al portal)</p>
             </button>
 
             <button

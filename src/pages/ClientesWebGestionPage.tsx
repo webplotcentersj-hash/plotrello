@@ -2,18 +2,24 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ClienteWebRecord } from '../types/api'
+import type { ClienteRecord } from '../types/api'
 import './ClientesWebGestionPage.css'
+
+type FiltroAcceso = 'todos' | 'con_acceso' | 'sin_acceso'
 
 const ClientesWebGestionPage = () => {
   const navigate = useNavigate()
   const { isAdmin, isMostrador, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [clientes, setClientes] = useState<ClienteWebRecord[]>([])
+  const [clientes, setClientes] = useState<ClienteRecord[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [filtroAcceso, setFiltroAcceso] = useState<FiltroAcceso>('todos')
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editingCliente, setEditingCliente] = useState<ClienteWebRecord | null>(null)
-  const [sortField, setSortField] = useState<keyof ClienteWebRecord | ''>('')
+  const [crearConAcceso, setCrearConAcceso] = useState(true)
+  const [editingCliente, setEditingCliente] = useState<ClienteRecord | null>(null)
+  const [darAccesoCliente, setDarAccesoCliente] = useState<ClienteRecord | null>(null)
+  const [darAccesoForm, setDarAccesoForm] = useState({ usuario: '', password: '' })
+  const [sortField, setSortField] = useState<keyof ClienteRecord | ''>('nombre')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [formData, setFormData] = useState({
     usuario: '',
@@ -39,15 +45,13 @@ const ClientesWebGestionPage = () => {
   const loadClientes = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getClientesWeb()
+      const response = await apiService.getClientes(true)
       if (response.success && response.data) {
         setClientes(response.data)
       } else {
-        console.error('Error cargando clientes:', response.error)
         alert(response.error || 'Error al cargar clientes')
       }
     } catch (error) {
-      console.error('Error cargando clientes:', error)
       alert('Error de conexión al cargar clientes')
     } finally {
       setLoading(false)
@@ -59,69 +63,130 @@ const ClientesWebGestionPage = () => {
       e.preventDefault()
       e.stopPropagation()
     }
-    
-    try {
-      // Validar campos requeridos
-      if (!formData.usuario && !editingCliente) {
+    if (!formData.nombre.trim()) {
+      alert('El nombre es requerido')
+      return
+    }
+    if (crearConAcceso) {
+      if (!formData.usuario.trim()) {
         alert('El usuario es requerido')
         return
       }
-      if (!formData.nombre) {
-        alert('El nombre es requerido')
+      if (!formData.password || formData.password.length < 6) {
+        alert('La contraseña debe tener al menos 6 caracteres')
         return
       }
-      if (!formData.password && !editingCliente) {
-        alert('La contraseña es requerida')
-        return
-      }
+    }
 
+    try {
       let response
       if (editingCliente) {
-        // Actualizar cliente existente
-        console.log('Actualizando cliente:', editingCliente.id, formData)
-        response = await apiService.actualizarClienteWeb(editingCliente.id, {
-          password: formData.password || undefined,
+        if (editingCliente.es_cliente_web) {
+          response = await apiService.actualizarClienteWeb(editingCliente.id, {
+            password: formData.password || undefined,
+            nombre: formData.nombre,
+            apellido: formData.apellido || undefined,
+            empresa: formData.empresa || undefined,
+            telefono: formData.telefono || undefined,
+            email: formData.email || undefined,
+            dni_cuit: formData.dni_cuit || undefined,
+            direccion: formData.direccion || undefined
+          })
+        } else {
+          response = await apiService.actualizarClienteDatos(editingCliente.id, {
+            nombre: formData.nombre,
+            apellido: formData.apellido || undefined,
+            empresa: formData.empresa || undefined,
+            telefono: formData.telefono || undefined,
+            email: formData.email || undefined,
+            dni_cuit: formData.dni_cuit || undefined,
+            direccion: formData.direccion || undefined
+          })
+        }
+      } else if (crearConAcceso) {
+        response = await apiService.crearClienteWeb({
+          usuario: formData.usuario,
+          password: formData.password,
           nombre: formData.nombre,
-          apellido: formData.apellido || undefined,
-          empresa: formData.empresa || undefined,
-          telefono: formData.telefono || undefined,
-          email: formData.email || undefined,
-          dni_cuit: formData.dni_cuit || undefined,
-          direccion: formData.direccion || undefined
+          apellido: formData.apellido,
+          empresa: formData.empresa,
+          telefono: formData.telefono,
+          email: formData.email,
+          dni_cuit: formData.dni_cuit,
+          direccion: formData.direccion
         })
       } else {
-        // Crear nuevo cliente
-        console.log('Creando cliente:', formData)
-        response = await apiService.crearClienteWeb(formData)
+        response = await apiService.crearClienteSinAcceso({
+          nombre: formData.nombre,
+          apellido: formData.apellido,
+          empresa: formData.empresa,
+          telefono: formData.telefono,
+          email: formData.email,
+          dni_cuit: formData.dni_cuit,
+          direccion: formData.direccion
+        })
       }
-      
-      console.log('Respuesta:', response)
+
       if (response.success) {
         setShowCreateModal(false)
         resetForm()
         await loadClientes()
       } else {
-        console.error('Error en respuesta:', response.error)
         alert(response.error || `Error al ${editingCliente ? 'actualizar' : 'crear'} cliente`)
       }
     } catch (error) {
-      console.error('Error en handleCreate:', error)
-      alert(`Error al ${editingCliente ? 'actualizar' : 'crear'} cliente: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+      alert(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`)
     }
   }
 
-  const handleToggleActivo = async (cliente: ClienteWebRecord) => {
+  const handleDarAcceso = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!darAccesoCliente) return
+    if (!darAccesoForm.usuario.trim()) {
+      alert('El usuario es requerido')
+      return
+    }
+    if (!darAccesoForm.password || darAccesoForm.password.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
     try {
-      const response = await apiService.actualizarClienteWeb(cliente.id, {
-        activo: !cliente.activo
-      })
+      const response = await apiService.habilitarAccesoCliente(
+        darAccesoCliente.id,
+        darAccesoForm.usuario,
+        darAccesoForm.password
+      )
       if (response.success) {
-        loadClientes()
+        setDarAccesoCliente(null)
+        setDarAccesoForm({ usuario: '', password: '' })
+        await loadClientes()
       } else {
-        alert(response.error || 'Error al actualizar estado del cliente')
+        alert(response.error || 'Error al habilitar acceso')
       }
     } catch (error) {
-      alert('Error al actualizar estado del cliente')
+      alert(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+    }
+  }
+
+  const handleQuitarAcceso = async (cliente: ClienteRecord) => {
+    if (!confirm(`¿Quitar acceso al portal a ${cliente.nombre}? El cliente no podrá ingresar pero se conservan sus datos.`)) return
+    try {
+      const response = await apiService.quitarAccesoCliente(cliente.id)
+      if (response.success) await loadClientes()
+      else alert(response.error || 'Error al quitar acceso')
+    } catch (error) {
+      alert(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+    }
+  }
+
+  const handleToggleActivo = async (cliente: ClienteRecord) => {
+    if (!cliente.es_cliente_web) return
+    try {
+      const response = await apiService.actualizarClienteWeb(cliente.id, { activo: !cliente.activo })
+      if (response.success) await loadClientes()
+      else alert(response.error || 'Error al actualizar estado')
+    } catch (error) {
+      alert('Error al actualizar estado')
     }
   }
 
@@ -138,9 +203,10 @@ const ClientesWebGestionPage = () => {
       direccion: ''
     })
     setEditingCliente(null)
+    setCrearConAcceso(true)
   }
 
-  const handleSort = (field: keyof ClienteWebRecord) => {
+  const handleSort = (field: keyof ClienteRecord) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
@@ -149,40 +215,33 @@ const ClientesWebGestionPage = () => {
     }
   }
 
-  const filteredAndSortedClientes = clientes
-    .filter(cliente => {
-      const query = searchQuery.toLowerCase()
+  const filteredClientes = clientes
+    .filter((c) => {
+      if (filtroAcceso === 'con_acceso') return !!c.es_cliente_web
+      if (filtroAcceso === 'sin_acceso') return !c.es_cliente_web
+      return true
+    })
+    .filter((c) => {
+      const q = searchQuery.toLowerCase()
+      if (!q) return true
       return (
-        cliente.usuario.toLowerCase().includes(query) ||
-        cliente.nombre.toLowerCase().includes(query) ||
-        cliente.email?.toLowerCase().includes(query) ||
-        cliente.empresa?.toLowerCase().includes(query)
+        (c.usuario || '').toLowerCase().includes(q) ||
+        (c.nombre || '').toLowerCase().includes(q) ||
+        (c.apellido || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.empresa || '').toLowerCase().includes(q) ||
+        (c.telefono || '').toLowerCase().includes(q)
       )
     })
     .sort((a, b) => {
       if (!sortField) return 0
-      
-      const aValue = a[sortField]
-      const bValue = b[sortField]
-      
-      // Manejar valores null/undefined
-      if (aValue == null && bValue == null) return 0
-      if (aValue == null) return sortDirection === 'asc' ? 1 : -1
-      if (bValue == null) return sortDirection === 'asc' ? -1 : 1
-      
-      // Comparar valores
-      let comparison = 0
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' })
-      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-        comparison = aValue - bValue
-      } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
-        comparison = aValue === bValue ? 0 : aValue ? 1 : -1
-      } else {
-        comparison = String(aValue).localeCompare(String(bValue), 'es', { sensitivity: 'base' })
-      }
-      
-      return sortDirection === 'asc' ? comparison : -comparison
+      const aVal = a[sortField as keyof ClienteRecord]
+      const bVal = b[sortField as keyof ClienteRecord]
+      if (aVal == null && bVal == null) return 0
+      if (aVal == null) return sortDirection === 'asc' ? 1 : -1
+      if (bVal == null) return sortDirection === 'asc' ? -1 : 1
+      const cmp = String(aVal).localeCompare(String(bVal), 'es', { sensitivity: 'base' })
+      return sortDirection === 'asc' ? cmp : -cmp
     })
 
   if (loading) {
@@ -198,7 +257,7 @@ const ClientesWebGestionPage = () => {
     <div className="clientes-web-gestion">
       <header className="clientes-web-gestion-header">
         <div className="clientes-web-header-content">
-          <h1>👤 Gestión de Clientes Web</h1>
+          <h1>👤 Gestión de Clientes</h1>
           <div className="clientes-web-header-actions">
             <button className="btn-back" onClick={() => navigate('/clientes-web/dashboard')}>
               ← Volver
@@ -206,95 +265,114 @@ const ClientesWebGestionPage = () => {
             <button className="btn-secondary" onClick={() => navigate('/clientes-web/presupuestos')}>
               💰 Presupuestos
             </button>
-            <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-              + Nuevo Cliente
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setCrearConAcceso(false)
+                resetForm()
+                setShowCreateModal(true)
+              }}
+            >
+              + Cliente (sin acceso)
+            </button>
+            <button
+              className="btn-primary"
+              onClick={() => {
+                setCrearConAcceso(true)
+                resetForm()
+                setShowCreateModal(true)
+              }}
+            >
+              + Cliente con acceso
             </button>
           </div>
         </div>
       </header>
 
       <div className="clientes-web-gestion-content">
-        {/* Buscador */}
-        <div className="clientes-web-search">
+        <div className="clientes-web-filters">
+          <div className="clientes-web-filter-acceso">
+            <span>Ver:</span>
+            <button
+              className={filtroAcceso === 'todos' ? 'active' : ''}
+              onClick={() => setFiltroAcceso('todos')}
+            >
+              Todos
+            </button>
+            <button
+              className={filtroAcceso === 'con_acceso' ? 'active' : ''}
+              onClick={() => setFiltroAcceso('con_acceso')}
+            >
+              Con acceso
+            </button>
+            <button
+              className={filtroAcceso === 'sin_acceso' ? 'active' : ''}
+              onClick={() => setFiltroAcceso('sin_acceso')}
+            >
+              Sin acceso
+            </button>
+          </div>
           <input
             type="text"
-            placeholder="Buscar por usuario, nombre, email o empresa..."
+            placeholder="Buscar por nombre, usuario, email, empresa..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="clientes-web-search-input"
           />
         </div>
 
-        {/* Tabla de clientes */}
         <div className="clientes-web-table-container">
           <table className="clientes-web-table">
             <thead>
               <tr>
                 <th className="sortable" onClick={() => handleSort('id')}>
-                  ID
-                  {sortField === 'id' && (
-                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  ID {sortField === 'id' && <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
                 </th>
+                <th>Acceso</th>
                 <th className="sortable" onClick={() => handleSort('usuario')}>
-                  Usuario
-                  {sortField === 'usuario' && (
-                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  Usuario {sortField === 'usuario' && <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
                 </th>
                 <th className="sortable" onClick={() => handleSort('nombre')}>
-                  Nombre
-                  {sortField === 'nombre' && (
-                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  Nombre {sortField === 'nombre' && <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
                 </th>
-                <th className="sortable" onClick={() => handleSort('empresa')}>
-                  Empresa
-                  {sortField === 'empresa' && (
-                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </th>
-                <th className="sortable" onClick={() => handleSort('email')}>
-                  Email
-                  {sortField === 'email' && (
-                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </th>
-                <th className="sortable" onClick={() => handleSort('telefono')}>
-                  Teléfono
-                  {sortField === 'telefono' && (
-                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </th>
-                <th className="sortable" onClick={() => handleSort('activo')}>
-                  Estado
-                  {sortField === 'activo' && (
-                    <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </th>
+                <th>Empresa</th>
+                <th>Email</th>
+                <th>Teléfono</th>
+                <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {filteredAndSortedClientes.length === 0 ? (
+              {filteredClientes.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="clientes-web-empty">
-                    {searchQuery ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+                  <td colSpan={9} className="clientes-web-empty">
+                    {searchQuery || filtroAcceso !== 'todos' ? 'No se encontraron clientes' : 'No hay clientes registrados'}
                   </td>
                 </tr>
               ) : (
-                filteredAndSortedClientes.map((cliente) => (
+                filteredClientes.map((cliente) => (
                   <tr key={cliente.id}>
                     <td>{cliente.id}</td>
-                    <td>{cliente.usuario}</td>
+                    <td>
+                      {cliente.es_cliente_web ? (
+                        <span className="clientes-web-status-badge activo">Con acceso</span>
+                      ) : (
+                        <span className="clientes-web-status-badge sin-acceso">Sin acceso</span>
+                      )}
+                    </td>
+                    <td>{cliente.usuario || '-'}</td>
                     <td>{cliente.nombre} {cliente.apellido || ''}</td>
                     <td>{cliente.empresa || '-'}</td>
                     <td>{cliente.email || '-'}</td>
                     <td>{cliente.telefono || '-'}</td>
                     <td>
-                      <span className={`clientes-web-status-badge ${cliente.activo ? 'activo' : 'inactivo'}`}>
-                        {cliente.activo ? 'Activo' : 'Inactivo'}
-                      </span>
+                      {cliente.es_cliente_web ? (
+                        <span className={`clientes-web-status-badge ${cliente.activo ? 'activo' : 'inactivo'}`}>
+                          {cliente.activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td>
                       <button
@@ -302,7 +380,7 @@ const ClientesWebGestionPage = () => {
                         onClick={() => {
                           setEditingCliente(cliente)
                           setFormData({
-                            usuario: cliente.usuario,
+                            usuario: cliente.usuario || '',
                             password: '',
                             nombre: cliente.nombre,
                             apellido: cliente.apellido || '',
@@ -317,12 +395,29 @@ const ClientesWebGestionPage = () => {
                       >
                         Editar
                       </button>
-                      <button
-                        className={`btn-toggle ${cliente.activo ? 'btn-deactivate' : 'btn-activate'}`}
-                        onClick={() => handleToggleActivo(cliente)}
-                      >
-                        {cliente.activo ? 'Desactivar' : 'Activar'}
-                      </button>
+                      {!cliente.es_cliente_web ? (
+                        <button
+                          className="btn-primary btn-sm"
+                          onClick={() => setDarAccesoCliente(cliente)}
+                        >
+                          Dar acceso
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            className={`btn-toggle ${cliente.activo ? 'btn-deactivate' : 'btn-activate'}`}
+                            onClick={() => handleToggleActivo(cliente)}
+                          >
+                            {cliente.activo ? 'Desactivar' : 'Activar'}
+                          </button>
+                          <button
+                            className="btn-secondary btn-sm"
+                            onClick={() => handleQuitarAcceso(cliente)}
+                          >
+                            Quitar acceso
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -332,36 +427,48 @@ const ClientesWebGestionPage = () => {
         </div>
       </div>
 
-      {/* Modal de crear/editar */}
+      {/* Modal crear/editar */}
       {showCreateModal && (
-        <div className="clientes-web-modal-overlay" onClick={() => {
-          setShowCreateModal(false)
-          resetForm()
-        }}>
+        <div className="clientes-web-modal-overlay" onClick={() => { setShowCreateModal(false); resetForm() }}>
           <div className="clientes-web-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingCliente ? 'Editar Cliente' : 'Nuevo Cliente'}</h2>
+            <h2>{editingCliente ? 'Editar Cliente' : crearConAcceso ? 'Nuevo Cliente con Acceso' : 'Nuevo Cliente'}</h2>
             <form className="clientes-web-modal-form" onSubmit={handleCreate}>
-              <div className="clientes-web-form-row">
+              {!editingCliente && (
                 <div className="clientes-web-form-group">
-                  <label>Usuario *</label>
-                  <input
-                    type="text"
-                    value={formData.usuario}
-                    onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
-                    disabled={!!editingCliente}
-                    required
-                  />
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={crearConAcceso}
+                      onChange={(e) => setCrearConAcceso(e.target.checked)}
+                    />
+                    {' '}Crear con acceso al portal (usuario y contraseña)
+                  </label>
                 </div>
-                <div className="clientes-web-form-group">
-                  <label>Contraseña {editingCliente ? '(dejar vacío para no cambiar)' : '*'}</label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required={!editingCliente}
-                  />
+              )}
+              {crearConAcceso && (
+                <div className="clientes-web-form-row">
+                  <div className="clientes-web-form-group">
+                    <label>Usuario *</label>
+                    <input
+                      type="text"
+                      value={formData.usuario}
+                      onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
+                      disabled={!!editingCliente}
+                      required={crearConAcceso && !editingCliente}
+                    />
+                  </div>
+                  <div className="clientes-web-form-group">
+                    <label>Contraseña {editingCliente ? '(vacío = no cambiar)' : '*'}</label>
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      required={crearConAcceso && !editingCliente}
+                      minLength={6}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="clientes-web-form-row">
                 <div className="clientes-web-form-group">
                   <label>Nombre *</label>
@@ -426,21 +533,51 @@ const ClientesWebGestionPage = () => {
                 />
               </div>
               <div className="clientes-web-modal-actions">
-                <button 
-                  type="button"
-                  className="btn-secondary" 
-                  onClick={() => {
-                    setShowCreateModal(false)
-                    resetForm()
-                  }}
-                >
+                <button type="button" className="btn-secondary" onClick={() => { setShowCreateModal(false); resetForm() }}>
                   Cancelar
                 </button>
-                <button 
-                  type="submit"
-                  className="btn-primary"
-                >
+                <button type="submit" className="btn-primary">
                   {editingCliente ? 'Guardar' : 'Crear'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal dar acceso */}
+      {darAccesoCliente && (
+        <div className="clientes-web-modal-overlay" onClick={() => { setDarAccesoCliente(null); setDarAccesoForm({ usuario: '', password: '' }) }}>
+          <div className="clientes-web-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Dar acceso a {darAccesoCliente.nombre}</h2>
+            <p className="clientes-web-modal-hint">El cliente podrá ingresar al portal con usuario y contraseña.</p>
+            <form className="clientes-web-modal-form" onSubmit={handleDarAcceso}>
+              <div className="clientes-web-form-group">
+                <label>Usuario *</label>
+                <input
+                  type="text"
+                  value={darAccesoForm.usuario}
+                  onChange={(e) => setDarAccesoForm({ ...darAccesoForm, usuario: e.target.value })}
+                  required
+                  placeholder="Ej: juan.perez"
+                />
+              </div>
+              <div className="clientes-web-form-group">
+                <label>Contraseña * (mín. 6 caracteres)</label>
+                <input
+                  type="password"
+                  value={darAccesoForm.password}
+                  onChange={(e) => setDarAccesoForm({ ...darAccesoForm, password: e.target.value })}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="clientes-web-modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => { setDarAccesoCliente(null); setDarAccesoForm({ usuario: '', password: '' }) }}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  Habilitar acceso
                 </button>
               </div>
             </form>
@@ -452,4 +589,3 @@ const ClientesWebGestionPage = () => {
 }
 
 export default ClientesWebGestionPage
-

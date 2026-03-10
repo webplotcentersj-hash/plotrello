@@ -186,7 +186,7 @@ const Header = ({
             )}
             {(isAdmin || isMostrador || isPresupuestos) && onNavigateToClientesWeb && (
               <button className="brand-button" onClick={onNavigateToClientesWeb}>
-                🌐 Clientes Web
+                Clientes
               </button>
             )}
             {canAccessAsesorPresupuestos && onNavigateToAsesorPresupuestos && (
