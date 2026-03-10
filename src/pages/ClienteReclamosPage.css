@@ -1,0 +1,205 @@
+.cliente-reclamos-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+}
+
+.cliente-reclamos-header {
+  background: rgba(26, 26, 46, 0.95);
+  border-bottom: 2px solid #eb671b;
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.cliente-reclamos-header .cliente-header-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cliente-reclamos-header .cliente-header-logo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cliente-reclamos-header .cliente-header-logo img {
+  height: 48px;
+}
+
+.cliente-reclamos-main {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.reclamos-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+}
+
+.reclamos-tabs .tab {
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 1rem;
+  border-radius: 10px 10px 0 0;
+}
+
+.reclamos-tabs .tab.active {
+  background: rgba(235, 103, 27, 0.2);
+  color: #fff;
+  border-color: #eb671b;
+}
+
+.reclamos-list-section h2,
+.reclamos-form-section h2 {
+  margin: 0 0 20px 0;
+  font-size: 1.25rem;
+}
+
+.reclamos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reclamo-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.reclamo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.reclamo-id {
+  font-weight: 600;
+  color: #eb671b;
+}
+
+.reclamo-estado {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.estado-nuevo { background: #f59e0b33; color: #fbbf24; }
+.estado-abierto { background: #3b82f633; color: #93c5fd; }
+.estado-en_curso { background: #3b82f633; color: #93c5fd; }
+.estado-en_revision { background: #8b5cf633; color: #c4b5fd; }
+.estado-resuelto { background: #10b98133; color: #6ee7b7; }
+.estado-cerrado { background: #6b728033; color: #9ca3af; }
+
+.reclamo-desc {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.reclamo-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.reclamo-foto {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.reclamos-form-section .reclamos-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.reclamos-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reclamos-form label {
+  font-size: 0.9rem;
+}
+
+.reclamos-form input,
+.reclamos-form select,
+.reclamos-form textarea {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 1rem;
+}
+
+.foto-preview {
+  margin-top: 8px;
+}
+
+.foto-preview img {
+  max-width: 200px;
+  border-radius: 8px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.foto-preview button {
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.success-message {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.error-message {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+}
+
+.empty-state p {
+  margin: 0 0 20px 0;
+  color: rgba(255, 255, 255, 0.7);
+}

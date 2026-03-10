@@ -146,9 +146,33 @@ export default function ClienteDashboardPage() {
             </button>
             <button 
               className="btn-secondary"
+              onClick={() => navigate('/cliente/disenos')}
+            >
+              📋 Pedidos de Diseño
+            </button>
+            <button 
+              className="btn-secondary"
               onClick={() => navigate('/cliente/mensajes')}
             >
               💬 Mensajes
+            </button>
+            <button 
+              className="btn-secondary"
+              onClick={() => navigate('/cliente/reclamos')}
+            >
+              📢 Reclamos
+            </button>
+            <button 
+              className="btn-secondary"
+              onClick={() => navigate('/cliente/chat')}
+            >
+              🤖 Chat PlotAI
+            </button>
+            <button 
+              className="btn-secondary"
+              onClick={() => navigate('/cliente/notificaciones')}
+            >
+              🔔 Notificaciones
             </button>
             <button 
               className="btn-logout"
@@ -220,6 +244,30 @@ export default function ClienteDashboardPage() {
         {error && (
           <div className="cliente-error-message">
             {error}
+          </div>
+        )}
+
+        {pedidos.some(p => p.id_op_asociada) && (
+          <div className="cliente-ops-section">
+            <h2>Seguimiento de OP</h2>
+            <p className="section-desc">Tus órdenes de producción en curso</p>
+            <div className="cliente-ops-list">
+              {pedidos
+                .filter(p => p.id_op_asociada)
+                .map((pedido) => (
+                  <div
+                    key={pedido.id}
+                    className="cliente-op-card"
+                    onClick={() => navigate(`/cliente/buscar-op/${pedido.id_op_asociada}`)}
+                  >
+                    <span className="op-numero">OP-{pedido.id_op_asociada}</span>
+                    <span className="op-pedido">{pedido.numero_pedido}</span>
+                    <span className={`op-estado estado-${pedido.estado}`}>
+                      {getEstadoLabel(pedido.estado)}
+                    </span>
+                  </div>
+                ))}
+            </div>
           </div>
         )}
 

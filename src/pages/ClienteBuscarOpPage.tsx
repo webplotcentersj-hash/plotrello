@@ -32,7 +32,10 @@ export default function ClienteBuscarOpPage() {
     setOp(null)
 
     try {
-      const response = await apiService.obtenerOpPorNumeroCliente(numero.trim(), cliente.id)
+      let response = await apiService.obtenerOpPorNumeroCliente(numero.trim(), cliente.id)
+      if (!response.success && /^\d+$/.test(numero.trim())) {
+        response = await apiService.obtenerOpPorIdCliente(parseInt(numero.trim(), 10), cliente.id)
+      }
       if (response.success && response.data) {
         setOp(response.data)
       } else {

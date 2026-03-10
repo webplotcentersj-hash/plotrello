@@ -5282,11 +5282,12 @@ class ApiService {
   // ==================== BRIEF PÚBLICO - FORMULARIO CLIENTE ====================
   
   // Crear un nuevo brief público (sin necesidad de OP)
-  async crearBriefPublico(usuarioId?: number): Promise<ApiResponse<string>> {
+  async crearBriefPublico(usuarioId?: number, idCliente?: number): Promise<ApiResponse<string>> {
     if (supabase) {
       try {
         const { data, error } = await supabase.rpc('crear_brief_publico', {
-          p_creado_por: usuarioId || null
+          p_creado_por: usuarioId || null,
+          p_id_cliente: idCliente || null
         })
 
         if (error) {
@@ -5420,6 +5421,28 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  // Listar briefs de un cliente web (por id_cliente o email)
+  async listarBriefsPorCliente(idCliente: number): Promise<ApiResponse<any[]>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_briefs_por_cliente', {
+          p_id_cliente: idCliente
+        })
+
+        if (error) {
+          console.error('Error listando briefs del cliente:', error)
+          return { success: false, error: error.message }
+        }
+
+        return { success: true, data: (data || []) as any[] }
+      } catch (error) {
+        console.error('Error listando briefs del cliente:', error)
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   // Listar briefs pendientes (sin OP asociada)
   async listarBriefsPendientes(): Promise<ApiResponse<any[]>> {
     if (supabase) {
@@ -5465,6 +5488,7 @@ class ApiService {
 
   async actualizarBriefPublico(data: {
     token: string
+    id_cliente?: number
     cliente_nombre_completo?: string
     cliente_empresa?: string
     telefono_cliente?: string
@@ -5514,7 +5538,8 @@ class ApiService {
             p_estilo_diseno: data.estilo_diseno || null,
             p_referencias: data.referencias || null,
             p_fecha_limite_brief: data.fecha_limite_brief || null,
-            p_es_urgencia: data.es_urgencia || false
+            p_es_urgencia: data.es_urgencia || false,
+            p_id_cliente: data.id_cliente ?? null
           })
           updateError = result.error
         } catch (e) {
@@ -8152,16 +8177,70 @@ class ApiService {
   }
 
   /**
+   * Obtener OP por ID de orden (para clientes, cuando viene de pedido)
+   */
+  async obtenerOpPorIdCliente(
+    idOrden: number,
+    idCliente: number
+  ): Promise<ApiResponse<any>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_op_por_id_cliente', {
+          p_id_orden: idOrden,
+          p_id_cliente: idCliente
+        })
+
+        if (error) return { success: false, error: error.message }
+        if (!data || data.length === 0) {
+          return { success: false, error: 'OP no encontrada' }
+        }
+        return { success: true, data: data[0] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Listar notificaciones del cliente
+   */
+  async listarNotificacionesCliente(idCliente: number): Promise<ApiResponse<Array<{
+    id: number
+    tipo: string
+    titulo: string | null
+    mensaje: string
+    id_pedido: number | null
+    id_reclamo: number | null
+    leida: boolean
+    created_at: string
+  }>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_notificaciones_cliente', {
+          p_id_cliente: idCliente
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []) as any[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Obtener mensajes de un pedido
    */
   async obtenerMensajesPedido(
     idPedido: number,
-    _idCliente: number
+    idCliente: number
   ): Promise<ApiResponse<MensajePedidoClienteRecord[]>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('obtener_mensajes_pedido_cliente', {
-          p_id_pedido: idPedido
+        const { data, error } = await supabase.rpc('obtener_mensajes_pedido', {
+          p_id_pedido_cliente: idPedido,
+          p_id_cliente: idCliente
         })
 
         if (error) return { success: false, error: error.message }

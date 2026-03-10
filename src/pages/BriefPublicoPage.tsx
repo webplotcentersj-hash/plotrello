@@ -2,7 +2,16 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
+import type { ClienteWebRecord } from '../types/api'
 import './BriefPublicoPage.css'
+
+export type BriefPublicoPageProps = {
+  token?: string
+  clientePrefill?: ClienteWebRecord | null
+  idCliente?: number
+  onSuccess?: () => void
+  variant?: 'publico' | 'cliente'
+}
 
 const TIPOS_PRODUCTO = [
   'Diseño de una pieza gráfica',
@@ -28,8 +37,12 @@ const TIPOS_PRODUCTO = [
   'No sé bien lo que necesito, quiero asesoramiento'
 ]
 
-const BriefPublicoPage = () => {
-  const { token } = useParams<{ token: string }>()
+const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
+  const paramsToken = useParams<{ token: string }>().token
+  const token = props?.token ?? paramsToken
+  const clientePrefill = props?.clientePrefill
+  const idCliente = props?.idCliente
+  const onSuccess = props?.onSuccess
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [orden, setOrden] = useState<Partial<OrdenTrabajo> | null>(null)
@@ -80,7 +93,7 @@ const BriefPublicoPage = () => {
       setError('Token no válido')
       setLoading(false)
     }
-  }, [token])
+  }, [token, clientePrefill])
 
   const loadOrden = async () => {
     if (!token) return
@@ -101,11 +114,16 @@ const BriefPublicoPage = () => {
       
       if (response.success && response.data) {
         setOrden(response.data)
+        const data = response.data
+        const nombreCompleto = data.cliente_nombre_completo || (clientePrefill ? `${clientePrefill.nombre || ''} ${clientePrefill.apellido || ''}`.trim() || clientePrefill.nombre : '')
+        const empresa = data.cliente_empresa || clientePrefill?.empresa || ''
+        const telefono = data.telefono_cliente || clientePrefill?.telefono || ''
+        const email = data.email_cliente || clientePrefill?.email || ''
         setFormData({
-          cliente_nombre_completo: response.data.cliente_nombre_completo || '',
-          cliente_empresa: response.data.cliente_empresa || '',
-          telefono_cliente: response.data.telefono_cliente || '',
-          email_cliente: response.data.email_cliente || '',
+          cliente_nombre_completo: nombreCompleto,
+          cliente_empresa: empresa,
+          telefono_cliente: telefono,
+          email_cliente: email,
           tipo_producto_servicio: response.data.tipo_producto_servicio || [],
           tipo_producto_otro: response.data.tipo_producto_otro || '',
           necesita_asesoramiento: response.data.necesita_asesoramiento || false,
@@ -174,6 +192,7 @@ const BriefPublicoPage = () => {
       // Usar la nueva función que actualiza la tabla de briefs
       const response = await apiService.actualizarBriefPublico({
         token,
+        id_cliente: idCliente,
         cliente_nombre_completo: formData.cliente_nombre_completo.trim(),
         cliente_empresa: formData.cliente_empresa.trim() || undefined,
         telefono_cliente: formData.telefono_cliente.trim() || undefined,
@@ -199,9 +218,13 @@ const BriefPublicoPage = () => {
 
       if (response.success) {
         setSuccess(true)
-        setTimeout(() => {
-          setSuccess(false)
-        }, 5000)
+        if (onSuccess) {
+          setTimeout(onSuccess, 1500)
+        } else {
+          setTimeout(() => {
+            setSuccess(false)
+          }, 5000)
+        }
       } else {
         setError(response.error || 'Error al guardar el brief')
       }

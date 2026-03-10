@@ -81,6 +81,11 @@ import ClienteCatalogoPage from './pages/ClienteCatalogoPage'
 import ClientePresupuestosPage from './pages/ClientePresupuestosPage'
 import ClientePresupuestoFormPage from './pages/ClientePresupuestoFormPage'
 import ClientePresupuestoDetallePage from './pages/ClientePresupuestoDetallePage'
+import ClienteBriefsPage from './pages/ClienteBriefsPage'
+import ClienteBriefFormPage from './pages/ClienteBriefFormPage'
+import ClienteReclamosPage from './pages/ClienteReclamosPage'
+import ClienteChatPage from './pages/ClienteChatPage'
+import ClienteNotificacionesPage from './pages/ClienteNotificacionesPage'
 import ClienteProtectedRoute from './components/ClienteProtectedRoute'
 import PresupuestosClientesAdminPage from './pages/PresupuestosClientesAdminPage'
 import PresupuestoClienteDetalleAdminPage from './pages/PresupuestoClienteDetalleAdminPage'
@@ -502,6 +507,11 @@ function App() {
                   <Route path="presupuesto/:id/editar" element={<ClientePresupuestoFormPage />} />
                   <Route path="buscar-op/:numeroOp?" element={<ClienteBuscarOpPage />} />
                   <Route path="mensajes/:idPedido?" element={<ClienteMensajesPage />} />
+                  <Route path="disenos" element={<ClienteBriefsPage />} />
+                  <Route path="brief/:token" element={<ClienteBriefFormPage />} />
+                  <Route path="reclamos" element={<ClienteReclamosPage />} />
+                  <Route path="chat" element={<ClienteChatPage />} />
+                  <Route path="notificaciones" element={<ClienteNotificacionesPage />} />
                   <Route path="*" element={<Navigate to="/cliente/dashboard" replace />} />
                 </Routes>
               </ClienteProtectedRoute>

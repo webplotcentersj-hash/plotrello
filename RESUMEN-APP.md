@@ -34,6 +34,11 @@
 | `/cliente/presupuesto/:id` | ClientePresupuestoDetallePage |
 | `/cliente/buscar-op/:numeroOp?` | ClienteBuscarOpPage |
 | `/cliente/mensajes/:idPedido?` | ClienteMensajesPage |
+| `/cliente/disenos` | ClienteBriefsPage (Pedidos de Diseño) |
+| `/cliente/brief/:token` | ClienteBriefFormPage (Formulario de brief) |
+| `/cliente/reclamos` | ClienteReclamosPage |
+| `/cliente/chat` | ClienteChatPage (Chat con PlotAI) |
+| `/cliente/notificaciones` | ClienteNotificacionesPage |
 
 ### Rutas protegidas (requieren autenticación)
 | Ruta | Página |
