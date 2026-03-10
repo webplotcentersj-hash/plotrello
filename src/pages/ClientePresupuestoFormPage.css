@@ -136,6 +136,11 @@
   background: rgba(26, 29, 46, 0.8);
 }
 
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #9ca3af;
+}
+
 .catalogo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));

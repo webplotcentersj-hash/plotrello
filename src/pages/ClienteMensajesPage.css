@@ -282,7 +282,7 @@
 }
 
 .mensaje-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: #9ca3af;
 }
 
 .btn-enviar {

@@ -67,11 +67,30 @@
 
 .brief-publico-page--cliente .form-group input::placeholder,
 .brief-publico-page--cliente .form-group textarea::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: #9ca3af;
 }
 
 .brief-publico-page--cliente .form-group small {
   color: rgba(255, 255, 255, 0.8);
+}
+
+.brief-publico-page--cliente .urgent-label {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.brief-publico-page--cliente .urgent-label:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.brief-publico-page--cliente .urgent-label span {
+  color: #fff;
+}
+
+.brief-publico-page--cliente .urgent-warning {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 .brief-publico-page--cliente .checkbox-label {
@@ -450,12 +469,14 @@
 .urgent-warning {
   display: block;
   margin-top: 8px;
-  padding: 8px;
-  background: #fee2e2;
-  color: #991b1b;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  padding: 12px 14px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .bases-condiciones {
