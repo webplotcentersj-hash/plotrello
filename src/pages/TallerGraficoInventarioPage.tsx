@@ -58,7 +58,11 @@ export default function TallerGraficoInventarioPage() {
     const categoria = (item.categoria || '').toLowerCase()
     const desc = (item.descripcion || '').toLowerCase()
     const esTallerGrafico = sector.includes('taller') && sector.includes('graf')
-    const esTinta = categoria.includes('tinta') || desc.includes('tinta')
+    const esTinta =
+      categoria.includes('tinta') ||
+      categoria.includes('toner') ||
+      desc.includes('tinta') ||
+      desc.includes('toner')
     return esTallerGrafico && esTinta
   })
 
