@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import './TallerGraficoInventarioPage.css'
 
@@ -16,7 +17,7 @@ type InventarioItem = {
 }
 
 export default function TallerGraficoInventarioPage() {
-  const { isAdmin, isTallerGrafico } = useAuth()
+  const { usuario, isAdmin, isTallerGrafico } = useAuth()
   const navigate = useNavigate()
   const [items, setItems] = useState<InventarioItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,6 +25,7 @@ export default function TallerGraficoInventarioPage() {
   const [savingId, setSavingId] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
   const [search, setSearch] = useState('')
+  const [pedidoMessage, setPedidoMessage] = useState<string | null>(null)
   const [newItem, setNewItem] = useState<{
     sector: string
     categoria: string
@@ -170,6 +172,10 @@ export default function TallerGraficoInventarioPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {pedidoMessage && (
+          <div className="tg-pedido-message">{pedidoMessage}</div>
+        )}
 
         <section className="tg-nuevo-item">
           <h2>Agregar insumo</h2>
@@ -454,6 +460,7 @@ export default function TallerGraficoInventarioPage() {
                             if (!supabase) return
                             setSavingId(item.id)
                             setError(null)
+                            setPedidoMessage(null)
                             try {
                               const { error: err } = await supabase
                                 .from('inventario_taller_grafico')
@@ -466,6 +473,7 @@ export default function TallerGraficoInventarioPage() {
                                 })
                                 .eq('id', item.id)
                               if (err) setError(err.message)
+                              else setPedidoMessage('Cambios guardados en inventario.')
                             } catch (e) {
                               setError('Error al guardar cambios')
                             } finally {
@@ -474,6 +482,50 @@ export default function TallerGraficoInventarioPage() {
                           }}
                         >
                           {savingId === item.id ? 'Guardando…' : 'Guardar'}
+                        </button>
+                        <button
+                          type="button"
+                          className="tg-pedido-button"
+                          onClick={async () => {
+                            if (!apiService) return
+                            const cantidad = item.cantidad_unidades && item.cantidad_unidades > 0
+                              ? item.cantidad_unidades
+                              : 1
+                            const solicitanteId = Number(localStorage.getItem('usuario_id')) || usuario?.id || 0
+                            const nombreSolicitante = usuario?.nombre || 'Usuario Taller Gráfico'
+                            setError(null)
+                            setPedidoMessage(null)
+                            const observacionesPedido = `Insumo: ${(item.marca || '')} ${(item.descripcion || '')} - ${
+                              item.categoria || ''
+                            } (ancho ${item.ancho ?? '-'} / largo ${item.largo ?? '-'})`
+                            const response = await apiService.crearPedidoCompra({
+                              id_solicitante: solicitanteId,
+                              nombre_solicitante: nombreSolicitante,
+                              sector_solicitante: 'Taller Gráfico',
+                              prioridad: 'Alta',
+                              motivo: 'Reposición de insumos Taller Gráfico',
+                              observaciones: observacionesPedido,
+                              items: [
+                                {
+                                  descripcion: item.descripcion || 'Insumo Taller Gráfico',
+                                  cantidad_solicitada: cantidad,
+                                  unidad: 'unidad',
+                                  observaciones: observacionesPedido
+                                }
+                              ]
+                            })
+                            if (response.success && response.data) {
+                              setPedidoMessage(
+                                `Pedido enviado a Compras (#${response.data.numero_pedido}) para ${
+                                  item.descripcion || 'insumo'
+                                }.`
+                              )
+                            } else {
+                              setError(response.error || 'No se pudo crear el pedido de compra')
+                            }
+                          }}
+                        >
+                          Pedir a Compras
                         </button>
                       </div>
                     </td>

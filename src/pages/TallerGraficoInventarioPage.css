@@ -60,6 +60,16 @@
   max-width: 420px;
 }
 
+.tg-pedido-message {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.7);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e0f2fe;
+  font-size: 0.85rem;
+}
+
 .tg-nuevo-item {
   margin-bottom: 28px;
   padding: 18px 20px 14px;
@@ -336,7 +346,8 @@
   gap: 6px;
 }
 
-.tg-save-button {
+.tg-save-button,
+.tg-pedido-button {
   border-radius: 999px;
   border: 1px solid rgba(249, 115, 22, 0.9);
   background: rgba(249, 115, 22, 0.1);
@@ -347,7 +358,14 @@
   white-space: nowrap;
 }
 
-.tg-save-button:disabled {
+.tg-pedido-button {
+  border-color: rgba(34, 197, 94, 0.9);
+  background: rgba(22, 163, 74, 0.1);
+  color: #bbf7d0;
+}
+
+.tg-save-button:disabled,
+.tg-pedido-button:disabled {
   opacity: 0.6;
   cursor: default;
 }
