@@ -54,16 +54,14 @@ export default function TallerGraficoInventarioPage() {
   })
 
   const tintaItems = filteredItems.filter((item) => {
-    const sector = (item.sector || '').toLowerCase()
     const categoria = (item.categoria || '').toLowerCase()
     const desc = (item.descripcion || '').toLowerCase()
-    const esTallerGrafico = sector.includes('taller') && sector.includes('graf')
     const esTinta =
       categoria.includes('tinta') ||
       categoria.includes('toner') ||
       desc.includes('tinta') ||
       desc.includes('toner')
-    return esTallerGrafico && esTinta
+    return esTinta
   })
 
   const maxCantidadTinta = tintaItems.reduce(
