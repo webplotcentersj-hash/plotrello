@@ -51,12 +51,15 @@
 .cliente-briefs-section h2 {
   margin: 0 0 8px 0;
   font-size: 1.5rem;
+  color: #fff !important;
+  font-weight: 700;
 }
 
 .section-desc {
   margin: 0 0 24px 0;
-  color: rgba(255, 255, 255, 0.75);
+  color: #fff !important;
   font-size: 0.95rem;
+  opacity: 0.95;
 }
 
 .cliente-briefs-list {
@@ -65,18 +68,21 @@
 }
 
 .cliente-brief-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(145deg, rgba(26, 29, 46, 0.9) 0%, rgba(22, 33, 62, 0.85) 100%);
+  border: 2px solid rgba(235, 103, 27, 0.25);
   border-radius: 16px;
   padding: 24px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .cliente-brief-card:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(235, 103, 27, 0.4);
-  transform: translateY(-2px);
+  background: linear-gradient(145deg, rgba(26, 29, 46, 0.98) 0%, rgba(22, 33, 62, 0.95) 100%);
+  border-color: rgba(235, 103, 27, 0.5);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(235, 103, 27, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .cliente-brief-card.urgente {
@@ -93,12 +99,14 @@
 .brief-card-header h3 {
   margin: 0 0 4px 0;
   font-size: 1.1rem;
+  color: #fff;
+  font-weight: 700;
 }
 
 .brief-fecha {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .brief-estado-badge {
@@ -113,8 +121,9 @@
 .brief-card-body .brief-desc {
   margin: 0 0 8px 0;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff;
   line-height: 1.4;
+  opacity: 0.95;
 }
 
 .brief-tags {
@@ -152,7 +161,8 @@
 
 .cliente-empty-state p {
   margin: 0 0 20px 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: #fff;
+  font-size: 1.05rem;
 }
 
 .cliente-error-message {

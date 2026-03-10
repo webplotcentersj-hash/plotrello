@@ -7,6 +7,118 @@
   justify-content: center;
 }
 
+/* Variante oscura para portal de clientes */
+.brief-publico-page--cliente {
+  background: linear-gradient(160deg, #0d1117 0%, #161b22 40%, #1a1a2e 100%);
+}
+
+.brief-publico-page--cliente .brief-container {
+  background: linear-gradient(145deg, rgba(26, 29, 46, 0.95) 0%, rgba(22, 33, 62, 0.9) 100%);
+  border: 2px solid rgba(235, 103, 27, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.brief-publico-page--cliente .brief-header {
+  border-bottom-color: rgba(235, 103, 27, 0.3);
+}
+
+.brief-publico-page--cliente .brief-logo-text h1 {
+  color: #fff;
+}
+
+.brief-publico-page--cliente .brief-address {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.brief-publico-page--cliente .orden-info {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.brief-publico-page--cliente .orden-info p,
+.brief-publico-page--cliente .orden-info strong {
+  color: #fff;
+}
+
+.brief-publico-page--cliente .form-section h2 {
+  color: #fff !important;
+  border-bottom-color: rgba(235, 103, 27, 0.4);
+}
+
+.brief-publico-page--cliente .section-description {
+  color: #fff !important;
+}
+
+.brief-publico-page--cliente .form-section h3 {
+  color: #fff !important;
+}
+
+.brief-publico-page--cliente .form-group label {
+  color: #fff !important;
+}
+
+.brief-publico-page--cliente .form-group input,
+.brief-publico-page--cliente .form-group textarea,
+.brief-publico-page--cliente .form-group select {
+  background: rgba(26, 29, 46, 0.6) !important;
+  border-color: rgba(235, 103, 27, 0.3);
+  color: #fff !important;
+}
+
+.brief-publico-page--cliente .form-group input::placeholder,
+.brief-publico-page--cliente .form-group textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.brief-publico-page--cliente .form-group small {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.brief-publico-page--cliente .checkbox-label {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.brief-publico-page--cliente .checkbox-label:hover {
+  background: rgba(235, 103, 27, 0.1);
+  border-color: rgba(235, 103, 27, 0.4);
+}
+
+.brief-publico-page--cliente .checkbox-label span {
+  color: #fff;
+}
+
+.brief-publico-page--cliente .checkbox-label input[type="checkbox"]:checked + span {
+  color: #eb671b;
+}
+
+.brief-publico-page--cliente .bases-condiciones {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.brief-publico-page--cliente .base-item h4 {
+  color: #fff;
+}
+
+.brief-publico-page--cliente .base-item p {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.brief-publico-page--cliente .brief-footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.brief-publico-page--cliente .btn-submit {
+  background: linear-gradient(135deg, #eb671b 0%, #d45a15 100%);
+  box-shadow: 0 4px 20px rgba(235, 103, 27, 0.4);
+}
+
+.brief-publico-page--cliente .btn-submit:hover:not(:disabled) {
+  box-shadow: 0 6px 28px rgba(235, 103, 27, 0.5);
+}
+
 .loading-container,
 .error-container {
   background: white;
@@ -45,11 +157,11 @@
 
 .brief-container {
   background: white;
-  border-radius: 20px;
-  padding: 40px;
+  border-radius: 24px;
+  padding: 48px;
   max-width: 900px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .brief-header {
@@ -90,6 +202,10 @@
   color: #667eea;
   font-weight: 700;
   font-size: 1.2rem;
+}
+
+.brief-publico-page--cliente .brief-subtitle {
+  color: #fff !important;
 }
 
 .brief-address {
@@ -150,15 +266,17 @@
   margin: 0;
   color: #1f2937;
   font-size: 1.5rem;
+  font-weight: 700;
   border-bottom: 2px solid #667eea;
-  padding-bottom: 8px;
+  padding-bottom: 12px;
 }
 
 .section-description {
-  color: #6b7280;
+  color: #4b5563;
   font-size: 0.95rem;
   margin: 0;
   line-height: 1.6;
+  font-weight: 500;
 }
 
 .form-group {

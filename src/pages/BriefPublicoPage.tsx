@@ -260,7 +260,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
   }
 
   return (
-    <div className="brief-publico-page">
+    <div className={`brief-publico-page ${props?.variant === 'cliente' ? 'brief-publico-page--cliente' : ''}`}>
       <div className="brief-container">
         <header className="brief-header">
           <div className="brief-logo">

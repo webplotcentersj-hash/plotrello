@@ -51,12 +51,14 @@
   margin: 0 0 8px 0;
   color: var(--text-primary);
   font-size: 2rem;
+  font-weight: 700;
 }
 
 .header-description {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 0.95rem;
+  opacity: 0.9;
 }
 
 .btn-back {
@@ -110,17 +112,18 @@
 .brief-card {
   background: var(--surface-card);
   border: 2px solid var(--surface-border);
-  border-radius: 16px;
-  padding: 24px;
-  transition: all 0.3s;
+  border-radius: 20px;
+  padding: 28px;
+  transition: all 0.35s ease;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .brief-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.2);
   border-color: #667eea;
 }
 

@@ -1,5 +1,7 @@
 .cliente-brief-form-page {
   min-height: 100vh;
+  background: linear-gradient(160deg, #0d1117 0%, #161b22 50%, #1a1a2e 100%);
+  padding: 24px 16px;
 }
 
 .cliente-brief-form-page .loading-container {
