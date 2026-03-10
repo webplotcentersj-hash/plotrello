@@ -20,6 +20,22 @@
   gap: 16px;
 }
 
+.tg-back-button {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tg-back-button:hover {
+  border-color: #f97316;
+  color: #fed7aa;
+}
+
 .tg-header-left h1 {
   margin: 0 0 4px 0;
   font-size: 1.6rem;
@@ -204,6 +220,48 @@
 
 .tg-table tbody tr:hover {
   background: rgba(30, 64, 175, 0.4);
+}
+
+.tg-input {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+}
+
+.tg-input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.6);
+}
+
+.tg-input-number {
+  max-width: 90px;
+}
+
+.tg-cantidad-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tg-save-button {
+  border-radius: 999px;
+  border: 1px solid rgba(249, 115, 22, 0.9);
+  background: rgba(249, 115, 22, 0.1);
+  color: #fed7aa;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tg-save-button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .tg-low {

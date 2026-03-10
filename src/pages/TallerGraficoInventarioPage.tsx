@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../services/supabaseClient'
 import './TallerGraficoInventarioPage.css'
@@ -16,9 +17,11 @@ type InventarioItem = {
 
 export default function TallerGraficoInventarioPage() {
   const { isAdmin, isTallerGrafico } = useAuth()
+  const navigate = useNavigate()
   const [items, setItems] = useState<InventarioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [savingId, setSavingId] = useState<number | null>(null)
 
   const tintaItems = items.filter(
     (item) =>
@@ -102,6 +105,13 @@ export default function TallerGraficoInventarioPage() {
           <h1>Inventario Taller Gráfico</h1>
           <p>Listado de insumos y materiales específicos del sector.</p>
         </div>
+        <button
+          type="button"
+          className="tg-back-button"
+          onClick={() => navigate('/')}
+        >
+          ← Volver al tablero
+        </button>
       </header>
 
       <main className="tg-main">
@@ -163,13 +173,13 @@ export default function TallerGraficoInventarioPage() {
             <table className="tg-table">
               <thead>
                 <tr>
-                  <th>Sector</th>
-                  <th>Categoría</th>
-                  <th>Marca</th>
-                  <th>Descripción</th>
-                  <th>Ancho</th>
-                  <th>Largo</th>
-                  <th>Cantidad</th>
+                  <th>SECTOR</th>
+                  <th>categoria</th>
+                  <th>marca</th>
+                  <th>Descripcion</th>
+                  <th>ANCHO</th>
+                  <th>LARGO</th>
+                  <th>CANTIDAD DE UNIDADES</th>
                 </tr>
               </thead>
               <tbody>
@@ -177,11 +187,117 @@ export default function TallerGraficoInventarioPage() {
                   <tr key={item.id}>
                     <td>{item.sector || '-'}</td>
                     <td>{item.categoria || '-'}</td>
-                    <td>{item.marca || '-'}</td>
-                    <td>{item.descripcion || '-'}</td>
-                    <td>{item.ancho ?? '-'}</td>
-                    <td>{item.largo ?? '-'}</td>
-                    <td>{item.cantidad_unidades ?? '-'}</td>
+                    <td>
+                      <input
+                        className="tg-input"
+                        value={item.marca || ''}
+                        onChange={(e) =>
+                          setItems((prev) =>
+                            prev.map((it) =>
+                              it.id === item.id ? { ...it, marca: e.target.value } : it
+                            )
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="tg-input"
+                        value={item.descripcion || ''}
+                        onChange={(e) =>
+                          setItems((prev) =>
+                            prev.map((it) =>
+                              it.id === item.id ? { ...it, descripcion: e.target.value } : it
+                            )
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="tg-input tg-input-number"
+                        value={item.ancho ?? ''}
+                        onChange={(e) =>
+                          setItems((prev) =>
+                            prev.map((it) =>
+                              it.id === item.id
+                                ? { ...it, ancho: e.target.value === '' ? null : Number(e.target.value) }
+                                : it
+                            )
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="tg-input tg-input-number"
+                        value={item.largo ?? ''}
+                        onChange={(e) =>
+                          setItems((prev) =>
+                            prev.map((it) =>
+                              it.id === item.id
+                                ? { ...it, largo: e.target.value === '' ? null : Number(e.target.value) }
+                                : it
+                            )
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <div className="tg-cantidad-cell">
+                        <input
+                          type="number"
+                          className="tg-input tg-input-number"
+                          value={item.cantidad_unidades ?? ''}
+                          onChange={(e) =>
+                            setItems((prev) =>
+                              prev.map((it) =>
+                                it.id === item.id
+                                  ? {
+                                      ...it,
+                                      cantidad_unidades:
+                                        e.target.value === '' ? null : Number(e.target.value)
+                                    }
+                                  : it
+                              )
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="tg-save-button"
+                          disabled={savingId === item.id}
+                          onClick={async () => {
+                            if (!supabase) return
+                            setSavingId(item.id)
+                            setError(null)
+                            try {
+                              const { error: err } = await supabase
+                                .from('inventario_taller_grafico')
+                                .update({
+                                  marca: item.marca,
+                                  descripcion: item.descripcion,
+                                  ancho: item.ancho,
+                                  largo: item.largo,
+                                  cantidad_unidades: item.cantidad_unidades
+                                })
+                                .eq('id', item.id)
+                              if (err) setError(err.message)
+                            } catch (e) {
+                              setError('Error al guardar cambios')
+                            } finally {
+                              setSavingId(null)
+                            }
+                          }}
+                        >
+                          {savingId === item.id ? 'Guardando…' : 'Guardar'}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
