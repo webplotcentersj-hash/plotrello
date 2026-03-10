@@ -345,6 +345,31 @@
   color: var(--text-muted);
 }
 
+.atencion-publico-item-op {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.atencion-publico-modal-op {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.atencion-publico-modal-foto-link {
+  display: block;
+  margin: 0 0 12px 0;
+}
+
+.atencion-publico-modal-foto {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  object-fit: contain;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 .atencion-publico-item-preview {
   color: var(--text-muted);
   white-space: nowrap;
@@ -945,6 +970,7 @@
 .atencion-publico-reclamos-dark .atencion-publico-item-nombre,
 .atencion-publico-reclamos-dark .atencion-publico-item-desc,
 .atencion-publico-reclamos-dark .atencion-publico-item-contacto,
+.atencion-publico-reclamos-dark .atencion-publico-item-op,
 .atencion-publico-reclamos-dark .atencion-publico-item-asignado,
 .atencion-publico-reclamos-dark .atencion-publico-item-notas {
   color: #e2e8f0;
@@ -989,6 +1015,7 @@
 .atencion-publico-modal-dark.atencion-publico-modal h3,
 .atencion-publico-modal-dark.atencion-publico-modal .atencion-publico-item-desc,
 .atencion-publico-modal-dark.atencion-publico-modal .atencion-publico-modal-contacto,
+.atencion-publico-modal-dark.atencion-publico-modal .atencion-publico-modal-op,
 .atencion-publico-modal-dark.atencion-publico-modal .atencion-publico-form-group label {
   color: #e2e8f0;
 }

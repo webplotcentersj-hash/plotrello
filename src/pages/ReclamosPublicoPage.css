@@ -24,6 +24,25 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.reclamos-publico-header-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.reclamos-publico-logo {
+  height: 56px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+  flex-shrink: 0;
+}
+
+.reclamos-publico-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .reclamos-publico-header h1 {
   margin: 0 0 8px 0;
   font-size: 1.75rem;
@@ -149,6 +168,21 @@
   .reclamos-publico-row {
     grid-template-columns: 1fr;
   }
+
+  .reclamos-publico-header-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .reclamos-publico-header {
+    padding: 24px 20px;
+  }
+
+  .reclamos-publico-form,
+  .reclamos-publico-tabs {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
 }
 
 .reclamos-publico-btn {
@@ -191,6 +225,12 @@
 .reclamos-publico-success {
   padding: 48px 40px;
   text-align: center;
+}
+
+.reclamos-publico-success .reclamos-publico-logo {
+  display: block;
+  margin: 0 auto 20px;
+  height: 52px;
 }
 
 .reclamos-publico-success-icon {
@@ -304,4 +344,82 @@
   margin: 0;
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.5);
+}
+
+.reclamos-publico-reclamo-op {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.reclamos-publico-reclamo-foto-link {
+  display: block;
+  margin: 8px 0;
+}
+
+.reclamos-publico-reclamo-foto {
+  max-width: 100%;
+  max-height: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.reclamos-publico-foto-upload {
+  margin-top: 4px;
+}
+
+.reclamos-publico-foto-input {
+  display: none;
+}
+
+.reclamos-publico-foto-btn {
+  display: inline-block;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.reclamos-publico-foto-btn:hover {
+  border-color: rgba(235, 103, 27, 0.6);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.reclamos-publico-foto-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.reclamos-publico-foto-preview img {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.reclamos-publico-foto-remove {
+  display: block;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.reclamos-publico-foto-remove:hover {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+.reclamos-publico-foto-uploading {
+  margin: 8px 0 0 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
 }

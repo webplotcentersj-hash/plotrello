@@ -98,6 +98,8 @@ type Reclamo = {
   cliente_nombre: string | null
   cliente_email: string | null
   cliente_telefono?: string | null
+  numero_op?: string | null
+  foto_producto_url?: string | null
   descripcion: string
   estado: string
   prioridad: string
@@ -136,7 +138,7 @@ const AtencionPublicoDashboardPage = () => {
   const [modalReclamoEditar, setModalReclamoEditar] = useState<Reclamo | null>(null)
   const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '', usuario_asignado_id: null as number | null, sector_id: null as number | null })
   const [showCrearReclamo, setShowCrearReclamo] = useState(false)
-  const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', descripcion: '', prioridad: 'media', sector_id: null as number | null })
+  const [nuevoReclamoForm, setNuevoReclamoForm] = useState({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', numero_op: '', descripcion: '', prioridad: 'media', sector_id: null as number | null })
   const [usuarios, setUsuarios] = useState<Array<{ id: number; nombre: string }>>([])
   const [sectores, setSectores] = useState<Sector[]>([])
   const [searchReclamos, setSearchReclamos] = useState('')
@@ -378,7 +380,8 @@ const AtencionPublicoDashboardPage = () => {
           (q && (r.cliente_nombre || '').toLowerCase().includes(q)) ||
           (q && (r.cliente_email || '').toLowerCase().includes(q)) ||
           (qDigits.length >= 2 && (r.cliente_telefono || '').replace(/\D/g, '').includes(qDigits)) ||
-          (q && (r.descripcion || '').toLowerCase().includes(q))
+          (q && (r.descripcion || '').toLowerCase().includes(q)) ||
+          (q && (r.numero_op || '').toLowerCase().includes(q))
       )
     }
     if (filtroEstadoReclamos) {
@@ -774,6 +777,9 @@ const AtencionPublicoDashboardPage = () => {
                         <span className={`atencion-publico-badge atencion-publico-badge-${r.estado}`}>{estadoLabel(r.estado)}</span>
                         <span className={`atencion-publico-badge atencion-publico-prioridad-${r.prioridad}`}>{r.prioridad}</span>
                       </div>
+                      {r.numero_op && (
+                        <p className="atencion-publico-item-op">📋 OP #{r.numero_op}</p>
+                      )}
                       <p className="atencion-publico-item-desc">{r.descripcion}</p>
                       {(r.cliente_email || r.cliente_telefono) && (
                         <p className="atencion-publico-item-contacto">
@@ -836,6 +842,14 @@ const AtencionPublicoDashboardPage = () => {
           <div className="atencion-publico-modal atencion-publico-modal-dark" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="atencion-publico-modal-close" onClick={() => setModalReclamoEditar(null)} aria-label="Cerrar">✕</button>
             <h3>Editar reclamo #{modalReclamoEditar.id}</h3>
+            {modalReclamoEditar.numero_op && (
+              <p className="atencion-publico-modal-op">📋 OP #{modalReclamoEditar.numero_op}</p>
+            )}
+            {modalReclamoEditar.foto_producto_url && (
+              <a href={modalReclamoEditar.foto_producto_url} target="_blank" rel="noopener noreferrer" className="atencion-publico-modal-foto-link">
+                <img src={modalReclamoEditar.foto_producto_url} alt="Foto del producto" className="atencion-publico-modal-foto" />
+              </a>
+            )}
             {(modalReclamoEditar.cliente_email || modalReclamoEditar.cliente_telefono) && (
               <p className="atencion-publico-modal-contacto">
                 {modalReclamoEditar.cliente_email && <span>✉️ {modalReclamoEditar.cliente_email}</span>}
@@ -964,6 +978,15 @@ const AtencionPublicoDashboardPage = () => {
               />
             </div>
             <div className="atencion-publico-form-group">
+              <label>Número de OP (opcional)</label>
+              <input
+                type="text"
+                value={nuevoReclamoForm.numero_op}
+                onChange={(e) => setNuevoReclamoForm((f) => ({ ...f, numero_op: e.target.value }))}
+                placeholder="Ej: 12345"
+              />
+            </div>
+            <div className="atencion-publico-form-group">
               <label>Descripción *</label>
               <textarea
                 value={nuevoReclamoForm.descripcion}
@@ -1010,6 +1033,7 @@ const AtencionPublicoDashboardPage = () => {
                     cliente_nombre: nuevoReclamoForm.cliente_nombre || null,
                     cliente_email: nuevoReclamoForm.cliente_email || null,
                     cliente_telefono: nuevoReclamoForm.cliente_telefono || null,
+                    numero_op: nuevoReclamoForm.numero_op || null,
                     descripcion: nuevoReclamoForm.descripcion.trim(),
                     prioridad: nuevoReclamoForm.prioridad,
                     sector_id: nuevoReclamoForm.sector_id,
@@ -1018,7 +1042,7 @@ const AtencionPublicoDashboardPage = () => {
                   if (res.success) {
                     await loadReclamos()
                     setShowCrearReclamo(false)
-                    setNuevoReclamoForm({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', descripcion: '', prioridad: 'media', sector_id: null })
+                    setNuevoReclamoForm({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', numero_op: '', descripcion: '', prioridad: 'media', sector_id: null })
                   } else {
                     alert(res.error || 'Error al crear reclamo')
                   }

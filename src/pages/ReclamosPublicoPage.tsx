@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import apiService from '../services/api'
+import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import './ReclamosPublicoPage.css'
 
 const SECTORES = [
@@ -27,10 +28,15 @@ const ReclamosPublicoPage = () => {
     cliente_nombre: '',
     cliente_email: '',
     cliente_telefono: '',
+    numero_op: '',
     descripcion: '',
     prioridad: 'media' as 'baja' | 'media' | 'alta' | 'urgente',
     sector_id: null as number | null
   })
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  const [uploadingFoto, setUploadingFoto] = useState(false)
+  const fotoInputRef = useRef<HTMLInputElement>(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -41,7 +47,7 @@ const ReclamosPublicoPage = () => {
   const [searchTelefono, setSearchTelefono] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [reclamosEncontrados, setReclamosEncontrados] = useState<Array<{ id: number; descripcion: string; estado: string; created_at: string }>>([])
+  const [reclamosEncontrados, setReclamosEncontrados] = useState<Array<{ id: number; descripcion: string; estado: string; numero_op: string | null; foto_producto_url: string | null; created_at: string }>>([])
   const [activeTab, setActiveTab] = useState<'form' | 'buscar'>('form')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,10 +73,26 @@ const ReclamosPublicoPage = () => {
 
     setSending(true)
     try {
+      let fotoUrl: string | null = null
+      if (fotoFile) {
+        setUploadingFoto(true)
+        try {
+          fotoUrl = await uploadAttachmentAndGetUrl(fotoFile, 'reclamos')
+        } catch (uploadErr) {
+          setError(uploadErr instanceof Error ? uploadErr.message : 'Error al subir la foto')
+          setSending(false)
+          setUploadingFoto(false)
+          return
+        }
+        setUploadingFoto(false)
+      }
+
       const res = await apiService.crearReclamoAtencion({
         cliente_nombre: form.cliente_nombre.trim() || null,
         cliente_email: email,
         cliente_telefono: form.cliente_telefono.trim() || null,
+        numero_op: form.numero_op.trim() || null,
+        foto_producto_url: fotoUrl,
         descripcion: desc,
         prioridad: form.prioridad,
         sector_id: form.sector_id,
@@ -80,7 +102,9 @@ const ReclamosPublicoPage = () => {
       if (res.success && res.data) {
         setSuccess(true)
         setReclamoId(res.data.id)
-        setForm({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', descripcion: '', prioridad: 'media', sector_id: null })
+        setForm({ cliente_nombre: '', cliente_email: '', cliente_telefono: '', numero_op: '', descripcion: '', prioridad: 'media', sector_id: null })
+        setFotoFile(null)
+        setFotoPreview(null)
       } else {
         setError(res.error || 'No se pudo enviar el reclamo. Intentá nuevamente.')
       }
@@ -135,6 +159,7 @@ const ReclamosPublicoPage = () => {
       <div className="reclamos-publico-page">
         <div className="reclamos-publico-container">
           <div className="reclamos-publico-success">
+            <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" className="reclamos-publico-logo" />
             <span className="reclamos-publico-success-icon">✓</span>
             <h1>Reclamo enviado</h1>
             <p className="reclamos-publico-success-id">
@@ -160,8 +185,13 @@ const ReclamosPublicoPage = () => {
     <div className="reclamos-publico-page">
       <div className="reclamos-publico-container">
         <header className="reclamos-publico-header">
-          <h1>Formulario de reclamos</h1>
-          <p>Completá el formulario y te responderemos lo antes posible. Podés consultar el estado con tu email o teléfono.</p>
+          <div className="reclamos-publico-header-content">
+            <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" className="reclamos-publico-logo" />
+            <div className="reclamos-publico-header-text">
+              <h1>Formulario de reclamos</h1>
+              <p>Completá el formulario y te responderemos lo antes posible. Podés consultar el estado con tu email o teléfono.</p>
+            </div>
+          </div>
         </header>
 
         <div className="reclamos-publico-tabs">
@@ -228,6 +258,18 @@ const ReclamosPublicoPage = () => {
             </div>
 
             <div className="reclamos-publico-field">
+              <label htmlFor="numero_op">Número de OP</label>
+              <input
+                id="numero_op"
+                type="text"
+                value={form.numero_op}
+                onChange={(e) => setForm((f) => ({ ...f, numero_op: e.target.value }))}
+                placeholder="Ej: 12345"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="reclamos-publico-field">
               <label htmlFor="descripcion">Descripción del reclamo *</label>
               <textarea
                 id="descripcion"
@@ -254,8 +296,8 @@ const ReclamosPublicoPage = () => {
                 </select>
               </div>
 
-              <div className="reclamos-publico-field">
-                <label htmlFor="sector">Área relacionada</label>
+<div className="reclamos-publico-field">
+              <label htmlFor="sector">Área relacionada</label>
                 <select
                   id="sector"
                   value={form.sector_id ?? ''}
@@ -270,10 +312,52 @@ const ReclamosPublicoPage = () => {
               </div>
             </div>
 
+            <div className="reclamos-publico-field">
+              <label>Foto del producto</label>
+              <div className="reclamos-publico-foto-upload">
+                <input
+                  ref={fotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="reclamos-publico-foto-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setFotoFile(file)
+                      const reader = new FileReader()
+                      reader.onload = () => setFotoPreview(reader.result as string)
+                      reader.readAsDataURL(file)
+                    }
+                  }}
+                />
+                {fotoPreview ? (
+                  <div className="reclamos-publico-foto-preview">
+                    <img src={fotoPreview} alt="Vista previa" />
+                    <button
+                      type="button"
+                      className="reclamos-publico-foto-remove"
+                      onClick={() => { setFotoFile(null); setFotoPreview(null); if (fotoInputRef.current) fotoInputRef.current.value = '' }}
+                    >
+                      ✕ Quitar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="reclamos-publico-foto-btn"
+                    onClick={() => fotoInputRef.current?.click()}
+                  >
+                    📷 Agregar foto del producto
+                  </button>
+                )}
+              </div>
+              {uploadingFoto && <p className="reclamos-publico-foto-uploading">Subiendo imagen...</p>}
+            </div>
+
             <button
               type="submit"
               className="reclamos-publico-btn reclamos-publico-btn-primary"
-              disabled={sending}
+              disabled={sending || uploadingFoto}
             >
               {sending ? 'Enviando...' : 'Enviar reclamo'}
             </button>
@@ -324,10 +408,16 @@ const ReclamosPublicoPage = () => {
                   <div key={r.id} className="reclamos-publico-reclamo-card">
                     <div className="reclamos-publico-reclamo-header">
                       <span className="reclamos-publico-reclamo-id">#{r.id}</span>
+                      {r.numero_op && <span className="reclamos-publico-reclamo-op">OP #{r.numero_op}</span>}
                       <span className={`reclamos-publico-reclamo-estado estado-${r.estado}`}>
                         {ESTADO_LABELS[r.estado] || r.estado}
                       </span>
                     </div>
+                    {r.foto_producto_url && (
+                      <a href={r.foto_producto_url} target="_blank" rel="noopener noreferrer" className="reclamos-publico-reclamo-foto-link">
+                        <img src={r.foto_producto_url} alt="Foto del producto" className="reclamos-publico-reclamo-foto" />
+                      </a>
+                    )}
                     <p className="reclamos-publico-reclamo-desc">{r.descripcion}</p>
                     <p className="reclamos-publico-reclamo-fecha">{formatFecha(r.created_at)}</p>
                   </div>

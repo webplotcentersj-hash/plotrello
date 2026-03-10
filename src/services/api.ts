@@ -2467,6 +2467,8 @@ class ApiService {
     notas_internas: string | null
     usuario_asignado_id: number | null
     sector_id: number | null
+    numero_op: string | null
+    foto_producto_url: string | null
     created_at: string
     updated_at: string
   }>>> {
@@ -2474,7 +2476,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_reclamos')
-        .select('id, cliente_nombre, cliente_email, cliente_telefono, descripcion, estado, prioridad, notas_internas, usuario_asignado_id, sector_id, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, cliente_telefono, descripcion, estado, prioridad, notas_internas, usuario_asignado_id, sector_id, numero_op, foto_producto_url, created_at, updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) return { success: false, error: error.message }
@@ -2523,6 +2525,8 @@ class ApiService {
     prioridad?: string
     estado?: string
     sector_id?: number | null
+    numero_op?: string | null
+    foto_producto_url?: string | null
   }): Promise<ApiResponse<{ id: number }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
@@ -2533,7 +2537,9 @@ class ApiService {
         p_prioridad: reclamo.prioridad || 'media',
         p_estado: reclamo.estado || 'nuevo',
         p_sector_id: reclamo.sector_id ?? null,
-        p_cliente_telefono: reclamo.cliente_telefono || null
+        p_cliente_telefono: reclamo.cliente_telefono || null,
+        p_numero_op: reclamo.numero_op || null,
+        p_foto_producto_url: reclamo.foto_producto_url || null
       })
       if (error) return { success: false, error: error.message }
       const reclamoId = (data as any)?.id
@@ -2548,6 +2554,8 @@ class ApiService {
     id: number
     descripcion: string
     estado: string
+    numero_op: string | null
+    foto_producto_url: string | null
     created_at: string
   }>>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
@@ -2557,7 +2565,7 @@ class ApiService {
         p_telefono: telefono?.trim() || null
       })
       if (error) return { success: false, error: error.message }
-      const rows = (data || []) as Array<{ id: number; descripcion: string; estado: string; created_at: string }>
+      const rows = (data || []) as Array<{ id: number; descripcion: string; estado: string; numero_op: string | null; foto_producto_url: string | null; created_at: string }>
       return { success: true, data: rows }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al buscar reclamos' }
