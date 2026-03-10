@@ -184,7 +184,7 @@ const Header = ({
                 👥 Recursos Humanos
               </button>
             )}
-            {(isAdmin || isMostrador || isPresupuestos) && onNavigateToClientesWeb && (
+            {(isAdmin || isMostrador || isPresupuestos || canManageCaja) && onNavigateToClientesWeb && (
               <button className="brand-button" onClick={onNavigateToClientesWeb}>
                 Clientes
               </button>

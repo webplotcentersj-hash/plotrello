@@ -15,6 +15,9 @@ const CuentaCorrientePage = () => {
   const [agregandoId, setAgregandoId] = useState<number | null>(null)
   const [quitandoId, setQuitandoId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [crearNuevo, setCrearNuevo] = useState(false)
+  const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', dni_cuit: '', telefono: '', email: '' })
+  const [creando, setCreando] = useState(false)
 
   const loadClientes = async () => {
     setLoading(true)
@@ -74,6 +77,40 @@ const CuentaCorrientePage = () => {
     }
   }
 
+  const crearYAgregar = async () => {
+    if (!nuevoCliente.nombre.trim()) {
+      setError('El nombre es obligatorio')
+      return
+    }
+    setCreando(true)
+    setError(null)
+    try {
+      const res = await apiService.buscarOCrearCliente({
+        nombre: nuevoCliente.nombre.trim(),
+        dni_cuit: nuevoCliente.dni_cuit.trim() || undefined,
+        telefono: nuevoCliente.telefono.trim() || undefined,
+        email: nuevoCliente.email.trim() || undefined
+      })
+      if (!res.success || !res.data) {
+        setError(res.error || 'Error al crear cliente')
+        return
+      }
+      const agregarRes = await apiService.agregarClienteCuentaCorriente(res.data.id)
+      if (agregarRes.success) {
+        setClientes((prev) => [res.data!, ...prev])
+        setNuevoCliente({ nombre: '', dni_cuit: '', telefono: '', email: '' })
+        setCrearNuevo(false)
+        setBusqueda('')
+        setResultadosBusqueda([])
+        setShowAgregar(false)
+      } else setError(agregarRes.error || 'Error al agregar a cuenta corriente')
+    } catch {
+      setError('Error al crear cliente')
+    } finally {
+      setCreando(false)
+    }
+  }
+
   const quitar = async (idCliente: number) => {
     if (!confirm('¿Quitar a este cliente de Cuenta Corriente?')) return
     setQuitandoId(idCliente)
@@ -126,6 +163,7 @@ const CuentaCorrientePage = () => {
                 setShowAgregar((prev) => !prev)
                 setBusqueda('')
                 setResultadosBusqueda([])
+                setCrearNuevo(false)
               }}
             >
               ➕ Agregar cliente
@@ -180,9 +218,65 @@ const CuentaCorrientePage = () => {
             </ul>
           )}
           {busqueda.trim().length >= 2 && !buscando && resultadosBusqueda.length === 0 && (
-            <p className="cuenta-corriente-sin-resultados">
-              No se encontraron clientes o ya están en la lista.
-            </p>
+            <div className="cuenta-corriente-sin-resultados">
+              <p>No se encontraron clientes o ya están en la lista.</p>
+              {!crearNuevo ? (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setCrearNuevo(true)
+                    setNuevoCliente({ ...nuevoCliente, nombre: busqueda.trim() })
+                  }}
+                >
+                  ➕ Crear cliente nuevo y agregar
+                </button>
+              ) : (
+                <div className="cuenta-corriente-crear-form">
+                  <input
+                    type="text"
+                    placeholder="Nombre *"
+                    value={nuevoCliente.nombre}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })}
+                    className="cuenta-corriente-input"
+                  />
+                  <input
+                    type="text"
+                    placeholder="DNI/CUIT"
+                    value={nuevoCliente.dni_cuit}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, dni_cuit: e.target.value })}
+                    className="cuenta-corriente-input"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Teléfono"
+                    value={nuevoCliente.telefono}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })}
+                    className="cuenta-corriente-input"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={nuevoCliente.email}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, email: e.target.value })}
+                    className="cuenta-corriente-input"
+                  />
+                  <div className="cuenta-corriente-crear-actions">
+                    <button type="button" className="btn-secondary" onClick={() => setCrearNuevo(false)}>
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={crearYAgregar}
+                      disabled={creando || !nuevoCliente.nombre.trim()}
+                    >
+                      {creando ? 'Creando...' : 'Crear y agregar'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </section>
       )}

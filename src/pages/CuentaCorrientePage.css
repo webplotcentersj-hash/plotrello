@@ -161,6 +161,30 @@
   font-size: 0.95rem;
 }
 
+.cuenta-corriente-sin-resultados p {
+  margin: 0 0 12px 0;
+}
+
+.cuenta-corriente-crear-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.cuenta-corriente-crear-form .cuenta-corriente-input {
+  max-width: none;
+}
+
+.cuenta-corriente-crear-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
 .cuenta-corriente-lista h2 {
   margin: 0 0 16px 0;
   font-size: 1.25rem;

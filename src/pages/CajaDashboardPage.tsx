@@ -257,6 +257,12 @@ const CajaDashboardPage = () => {
           <h1>💰 Dashboard de Caja</h1>
           <div className="caja-header-actions">
             <button 
+              className="btn-secondary"
+              onClick={() => navigate('/clientes-web/dashboard')}
+            >
+              👤 Clientes
+            </button>
+            <button 
               className="btn-primary"
               onClick={() => navigate('/crm-ventas')}
             >
