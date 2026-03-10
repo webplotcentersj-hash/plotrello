@@ -5,6 +5,19 @@ import apiService from '../services/api'
 import type { PedidoClienteRecord } from '../types/api'
 import './ClienteDashboardPage.css'
 
+type BriefResumen = {
+  id: number
+  token: string
+  completado: boolean
+  id_orden_asociada: number | null
+  numero_op: string | null
+  fecha_creacion: string | null
+  fecha_completado: string | null
+  es_urgencia: boolean | null
+  objetivo_proyecto: string | null
+  estado?: string | null
+}
+
 export default function ClienteDashboardPage() {
   const { cliente, logout, loading: authLoading } = useClienteAuth()
   const navigate = useNavigate()
@@ -13,6 +26,8 @@ export default function ClienteDashboardPage() {
   const [error, setError] = useState('')
   const [searchOp, setSearchOp] = useState('')
   const [searchPedido, setSearchPedido] = useState('')
+  const [briefs, setBriefs] = useState<BriefResumen[]>([])
+  const [loadingBriefs, setLoadingBriefs] = useState(false)
 
   const loadPedidos = useCallback(async () => {
     if (!cliente) return
@@ -34,6 +49,19 @@ export default function ClienteDashboardPage() {
     }
   }, [cliente])
 
+  const loadBriefs = useCallback(async () => {
+    if (!cliente) return
+    setLoadingBriefs(true)
+    try {
+      const response = await apiService.listarBriefsPorCliente(cliente.id)
+      if (response.success && response.data) {
+        setBriefs(response.data as BriefResumen[])
+      }
+    } finally {
+      setLoadingBriefs(false)
+    }
+  }, [cliente])
+
   useEffect(() => {
     // Esperar a que termine la carga de autenticación antes de verificar
     if (authLoading) {
@@ -49,7 +77,8 @@ export default function ClienteDashboardPage() {
     }
     console.log('Cliente encontrado, cargando pedidos...')
     loadPedidos()
-  }, [cliente, authLoading, navigate, loadPedidos])
+    loadBriefs()
+  }, [cliente, authLoading, navigate, loadPedidos, loadBriefs])
 
   const getEstadoColor = (estado: PedidoClienteRecord['estado']) => {
     const colors: Record<string, string> = {
@@ -73,6 +102,62 @@ export default function ClienteDashboardPage() {
       cancelado: 'Cancelado'
     }
     return labels[estado] || estado
+  }
+
+  const getEstadoBriefColor = (brief: BriefResumen) => {
+    if (!brief.completado) return '#f59e0b'
+    if (brief.id_orden_asociada && brief.estado) {
+      const colorMap: Record<string, string> = {
+        'Pendiente': '#6B7280',
+        'Asesor Técnico': '#8b5cf6',
+        'Presupuestos': '#8b5cf6',
+        'Finalizado Asesor Presupuestos': '#10b981',
+        'Diseño Gráfico': '#f97316',
+        'Diseño en Proceso': '#f97316',
+        'En Espera': '#6B7280',
+        'Imprenta (Área de Impresión)': '#0ea5e9',
+        'Taller de Imprenta': '#0ea5e9',
+        'Taller Gráfico': '#6366f1',
+        'Instalaciones': '#a855f7',
+        'Metalúrgica': '#ec4899',
+        'Finalizado en Taller': '#10b981',
+        'Almacén de Entrega': '#10b981',
+        'Mostrador': '#10b981',
+        'Caja': '#facc15',
+        'Entregado o Instalado': '#16a34a'
+      }
+      return colorMap[brief.estado] || '#10b981'
+    }
+    if (brief.id_orden_asociada) return '#10b981'
+    return '#3b82f6'
+  }
+
+  const getEstadoBriefLabel = (brief: BriefResumen) => {
+    if (!brief.completado) return 'En edición'
+    if (brief.id_orden_asociada && brief.estado) {
+      const estadosMap: Record<string, string> = {
+        'Pendiente': 'Recibimos tu pedido',
+        'Asesor Técnico': 'Revisando tu pedido',
+        'Presupuestos': 'Preparando tu presupuesto',
+        'Finalizado Asesor Presupuestos': 'Tu presupuesto está listo',
+        'Diseño Gráfico': 'Diseñando tu trabajo',
+        'Diseño en Proceso': 'Diseñando tu trabajo',
+        'En Espera': 'En cola de producción',
+        'Imprenta (Área de Impresión)': 'Imprimiendo tu trabajo',
+        'Taller de Imprenta': 'En taller de impresión',
+        'Taller Gráfico': 'En taller gráfico',
+        'Instalaciones': 'Instalando tu trabajo',
+        'Metalúrgica': 'Fabricando estructuras',
+        'Finalizado en Taller': 'Listo en taller',
+        'Almacén de Entrega': 'Listo para retirar',
+        'Entregado o Instalado': 'Entregado'
+      }
+      return estadosMap[brief.estado] || brief.estado
+    }
+    if (brief.id_orden_asociada) {
+      return `OP ${brief.numero_op || brief.id_orden_asociada}`
+    }
+    return 'Completado - Pendiente de asignación'
   }
 
   const formatDate = (dateStr: string) => {
@@ -246,6 +331,60 @@ export default function ClienteDashboardPage() {
         {error && (
           <div className="cliente-error-message">
             {error}
+          </div>
+        )}
+
+        {briefs.length > 0 && (
+          <div className="cliente-briefs-resumen-section">
+            <h2>Pedidos de Diseño</h2>
+            <p className="section-desc">
+              Tus últimos pedidos de diseño y su estado actual en producción.
+            </p>
+            <div className="cliente-briefs-resumen-list">
+              {briefs.slice(0, 3).map((brief) => (
+                <div
+                  key={brief.id}
+                  className={`cliente-brief-resumen-card ${brief.es_urgencia ? 'urgente' : ''}`}
+                  onClick={() => navigate(`/cliente/brief/${brief.token}`)}
+                >
+                  <div className="brief-resumen-header">
+                    <div>
+                      <h3>Brief #{brief.id}</h3>
+                      <p className="brief-resumen-fecha">
+                        {formatDate(
+                          (brief.fecha_completado || brief.fecha_creacion || new Date().toISOString())
+                        )}
+                      </p>
+                    </div>
+                    <div
+                      className="brief-resumen-estado"
+                      style={{ backgroundColor: getEstadoBriefColor(brief) }}
+                    >
+                      {getEstadoBriefLabel(brief)}
+                    </div>
+                  </div>
+                  {brief.objetivo_proyecto && (
+                    <p className="brief-resumen-objetivo">
+                      {brief.objetivo_proyecto.length > 90
+                        ? `${brief.objetivo_proyecto.slice(0, 90)}...`
+                        : brief.objetivo_proyecto}
+                    </p>
+                  )}
+                  {brief.es_urgencia && (
+                    <span className="badge badge-urgente">⚡ Urgente</span>
+                  )}
+                </div>
+              ))}
+              {briefs.length > 3 && (
+                <button
+                  className="btn-link-ver-mas"
+                  onClick={() => navigate('/cliente/disenos')}
+                  disabled={loadingBriefs}
+                >
+                  Ver todos los pedidos de diseño
+                </button>
+              )}
+            </div>
           </div>
         )}
 

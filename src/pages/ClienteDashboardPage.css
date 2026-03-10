@@ -160,6 +160,100 @@
   margin-bottom: 40px;
 }
 
+.cliente-briefs-resumen-section {
+  margin-bottom: 32px;
+}
+
+.cliente-briefs-resumen-section h2 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.cliente-briefs-resumen-section .section-desc {
+  margin: 0 0 16px 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.cliente-briefs-resumen-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.cliente-brief-resumen-card {
+  background: linear-gradient(145deg, rgba(26, 29, 46, 0.9) 0%, rgba(22, 33, 62, 0.85) 100%);
+  border-radius: 16px;
+  border: 2px solid rgba(235, 103, 27, 0.2);
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.cliente-brief-resumen-card.urgente {
+  border-left: 4px solid #f59e0b;
+}
+
+.cliente-brief-resumen-card:hover {
+  border-color: rgba(235, 103, 27, 0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(235, 103, 27, 0.25);
+}
+
+.brief-resumen-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.brief-resumen-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.brief-resumen-fecha {
+  margin: 2px 0 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.brief-resumen-estado {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.brief-resumen-objetivo {
+  margin: 4px 0 0 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.btn-link-ver-mas {
+  margin-top: 4px;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  color: #eb671b;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.btn-link-ver-mas:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
 .stat-card {
   background: linear-gradient(145deg, rgba(26, 29, 46, 0.9) 0%, rgba(22, 33, 62, 0.85) 100%);
   border: 2px solid rgba(235, 103, 27, 0.25);
