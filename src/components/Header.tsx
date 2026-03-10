@@ -61,7 +61,16 @@ const Header = ({
   isMostrador = false,
   isDiseno = false
 }: HeaderProps) => {
-  const { canManageCompras, canManageCaja, canManageRecursosHumanos, isAdmin: isAdminFromAuth, isAsesorTecnico, isPresupuestos, canAccessAtencionPublico } = useAuth()
+  const {
+    canManageCompras,
+    canManageCaja,
+    canManageRecursosHumanos,
+    isAdmin: isAdminFromAuth,
+    isAsesorTecnico,
+    isPresupuestos,
+    canAccessAtencionPublico,
+    isTallerGrafico
+  } = useAuth()
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -193,6 +202,14 @@ const Header = ({
               <button className="brand-button" onClick={onNavigateToAsesorPresupuestos}>
                 📐 DT
               </button>
+            )}
+            {(isTallerGrafico || isAdmin) && (
+              <a
+                href="/taller-grafico/inventario"
+                className="brand-button"
+              >
+                🧴 Inventario Taller Gráfico
+              </a>
             )}
             {canAccessAtencionPublico && onNavigateToAtencionPublico && (
               <button className="brand-button" onClick={onNavigateToAtencionPublico}>
