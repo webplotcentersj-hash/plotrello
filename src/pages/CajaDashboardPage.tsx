@@ -263,6 +263,12 @@ const CajaDashboardPage = () => {
               👤 Clientes
             </button>
             <button 
+              className="btn-secondary"
+              onClick={() => navigate('/clientes-web/articulos')}
+            >
+              📦 Artículos
+            </button>
+            <button 
               className="btn-primary"
               onClick={() => navigate('/crm-ventas')}
             >

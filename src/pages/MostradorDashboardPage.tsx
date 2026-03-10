@@ -848,6 +848,13 @@ const MostradorDashboardPage = () => {
             <div className="accion-icon">👤</div>
             <div className="accion-label">Gestión de Clientes</div>
           </button>
+          <button 
+            className="accion-card"
+            onClick={() => navigate('/clientes-web/articulos')}
+          >
+            <div className="accion-icon">📦</div>
+            <div className="accion-label">Artículos de Empresa</div>
+          </button>
           <button
             className="accion-card"
             onClick={() => navigate('/atencion-publico')}
