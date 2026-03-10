@@ -126,6 +126,46 @@
   opacity: 0.95;
 }
 
+.brief-etapas {
+  margin: 12px 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  border-left: 3px solid rgba(235, 103, 27, 0.5);
+}
+
+.brief-etapas-titulo {
+  margin: 0 0 8px 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.brief-etapas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.brief-etapa-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.brief-etapa-sector {
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 120px;
+}
+
+.brief-etapa-valor {
+  color: #fff;
+  font-weight: 500;
+}
+
 .brief-tags {
   display: flex;
   flex-wrap: wrap;

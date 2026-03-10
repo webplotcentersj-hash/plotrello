@@ -19,7 +19,59 @@ type BriefRecord = {
   fecha_creacion: string | null
   fecha_completado: string | null
   es_urgencia: boolean | null
+  estado?: string | null
+  etapa_taller_grafico?: string | null
+  etapa_instalaciones?: string | null
+  etapa_taller_imprenta?: string | null
+  etapa_impresion_digital?: string | null
+  etapa_metalurgica?: string | null
 }
+
+const ESTADOS_DISPLAY: Record<string, string> = {
+  'Pendiente': 'Recibimos tu pedido',
+  'Asesor Técnico': 'Revisando tu pedido',
+  'Presupuestos': 'Preparando tu presupuesto',
+  'Finalizado Asesor Presupuestos': 'Tu presupuesto está listo',
+  'Diseño Gráfico': 'Diseñando tu trabajo',
+  'Diseño en Proceso': 'Diseñando tu trabajo',
+  'En Espera': 'En cola de producción',
+  'Imprenta (Área de Impresión)': 'Imprimiendo tu trabajo',
+  'Taller de Imprenta': 'En taller de impresión',
+  'Taller Gráfico': 'En taller gráfico',
+  'Instalaciones': 'Instalando tu trabajo',
+  'Metalúrgica': 'Fabricando estructuras',
+  'Finalizado en Taller': 'Listo en taller',
+  'Almacén de Entrega': 'Listo para retirar',
+  'Entregado o Instalado': 'Entregado'
+}
+
+const ESTADOS_COLOR: Record<string, string> = {
+  'Pendiente': '#6B7280',
+  'Asesor Técnico': '#8b5cf6',
+  'Presupuestos': '#8b5cf6',
+  'Finalizado Asesor Presupuestos': '#10b981',
+  'Diseño Gráfico': '#f97316',
+  'Diseño en Proceso': '#f97316',
+  'En Espera': '#6B7280',
+  'Imprenta (Área de Impresión)': '#0ea5e9',
+  'Taller de Imprenta': '#0ea5e9',
+  'Taller Gráfico': '#6366f1',
+  'Instalaciones': '#a855f7',
+  'Metalúrgica': '#ec4899',
+  'Finalizado en Taller': '#10b981',
+  'Almacén de Entrega': '#10b981',
+  'Mostrador': '#10b981',
+  'Caja': '#facc15',
+  'Entregado o Instalado': '#16a34a'
+}
+
+const ETAPAS_SECTOR: Array<{ key: keyof BriefRecord; label: string }> = [
+  { key: 'etapa_taller_grafico', label: 'Taller Gráfico' },
+  { key: 'etapa_instalaciones', label: 'Instalaciones' },
+  { key: 'etapa_taller_imprenta', label: 'Taller Imprenta' },
+  { key: 'etapa_impresion_digital', label: 'Impresión Digital' },
+  { key: 'etapa_metalurgica', label: 'Metalúrgica' }
+]
 
 export default function ClienteBriefsPage() {
   const { cliente, loading: authLoading } = useClienteAuth()
@@ -85,14 +137,32 @@ export default function ClienteBriefsPage() {
 
   const getEstadoLabel = (b: BriefRecord) => {
     if (!b.completado) return 'En edición'
+    if (b.id_orden_asociada && b.estado) {
+      const display = ESTADOS_DISPLAY[b.estado]
+      return display || b.estado
+    }
     if (b.id_orden_asociada) return `OP ${b.numero_op || b.id_orden_asociada}`
     return 'Completado - Pendiente de asignación'
   }
 
   const getEstadoColor = (b: BriefRecord) => {
     if (!b.completado) return '#f59e0b'
+    if (b.id_orden_asociada && b.estado) {
+      return ESTADOS_COLOR[b.estado] || '#10b981'
+    }
     if (b.id_orden_asociada) return '#10b981'
     return '#3b82f6'
+  }
+
+  const getEtapasActivas = (b: BriefRecord) => {
+    if (!b.id_orden_asociada) return []
+    return ETAPAS_SECTOR.filter(({ key }) => {
+      const val = b[key]
+      return val && String(val).trim() !== ''
+    }).map(({ key, label }) => ({
+      sector: label,
+      etapa: b[key] as string
+    }))
   }
 
   if (authLoading || loading) {
@@ -184,6 +254,25 @@ export default function ClienteBriefsPage() {
                     )}
                     {brief.brief_publico && (
                       <p className="brief-desc">{brief.brief_publico.slice(0, 120)}...</p>
+                    )}
+                    {brief.id_orden_asociada && brief.numero_op && (
+                      <div className="brief-etapas">
+                        <p className="brief-etapas-titulo">OP {brief.numero_op} — Etapas del pedido:</p>
+                        <div className="brief-etapas-lista">
+                          {getEtapasActivas(brief).length > 0 ? (
+                            getEtapasActivas(brief).map(({ sector, etapa }) => (
+                              <div key={sector} className="brief-etapa-item">
+                                <span className="brief-etapa-sector">{sector}:</span>
+                                <span className="brief-etapa-valor">{etapa}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="brief-etapa-item">
+                              <span className="brief-etapa-valor">{getEstadoLabel(brief)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                     {brief.tipo_producto_servicio && brief.tipo_producto_servicio.length > 0 && (
                       <div className="brief-tags">
