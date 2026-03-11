@@ -104,6 +104,30 @@ export default function ClienteDashboardPage() {
     return labels[estado] || estado
   }
 
+  const getEstadoOpColor = (estadoOp: string | null | undefined) => {
+    if (!estadoOp) return '#6b7280'
+    const colorMap: Record<string, string> = {
+      'Pendiente': '#6B7280',
+      'Asesor Técnico': '#8b5cf6',
+      'Presupuestos': '#8b5cf6',
+      'Finalizado Asesor Presupuestos': '#10b981',
+      'Diseño Gráfico': '#f97316',
+      'Diseño en Proceso': '#f97316',
+      'En Espera': '#6B7280',
+      'Imprenta (Área de Impresión)': '#0ea5e9',
+      'Taller de Imprenta': '#0ea5e9',
+      'Taller Gráfico': '#6366f1',
+      'Instalaciones': '#a855f7',
+      'Metalúrgica': '#ec4899',
+      'Finalizado en Taller': '#10b981',
+      'Almacén de Entrega': '#10b981',
+      'Mostrador': '#10b981',
+      'Caja': '#facc15',
+      'Entregado o Instalado': '#16a34a'
+    }
+    return colorMap[estadoOp] || '#6b7280'
+  }
+
   const getEstadoBriefColor = (brief: BriefResumen) => {
     if (!brief.completado) return '#f59e0b'
     if (brief.id_orden_asociada && brief.estado) {
@@ -391,7 +415,7 @@ export default function ClienteDashboardPage() {
         {pedidos.some(p => p.id_op_asociada) && (
           <div className="cliente-ops-section">
             <h2>Seguimiento de OP</h2>
-            <p className="section-desc">Tus órdenes de producción en curso</p>
+            <p className="section-desc">Tus órdenes de producción generadas desde el portal</p>
             <div className="cliente-ops-list">
               {pedidos
                 .filter(p => p.id_op_asociada)
@@ -401,10 +425,15 @@ export default function ClienteDashboardPage() {
                     className="cliente-op-card"
                     onClick={() => navigate(`/cliente/buscar-op/${pedido.id_op_asociada}`)}
                   >
-                    <span className="op-numero">OP-{pedido.id_op_asociada}</span>
+                    <span className="op-numero">
+                      {pedido.numero_op || `OP-${pedido.id_op_asociada}`}
+                    </span>
                     <span className="op-pedido">{pedido.numero_pedido}</span>
-                    <span className={`op-estado estado-${pedido.estado}`}>
-                      {getEstadoLabel(pedido.estado)}
+                    <span
+                      className="op-estado"
+                      style={{ backgroundColor: getEstadoOpColor(pedido.estado_op || null) }}
+                    >
+                      {pedido.estado_op || 'En producción'}
                     </span>
                   </div>
                 ))}

@@ -250,6 +250,8 @@ export interface PedidoClienteRecord {
   numero_pedido: string
   estado: 'pendiente' | 'en_revision' | 'aprobado' | 'rechazado' | 'convertido_parcial' | 'convertido_completo' | 'cancelado'
   id_op_asociada?: number | null
+  numero_op?: string | null
+  estado_op?: string | null
   fecha_pedido: string
   fecha_limite_deseada?: string | null
   observaciones_cliente?: string | null
