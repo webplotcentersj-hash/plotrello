@@ -49,19 +49,15 @@
 .embed-chat-scope .embed-chat-logo {
   display: flex;
   align-items: center;
-  gap: clamp(6px, 2vmin, 12px);
+  justify-content: center;
+  gap: 8px;
 }
 
-.embed-chat-scope .embed-chat-logo-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--embed-accent), #ea580c);
-  color: #fff;
-  font-size: 1.1rem;
-  border-radius: var(--embed-radius-sm);
+.embed-chat-scope .embed-chat-logo-image {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
