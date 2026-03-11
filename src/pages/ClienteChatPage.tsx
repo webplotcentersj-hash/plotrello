@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import './ClienteChatPage.css'
 
 export default function ClienteChatPage() {
@@ -14,6 +14,20 @@ export default function ClienteChatPage() {
     }
   }, [cliente, authLoading, navigate])
 
+  const embedUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !cliente) return ''
+    const apiBase = window.location.origin
+    const params = new URLSearchParams({
+      hideForm: '1',
+      modo: 'cliente_portal',
+      clienteId: String(cliente.id),
+      clienteNombre: cliente.nombre || '',
+      clienteEmpresa: cliente.empresa || '',
+      clienteEmail: cliente.email || ''
+    })
+    return `${apiBase}/embed/chat?${params.toString()}`
+  }, [cliente])
+
   if (authLoading) {
     return (
       <div className="cliente-chat-page">
@@ -26,16 +40,18 @@ export default function ClienteChatPage() {
 
   if (!cliente) return null
 
-  const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
-  const embedUrl = `${apiBase}/embed/chat?hideForm=1`
-
   return (
     <div className="cliente-chat-page">
       <header className="cliente-chat-header">
         <div className="cliente-header-content">
           <div className="cliente-header-logo">
             <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" />
-            <h1>Chat con PlotAI</h1>
+            <div>
+              <h1>Chat con PlotAI</h1>
+              <p className="cliente-chat-subtitle">
+                Preguntá por el estado de tus pedidos y OP usando su número.
+              </p>
+            </div>
           </div>
           <button className="btn-secondary" onClick={() => navigate('/cliente/dashboard')}>
             ← Volver
@@ -43,11 +59,24 @@ export default function ClienteChatPage() {
         </div>
       </header>
       <main className="cliente-chat-main">
-        <iframe
-          src={embedUrl}
-          title="Chat PlotAI"
-          className="chat-iframe"
-        />
+        <section className="cliente-chat-card">
+          <div className="cliente-chat-info">
+            <h2>👋 Hola, {cliente.nombre}</h2>
+            <p>
+              Podés escribir cosas como:{' '}
+              <span className="ejemplo-chat">
+                “¿Cómo va mi pedido web 1234?” o “¿En qué estado está la OP 000678?”
+              </span>
+            </p>
+          </div>
+          {embedUrl && (
+            <iframe
+              src={embedUrl}
+              title="Chat PlotAI"
+              className="chat-iframe"
+            />
+          )}
+        </section>
       </main>
     </div>
   )

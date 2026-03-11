@@ -43,6 +43,7 @@ HORARIOS DE ATENCIÓN:
 
 type Body = {
   message?: string
+  modo?: string
   nombre?: string
   empresa?: string
   dni?: string
@@ -411,6 +412,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const history = Array.isArray(body.history) ? body.history : []
+    const modo = (body.modo || 'web_publico').toString()
     const allUserTexts = [
       ...history.filter((p) => p.role === 'user').map((p) => (p.parts?.[0]?.text ?? '')),
       message
@@ -528,7 +530,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!skipGemini) {
-    const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente. Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
+    const canalPrompt =
+      modo === 'cliente_portal'
+        ? ' Estás atendiendo desde el PORTAL DE CLIENTES: asumí que hablás con un cliente ya registrado, que consulta principalmente por sus pedidos y OP asociadas a su cuenta.'
+        : modo === 'totem'
+        ? ' Estás atendiendo desde un TÓTEM/RECEPCIÓN en el local físico: tu rol es de mostrador/recepción. Sé muy directo, frases cortas, y pensá que el cliente está de pie frente al dispositivo. Priorizá responder sobre el estado de trabajos y dar indicaciones claras (dónde dirigirse, qué mostrar, si ya puede retirar, etc.).'
+        : ' Estás atendiendo desde el CHAT PÚBLICO de la web para cualquier visitante (potenciales clientes y clientes actuales).'
+
+    const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente.${canalPrompt} Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
 
 REGLA CRÍTICA — NO ALUCINAR (obligatorio):
 - Solo podés usar información que aparezca EXPLÍCITAMENTE en las secciones "CONOCIMIENTO DE LA EMPRESA" y "CLIENTE CON QUIEN ESTÁS HABLANDO" más abajo.

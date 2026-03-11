@@ -266,8 +266,9 @@ export default function EmbedChatWidgetPage() {
       const res = await fetch(chatApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
+      body: JSON.stringify({
+        message: text,
+        modo: 'web_publico',
           ...(pendingImage ? { images: [{ mimeType: pendingImage.mimeType, data: pendingImage.data }] } : {}),
           conversation_id: conversationId ?? undefined,
           history

@@ -30,13 +30,33 @@ export default function ClienteBriefFormPage() {
 
   return (
     <div className="cliente-brief-form-page">
-      <BriefPublicoPage
-        token={token}
-        clientePrefill={cliente}
-        idCliente={cliente.id}
-        onSuccess={() => navigate('/cliente/disenos')}
-        variant="cliente"
-      />
+      <header className="cliente-brief-form-header">
+        <div className="cliente-header-content">
+          <div className="cliente-header-logo">
+            <img
+              src="https://trello.plotcenter.com.ar/Group%20187.png"
+              alt="Plot Center Logo"
+            />
+            <h1>Brief de Diseño</h1>
+          </div>
+          <button
+            className="btn-secondary"
+            onClick={() => navigate('/cliente/disenos')}
+          >
+            ← Volver
+          </button>
+        </div>
+      </header>
+
+      <main className="cliente-brief-form-main">
+        <BriefPublicoPage
+          token={token}
+          clientePrefill={cliente}
+          idCliente={cliente.id}
+          onSuccess={() => navigate('/cliente/disenos')}
+          variant="cliente"
+        />
+      </main>
     </div>
   )
 }

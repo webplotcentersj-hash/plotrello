@@ -68,6 +68,7 @@ export default function TotemChatPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: userText,
+        modo: 'totem',
         conversation_id: currentConvId ?? undefined,
         history: currentHistory.map((m) => ({ role: m.role, parts: m.parts }))
       })

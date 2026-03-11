@@ -4,7 +4,9 @@ import './EmbedChatPage.css'
 type ChatMessage = { role: 'user' | 'model'; parts: { text: string }[] }
 
 export default function EmbedChatPage() {
-  const hideFormFromPortal = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('hideForm') === '1'
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const hideFormFromPortal = searchParams?.get('hideForm') === '1'
+  const modoFromUrl = searchParams?.get('modo') || (hideFormFromPortal ? 'cliente_portal' : 'web_publico')
   const [nombre, setNombre] = useState('')
   const [dni, setDni] = useState('')
   const [cuit, setCuit] = useState('')
@@ -159,6 +161,7 @@ export default function EmbedChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
+          modo: modoFromUrl,
           ...(pendingImage ? { images: [{ mimeType: pendingImage.mimeType, data: pendingImage.data }] } : {}),
           nombre: normalizeForSearch(nombre),
           dni: normalizeForSearch(dni, true),
