@@ -620,13 +620,16 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     let text = ''
     try {
       const anyResp: any = response
-      if (anyResp?.response && typeof anyResp.response.text === 'function') {
-        text = await anyResp.response.text()
-      } else if (typeof anyResp.text === 'function') {
-        text = await anyResp.text()
-      } else if (Array.isArray(anyResp.candidates) && anyResp.candidates[0]?.content?.parts?.length) {
-        const part = anyResp.candidates[0].content.parts.find((p: any) => typeof p.text === 'string')
-        if (part?.text) text = String(part.text)
+      // Forma típica del SDK: response.candidates[0].content.parts[].text
+      const candidates = anyResp?.response?.candidates || anyResp?.candidates || []
+      if (Array.isArray(candidates) && candidates.length > 0) {
+        const parts = candidates[0]?.content?.parts || []
+        if (Array.isArray(parts) && parts.length > 0) {
+          text = parts
+            .map((p: any) => (typeof p.text === 'string' ? p.text : ''))
+            .join('\n')
+            .trim()
+        }
       }
     } catch (e) {
       console.error('Error extrayendo texto de respuesta Gemini:', e)
