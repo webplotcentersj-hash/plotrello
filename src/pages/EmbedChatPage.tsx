@@ -202,7 +202,6 @@ export default function EmbedChatPage() {
             <span className="embed-chat-logo-icon">◆</span>
             <div>
               <span className="embed-chat-title">Plot Center</span>
-              <span className="embed-chat-subtitle">Asistente virtual</span>
             </div>
           </div>
         </div>

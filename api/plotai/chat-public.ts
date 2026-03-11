@@ -609,11 +609,32 @@ CÓMO TRATAR AL CLIENTE (atención al público):
         } as any)
       : await ai.models.generateContent({
           model: 'gemini-2.0-flash',
-          contents: conversation
-        })
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: conversation }]
+            }
+          ]
+        } as any)
 
-    const text = (response as any)?.text ?? ''
-    replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+    let text = ''
+    try {
+      const anyResp: any = response
+      if (anyResp?.response && typeof anyResp.response.text === 'function') {
+        text = await anyResp.response.text()
+      } else if (typeof anyResp.text === 'function') {
+        text = await anyResp.text()
+      } else if (Array.isArray(anyResp.candidates) && anyResp.candidates[0]?.content?.parts?.length) {
+        const part = anyResp.candidates[0].content.parts.find((p: any) => typeof p.text === 'string')
+        if (part?.text) text = String(part.text)
+      }
+    } catch (e) {
+      console.error('Error extrayendo texto de respuesta Gemini:', e)
+    }
+
+    replyText = text && String(text).trim()
+      ? String(text).trim()
+      : 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
     }
 
     let conversationId: number | null = null

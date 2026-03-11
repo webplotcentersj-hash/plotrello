@@ -62,12 +62,6 @@ export default function ClienteChatPage() {
         <section className="cliente-chat-card">
           <div className="cliente-chat-info">
             <h2>👋 Hola, {cliente.nombre}</h2>
-            <p>
-              Podés escribir cosas como:{' '}
-              <span className="ejemplo-chat">
-                “¿Cómo va mi pedido web 1234?” o “¿En qué estado está la OP 000678?”
-              </span>
-            </p>
           </div>
           {embedUrl && (
             <iframe
