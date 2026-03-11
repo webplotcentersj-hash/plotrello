@@ -32,9 +32,25 @@ export default function ClienteBuscarOpPage() {
     setOp(null)
 
     try {
-      let response = await apiService.obtenerOpPorNumeroCliente(numero.trim(), cliente.id)
-      if (!response.success && /^\d+$/.test(numero.trim())) {
-        response = await apiService.obtenerOpPorIdCliente(parseInt(numero.trim(), 10), cliente.id)
+      const raw = numero.trim()
+      const digits = raw.replace(/\D/g, '')
+
+      // Intentar primero con número de OP normalizado (OP-000123)
+      let intentoNumero = raw
+      if (digits) {
+        intentoNumero = `OP-${digits.padStart(6, '0')}`
+      }
+
+      let response = await apiService.obtenerOpPorNumeroCliente(intentoNumero, cliente.id)
+
+      // Si falla, probar con el valor tal cual lo escribió el cliente
+      if (!response.success && raw !== intentoNumero) {
+        response = await apiService.obtenerOpPorNumeroCliente(raw, cliente.id)
+      }
+
+      // Como último recurso, si lo que escribió son solo dígitos, probar por ID interno
+      if (!response.success && digits && /^\d+$/.test(digits)) {
+        response = await apiService.obtenerOpPorIdCliente(parseInt(digits, 10), cliente.id)
       }
       if (response.success && response.data) {
         setOp(response.data)
