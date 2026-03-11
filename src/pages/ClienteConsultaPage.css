@@ -64,6 +64,11 @@
   gap: 16px;
   align-items: flex-end;
   flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.secondary-search-box {
+  margin-top: 8px;
 }
 
 .input-group {
@@ -180,7 +185,7 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  padding: 32px;
+  padding: 28px 28px 32px;
   margin-bottom: 24px;
   transition: all 0.3s ease;
   position: relative;
@@ -273,21 +278,58 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 20px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
-.orden-info h3 {
-  margin: 0 0 8px 0;
+.orden-op-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.orden-op-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.orden-op-numero {
+  margin: 0;
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   color: #ffffff;
 }
 
 .orden-cliente {
-  margin: 0;
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.8);
+  margin: 4px 0 0 0;
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.orden-dni {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.8rem;
+}
+
+.orden-dni-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.orden-dni-value {
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
 }
 
 .orden-estado-badge {

@@ -8,19 +8,14 @@ import './ClienteConsultaPage.css'
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
 const ClienteConsultaPage = () => {
-  const [search, setSearch] = useState('')
+  const [searchOp, setSearchOp] = useState('')
+  const [searchDni, setSearchDni] = useState('')
   const [loading, setLoading] = useState(false)
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
   const [historial, setHistorial] = useState<Record<number, HistorialMovimiento[]>>({})
   const [error, setError] = useState<string | null>(null)
 
-  const handleSearch = async () => {
-    const term = search.trim()
-    if (!term) {
-      setError('Ingresá nombre, apellido, empresa, número de OP o DNI/CUIT para buscar.')
-      return
-    }
-
+  const buscarOrdenes = async (filtro: (orden: OrdenTrabajo) => boolean, mensajeError: string) => {
     setLoading(true)
     setError(null)
     setOrdenes([])
@@ -30,37 +25,16 @@ const ClienteConsultaPage = () => {
       const response = await apiService.getOrdenes()
 
       if (response.success && response.data) {
-        const searchDigits = digitsOnly(term)
-        const searchLower = term.toLowerCase()
-        const searchWords = searchLower.split(/\s+/).filter((w) => w.length >= 2)
-
-        const ordenesFiltradas = response.data.filter((orden) => {
-          const ordenDni = digitsOnly(orden.dni_cuit ?? '')
-          const ordenOp = digitsOnly(orden.numero_op ?? '')
-          const clienteLower = (orden.cliente ?? '').toLowerCase()
-
-          if (searchDigits.length >= 6) {
-            if (ordenDni === searchDigits) return true
-          }
-          if (searchDigits.length >= 2) {
-            if (ordenOp === searchDigits || ordenOp.includes(searchDigits)) return true
-          }
-          if (searchLower.length >= 2 && clienteLower) {
-            if (clienteLower.includes(searchLower)) return true
-            if (searchWords.length > 0 && searchWords.every((w) => clienteLower.includes(w))) return true
-          }
-          return false
-        })
+        const ordenesFiltradas = response.data.filter(filtro)
 
         if (ordenesFiltradas.length === 0) {
-          setError('No se encontraron pedidos con ese nombre, empresa, número de OP o DNI/CUIT.')
+          setError(mensajeError)
           setLoading(false)
           return
         }
 
         setOrdenes(ordenesFiltradas)
 
-        // Cargar historial para cada orden
         const historialPromises = ordenesFiltradas.map(async (orden) => {
           if (!orden.id) return [orden.id, []]
           const histResponse = await apiService.getHistorialMovimientos({ ordenId: orden.id })
@@ -90,6 +64,42 @@ const ClienteConsultaPage = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSearchOp = async () => {
+    const term = searchOp.trim()
+    if (!term) {
+      setError('Ingresá un número de OP para buscar.')
+      return
+    }
+    const searchDigits = digitsOnly(term)
+    if (!searchDigits) {
+      setError('El número de OP debe contener dígitos.')
+      return
+    }
+
+    await buscarOrdenes(
+      (orden) => digitsOnly(orden.numero_op ?? '') === searchDigits,
+      'No se encontraron pedidos con ese número de OP.'
+    )
+  }
+
+  const handleSearchDni = async () => {
+    const term = searchDni.trim()
+    if (!term) {
+      setError('Ingresá un DNI o CUIT para buscar.')
+      return
+    }
+    const searchDigits = digitsOnly(term)
+    if (searchDigits.length < 6) {
+      setError('Ingresá al menos 6 dígitos de DNI/CUIT.')
+      return
+    }
+
+    await buscarOrdenes(
+      (orden) => digitsOnly(orden.dni_cuit ?? '') === searchDigits,
+      'No se encontraron pedidos con ese DNI/CUIT.'
+    )
   }
 
   const getEstadoLabel = (estado: string) => {
@@ -143,24 +153,24 @@ const ClienteConsultaPage = () => {
         <div className="consulta-form-section">
           <div className="search-box">
             <div className="input-group">
-              <label htmlFor="consulta-search">Buscar por</label>
+              <label htmlFor="consulta-op">Buscar por número de OP</label>
               <input
-                id="consulta-search"
+                id="consulta-op"
                 type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchOp}
+                onChange={(e) => setSearchOp(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSearch()
+                  if (e.key === 'Enter') handleSearchOp()
                 }}
-                placeholder="Nombre, apellido, empresa, Nº OP o DNI/CUIT"
+                placeholder="Ej: OP-000123 o 000123"
                 className="dni-input"
                 disabled={loading}
                 autoComplete="off"
               />
             </div>
             <button
-              onClick={handleSearch}
-              disabled={loading || !search.trim()}
+              onClick={handleSearchOp}
+              disabled={loading || !searchOp.trim()}
               className="search-button"
             >
               {loading ? (
@@ -170,7 +180,42 @@ const ClienteConsultaPage = () => {
                 </>
               ) : (
                 <>
-                  🔍 Buscar Pedidos
+                  🔍 Buscar por OP
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="search-box secondary-search-box">
+            <div className="input-group">
+              <label htmlFor="consulta-dni">Buscar por DNI / CUIT</label>
+              <input
+                id="consulta-dni"
+                type="text"
+                value={searchDni}
+                onChange={(e) => setSearchDni(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearchDni()
+                }}
+                placeholder="Solo números de DNI o CUIT"
+                className="dni-input"
+                disabled={loading}
+                autoComplete="off"
+              />
+            </div>
+            <button
+              onClick={handleSearchDni}
+              disabled={loading || !searchDni.trim()}
+              className="search-button"
+            >
+              {loading ? (
+                <>
+                  <span className="spinner"></span>
+                  Buscando...
+                </>
+              ) : (
+                <>
+                  🔍 Buscar por DNI/CUIT
                 </>
               )}
             </button>
@@ -198,6 +243,8 @@ const ClienteConsultaPage = () => {
 
               const readyForPickup = isReadyForPickup(orden.estado)
 
+              const dniCuit = orden.dni_cuit ? digitsOnly(orden.dni_cuit) : null
+
               return (
                 <div key={orden.id} className={`orden-card ${readyForPickup ? 'ready-for-pickup' : ''}`}>
                   {readyForPickup && (
@@ -213,8 +260,17 @@ const ClienteConsultaPage = () => {
                   )}
                   <div className="orden-header">
                     <div className="orden-info">
-                      <h3>OP #{orden.numero_op}</h3>
+                      <div className="orden-op-row">
+                        <span className="orden-op-label">Orden de Producción</span>
+                        <h3 className="orden-op-numero">#{orden.numero_op}</h3>
+                      </div>
                       <p className="orden-cliente">{orden.cliente}</p>
+                      {dniCuit && (
+                        <div className="orden-dni">
+                          <span className="orden-dni-label">DNI/CUIT:</span>
+                          <span className="orden-dni-value">{dniCuit}</span>
+                        </div>
+                      )}
                     </div>
                     <div className={`orden-estado-badge ${readyForPickup ? 'ready-badge' : ''}`} style={{ backgroundColor: getEstadoColor(orden.estado) }}>
                       {getEstadoLabel(orden.estado)}
@@ -224,7 +280,10 @@ const ClienteConsultaPage = () => {
 
                   {orden.descripcion && (
                     <div className="orden-descripcion">
-                      <strong>Descripción:</strong> {orden.descripcion}
+                      <strong>Descripción:</strong>{' '}
+                      {orden.descripcion.length > 180
+                        ? `${orden.descripcion.slice(0, 180)}…`
+                        : orden.descripcion}
                     </div>
                   )}
 
