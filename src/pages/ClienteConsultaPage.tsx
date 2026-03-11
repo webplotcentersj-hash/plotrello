@@ -236,16 +236,28 @@ const ClienteConsultaPage = () => {
             </h2>
 
             {ordenes.map((orden) => {
-              const ordenHistorial = historial[orden.id] || []
-              const historialOrdenado = [...ordenHistorial].sort(
-                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-              )
+            const ordenHistorial = historial[orden.id] || []
+            const historialOrdenado = [...ordenHistorial].sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            )
 
-              const readyForPickup = isReadyForPickup(orden.estado)
+            const readyForPickup = isReadyForPickup(orden.estado)
 
-              const dniCuit = orden.dni_cuit ? digitsOnly(orden.dni_cuit) : null
+            const dniCuit = orden.dni_cuit ? digitsOnly(orden.dni_cuit) : null
 
-              return (
+            let descripcionResumen: string | null = null
+            if (dniCuit && searchDni.trim()) {
+              descripcionResumen = `DNI / CUIT: ${dniCuit}`
+            } else if (orden.numero_op && searchOp.trim()) {
+              descripcionResumen = `OP: ${orden.numero_op}`
+            } else if (orden.descripcion) {
+              descripcionResumen =
+                orden.descripcion.length > 180
+                  ? `${orden.descripcion.slice(0, 180)}…`
+                  : orden.descripcion
+            }
+
+            return (
                 <div key={orden.id} className={`orden-card ${readyForPickup ? 'ready-for-pickup' : ''}`}>
                   {readyForPickup && (
                     <div className="pickup-banner">
@@ -278,12 +290,9 @@ const ClienteConsultaPage = () => {
                     </div>
                   </div>
 
-                  {orden.descripcion && (
+                  {descripcionResumen && (
                     <div className="orden-descripcion">
-                      <strong>Descripción:</strong>{' '}
-                      {orden.descripcion.length > 180
-                        ? `${orden.descripcion.slice(0, 180)}…`
-                        : orden.descripcion}
+                      <strong>Descripción:</strong> {descripcionResumen}
                     </div>
                   )}
 
