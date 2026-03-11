@@ -328,12 +328,12 @@
 
   .header-actions {
     width: 100%;
-    justify-content: stretch;
+    justify-content: flex-end;
   }
 
-  .header-actions button,
-  .header-actions a {
-    flex: 1;
+  /* En móvil solo mostramos el toggle; el resto de la botonera vive en el dropdown */
+  .header-actions > :not(.actions-toggle):not(.actions-dropdown) {
+    display: none;
   }
 }
 
