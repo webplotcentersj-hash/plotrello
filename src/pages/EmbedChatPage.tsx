@@ -7,6 +7,8 @@ export default function EmbedChatPage() {
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const hideFormFromPortal = searchParams?.get('hideForm') === '1'
   const modoFromUrl = searchParams?.get('modo') || (hideFormFromPortal ? 'cliente_portal' : 'web_publico')
+  const clienteNombreFromUrl = searchParams?.get('clienteNombre') || ''
+  const clienteEmpresaFromUrl = searchParams?.get('clienteEmpresa') || ''
   const [nombre, setNombre] = useState('')
   const [dni, setDni] = useState('')
   const [cuit, setCuit] = useState('')
@@ -163,7 +165,8 @@ export default function EmbedChatPage() {
           message: text,
           modo: modoFromUrl,
           ...(pendingImage ? { images: [{ mimeType: pendingImage.mimeType, data: pendingImage.data }] } : {}),
-          nombre: normalizeForSearch(nombre),
+          nombre: normalizeForSearch(nombre) || (clienteNombreFromUrl || undefined),
+          empresa: clienteEmpresaFromUrl || undefined,
           dni: normalizeForSearch(dni, true),
           cuit: normalizeForSearch(cuit, true),
           op: normalizeForSearch(op, true),
