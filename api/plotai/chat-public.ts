@@ -620,8 +620,12 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     let text = ''
     try {
       const anyResp: any = response
-      // Forma típica del SDK: response.candidates[0].content.parts[].text
-      const candidates = anyResp?.response?.candidates || anyResp?.candidates || []
+      // Intentar múltiples formas posibles del SDK: response.candidates, candidates, result.candidates
+      const candidates =
+        anyResp?.response?.candidates ||
+        anyResp?.candidates ||
+        anyResp?.result?.candidates ||
+        []
       if (Array.isArray(candidates) && candidates.length > 0) {
         const parts = candidates[0]?.content?.parts || []
         if (Array.isArray(parts) && parts.length > 0) {

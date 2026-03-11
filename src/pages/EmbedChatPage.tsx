@@ -199,10 +199,12 @@ export default function EmbedChatPage() {
       <header className="embed-chat-header">
         <div className="embed-chat-header-inner">
           <div className="embed-chat-logo">
-            <span className="embed-chat-logo-icon">◆</span>
-            <div>
-              <span className="embed-chat-title">Plot Center</span>
-            </div>
+            <img
+              src="https://trello.plotcenter.com.ar/Group%20187.png"
+              alt="Plot Center Logo"
+              className="embed-chat-logo-image"
+            />
+            <span className="embed-chat-title">Plot Lab</span>
           </div>
         </div>
       </header>
