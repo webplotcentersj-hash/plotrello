@@ -609,39 +609,11 @@ CÓMO TRATAR AL CLIENTE (atención al público):
         } as any)
       : await ai.models.generateContent({
           model: 'gemini-2.0-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: conversation }]
-            }
-          ]
+          contents: conversation
         } as any)
 
-    let text = ''
-    try {
-      const anyResp: any = response
-      // Intentar múltiples formas posibles del SDK: response.candidates, candidates, result.candidates
-      const candidates =
-        anyResp?.response?.candidates ||
-        anyResp?.candidates ||
-        anyResp?.result?.candidates ||
-        []
-      if (Array.isArray(candidates) && candidates.length > 0) {
-        const parts = candidates[0]?.content?.parts || []
-        if (Array.isArray(parts) && parts.length > 0) {
-          text = parts
-            .map((p: any) => (typeof p.text === 'string' ? p.text : ''))
-            .join('\n')
-            .trim()
-        }
-      }
-    } catch (e) {
-      console.error('Error extrayendo texto de respuesta Gemini:', e)
-    }
-
-    replyText = text && String(text).trim()
-      ? String(text).trim()
-      : 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+    const text = (response as any)?.text ?? ''
+    replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
     }
 
     let conversationId: number | null = null

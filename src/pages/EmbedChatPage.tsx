@@ -204,7 +204,7 @@ export default function EmbedChatPage() {
               alt="Plot Center Logo"
               className="embed-chat-logo-image"
             />
-            <span className="embed-chat-title">Plot Lab</span>
+            <span className="embed-chat-title">Plot Center</span>
           </div>
         </div>
       </header>
