@@ -177,6 +177,11 @@
   font-size: 1rem;
 }
 
+/* Forzar número de OP bien oscuro en modo tótem */
+.totem-consulta-page .orden-op-numero {
+  color: #000000 !important;
+}
+
 @media (max-width: 768px) {
   .totem-consulta-page {
     padding: 16px 8px;
