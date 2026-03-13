@@ -136,30 +136,98 @@
   opacity: 0.95;
 }
 
-/* ——— Panel "Dirigite": franja grande orientadora ——— */
-.totem-direccion-panel {
+/* ——— Modal "Dirigite": overlay + contenido atractivo ——— */
+.totem-direccion-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  animation: totem-modal-fadeIn 0.25s ease-out;
+}
+
+@keyframes totem-modal-fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.totem-direccion-modal {
+  position: relative;
   width: 100%;
-  max-width: 640px;
-  margin-top: 28px;
+  max-width: 520px;
+  background: linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 80px rgba(125, 211, 252, 0.08);
+  animation: totem-modal_scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes totem-modal_scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.totem-direccion-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(248, 250, 252, 0.9);
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.15s;
+  z-index: 2;
+}
+
+.totem-direccion-modal-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: scale(1.05);
+}
+
+.totem-direccion-modal-content {
+  padding: 36px 28px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
 }
 
-.totem-direccion-leyenda {
+.totem-direccion-modal-leyenda {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
   color: #f8fafc;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
+  text-align: center;
 }
 
 .totem-direccion-strip-grande {
   width: 100%;
   padding: 28px 32px;
-  border-radius: 4px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -168,6 +236,11 @@
   letter-spacing: 0.08em;
   box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.12);
   border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.totem-modal-strip {
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
 .totem-direccion-strip-text {
@@ -181,11 +254,12 @@
   opacity: 0.95;
 }
 
-.totem-direccion-leyenda-seguir {
+.totem-direccion-modal-seguir {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
   color: rgba(226, 232, 240, 0.9);
   text-align: center;
+  line-height: 1.4;
 }
 
 .totem-direccion-actions {
@@ -193,11 +267,11 @@
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .totem-cta-small {
-  padding: 12px 20px;
+  padding: 12px 24px;
   font-size: 0.95rem;
 }
 

@@ -339,44 +339,78 @@ const TotemConsultaClientePage = () => {
                 const sector = TOTEM_SECTORS_QUEHACER.find((s) => s.id === selectedQueHacer)
                 if (!sector) return null
                 return (
-                  <div className="totem-direccion-panel">
-                    <p className="totem-direccion-leyenda">Dirigite por la franja</p>
-                    <div
-                      className="totem-direccion-strip-grande"
-                      style={{ backgroundColor: sector.bg, color: sector.textColor }}
-                    >
-                      <span className="totem-direccion-strip-text">{sector.label}</span>
-                      <span className="totem-direccion-strip-arrows">&gt;&gt;&gt;</span>
-                    </div>
-                    <p className="totem-direccion-leyenda-seguir">Seguí las flechas en el piso hasta llegar.</p>
-                    <div className="totem-direccion-actions">
+                  <div
+                    className="totem-direccion-modal-overlay"
+                    onClick={(e) => {
+                      if (e.target === e.currentTarget) {
+                        registrarInteraccion()
+                        setSelectedQueHacer(null)
+                        setMensaje(null)
+                        setError(null)
+                      }
+                    }}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="totem-modal-title"
+                  >
+                    <div className="totem-direccion-modal">
                       <button
                         type="button"
-                        className="totem-cta-button totem-cta-small secondary"
+                        className="totem-direccion-modal-close"
                         onClick={() => {
                           registrarInteraccion()
                           setSelectedQueHacer(null)
                           setMensaje(null)
                           setError(null)
                         }}
+                        aria-label="Cerrar"
                       >
-                        ← Volver
+                        ×
                       </button>
-                      <button
-                        type="button"
-                        className="totem-cta-button totem-cta-small"
-                        onClick={handleAvisarQueVoy}
-                        disabled={loading}
-                      >
-                        Avisar que voy
-                      </button>
+                      <div className="totem-direccion-modal-content">
+                        <p className="totem-direccion-modal-leyenda" id="totem-modal-title">
+                          Dirigite por la franja
+                        </p>
+                        <div
+                          className="totem-direccion-strip-grande totem-modal-strip"
+                          style={{ backgroundColor: sector.bg, color: sector.textColor }}
+                        >
+                          <span className="totem-direccion-strip-text">{sector.label}</span>
+                          <span className="totem-direccion-strip-arrows">&gt;&gt;&gt;</span>
+                        </div>
+                        <p className="totem-direccion-modal-seguir">
+                          Seguí las flechas en el piso hasta llegar a tu destino.
+                        </p>
+                        <div className="totem-direccion-actions">
+                          <button
+                            type="button"
+                            className="totem-cta-button totem-cta-small secondary"
+                            onClick={() => {
+                              registrarInteraccion()
+                              setSelectedQueHacer(null)
+                              setMensaje(null)
+                              setError(null)
+                            }}
+                          >
+                            ← Volver
+                          </button>
+                          <button
+                            type="button"
+                            className="totem-cta-button totem-cta-small"
+                            onClick={handleAvisarQueVoy}
+                            disabled={loading}
+                          >
+                            Avisar que voy
+                          </button>
+                        </div>
+                        {mensaje && (
+                          <div className="totem-message totem-direccion-message">{mensaje}</div>
+                        )}
+                        {error && (
+                          <div className="totem-error totem-direccion-error">{error}</div>
+                        )}
+                      </div>
                     </div>
-                    {mensaje && (
-                      <div className="totem-message totem-direccion-message">{mensaje}</div>
-                    )}
-                    {error && (
-                      <div className="totem-error totem-direccion-error">{error}</div>
-                    )}
                   </div>
                 )
               })()}
