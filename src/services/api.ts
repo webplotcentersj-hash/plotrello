@@ -4726,6 +4726,8 @@ class ApiService {
     orden_id?: number
     cliente_id?: number
     notas?: string
+    sector_destino?: string
+    orden_numero_op?: string
   }): Promise<ApiResponse<number>> {
     if (supabase) {
       try {
@@ -4734,9 +4736,11 @@ class ApiService {
           p_tipo: data.tipo,
           p_usuario_id: data.usuario_id,
           p_usuario_nombre: data.usuario_nombre,
-          p_orden_id: data.orden_id || null,
-          p_cliente_id: data.cliente_id || null,
-          p_notas: data.notas || null
+          p_orden_id: data.orden_id ?? null,
+          p_cliente_id: data.cliente_id ?? null,
+          p_notas: data.notas ?? null,
+          p_sector_destino: data.sector_destino ?? null,
+          p_orden_numero_op: data.orden_numero_op ?? null
         })
 
         if (error) {

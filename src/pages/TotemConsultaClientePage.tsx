@@ -10,6 +10,22 @@ const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
 const INACTIVITY_MS = 90000
 
+// Señalética tal cual la foto: franjas horizontales, colores y textos para orientar
+const TOTEM_SECTORS_QUEHACER: Array<{
+  id: string
+  label: string
+  sectorDestino: string
+  bg: string
+  textColor: string
+}> = [
+  { id: 'presupuestos', label: 'PRESUPUESTOS Y ASESORAMIENTO', sectorDestino: 'Presupuestos y asesoramiento', bg: '#7dd3fc', textColor: '#0f172a' },
+  { id: 'recepcion', label: 'RECEPCIÓN DE PEDIDOS', sectorDestino: 'Recepción de pedidos', bg: '#facc15', textColor: '#0f172a' },
+  { id: 'diseno', label: 'DISEÑO GRÁFICO', sectorDestino: 'Diseño gráfico', bg: '#ec4899', textColor: '#fff' },
+  { id: 'caja', label: 'CAJA / ENTREGA DE PEDIDOS', sectorDestino: 'Caja / Entrega de pedidos', bg: '#1f2937', textColor: '#fff' },
+  { id: 'base_operaciones', label: 'BASE DE OPERACIONES', sectorDestino: 'Base de operaciones', bg: '#f97316', textColor: '#0f172a' },
+  { id: 'marketing', label: 'MARKETING Y COMUNICACIÓN', sectorDestino: 'Marketing y comunicación', bg: '#ffffff', textColor: '#0f172a' }
+]
+
 const TotemConsultaClientePage = () => {
   const [searchOp, setSearchOp] = useState('')
   const [searchDni, setSearchDni] = useState('')
@@ -20,13 +36,14 @@ const TotemConsultaClientePage = () => {
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [sectorDestino, setSectorDestino] = useState<string>('Mostrador')
   const [step, setStep] = useState<'welcome' | 'search'>('welcome')
+  const [selectedQueHacer, setSelectedQueHacer] = useState<string | null>(null)
   const [lastInteraction, setLastInteraction] = useState<number>(() => Date.now())
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (!ordenes.length && !searchOp && !searchDni && step === 'welcome') return
+      if (!ordenes.length && !searchOp && !searchDni && step === 'welcome' && !selectedQueHacer) return
       if (Date.now() - lastInteraction > INACTIVITY_MS) {
         setSearchOp('')
         setSearchDni('')
@@ -34,11 +51,12 @@ const TotemConsultaClientePage = () => {
         setHistorial({})
         setError(null)
         setMensaje(null)
+        setSelectedQueHacer(null)
         setStep('welcome')
       }
     }, 5000)
     return () => clearInterval(id)
-  }, [lastInteraction, ordenes.length, searchOp, searchDni, step])
+  }, [lastInteraction, ordenes.length, searchOp, searchDni, step, selectedQueHacer])
 
   const buscarOrdenes = async (filtro: (orden: OrdenTrabajo) => boolean, mensajeError: string) => {
     registrarInteraccion()
@@ -173,11 +191,12 @@ const TotemConsultaClientePage = () => {
       const res = await apiService.crearAtencionMostrador({
         cliente_nombre: primerOrden.cliente || 'Cliente tótem',
         tipo: 'consulta',
-        // Usamos un usuario del sistema (ej: admin con id 1) para cumplir FK
         usuario_id: 1,
         usuario_nombre: 'Totem autoservicio',
         orden_id: primerOrden.id,
-        notas: `Cliente se registró desde tótem. Sector sugerido: ${sectorDestino}.`
+        notas: `Cliente se registró desde tótem. Sector sugerido: ${sectorDestino}.`,
+        sector_destino: sectorDestino,
+        orden_numero_op: primerOrden.numero_op ?? undefined
       })
       if (!res.success) {
         setError(res.error || 'No se pudo registrar tu llegada. Avisá en mostrador.')
@@ -199,8 +218,10 @@ const TotemConsultaClientePage = () => {
         tipo: 'consulta',
         usuario_id: 1,
         usuario_nombre: 'Totem autoservicio',
-        orden_id: primerOrden?.id,
-        notas: `Cliente pidió ayuda desde tótem de autoservicio. Sector sugerido: ${sectorDestino}.`
+        orden_id: primerOrden?.id ?? undefined,
+        notas: `Cliente pidió ayuda desde tótem de autoservicio. Sector sugerido: ${sectorDestino}.`,
+        sector_destino: sectorDestino,
+        orden_numero_op: primerOrden?.numero_op ?? undefined
       })
       if (!res.success) {
         setError(res.error || 'No se pudo avisar a un asesor. Avisá en mostrador.')
@@ -210,6 +231,31 @@ const TotemConsultaClientePage = () => {
     } catch (err) {
       console.error('Error llamando asesor desde tótem:', err)
       setError('No se pudo avisar a un asesor. Avisá en mostrador.')
+    }
+  }
+
+  const handleAvisarQueVoy = async () => {
+    registrarInteraccion()
+    const sector = selectedQueHacer ? TOTEM_SECTORS_QUEHACER.find((s) => s.id === selectedQueHacer) : null
+    if (!sector) return
+    try {
+      setError(null)
+      const res = await apiService.crearAtencionMostrador({
+        cliente_nombre: 'Cliente tótem',
+        tipo: 'consulta',
+        usuario_id: 1,
+        usuario_nombre: 'Totem autoservicio',
+        notas: `Cliente se dirige a ${sector.label} (desde tótem).`,
+        sector_destino: sector.sectorDestino
+      })
+      if (!res.success) {
+        setError(res.error || 'No se pudo enviar el aviso.')
+      } else {
+        setMensaje(`✅ Avisamos a ${sector.label} que te dirigís hacia ahí.`)
+      }
+    } catch (err) {
+      console.error('Error avisando desde tótem:', err)
+      setError('No se pudo enviar el aviso.')
     }
   }
 
@@ -260,6 +306,80 @@ const TotemConsultaClientePage = () => {
               <p className="totem-welcome-hint">
                 Vas a necesitar tu número de OP o tu DNI/CUIT.
               </p>
+
+              <div className="totem-senaletica-block">
+                <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
+                <p className="totem-senaletica-subtitle">Tocá la franja del sector que necesitás</p>
+                <div className="totem-senaletica-strips">
+                  {TOTEM_SECTORS_QUEHACER.map((sector) => (
+                    <button
+                      key={sector.id}
+                      type="button"
+                      className="totem-senaletica-strip"
+                      style={{
+                        backgroundColor: sector.bg,
+                        color: sector.textColor,
+                        borderColor: sector.textColor === '#fff' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.15)'
+                      }}
+                      onClick={() => {
+                        registrarInteraccion()
+                        setSelectedQueHacer(sector.id)
+                        setError(null)
+                        setMensaje(null)
+                      }}
+                    >
+                      <span className="totem-strip-text">{sector.label}</span>
+                      <span className="totem-strip-arrows">&gt;&gt;&gt;</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {selectedQueHacer && (() => {
+                const sector = TOTEM_SECTORS_QUEHACER.find((s) => s.id === selectedQueHacer)
+                if (!sector) return null
+                return (
+                  <div className="totem-direccion-panel">
+                    <p className="totem-direccion-leyenda">Dirigite por la franja</p>
+                    <div
+                      className="totem-direccion-strip-grande"
+                      style={{ backgroundColor: sector.bg, color: sector.textColor }}
+                    >
+                      <span className="totem-direccion-strip-text">{sector.label}</span>
+                      <span className="totem-direccion-strip-arrows">&gt;&gt;&gt;</span>
+                    </div>
+                    <p className="totem-direccion-leyenda-seguir">Seguí las flechas en el piso hasta llegar.</p>
+                    <div className="totem-direccion-actions">
+                      <button
+                        type="button"
+                        className="totem-cta-button totem-cta-small secondary"
+                        onClick={() => {
+                          registrarInteraccion()
+                          setSelectedQueHacer(null)
+                          setMensaje(null)
+                          setError(null)
+                        }}
+                      >
+                        ← Volver
+                      </button>
+                      <button
+                        type="button"
+                        className="totem-cta-button totem-cta-small"
+                        onClick={handleAvisarQueVoy}
+                        disabled={loading}
+                      >
+                        Avisar que voy
+                      </button>
+                    </div>
+                    {mensaje && (
+                      <div className="totem-message totem-direccion-message">{mensaje}</div>
+                    )}
+                    {error && (
+                      <div className="totem-error totem-direccion-error">{error}</div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </>
         )}
