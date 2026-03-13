@@ -1,0 +1,159 @@
+.totem-consulta-page {
+  padding: 32px 24px;
+}
+
+.totem-container {
+  max-width: 1080px;
+}
+
+.totem-header {
+  padding: 32px 40px;
+}
+
+.totem-header-content {
+  justify-content: center;
+  text-align: center;
+}
+
+.totem-logo {
+  height: 72px;
+}
+
+.totem-form {
+  padding: 32px 40px;
+}
+
+.totem-search-box {
+  align-items: center;
+}
+
+.totem-input {
+  font-size: 1.4rem;
+  text-align: center;
+}
+
+.totem-button {
+  font-size: 1.1rem;
+  height: 64px;
+  justify-content: center;
+}
+
+.totem-results {
+  padding: 32px 40px 40px;
+}
+
+.totem-actions-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.totem-sectors-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.totem-sectors-label {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(248, 250, 252, 0.7);
+  margin-right: 4px;
+}
+
+.totem-sector-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: rgba(15, 23, 42, 0.96);
+  color: rgba(226, 232, 240, 0.9);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.totem-sector-chip.active {
+  background: linear-gradient(135deg, #f97316 0%, #6366f1 100%);
+  color: #0f172a;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.6);
+}
+
+.totem-sector-chip:hover {
+  transform: translateY(-1px);
+}
+
+.totem-cta-button {
+  padding: 18px 28px;
+  border-radius: 999px;
+  border: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #0b1120;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.totem-cta-button.secondary {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45);
+}
+
+.totem-cta-button:hover {
+  transform: translateY(-2px);
+}
+
+.totem-section {
+  margin-top: 24px;
+}
+
+.totem-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.35rem;
+  color: #f9fafb;
+}
+
+.totem-error {
+  font-size: 1.1rem;
+}
+
+.totem-message {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #bbf7d0;
+  justify-content: center;
+}
+
+.totem-footer {
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .totem-consulta-page {
+    padding: 16px 8px;
+  }
+
+  .totem-form {
+    padding: 24px;
+  }
+
+  .totem-input {
+    font-size: 1.2rem;
+  }
+
+  .totem-button {
+    height: 56px;
+  }
+}
+

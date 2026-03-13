@@ -73,6 +73,7 @@ const AsientosContablesPage = lazy(() => import('./pages/AsientosContablesPage')
 const ConfiguracionAFIPPage = lazy(() => import('./pages/ConfiguracionAFIPPage'))
 const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInventarioPage'))
 const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashboardPage'))
+const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -479,8 +480,8 @@ function App() {
           <Route path="/embed/chat" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando chat...</div>}><EmbedChatPage /></Suspense>} />
           <Route path="/embed/chat-widget" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}><EmbedChatWidgetPage /></Suspense>} />
           <Route path="/totem" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemChatPage /></Suspense>} />
-          {/* Versión para pantalla de autoservicio, reutiliza la misma página pública de consulta */}
-          <Route path="/totem/consulta-cliente" element={<ClienteConsultaPage />} />
+          {/* Versión para pantalla de autoservicio: búsqueda de trabajos en modo tótem */}
+          <Route path="/totem/consulta-cliente" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemConsultaClientePage /></Suspense>} />
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
           <Route path="/dashboard-pantallas" element={<DashboardPantallasPage />} />
           <Route path="/op-public/:opNumber" element={<OpPublicPage />} />
