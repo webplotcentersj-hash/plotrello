@@ -43,7 +43,7 @@ const EntregaPage = () => {
     }
   }, [id])
 
-  // Suscripción Realtime: cuando el cliente firma en la tablet, la firma se ve al instante aquí
+  // Suscripción Realtime: cuando el cliente firma en otro dispositivo, la firma se ve al instante aquí
   useEffect(() => {
     const client = supabase
     if (!orden?.numero_op || !client) return
@@ -90,7 +90,7 @@ const EntregaPage = () => {
         const ordenEncontrada = response.data
         setOrden(ordenEncontrada)
         setEntregadoA(ordenEncontrada.cliente || '')
-        // Precargar firma si el cliente firmó en la tablet (backend) o misma pestaña (sessionStorage)
+        // Precargar firma si el cliente ya firmó (backend) o en esta misma pestaña (sessionStorage)
         let data: { firmaDataUrl?: string; entregadoA?: string; dniRetira?: string } | null = null
         const firmaRes = await apiService.getFirmaCliente(ordenEncontrada.numero_op)
         if (firmaRes.success && firmaRes.data) data = firmaRes.data
@@ -394,9 +394,9 @@ const EntregaPage = () => {
               target="_blank"
               rel="noopener noreferrer"
               className="btn-firma-tablet"
-              title="Abrir en otra pestaña o dispositivo para que el cliente firme"
+              title="Abrir la página de firma para el cliente"
             >
-              📱 Firma en tablet
+              ✍️ Abrir página de firma
             </a>
             <button
               className="btn-secondary"
@@ -411,7 +411,7 @@ const EntregaPage = () => {
       <div className="entrega-content">
         {firmaCargadaDesdeTablet && (
           <div className="firma-tablet-banner">
-            📱 Firma del cliente cargada desde la tablet. Revisá los datos y confirmá la entrega.
+            ✍️ La firma del cliente ya está cargada. Revisá los datos y confirmá la entrega.
           </div>
         )}
         {/* Información de la Orden */}
