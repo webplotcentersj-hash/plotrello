@@ -102,6 +102,56 @@
   cursor: pointer;
 }
 
+.filtro-search input {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-primary);
+  min-width: 260px;
+}
+
+.filtro-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.galeria-tags-filter {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galeria-tags-filter .tags-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.tag-filter {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.95);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.tag-filter.active {
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  color: #0b1120;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(248, 113, 113, 0.45);
+}
+
+.tag-filter:hover {
+  transform: translateY(-1px);
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;

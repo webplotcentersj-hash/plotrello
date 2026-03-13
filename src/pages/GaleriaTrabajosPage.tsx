@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -13,6 +13,8 @@ const GaleriaTrabajosPage = () => {
   const [loading, setLoading] = useState(true)
   const [categoriaFiltro, setCategoriaFiltro] = useState<string | null>(null)
   const [soloDestacados, setSoloDestacados] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [tagFiltro, setTagFiltro] = useState<string | null>(null)
   const [mostrarModal, setMostrarModal] = useState(false)
   const [trabajoSeleccionado, setTrabajoSeleccionado] = useState<TrabajoGaleria | null>(null)
 
@@ -60,6 +62,34 @@ const GaleriaTrabajosPage = () => {
     setMostrarModal(false)
     setTrabajoSeleccionado(null)
   }
+
+  const tagsDisponibles = useMemo(() => {
+    const set = new Set<string>()
+    trabajos.forEach((t) => {
+      t.tags?.forEach((tag) => set.add(tag))
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [trabajos])
+
+  const trabajosFiltrados = useMemo(() => {
+    const query = busqueda.trim().toLowerCase()
+    return trabajos.filter((t) => {
+      if (tagFiltro && !(t.tags || []).includes(tagFiltro)) return false
+      if (!query) return true
+      const textoBase = [
+        t.titulo,
+        t.cliente,
+        t.numero_op,
+        t.descripcion,
+        t.categoria,
+        ...(t.tags || [])
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return textoBase.includes(query)
+    })
+  }, [trabajos, busqueda, tagFiltro])
 
   if (loading) {
     return (
@@ -113,17 +143,49 @@ const GaleriaTrabajosPage = () => {
               Solo destacados
             </label>
           </div>
+          <div className="filtro-group filtro-search">
+            <label>Buscar</label>
+            <input
+              type="text"
+              placeholder="Cliente, título, OP o tag..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </div>
         </div>
+
+        {tagsDisponibles.length > 0 && (
+          <div className="galeria-tags-filter">
+            <span className="tags-label">Tags:</span>
+            <button
+              type="button"
+              className={`tag-filter ${!tagFiltro ? 'active' : ''}`}
+              onClick={() => setTagFiltro(null)}
+            >
+              Todos
+            </button>
+            {tagsDisponibles.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className={`tag-filter ${tagFiltro === tag ? 'active' : ''}`}
+                onClick={() => setTagFiltro(tag)}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Grid de trabajos */}
-      {trabajos.length === 0 ? (
+      {trabajosFiltrados.length === 0 ? (
         <div className="empty-state">
           <p>No hay trabajos en la galería aún.</p>
         </div>
       ) : (
         <div className="galeria-grid">
-          {trabajos.map((trabajo) => (
+          {trabajosFiltrados.map((trabajo) => (
             <div
               key={trabajo.id}
               className={`trabajo-card ${trabajo.destacado ? 'destacado' : ''}`}
