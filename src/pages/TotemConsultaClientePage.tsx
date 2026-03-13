@@ -19,13 +19,14 @@ const TotemConsultaClientePage = () => {
   const [error, setError] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [sectorDestino, setSectorDestino] = useState<string>('Mostrador')
+  const [step, setStep] = useState<'welcome' | 'search'>('welcome')
   const [lastInteraction, setLastInteraction] = useState<number>(() => Date.now())
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (!ordenes.length && !searchOp && !searchDni) return
+      if (!ordenes.length && !searchOp && !searchDni && step === 'welcome') return
       if (Date.now() - lastInteraction > INACTIVITY_MS) {
         setSearchOp('')
         setSearchDni('')
@@ -33,13 +34,15 @@ const TotemConsultaClientePage = () => {
         setHistorial({})
         setError(null)
         setMensaje(null)
+        setStep('welcome')
       }
     }, 5000)
     return () => clearInterval(id)
-  }, [lastInteraction, ordenes.length, searchOp, searchDni])
+  }, [lastInteraction, ordenes.length, searchOp, searchDni, step])
 
   const buscarOrdenes = async (filtro: (orden: OrdenTrabajo) => boolean, mensajeError: string) => {
     registrarInteraccion()
+    setStep('search')
     setLoading(true)
     setError(null)
     setMensaje(null)
@@ -170,7 +173,8 @@ const TotemConsultaClientePage = () => {
       const res = await apiService.crearAtencionMostrador({
         cliente_nombre: primerOrden.cliente || 'Cliente tótem',
         tipo: 'consulta',
-        usuario_id: 0,
+        // Usamos un usuario del sistema (ej: admin con id 1) para cumplir FK
+        usuario_id: 1,
         usuario_nombre: 'Totem autoservicio',
         orden_id: primerOrden.id,
         notas: `Cliente se registró desde tótem. Sector sugerido: ${sectorDestino}.`
@@ -193,7 +197,7 @@ const TotemConsultaClientePage = () => {
       const res = await apiService.crearAtencionMostrador({
         cliente_nombre: nombre,
         tipo: 'consulta',
-        usuario_id: 0,
+        usuario_id: 1,
         usuario_nombre: 'Totem autoservicio',
         orden_id: primerOrden?.id,
         notas: `Cliente pidió ayuda desde tótem de autoservicio. Sector sugerido: ${sectorDestino}.`
@@ -226,95 +230,133 @@ const TotemConsultaClientePage = () => {
       onKeyDown={registrarInteraccion}
     >
       <div className="consulta-container totem-container">
-        <header className="consulta-header totem-header">
-          <div className="header-content totem-header-content">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-              className="consulta-logo totem-logo"
-            />
-            <div className="header-text">
-              <h1>Buscá tu trabajo</h1>
-              <p>Ingresá tu número de OP o DNI/CUIT y te mostramos en qué estado está.</p>
-            </div>
-          </div>
-        </header>
+        {step === 'welcome' && (
+          <>
+            <header className="consulta-header totem-header">
+              <div className="header-content totem-header-content">
+                <img
+                  src="https://trello.plotcenter.com.ar/Group%20187.png"
+                  alt="Plot Center Logo"
+                  className="consulta-logo totem-logo"
+                />
+                <div className="header-text">
+                  <h1>Bienvenido al tótem de Plot Center</h1>
+                  <p>Desde aquí podés ver el estado de tus trabajos y avisar que ya llegaste.</p>
+                </div>
+              </div>
+            </header>
 
-        <div className="consulta-form-section totem-form">
-          <div className="search-box totem-search-box">
-            <div className="input-group">
-              <label htmlFor="consulta-op">Buscar por número de OP</label>
-              <input
-                id="consulta-op"
-                type="text"
-                value={searchOp}
-                onChange={(e) => {
+            <div className="totem-welcome">
+              <button
+                className="totem-welcome-button"
+                type="button"
+                onClick={() => {
                   registrarInteraccion()
-                  setSearchOp(e.target.value)
+                  setStep('search')
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSearchOp()
-                }}
-                placeholder="Ej: 000123"
-                className="dni-input totem-input"
-                disabled={loading}
-                autoComplete="off"
-                inputMode="numeric"
-              />
+              >
+                🔍 Buscar mi trabajo
+              </button>
+              <p className="totem-welcome-hint">
+                Vas a necesitar tu número de OP o tu DNI/CUIT.
+              </p>
             </div>
-            <button
-              onClick={handleSearchOp}
-              disabled={loading || !searchOp.trim()}
-              className="search-button totem-button"
-            >
-              {loading ? 'Buscando...' : 'Buscar por OP'}
-            </button>
-          </div>
+          </>
+        )}
 
-          <div className="search-box secondary-search-box totem-search-box">
-            <div className="input-group">
-              <label htmlFor="consulta-dni">Buscar por DNI / CUIT</label>
-              <input
-                id="consulta-dni"
-                type="text"
-                value={searchDni}
-                onChange={(e) => {
-                  registrarInteraccion()
-                  setSearchDni(e.target.value)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSearchDni()
-                }}
-                placeholder="Solo números de DNI o CUIT"
-                className="dni-input totem-input"
-                disabled={loading}
-                autoComplete="off"
-                inputMode="numeric"
-              />
-            </div>
-            <button
-              onClick={handleSearchDni}
-              disabled={loading || !searchDni.trim()}
-              className="search-button totem-button"
-            >
-              {loading ? 'Buscando...' : 'Buscar por DNI/CUIT'}
-            </button>
-          </div>
+        {step === 'search' && (
+          <>
+            <header className="consulta-header totem-header">
+              <div className="header-content totem-header-content">
+                <img
+                  src="https://trello.plotcenter.com.ar/Group%20187.png"
+                  alt="Plot Center Logo"
+                  className="consulta-logo totem-logo"
+                />
+                <div className="header-text">
+                  <h1>Buscá tu trabajo</h1>
+                  <p>Ingresá tu número de OP o DNI/CUIT y te mostramos en qué estado está.</p>
+                </div>
+              </div>
+            </header>
 
-          {error && (
-            <div className="error-message totem-error">
-              <span>⚠️</span>
-              <span>{error}</span>
-            </div>
-          )}
-          {mensaje && !error && (
-            <div className="error-message totem-message">
-              <span>{mensaje}</span>
-            </div>
-          )}
-        </div>
+            <div className="consulta-form-section totem-form">
+              <div className="search-box totem-search-box">
+                <div className="input-group">
+                  <label htmlFor="consulta-op">Buscar por número de OP</label>
+                  <input
+                    id="consulta-op"
+                    type="text"
+                    value={searchOp}
+                    onChange={(e) => {
+                      registrarInteraccion()
+                      setSearchOp(e.target.value)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearchOp()
+                    }}
+                    placeholder="Ej: 000123"
+                    className="dni-input totem-input"
+                    disabled={loading}
+                    autoComplete="off"
+                    inputMode="numeric"
+                  />
+                </div>
+                <button
+                  onClick={handleSearchOp}
+                  disabled={loading || !searchOp.trim()}
+                  className="search-button totem-button"
+                >
+                  {loading ? 'Buscando...' : 'Buscar por OP'}
+                </button>
+              </div>
 
-        {ordenes.length > 0 && (
+              <div className="search-box secondary-search-box totem-search-box">
+                <div className="input-group">
+                  <label htmlFor="consulta-dni">Buscar por DNI / CUIT</label>
+                  <input
+                    id="consulta-dni"
+                    type="text"
+                    value={searchDni}
+                    onChange={(e) => {
+                      registrarInteraccion()
+                      setSearchDni(e.target.value)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearchDni()
+                    }}
+                    placeholder="Solo números de DNI o CUIT"
+                    className="dni-input totem-input"
+                    disabled={loading}
+                    autoComplete="off"
+                    inputMode="numeric"
+                  />
+                </div>
+                <button
+                  onClick={handleSearchDni}
+                  disabled={loading || !searchDni.trim()}
+                  className="search-button totem-button"
+                >
+                  {loading ? 'Buscando...' : 'Buscar por DNI/CUIT'}
+                </button>
+              </div>
+
+              {error && (
+                <div className="error-message totem-error">
+                  <span>⚠️</span>
+                  <span>{error}</span>
+                </div>
+              )}
+              {mensaje && !error && (
+                <div className="error-message totem-message">
+                  <span>{mensaje}</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {step === 'search' && ordenes.length > 0 && (
           <div className="ordenes-results totem-results">
             <h2 className="results-title">
               {ordenes.length === 1 ? 'Tu trabajo' : `Tus trabajos (${ordenes.length})`}

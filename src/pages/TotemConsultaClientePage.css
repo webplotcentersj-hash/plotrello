@@ -23,6 +23,44 @@
   padding: 32px 40px;
 }
 
+.totem-welcome {
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: radial-gradient(circle at top, rgba(235, 103, 27, 0.2), transparent 55%),
+              radial-gradient(circle at bottom, rgba(59, 130, 246, 0.18), transparent 55%),
+              rgba(15, 23, 42, 0.95);
+}
+
+.totem-welcome-button {
+  padding: 20px 48px;
+  border-radius: 999px;
+  border: none;
+  font-size: 1.3rem;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  color: #0b1120;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.totem-welcome-button:hover {
+  transform: translateY(-2px);
+}
+
+.totem-welcome-hint {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.85);
+  font-size: 1rem;
+}
+
 .totem-search-box {
   align-items: center;
 }
