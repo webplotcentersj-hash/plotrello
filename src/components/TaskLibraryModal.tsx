@@ -50,6 +50,7 @@ const TaskLibraryModal = ({
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
   const [incluirCompletadas, setIncluirCompletadas] = useState(false)
+  const [viewMode, setViewMode] = useState<'activas' | 'eliminadas'>('activas')
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -198,6 +199,28 @@ const TaskLibraryModal = ({
             </div>
           </div>
 
+          <div className="filter-row" style={{ alignItems: 'flex-end' }}>
+            <div className="filter-field" style={{ flex: 1 }}>
+              <label>Biblioteca</label>
+              <div className="task-library-mode-toggle" role="tablist" aria-label="Biblioteca">
+                <button
+                  type="button"
+                  className={viewMode === 'activas' ? 'is-active' : ''}
+                  onClick={() => setViewMode('activas')}
+                >
+                  Activas ({filteredTasks.length})
+                </button>
+                <button
+                  type="button"
+                  className={viewMode === 'eliminadas' ? 'is-active' : ''}
+                  onClick={() => setViewMode('eliminadas')}
+                >
+                  Eliminadas ({deletedOpsRows ? filteredDeletedOps.length : '…'})
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="filter-row">
             <div className="filter-field">
               <label>Sector</label>
@@ -315,8 +338,12 @@ const TaskLibraryModal = ({
           <div className="results-header">
             <span>Resultados</span>
             <div className="results-header-right">
-              <span className="results-count">{filteredTasks.length} fichas encontradas</span>
-              {filteredTasks.length > 0 && (
+              <span className="results-count">
+                {viewMode === 'activas'
+                  ? `${filteredTasks.length} fichas encontradas`
+                  : `${deletedOpsRows ? filteredDeletedOps.length : 0} eliminadas encontradas`}
+              </span>
+              {viewMode === 'activas' && filteredTasks.length > 0 && (
                 <div className="export-buttons">
                   <button
                     className="export-btn export-csv"
@@ -337,73 +364,92 @@ const TaskLibraryModal = ({
             </div>
           </div>
 
-          <div className="task-library-grid">
-            {filteredTasks.map((task, index) => {
-              const owner = teamMembers.find((m) => m.id === task.ownerId)
-              return (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  index={index}
-                  owner={owner}
-                  onEdit={onEditTask}
-                  onDelete={onDeleteTask}
-                  sectores={sectores}
-                  isDraggable={false}
-                  onMarkDelivered={onMarkDelivered}
-                />
-              )
-            })}
-          </div>
-
-          {filteredTasks.length === 0 && (
-            <div className="no-results">
-              <p>No se encontraron fichas con los filtros seleccionados.</p>
-            </div>
-          )}
-
-          {filteredDeletedOps && filteredDeletedOps.length > 0 && (
-            <div className="task-library-deleted-section">
-              <h3>Biblioteca de OP eliminadas</h3>
-              <p className="task-library-deleted-subtitle">
-                Fichas eliminadas con su motivo y datos clave. Solo lectura.
-              </p>
-              <div className="task-library-deleted-table-wrapper">
-                <table className="task-library-deleted-table">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Nº OP</th>
-                      <th>Cliente</th>
-                      <th>Usuario</th>
-                      <th>Rol</th>
-                      <th>Motivo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDeletedOps.map((row) => (
-                      <tr key={row.id}>
-                        <td>
-                          {new Date(row.timestamp).toLocaleString('es-AR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td>{row.numero_op || (row.id_orden ? `#${row.id_orden}` : '-')}</td>
-                        <td>{row.cliente || '-'}</td>
-                        <td>{row.nombre_usuario || '-'}</td>
-                        <td>{row.rol_usuario || '-'}</td>
-                        <td style={{ maxWidth: '360px', whiteSpace: 'pre-wrap' }}>
-                          {row.comentario || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {viewMode === 'activas' ? (
+            <>
+              <div className="task-library-grid">
+                {filteredTasks.map((task, index) => {
+                  const owner = teamMembers.find((m) => m.id === task.ownerId)
+                  return (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      index={index}
+                      owner={owner}
+                      onEdit={onEditTask}
+                      onDelete={onDeleteTask}
+                      sectores={sectores}
+                      isDraggable={false}
+                      onMarkDelivered={onMarkDelivered}
+                    />
+                  )
+                })}
               </div>
+
+              {filteredTasks.length === 0 && (
+                <div className="no-results">
+                  <p>No se encontraron fichas con los filtros seleccionados.</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="task-library-deleted-section">
+              <h3>OP eliminadas</h3>
+              <p className="task-library-deleted-subtitle">
+                Motivo, usuario y fecha de eliminación. (Solo lectura)
+              </p>
+
+              {!deletedOpsRows ? (
+                <div className="no-results">
+                  <p>Cargando OP eliminadas...</p>
+                </div>
+              ) : (
+                <div className="task-library-deleted-table-wrapper">
+                  <table className="task-library-deleted-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Nº OP</th>
+                        <th>Cliente</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDeletedOps.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '16px' }}>
+                            No hay OP eliminadas para mostrar con estos filtros.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredDeletedOps.map((row) => (
+                          <tr key={row.id}>
+                            <td>
+                              {new Date(row.timestamp).toLocaleString('es-AR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </td>
+                            <td>
+                              {row.numero_op || (row.id_orden ? `#${row.id_orden}` : '-')}
+                            </td>
+                            <td>{row.cliente || '-'}</td>
+                            <td>{row.nombre_usuario || '-'}</td>
+                            <td>{row.rol_usuario || '-'}</td>
+                            <td style={{ maxWidth: '360px', whiteSpace: 'pre-wrap' }}>
+                              {row.comentario || '-'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
