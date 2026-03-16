@@ -40,7 +40,8 @@ const formatShortDate = (value: string) =>
   new Intl.DateTimeFormat('es-AR', {
     day: '2-digit',
     month: '2-digit',
-    year: '2-digit'
+    year: '2-digit',
+    timeZone: 'America/Argentina/Buenos_Aires'
   }).format(new Date(value))
 
 const formatFullDateTime = (value: string) =>
@@ -49,7 +50,8 @@ const formatFullDateTime = (value: string) =>
     month: '2-digit',
     year: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: 'America/Argentina/Buenos_Aires'
   }).format(new Date(value))
 
 const formatCompactDateTime = (value: string) =>
@@ -57,7 +59,8 @@ const formatCompactDateTime = (value: string) =>
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: 'America/Argentina/Buenos_Aires'
   }).format(new Date(value))
 
 const stripEmailDomain = (value?: string | null) => {
