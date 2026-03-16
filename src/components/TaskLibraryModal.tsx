@@ -1,29 +1,32 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Task, TaskStatus, Priority, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
 import { exportToCSV, exportToPDF } from '../utils/exportUtils'
+import apiService from '../services/api'
 import './TaskLibraryModal.css'
+
+type DeletedOpRow = {
+  id: number
+  id_orden: number | null
+  numero_op: string | null
+  cliente: string | null
+  id_usuario: number | null
+  nombre_usuario: string | null
+  rol_usuario: string | null
+  estado_anterior: string | null
+  estado_nuevo: string | null
+  comentario: string | null
+  accion_tipo: string | null
+  timestamp: string
+}
 
 type TaskLibraryModalProps = {
   tasks: Task[]
   teamMembers: TeamMember[]
   sectores: SectorRecord[]
   columns: ReadonlyArray<{ id: TaskStatus; label: string; accent: string }>
-  deletedOpsRows?: Array<{
-    id: number
-    id_orden: number | null
-    numero_op: string | null
-    cliente: string | null
-    id_usuario: number | null
-    nombre_usuario: string | null
-    rol_usuario: string | null
-    estado_anterior: string | null
-    estado_nuevo: string | null
-    comentario: string | null
-    accion_tipo: string | null
-    timestamp: string
-  }>
+  deletedOpsRows?: DeletedOpRow[]
   onClose: () => void
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
@@ -51,6 +54,8 @@ const TaskLibraryModal = ({
   const [fechaHasta, setFechaHasta] = useState('')
   const [incluirCompletadas, setIncluirCompletadas] = useState(false)
   const [viewMode, setViewMode] = useState<'activas' | 'eliminadas'>('activas')
+  const [localDeletedOps, setLocalDeletedOps] = useState<DeletedOpRow[] | null>(null)
+  const [deletedOpsError, setDeletedOpsError] = useState<string | null>(null)
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -137,9 +142,10 @@ const TaskLibraryModal = ({
   ])
 
   const filteredDeletedOps = useMemo(() => {
-    if (!deletedOpsRows) return []
+    const baseRows = deletedOpsRows ?? localDeletedOps ?? []
+    if (!baseRows) return []
     const q = searchQuery.trim().toLowerCase()
-    return deletedOpsRows.filter((row) => {
+    return baseRows.filter((row) => {
       const numero = row.numero_op || (row.id_orden ? `#${row.id_orden}` : '')
       const cliente = row.cliente || ''
       const motivo = row.comentario || ''
@@ -162,7 +168,40 @@ const TaskLibraryModal = ({
       }
       return true
     })
-  }, [deletedOpsRows, searchQuery, fechaDesde, fechaHasta])
+  }, [deletedOpsRows, localDeletedOps, searchQuery, fechaDesde, fechaHasta])
+
+  // Cargar OP eliminadas si el padre no las pasó ya
+  useEffect(() => {
+    if (deletedOpsRows) {
+      setLocalDeletedOps(null)
+      setDeletedOpsError(null)
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      try {
+        setDeletedOpsError(null)
+        const resp = await apiService.getOpEliminadas()
+        if (!cancelled) {
+          if (resp.success && resp.data) {
+            setLocalDeletedOps(resp.data as DeletedOpRow[])
+          } else {
+            setLocalDeletedOps([])
+            setDeletedOpsError(resp.error || 'No se pudo cargar la lista de OP eliminadas.')
+          }
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setLocalDeletedOps([])
+          setDeletedOpsError(e?.message || 'Error al cargar OP eliminadas.')
+        }
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [deletedOpsRows])
 
   const handleLimpiar = () => {
     setSearchQuery('')
@@ -215,7 +254,7 @@ const TaskLibraryModal = ({
                   className={viewMode === 'eliminadas' ? 'is-active' : ''}
                   onClick={() => setViewMode('eliminadas')}
                 >
-                  Eliminadas ({deletedOpsRows ? filteredDeletedOps.length : '…'})
+                  Eliminadas ({deletedOpsRows ?? localDeletedOps ? filteredDeletedOps.length : '…'})
                 </button>
               </div>
             </div>
@@ -341,7 +380,7 @@ const TaskLibraryModal = ({
               <span className="results-count">
                 {viewMode === 'activas'
                   ? `${filteredTasks.length} fichas encontradas`
-                  : `${deletedOpsRows ? filteredDeletedOps.length : 0} eliminadas encontradas`}
+                  : `${filteredDeletedOps.length} eliminadas encontradas`}
               </span>
               {viewMode === 'activas' && filteredTasks.length > 0 && (
                 <div className="export-buttons">
@@ -398,9 +437,13 @@ const TaskLibraryModal = ({
                 Motivo, usuario y fecha de eliminación. (Solo lectura)
               </p>
 
-              {!deletedOpsRows ? (
+              {!deletedOpsRows && !localDeletedOps ? (
                 <div className="no-results">
                   <p>Cargando OP eliminadas...</p>
+                </div>
+              ) : deletedOpsError ? (
+                <div className="no-results">
+                  <p>{deletedOpsError}</p>
                 </div>
               ) : (
                 <div className="task-library-deleted-table-wrapper">
