@@ -432,9 +432,9 @@ const TaskLibraryModal = ({
             </>
           ) : (
             <div className="task-library-deleted-section">
-              <h3>OP eliminadas</h3>
+              <h3>Historial de OP eliminadas</h3>
               <p className="task-library-deleted-subtitle">
-                Motivo, usuario y fecha de eliminación. (Solo lectura)
+                Registro completo de fichas borradas: quién las eliminó, cuándo y con qué motivo.
               </p>
 
               {!deletedOpsRows && !localDeletedOps ? (
@@ -450,12 +450,12 @@ const TaskLibraryModal = ({
                   <table className="task-library-deleted-table">
                     <thead>
                       <tr>
-                        <th>Fecha</th>
-                        <th>Nº OP</th>
-                        <th>Cliente</th>
-                        <th>Usuario</th>
-                        <th>Rol</th>
-                        <th>Motivo</th>
+                        <th className="deleted-col-fecha">Fecha</th>
+                        <th className="deleted-col-op">Nº OP</th>
+                        <th className="deleted-col-cliente">Cliente</th>
+                        <th className="deleted-col-usuario">Usuario</th>
+                        <th className="deleted-col-rol">Rol</th>
+                        <th className="deleted-col-motivo">Motivo</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -465,10 +465,10 @@ const TaskLibraryModal = ({
                             No hay OP eliminadas para mostrar con estos filtros.
                           </td>
                         </tr>
-                      ) : (
+                        ) : (
                         filteredDeletedOps.map((row) => (
                           <tr key={row.id}>
-                            <td>
+                            <td className="deleted-cell-fecha">
                               {new Date(row.timestamp).toLocaleString('es-AR', {
                                 day: '2-digit',
                                 month: '2-digit',
@@ -477,14 +477,18 @@ const TaskLibraryModal = ({
                                 minute: '2-digit'
                               })}
                             </td>
-                            <td>
+                            <td className="deleted-cell-op">
                               {row.numero_op || (row.id_orden ? `#${row.id_orden}` : '-')}
                             </td>
-                            <td>{row.cliente || '-'}</td>
-                            <td>{row.nombre_usuario || '-'}</td>
-                            <td>{row.rol_usuario || '-'}</td>
-                            <td style={{ maxWidth: '360px', whiteSpace: 'pre-wrap' }}>
-                              {row.comentario || '-'}
+                            <td className="deleted-cell-cliente">{row.cliente || '-'}</td>
+                            <td className="deleted-cell-usuario">{row.nombre_usuario || '-'}</td>
+                            <td className="deleted-cell-rol">
+                              <span className="deleted-rol-chip">{row.rol_usuario || '-'}</span>
+                            </td>
+                            <td className="deleted-cell-motivo">
+                              <span className="deleted-motivo-pill">
+                                {row.comentario || 'Sin motivo registrado'}
+                              </span>
                             </td>
                           </tr>
                         ))

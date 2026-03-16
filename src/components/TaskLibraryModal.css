@@ -207,6 +207,58 @@
   font-size: 0.78rem;
 }
 
+.deleted-col-fecha {
+  width: 160px;
+}
+
+.deleted-col-op {
+  width: 130px;
+}
+
+.deleted-col-rol {
+  width: 130px;
+}
+
+.deleted-col-motivo {
+  min-width: 260px;
+}
+
+.task-library-deleted-table tbody tr:nth-child(odd) {
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.task-library-deleted-table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.task-library-deleted-table tbody tr:hover {
+  background: rgba(31, 41, 55, 0.9);
+}
+
+.deleted-cell-rol .deleted-rol-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.6);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.deleted-cell-motivo .deleted-motivo-pill {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
 .btn-limpiar {
   padding: 10px 20px;
   border-radius: 10px;
