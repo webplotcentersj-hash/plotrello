@@ -3442,15 +3442,50 @@ class ApiService {
 
   async actualizarMetrosOrden(
     ordenId: number,
-    metrosCuadrados: number
+    metrosCuadrados: number,
+    options?: { motivo?: string }
   ): Promise<ApiResponse<void>> {
     if (supabase) {
-      const { error } = await supabase
-        .from('ordenes_trabajo')
-        .update({ metros_cuadrados: metrosCuadrados })
-        .eq('id', ordenId)
-      if (error) return { success: false, error: error.message }
-      return { success: true }
+      try {
+        const { data: current, error: fetchError } = await supabase
+          .from('ordenes_trabajo')
+          .select('metros_cuadrados, estado')
+          .eq('id', ordenId)
+          .maybeSingle()
+
+        if (fetchError) return { success: false, error: fetchError.message }
+
+        const metrosAnterior =
+          current && (current as any).metros_cuadrados !== undefined
+            ? (current as any).metros_cuadrados
+            : null
+
+        const { error } = await supabase
+          .from('ordenes_trabajo')
+          .update({ metros_cuadrados: metrosCuadrados })
+          .eq('id', ordenId)
+        if (error) return { success: false, error: error.message }
+
+        // Registrar auditoría del cambio de metros (Taller Gráfico o carga inicial)
+        await this.registrarCambioHistorial(
+          ordenId,
+          (current as any)?.estado ?? null,
+          (current as any)?.estado ?? null,
+          options?.motivo || 'Actualización de metros cuadrados (m²).',
+          'cambio_metros',
+          {
+            metros_cuadrados: {
+              anterior: metrosAnterior,
+              nuevo: metrosCuadrados
+            }
+          }
+        )
+
+        return { success: true }
+      } catch (e: any) {
+        console.error('Error actualizando metros de la orden:', e)
+        return { success: false, error: e?.message || 'Error actualizando metros de la orden' }
+      }
     }
     return { success: false, error: 'Supabase no configurado' }
   }

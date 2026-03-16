@@ -636,7 +636,9 @@ const BoardPage = ({
         if (ordenId && newTaskData.metrosCuadrados !== undefined && newTaskData.metrosCuadrados !== null) {
           const metros = Number(newTaskData.metrosCuadrados)
           if (!Number.isNaN(metros) && metros > 0) {
-            await apiService.actualizarMetrosOrden(ordenId, metros)
+            await apiService.actualizarMetrosOrden(ordenId, metros, {
+              motivo: 'Carga inicial de metros cuadrados (m²) al crear la OP.'
+            })
           }
         }
 

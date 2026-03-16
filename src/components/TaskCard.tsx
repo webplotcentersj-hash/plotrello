@@ -1329,7 +1329,9 @@ const TaskCard = ({
                     try {
                       const metros = parseFloat(metrosManuales)
                       // Corroborar metros en la ficha (ordenes_trabajo) antes de asignar impresora
-                      await apiService.actualizarMetrosOrden(ordenId, metros)
+                      await apiService.actualizarMetrosOrden(ordenId, metros, {
+                        motivo: 'Taller Gráfico corroboró/ajustó los m² antes de asignar impresora.'
+                      })
                       const response = await apiService.asignarOrdenAImpresora(
                         impresoraSeleccionada,
                         ordenId,
