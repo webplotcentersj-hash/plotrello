@@ -1,5 +1,6 @@
 import type { ActivityEvent, Priority, Task, TaskStatus } from '../types/board'
 import type { HistorialMovimiento, OrdenTrabajo, TareaRecord } from '../types/api'
+import { getArgentinaDate } from './dateUtils'
 
 const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   'diseno-grafico': 'Diseño Gráfico',
@@ -118,6 +119,32 @@ export const mapComplejidadToImpact = (
 ): Task['impact'] => COMPLEJIDAD_TO_IMPACT[complejidad?.toLowerCase() ?? 'media'] ?? 'media'
 
 export const ordenToTask = (orden: OrdenTrabajo): Task => {
+  // Normalizar fechas a zona horaria de Argentina para evitar "día anterior"
+  const baseArgentinaDate = getArgentinaDate()
+  const nowArgentinaIso = baseArgentinaDate.toISOString()
+  const createdDate =
+    orden.fecha_creacion != null ? new Date(orden.fecha_creacion) : baseArgentinaDate
+  const createdArgentina = new Date(
+    createdDate.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
+  )
+  const createdArgentinaIso = createdArgentina.toISOString()
+  const dueDateSource =
+    orden.fecha_entrega ??
+    orden.fecha_creacion ??
+    nowArgentinaIso
+  const dueDateArgentina = new Date(
+    new Date(dueDateSource).toLocaleString('en-US', {
+      timeZone: 'America/Argentina/Buenos_Aires'
+    })
+  )
+  const dueDateArgentinaIso = dueDateArgentina.toISOString()
+  const updatedSource = orden.fecha_ingreso ?? orden.fecha_creacion ?? nowArgentinaIso
+  const updatedArgentina = new Date(
+    new Date(updatedSource).toLocaleString('en-US', {
+      timeZone: 'America/Argentina/Buenos_Aires'
+    })
+  )
+  const updatedArgentinaIso = updatedArgentina.toISOString()
   const clientPhone = orden.telefono_cliente?.trim() || undefined
   const whatsappUrl = orden.whatsapp_link?.trim() || buildWhatsappLinkFromPhone(clientPhone)
   const clientEmail = orden.email_cliente?.trim() || undefined
@@ -177,9 +204,9 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     photoUrl: orden.foto_url?.trim() || '',
     storyPoints: 0,
     progress: calculateProgressFromStatus(statusFinal, orden.entregado ?? false),
-    createdAt: orden.fecha_creacion ?? new Date().toISOString(),
-    dueDate: orden.fecha_entrega ?? orden.fecha_creacion ?? new Date().toISOString(),
-    updatedAt: orden.fecha_ingreso ?? orden.fecha_creacion ?? new Date().toISOString(),
+    createdAt: createdArgentinaIso,
+    dueDate: dueDateArgentinaIso,
+    updatedAt: updatedArgentinaIso,
     impact: mapComplejidadToImpact(orden.complejidad),
     clientPhone,
     clientEmail,
