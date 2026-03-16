@@ -691,6 +691,8 @@ export interface HistorialMovimiento {
   nombre_usuario?: string | null
   timestamp: string
   comentario?: string | null
+  accion_tipo?: string | null
+  cambios_detallados?: any
 }
 
 export interface ChatMessage {

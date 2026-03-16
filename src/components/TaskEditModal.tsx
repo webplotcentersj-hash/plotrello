@@ -1232,7 +1232,10 @@ const TaskEditModal = ({
               <p className="history-loading">Cargando historial...</p>
             ) : taskHistory.length > 0 ? (
               <div className="history-list">
-                {taskHistory.map((entry) => {
+                {taskHistory.map((entryRaw) => {
+                  const entry = entryRaw as HistorialMovimiento & {
+                    cambios_detallados?: any
+                  }
                   // Usar nombre_usuario directamente del historial (ya viene de la BD)
                   const nombreUsuario = (entry as any).nombre_usuario || 
                     teamMembers.find((m) => m.id === entry.id_usuario.toString())?.name || 
@@ -1265,6 +1268,24 @@ const TaskEditModal = ({
                       </div>
                       {entry.comentario && (
                         <p className="history-comment">{entry.comentario}</p>
+                      )}
+                      {entry.cambios_detallados && (entry.cambios_detallados as any).metros_cuadrados && (
+                        <p className="history-comment">
+                          Metros cuadrados modificados:{' '}
+                          {((entry.cambios_detallados as any).metros_cuadrados as any)
+                            .anterior !== undefined &&
+                          ((entry.cambios_detallados as any).metros_cuadrados as any)
+                            .anterior !== null
+                            ? `de ${
+                                ((entry.cambios_detallados as any)
+                                  .metros_cuadrados as any).anterior
+                              } `
+                            : ''}
+                          a{' '}
+                          {((entry.cambios_detallados as any).metros_cuadrados as any)
+                            .nuevo}
+                          {' '}m²
+                        </p>
                       )}
                     </div>
                   )

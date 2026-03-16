@@ -3,7 +3,6 @@ import type { HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
-import { useAuth } from '../hooks/useAuth'
 import './ClienteConsultaPage.css'
 import './OpEliminadasPage.css'
 
@@ -23,7 +22,6 @@ type DeletedOpRow = {
 }
 
 const OpEliminadasPage = () => {
-  const { isAdmin } = useAuth()
   const [rows, setRows] = useState<DeletedOpRow[]>([])
   const [historialPorOrden, setHistorialPorOrden] = useState<Record<number, HistorialMovimiento[]>>({})
   const [selectedOrdenId, setSelectedOrdenId] = useState<number | null>(null)
@@ -86,23 +84,6 @@ const OpEliminadasPage = () => {
     }
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="cliente-consulta-page">
-        <div className="consulta-container">
-          <header className="consulta-header">
-            <div className="header-content">
-              <div className="header-text">
-                <h1>OP eliminadas</h1>
-                <p>No tenés permisos para ver esta sección.</p>
-              </div>
-            </div>
-          </header>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="cliente-consulta-page op-eliminadas-page">
       <div className="consulta-container">
@@ -114,8 +95,11 @@ const OpEliminadasPage = () => {
               className="consulta-logo"
             />
             <div className="header-text">
-              <h1>OP eliminadas</h1>
-              <p>Auditoría: quién eliminó cada OP, cuándo y por qué, con todo el trazado previo.</p>
+              <h1>Biblioteca de OP eliminadas</h1>
+              <p>
+                Auditoría completa: quién eliminó cada OP, cuándo y con qué motivo, más todo el
+                trazado previo de la ficha.
+              </p>
             </div>
           </div>
         </header>
@@ -208,6 +192,25 @@ const OpEliminadasPage = () => {
                               {mov.comentario && (
                                 <p className="timeline-comment">{mov.comentario}</p>
                               )}
+                              {mov.cambios_detallados &&
+                                (mov.cambios_detallados as any).metros_cuadrados && (
+                                  <p className="timeline-comment">
+                                    Metros cuadrados:{" "}
+                                    {((mov.cambios_detallados as any).metros_cuadrados as any)
+                                      .anterior !== undefined &&
+                                    ((mov.cambios_detallados as any).metros_cuadrados as any)
+                                      .anterior !== null
+                                      ? `de ${
+                                          ((mov.cambios_detallados as any)
+                                            .metros_cuadrados as any).anterior
+                                        } `
+                                      : ''}
+                                    a{" "}
+                                    {((mov.cambios_detallados as any).metros_cuadrados as any)
+                                      .nuevo}
+                                    {" "}m²
+                                  </p>
+                                )}
                             </div>
                           </div>
                         )

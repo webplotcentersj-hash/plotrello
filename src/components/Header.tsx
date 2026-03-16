@@ -254,14 +254,12 @@ const Header = ({
             >
               🖼️ Galería
             </a>
-            {isAdmin && (
-              <a
-                href="/op-eliminadas"
-                className="brand-button"
-              >
-                🗑️ OP eliminadas
-              </a>
-            )}
+            <a
+              href="/op-eliminadas"
+              className="brand-button"
+            >
+              📚 Biblioteca OP eliminadas
+            </a>
             <a
               href="/capacitaciones"
               className="brand-button"

@@ -492,7 +492,7 @@ function App() {
           <Route
             path="/op-eliminadas"
             element={
-              isAuthenticated && usuario?.rol === 'administracion' ? (
+              isAuthenticated ? (
                 <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
                   <OpEliminadasPage />
                 </Suspense>
