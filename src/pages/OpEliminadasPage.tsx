@@ -78,7 +78,10 @@ const OpEliminadasPage = () => {
 
     const resp = await apiService.getHistorialMovimientos({ ordenId: idOrden })
     if (resp.success && resp.data) {
-      setHistorialPorOrden((prev) => ({ ...prev, [idOrden]: resp.data }))
+      setHistorialPorOrden((prev: Record<number, HistorialMovimiento[]>) => ({
+        ...prev,
+        [idOrden]: resp.data as HistorialMovimiento[]
+      }))
     }
   }
 
