@@ -568,6 +568,11 @@ const TaskCard = ({
                 <span className="task-notification-bell" title="Hay modificaciones recientes">🔔</span>
               )}
             </div>
+            {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
+              <div className="task-metros-pill" title="Metros cuadrados registrados">
+                📏 {task.metrosCuadrados.toFixed(2)} m²
+              </div>
+            )}
             <h4>{task.title}</h4>
             {task.tags.length > 0 && (
               <div className="task-tags">

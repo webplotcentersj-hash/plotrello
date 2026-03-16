@@ -488,6 +488,23 @@ body.compact-mode .task-actions {
   gap: 12px;
 }
 
+.task-metros-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #bbf7d0;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.12);
+  width: fit-content;
+}
+
 .task-op {
   font-weight: 700;
   font-size: 1.1rem;
