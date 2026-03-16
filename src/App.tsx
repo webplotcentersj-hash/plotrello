@@ -74,6 +74,7 @@ const ConfiguracionAFIPPage = lazy(() => import('./pages/ConfiguracionAFIPPage')
 const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInventarioPage'))
 const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashboardPage'))
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
+const OpEliminadasPage = lazy(() => import('./pages/OpEliminadasPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -488,6 +489,18 @@ function App() {
           <Route path="/firma-cliente/:opNumber" element={<FirmaClientePage />} />
           <Route path="/brief/:token" element={<BriefPublicoPage />} />
           <Route path="/reclamos" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><ReclamosPublicoPage /></Suspense>} />
+          <Route
+            path="/op-eliminadas"
+            element={
+              isAuthenticated && usuario?.rol === 'administracion' ? (
+                <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
+                  <OpEliminadasPage />
+                </Suspense>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           <Route
             path="/login"
             element={
