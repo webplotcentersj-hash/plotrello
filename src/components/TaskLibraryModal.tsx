@@ -10,6 +10,20 @@ type TaskLibraryModalProps = {
   teamMembers: TeamMember[]
   sectores: SectorRecord[]
   columns: ReadonlyArray<{ id: TaskStatus; label: string; accent: string }>
+  deletedOpsRows?: Array<{
+    id: number
+    id_orden: number | null
+    numero_op: string | null
+    cliente: string | null
+    id_usuario: number | null
+    nombre_usuario: string | null
+    rol_usuario: string | null
+    estado_anterior: string | null
+    estado_nuevo: string | null
+    comentario: string | null
+    accion_tipo: string | null
+    timestamp: string
+  }>
   onClose: () => void
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
@@ -21,6 +35,7 @@ const TaskLibraryModal = ({
   teamMembers,
   sectores,
   columns,
+  deletedOpsRows,
   onClose,
   onEditTask,
   onDeleteTask,
@@ -119,6 +134,34 @@ const TaskLibraryModal = ({
     incluirCompletadas,
     columns
   ])
+
+  const filteredDeletedOps = useMemo(() => {
+    if (!deletedOpsRows) return []
+    const q = searchQuery.trim().toLowerCase()
+    return deletedOpsRows.filter((row) => {
+      const numero = row.numero_op || (row.id_orden ? `#${row.id_orden}` : '')
+      const cliente = row.cliente || ''
+      const motivo = row.comentario || ''
+      const matchesSearch =
+        !q ||
+        numero.toLowerCase().includes(q) ||
+        cliente.toLowerCase().includes(q) ||
+        motivo.toLowerCase().includes(q)
+      if (!matchesSearch) return false
+      if (fechaDesde) {
+        const desde = new Date(fechaDesde)
+        const rowDate = new Date(row.timestamp)
+        if (rowDate < desde) return false
+      }
+      if (fechaHasta) {
+        const hasta = new Date(fechaHasta)
+        hasta.setHours(23, 59, 59, 999)
+        const rowDate = new Date(row.timestamp)
+        if (rowDate > hasta) return false
+      }
+      return true
+    })
+  }, [deletedOpsRows, searchQuery, fechaDesde, fechaHasta])
 
   const handleLimpiar = () => {
     setSearchQuery('')
@@ -316,6 +359,51 @@ const TaskLibraryModal = ({
           {filteredTasks.length === 0 && (
             <div className="no-results">
               <p>No se encontraron fichas con los filtros seleccionados.</p>
+            </div>
+          )}
+
+          {filteredDeletedOps && filteredDeletedOps.length > 0 && (
+            <div className="task-library-deleted-section">
+              <h3>Biblioteca de OP eliminadas</h3>
+              <p className="task-library-deleted-subtitle">
+                Fichas eliminadas con su motivo y datos clave. Solo lectura.
+              </p>
+              <div className="task-library-deleted-table-wrapper">
+                <table className="task-library-deleted-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Nº OP</th>
+                      <th>Cliente</th>
+                      <th>Usuario</th>
+                      <th>Rol</th>
+                      <th>Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDeletedOps.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          {new Date(row.timestamp).toLocaleString('es-AR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td>{row.numero_op || (row.id_orden ? `#${row.id_orden}` : '-')}</td>
+                        <td>{row.cliente || '-'}</td>
+                        <td>{row.nombre_usuario || '-'}</td>
+                        <td>{row.rol_usuario || '-'}</td>
+                        <td style={{ maxWidth: '360px', whiteSpace: 'pre-wrap' }}>
+                          {row.comentario || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
