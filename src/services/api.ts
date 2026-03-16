@@ -1614,6 +1614,52 @@ class ApiService {
     return this.handleFallback(fallbackHistorial)
   }
 
+  // ========== AUDITORÍA: OP ELIMINADAS ==========
+  async getOpEliminadas(filters?: {
+    desde?: string
+    hasta?: string
+  }): Promise<
+    ApiResponse<
+      Array<{
+        id: number
+        id_orden: number | null
+        numero_op: string | null
+        cliente: string | null
+        id_usuario: number | null
+        nombre_usuario: string | null
+        rol_usuario: string | null
+        estado_anterior: string | null
+        estado_nuevo: string | null
+        comentario: string | null
+        accion_tipo: string | null
+        timestamp: string
+      }>
+    >
+  > {
+    if (supabase) {
+      let query = supabase
+        .from('vista_auditoria_completa')
+        .select(
+          'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,timestamp'
+        )
+        .eq('accion_tipo', 'eliminacion')
+        .order('timestamp', { ascending: false })
+
+      if (filters?.desde) {
+        query = query.gte('timestamp', filters.desde)
+      }
+      if (filters?.hasta) {
+        query = query.lte('timestamp', filters.hasta)
+      }
+
+      const { data, error } = await query
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as any[]) ?? [] }
+    }
+
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   // ========== USUARIOS ==========
   async getLegajoEmpleado(idUsuario: number): Promise<ApiResponse<LegajoEmpleado | null>> {
     if (supabase) {

@@ -191,6 +191,13 @@ export default function AdminDashboard({
           </button>
           <button
             className="admin-quick-action-card"
+            onClick={() => navigate('/op-eliminadas')}
+          >
+            <div className="admin-quick-action-icon">🗑️</div>
+            <div className="admin-quick-action-label">OP eliminadas</div>
+          </button>
+          <button
+            className="admin-quick-action-card"
             onClick={() => setIsPlotAIOpen(true)}
           >
             <div className="admin-quick-action-icon">🤖</div>

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AdminProtectedRoute from './components/AdminProtectedRoute'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminReports from './pages/AdminReports'
+import AdminDeletedOpsPage from './pages/AdminDeletedOpsPage'
 import { useAuth } from '../hooks/useAuth'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import type { UsuarioRecord } from '../types/api'
@@ -199,6 +200,14 @@ function AdminApp() {
                 activity={activity}
                 teamMembers={teamMembers}
               />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/op-eliminadas"
+          element={
+            <AdminProtectedRoute>
+              <AdminDeletedOpsPage />
             </AdminProtectedRoute>
           }
         />
