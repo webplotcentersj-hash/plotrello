@@ -191,7 +191,7 @@ export default function AdminDashboard({
           </button>
           <button
             className="admin-quick-action-card"
-            onClick={() => navigate('/op-eliminadas')}
+            onClick={() => navigate('/admin/op-eliminadas')}
           >
             <div className="admin-quick-action-icon">🗑️</div>
             <div className="admin-quick-action-label">OP eliminadas</div>
