@@ -56,6 +56,7 @@ const TaskEditModal = ({
   const [tagColors, setTagColors] = useState<Map<string, string>>(new Map())
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([])
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
+  const [isTagInputFocused, setIsTagInputFocused] = useState(false)
   const [sectorSearch, setSectorSearch] = useState('')
   const [briefPublico, setBriefPublico] = useState('')
   const [objetivoProyecto, setObjetivoProyecto] = useState('')
@@ -458,69 +459,77 @@ const TaskEditModal = ({
     }
   }
 
+  const normalizeTag = (value: string) => value.trim().toLowerCase()
+
   // Filtrar sugerencias basadas en el input
   useEffect(() => {
+    const normalizedSelected = new Set(tags.map((t) => t.toLowerCase()))
+    const normalizedInput = tagInput.trim().toLowerCase()
+
     // Mostrar todas las etiquetas disponibles cuando no hay texto o cuando hay texto que coincide
     const filtered = etiquetasDisponibles
       .filter(e => {
         // Si no hay texto, mostrar todas (excepto las ya seleccionadas)
-        if (tagInput.trim().length === 0) {
-          return !tags.includes(e.nombre)
+        if (normalizedInput.length === 0) {
+          return !normalizedSelected.has(e.nombre.toLowerCase())
         }
         // Si hay texto, filtrar por coincidencia
-        return e.nombre.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(e.nombre)
+        return (
+          e.nombre.toLowerCase().includes(normalizedInput) &&
+          !normalizedSelected.has(e.nombre.toLowerCase())
+        )
       })
       .sort((a, b) => b.veces_usada - a.veces_usada) // Ordenar por uso (más usadas primero)
       .slice(0, 10) // Mostrar hasta 10 sugerencias
       .map(e => e.nombre)
     
     setTagSuggestions(filtered)
-    // Abrir dropdown si hay sugerencias y el input tiene focus o hay texto
-    setIsTagDropdownOpen(filtered.length > 0 && (tagInput.trim().length > 0 || isTagDropdownOpen))
-  }, [tagInput, etiquetasDisponibles, tags, isTagDropdownOpen])
+    // Abrir dropdown solo cuando el input está enfocado y hay sugerencias
+    setIsTagDropdownOpen(isTagInputFocused && filtered.length > 0)
+  }, [tagInput, etiquetasDisponibles, tags, isTagInputFocused])
 
   const handleAddTag = async () => {
-    const value = tagInput.trim()
-    if (!value) return
-    if (tags.includes(value)) return
+    const normalized = normalizeTag(tagInput)
+    if (!normalized) return
+    if (tags.some((t) => t.toLowerCase() === normalized)) return
     
     // Agregar inmediatamente a la UI para respuesta rápida
-    setTags((prev) => [...prev, value])
+    setTags((prev) => [...prev, normalized])
     setTagInput('')
     setIsTagDropdownOpen(false)
     
     // Obtener color de la etiqueta (puede ser nueva o existente)
     const etiquetaExistente = etiquetasDisponibles.find(
-      e => e.nombre.toLowerCase() === value.toLowerCase()
+      e => e.nombre.toLowerCase() === normalized
     )
     
     if (etiquetaExistente) {
       // Si ya existe, usar su color inmediatamente
       setTagColors(prev => {
         const newMap = new Map(prev)
-        newMap.set(value.toLowerCase(), etiquetaExistente.color || '#6B7280')
+        newMap.set(normalized, etiquetaExistente.color || '#6B7280')
         return newMap
       })
     } else {
       // Si es nueva, obtener color después de guardar
       try {
-        await apiService.guardarEtiquetaDisponible(value)
-        const colorResponse = await apiService.obtenerColorEtiqueta(value)
+        await apiService.guardarEtiquetaDisponible(normalized)
+        const colorResponse = await apiService.obtenerColorEtiqueta(normalized)
         const color = colorResponse.success && colorResponse.data ? colorResponse.data : '#6B7280'
         setTagColors(prev => {
           const newMap = new Map(prev)
-          newMap.set(value.toLowerCase(), color)
+          newMap.set(normalized, color)
           return newMap
         })
         setEtiquetasDisponibles(prev => [
           ...prev,
-          { nombre: value.toLowerCase(), veces_usada: 1, color: color }
+          { nombre: normalized, veces_usada: 1, color: color }
         ])
       } catch (error) {
         console.error('Error guardando etiqueta:', error)
         setTagColors(prev => {
           const newMap = new Map(prev)
-          newMap.set(value.toLowerCase(), '#6B7280')
+          newMap.set(normalized, '#6B7280')
           return newMap
         })
       }
@@ -528,49 +537,51 @@ const TaskEditModal = ({
   }
 
   const handleSelectTagSuggestion = async (suggestion: string) => {
-    if (tags.includes(suggestion)) return
+    const normalized = normalizeTag(suggestion)
+    if (!normalized) return
+    if (tags.some((t) => t.toLowerCase() === normalized)) return
     
     // Agregar inmediatamente a la UI para respuesta rápida
-    setTags((prev) => [...prev, suggestion])
+    setTags((prev) => [...prev, normalized])
     setTagInput('')
     setIsTagDropdownOpen(false)
     
     // Obtener color de la etiqueta existente
     const etiquetaExistente = etiquetasDisponibles.find(
-      e => e.nombre.toLowerCase() === suggestion.toLowerCase()
+      e => e.nombre.toLowerCase() === normalized
     )
     
     if (etiquetaExistente) {
       // Usar color existente inmediatamente
       setTagColors(prev => {
         const newMap = new Map(prev)
-        newMap.set(suggestion.toLowerCase(), etiquetaExistente.color || '#6B7280')
+        newMap.set(normalized, etiquetaExistente.color || '#6B7280')
         return newMap
       })
       // Incrementar contador de uso en background
-      apiService.guardarEtiquetaDisponible(suggestion).catch(err => 
+      apiService.guardarEtiquetaDisponible(normalized).catch(err => 
         console.error('Error actualizando uso de etiqueta:', err)
       )
     } else {
       // Si no existe, obtener color después de guardar
       try {
-        await apiService.guardarEtiquetaDisponible(suggestion)
-        const colorResponse = await apiService.obtenerColorEtiqueta(suggestion)
+        await apiService.guardarEtiquetaDisponible(normalized)
+        const colorResponse = await apiService.obtenerColorEtiqueta(normalized)
         const color = colorResponse.success && colorResponse.data ? colorResponse.data : '#6B7280'
         setTagColors(prev => {
           const newMap = new Map(prev)
-          newMap.set(suggestion.toLowerCase(), color)
+          newMap.set(normalized, color)
           return newMap
         })
         setEtiquetasDisponibles(prev => [
           ...prev,
-          { nombre: suggestion.toLowerCase(), veces_usada: 1, color: color }
+          { nombre: normalized, veces_usada: 1, color: color }
         ])
       } catch (error) {
         console.error('Error guardando etiqueta:', error)
         setTagColors(prev => {
           const newMap = new Map(prev)
-          newMap.set(suggestion.toLowerCase(), '#6B7280')
+          newMap.set(normalized, '#6B7280')
           return newMap
         })
       }
@@ -1070,22 +1081,14 @@ const TaskEditModal = ({
                 placeholder="Ej: Urgente, Cliente VIP..."
                 value={tagInput}
                 onChange={(e) => {
-                  const value = e.target.value
-                  setTagInput(value)
-                  // Mantener dropdown abierto si hay sugerencias
-                  const hasSuggestions = etiquetasDisponibles.some(etiqueta => 
-                    etiqueta.nombre.toLowerCase().includes(value.toLowerCase()) && 
-                    !tags.includes(etiqueta.nombre)
-                  ) || value.trim().length === 0
-                  setIsTagDropdownOpen(hasSuggestions)
+                  setTagInput(e.target.value)
                 }}
                 onFocus={() => {
-                  // Mostrar todas las etiquetas disponibles cuando hace focus
-                  if (etiquetasDisponibles.length > 0) {
-                    setIsTagDropdownOpen(true)
-                  }
+                  setIsTagInputFocused(true)
+                  if (tagSuggestions.length > 0) setIsTagDropdownOpen(true)
                 }}
                 onBlur={() => {
+                  setIsTagInputFocused(false)
                   // Delay para permitir click en sugerencias
                   setTimeout(() => setIsTagDropdownOpen(false), 200)
                 }}
