@@ -505,6 +505,13 @@ body.compact-mode .task-actions {
   width: fit-content;
 }
 
+.task-metros-pill.is-empty {
+  color: rgba(226, 232, 240, 0.85);
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.25);
+  box-shadow: none;
+}
+
 .task-op {
   font-weight: 700;
   font-size: 1.1rem;

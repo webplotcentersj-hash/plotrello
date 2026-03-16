@@ -568,9 +568,17 @@ const TaskCard = ({
                 <span className="task-notification-bell" title="Hay modificaciones recientes">🔔</span>
               )}
             </div>
-            {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
-              <div className="task-metros-pill" title="Metros cuadrados registrados">
-                📏 {task.metrosCuadrados.toFixed(2)} m²
+            {(isTallerGrafico || task.metrosCuadrados !== undefined) && (
+              <div
+                className={`task-metros-pill ${
+                  task.metrosCuadrados === undefined || task.metrosCuadrados === null ? 'is-empty' : ''
+                }`}
+                title="Metros cuadrados"
+              >
+                📏 m²:{' '}
+                {task.metrosCuadrados === undefined || task.metrosCuadrados === null
+                  ? '—'
+                  : `${task.metrosCuadrados.toFixed(2)}`}
               </div>
             )}
             <h4>{task.title}</h4>
