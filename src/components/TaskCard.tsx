@@ -420,9 +420,7 @@ const TaskCard = ({
                 className="task-action-btn task-delete"
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (confirm('¿Estás seguro de eliminar esta tarea?')) {
-                    onDelete(task.id)
-                  }
+                  onDelete(task.id)
                 }}
                 title="Eliminar"
               >

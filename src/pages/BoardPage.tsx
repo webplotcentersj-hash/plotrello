@@ -527,18 +527,45 @@ const BoardPage = ({
   }
 
   const handleDeleteTask = async (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId)
+
+    const motivo = window.prompt(
+      '¿Por qué eliminás esta OP?\n(Este motivo va a quedar registrado en la auditoría.)',
+      ''
+    )
+
+    if (motivo === null) {
+      // Cancelado
+      return
+    }
+
+    if (!motivo.trim()) {
+      window.alert('Necesitás escribir un motivo para eliminar la OP.')
+      return
+    }
+
     void persistWorkingUser(taskId, null)
-    setTasks((prev) => prev.filter((task) => task.id !== taskId))
-    setTaskToEdit(null)
 
     const ordenId = parseTaskIdToOrdenId(taskId)
     if (ordenId) {
-      const response = await apiService.deleteOrden(ordenId)
+      const response = await apiService.deleteOrden(ordenId, {
+        motivo: motivo.trim(),
+        usuarioId: usuario?.id ?? null,
+        usuarioNombre: usuario?.nombre || null,
+        estadoAnterior: task?.status ?? null
+      })
+
       if (!response.success) {
         setActionError(response.error || 'No se pudo eliminar la orden en Supabase.')
-      } else if (onReloadData) {
-        await onReloadData()
+        return
       }
+    }
+
+    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+    setTaskToEdit(null)
+
+    if (onReloadData) {
+      await onReloadData()
     }
   }
 

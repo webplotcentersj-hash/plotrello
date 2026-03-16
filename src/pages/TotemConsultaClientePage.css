@@ -6,6 +6,64 @@
   max-width: 1080px;
 }
 
+/* ——— Pantalla en espera / modo kiosk ——— */
+.totem-idle {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 48px 24px;
+  background: radial-gradient(ellipse at center, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%);
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.totem-idle-logo {
+  height: 100px;
+  width: auto;
+}
+
+.totem-idle-cta {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.95);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.totem-idle-horarios {
+  margin-top: 16px;
+  padding: 24px 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.totem-idle-horarios-title {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.totem-idle-horario {
+  margin: 0 0 4px 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #f8fafc;
+  text-align: center;
+}
+
+.totem-idle-horario:last-child {
+  margin-bottom: 0;
+}
+
 .totem-header {
   padding: 32px 40px;
 }

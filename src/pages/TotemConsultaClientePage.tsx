@@ -9,6 +9,7 @@ import './TotemConsultaClientePage.css'
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
 const INACTIVITY_MS = 90000
+const IDLE_MS = 60000 // Tras este tiempo sin tocar, se muestra pantalla en espera (modo kiosk)
 
 // Señalética tal cual la foto: franjas horizontales, colores y textos para orientar
 const TOTEM_SECTORS_QUEHACER: Array<{
@@ -35,7 +36,7 @@ const TotemConsultaClientePage = () => {
   const [error, setError] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [sectorDestino, setSectorDestino] = useState<string>('Mostrador')
-  const [step, setStep] = useState<'welcome' | 'search'>('welcome')
+  const [step, setStep] = useState<'idle' | 'welcome' | 'search'>('idle')
   const [selectedQueHacer, setSelectedQueHacer] = useState<string | null>(null)
   const [lastInteraction, setLastInteraction] = useState<number>(() => Date.now())
 
@@ -43,8 +44,9 @@ const TotemConsultaClientePage = () => {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (!ordenes.length && !searchOp && !searchDni && step === 'welcome' && !selectedQueHacer) return
-      if (Date.now() - lastInteraction > INACTIVITY_MS) {
+      const elapsed = Date.now() - lastInteraction
+      if (step === 'idle') return
+      if (elapsed > INACTIVITY_MS || elapsed > IDLE_MS) {
         setSearchOp('')
         setSearchDni('')
         setOrdenes([])
@@ -52,7 +54,7 @@ const TotemConsultaClientePage = () => {
         setError(null)
         setMensaje(null)
         setSelectedQueHacer(null)
-        setStep('welcome')
+        setStep('idle')
       }
     }, 5000)
     return () => clearInterval(id)
@@ -272,10 +274,31 @@ const TotemConsultaClientePage = () => {
   return (
     <div
       className="cliente-consulta-page totem-consulta-page"
-      onClick={registrarInteraccion}
+      onClick={() => {
+        if (step === 'idle') {
+          setStep('welcome')
+        }
+        registrarInteraccion()
+      }}
       onKeyDown={registrarInteraccion}
     >
       <div className="consulta-container totem-container">
+        {step === 'idle' && (
+          <div className="totem-idle">
+            <img
+              src="https://trello.plotcenter.com.ar/Group%20187.png"
+              alt="Plot Center"
+              className="totem-idle-logo"
+            />
+            <p className="totem-idle-cta">Tocá la pantalla para comenzar</p>
+            <div className="totem-idle-horarios">
+              <p className="totem-idle-horarios-title">Horarios de atención</p>
+              <p className="totem-idle-horario">Lunes a Viernes: 9 a 17 hs</p>
+              <p className="totem-idle-horario">Sábado: 9:00 a 14:00 hs</p>
+            </div>
+          </div>
+        )}
+
         {step === 'welcome' && (
           <>
             <header className="consulta-header totem-header">

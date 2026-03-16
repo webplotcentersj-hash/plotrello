@@ -1168,11 +1168,50 @@ class ApiService {
     return { success: true, data: fallbackOrdenes[index] }
   }
 
-  async deleteOrden(id: number): Promise<ApiResponse<void>> {
+  async deleteOrden(
+    id: number,
+    options?: {
+      motivo?: string
+      usuarioId?: number | null
+      usuarioNombre?: string | null
+      estadoAnterior?: string | null
+    }
+  ): Promise<ApiResponse<void>> {
     if (supabase) {
-      const { error } = await supabase.from('ordenes_trabajo').delete().eq('id', id)
-      if (error) return { success: false, error: error.message }
-      return { success: true }
+      try {
+        if (options?.motivo) {
+          const changes: Record<string, any> = {
+            motivo: options.motivo,
+            origen: 'deleteOrden_frontend'
+          }
+          if (options.estadoAnterior) {
+            changes.estado_anterior = options.estadoAnterior
+          }
+
+          await supabase.rpc('registrar_cambio_manual', {
+            p_id_orden: id,
+            p_id_usuario: options.usuarioId ?? null,
+            p_nombre_usuario: options.usuarioNombre ?? null,
+            p_estado_anterior: options.estadoAnterior ?? null,
+            p_estado_nuevo: 'ELIMINADA',
+            p_comentario: options.motivo,
+            p_accion_tipo: 'eliminacion',
+            p_cambios_detallados: changes,
+            p_ip_address: null,
+            p_user_agent: null
+          })
+        }
+
+        const { error } = await supabase.from('ordenes_trabajo').delete().eq('id', id)
+        if (error) return { success: false, error: error.message }
+        return { success: true }
+      } catch (e: any) {
+        console.error('Error eliminando orden con auditoría:', e)
+        return {
+          success: false,
+          error: e?.message || 'Error al eliminar la orden'
+        }
+      }
     }
 
     if (hasLegacyBackend) {
