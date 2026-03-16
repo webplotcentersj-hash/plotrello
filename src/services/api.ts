@@ -3440,6 +3440,21 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  async actualizarMetrosOrden(
+    ordenId: number,
+    metrosCuadrados: number
+  ): Promise<ApiResponse<void>> {
+    if (supabase) {
+      const { error } = await supabase
+        .from('ordenes_trabajo')
+        .update({ metros_cuadrados: metrosCuadrados })
+        .eq('id', ordenId)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async actualizarMetrosImpresora(
     usoId: number,
     metrosCuadrados: number

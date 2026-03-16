@@ -632,6 +632,14 @@ const BoardPage = ({
         const createdTask = ordenToTask(response.data)
         const ordenId = parseTaskIdToOrdenId(createdTask.id)
         
+        // Si la OP viene con metros, guardarlos en la ficha (corrección/consistencia para TG)
+        if (ordenId && newTaskData.metrosCuadrados !== undefined && newTaskData.metrosCuadrados !== null) {
+          const metros = Number(newTaskData.metrosCuadrados)
+          if (!Number.isNaN(metros) && metros > 0) {
+            await apiService.actualizarMetrosOrden(ordenId, metros)
+          }
+        }
+
         // Asociar brief si hay token seleccionado
         if ((newTaskData as any).briefToken && ordenId) {
           try {

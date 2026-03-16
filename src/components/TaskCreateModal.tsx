@@ -97,6 +97,7 @@ const TaskCreateModal = ({
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
   const [photoUrl, setPhotoUrl] = useState('')
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [metrosCuadrados, setMetrosCuadrados] = useState<string>('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [etiquetasDisponibles, setEtiquetasDisponibles] = useState<Array<{ nombre: string; veces_usada: number; color: string }>>([])
@@ -420,6 +421,15 @@ const TaskCreateModal = ({
 
     // El primer sector es donde aparecerá la primera ficha (se crearán automáticamente las demás)
     const primerSector = selectedSectores[0]
+    const requiereMetrosTG = selectedSectores.includes('Taller Gráfico')
+
+    if (requiereMetrosTG) {
+      const metrosVal = parseFloat((metrosCuadrados || '').replace(',', '.'))
+      if (!metrosCuadrados.trim() || Number.isNaN(metrosVal) || metrosVal <= 0) {
+        alert('Para Taller Gráfico es obligatorio cargar los metros cuadrados (m²).')
+        return
+      }
+    }
 
     console.log('🏷️ [TaskCreateModal] Tags antes de crear orden:', tags)
     console.log('🏷️ [TaskCreateModal] Tags es array:', Array.isArray(tags))
@@ -459,6 +469,11 @@ const TaskCreateModal = ({
       estiloDiseno: estiloDiseno.trim() || undefined,
       referencias: referencias.trim() || undefined,
       deadlineBrief: deadlineBrief || undefined
+    }
+
+    if (requiereMetrosTG) {
+      const metrosVal = parseFloat((metrosCuadrados || '').replace(',', '.'))
+      ;(newTask as any).metrosCuadrados = Number.isNaN(metrosVal) ? undefined : metrosVal
     }
 
     console.log('🏷️ [TaskCreateModal] newTask.tags:', newTask.tags)
@@ -1462,6 +1477,20 @@ const TaskCreateModal = ({
               placeholder="Enlaces a referencias visuales, Pinterest, Behance, o descripción de estilos deseados..."
             />
           </div>
+
+          {selectedSectores.includes('Taller Gráfico') && (
+            <div className="form-group">
+              <label>Metros Cuadrados (m²) a imprimir *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={metrosCuadrados}
+                onChange={(e) => setMetrosCuadrados(e.target.value)}
+                placeholder="Ej: 6.24"
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label>Etiquetas (colores automáticos)</label>
