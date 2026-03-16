@@ -1179,28 +1179,25 @@ class ApiService {
   ): Promise<ApiResponse<void>> {
     if (supabase) {
       try {
-        if (options?.motivo) {
-          const changes: Record<string, any> = {
-            motivo: options.motivo,
-            origen: 'deleteOrden_frontend'
-          }
-          if (options.estadoAnterior) {
-            changes.estado_anterior = options.estadoAnterior
-          }
-
-          await supabase.rpc('registrar_cambio_manual', {
-            p_id_orden: id,
-            p_id_usuario: options.usuarioId ?? null,
-            p_nombre_usuario: options.usuarioNombre ?? null,
-            p_estado_anterior: options.estadoAnterior ?? null,
-            p_estado_nuevo: 'ELIMINADA',
-            p_comentario: options.motivo,
-            p_accion_tipo: 'eliminacion',
-            p_cambios_detallados: changes,
-            p_ip_address: null,
-            p_user_agent: null
-          })
+        // Registrar SIEMPRE en historial, aunque no haya motivo (para garantizar trazabilidad)
+        const changes: Record<string, any> = {
+          origen: 'deleteOrden_frontend'
         }
+        if (options?.motivo) {
+          changes.motivo = options.motivo
+        }
+        if (options?.estadoAnterior) {
+          changes.estado_anterior = options.estadoAnterior
+        }
+
+        await this.registrarCambioHistorial(
+          id,
+          options?.estadoAnterior ?? null,
+          'ELIMINADA',
+          options?.motivo || 'Eliminación de OP desde la app principal.',
+          'eliminacion',
+          changes
+        )
 
         const { error } = await supabase.from('ordenes_trabajo').delete().eq('id', id)
         if (error) return { success: false, error: error.message }
