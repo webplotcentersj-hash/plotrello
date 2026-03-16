@@ -1,0 +1,147 @@
+.op-eliminadas-page .consulta-header {
+  background: linear-gradient(135deg, #020617 0%, #0f172a 40%, #1e293b 100%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.op-eliminadas-page .header-text h1 {
+  color: #f9fafb;
+}
+
+.op-eliminadas-page .header-text p {
+  color: rgba(226, 232, 240, 0.8);
+}
+
+.op-eliminadas-section {
+  background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.18), transparent 55%),
+    #020617;
+}
+
+.op-eliminadas-results {
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.op-eliminadas-table-wrapper {
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(31, 41, 55, 0.9);
+}
+
+.op-eliminadas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  color: #e5e7eb;
+  background: #020617;
+}
+
+.op-eliminadas-table thead {
+  background: linear-gradient(135deg, #020617 0%, #0f172a 60%, #1f2937 100%);
+}
+
+.op-eliminadas-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.9);
+}
+
+.op-eliminadas-table tbody tr:nth-child(odd) {
+  background: rgba(15, 23, 42, 0.98);
+}
+
+.op-eliminadas-table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.92);
+}
+
+.op-eliminadas-table tbody tr:hover {
+  background: radial-gradient(circle at left, rgba(56, 189, 248, 0.16), rgba(15, 23, 42, 1));
+}
+
+.op-eliminadas-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+}
+
+.op-eliminadas-table td:nth-child(2) {
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.op-eliminadas-table td:nth-child(4),
+.op-eliminadas-table td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.op-eliminadas-table td:nth-child(7) {
+  background: radial-gradient(circle at left, rgba(148, 163, 184, 0.25), transparent 60%);
+  border-left: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.op-eliminadas-table .estado-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.op-eliminadas-table .estado-badge--finalizado {
+  background: rgba(34, 197, 94, 0.15);
+  color: #bbf7d0;
+  border: 1px solid rgba(34, 197, 94, 0.6);
+}
+
+.op-eliminadas-table .estado-badge--proceso {
+  background: rgba(234, 179, 8, 0.18);
+  color: #fef9c3;
+  border: 1px solid rgba(234, 179, 8, 0.6);
+}
+
+.op-eliminadas-table .rol-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+}
+
+.op-eliminadas-table .rol-chip--administracion {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.8);
+  color: #fed7aa;
+}
+
+.op-eliminadas-table .rol-chip--mostrador {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.8);
+  color: #bbf7d0;
+}
+
+.op-eliminadas-table .rol-chip--diseno {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.8);
+  color: #bfdbfe;
+}
+
+.op-eliminadas-section .timeline {
+  margin-top: 12px;
+  border-radius: 12px;
+  background: radial-gradient(circle at top, rgba(56, 189, 248, 0.18), rgba(15, 23, 42, 1));
+  border: 1px solid rgba(148, 163, 184, 0.6);
+}
+

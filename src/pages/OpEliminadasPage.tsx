@@ -5,6 +5,7 @@ import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useAuth } from '../hooks/useAuth'
 import './ClienteConsultaPage.css'
+import './OpEliminadasPage.css'
 
 type DeletedOpRow = {
   id: number
@@ -103,7 +104,7 @@ const OpEliminadasPage = () => {
   }
 
   return (
-    <div className="cliente-consulta-page">
+    <div className="cliente-consulta-page op-eliminadas-page">
       <div className="consulta-container">
         <header className="consulta-header">
           <div className="header-content">
@@ -119,7 +120,7 @@ const OpEliminadasPage = () => {
           </div>
         </header>
 
-        <section className="consulta-results-section">
+        <section className="consulta-results-section op-eliminadas-section">
           {loading && <p style={{ color: '#e5e7eb' }}>Cargando OP eliminadas...</p>}
           {error && (
             <p style={{ color: '#fecaca', marginBottom: '12px' }}>
@@ -128,10 +129,10 @@ const OpEliminadasPage = () => {
           )}
 
           {!loading && !error && (
-            <div className="ordenes-results">
+            <div className="ordenes-results op-eliminadas-results">
               <h2 className="results-title">Historial de OP eliminadas</h2>
-              <div className="admin-table-wrapper">
-                <table className="admin-table">
+              <div className="op-eliminadas-table-wrapper">
+                <table className="op-eliminadas-table">
                   <thead>
                     <tr>
                       <th>Fecha</th>
