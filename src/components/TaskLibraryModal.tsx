@@ -18,6 +18,7 @@ type DeletedOpRow = {
   estado_nuevo: string | null
   comentario: string | null
   accion_tipo: string | null
+  cambios_detallados?: any
   timestamp: string
 }
 
@@ -146,8 +147,14 @@ const TaskLibraryModal = ({
     if (!baseRows) return []
     const q = searchQuery.trim().toLowerCase()
     return baseRows.filter((row) => {
-      const numero = row.numero_op || (row.id_orden ? `#${row.id_orden}` : '')
-      const cliente = row.cliente || ''
+      const numero =
+        row.numero_op ||
+        (row.cambios_detallados && (row.cambios_detallados as any).numero_op) ||
+        (row.id_orden ? `#${row.id_orden}` : '')
+      const cliente =
+        row.cliente ||
+        (row.cambios_detallados && (row.cambios_detallados as any).cliente) ||
+        ''
       const motivo = row.comentario || ''
       const matchesSearch =
         !q ||
@@ -478,9 +485,15 @@ const TaskLibraryModal = ({
                               })}
                             </td>
                             <td className="deleted-cell-op">
-                              {row.numero_op || (row.id_orden ? `#${row.id_orden}` : '-')}
+                              {row.numero_op ||
+                                (row.cambios_detallados && (row.cambios_detallados as any).numero_op) ||
+                                (row.id_orden ? `#${row.id_orden}` : '-')}
                             </td>
-                            <td className="deleted-cell-cliente">{row.cliente || '-'}</td>
+                            <td className="deleted-cell-cliente">
+                              {row.cliente ||
+                                (row.cambios_detallados && (row.cambios_detallados as any).cliente) ||
+                                '-'}
+                            </td>
                             <td className="deleted-cell-usuario">{row.nombre_usuario || '-'}</td>
                             <td className="deleted-cell-rol">
                               <span className="deleted-rol-chip">{row.rol_usuario || '-'}</span>

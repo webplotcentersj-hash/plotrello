@@ -1186,6 +1186,21 @@ class ApiService {
         if (options?.motivo) changes.motivo = options.motivo
         if (options?.estadoAnterior) changes.estado_anterior = options.estadoAnterior
 
+        // Capturar datos clave antes de borrar (la vista pierde numero_op/cliente cuando se elimina la fila)
+        try {
+          const { data: ordenInfo } = await supabase
+            .from('ordenes_trabajo')
+            .select('numero_op, cliente')
+            .eq('id', id)
+            .maybeSingle()
+          if (ordenInfo) {
+            ;(changes as any).numero_op = (ordenInfo as any).numero_op ?? null
+            ;(changes as any).cliente = (ordenInfo as any).cliente ?? null
+          }
+        } catch {
+          // ignore: no bloquear auditoría por este lookup
+        }
+
         const { error: auditError } = await supabase.rpc('registrar_cambio_manual_v2', {
           p_id_orden: id,
           p_id_usuario: currentUserId,
@@ -1638,6 +1653,7 @@ class ApiService {
         estado_nuevo: string | null
         comentario: string | null
         accion_tipo: string | null
+        cambios_detallados?: any
         timestamp: string
       }>
     >
@@ -1646,7 +1662,7 @@ class ApiService {
       let query = supabase
         .from('vista_auditoria_completa')
         .select(
-          'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,timestamp'
+          'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp'
         )
         .eq('accion_tipo', 'eliminacion')
         .order('timestamp', { ascending: false })

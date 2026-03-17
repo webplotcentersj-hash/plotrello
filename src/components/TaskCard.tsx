@@ -36,13 +36,25 @@ type TaskCardProps = {
   onSelect?: (taskId: string | null) => void
 }
 
-const formatShortDate = (value: string) =>
-  new Intl.DateTimeFormat('es-AR', {
+const formatShortDate = (value: string) => {
+  // Si viene date-only (YYYY-MM-DD), evitar el corrimiento por UTC interpretándolo en horario AR
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    // Mediodía UTC = mañana en AR, evita caer en el día anterior
+    const safe = new Date(`${value}T12:00:00Z`)
+    return new Intl.DateTimeFormat('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      timeZone: 'America/Argentina/Buenos_Aires'
+    }).format(safe)
+  }
+  return new Intl.DateTimeFormat('es-AR', {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
     timeZone: 'America/Argentina/Buenos_Aires'
   }).format(new Date(value))
+}
 
 const formatFullDateTime = (value: string) =>
   new Intl.DateTimeFormat('es-AR', {
