@@ -837,7 +837,15 @@ const TaskCreateModal = ({
     .slice(0, normalizedMaterialQuery ? 15 : 10)
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
           <h2>Agregar Nueva Orden</h2>

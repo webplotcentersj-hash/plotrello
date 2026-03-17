@@ -336,7 +336,15 @@ const ProveedoresPage = () => {
 
       {/* Modal de Crear/Editar Proveedor */}
       {mostrarModal && (
-        <div className="modal-overlay" onClick={() => setMostrarModal(false)}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setMostrarModal(false)
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) setMostrarModal(false)
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{modoEdicion ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h2>
@@ -521,7 +529,15 @@ const ProveedoresPage = () => {
 
       {/* Modal de Nuevo Producto */}
       {mostrarModalNuevoProducto && proveedorSeleccionado && (
-        <div className="modal-overlay" onClick={() => setMostrarModalNuevoProducto(false)}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setMostrarModalNuevoProducto(false)
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) setMostrarModalNuevoProducto(false)
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Agregar Producto a {proveedorSeleccionado.nombre}</h2>
