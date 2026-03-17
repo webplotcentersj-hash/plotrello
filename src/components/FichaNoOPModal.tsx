@@ -112,7 +112,12 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       type: file.type,
       file
     }))
-    setAdjuntos((prev) => [...prev, ...nuevos])
+    // IMPORTANTE: actualizar ref en el mismo tick antes de arrancar uploads
+    setAdjuntos((prev) => {
+      const next = [...prev, ...nuevos]
+      adjuntosRef.current = next
+      return next
+    })
     e.target.value = ''
 
     // Subir automáticamente (sin esperar a "Crear")
