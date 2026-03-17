@@ -125,6 +125,16 @@ const BoardPage = ({
 
   useEffect(() => {
     if (actionError || actionSuccess) {
+      // Si falla la auditoría de eliminación, NO auto-limpiar (para que el usuario lo vea siempre)
+      const isAuditDeleteError =
+        typeof actionError === 'string' &&
+        (actionError.toLowerCase().includes('auditor') ||
+          actionError.toLowerCase().includes('no se eliminó la op') ||
+          actionError.toLowerCase().includes('no se elimino la op') ||
+          actionError.toLowerCase().includes('no se pudo registrar'))
+      if (isAuditDeleteError) {
+        return undefined
+      }
       const timer = setTimeout(() => {
         setActionError(null)
         setActionSuccess(null)
@@ -572,7 +582,10 @@ const BoardPage = ({
       })
 
       if (!response.success) {
-        setActionError(response.error || 'No se pudo eliminar la orden en Supabase.')
+        const msg = response.error || 'No se pudo eliminar la orden en Supabase.'
+        setActionError(msg)
+        // Alert inmediato (evita que el usuario "no vea nada")
+        window.alert(msg)
         return
       }
     }
