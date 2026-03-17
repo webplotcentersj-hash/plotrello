@@ -395,9 +395,7 @@ const TaskCreateModal = ({
     }
 
     const dueDate = fechaEntrega
-      ? horaEstimada
-        ? new Date(`${fechaEntrega}T${horaEstimada}`).toISOString()
-        : new Date(`${fechaEntrega}T00:00`).toISOString()
+      ? new Date(`${fechaEntrega}T${horaEstimada || '00:00'}:00-03:00`).toISOString()
       : new Date().toISOString()
 
     const creatorName = stripEmailDomain(usuario?.nombre) ?? usuario?.nombre ?? 'Usuario'

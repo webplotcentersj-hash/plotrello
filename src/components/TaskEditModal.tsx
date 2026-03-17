@@ -743,18 +743,23 @@ const TaskEditModal = ({
                 type="date"
                 value={
                   formData.dueDate
-                    ? new Date(formData.dueDate).toISOString().split('T')[0]
+                    ? /^\d{4}-\d{2}-\d{2}$/.test(formData.dueDate)
+                      ? formData.dueDate
+                      : new Intl.DateTimeFormat('en-CA', {
+                          timeZone: 'America/Argentina/Buenos_Aires',
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit'
+                        }).format(new Date(formData.dueDate))
                     : ''
                 }
                 onChange={(e) => {
                   const dateStr = e.target.value
                   const timeStr = estimatedTime || '00:00'
-                  const [hours, minutes] = timeStr.split(':')
-                  const fullDate = new Date(dateStr)
-                  fullDate.setHours(parseInt(hours), parseInt(minutes))
                   setFormData({
                     ...formData,
-                    dueDate: fullDate.toISOString()
+                    // Guardar como instant en horario Argentina para no correrse de día
+                    dueDate: `${dateStr}T${timeStr}:00-03:00`
                   })
                 }}
               />
@@ -769,10 +774,15 @@ const TaskEditModal = ({
                   const timeStr = e.target.value
                   setEstimatedTime(timeStr)
                   if (formData.dueDate) {
-                    const date = new Date(formData.dueDate)
-                    const [hours, minutes] = timeStr.split(':')
-                    date.setHours(parseInt(hours), parseInt(minutes))
-                    setFormData({ ...formData, dueDate: date.toISOString() })
+                    const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(formData.dueDate)
+                      ? formData.dueDate
+                      : new Intl.DateTimeFormat('en-CA', {
+                          timeZone: 'America/Argentina/Buenos_Aires',
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit'
+                        }).format(new Date(formData.dueDate))
+                    setFormData({ ...formData, dueDate: `${dateStr}T${timeStr}:00-03:00` })
                   }
                 }}
               />

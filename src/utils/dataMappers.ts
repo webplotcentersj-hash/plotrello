@@ -270,9 +270,17 @@ export const historialToActivity = (registro: HistorialMovimiento): ActivityEven
 
 const toDateOnly = (value?: string) => {
   if (!value) return undefined
+  // Si ya viene como date-only, no convertir (evita corrimientos por UTC)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return undefined
-  return date.toISOString().split('T')[0]
+  // Generar YYYY-MM-DD en zona horaria Argentina
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date)
 }
 
 export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<OrdenTrabajo> => {
