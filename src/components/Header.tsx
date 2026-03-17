@@ -102,7 +102,7 @@ const Header = ({
         <div className="header-actions">
           <ClockWidget />
           <WeatherWidget />
-          <PwaUpdateButton className="ghost-button" />
+          <PwaUpdateButton className="ghost-button pwa-update-button" />
           <NotificationsDropdown onNotificationClick={(notification) => {
             // Si es una notificación de mención del chat, navegar al chat
             if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
@@ -122,6 +122,7 @@ const Header = ({
           {actionsOpen ? '✕' : '☰'}
           </button>
           <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
+            <PwaUpdateButton className="ghost-button pwa-update-button" />
             {onNavigateToStats && isAdmin && (
               <button className="brand-button" onClick={onNavigateToStats}>
                 📊 Estadísticas

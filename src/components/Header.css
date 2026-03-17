@@ -332,7 +332,7 @@
   }
 
   /* En móvil solo mostramos el toggle; el resto de la botonera vive en el dropdown */
-  .header-actions > :not(.actions-toggle):not(.actions-dropdown) {
+  .header-actions > :not(.actions-toggle):not(.actions-dropdown):not(.pwa-update-button) {
     display: none;
   }
 }
