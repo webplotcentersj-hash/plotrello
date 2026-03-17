@@ -139,7 +139,8 @@ class ApiService {
     const nombreUsuario = usuarioData
       ? JSON.parse(usuarioData).nombre || 'Usuario'
       : 'Usuario'
-    return { id: usuarioId, nombre: nombreUsuario }
+    // Nunca devolver 0 para evitar FK en historial_movimientos
+    return { id: usuarioId || 1, nombre: nombreUsuario }
   }
 
   // Helper para registrar cambios en historial_movimientos (AUDITORÍA PROFESIONAL)
@@ -1179,25 +1180,33 @@ class ApiService {
   ): Promise<ApiResponse<void>> {
     if (supabase) {
       try {
-        // Registrar SIEMPRE en historial, aunque no haya motivo (para garantizar trazabilidad)
-        const changes: Record<string, any> = {
-          origen: 'deleteOrden_frontend'
-        }
-        if (options?.motivo) {
-          changes.motivo = options.motivo
-        }
-        if (options?.estadoAnterior) {
-          changes.estado_anterior = options.estadoAnterior
-        }
+        // Registrar SIEMPRE la eliminación y si falla, NO borrar (para no perder auditoría)
+        const { id: currentUserId, nombre: currentUserName } = this.getCurrentUser()
+        const changes: Record<string, any> = { origen: 'deleteOrden_frontend' }
+        if (options?.motivo) changes.motivo = options.motivo
+        if (options?.estadoAnterior) changes.estado_anterior = options.estadoAnterior
 
-        await this.registrarCambioHistorial(
-          id,
-          options?.estadoAnterior ?? null,
-          'ELIMINADA',
-          options?.motivo || 'Eliminación de OP desde la app principal.',
-          'eliminacion',
-          changes
-        )
+        const { error: auditError } = await supabase.rpc('registrar_cambio_manual', {
+          p_id_orden: id,
+          p_id_usuario: currentUserId,
+          p_nombre_usuario: currentUserName,
+          p_estado_anterior: options?.estadoAnterior ?? null,
+          p_estado_nuevo: 'ELIMINADA',
+          p_comentario: options?.motivo || 'Eliminación de OP desde la app principal.',
+          p_accion_tipo: 'eliminacion',
+          p_cambios_detallados: changes as any,
+          p_ip_address: null,
+          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+        })
+
+        if (auditError) {
+          return {
+            success: false,
+            error:
+              auditError.message ||
+              'No se pudo registrar la auditoría de eliminación. No se eliminó la OP.'
+          }
+        }
 
         const { error } = await supabase.from('ordenes_trabajo').delete().eq('id', id)
         if (error) return { success: false, error: error.message }
