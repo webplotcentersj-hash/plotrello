@@ -81,24 +81,36 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     setIsClienteDropdownOpen(false)
   }
 
+  const uploadAdjunto = async (id: string, file: File) => {
+    // Marcar subiendo
+    setAdjuntos((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, uploading: true, error: undefined } : a))
+    )
+    try {
+      const url = await uploadAttachmentAndGetUrl(file, 'fichas-tecnicas')
+      setAdjuntos((prev) => {
+        const next = prev.map((a) => (a.id === id ? { ...a, remoteUrl: url, uploading: false } : a))
+        adjuntosRef.current = next
+        return next
+      })
+    } catch (error) {
+      console.error('Error subiendo adjunto:', error)
+      setAdjuntos((prev) => {
+        const next = prev.map((a) =>
+          a.id === id ? { ...a, uploading: false, error: 'Error al subir. Reintentar.' } : a
+        )
+        adjuntosRef.current = next
+        return next
+      })
+    }
+  }
+
   const uploadAdjuntoById = async (id: string) => {
     const current = adjuntosRef.current.find((a) => a.id === id)
     if (!current?.file) return
     if (current.remoteUrl) return
     if (current.uploading) return
-
-    setAdjuntos((prev) => prev.map((a) => (a.id === id ? { ...a, uploading: true, error: undefined } : a)))
-    try {
-      const url = await uploadAttachmentAndGetUrl(current.file, 'fichas-tecnicas')
-      setAdjuntos((prev) => prev.map((a) => (a.id === id ? { ...a, remoteUrl: url, uploading: false } : a)))
-    } catch (error) {
-      console.error('Error subiendo adjunto:', error)
-      setAdjuntos((prev) =>
-        prev.map((a) =>
-          a.id === id ? { ...a, uploading: false, error: 'Error al subir. Reintentar.' } : a
-        )
-      )
-    }
+    await uploadAdjunto(id, current.file)
   }
 
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,7 +134,8 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
 
     // Subir automáticamente (sin esperar a "Crear")
     for (const n of nuevos) {
-      void uploadAdjuntoById(n.id)
+      // Usar el File directo para evitar carreras de estado
+      void uploadAdjunto(n.id, n.file!)
     }
   }
 

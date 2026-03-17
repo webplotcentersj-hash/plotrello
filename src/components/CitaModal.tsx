@@ -18,7 +18,6 @@ const CitaModal = ({
   cita,
   fechaSeleccionada,
   idAsesor,
-  clientes,
   onClose,
   onSave,
   onDelete
@@ -27,7 +26,7 @@ const CitaModal = ({
   const [fechaCita, setFechaCita] = useState('')
   const [horaCita, setHoraCita] = useState('09:00')
   const [duracionMinutos, setDuracionMinutos] = useState(60)
-  const [idCliente, setIdCliente] = useState<number | undefined>(undefined)
+  const [clienteNombre, setClienteNombre] = useState('')
   const [direccion, setDireccion] = useState('')
   const [ubicacionLink, setUbicacionLink] = useState('')
   const [estado, setEstado] = useState<'programada' | 'confirmada' | 'en_curso' | 'completada' | 'cancelada'>('programada')
@@ -35,14 +34,12 @@ const CitaModal = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const clienteHeader = useMemo(() => {
-    if (!idCliente) return ''
-    const c = clientes.find((x) => x.id === idCliente)
-    if (!c) return ''
-    const empresa = (c.empresa || '').trim()
-    const nombre = (c.nombre || '').trim()
-    return empresa ? `${empresa} (${nombre})` : nombre
-  }, [idCliente, clientes])
+  const clienteHeader = useMemo(() => clienteNombre.trim(), [clienteNombre])
+
+  const stripVisitaPrefix = (value: string) => {
+    const v = value.trim()
+    return v.toLowerCase().startsWith('visita - ') ? v.slice(9).trim() : v
+  }
 
   useEffect(() => {
     if (cita) {
@@ -50,13 +47,18 @@ const CitaModal = ({
       setFechaCita(isoToArgentinaDateKey(cita.fecha_cita))
       setHoraCita(isoToArgentinaTime(cita.fecha_cita))
       setDuracionMinutos(cita.duracion_minutos)
-      setIdCliente(cita.id_cliente || undefined)
+      setClienteNombre(
+        (cita.cliente_nombre || '').trim() ||
+          stripVisitaPrefix(cita.titulo || '') ||
+          ''
+      )
       setDireccion(cita.direccion || '')
       setUbicacionLink(cita.ubicacion_link || '')
       setEstado(cita.estado)
       setNotas(cita.notas || '')
     } else if (fechaSeleccionada) {
       setFechaCita(formatArgentinaDateOnly(fechaSeleccionada))
+      setClienteNombre('')
     }
   }, [cita, fechaSeleccionada])
 
@@ -66,10 +68,8 @@ const CitaModal = ({
     setError(null)
 
     try {
-      const clienteSeleccionado = clientes.find((c) => c.id === idCliente)
-      const tituloFinal = clienteSeleccionado?.nombre
-        ? `Visita - ${clienteSeleccionado.nombre}`
-        : 'Visita'
+      const nombreFinal = clienteNombre.trim()
+      const tituloFinal = nombreFinal ? `Visita - ${nombreFinal}` : 'Visita'
 
       // Guardar SIEMPRE en horario Argentina para que no se corra al editar/mostrar
       const fechaHoraCompleta = `${fechaCita}T${horaCita}:00-03:00`
@@ -98,7 +98,7 @@ const CitaModal = ({
           idAsesor,
           tituloFinal,
           fechaHoraCompleta,
-          idCliente,
+          undefined,
           undefined,
           descripcion || undefined,
           duracionMinutos,
@@ -202,19 +202,14 @@ const CitaModal = ({
           </div>
 
           <div className="form-group">
-            <label>Cliente *</label>
-            <select
-              value={idCliente || ''}
-              onChange={(e) => setIdCliente(e.target.value ? parseInt(e.target.value) : undefined)}
+            <label>Cliente / Empresa *</label>
+            <input
+              type="text"
+              value={clienteNombre}
+              onChange={(e) => setClienteNombre(e.target.value)}
+              placeholder="Escribí el nombre del cliente o la empresa"
               required
-            >
-              <option value="">Seleccionar cliente...</option>
-              {clientes.map(cliente => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nombre} {cliente.telefono ? `- ${cliente.telefono}` : ''}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div className="form-group">

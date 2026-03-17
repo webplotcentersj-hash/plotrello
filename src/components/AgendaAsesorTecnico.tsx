@@ -118,6 +118,11 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
     setCitaModalOpen(true)
   }
 
+  const displayVisitaCliente = (cita: CitaAsesorTecnico) => {
+    const raw = (cita.cliente_nombre || cita.titulo || '').trim()
+    return raw.toLowerCase().startsWith('visita - ') ? raw.slice(9).trim() : raw
+  }
+
   const handleCitaSaved = () => {
     setCitaModalOpen(false)
     setCitaToEdit(null)
@@ -196,7 +201,7 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                           }}
                           title={cita.cliente_nombre || cita.titulo}
                         >
-                          {isoToArgentinaTime(cita.fecha_cita)} - {(cita.cliente_nombre || cita.titulo).substring(0, 15)}
+                          {isoToArgentinaTime(cita.fecha_cita)} - {displayVisitaCliente(cita).substring(0, 15)}
                         </div>
                       ))}
                       {dayCitas.length > 3 && (
@@ -229,12 +234,7 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                       <span className="cita-fecha">{isoToArgentinaTime(cita.fecha_cita)}</span>
                       <span className={`cita-estado estado-${cita.estado}`}>{cita.estado}</span>
                     </div>
-                    {cita.cliente_nombre && (
-                      <div className="cita-cliente">👤 {cita.cliente_nombre}</div>
-                    )}
-                    {!cita.cliente_nombre && (
-                      <div className="cita-cliente">👤 {cita.titulo}</div>
-                    )}
+                    <div className="cita-cliente">👤 {displayVisitaCliente(cita)}</div>
                     {cita.direccion && (
                       <div className="cita-direccion">📍 {cita.direccion}</div>
                     )}
