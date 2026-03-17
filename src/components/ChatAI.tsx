@@ -251,7 +251,15 @@ Pregunta del usuario: ${userMessage.content}`
   }
 
   return (
-    <div className="chat-ai-overlay" onClick={onClose}>
+    <div
+      className="chat-ai-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="chat-ai-container" onClick={(e) => e.stopPropagation()}>
         <header className="chat-ai-header">
           <div className="chat-ai-title">

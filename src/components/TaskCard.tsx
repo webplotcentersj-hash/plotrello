@@ -1161,9 +1161,11 @@ const TaskCard = ({
         {showQr && (
           <div
             className="modal-overlay"
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowQr(false)
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setShowQr(false)
+            }}
+            onTouchStart={(e) => {
+              if (e.target === e.currentTarget) setShowQr(false)
             }}
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1205,9 +1207,11 @@ const TaskCard = ({
         {showAudit && (
           <div
             className="modal-overlay"
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowAudit(false)
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setShowAudit(false)
+            }}
+            onTouchStart={(e) => {
+              if (e.target === e.currentTarget) setShowAudit(false)
             }}
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1250,9 +1254,11 @@ const TaskCard = ({
         {showAsignarImpresora && (
           <div
             className="modal-overlay"
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowAsignarImpresora(false)
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setShowAsignarImpresora(false)
+            }}
+            onTouchStart={(e) => {
+              if (e.target === e.currentTarget) setShowAsignarImpresora(false)
             }}
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>

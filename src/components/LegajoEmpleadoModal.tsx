@@ -188,7 +188,15 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
   if (!isOpen) return null
 
   return (
-    <div className="legajo-modal-overlay" onClick={onClose}>
+    <div
+      className="legajo-modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="legajo-modal-content" onClick={(e) => e.stopPropagation()}>
         <header className="legajo-modal-header">
           <h2>📋 Legajo de Empleado - {usuario.nombre}</h2>

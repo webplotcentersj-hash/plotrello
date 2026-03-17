@@ -1244,7 +1244,15 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   }, [])
 
   return (
-    <div className="plotai-overlay" onClick={onClose}>
+    <div
+      className="plotai-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="plotai-chat" onClick={(e) => e.stopPropagation()}>
         <header className="plotai-header">
           <div className="plotai-header-content">

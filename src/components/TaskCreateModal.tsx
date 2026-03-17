@@ -1805,7 +1805,16 @@ const TaskCreateModal = ({
 
       {/* Modal de previsualización de archivos */}
       {previewAttachment && (
-        <div className="modal-overlay" onClick={() => setPreviewAttachment(null)} style={{ zIndex: 2000 }}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setPreviewAttachment(null)
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) setPreviewAttachment(null)
+          }}
+          style={{ zIndex: 2000 }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh' }}>
             <header className="modal-header">
               <h3>{previewAttachment.name}</h3>

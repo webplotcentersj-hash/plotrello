@@ -148,7 +148,15 @@ const BuscadorClientesModal = ({ onClose }: BuscadorClientesModalProps) => {
   const oportunidadesActivas = oportunidadesCliente.filter(o => o.activo && o.etapa !== 'Cerrado' && o.etapa !== 'Perdido').length
 
   return (
-    <div className="modal-overlay buscador-clientes-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay buscador-clientes-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="modal-content buscador-clientes-modal" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
           <h2>🔍 Buscador de Clientes</h2>

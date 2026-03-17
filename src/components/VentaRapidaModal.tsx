@@ -433,7 +433,17 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
   }
 
   return (
-    <div className="venta-rapida-modal-overlay" onClick={ventaCreada ? undefined : onClose}>
+    <div
+      className="venta-rapida-modal-overlay"
+      onMouseDown={(e) => {
+        if (ventaCreada) return
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (ventaCreada) return
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
         {/* Cartel VENTA REALIZADA al generar la venta */}
         {showCartelVentaRealizada && (

@@ -80,7 +80,15 @@ const QRPrintView = ({ opNumber, cliente, onClose }: QRPrintViewProps) => {
 
   return (
     <>
-      <div className="qr-print-modal-overlay" onClick={onClose}>
+      <div
+        className="qr-print-modal-overlay"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+        onTouchStart={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
         <div className="qr-print-modal-content" onClick={(e) => e.stopPropagation()}>
           <header className="qr-print-modal-header">
             <h2>QR para Cliente - OP {opNumber}</h2>

@@ -292,7 +292,15 @@ const RecursosHumanosUsuariosPage = () => {
 
       {/* Modal Crear Usuario */}
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowCreateModal(false)
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) setShowCreateModal(false)
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <header className="modal-header">
               <h3>Crear Nuevo Usuario</h3>
@@ -347,7 +355,15 @@ const RecursosHumanosUsuariosPage = () => {
 
       {/* Modal Editar Usuario */}
       {showEditModal && selectedUsuario && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowEditModal(false)
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) setShowEditModal(false)
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <header className="modal-header">
               <h3>Editar Usuario</h3>

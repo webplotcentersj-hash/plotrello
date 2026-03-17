@@ -157,7 +157,15 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="modal-content registro-salida-modal" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
           <h2>Registrar Salida - {vehiculo.nombre}</h2>

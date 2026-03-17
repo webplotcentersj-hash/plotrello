@@ -221,7 +221,15 @@ const GaleriaTrabajosPage = () => {
 
       {/* Modal de detalle */}
       {mostrarModal && trabajoSeleccionado && (
-        <div className="modal-overlay" onClick={handleCerrarModal}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) handleCerrarModal()
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) handleCerrarModal()
+          }}
+        >
           <div className="modal-content-galeria" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={handleCerrarModal}>×</button>
             <div className="modal-imagen">

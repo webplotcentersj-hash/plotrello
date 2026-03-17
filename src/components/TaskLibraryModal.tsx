@@ -223,7 +223,15 @@ const TaskLibraryModal = ({
   }
 
   return (
-    <div className="task-library-modal-overlay" onClick={onClose}>
+    <div
+      className="task-library-modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="task-library-modal" onClick={(e) => e.stopPropagation()}>
         <div className="task-library-header">
           <h2>Bibliotecas de OPs - Filtros Avanzados</h2>

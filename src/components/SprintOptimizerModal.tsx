@@ -185,7 +185,15 @@ const SprintOptimizerModal = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="sprint-optimizer-modal" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
           <h2>Optimizador de Sprint</h2>

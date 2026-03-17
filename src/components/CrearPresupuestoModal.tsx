@@ -260,7 +260,17 @@ const CrearPresupuestoModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }:
   }
 
   return (
-    <div className="modal-overlay" onClick={presupuestoCreado ? undefined : onClose}>
+    <div
+      className="modal-overlay"
+      onMouseDown={(e) => {
+        if (presupuestoCreado) return
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (presupuestoCreado) return
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="modal-content venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>📄 Crear Presupuesto de Venta</h2>

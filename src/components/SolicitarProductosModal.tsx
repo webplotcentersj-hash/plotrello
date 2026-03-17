@@ -203,7 +203,15 @@ const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModal
   }
 
   return (
-    <div className="solicitar-productos-modal-overlay" onClick={onClose}>
+    <div
+      className="solicitar-productos-modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="solicitar-productos-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>🛒 Solicitar Productos Faltantes</h2>

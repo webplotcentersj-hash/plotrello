@@ -93,7 +93,15 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
   }, [formData.fecha_inicio, formData.fecha_fin])
 
   return (
-    <div className="solicitud-modal-overlay" onClick={onClose}>
+    <div
+      className="solicitud-modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="solicitud-modal" onClick={(e) => e.stopPropagation()}>
         <div className="solicitud-modal-header">
           <h2>📋 Nueva Solicitud</h2>

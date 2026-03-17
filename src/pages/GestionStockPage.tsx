@@ -394,7 +394,15 @@ const GestionStockPage = () => {
 
       {/* Modal de Edición/Creación */}
       {mostrarModal && (
-        <div className="modal-overlay" onClick={cerrarModal}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) cerrarModal()
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) cerrarModal()
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{articuloEditando ? 'Editar Artículo' : 'Nuevo Artículo'}</h3>

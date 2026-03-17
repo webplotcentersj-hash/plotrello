@@ -691,7 +691,15 @@ const TaskEditModal = ({
     .slice(0, normalizedMaterialQuery ? 15 : 10)
 
   return (
-    <div className="modal-overlay" onClick={() => onClose(task?.id)}>
+    <div
+      className="modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose(task?.id)
+      }}
+      onTouchStart={(e) => {
+        if (e.target === e.currentTarget) onClose(task?.id)
+      }}
+    >
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
           <h2>Editando OP #{formData.opNumber || task.opNumber}</h2>

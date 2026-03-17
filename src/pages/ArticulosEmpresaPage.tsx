@@ -791,7 +791,15 @@ const ArticulosEmpresaPage = () => {
 
       {/* Modal de Crear/Editar */}
       {showCreateModal && (
-        <div className="modal-overlay" onClick={cerrarModal}>
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) cerrarModal()
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) cerrarModal()
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingArticulo ? 'Editar Artículo' : 'Nuevo Artículo'}</h2>

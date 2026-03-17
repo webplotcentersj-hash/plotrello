@@ -402,7 +402,15 @@ const RecursosHumanosCapacitacionesPage = () => {
 
       {/* Modal de capacitación */}
       {showModal && (
-        <div className="rrhh-modal-overlay" onClick={() => setShowModal(false)}>
+        <div
+          className="rrhh-modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowModal(false)
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) setShowModal(false)
+          }}
+        >
           <div className="rrhh-modal rrhh-modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="rrhh-modal-header">
               <h2>{capacitacionSeleccionada ? 'Editar Capacitación' : 'Nueva Capacitación'}</h2>
