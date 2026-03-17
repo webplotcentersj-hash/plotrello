@@ -6,6 +6,7 @@ import NotificationsDropdown from './NotificationsDropdown'
 import ClockWidget from './ClockWidget'
 import WeatherWidget from './WeatherWidget'
 import AdminAlertButton from './AdminAlertButton'
+import PwaUpdateButton from './PwaUpdateButton'
 import './Header.css'
 
 type HeaderProps = {
@@ -101,6 +102,7 @@ const Header = ({
         <div className="header-actions">
           <ClockWidget />
           <WeatherWidget />
+          <PwaUpdateButton className="ghost-button" />
           <NotificationsDropdown onNotificationClick={(notification) => {
             // Si es una notificación de mención del chat, navegar al chat
             if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
