@@ -394,9 +394,11 @@ const TaskCreateModal = ({
       // Continuar de todas formas, pero mostrar advertencia
     }
 
+    // Si no se especifica fecha de entrega, NO setear una entrega por defecto
+    // (evita mostrar “ayer” por conversiones de huso y mantiene el campo como opcional)
     const dueDate = fechaEntrega
       ? new Date(`${fechaEntrega}T${horaEstimada || '00:00'}:00-03:00`).toISOString()
-      : new Date().toISOString()
+      : ''
 
     const creatorName = stripEmailDomain(usuario?.nombre) ?? usuario?.nombre ?? 'Usuario'
 

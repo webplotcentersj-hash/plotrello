@@ -304,7 +304,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     descripcion: task.summary,
     estado: mapStatusToEstado(task.status), // Preservar el estado (columna) actual
     prioridad: mapPriorityToDb(task.priority),
-    fecha_entrega: toDateOnly(task.dueDate),
+    fecha_entrega: task.dueDate ? toDateOnly(task.dueDate) : null,
     fecha_creacion: task.createdAt,
     fecha_ingreso: task.updatedAt,
     operario_asignado: operarioAsignado, // Normalizar: null si es 'sin-asignar'

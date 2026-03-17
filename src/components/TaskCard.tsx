@@ -578,7 +578,9 @@ const TaskCard = ({
             )}
             <div className="task-op-line">
               <span className="task-op">#{task.opNumber}</span>
-              <span className="task-date">{formatShortDate(task.dueDate)}</span>
+              <span className="task-date">
+                {task.dueDate ? formatShortDate(task.dueDate) : formatShortDate(task.createdAt)}
+              </span>
               {hasModifications && (
                 <span className="task-notification-bell" title="Hay modificaciones recientes">🔔</span>
               )}
