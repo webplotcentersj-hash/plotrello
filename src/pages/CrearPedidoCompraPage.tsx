@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PrioridadPedido, Proveedor, ArticuloStock } from '../types/pedidos'
 import SeleccionarProductoStockModal from '../components/SeleccionarProductoStockModal'
+import jsPDF from 'jspdf'
 import './CrearPedidoCompraPage.css'
 
 const CrearPedidoCompraPage = () => {
@@ -181,6 +182,77 @@ const CrearPedidoCompraPage = () => {
       })
 
       if (response.success && response.data) {
+        // Descargar PDF resumen del pedido (solo en esta pantalla)
+        try {
+          const pedido: any = response.data
+          const proveedorSeleccionado = proveedores.find(
+            (p) => p.id === parseInt(formData.id_proveedor)
+          )
+
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+          const pageWidth = pdf.internal.pageSize.getWidth()
+          const marginX = 14
+          let y = 16
+
+          const addLine = (text: string, size = 11, spacing = 6) => {
+            pdf.setFontSize(size)
+            const lines = pdf.splitTextToSize(text, pageWidth - marginX * 2)
+            pdf.text(lines, marginX, y)
+            y += lines.length * spacing
+          }
+
+          pdf.setFont('helvetica', 'bold')
+          addLine('Pedido a Proveedor Externo', 16, 7)
+          pdf.setFont('helvetica', 'normal')
+          addLine(`N° Pedido: ${pedido?.numero_pedido || pedido?.numero || pedido?.id || ''}`, 12, 6)
+          addLine(`Fecha: ${new Date().toLocaleString('es-AR')}`, 11, 6)
+          addLine(`Solicitante: ${usuario.nombre}`, 11, 6)
+          addLine(`Sector: ${formData.sector_solicitante}`, 11, 6)
+          addLine(`Proveedor: ${proveedorSeleccionado?.nombre || ''}`, 11, 6)
+          if (proveedorSeleccionado?.razon_social) addLine(`Razón social: ${proveedorSeleccionado.razon_social}`, 11, 6)
+          addLine(`Prioridad: ${formData.prioridad}`, 11, 6)
+          if (formData.fecha_entrega_estimada) addLine(`Entrega estimada: ${formData.fecha_entrega_estimada}`, 11, 6)
+          if (formData.motivo.trim()) addLine(`Motivo: ${formData.motivo.trim()}`, 11, 6)
+          if (formData.observaciones.trim()) addLine(`Observaciones: ${formData.observaciones.trim()}`, 11, 6)
+
+          y += 2
+          pdf.setDrawColor(255, 255, 255)
+          pdf.setLineWidth(0.2)
+          pdf.line(marginX, y, pageWidth - marginX, y)
+          y += 8
+
+          pdf.setFont('helvetica', 'bold')
+          addLine('Productos solicitados', 13, 6)
+          pdf.setFont('helvetica', 'normal')
+
+          const ensureSpace = (needed = 10) => {
+            const pageHeight = pdf.internal.pageSize.getHeight()
+            if (y + needed > pageHeight - 14) {
+              pdf.addPage()
+              y = 16
+            }
+          }
+
+          itemsParaEnviar.forEach((it: any, idx: number) => {
+            ensureSpace(14)
+            const cantidadStr = `${it.cantidad_solicitada} ${it.unidad || ''}`.trim()
+            const codigoStr = it.codigo_articulo ? ` (${it.codigo_articulo})` : ''
+            addLine(`${idx + 1}. ${it.descripcion}${codigoStr}`, 11, 6)
+            addLine(`Cantidad: ${cantidadStr}`, 10, 5)
+            if (it.observaciones) addLine(`Obs: ${it.observaciones}`, 10, 5)
+            y += 2
+          })
+
+          const numero = String(pedido?.numero_pedido || pedido?.numero || pedido?.id || 'pedido')
+          const proveedorNombre = (proveedorSeleccionado?.nombre || 'proveedor')
+            .toString()
+            .replace(/[^\w\d]+/g, '_')
+            .slice(0, 40)
+          pdf.save(`Pedido_${numero}_${proveedorNombre}.pdf`)
+        } catch (err) {
+          console.error('No se pudo generar el PDF del pedido:', err)
+        }
+
         alert(`Pedido creado exitosamente: ${response.data.numero_pedido}`)
         navigate(`/compras/pedidos/${response.data.id}`)
       } else {
@@ -237,9 +309,6 @@ const CrearPedidoCompraPage = () => {
         {/* Información General */}
         <section className="form-section">
           <h2>📦 Pedido a Proveedor Externo</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem' }}>
-            Este pedido será enviado a un proveedor externo fuera de la empresa.
-          </p>
           <div className="form-grid">
             <div className="form-group">
               <label>Solicitante</label>

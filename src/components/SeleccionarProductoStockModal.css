@@ -1,3 +1,26 @@
+.seleccionar-producto-overlay {
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(2px);
+}
+
+.seleccionar-producto-modal {
+  background: linear-gradient(180deg, rgba(18, 22, 32, 0.98), rgba(12, 14, 20, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+
+.seleccionar-producto-modal .modal-header {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.seleccionar-producto-modal .modal-footer {
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .seleccionar-producto-modal {
   max-width: 700px;
   max-height: 80vh;
@@ -21,8 +44,8 @@
 .busqueda-input {
   width: 100%;
   padding: 12px 16px;
-  background: var(--surface-muted);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 14px;
@@ -59,15 +82,15 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: var(--surface-muted);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .articulo-item:hover {
-  background: var(--surface-card);
+  background: rgba(255, 255, 255, 0.08);
   border-color: var(--brand);
   transform: translateX(4px);
 }

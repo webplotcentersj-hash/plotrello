@@ -68,7 +68,7 @@ const SeleccionarProductoStockModal = ({ onClose, onSelect }: SeleccionarProduct
 
   return (
     <div
-      className="modal-overlay"
+      className="modal-overlay seleccionar-producto-overlay"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
