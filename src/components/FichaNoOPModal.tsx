@@ -15,14 +15,22 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   const { usuario } = useAuth()
   const [nombreCliente, setNombreCliente] = useState('')
   const [datosContacto, setDatosContacto] = useState('')
+  const [ubicacionTexto, setUbicacionTexto] = useState('')
   const [observaciones, setObservaciones] = useState('')
   const [driveLink, setDriveLink] = useState('')
   const [ubicacionLink, setUbicacionLink] = useState('')
-  const [prioridad, setPrioridad] = useState('Baja')
+  const [prioridad, setPrioridad] = useState('Normal')
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
-  const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null)
-  const [fichaTecnicaUrl, setFichaTecnicaUrl] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const [adjuntos, setAdjuntos] = useState<
+    Array<{
+      id: string
+      name: string
+      remoteUrl?: string
+      uploading: boolean
+      type?: string
+      file?: File
+    }>
+  >([])
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -60,34 +68,60 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   const handleSelectCliente = (clienteSeleccionado: ClienteRecord) => {
     setNombreCliente(clienteSeleccionado.nombre)
     setDatosContacto(clienteSeleccionado.telefono || '')
+    setUbicacionTexto(clienteSeleccionado.direccion || '')
     setDriveLink(clienteSeleccionado.drive_link || '')
     setUbicacionLink(clienteSeleccionado.ubicacion_link || '')
     setClientesEncontrados([])
     setIsClienteDropdownOpen(false)
   }
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && file.type === 'application/pdf') {
-      setFichaTecnicaFile(file)
-    } else {
-      alert('Por favor selecciona un archivo PDF')
-    }
+  const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : []
+    if (files.length === 0) return
+
+    const nuevos = files.map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      uploading: false,
+      type: file.type,
+      file
+    }))
+    setAdjuntos((prev) => [...prev, ...nuevos])
+    e.target.value = ''
   }
 
-  const handleUploadFichaTecnica = async (): Promise<string | null> => {
-    if (!fichaTecnicaFile) return null
+  const handleRemoveAdjunto = (id: string) => {
+    setAdjuntos((prev) => prev.filter((a) => a.id !== id))
+  }
 
-    setUploading(true)
-    try {
-      const url = await uploadAttachmentAndGetUrl(fichaTecnicaFile, 'fichas-tecnicas')
-      setFichaTecnicaUrl(url)
-      setUploading(false)
-      return url
-    } catch (error) {
-      console.error('Error subiendo ficha técnica:', error)
-      setUploading(false)
-      throw error // Re-lanzar el error para que handleCreate lo maneje
+  const uploadAdjuntosPendientes = async (): Promise<
+    Array<{ id: string; name: string; remoteUrl: string; type?: string }>
+  > => {
+    const pendientes = adjuntos.filter((a) => a.file && !a.remoteUrl && !a.uploading)
+    if (pendientes.length === 0) {
+      return adjuntos
+        .filter((a) => a.remoteUrl)
+        .map((a) => ({ id: a.id, name: a.name, remoteUrl: a.remoteUrl!, type: a.type }))
+    }
+
+    {
+      for (const item of pendientes) {
+        setAdjuntos((prev) =>
+          prev.map((a) => (a.id === item.id ? { ...a, uploading: true } : a))
+        )
+        const url = await uploadAttachmentAndGetUrl(item.file!, 'fichas-tecnicas')
+        setAdjuntos((prev) =>
+          prev.map((a) => (a.id === item.id ? { ...a, remoteUrl: url, uploading: false } : a))
+        )
+      }
+      return (adjuntos as any[])
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          remoteUrl: a.remoteUrl,
+          type: a.type
+        }))
+        .filter((a) => a.remoteUrl)
     }
   }
 
@@ -97,19 +131,14 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       return
     }
 
-    // Si hay archivo seleccionado pero no se ha subido, subirlo primero
-    let finalFichaTecnicaUrl = fichaTecnicaUrl
-    if (fichaTecnicaFile && !fichaTecnicaUrl) {
-      try {
-        finalFichaTecnicaUrl = await handleUploadFichaTecnica()
-        if (!finalFichaTecnicaUrl) {
-          alert('Error al subir la ficha técnica. Intenta nuevamente.')
-          return
-        }
-      } catch (error) {
-        alert('Error al subir la ficha técnica. Intenta nuevamente.')
-        return
-      }
+    // Subir adjuntos antes de crear (para no perder archivos)
+    let adjuntosSubidos: Array<{ id: string; name: string; remoteUrl: string; type?: string }> = []
+    try {
+      adjuntosSubidos = await uploadAdjuntosPendientes()
+    } catch (error) {
+      console.error('Error subiendo adjuntos:', error)
+      alert('Error al subir los archivos. Intenta nuevamente.')
+      return
     }
 
     // Buscar o crear el cliente si no existe
@@ -129,6 +158,7 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       const crearResponse = await apiService.buscarOCrearCliente({
         nombre: nombreCliente.trim(),
         telefono: datosContacto.trim() || undefined,
+        direccion: ubicacionTexto.trim() || undefined,
         drive_link: driveLink.trim() || undefined,
         ubicacion_link: ubicacionLink.trim() || undefined
       })
@@ -156,11 +186,15 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       sector_inicial: 'Asesor Técnico',
       nombre_creador: creatorName,
       telefono_cliente: clienteFinal.telefono || datosContacto.trim() || null,
+      direccion_cliente: clienteFinal.direccion || ubicacionTexto.trim() || null,
       drive_link: clienteFinal.drive_link || driveLink.trim() || null,
       ubicacion_link: clienteFinal.ubicacion_link || ubicacionLink.trim() || null,
       es_ficha_no_op: true,
       planilla_preliminar: planillaPreliminar,
-      ficha_tecnica_pdf_url: finalFichaTecnicaUrl || null
+      // Mantener compatibilidad: si hay PDFs adjuntos, guardar el primero como ficha técnica principal
+      ficha_tecnica_pdf_url:
+        adjuntosSubidos.find((a) => (a.type || '').toLowerCase() === 'application/pdf')?.remoteUrl ||
+        null
     }
 
     try {
@@ -171,6 +205,13 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       }
 
       const created = response.data
+      const ordenId = created?.id
+      if (ordenId && adjuntosSubidos.length > 0) {
+        // Guardar adjuntos en la ficha (enlaces_adjuntos)
+        await Promise.all(
+          adjuntosSubidos.map((a) => apiService.guardarArchivoOrden(ordenId, a.name, a.remoteUrl))
+        )
+      }
       if (created?.numero_op && created?.cliente) {
         setQrPrintData({ opNumber: created.numero_op, cliente: created.cliente })
       } else {
@@ -273,6 +314,16 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
             />
           </div>
 
+        <div className="form-group">
+          <label>Ubicación del Cliente (Dirección)</label>
+          <input
+            type="text"
+            placeholder="Dirección (calle, nro, localidad, etc.)"
+            value={ubicacionTexto}
+            onChange={(e) => setUbicacionTexto(e.target.value)}
+          />
+        </div>
+
           <div className="form-group">
             <label>Ubicación del Cliente (Opcional)</label>
             <input
@@ -317,20 +368,20 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
           <div className="form-group">
             <label>Prioridad</label>
             <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
-              <option value="Baja">Baja</option>
               <option value="Normal">Normal</option>
               <option value="Alta">Alta</option>
             </select>
           </div>
 
           <div className="form-group">
-            <label>FICHA TECNICA</label>
+          <label>Archivos (se pueden subir varios)</label>
             <div className="file-upload-section">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="application/pdf"
-                onChange={handleFileSelect}
+              accept="application/pdf,image/*"
+              multiple
+              onChange={handleFilesSelect}
                 style={{ display: 'none' }}
               />
               <button
@@ -338,24 +389,48 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
                 className="select-file-button"
                 onClick={() => fileInputRef.current?.click()}
               >
-                Seleccionar archivo
+              Seleccionar archivos
               </button>
-              <span className="file-name">
-                {fichaTecnicaFile ? fichaTecnicaFile.name : 'Ningún archivo seleccionado'}
-              </span>
-              {fichaTecnicaFile && !fichaTecnicaUrl && (
-                <button
-                  type="button"
-                  className="upload-button"
-                  onClick={handleUploadFichaTecnica}
-                  disabled={uploading}
-                >
-                  {uploading ? 'Subiendo...' : 'Subir PDF'}
-                </button>
-              )}
-              {fichaTecnicaUrl && (
-                <span className="upload-success">✓ Archivo subido</span>
-              )}
+
+            {adjuntos.length === 0 ? (
+              <span className="file-name">Ningún archivo seleccionado</span>
+            ) : (
+              <div style={{ marginTop: '10px', display: 'grid', gap: '8px' }}>
+                {adjuntos.map((a) => (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.10)'
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {a.name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#b7bed3' }}>
+                        {a.uploading ? 'Subiendo…' : a.remoteUrl ? 'Listo' : 'Pendiente'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => handleRemoveAdjunto(a.id)}
+                      disabled={a.uploading}
+                      style={{ padding: '8px 10px' }}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             </div>
           </div>
 
