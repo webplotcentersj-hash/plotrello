@@ -99,7 +99,9 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
 
   const handleCitaClick = (cita: CitaAsesorTecnico) => {
     setCitaToEdit(cita)
-    setSelectedDate(parseISO(cita.fecha_cita))
+    // parseISO puede interpretar distinto si viene sin timezone; para el modal usamos una fecha segura.
+    const key = isoToArgentinaDateKey(cita.fecha_cita)
+    setSelectedDate(key ? parseISO(`${key}T12:00:00`) : null)
     setCitaModalOpen(true)
   }
 

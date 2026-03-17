@@ -56,7 +56,13 @@ export function formatArgentinaTimeOnly(date: Date): string {
 export function isoToArgentinaDateKey(value: string): string {
   if (!value) return ''
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-  const d = new Date(value)
+  // Si viene sin zona (ej: "2026-01-29 10:00:00" o "2026-01-29T10:00:00"),
+  // asumir horario Argentina para evitar corrimientos al parsear.
+  const normalized =
+    /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(value) && !/(Z|[+-]\d{2}:?\d{2})$/.test(value)
+      ? value.replace(' ', 'T') + '-03:00'
+      : value
+  const d = new Date(normalized)
   if (Number.isNaN(d.getTime())) return ''
   return formatArgentinaDateOnly(d)
 }
@@ -66,7 +72,11 @@ export function isoToArgentinaDateKey(value: string): string {
  */
 export function isoToArgentinaTime(value: string): string {
   if (!value) return ''
-  const d = new Date(value)
+  const normalized =
+    /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(value) && !/(Z|[+-]\d{2}:?\d{2})$/.test(value)
+      ? value.replace(' ', 'T') + '-03:00'
+      : value
+  const d = new Date(normalized)
   if (Number.isNaN(d.getTime())) return ''
   return formatArgentinaTimeOnly(d)
 }

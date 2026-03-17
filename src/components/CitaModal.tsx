@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import apiService from '../services/api'
 import type { CitaAsesorTecnico, ClienteRecord, OrdenTrabajo } from '../types/api'
-import { formatArgentinaDateOnly, formatArgentinaTimeOnly } from '../utils/dateUtils'
+import { formatArgentinaDateOnly, isoToArgentinaDateKey, isoToArgentinaTime } from '../utils/dateUtils'
 import './CitaModal.css'
 
 type CitaModalProps = {
@@ -42,9 +42,8 @@ const CitaModal = ({
     if (cita) {
       setTitulo(cita.titulo)
       setDescripcion(cita.descripcion || '')
-      const fecha = new Date(cita.fecha_cita)
-      setFechaCita(formatArgentinaDateOnly(fecha))
-      setHoraCita(formatArgentinaTimeOnly(fecha))
+      setFechaCita(isoToArgentinaDateKey(cita.fecha_cita))
+      setHoraCita(isoToArgentinaTime(cita.fecha_cita))
       setDuracionMinutos(cita.duracion_minutos)
       setIdCliente(cita.id_cliente || undefined)
       setIdFichaNoOP(cita.id_ficha_no_op || undefined)

@@ -25,7 +25,12 @@ export default function PwaUpdateButton({ className }: PwaUpdateButtonProps) {
       className={className}
       onClick={async () => {
         if (needRefresh) {
-          await updateServiceWorker(true)
+          try {
+            await updateServiceWorker(true)
+          } finally {
+            // Forzar recarga total incluso si SW no activa de inmediato
+            window.location.reload()
+          }
           return
         }
         setChecking(true)
@@ -35,7 +40,11 @@ export default function PwaUpdateButton({ className }: PwaUpdateButtonProps) {
           setTimeout(() => {
             // Si no apareció el flag de actualización, avisar.
             if (!needRefresh) {
-              window.alert('No hay actualizaciones disponibles.')
+              // Fallback: pedir al navegador que actualice el SW si existe.
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {})
+              }
+              window.alert('No hay actualizaciones disponibles (o todavía no fueron detectadas).')
               setChecking(false)
             }
           }, 1200)
