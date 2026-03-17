@@ -128,14 +128,14 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     createdDate.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
   )
   const createdArgentinaIso = createdArgentina.toISOString()
-  const dueDateSource =
-    orden.fecha_entrega ??
-    orden.fecha_creacion ??
-    nowArgentinaIso
+  const dueDateSource = orden.fecha_entrega ?? orden.fecha_creacion ?? nowArgentinaIso
+  // Si viene como DATE (YYYY-MM-DD), NO usar new Date('YYYY-MM-DD') directo (interpreta UTC y se corre de día).
+  const dueDateParsed =
+    typeof dueDateSource === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dueDateSource)
+      ? new Date(`${dueDateSource}T12:00:00Z`) // mediodía UTC evita corrimiento
+      : new Date(dueDateSource)
   const dueDateArgentina = new Date(
-    new Date(dueDateSource).toLocaleString('en-US', {
-      timeZone: 'America/Argentina/Buenos_Aires'
-    })
+    dueDateParsed.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
   )
   const dueDateArgentinaIso = dueDateArgentina.toISOString()
   const updatedSource = orden.fecha_ingreso ?? orden.fecha_creacion ?? nowArgentinaIso

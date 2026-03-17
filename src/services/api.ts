@@ -1,4 +1,5 @@
 import { BOARD_COLUMNS } from '../data/mockData'
+import { getArgentinaDateString } from '../utils/dateUtils'
 import type {
   ClienteRecord,
   HistorialMovimiento,
@@ -478,7 +479,8 @@ class ApiService {
             p_descripcion: orden.descripcion || null,
             p_estado: orden.estado || 'Pendiente',
             p_prioridad: orden.prioridad || 'Normal',
-            p_fecha_entrega: orden.fecha_entrega || new Date().toISOString().split('T')[0],
+            // Usar fecha de Argentina para evitar corrimientos por UTC
+            p_fecha_entrega: orden.fecha_entrega || getArgentinaDateString(),
             p_operario_asignado: orden.operario_asignado || null,
             p_complejidad: orden.complejidad || 'Media',
             p_sector: orden.sectores && orden.sectores.length > 0 ? orden.sectores[0] : (orden.sector || 'Diseño Gráfico'), // Primer sector
