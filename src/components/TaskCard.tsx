@@ -129,6 +129,13 @@ const TaskCard = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
   const etiquetaOrden = task.esFichaNoOP ? 'Ficha' : 'OP'
+  const displayNumeroOrden = (() => {
+    const raw = (task.opNumber || '').trim()
+    if (!raw) return raw
+    if (etiquetaOrden !== 'Ficha') return raw
+    const stripped = raw.replace(/^FICHA[\s-_#:]*/i, '')
+    return stripped || raw
+  })()
 
   // Cerrar menú contextual al hacer clic fuera
   useEffect(() => {
@@ -1144,9 +1151,7 @@ const TaskCard = ({
               onClick={(e) => e.stopPropagation()}
             >
               <header className="modal-header">
-                <h3>
-                  Checklist de {etiquetaOrden} {task.opNumber}
-                </h3>
+                <h3>Checklist de {etiquetaOrden} {displayNumeroOrden}</h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1173,9 +1178,7 @@ const TaskCard = ({
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <header className="modal-header">
-                <h3>
-                  QR {etiquetaOrden} {task.opNumber}
-                </h3>
+                <h3>QR {etiquetaOrden} {displayNumeroOrden}</h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1225,9 +1228,7 @@ const TaskCard = ({
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <header className="modal-header">
-                <h3>
-                  Auditoría {etiquetaOrden} {task.opNumber}
-                </h3>
+                <h3>Auditoría {etiquetaOrden} {displayNumeroOrden}</h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1274,9 +1275,7 @@ const TaskCard = ({
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
               <header className="modal-header">
-                <h3>
-                  Asignar Impresora - {etiquetaOrden} {task.opNumber}
-                </h3>
+                <h3>Asignar Impresora - {etiquetaOrden} {displayNumeroOrden}</h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1472,9 +1471,7 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>
-                Cambiar Etapa - Taller Gráfico - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Cambiar Etapa - Taller Gráfico - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1512,9 +1509,7 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>
-                Cambiar Etapa - Instalaciones - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Cambiar Etapa - Instalaciones - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1552,9 +1547,7 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>
-                Historial de Etapas - Taller Gráfico - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Historial de Etapas - Taller Gráfico - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1584,9 +1577,7 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>
-                Historial de Etapas - Instalaciones - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Historial de Etapas - Instalaciones - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1616,9 +1607,7 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>
-                Cambiar Etapa - Taller de Imprenta - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Cambiar Etapa - Taller de Imprenta - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1656,9 +1645,7 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>
-                IMPRESIÓN DIGITAL - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>IMPRESIÓN DIGITAL - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1692,9 +1679,7 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>
-                Historial de Etapas - Taller de Imprenta - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Historial de Etapas - Taller de Imprenta - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1724,9 +1709,7 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>
-                Cambiar Etapa - Metalúrgica - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Cambiar Etapa - Metalúrgica - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1764,9 +1747,7 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>
-                Historial de Etapas - Metalúrgica - {etiquetaOrden} {task.opNumber}
-              </h3>
+              <h3>Historial de Etapas - Metalúrgica - {etiquetaOrden} {displayNumeroOrden}</h3>
               <button
                 type="button"
                 className="modal-close"

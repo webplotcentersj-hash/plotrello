@@ -17,6 +17,13 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
   const [saving, setSaving] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
   const etiqueta = labelOverride || (opNumber?.toUpperCase().startsWith('FICHA') ? 'Ficha' : 'OP')
+  const displayNumero = (() => {
+    if (etiqueta !== 'Ficha') return opNumber
+    const raw = (opNumber || '').trim()
+    // Evitar "Ficha FICHA-123": mostramos solo el número si ya viene con prefijo FICHA
+    const stripped = raw.replace(/^FICHA[\s-_#:]*/i, '')
+    return stripped || raw
+  })()
 
   useEffect(() => {
     const generateQRCode = async () => {
@@ -71,7 +78,7 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
       pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgScaledWidth, imgScaledHeight)
       
       // Descargar el PDF
-      pdf.save(`QR_${etiqueta.toUpperCase()}_${opNumber}_${cliente.replace(/\s+/g, '_')}.pdf`)
+      pdf.save(`QR_${etiqueta.toUpperCase()}_${displayNumero}_${cliente.replace(/\s+/g, '_')}.pdf`)
     } catch (error) {
       console.error('Error generando PDF:', error)
       alert('Error al generar el PDF. Por favor, intenta nuevamente.')
@@ -94,7 +101,7 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
         <div className="qr-print-modal-content" onClick={(e) => e.stopPropagation()}>
           <header className="qr-print-modal-header">
             <h2>
-              QR para Cliente - {etiqueta} {opNumber}
+              QR para Cliente - {etiqueta} {displayNumero}
             </h2>
             <button type="button" className="modal-close" onClick={onClose}>
               ×
@@ -117,7 +124,7 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
                 </div>
                 <div className="qr-print-title">
                   <h1 className="qr-print-op">
-                    {etiqueta} {opNumber}
+                    {etiqueta} {displayNumero}
                   </h1>
                   <h2 className="qr-print-cliente">{cliente}</h2>
                 </div>
