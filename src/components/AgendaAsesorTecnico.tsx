@@ -3,6 +3,7 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSa
 import { es } from 'date-fns/locale'
 import apiService from '../services/api'
 import type { CitaAsesorTecnico, ClienteRecord } from '../types/api'
+import { formatArgentinaDateOnly, getArgentinaDateString, isoToArgentinaDateKey, isoToArgentinaTime } from '../utils/dateUtils'
 import CitaModal from './CitaModal'
 import './AgendaAsesorTecnico.css'
 
@@ -34,8 +35,8 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
       
       const response = await apiService.getCitasAsesor(
         idAsesor,
-        inicioMes.toISOString(),
-        finMes.toISOString()
+        `${formatArgentinaDateOnly(inicioMes)}T00:00:00-03:00`,
+        `${formatArgentinaDateOnly(finMes)}T23:59:59-03:00`
       )
 
       if (response.success && response.data) {
@@ -66,7 +67,7 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
   const citasByDate = useMemo(() => {
     const map = new Map<string, CitaAsesorTecnico[]>()
     citas.forEach((cita) => {
-      const fechaKey = format(parseISO(cita.fecha_cita), 'yyyy-MM-dd')
+      const fechaKey = isoToArgentinaDateKey(cita.fecha_cita)
       const existing = map.get(fechaKey) || []
       existing.push(cita)
       map.set(fechaKey, existing)
@@ -117,15 +118,10 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
   }
 
   const citasDeHoy = useMemo(() => {
-    const hoy = new Date()
-    const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0)
-    const finHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59, 999)
+    const hoyKey = getArgentinaDateString()
     
     return citas
-      .filter(cita => {
-        const fechaCita = parseISO(cita.fecha_cita)
-        return fechaCita >= inicioHoy && fechaCita <= finHoy
-      })
+      .filter(cita => isoToArgentinaDateKey(cita.fecha_cita) === hoyKey)
       .sort((a, b) => parseISO(a.fecha_cita).getTime() - parseISO(b.fecha_cita).getTime())
   }, [citas])
 
@@ -185,7 +181,7 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                           }}
                           title={cita.titulo}
                         >
-                          {format(parseISO(cita.fecha_cita), 'HH:mm')} - {cita.titulo.substring(0, 15)}
+                          {isoToArgentinaTime(cita.fecha_cita)} - {cita.titulo.substring(0, 15)}
                         </div>
                       ))}
                       {dayCitas.length > 3 && (
@@ -215,7 +211,7 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                     onClick={() => handleCitaClick(cita)}
                   >
                     <div className="cita-item-header">
-                      <span className="cita-fecha">{format(parseISO(cita.fecha_cita), 'HH:mm', { locale: es })}</span>
+                      <span className="cita-fecha">{isoToArgentinaTime(cita.fecha_cita)}</span>
                       <span className={`cita-estado estado-${cita.estado}`}>{cita.estado}</span>
                     </div>
                     <div className="cita-titulo">{cita.titulo}</div>

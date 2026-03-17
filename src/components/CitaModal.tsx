@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
 import apiService from '../services/api'
 import type { CitaAsesorTecnico, ClienteRecord, OrdenTrabajo } from '../types/api'
+import { formatArgentinaDateOnly, formatArgentinaTimeOnly } from '../utils/dateUtils'
 import './CitaModal.css'
 
 type CitaModalProps = {
@@ -43,8 +43,8 @@ const CitaModal = ({
       setTitulo(cita.titulo)
       setDescripcion(cita.descripcion || '')
       const fecha = new Date(cita.fecha_cita)
-      setFechaCita(format(fecha, 'yyyy-MM-dd'))
-      setHoraCita(format(fecha, 'HH:mm'))
+      setFechaCita(formatArgentinaDateOnly(fecha))
+      setHoraCita(formatArgentinaTimeOnly(fecha))
       setDuracionMinutos(cita.duracion_minutos)
       setIdCliente(cita.id_cliente || undefined)
       setIdFichaNoOP(cita.id_ficha_no_op || undefined)
@@ -53,7 +53,7 @@ const CitaModal = ({
       setEstado(cita.estado)
       setNotas(cita.notas || '')
     } else if (fechaSeleccionada) {
-      setFechaCita(format(fechaSeleccionada, 'yyyy-MM-dd'))
+      setFechaCita(formatArgentinaDateOnly(fechaSeleccionada))
     }
     loadFichasNoOP()
   }, [cita, fechaSeleccionada])
@@ -82,7 +82,8 @@ const CitaModal = ({
     setError(null)
 
     try {
-      const fechaHoraCompleta = `${fechaCita}T${horaCita}:00`
+      // Guardar SIEMPRE en horario Argentina para que no se corra al editar/mostrar
+      const fechaHoraCompleta = `${fechaCita}T${horaCita}:00-03:00`
       
       if (cita) {
         // Actualizar cita existente

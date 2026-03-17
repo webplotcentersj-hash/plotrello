@@ -25,6 +25,53 @@ export function getArgentinaDateString(): string {
 }
 
 /**
+ * Formatea cualquier Date a YYYY-MM-DD en zona horaria Argentina.
+ * (Evita corrimientos por UTC al editar/mostrar fechas)
+ */
+export function formatArgentinaDateOnly(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date)
+}
+
+/**
+ * Formatea cualquier Date a HH:mm en zona horaria Argentina.
+ */
+export function formatArgentinaTimeOnly(date: Date): string {
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date)
+}
+
+/**
+ * Dado un ISO/timestamptz, devuelve la fecha YYYY-MM-DD en Argentina.
+ * Si recibe YYYY-MM-DD, lo devuelve tal cual.
+ */
+export function isoToArgentinaDateKey(value: string): string {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return formatArgentinaDateOnly(d)
+}
+
+/**
+ * Dado un ISO/timestamptz, devuelve la hora HH:mm en Argentina.
+ */
+export function isoToArgentinaTime(value: string): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return formatArgentinaTimeOnly(d)
+}
+
+/**
  * Obtiene la hora actual en zona horaria de Argentina
  */
 export function getArgentinaTime(): { hours: number; minutes: number; seconds: number } {
