@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import apiService from '../services/api'
-import type { CitaAsesorTecnico, ClienteRecord, OrdenTrabajo } from '../types/api'
+import type { CitaAsesorTecnico, ClienteRecord } from '../types/api'
 import { formatArgentinaDateOnly, isoToArgentinaDateKey, isoToArgentinaTime } from '../utils/dateUtils'
 import './CitaModal.css'
 
@@ -23,30 +23,25 @@ const CitaModal = ({
   onSave,
   onDelete
 }: CitaModalProps) => {
-  const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [fechaCita, setFechaCita] = useState('')
   const [horaCita, setHoraCita] = useState('09:00')
   const [duracionMinutos, setDuracionMinutos] = useState(60)
   const [idCliente, setIdCliente] = useState<number | undefined>(undefined)
-  const [idFichaNoOP, setIdFichaNoOP] = useState<number | undefined>(undefined)
   const [direccion, setDireccion] = useState('')
   const [ubicacionLink, setUbicacionLink] = useState('')
   const [estado, setEstado] = useState<'programada' | 'confirmada' | 'en_curso' | 'completada' | 'cancelada'>('programada')
   const [notas, setNotas] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [fichasNoOP, setFichasNoOP] = useState<OrdenTrabajo[]>([])
 
   useEffect(() => {
     if (cita) {
-      setTitulo(cita.titulo)
       setDescripcion(cita.descripcion || '')
       setFechaCita(isoToArgentinaDateKey(cita.fecha_cita))
       setHoraCita(isoToArgentinaTime(cita.fecha_cita))
       setDuracionMinutos(cita.duracion_minutos)
       setIdCliente(cita.id_cliente || undefined)
-      setIdFichaNoOP(cita.id_ficha_no_op || undefined)
       setDireccion(cita.direccion || '')
       setUbicacionLink(cita.ubicacion_link || '')
       setEstado(cita.estado)
@@ -54,26 +49,7 @@ const CitaModal = ({
     } else if (fechaSeleccionada) {
       setFechaCita(formatArgentinaDateOnly(fechaSeleccionada))
     }
-    loadFichasNoOP()
   }, [cita, fechaSeleccionada])
-
-  const loadFichasNoOP = async () => {
-    try {
-      const response = await apiService.getOrdenes()
-      if (response.success && response.data) {
-        // Filtrar solo fichas No OP (que tienen sector Asesor Técnico o Presupuestos)
-        const fichas = response.data.filter(orden => 
-          orden.sector === 'Asesor Técnico' || 
-          orden.sector === 'Presupuestos' ||
-          orden.sectores?.includes('Asesor Técnico') ||
-          orden.sectores?.includes('Presupuestos')
-        )
-        setFichasNoOP(fichas)
-      }
-    } catch (err) {
-      console.error('Error al cargar fichas No OP:', err)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,6 +57,11 @@ const CitaModal = ({
     setError(null)
 
     try {
+      const clienteSeleccionado = clientes.find((c) => c.id === idCliente)
+      const tituloFinal = clienteSeleccionado?.nombre
+        ? `Visita - ${clienteSeleccionado.nombre}`
+        : 'Visita'
+
       // Guardar SIEMPRE en horario Argentina para que no se corra al editar/mostrar
       const fechaHoraCompleta = `${fechaCita}T${horaCita}:00-03:00`
       
@@ -88,7 +69,7 @@ const CitaModal = ({
         // Actualizar cita existente
         const response = await apiService.actualizarCitaAsesor(
           cita.id,
-          titulo,
+          tituloFinal,
           descripcion || undefined,
           fechaHoraCompleta,
           duracionMinutos,
@@ -99,17 +80,17 @@ const CitaModal = ({
         )
 
         if (!response.success) {
-          setError(response.error || 'Error al actualizar la cita')
+          setError(response.error || 'Error al actualizar la visita')
           return
         }
       } else {
         // Crear nueva cita
         const response = await apiService.crearCitaAsesor(
           idAsesor,
-          titulo,
+          tituloFinal,
           fechaHoraCompleta,
           idCliente,
-          idFichaNoOP,
+          undefined,
           descripcion || undefined,
           duracionMinutos,
           direccion || undefined,
@@ -119,14 +100,14 @@ const CitaModal = ({
         )
 
         if (!response.success) {
-          setError(response.error || 'Error al crear la cita')
+          setError(response.error || 'Error al crear la visita')
           return
         }
       }
 
       onSave()
     } catch (err) {
-      setError('Error al guardar la cita')
+      setError('Error al guardar la visita')
       console.error(err)
     } finally {
       setLoading(false)
@@ -134,7 +115,7 @@ const CitaModal = ({
   }
 
   const handleDelete = async () => {
-    if (!cita || !confirm('¿Estás seguro de eliminar esta cita?')) return
+    if (!cita || !confirm('¿Estás seguro de eliminar esta visita?')) return
 
     setLoading(true)
     setError(null)
@@ -142,12 +123,12 @@ const CitaModal = ({
     try {
       const response = await apiService.eliminarCitaAsesor(cita.id)
       if (!response.success) {
-        setError(response.error || 'Error al eliminar la cita')
+        setError(response.error || 'Error al eliminar la visita')
         return
       }
       onDelete()
     } catch (err) {
-      setError('Error al eliminar la cita')
+      setError('Error al eliminar la visita')
       console.error(err)
     } finally {
       setLoading(false)
@@ -166,7 +147,7 @@ const CitaModal = ({
     >
       <div className="modal-content cita-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{cita ? 'Editar Cita' : 'Nueva Cita'}</h2>
+          <h2>{cita ? 'Editar Visita' : 'Nueva Visita'}</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
@@ -177,17 +158,6 @@ const CitaModal = ({
         )}
 
         <form onSubmit={handleSubmit} className="cita-form">
-          <div className="form-group">
-            <label>Título *</label>
-            <input
-              type="text"
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              required
-              placeholder="Ej: Medición en cliente X"
-            />
-          </div>
-
           <div className="form-row">
             <div className="form-group">
               <label>Fecha *</label>
@@ -220,30 +190,16 @@ const CitaModal = ({
           </div>
 
           <div className="form-group">
-            <label>Cliente</label>
+            <label>Cliente *</label>
             <select
               value={idCliente || ''}
               onChange={(e) => setIdCliente(e.target.value ? parseInt(e.target.value) : undefined)}
+              required
             >
               <option value="">Seleccionar cliente...</option>
               {clientes.map(cliente => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.nombre} {cliente.telefono ? `- ${cliente.telefono}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Ficha No OP</label>
-            <select
-              value={idFichaNoOP || ''}
-              onChange={(e) => setIdFichaNoOP(e.target.value ? parseInt(e.target.value) : undefined)}
-            >
-              <option value="">Seleccionar ficha...</option>
-              {fichasNoOP.map(ficha => (
-                <option key={ficha.id} value={ficha.id}>
-                  {ficha.numero_op} - {ficha.cliente}
                 </option>
               ))}
             </select>

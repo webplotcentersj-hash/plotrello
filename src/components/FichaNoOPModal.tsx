@@ -28,15 +28,21 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       remoteUrl?: string
       uploading: boolean
       type?: string
+      error?: string
       file?: File
     }>
   >([])
+  const adjuntosRef = useRef(adjuntos)
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const clienteInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    adjuntosRef.current = adjuntos
+  }, [adjuntos])
 
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
@@ -75,6 +81,26 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     setIsClienteDropdownOpen(false)
   }
 
+  const uploadAdjuntoById = async (id: string) => {
+    const current = adjuntosRef.current.find((a) => a.id === id)
+    if (!current?.file) return
+    if (current.remoteUrl) return
+    if (current.uploading) return
+
+    setAdjuntos((prev) => prev.map((a) => (a.id === id ? { ...a, uploading: true, error: undefined } : a)))
+    try {
+      const url = await uploadAttachmentAndGetUrl(current.file, 'fichas-tecnicas')
+      setAdjuntos((prev) => prev.map((a) => (a.id === id ? { ...a, remoteUrl: url, uploading: false } : a)))
+    } catch (error) {
+      console.error('Error subiendo adjunto:', error)
+      setAdjuntos((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, uploading: false, error: 'Error al subir. Reintentar.' } : a
+        )
+      )
+    }
+  }
+
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : []
     if (files.length === 0) return
@@ -88,6 +114,11 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     }))
     setAdjuntos((prev) => [...prev, ...nuevos])
     e.target.value = ''
+
+    // Subir automáticamente (sin esperar a "Crear")
+    for (const n of nuevos) {
+      void uploadAdjuntoById(n.id)
+    }
   }
 
   const handleRemoveAdjunto = (id: string) => {
@@ -97,32 +128,16 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   const uploadAdjuntosPendientes = async (): Promise<
     Array<{ id: string; name: string; remoteUrl: string; type?: string }>
   > => {
-    const pendientes = adjuntos.filter((a) => a.file && !a.remoteUrl && !a.uploading)
-    if (pendientes.length === 0) {
-      return adjuntos
-        .filter((a) => a.remoteUrl)
-        .map((a) => ({ id: a.id, name: a.name, remoteUrl: a.remoteUrl!, type: a.type }))
+    const pendientes = adjuntosRef.current.filter((a) => a.file && !a.remoteUrl && !a.uploading)
+    for (const item of pendientes) {
+      await uploadAdjuntoById(item.id)
     }
 
-    {
-      for (const item of pendientes) {
-        setAdjuntos((prev) =>
-          prev.map((a) => (a.id === item.id ? { ...a, uploading: true } : a))
-        )
-        const url = await uploadAttachmentAndGetUrl(item.file!, 'fichas-tecnicas')
-        setAdjuntos((prev) =>
-          prev.map((a) => (a.id === item.id ? { ...a, remoteUrl: url, uploading: false } : a))
-        )
-      }
-      return (adjuntos as any[])
-        .map((a) => ({
-          id: a.id,
-          name: a.name,
-          remoteUrl: a.remoteUrl,
-          type: a.type
-        }))
-        .filter((a) => a.remoteUrl)
-    }
+    const finalAdjuntos = adjuntosRef.current
+      .filter((a) => a.remoteUrl)
+      .map((a) => ({ id: a.id, name: a.name, remoteUrl: a.remoteUrl!, type: a.type }))
+
+    return finalAdjuntos
   }
 
   const handleCreate = async () => {
@@ -415,7 +430,13 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
                         {a.name}
                       </div>
                       <div style={{ fontSize: '12px', color: '#b7bed3' }}>
-                        {a.uploading ? 'Subiendo…' : a.remoteUrl ? 'Listo' : 'Pendiente'}
+                        {a.uploading
+                          ? 'Subiendo…'
+                          : a.remoteUrl
+                            ? 'Listo'
+                            : a.error
+                              ? a.error
+                              : 'Pendiente'}
                       </div>
                     </div>
                     <button

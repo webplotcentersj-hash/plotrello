@@ -702,7 +702,9 @@ const TaskEditModal = ({
     >
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
-          <h2>Editando OP #{formData.opNumber || task.opNumber}</h2>
+          <h2>
+            Editando {task?.esFichaNoOP ? 'Ficha' : 'OP'} #{formData.opNumber || task.opNumber}
+          </h2>
           <button type="button" className="modal-close" onClick={() => onClose(task?.id)}>
             ×
           </button>
@@ -711,12 +713,15 @@ const TaskEditModal = ({
         <div className="modal-body">
           {task.photoUrl && (
             <div className="task-photo-preview">
-              <img src={task.photoUrl} alt={`Captura OP ${task.opNumber}`} />
+              <img
+                src={task.photoUrl}
+                alt={`Captura ${task?.esFichaNoOP ? 'Ficha' : 'OP'} ${task.opNumber}`}
+              />
             </div>
           )}
           <div className="form-row">
             <div className="form-group">
-              <label>N° OP</label>
+              <label>N° {task?.esFichaNoOP ? 'Ficha' : 'OP'}</label>
               <input
                 type="text"
                 value={formData.opNumber || ''}
@@ -1544,7 +1549,11 @@ const TaskEditModal = ({
                         
                         // Notificar a Presupuestos si se marca
                         if (nuevoValor) {
-                          await apiService.notificarChecklistFichaNoOP(ordenId, 'ficha_tecnica_cargada', task.opNumber || 'Sin OP')
+                          await apiService.notificarChecklistFichaNoOP(
+                            ordenId,
+                            'ficha_tecnica_cargada',
+                            task.opNumber || 'Sin ficha'
+                          )
                         }
                       }
                     }}
@@ -1568,7 +1577,11 @@ const TaskEditModal = ({
                         
                         // Notificar a Asesor Técnico si se marca
                         if (nuevoValor) {
-                          await apiService.notificarChecklistFichaNoOP(ordenId, 'presupuesto_enviado', task.opNumber || 'Sin OP')
+                          await apiService.notificarChecklistFichaNoOP(
+                            ordenId,
+                            'presupuesto_enviado',
+                            task.opNumber || 'Sin ficha'
+                          )
                         }
                       }
                     }}

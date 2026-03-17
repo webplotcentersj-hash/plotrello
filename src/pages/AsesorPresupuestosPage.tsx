@@ -144,7 +144,7 @@ const AsesorPresupuestosPage = ({
         return
       }
 
-      // Si se mueve a Finalizado y es una ficha No OP, transformarla en OP
+      // Si se mueve a Finalizado y es una ficha, transformarla a orden general
       if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
         // Primero actualizar el estado a Finalizado (manteniendo el sector actual válido)
         const sectorActual = taskToUpdate.assignedSector || taskToUpdate.sectorInicial || 
@@ -168,15 +168,15 @@ const AsesorPresupuestosPage = ({
           return
         }
 
-        // Luego transformar la ficha No OP en OP
+        // Luego transformar la ficha a orden general
         const transformResponse = await apiService.transformarFichaNoOPAOP(ordenId)
         if (!transformResponse.success) {
-          setActionError(transformResponse.error || 'Error al transformar ficha en OP')
+          setActionError(transformResponse.error || 'Error al transformar la ficha')
           return
         }
 
         setActionSuccess(
-          `Ficha transformada en OP: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
+          `Ficha convertida a orden: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
         )
       } else {
         // Movimiento normal (no es ficha No OP o no se mueve a Finalizado)

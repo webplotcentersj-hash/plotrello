@@ -128,6 +128,7 @@ const TaskCard = ({
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
+  const etiquetaOrden = task.esFichaNoOP ? 'Ficha' : 'OP'
 
   // Cerrar menú contextual al hacer clic fuera
   useEffect(() => {
@@ -374,7 +375,7 @@ const TaskCard = ({
           {task.esDuplicado && (
             <div 
               className="duplicate-indicator" 
-              title={`Ficha duplicada de OP #${task.opNumber}`}
+              title={`Ficha duplicada de ${etiquetaOrden} #${task.opNumber}`}
             >
               📋
             </div>
@@ -1143,7 +1144,9 @@ const TaskCard = ({
               onClick={(e) => e.stopPropagation()}
             >
               <header className="modal-header">
-                <h3>Checklist de OP {task.opNumber}</h3>
+                <h3>
+                  Checklist de {etiquetaOrden} {task.opNumber}
+                </h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1170,7 +1173,9 @@ const TaskCard = ({
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <header className="modal-header">
-                <h3>QR OP {task.opNumber}</h3>
+                <h3>
+                  QR {etiquetaOrden} {task.opNumber}
+                </h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1185,7 +1190,7 @@ const TaskCard = ({
                 {qrError && <p className="qr-error">{qrError}</p>}
                 {!qrLoading && !qrError && qrDataUrl && (
                   <div className="qr-preview">
-                    <img src={qrDataUrl} alt={`QR OP ${task.opNumber}`} />
+                    <img src={qrDataUrl} alt={`QR ${etiquetaOrden} ${task.opNumber}`} />
                     {qrLink && (
                       <>
                         <p className="qr-link">{qrLink}</p>
@@ -1194,8 +1199,12 @@ const TaskCard = ({
                         </a>
                       </>
                     )}
-                    <p className="qr-label">Escaneá para abrir la OP</p>
-                    <a className="qr-download" href={qrDataUrl} download={`op-${task.opNumber}.png`}>
+                    <p className="qr-label">Escaneá para abrir la {task.esFichaNoOP ? 'ficha' : 'OP'}</p>
+                    <a
+                      className="qr-download"
+                      href={qrDataUrl}
+                      download={`${task.esFichaNoOP ? 'ficha' : 'op'}-${task.opNumber}.png`}
+                    >
                       Descargar PNG
                     </a>
                   </div>
@@ -1216,7 +1225,9 @@ const TaskCard = ({
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <header className="modal-header">
-                <h3>Auditoría OP {task.opNumber}</h3>
+                <h3>
+                  Auditoría {etiquetaOrden} {task.opNumber}
+                </h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1263,7 +1274,9 @@ const TaskCard = ({
           >
             <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
               <header className="modal-header">
-                <h3>Asignar Impresora - OP {task.opNumber}</h3>
+                <h3>
+                  Asignar Impresora - {etiquetaOrden} {task.opNumber}
+                </h3>
                 <button
                   type="button"
                   className="modal-close"
@@ -1459,7 +1472,9 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>Cambiar Etapa - Taller Gráfico - OP {task.opNumber}</h3>
+              <h3>
+                Cambiar Etapa - Taller Gráfico - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1497,7 +1512,9 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>Cambiar Etapa - Instalaciones - OP {task.opNumber}</h3>
+              <h3>
+                Cambiar Etapa - Instalaciones - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1535,7 +1552,9 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>Historial de Etapas - Taller Gráfico - OP {task.opNumber}</h3>
+              <h3>
+                Historial de Etapas - Taller Gráfico - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1565,7 +1584,9 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>Historial de Etapas - Instalaciones - OP {task.opNumber}</h3>
+              <h3>
+                Historial de Etapas - Instalaciones - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1595,7 +1616,9 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>Cambiar Etapa - Taller de Imprenta - OP {task.opNumber}</h3>
+              <h3>
+                Cambiar Etapa - Taller de Imprenta - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1633,7 +1656,9 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>IMPRESIÓN DIGITAL - OP {task.opNumber}</h3>
+              <h3>
+                IMPRESIÓN DIGITAL - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1667,7 +1692,9 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>Historial de Etapas - Taller de Imprenta - OP {task.opNumber}</h3>
+              <h3>
+                Historial de Etapas - Taller de Imprenta - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1697,7 +1724,9 @@ const TaskCard = ({
             style={{ maxWidth: '600px' }}
           >
             <header className="modal-header">
-              <h3>Cambiar Etapa - Metalúrgica - OP {task.opNumber}</h3>
+              <h3>
+                Cambiar Etapa - Metalúrgica - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"
@@ -1735,7 +1764,9 @@ const TaskCard = ({
             style={{ maxWidth: '800px' }}
           >
             <header className="modal-header">
-              <h3>Historial de Etapas - Metalúrgica - OP {task.opNumber}</h3>
+              <h3>
+                Historial de Etapas - Metalúrgica - {etiquetaOrden} {task.opNumber}
+              </h3>
               <button
                 type="button"
                 className="modal-close"

@@ -26,6 +26,19 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
     loadClientes()
   }, [idAsesor, currentMonth])
 
+  const toArgentinaTimestamp = (value: string) => {
+    // Si viene sin timezone, asumir -03:00 (Argentina) para evitar corrimientos al ordenar.
+    const hasTZ = /([zZ]|[+-]\d{2}:\d{2})$/.test(value)
+    const normalized = hasTZ
+      ? value
+      : value.includes('T')
+        ? `${value}-03:00`
+        : value.includes(' ')
+          ? `${value.replace(' ', 'T')}-03:00`
+          : value
+    return parseISO(normalized).getTime()
+  }
+
   const loadCitas = async () => {
     setLoading(true)
     setError(null)
@@ -119,12 +132,12 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
     loadCitas()
   }
 
-  const citasDeHoy = useMemo(() => {
+  const visitasDeHoy = useMemo(() => {
     const hoyKey = getArgentinaDateString()
     
     return citas
       .filter(cita => isoToArgentinaDateKey(cita.fecha_cita) === hoyKey)
-      .sort((a, b) => parseISO(a.fecha_cita).getTime() - parseISO(b.fecha_cita).getTime())
+      .sort((a, b) => toArgentinaTimestamp(a.fecha_cita) - toArgentinaTimestamp(b.fecha_cita))
   }, [citas])
 
   return (
@@ -140,7 +153,7 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
           <div className="month-title">{format(currentMonth, 'MMMM yyyy', { locale: es })}</div>
         </div>
         <button className="btn-primary" onClick={() => handleDateClick(new Date())}>
-          + Nueva Cita
+          + Nueva Visita
         </button>
       </div>
 
@@ -181,9 +194,9 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                             e.stopPropagation()
                             handleCitaClick(cita)
                           }}
-                          title={cita.titulo}
+                          title={cita.cliente_nombre || cita.titulo}
                         >
-                          {isoToArgentinaTime(cita.fecha_cita)} - {cita.titulo.substring(0, 15)}
+                          {isoToArgentinaTime(cita.fecha_cita)} - {(cita.cliente_nombre || cita.titulo).substring(0, 15)}
                         </div>
                       ))}
                       {dayCitas.length > 3 && (
@@ -199,14 +212,14 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
 
         <div className="agenda-sidebar">
           <div className="sidebar-section">
-            <h3>Citas de Hoy</h3>
+            <h3>Visitas de Hoy</h3>
             {loading ? (
               <div className="loading">Cargando...</div>
-            ) : citasDeHoy.length === 0 ? (
-              <div className="empty-state">No hay citas programadas para hoy</div>
+            ) : visitasDeHoy.length === 0 ? (
+              <div className="empty-state">No hay visitas programadas para hoy</div>
             ) : (
               <div className="citas-list">
-                {citasDeHoy.map(cita => (
+                {visitasDeHoy.map(cita => (
                   <div
                     key={cita.id}
                     className={`cita-item estado-${cita.estado}`}
@@ -216,9 +229,11 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                       <span className="cita-fecha">{isoToArgentinaTime(cita.fecha_cita)}</span>
                       <span className={`cita-estado estado-${cita.estado}`}>{cita.estado}</span>
                     </div>
-                    <div className="cita-titulo">{cita.titulo}</div>
                     {cita.cliente_nombre && (
                       <div className="cita-cliente">👤 {cita.cliente_nombre}</div>
+                    )}
+                    {!cita.cliente_nombre && (
+                      <div className="cita-cliente">👤 {cita.titulo}</div>
                     )}
                     {cita.direccion && (
                       <div className="cita-direccion">📍 {cita.direccion}</div>
