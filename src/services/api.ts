@@ -158,7 +158,7 @@ class ApiService {
 
     // Intentar usar la función SQL que es más robusta
     try {
-      const { error } = await supabase.rpc('registrar_cambio_manual', {
+      const { error } = await supabase.rpc('registrar_cambio_manual_v2', {
         p_id_orden: idOrden,
         p_id_usuario: usuarioId || 0,
         p_nombre_usuario: nombreUsuario,
@@ -1186,7 +1186,7 @@ class ApiService {
         if (options?.motivo) changes.motivo = options.motivo
         if (options?.estadoAnterior) changes.estado_anterior = options.estadoAnterior
 
-        const { error: auditError } = await supabase.rpc('registrar_cambio_manual', {
+        const { error: auditError } = await supabase.rpc('registrar_cambio_manual_v2', {
           p_id_orden: id,
           p_id_usuario: currentUserId,
           p_nombre_usuario: currentUserName,
