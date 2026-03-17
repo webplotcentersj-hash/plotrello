@@ -253,7 +253,7 @@ const CrearPedidoCompraPage = () => {
           console.error('No se pudo generar el PDF del pedido:', err)
         }
 
-        alert(`Pedido creado exitosamente: ${response.data.numero_pedido}`)
+        alert(`Pedido a proveedor externo creado: ${response.data.numero_pedido}`)
         navigate(`/compras/pedidos/${response.data.id}`)
       } else {
         alert(`Error al crear el pedido: ${response.error || 'Error desconocido'}`)
@@ -294,8 +294,8 @@ const CrearPedidoCompraPage = () => {
       <header className="page-header">
         <div className="header-content">
           <div>
-            <h1>➕ Crear Nueva Orden de Compra</h1>
-            <p className="subtitle">Solicita productos y materiales para tu sector</p>
+            <h1>➕ Crear Pedido a Proveedor Externo</h1>
+            <p className="subtitle">Genera un pedido para enviar a un proveedor externo</p>
           </div>
           <div className="header-actions">
             <button className="btn-secondary" onClick={() => navigate('/compras/dashboard')}>
@@ -515,7 +515,7 @@ const CrearPedidoCompraPage = () => {
             Cancelar
           </button>
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Creando...' : 'Crear Pedido de Compra'}
+            {saving ? 'Creando...' : 'Crear Pedido a Proveedor Externo'}
           </button>
         </section>
       </form>
