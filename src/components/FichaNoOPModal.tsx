@@ -274,6 +274,16 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
           </div>
 
           <div className="form-group">
+            <label>Ubicación del Cliente (Opcional)</label>
+            <input
+              type="text"
+              placeholder="Link de ubicación (Google Maps)"
+              value={ubicacionLink}
+              onChange={(e) => setUbicacionLink(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
             <label>Observaciones</label>
             <textarea
               placeholder="Observaciones"
@@ -301,16 +311,6 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
               placeholder="Enlace a Google Drive (Opcional)"
               value={driveLink}
               onChange={(e) => setDriveLink(e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Enlace a Ubicación (Opcional)</label>
-            <input
-              type="text"
-              placeholder="Enlace a Ubicación (Opcional)"
-              value={ubicacionLink}
-              onChange={(e) => setUbicacionLink(e.target.value)}
             />
           </div>
 
