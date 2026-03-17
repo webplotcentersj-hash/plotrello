@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import apiService from '../services/api'
 import type { CitaAsesorTecnico, ClienteRecord } from '../types/api'
 import { formatArgentinaDateOnly, isoToArgentinaDateKey, isoToArgentinaTime } from '../utils/dateUtils'
@@ -34,6 +34,15 @@ const CitaModal = ({
   const [notas, setNotas] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const clienteHeader = useMemo(() => {
+    if (!idCliente) return ''
+    const c = clientes.find((x) => x.id === idCliente)
+    if (!c) return ''
+    const empresa = (c.empresa || '').trim()
+    const nombre = (c.nombre || '').trim()
+    return empresa ? `${empresa} (${nombre})` : nombre
+  }, [idCliente, clientes])
 
   useEffect(() => {
     if (cita) {
@@ -147,7 +156,10 @@ const CitaModal = ({
     >
       <div className="modal-content cita-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{cita ? 'Editar Visita' : 'Nueva Visita'}</h2>
+          <h2>
+            {cita ? 'Editar Visita' : 'Nueva Visita'}
+            {!cita && clienteHeader ? ` — ${clienteHeader}` : ''}
+          </h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
