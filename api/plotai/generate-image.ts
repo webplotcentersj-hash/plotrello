@@ -53,7 +53,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           parts: [{ text: enhancedPrompt }]
         }
       ],
-      // @ts-expect-error: responseModalities puede no estar tipado en esta versión del SDK
       config: {
         responseModalities: ['IMAGE']
       }

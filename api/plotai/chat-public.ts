@@ -273,7 +273,6 @@ async function findClientAndOrders(
   let clientRow: Record<string, unknown> | null = null
   const dDigits = digitsOnly(d)
   const cDigits = digitsOnly(c)
-  const docDigits = dDigits.length >= 7 ? dDigits : cDigits.length >= 10 ? cDigits : ''
 
   // 1) Búsqueda por DNI/CUIT (normalizado: solo dígitos; DNI 7-8, CUIT 10-11)
   if (d || c) {

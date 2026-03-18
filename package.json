@@ -33,6 +33,7 @@
     "@google/generative-ai": "^0.24.1",
     "@hello-pangea/dnd": "^18.0.1",
     "@supabase/supabase-js": "^2.49.1",
+    "@vercel/node": "^5.3.14",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",

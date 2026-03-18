@@ -28,8 +28,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey })
-
     // Para Gemini Live API, necesitamos generar un token efímero o configurar la sesión
     // Según la documentación, podemos usar ai.live.connect() desde el cliente
     // Pero necesitamos pasar la API key de forma segura

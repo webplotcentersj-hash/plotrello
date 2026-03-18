@@ -134,15 +134,22 @@ CONTEXTO DEL SISTEMA:
 
 SIEMPRE responde en ESPAÑOL (español argentino). Sé profesional, preciso y útil.`
 
-    // Generar respuesta con Gemini
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     const prompt = `${systemContext}\n\nUsuario (${userName}): ${message}\n\nPlotAI:`
-    
-    const result = await model.generateContent(prompt)
-    const response = result.response
-    const text = response.text()
 
-    return text || 'Lo siento, no pude generar una respuesta. Por favor, intenta de nuevo.'
+    // SDK @google/genai: usar ai.models.generateContent
+    const response = await genAI.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }]
+    } as any)
+
+    const candidates = (response as any)?.candidates || (response as any)?.response?.candidates || []
+    const parts = candidates?.[0]?.content?.parts || []
+    const textPart = parts.find((p: any) => typeof p?.text === 'string')
+    const text =
+      (typeof textPart?.text === 'string' ? textPart.text : undefined) ||
+      (typeof (response as any)?.text === 'string' ? (response as any).text : undefined)
+
+    return (text || '').trim() || 'Lo siento, no pude generar una respuesta. Por favor, intenta de nuevo.'
   } catch (error) {
     console.error('Error procesando mensaje con PlotAI:', error)
     return 'Lo siento, hubo un error al procesar tu mensaje. Por favor, intenta de nuevo.'

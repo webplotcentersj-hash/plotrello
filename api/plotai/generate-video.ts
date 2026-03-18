@@ -59,7 +59,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ]
           }
         ],
-        // @ts-expect-error: responseModalities puede no estar tipado
         config: {
           responseModalities: ['VIDEO'],
           videoConfig: {
