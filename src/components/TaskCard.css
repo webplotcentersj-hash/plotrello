@@ -144,6 +144,77 @@
   min-height: auto;
 }
 
+/* Minimizado por ficha (compacta el card y esconde detalles largos) */
+.task-card.is-minimized {
+  padding: 8px 10px;
+  gap: 0;
+  border-radius: 12px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.task-card.is-minimized .task-photo,
+.task-card.is-minimized .task-body {
+  display: none !important;
+}
+
+.task-card.is-minimized .priority-led-indicator,
+.task-card.is-minimized .sector-corner-marker,
+.task-card.is-minimized .duplicate-indicator,
+.task-card.is-minimized .task-move-arrows,
+.task-card.is-minimized .task-actions {
+  display: none !important;
+}
+
+.task-card.is-minimized .task-tags,
+.task-card.is-minimized .task-people,
+.task-card.is-minimized .task-contact-info-compact,
+.task-card.is-minimized .task-dni-cuit,
+.task-card.is-minimized .task-location-pill,
+.task-card.is-minimized .task-delivered-checkbox {
+  display: none !important;
+}
+
+.task-card.is-minimized h4 {
+  margin: 0;
+}
+
+.task-minimized-label {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.95);
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-min-op {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.task-min-sep {
+  flex: 0 0 auto;
+  opacity: 0.55;
+}
+
+.task-min-client {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 body.compact-mode .task-card {
   padding: 12px;
   gap: 10px;

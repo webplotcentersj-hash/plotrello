@@ -102,6 +102,7 @@ const TaskCard = ({
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isMinimized, setIsMinimized] = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
   const [showAudit, setShowAudit] = useState(false)
   const [showQr, setShowQr] = useState(false)
@@ -136,6 +137,34 @@ const TaskCard = ({
     const stripped = raw.replace(/^FICHA[\s-_#:]*/i, '')
     return stripped || raw
   })()
+
+  useEffect(() => {
+    // Persistir minimizado por ficha/OP
+    try {
+      const key = `taskcard:minimized:${task.id}`
+      const raw = localStorage.getItem(key)
+      if (raw === '1') setIsMinimized(true)
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id])
+
+  const toggleMinimized = () => {
+    setIsMinimized((prev) => {
+      const next = !prev
+      try {
+        const key = `taskcard:minimized:${task.id}`
+        if (next) localStorage.setItem(key, '1')
+        else localStorage.removeItem(key)
+      } catch {
+        // ignore
+      }
+      // Si minimiza, colapsar detalles también
+      if (next) setIsExpanded(false)
+      return next
+    })
+  }
 
   // Cerrar menú contextual al hacer clic fuera
   useEffect(() => {
@@ -357,16 +386,30 @@ const TaskCard = ({
             'ficha-tecnica-cargada': task.fichaTecnicaCargada,
             'presupuesto-enviado': task.presupuestoEnviadoCliente,
             'is-collapsed': !isExpanded,
+            'is-minimized': isMinimized,
             'is-selected': isSelected
           }, extraClassName)}
           ref={ref}
-          onClick={() => onSelect?.(task.id)}
+          onClick={() => {
+            if (isMinimized) {
+              toggleMinimized()
+              return
+            }
+            onSelect?.(task.id)
+          }}
           onContextMenu={(e) => {
             e.preventDefault()
             if (onMoveTask && columns.length) setContextMenu({ x: e.clientX, y: e.clientY })
           }}
           {...restProps}
         >
+          {isMinimized && (
+            <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
+              <span className="task-min-op">#{task.opNumber}</span>
+              <span className="task-min-sep">·</span>
+              <span className="task-min-client">{task.title}</span>
+            </div>
+          )}
           {task.priority === 'alta' && (
             <div className="priority-led-indicator" title="Prioridad Alta"></div>
           )}
@@ -423,7 +466,18 @@ const TaskCard = ({
               </div>
             ) : null
           })()}
-          <div className="task-actions">
+          {!isMinimized && <div className="task-actions">
+            <button
+              type="button"
+              className="task-action-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleMinimized()
+              }}
+              title={isMinimized ? 'Expandir' : 'Minimizar'}
+            >
+              {isMinimized ? '🔽' : '🔼'}
+            </button>
             {onEdit && (
               <button
                 type="button"
@@ -511,14 +565,14 @@ const TaskCard = ({
                 🖨️
               </button>
             )}
-          </div>
-          {task.photoUrl && (
+          </div>}
+          {!isMinimized && task.photoUrl && (
             <div className="task-photo">
               <img src={task.photoUrl} alt={`Trabajo ${task.title}`} loading="lazy" />
             </div>
           )}
 
-          <div className="task-meta">
+          {!isMinimized && <div className="task-meta">
             {/* Sector asignado al principio */}
             {task.assignedSector && (
               <div className="task-sector-header">
@@ -721,9 +775,9 @@ const TaskCard = ({
                 </label>
               </div>
             )}
-          </div>
+          </div>}
 
-          <div className="task-body">
+          {!isMinimized && <div className="task-body">
             <p className="task-description">{task.summary}</p>
 
             {/* Brief Público */}
@@ -1124,7 +1178,7 @@ const TaskCard = ({
                 </div>
               </div>
             </footer>
-          </div>
+          </div>}
 
           <button
             type="button"
