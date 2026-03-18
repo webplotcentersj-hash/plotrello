@@ -143,9 +143,12 @@ const TaskCard = ({
     try {
       const key = `taskcard:minimized:${task.id}`
       const raw = localStorage.getItem(key)
-      if (raw === '1') setIsMinimized(true)
+      // Por defecto: minimizado (si no hay preferencia guardada)
+      if (raw === null) setIsMinimized(true)
+      else setIsMinimized(raw === '1')
     } catch {
-      // ignore
+      // Fallback: si no se puede leer storage, arrancar minimizado
+      setIsMinimized(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id])
@@ -410,6 +413,20 @@ const TaskCard = ({
               <span className="task-min-client">{task.title}</span>
             </div>
           )}
+          {!isMinimized && (
+            <button
+              type="button"
+              className="task-minimize-btn"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleMinimized()
+              }}
+              title="Minimizar"
+              aria-label="Minimizar"
+            >
+              ⊟
+            </button>
+          )}
           {task.priority === 'alta' && (
             <div className="priority-led-indicator" title="Prioridad Alta"></div>
           )}
@@ -467,17 +484,6 @@ const TaskCard = ({
             ) : null
           })()}
           {!isMinimized && <div className="task-actions">
-            <button
-              type="button"
-              className="task-action-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleMinimized()
-              }}
-              title={isMinimized ? 'Expandir' : 'Minimizar'}
-            >
-              {isMinimized ? '🔽' : '🔼'}
-            </button>
             {onEdit && (
               <button
                 type="button"
@@ -1180,7 +1186,7 @@ const TaskCard = ({
             </footer>
           </div>}
 
-          <button
+          {!isMinimized && <button
             type="button"
             className="task-toggle"
             onClick={(event) => {
@@ -1190,7 +1196,7 @@ const TaskCard = ({
             aria-expanded={isExpanded}
           >
             {isExpanded ? 'Ocultar detalles' : 'Ver detalles'}
-          </button>
+          </button>}
         </article>
         {showChecklist && hasOrdenId && (
           <div

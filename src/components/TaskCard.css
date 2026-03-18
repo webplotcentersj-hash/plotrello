@@ -373,6 +373,29 @@ body.compact-mode .task-actions {
   pointer-events: auto;
 }
 
+.task-minimize-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 11;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.task-minimize-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(235, 103, 27, 0.6);
+  background: rgba(235, 103, 27, 0.12);
+}
+
 .qr-body {
   display: flex;
   align-items: center;
@@ -1231,6 +1254,7 @@ body.compact-mode .task-actions {
   cursor: pointer;
   align-self: flex-start;
   transition: all 0.2s;
+  margin-top: 12px;
 }
 
 .task-toggle:hover {
