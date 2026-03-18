@@ -359,7 +359,8 @@ body.compact-mode .task-actions {
 .task-actions {
   position: absolute;
   top: 12px;
-  right: 12px;
+  /* Dejar espacio para el botón de minimizar (fijo a la derecha) */
+  right: 54px;
   display: flex;
   gap: 6px;
   z-index: 10;

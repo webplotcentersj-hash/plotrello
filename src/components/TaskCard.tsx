@@ -105,11 +105,6 @@ const TaskCard = ({
   const [isMinimized, setIsMinimized] = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
   const [showAudit, setShowAudit] = useState(false)
-  const [showQr, setShowQr] = useState(false)
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const [qrLink, setQrLink] = useState<string | null>(null)
-  const [qrLoading, setQrLoading] = useState(false)
-  const [qrError, setQrError] = useState<string | null>(null)
   const [showAsignarImpresora, setShowAsignarImpresora] = useState(false)
   const [impresorasDisponibles, setImpresorasDisponibles] = useState<any[]>([])
   const [impresoraSeleccionada, setImpresoraSeleccionada] = useState<number | null>(null)
@@ -357,28 +352,6 @@ const TaskCard = ({
 
   const auditEvents = activity.filter((event) => event.taskId === task.id)
 
-  const handleShowQr = async () => {
-    setShowQr(true)
-    setQrError(null)
-    setQrLoading(true)
-    try {
-      const { toDataURL } = await import('qrcode')
-      const baseUrl =
-        typeof window !== 'undefined' ? window.location.origin : 'https://trello.plotcenter.com.ar'
-      const targetUrl = `${baseUrl}/op/${encodeURIComponent(task.opNumber || task.id)}`
-      const value = targetUrl
-      const dataUrl = await toDataURL(value, { width: 320, margin: 1 })
-      setQrDataUrl(dataUrl)
-      setQrError(null)
-      setQrLink(targetUrl)
-    } catch (error) {
-      console.error('QR generation error', error)
-      setQrError('No se pudo generar el QR')
-    } finally {
-      setQrLoading(false)
-    }
-  }
-
   const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
     const { ref, className: extraClassName, ...restProps } = draggableProps || {}
     return (
@@ -510,17 +483,6 @@ const TaskCard = ({
                 🗑️
               </button>
             )}
-            <button
-              type="button"
-              className="task-action-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                void handleShowQr()
-              }}
-              title="QR rápido"
-            >
-              🔳
-            </button>
             <button
               type="button"
               className="task-action-btn"
@@ -1222,56 +1184,6 @@ const TaskCard = ({
               </header>
               <div className="modal-body">
                 <Subtasks ordenId={ordenId} />
-              </div>
-            </div>
-          </div>
-        )}
-        {showQr && (
-          <div
-            className="modal-overlay"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setShowQr(false)
-            }}
-            onTouchStart={(e) => {
-              if (e.target === e.currentTarget) setShowQr(false)
-            }}
-          >
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <header className="modal-header">
-                <h3>QR {etiquetaOrden} {displayNumeroOrden}</h3>
-                <button
-                  type="button"
-                  className="modal-close"
-                  onClick={() => setShowQr(false)}
-                  aria-label="Cerrar"
-                >
-                  ×
-                </button>
-              </header>
-              <div className="modal-body qr-body">
-                {qrLoading && <p>Generando QR...</p>}
-                {qrError && <p className="qr-error">{qrError}</p>}
-                {!qrLoading && !qrError && qrDataUrl && (
-                  <div className="qr-preview">
-                    <img src={qrDataUrl} alt={`QR ${etiquetaOrden} ${task.opNumber}`} />
-                    {qrLink && (
-                      <>
-                        <p className="qr-link">{qrLink}</p>
-                        <a className="qr-open" href={qrLink} target="_blank" rel="noopener noreferrer">
-                          Abrir enlace
-                        </a>
-                      </>
-                    )}
-                    <p className="qr-label">Escaneá para abrir la {task.esFichaNoOP ? 'ficha' : 'OP'}</p>
-                    <a
-                      className="qr-download"
-                      href={qrDataUrl}
-                      download={`${task.esFichaNoOP ? 'ficha' : 'op'}-${task.opNumber}.png`}
-                    >
-                      Descargar PNG
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
           </div>
