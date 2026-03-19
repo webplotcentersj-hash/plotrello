@@ -1,4 +1,4 @@
-import { memo, useMemo, type Ref } from 'react'
+import { memo, useMemo, useState, type Ref } from 'react'
 import { type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -45,6 +45,9 @@ const Column = ({
   onSelectTask,
   isBoardDragging = false
 }: ColumnProps) => {
+  const INITIAL_VISIBLE_TASKS = 5
+  const [showAllTasks, setShowAllTasks] = useState(false)
+
   // Calcular el porcentaje de carga de la columna
   const loadPercentage = maxTasksInColumn > 0 ? (tasks.length / maxTasksInColumn) * 100 : 0
   const membersById = useMemo(() => {
@@ -63,6 +66,9 @@ const Column = ({
     return map
   }, [activity])
 
+  const visibleTasks = showAllTasks ? tasks : tasks.slice(0, INITIAL_VISIBLE_TASKS)
+  const hiddenTasksCount = Math.max(0, tasks.length - visibleTasks.length)
+
   return (
     <div className={`board-column ${isActive ? 'column-active' : ''}`} ref={containerRef}>
       <div className="column-load-indicator" style={{ height: `${loadPercentage}%` }} />
@@ -77,7 +83,7 @@ const Column = ({
       </header>
 
       <div className="column-body" ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
-        {tasks.map((task, index) => (
+        {visibleTasks.map((task, index) => (
           <TaskCard
             key={task.id}
             task={task}
@@ -99,6 +105,15 @@ const Column = ({
         {droppableProvided.placeholder}
 
         {tasks.length === 0 && <div className="column-empty">Aún no hay tarjetas aquí</div>}
+        {tasks.length > INITIAL_VISIBLE_TASKS && (
+          <button
+            type="button"
+            className="column-show-more-btn"
+            onClick={() => setShowAllTasks((prev) => !prev)}
+          >
+            {showAllTasks ? 'Ver menos' : `Ver más (${hiddenTasksCount})`}
+          </button>
+        )}
       </div>
     </div>
   )
