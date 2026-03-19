@@ -9,6 +9,10 @@
   box-shadow: none !important;
 }
 
+.board-wrapper.is-dragging .task-card.is-new-move::before {
+  display: none !important;
+}
+
 .board-wrapper.is-dragging .task-card:hover {
   transform: none !important;
 }
