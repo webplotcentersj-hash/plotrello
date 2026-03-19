@@ -478,9 +478,6 @@ const BoardPage = ({
             return next
           })
           setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
-          if (onReloadData) {
-            void onReloadData()
-          }
         } else {
           setActionSuccess('Orden actualizada en Supabase.')
         }

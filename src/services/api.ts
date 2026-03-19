@@ -1338,19 +1338,33 @@ class ApiService {
       }
 
       if (destinationId) {
-        const fusionRes = await this.fusionarOrdenesDuplicadas(destinationId, id)
+        // Conservar la ficha que se está moviendo para evitar "desaparición" visual.
+        // Se fusiona la ficha existente en destino dentro de la movida.
+        const fusionRes = await this.fusionarOrdenesDuplicadas(id, destinationId)
         if (!fusionRes.success) return fusionRes
 
+        const { error: alignAfterFusionError } = await supabase
+          .from('ordenes_trabajo')
+          .update({
+            estado: nuevoEstado,
+            sector: nuevoSector
+          })
+          .eq('id', id)
+
+        if (alignAfterFusionError) {
+          return { success: false, error: alignAfterFusionError.message }
+        }
+
         await this.registrarCambioHistorial(
-          destinationId,
+          id,
           currentEstado,
           nuevoEstado,
-          `Fusión automática por llegada al sector "${nuevoSector}" (ID ${id} -> ID ${destinationId})`,
+          `Fusión automática por llegada al sector "${nuevoSector}" (ID ${destinationId} -> ID ${id})`,
           'edicion_ficha',
           {
             fusion_duplicadas: {
-              id_conservada: destinationId,
-              id_fusionada: id,
+              id_conservada: id,
+              id_fusionada: destinationId,
               sector: nuevoSector,
               motivo: 'fusion_por_llegada'
             }
@@ -1359,7 +1373,7 @@ class ApiService {
 
         return {
           success: true,
-          data: { id: destinationId, estado: nuevoEstado, fusionada: true, fusionadaId: id }
+          data: { id, estado: nuevoEstado, fusionada: true, fusionadaId: destinationId }
         }
       }
 
@@ -1390,19 +1404,32 @@ class ApiService {
 
           const conflictingId = (conflictingRows as Array<{ id: number }> | null)?.[0]?.id
           if (conflictingId) {
-            const fusionRes = await this.fusionarOrdenesDuplicadas(conflictingId, id)
+            // Mantener el ID que mueve el usuario para preservar continuidad en UI.
+            const fusionRes = await this.fusionarOrdenesDuplicadas(id, conflictingId)
             if (!fusionRes.success) return fusionRes
 
+            const { error: alignAfterCollisionFusionError } = await supabase
+              .from('ordenes_trabajo')
+              .update({
+                estado: nuevoEstado,
+                sector: nuevoSector
+              })
+              .eq('id', id)
+
+            if (alignAfterCollisionFusionError) {
+              return { success: false, error: alignAfterCollisionFusionError.message }
+            }
+
             await this.registrarCambioHistorial(
-              conflictingId,
+              id,
               currentEstado,
               nuevoEstado,
-              `Fusión por colisión OP+sector "${currentData.numero_op}" en "${nuevoSector}" (ID ${id} -> ${conflictingId})`,
+              `Fusión por colisión OP+sector "${currentData.numero_op}" en "${nuevoSector}" (ID ${conflictingId} -> ${id})`,
               'edicion_ficha',
               {
                 fusion_duplicadas: {
-                  id_conservada: conflictingId,
-                  id_fusionada: id,
+                  id_conservada: id,
+                  id_fusionada: conflictingId,
                   sector: nuevoSector,
                   motivo: 'colision_unica_numero_op_sector'
                 }
@@ -1411,7 +1438,7 @@ class ApiService {
 
             return {
               success: true,
-              data: { id: conflictingId, estado: nuevoEstado, fusionada: true, fusionadaId: id }
+              data: { id, estado: nuevoEstado, fusionada: true, fusionadaId: conflictingId }
             }
           }
         }
