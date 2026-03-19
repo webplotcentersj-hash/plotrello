@@ -37,44 +37,40 @@ type TaskCardProps = {
   isBoardDragging?: boolean
 }
 
+const shortDateFormatter = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+  timeZone: 'America/Argentina/Buenos_Aires'
+})
+
 const formatShortDate = (value: string) => {
   // Si viene date-only (YYYY-MM-DD), evitar el corrimiento por UTC interpretándolo en horario AR
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     // Mediodía UTC = mañana en AR, evita caer en el día anterior
     const safe = new Date(`${value}T12:00:00Z`)
-    return new Intl.DateTimeFormat('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit',
-      timeZone: 'America/Argentina/Buenos_Aires'
-    }).format(safe)
+    return shortDateFormatter.format(safe)
   }
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    timeZone: 'America/Argentina/Buenos_Aires'
-  }).format(new Date(value))
+  return shortDateFormatter.format(new Date(value))
 }
 
-const formatFullDateTime = (value: string) =>
-  new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'America/Argentina/Buenos_Aires'
-  }).format(new Date(value))
-
-const formatCompactDateTime = (value: string) =>
-  new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'America/Argentina/Buenos_Aires'
-  }).format(new Date(value))
+const fullDateTimeFormatter = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'America/Argentina/Buenos_Aires'
+})
+const compactDateTimeFormatter = new Intl.DateTimeFormat('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'America/Argentina/Buenos_Aires'
+})
+const formatFullDateTime = (value: string) => fullDateTimeFormatter.format(new Date(value))
+const formatCompactDateTime = (value: string) => compactDateTimeFormatter.format(new Date(value))
 
 const stripEmailDomain = (value?: string | null) => {
   if (!value) return undefined

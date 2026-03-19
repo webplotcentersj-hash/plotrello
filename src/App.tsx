@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import type { TaskStatus } from './types/board'
 import BoardPage from './pages/BoardPage'
@@ -150,6 +150,8 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
+  const isBoardDraggingRef = useRef(false)
+  const needsSyncAfterDragRef = useRef(false)
 
   useEffect(() => {
     if (!loading) {
@@ -325,11 +327,26 @@ function App() {
       console.log(`✏️ Registrada edición del usuario: ${taskId} → status: ${status}`)
     }
 
+    const handleBoardDraggingChanged = (event: Event) => {
+      const customEvent = event as CustomEvent<{ dragging?: boolean }>
+      const dragging = Boolean(customEvent.detail?.dragging)
+      isBoardDraggingRef.current = dragging
+      if (!dragging && needsSyncAfterDragRef.current) {
+        needsSyncAfterDragRef.current = false
+        void loadRemoteData()
+      }
+    }
+
     window.addEventListener('user-moved-task', handleUserMove)
     window.addEventListener('user-edited-task', handleUserEdit)
+    window.addEventListener('board-dragging-changed', handleBoardDraggingChanged)
 
     const upsertTaskFromOrden = (orden: OrdenTrabajo) => {
       if (!orden?.id) return
+      if (isBoardDraggingRef.current) {
+        needsSyncAfterDragRef.current = true
+        return
+      }
       const taskId = orden.id!.toString()
       const mapped = ordenToTask(orden)
       
@@ -386,11 +403,19 @@ function App() {
 
     const removeTask = (orden: OrdenTrabajo | null) => {
       if (!orden?.id) return
+      if (isBoardDraggingRef.current) {
+        needsSyncAfterDragRef.current = true
+        return
+      }
       setTasks((prev) => prev.filter((task) => task.id !== orden.id!.toString()))
     }
 
     const addActivityFromRegistro = (registro: HistorialMovimiento) => {
       if (!registro?.id) return
+      if (isBoardDraggingRef.current) {
+        needsSyncAfterDragRef.current = true
+        return
+      }
       const mapped = historialToActivity(registro)
       setActivity((prev) => {
         const withoutDuplicate = prev.filter((event) => event.id !== mapped.id)
@@ -438,8 +463,10 @@ function App() {
       void ordenesChannel.unsubscribe()
       void historialChannel.unsubscribe()
       window.removeEventListener('user-moved-task', handleUserMove)
+      window.removeEventListener('user-edited-task', handleUserEdit)
+      window.removeEventListener('board-dragging-changed', handleBoardDraggingChanged)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, loadRemoteData])
 
   if (loading) {
     return (

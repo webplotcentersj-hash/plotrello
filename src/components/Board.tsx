@@ -86,6 +86,7 @@ const Board = ({
 
   const handleDragEnd = (result: DropResult) => {
     setIsDragging(false)
+    window.dispatchEvent(new CustomEvent('board-dragging-changed', { detail: { dragging: false } }))
     const { destination, source, draggableId } = result
     if (!destination) return
     if (
@@ -100,7 +101,10 @@ const Board = ({
   return (
     <div className={`board-wrapper ${isDragging ? 'is-dragging' : ''}`}>
       <DragDropContext
-        onDragStart={() => setIsDragging(true)}
+        onDragStart={() => {
+          setIsDragging(true)
+          window.dispatchEvent(new CustomEvent('board-dragging-changed', { detail: { dragging: true } }))
+        }}
         onDragEnd={handleDragEnd}
       >
         <div className="columns-grid">
