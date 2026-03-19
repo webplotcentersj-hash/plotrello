@@ -382,6 +382,11 @@ const BoardPage = ({
   const handleMoveTask = async (taskId: string, destination: TaskStatus) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
     const movedAt = Date.now()
+    try {
+      localStorage.setItem(`taskcard:new-move:${taskId}`, String(movedAt))
+    } catch {
+      // ignore storage failures
+    }
 
     setTasks((prev) =>
       prev.map((task) => {

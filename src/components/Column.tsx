@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import { memo, useMemo, type Ref } from 'react'
 import { type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -45,6 +45,21 @@ const Column = ({
 }: ColumnProps) => {
   // Calcular el porcentaje de carga de la columna
   const loadPercentage = maxTasksInColumn > 0 ? (tasks.length / maxTasksInColumn) * 100 : 0
+  const membersById = useMemo(() => {
+    const map = new Map<string, TeamMember>()
+    for (const member of members) map.set(member.id, member)
+    return map
+  }, [members])
+
+  const activityByTaskId = useMemo(() => {
+    const map = new Map<string, ActivityEvent[]>()
+    for (const event of activity ?? []) {
+      const current = map.get(event.taskId)
+      if (current) current.push(event)
+      else map.set(event.taskId, [event])
+    }
+    return map
+  }, [activity])
 
   return (
     <div className={`board-column ${isActive ? 'column-active' : ''}`} ref={containerRef}>
@@ -65,12 +80,12 @@ const Column = ({
             key={task.id}
             task={task}
             index={index}
-            owner={members.find((member) => member.id === task.ownerId)}
+            owner={membersById.get(task.ownerId)}
             onEdit={onEditTask}
             onDelete={onDeleteTask}
             sectores={sectores}
             onMarkDelivered={onMarkDelivered}
-            activity={activity}
+            activity={activityByTaskId.get(task.id) ?? []}
             members={members}
             onMoveTask={onMoveTask}
             columns={columns}
@@ -86,5 +101,5 @@ const Column = ({
   )
 }
 
-export default Column
+export default memo(Column)
 

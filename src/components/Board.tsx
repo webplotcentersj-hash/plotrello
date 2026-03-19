@@ -51,11 +51,32 @@ const Board = ({
   })
 
   const groupedByStatus = useMemo(() => {
-    return columns.reduce<Record<string, Task[]>>((acc, column) => {
-      acc[column.id] = tasks.filter((task) => task.status === column.id)
+    const emptyGroups = columns.reduce<Record<string, Task[]>>((acc, column) => {
+      acc[column.id] = []
       return acc
     }, {})
+
+    for (const task of tasks) {
+      if (emptyGroups[task.status]) {
+        emptyGroups[task.status].push(task)
+      }
+    }
+
+    return emptyGroups
   }, [tasks, columns])
+
+  const totalByStatus = useMemo(() => {
+    const counts = columns.reduce<Record<string, number>>((acc, column) => {
+      acc[column.id] = 0
+      return acc
+    }, {})
+    for (const task of allTasks) {
+      if (typeof counts[task.status] === 'number') {
+        counts[task.status] += 1
+      }
+    }
+    return counts
+  }, [allTasks, columns])
 
   // Calcular el máximo de tareas en cualquier columna para normalizar la barra
   const maxTasksInColumn = useMemo(() => {
@@ -85,7 +106,7 @@ const Board = ({
                   column={column}
                   tasks={groupedByStatus[column.id] ?? []}
                   members={members}
-                  totalColumnTasks={allTasks.filter((task) => task.status === column.id).length}
+                  totalColumnTasks={totalByStatus[column.id] ?? 0}
                   maxTasksInColumn={maxTasksInColumn}
                   droppableProvided={provided}
                   isActive={snapshot.isDraggingOver}
