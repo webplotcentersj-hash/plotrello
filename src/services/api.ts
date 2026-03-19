@@ -1302,22 +1302,41 @@ class ApiService {
       
       const nuevoSector = estadoToSector[nuevoEstado] || nuevoEstado
 
-      // Fusión por llegada: si ya existe ficha con misma OP en el sector destino,
-      // se unifica ahí directamente (la movida se fusiona en la que ya está en destino).
-      // Evita rebote y mantiene comportamiento encadenado entre sectores.
-      const { data: destinationRows, error: destinationError } = await supabase
+      // Fusión por llegada (cadena de duplicadas/triplicadas):
+      // 1) Primero buscar hermana por grupo (id_orden_original / raiz del grupo) en sector destino.
+      // 2) Si no existe, fallback por OP+sector para cubrir registros legacy sin cadena completa.
+      const groupRootId = currentData.es_duplicado ? (currentData.id_orden_original ?? currentData.id) : currentData.id
+      let destinationId: number | undefined
+
+      const { data: siblingRows, error: siblingError } = await supabase
         .from('ordenes_trabajo')
         .select('id')
-        .eq('numero_op', currentData.numero_op)
         .eq('sector', nuevoSector)
         .neq('id', id)
+        .or(`id.eq.${groupRootId},id_orden_original.eq.${groupRootId}`)
         .limit(1)
 
-      if (destinationError) {
-        return { success: false, error: destinationError.message }
+      if (siblingError) {
+        return { success: false, error: siblingError.message }
       }
 
-      const destinationId = (destinationRows as Array<{ id: number }> | null)?.[0]?.id
+      destinationId = (siblingRows as Array<{ id: number }> | null)?.[0]?.id
+
+      if (!destinationId) {
+        const { data: destinationRows, error: destinationError } = await supabase
+          .from('ordenes_trabajo')
+          .select('id')
+          .eq('numero_op', currentData.numero_op)
+          .eq('sector', nuevoSector)
+          .neq('id', id)
+          .limit(1)
+
+        if (destinationError) {
+          return { success: false, error: destinationError.message }
+        }
+        destinationId = (destinationRows as Array<{ id: number }> | null)?.[0]?.id
+      }
+
       if (destinationId) {
         const fusionRes = await this.fusionarOrdenesDuplicadas(destinationId, id)
         if (!fusionRes.success) return fusionRes

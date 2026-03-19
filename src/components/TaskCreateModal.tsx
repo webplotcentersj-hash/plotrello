@@ -743,6 +743,49 @@ const TaskCreateModal = ({
     setIsSectorDropdownOpen(false)
   }
 
+  const uploadSingleAttachment = async (file: File) => {
+    const id = crypto.randomUUID()
+    const previewUrl = URL.createObjectURL(file)
+    setAttachments((prev) => [
+      ...prev,
+      {
+        id,
+        name: file.name,
+        previewUrl,
+        uploading: true,
+        type: file.type,
+        file
+      }
+    ])
+
+    try {
+      const remoteUrl = await uploadAttachmentAndGetUrl(file, 'capturas')
+      setAttachments((prev) =>
+        prev.map((attachment) =>
+          attachment.id === id ? { ...attachment, remoteUrl, uploading: false } : attachment
+        )
+      )
+    } catch (error) {
+      console.error('Error subiendo archivo', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+
+      let userMessage = 'No se pudo subir el archivo.'
+      if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found')) {
+        userMessage = 'El bucket "archivos" no existe. Crealo en Supabase -> Storage -> New bucket (debe ser publico)'
+      } else if (errorMessage.includes('permission denied') || errorMessage.includes('row-level security')) {
+        userMessage = 'Error de permisos. El bucket debe ser publico. Ve a Supabase -> Storage -> archivos -> Policies'
+      } else {
+        userMessage = `Error: ${errorMessage}`
+      }
+
+      setUploadError(userMessage)
+      setAttachments((prev) => prev.filter((attachment) => attachment.id !== id))
+      if (previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files?.length) return
@@ -750,44 +793,7 @@ const TaskCreateModal = ({
     setUploadError(null)
 
     for (const file of Array.from(files)) {
-      const id = crypto.randomUUID()
-      const previewUrl = URL.createObjectURL(file)
-      setAttachments((prev) => [...prev, { 
-        id, 
-        name: file.name, 
-        previewUrl, 
-        uploading: true,
-        type: file.type,
-        file: file
-      }])
-
-      try {
-        const remoteUrl = await uploadAttachmentAndGetUrl(file, 'capturas')
-        setAttachments((prev) =>
-          prev.map((attachment) =>
-            attachment.id === id ? { ...attachment, remoteUrl, uploading: false } : attachment
-          )
-        )
-      } catch (error) {
-        console.error('Error subiendo archivo', error)
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        
-        // Mensajes de error más específicos
-        let userMessage = 'No se pudo subir el archivo.'
-        if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found')) {
-          userMessage = `El bucket "archivos" no existe. Créalo en Supabase → Storage → New bucket (debe ser público)`
-        } else if (errorMessage.includes('permission denied') || errorMessage.includes('row-level security')) {
-          userMessage = 'Error de permisos. El bucket debe ser público. Ve a Supabase → Storage → archivos → Policies'
-        } else {
-          userMessage = `Error: ${errorMessage}`
-        }
-        
-        setUploadError(userMessage)
-        setAttachments((prev) => prev.filter((attachment) => attachment.id !== id))
-        if (previewUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(previewUrl)
-        }
-      }
+      await uploadSingleAttachment(file)
     }
 
     event.target.value = ''
@@ -846,7 +852,22 @@ const TaskCreateModal = ({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="modal-content create-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content create-modal"
+        onClick={(e) => e.stopPropagation()}
+        onPaste={(e) => {
+          const items = e.clipboardData?.items
+          if (!items?.length) return
+          const imageItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
+          if (!imageItem) return
+          const file = imageItem.getAsFile()
+          if (!file) return
+          e.preventDefault()
+          const ext = file.type === 'image/png' ? 'png' : file.type === 'image/jpeg' ? 'jpg' : 'img'
+          const named = new File([file], `captura-${Date.now()}.${ext}`, { type: file.type })
+          void uploadSingleAttachment(named)
+        }}
+      >
         <header className="modal-header">
           <h2>Agregar Nueva Orden</h2>
           <button type="button" className="modal-close" onClick={onClose}>
@@ -1372,6 +1393,108 @@ const TaskCreateModal = ({
             </div>
           )}
 
+          <div className="form-group">
+            <label>Etiquetas (colores automáticos)</label>
+            <div className="tag-input-row">
+              <input
+                type="text"
+                placeholder="Ej: Urgente, Cliente VIP..."
+                value={tagInput}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setTagInput(value)
+                  const hasSuggestions = etiquetasDisponibles.some(etiqueta =>
+                    etiqueta.nombre.toLowerCase().includes(value.toLowerCase()) &&
+                    !tags.includes(etiqueta.nombre)
+                  ) || value.trim().length === 0
+                  setIsTagDropdownOpen(hasSuggestions)
+                }}
+                onFocus={() => {
+                  if (etiquetasDisponibles.length > 0) {
+                    setIsTagDropdownOpen(true)
+                  }
+                }}
+                onBlur={() => {
+                  setTimeout(() => setIsTagDropdownOpen(false), 200)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (tagSuggestions.length > 0) {
+                      handleSelectTagSuggestion(tagSuggestions[0])
+                    } else {
+                      handleAddTag()
+                    }
+                  } else if (e.key === 'Escape') {
+                    setIsTagDropdownOpen(false)
+                  }
+                }}
+              />
+              <button type="button" className="btn-secondary" onClick={handleAddTag}>
+                + Agregar
+              </button>
+              {isTagDropdownOpen && tagSuggestions.length > 0 && (
+                <div className="tag-suggestions-dropdown">
+                  {tagSuggestions.map((suggestion) => {
+                    const etiqueta = etiquetasDisponibles.find(e => e.nombre === suggestion)
+                    const tagColor = etiqueta?.color || tagColors.get(suggestion.toLowerCase()) || '#6B7280'
+                    return (
+                      <div
+                        key={suggestion}
+                        onClick={() => handleSelectTagSuggestion(suggestion)}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '3px',
+                            backgroundColor: tagColor,
+                            flexShrink: 0
+                          }}
+                        />
+                        <span>{suggestion}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            {tags.length > 0 && (
+              <div className="selected-tags" style={{ marginTop: '8px' }}>
+                {tags.map((tag) => {
+                  const tagColor = tagColors.get(tag.toLowerCase()) ||
+                    etiquetasDisponibles.find(e => e.nombre.toLowerCase() === tag.toLowerCase())?.color ||
+                    '#6B7280'
+                  return (
+                    <span
+                      key={tag}
+                      className="tag selected"
+                      style={{
+                        backgroundColor: tagColor,
+                        borderColor: tagColor,
+                        color: '#ffffff'
+                      }}
+                    >
+                      {tag}
+                      <button type="button" onClick={() => handleRemoveTag(tag)}>
+                        ×
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label>Operario</label>
@@ -1500,111 +1623,6 @@ const TaskCreateModal = ({
             </div>
           )}
 
-          <div className="form-group">
-            <label>Etiquetas (colores automáticos)</label>
-            <div className="tag-input-row">
-              <input
-                type="text"
-                placeholder="Ej: Urgente, Cliente VIP..."
-                value={tagInput}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setTagInput(value)
-                  // Mantener dropdown abierto si hay sugerencias
-                  const hasSuggestions = etiquetasDisponibles.some(etiqueta => 
-                    etiqueta.nombre.toLowerCase().includes(value.toLowerCase()) && 
-                    !tags.includes(etiqueta.nombre)
-                  ) || value.trim().length === 0
-                  setIsTagDropdownOpen(hasSuggestions)
-                }}
-                onFocus={() => {
-                  // Mostrar todas las etiquetas disponibles cuando hace focus
-                  if (etiquetasDisponibles.length > 0) {
-                    setIsTagDropdownOpen(true)
-                  }
-                }}
-                onBlur={() => {
-                  // Delay para permitir click en sugerencias
-                  setTimeout(() => setIsTagDropdownOpen(false), 200)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    if (tagSuggestions.length > 0) {
-                      handleSelectTagSuggestion(tagSuggestions[0])
-                    } else {
-                      handleAddTag()
-                    }
-                  } else if (e.key === 'Escape') {
-                    setIsTagDropdownOpen(false)
-                  }
-                }}
-              />
-              <button type="button" className="btn-secondary" onClick={handleAddTag}>
-                + Agregar
-              </button>
-              {isTagDropdownOpen && tagSuggestions.length > 0 && (
-                <div className="tag-suggestions-dropdown">
-                  {tagSuggestions.map((suggestion) => {
-                    const etiqueta = etiquetasDisponibles.find(e => e.nombre === suggestion)
-                    const tagColor = etiqueta?.color || tagColors.get(suggestion.toLowerCase()) || '#6B7280'
-                    return (
-                      <div
-                        key={suggestion}
-                        onClick={() => handleSelectTagSuggestion(suggestion)}
-                        onMouseDown={(e) => {
-                          // Prevenir que el blur del input cierre el dropdown
-                          e.preventDefault()
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
-                        }}
-                      >
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '3px',
-                            backgroundColor: tagColor,
-                            flexShrink: 0
-                          }}
-                        />
-                        <span>{suggestion}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-            {tags.length > 0 && (
-              <div className="selected-tags" style={{ marginTop: '8px' }}>
-                {tags.map((tag) => {
-                  const tagColor = tagColors.get(tag.toLowerCase()) || 
-                    etiquetasDisponibles.find(e => e.nombre.toLowerCase() === tag.toLowerCase())?.color || 
-                    '#6B7280'
-                  return (
-                    <span 
-                      key={tag} 
-                      className="tag selected"
-                      style={{
-                        backgroundColor: tagColor,
-                        borderColor: tagColor,
-                        color: '#ffffff'
-                      }}
-                    >
-                      {tag}
-                      <button type="button" onClick={() => handleRemoveTag(tag)}>
-                        ×
-                      </button>
-                    </span>
-                  )
-                })}
-              </div>
-            )}
-          </div>
 
           <div className="form-group">
             <label>Materiales</label>
