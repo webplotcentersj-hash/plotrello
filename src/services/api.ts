@@ -1246,18 +1246,44 @@ class ApiService {
     return { success: true }
   }
 
+  private async fusionarOrdenesDuplicadas(keepId: number, removeId: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      // Reasignar relaciones para mantener trazabilidad y datos
+      await supabase.from('enlaces_adjuntos').update({ id_orden: keepId }).eq('id_orden', removeId)
+      await supabase.from('comentarios_orden').update({ id_orden: keepId }).eq('id_orden', removeId)
+      await supabase.from('tarea_subitems').update({ id_orden: keepId }).eq('id_orden', removeId)
+      await supabase.from('historial_movimientos').update({ id_orden: keepId }).eq('id_orden', removeId)
+
+      const { error: deleteError } = await supabase.from('ordenes_trabajo').delete().eq('id', removeId)
+      if (deleteError) return { success: false, error: deleteError.message }
+
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'No se pudo fusionar órdenes duplicadas' }
+    }
+  }
+
   async moveOrden(id: number, nuevoEstado: string, usuarioId: number): Promise<ApiResponse<any>> {
     if (supabase) {
       const { data: current, error: fetchError } = await supabase
         .from('ordenes_trabajo')
-        .select('estado, sector')
+        .select('id, numero_op, estado, sector, es_duplicado, id_orden_original')
         .eq('id', id)
         .maybeSingle()
 
       if (fetchError || !current) {
         return { success: false, error: fetchError?.message || 'Orden no encontrada' }
       }
-      const currentEstado = (current as { estado: string; sector: string }).estado
+      const currentData = current as {
+        id: number
+        estado: string
+        sector: string
+        es_duplicado?: boolean | null
+        id_orden_original?: number | null
+      }
+      const currentEstado = currentData.estado
       
       // Mapear el nuevo estado al sector correspondiente
       const estadoToSector: Record<string, string> = {
@@ -1274,6 +1300,49 @@ class ApiService {
       }
       
       const nuevoSector = estadoToSector[nuevoEstado] || nuevoEstado
+
+      // Si es ficha duplicada y ya existe otra del mismo grupo en el sector destino, fusionar.
+      // Esto evita el "rebote hacia atrás" por conflicto de duplicadas en el mismo sector.
+      if (currentData.es_duplicado) {
+        const groupRootId = currentData.id_orden_original ?? currentData.id
+        const { data: siblingRows, error: siblingError } = await supabase
+          .from('ordenes_trabajo')
+          .select('id')
+          .eq('sector', nuevoSector)
+          .neq('id', id)
+          .or(`id.eq.${groupRootId},id_orden_original.eq.${groupRootId}`)
+          .limit(1)
+
+        if (siblingError) {
+          return { success: false, error: siblingError.message }
+        }
+
+        const siblingId = (siblingRows as Array<{ id: number }> | null)?.[0]?.id
+        if (siblingId) {
+          const fusionRes = await this.fusionarOrdenesDuplicadas(siblingId, id)
+          if (!fusionRes.success) return fusionRes
+
+          await this.registrarCambioHistorial(
+            siblingId,
+            currentEstado,
+            nuevoEstado,
+            `Fusión automática de duplicadas en sector "${nuevoSector}" (se unificó ID ${id} en ID ${siblingId})`,
+            'edicion_ficha',
+            {
+              fusion_duplicadas: {
+                id_conservada: siblingId,
+                id_fusionada: id,
+                sector: nuevoSector
+              }
+            }
+          )
+
+          return {
+            success: true,
+            data: { id: siblingId, estado: nuevoEstado, fusionada: true, fusionadaId: id }
+          }
+        }
+      }
 
       // ⚠️ IMPORTANTE: Actualizar tanto estado como sector
       const { error: updateError } = await supabase

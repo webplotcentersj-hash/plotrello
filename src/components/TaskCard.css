@@ -256,12 +256,58 @@
   box-shadow: 0 0 0 2px rgba(5, 6, 15, 0.9), 0 0 22px rgba(56, 189, 248, 0.35);
 }
 
+.task-new-pill-floating {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+}
+
 .task-card.is-new-move {
+  overflow: hidden;
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 0 0 1px rgba(56, 189, 248, 0.35),
     0 0 28px rgba(56, 189, 248, 0.22);
+}
+
+.task-card.is-new-move::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -45%;
+  width: 35%;
+  height: 140%;
+  background: linear-gradient(
+    105deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(167, 243, 208, 0.08) 35%,
+    rgba(56, 189, 248, 0.32) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  filter: blur(1px);
+  transform: skewX(-18deg);
+  pointer-events: none;
+  z-index: 1;
+  animation: task-new-sweep 2.8s ease-in-out infinite;
+}
+
+@keyframes task-new-sweep {
+  0% {
+    left: -45%;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.9;
+  }
+  100% {
+    left: 125%;
+    opacity: 0;
+  }
 }
 
 body.compact-mode .task-card {

@@ -419,6 +419,7 @@ const TaskCard = ({
               ⊟
             </button>
           )}
+          {!isMinimized && isNewMove && <span className="task-new-pill task-new-pill-floating">NEW</span>}
           {task.priority === 'alta' && (
             <div className="priority-led-indicator" title="Prioridad Alta"></div>
           )}

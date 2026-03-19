@@ -438,7 +438,13 @@ const BoardPage = ({
           })
         )
       } else {
-        setActionSuccess('Orden actualizada en Supabase.')
+        if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
+          const fusionadaId = String((response.data as any).fusionadaId)
+          setTasks((prev) => prev.filter((task) => task.id !== fusionadaId))
+          setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
+        } else {
+          setActionSuccess('Orden actualizada en Supabase.')
+        }
         // ⚠️ NO recargar todos los datos - confiar en el realtime subscription
         // El realtime actualizará automáticamente cuando la BD cambie
         // onReloadData() causaba que las fichas volvieran al estado anterior
