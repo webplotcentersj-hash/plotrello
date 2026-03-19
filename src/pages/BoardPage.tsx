@@ -445,7 +445,24 @@ const BoardPage = ({
       } else {
         if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
           const fusionadaId = String((response.data as any).fusionadaId)
-          setTasks((prev) => prev.filter((task) => task.id !== fusionadaId))
+          const conservadaId = String((response.data as any).id ?? '')
+          setTasks((prev) => {
+            const next = prev
+              .map((task) => {
+                if (task.id !== conservadaId) return task
+                return {
+                  ...task,
+                  status: destination,
+                  assignedSector: destinationColumn?.label ?? task.assignedSector,
+                  updatedAt: new Date().toISOString(),
+                  uiMovedAt: movedAt,
+                  progress: destination === 'almacen-entrega' ? 100 : task.progress
+                }
+              })
+              .filter((task) => task.id !== fusionadaId)
+
+            return next
+          })
           setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
         } else {
           setActionSuccess('Orden actualizada en Supabase.')
