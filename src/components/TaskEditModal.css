@@ -355,7 +355,6 @@
   transform: scale(1.1);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
-}
 
 .materials-list {
   display: flex;
@@ -520,6 +519,81 @@
 .file-item span {
   color: var(--text-primary);
   font-size: 0.9rem;
+}
+
+.task-cover-section {
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.task-cover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.task-cover-header small {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.task-cover-empty {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.16);
+  margin-bottom: 10px;
+}
+
+.task-cover-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.task-cover-upload {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.task-cover-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.task-cover-remove {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.task-cover-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .upload-error {

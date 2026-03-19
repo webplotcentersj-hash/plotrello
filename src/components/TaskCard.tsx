@@ -342,6 +342,18 @@ const TaskCard = ({
   const workerDisplay = workerName ?? 'Sin asignar'
   const isWorkerAssigned = Boolean(workerName)
   const creatorDisplay = stripEmailDomain(task.createdBy) ?? task.createdBy ?? 'Sistema'
+
+  // Fuerza rerender al expirar el "NEW"
+  const [, setNowTick] = useState(0)
+  const NEW_MOVE_MS = 60 * 60 * 1000 // 1 hora
+  const isNewMove = typeof task.uiMovedAt === 'number' && Date.now() - task.uiMovedAt < NEW_MOVE_MS
+
+  useEffect(() => {
+    if (!isNewMove) return
+    const remainingMs = Math.max(0, NEW_MOVE_MS - (Date.now() - (task.uiMovedAt as number)))
+    const t = window.setTimeout(() => setNowTick((x) => x + 1), remainingMs + 50)
+    return () => window.clearTimeout(t)
+  }, [isNewMove, task.uiMovedAt])
   
   // Detectar si hay modificaciones (updatedAt es más reciente que createdAt)
   const hasModifications = new Date(task.updatedAt).getTime() > new Date(task.createdAt).getTime() + 1000 // +1 segundo para evitar falsos positivos
@@ -363,6 +375,7 @@ const TaskCard = ({
             'presupuesto-enviado': task.presupuestoEnviadoCliente,
             'is-collapsed': !isExpanded,
             'is-minimized': isMinimized,
+            'is-new-move': isNewMove,
             'is-selected': isSelected
           }, extraClassName)}
           ref={ref}
@@ -381,9 +394,15 @@ const TaskCard = ({
         >
           {isMinimized && (
             <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
+              {task.photoUrl && (
+                <span className="task-min-thumb" aria-hidden="true">
+                  <img src={task.photoUrl} alt="" loading="lazy" />
+                </span>
+              )}
               <span className="task-min-op">#{task.opNumber}</span>
               <span className="task-min-sep">·</span>
               <span className="task-min-client">{task.title}</span>
+              {isNewMove && <span className="task-new-pill">NEW</span>}
             </div>
           )}
           {!isMinimized && (

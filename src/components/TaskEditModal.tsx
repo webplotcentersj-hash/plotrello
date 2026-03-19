@@ -611,32 +611,7 @@ const TaskEditModal = ({
     setUploadError(null)
 
     for (const file of Array.from(files)) {
-      const id = crypto.randomUUID()
-      const previewUrl = URL.createObjectURL(file)
-      setAttachments((prev) => [...prev, { 
-        id, 
-        name: file.name, 
-        previewUrl, 
-        uploading: true,
-        type: file.type,
-        file: file
-      }])
-
-      try {
-        const remoteUrl = await uploadAttachmentAndGetUrl(file, `capturas/${task?.id ?? 'sin-id'}`)
-        setAttachments((prev) =>
-          prev.map((attachment) =>
-            attachment.id === id ? { ...attachment, remoteUrl, uploading: false } : attachment
-          )
-        )
-      } catch (error) {
-        console.error('Error subiendo archivo', error)
-        setUploadError('No se pudo subir el archivo. Intenta nuevamente.')
-        setAttachments((prev) => prev.filter((attachment) => attachment.id !== id))
-        if (previewUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(previewUrl)
-        }
-      }
+      await uploadSingleAttachment(file)
     }
 
     event.target.value = ''
@@ -652,13 +627,44 @@ const TaskEditModal = ({
     })
   }
 
+  const uploadSingleAttachment = async (file: File) => {
+    const id = crypto.randomUUID()
+    const previewUrl = URL.createObjectURL(file)
+    setAttachments((prev) => [
+      ...prev,
+      {
+        id,
+        name: file.name,
+        previewUrl,
+        uploading: true,
+        type: file.type,
+        file
+      }
+    ])
+
+    try {
+      const remoteUrl = await uploadAttachmentAndGetUrl(file, `capturas/${task?.id ?? 'sin-id'}`)
+      setAttachments((prev) =>
+        prev.map((attachment) =>
+          attachment.id === id ? { ...attachment, remoteUrl, uploading: false } : attachment
+        )
+      )
+      // Si no hay portada, usar la primera captura como portada
+      setFormData((prev) => (prev.photoUrl ? prev : { ...prev, photoUrl: remoteUrl }))
+    } catch (error) {
+      console.error('Error subiendo archivo', error)
+      setUploadError('No se pudo subir el archivo. Intenta nuevamente.')
+      setAttachments((prev) => prev.filter((attachment) => attachment.id !== id))
+      if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl)
+    }
+  }
+
   useEffect(() => {
     attachmentsRef.current = attachments
     const firstReady = attachments.find((attachment) => attachment.remoteUrl && !attachment.uploading)
     if (firstReady?.remoteUrl) {
-      setFormData((prev) => ({ ...prev, photoUrl: firstReady.remoteUrl }))
-    } else if (attachments.length === 0) {
-      setFormData((prev) => ({ ...prev, photoUrl: '' }))
+      // Solo setear portada automática si todavía no hay una portada elegida
+      setFormData((prev) => (prev.photoUrl ? prev : { ...prev, photoUrl: firstReady.remoteUrl }))
     }
   }, [attachments])
 
@@ -700,7 +706,22 @@ const TaskEditModal = ({
         if (e.target === e.currentTarget) onClose(task?.id)
       }}
     >
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        onPaste={(e) => {
+          const items = e.clipboardData?.items
+          if (!items?.length) return
+          const imageItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
+          if (!imageItem) return
+          const file = imageItem.getAsFile()
+          if (!file) return
+          e.preventDefault()
+          const ext = file.type === 'image/png' ? 'png' : file.type === 'image/jpeg' ? 'jpg' : 'img'
+          const named = new File([file], `captura-${Date.now()}.${ext}`, { type: file.type })
+          void uploadSingleAttachment(named)
+        }}
+      >
         <header className="modal-header">
           <h2>
             Editando {task?.esFichaNoOP ? 'Ficha' : 'OP'} #{formData.opNumber || task.opNumber}
@@ -711,14 +732,45 @@ const TaskEditModal = ({
         </header>
 
         <div className="modal-body">
-          {task.photoUrl && (
-            <div className="task-photo-preview">
-              <img
-                src={task.photoUrl}
-                alt={`Captura ${task?.esFichaNoOP ? 'Ficha' : 'OP'} ${task.opNumber}`}
-              />
+          <div className="task-cover-section">
+            <div className="task-cover-header">
+              <strong>Portada</strong>
+              <small>Pegá una captura con Ctrl+V o subí una imagen.</small>
             </div>
-          )}
+            {formData.photoUrl ? (
+              <div className="task-photo-preview">
+                <img
+                  src={formData.photoUrl}
+                  alt={`Portada ${task?.esFichaNoOP ? 'Ficha' : 'OP'} ${task.opNumber}`}
+                />
+              </div>
+            ) : (
+              <div className="task-cover-empty">Sin portada</div>
+            )}
+            <div className="task-cover-actions">
+              <label className="task-cover-upload">
+                Subir / Reemplazar
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (!f) return
+                    void uploadSingleAttachment(f)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className="task-cover-remove"
+                onClick={() => setFormData((prev) => ({ ...prev, photoUrl: '' }))}
+                disabled={!formData.photoUrl}
+              >
+                Quitar portada
+              </button>
+            </div>
+          </div>
           <div className="form-row">
             <div className="form-group">
               <label>N° {task?.esFichaNoOP ? 'Ficha' : 'OP'}</label>

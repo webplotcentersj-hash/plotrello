@@ -381,6 +381,7 @@ const BoardPage = ({
 
   const handleMoveTask = async (taskId: string, destination: TaskStatus) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
+    const movedAt = Date.now()
 
     setTasks((prev) =>
       prev.map((task) => {
@@ -390,6 +391,7 @@ const BoardPage = ({
           status: destination,
           assignedSector: destinationColumn?.label ?? task.assignedSector,
           updatedAt: new Date().toISOString(),
+          uiMovedAt: movedAt,
           progress: destination === 'almacen-entrega' ? 100 : task.progress
         }
       })

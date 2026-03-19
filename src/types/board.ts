@@ -102,6 +102,8 @@ export interface Task {
   fichaTecnicaPdfUrl?: string | null
   fichaTecnicaCargada?: boolean | null // Indica si la ficha técnica fue cargada (checklist)
   presupuestoEnviadoCliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
+  /** UI only: marca cuando se movió entre columnas para mostrar "NEW" */
+  uiMovedAt?: number
 }
 
 export interface Subtask {
