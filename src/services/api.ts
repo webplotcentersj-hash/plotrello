@@ -1302,46 +1302,45 @@ class ApiService {
       
       const nuevoSector = estadoToSector[nuevoEstado] || nuevoEstado
 
-      // Si es ficha duplicada y ya existe otra del mismo grupo en el sector destino, fusionar.
-      // Esto evita el "rebote hacia atrás" por conflicto de duplicadas en el mismo sector.
-      if (currentData.es_duplicado) {
-        const groupRootId = currentData.id_orden_original ?? currentData.id
-        const { data: siblingRows, error: siblingError } = await supabase
-          .from('ordenes_trabajo')
-          .select('id')
-          .eq('sector', nuevoSector)
-          .neq('id', id)
-          .or(`id.eq.${groupRootId},id_orden_original.eq.${groupRootId}`)
-          .limit(1)
+      // Fusión por llegada: si ya existe ficha con misma OP en el sector destino,
+      // se unifica ahí directamente (la movida se fusiona en la que ya está en destino).
+      // Evita rebote y mantiene comportamiento encadenado entre sectores.
+      const { data: destinationRows, error: destinationError } = await supabase
+        .from('ordenes_trabajo')
+        .select('id')
+        .eq('numero_op', currentData.numero_op)
+        .eq('sector', nuevoSector)
+        .neq('id', id)
+        .limit(1)
 
-        if (siblingError) {
-          return { success: false, error: siblingError.message }
-        }
+      if (destinationError) {
+        return { success: false, error: destinationError.message }
+      }
 
-        const siblingId = (siblingRows as Array<{ id: number }> | null)?.[0]?.id
-        if (siblingId) {
-          const fusionRes = await this.fusionarOrdenesDuplicadas(siblingId, id)
-          if (!fusionRes.success) return fusionRes
+      const destinationId = (destinationRows as Array<{ id: number }> | null)?.[0]?.id
+      if (destinationId) {
+        const fusionRes = await this.fusionarOrdenesDuplicadas(destinationId, id)
+        if (!fusionRes.success) return fusionRes
 
-          await this.registrarCambioHistorial(
-            siblingId,
-            currentEstado,
-            nuevoEstado,
-            `Fusión automática de duplicadas en sector "${nuevoSector}" (se unificó ID ${id} en ID ${siblingId})`,
-            'edicion_ficha',
-            {
-              fusion_duplicadas: {
-                id_conservada: siblingId,
-                id_fusionada: id,
-                sector: nuevoSector
-              }
+        await this.registrarCambioHistorial(
+          destinationId,
+          currentEstado,
+          nuevoEstado,
+          `Fusión automática por llegada al sector "${nuevoSector}" (ID ${id} -> ID ${destinationId})`,
+          'edicion_ficha',
+          {
+            fusion_duplicadas: {
+              id_conservada: destinationId,
+              id_fusionada: id,
+              sector: nuevoSector,
+              motivo: 'fusion_por_llegada'
             }
-          )
-
-          return {
-            success: true,
-            data: { id: siblingId, estado: nuevoEstado, fusionada: true, fusionadaId: id }
           }
+        )
+
+        return {
+          success: true,
+          data: { id: destinationId, estado: nuevoEstado, fusionada: true, fusionadaId: id }
         }
       }
 

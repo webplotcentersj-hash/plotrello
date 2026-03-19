@@ -146,13 +146,13 @@
 
 /* Minimizado por ficha (compacta el card y esconde detalles largos) */
 .task-card.is-minimized {
-  padding: 10px 12px;
+  padding: 12px 14px;
   gap: 0;
   border-radius: 12px;
   flex-direction: row;
   align-items: flex-start;
   justify-content: flex-start;
-  min-height: 74px;
+  min-height: 86px;
   cursor: pointer;
 }
 
@@ -177,6 +177,21 @@
 .task-card.is-minimized .task-delivered-checkbox {
   display: none !important;
 }
+.task-card.is-minimized .task-tags {
+  display: flex !important;
+  width: 100%;
+  margin-top: 6px;
+  margin-bottom: 0;
+  gap: 5px;
+}
+
+.task-card.is-minimized .task-tag {
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  border-width: 1px;
+  max-width: 160px;
+  line-height: 1.15;
+}
 
 .task-card.is-minimized h4 {
   margin: 0;
@@ -197,8 +212,8 @@
 
 .task-min-thumb {
   flex: 0 0 auto;
-  width: 50px;
-  height: 50px;
+  width: 100px;
+  height: 100px;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.14);
