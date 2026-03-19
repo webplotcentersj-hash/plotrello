@@ -1,10 +1,12 @@
--- Protocolos y Bases (RRHH/Admin upload, todos pueden ver/descargar)
+-- Protocolos y Bases (full / fixed)
+-- Objetivo:
+-- - Crear tabla + RLS
+-- - SELECT permitido para todos (authenticated + public)
+-- - Escritura (INSERT/UPDATE/DELETE) solo para: administracion y recursos-humanos
 BEGIN;
 
--- Para UUIDs
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Tabla principal
 CREATE TABLE IF NOT EXISTS public.protocolos_bases (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   titulo text NOT NULL,
@@ -23,7 +25,6 @@ CREATE TABLE IF NOT EXISTS public.protocolos_bases (
 
 ALTER TABLE public.protocolos_bases ENABLE ROW LEVEL SECURITY;
 
--- Actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION public.set_updated_at_protocolos_bases()
 RETURNS trigger AS $$
 BEGIN
@@ -38,7 +39,7 @@ BEFORE UPDATE ON public.protocolos_bases
 FOR EACH ROW
 EXECUTE FUNCTION public.set_updated_at_protocolos_bases();
 
--- SELECT: todos los usuarios logueados (y también public por si se usa en otras interfaces)
+-- SELECT: todos los usuarios logueados
 DROP POLICY IF EXISTS "protocolos_bases_select_authenticated" ON public.protocolos_bases;
 CREATE POLICY "protocolos_bases_select_authenticated"
 ON public.protocolos_bases
@@ -46,6 +47,7 @@ FOR SELECT
 TO authenticated
 USING (true);
 
+-- SELECT: public (por si se consulta sin auth)
 DROP POLICY IF EXISTS "protocolos_bases_select_public" ON public.protocolos_bases;
 CREATE POLICY "protocolos_bases_select_public"
 ON public.protocolos_bases
@@ -53,7 +55,7 @@ FOR SELECT
 TO public
 USING (true);
 
--- INSERT/UPDATE/DELETE: RRHH / ADMIN (administracion, gerencia)
+-- Escritura: solo administracion y recursos-humanos
 DROP POLICY IF EXISTS "protocolos_bases_write_hr_admin" ON public.protocolos_bases;
 CREATE POLICY "protocolos_bases_write_hr_admin"
 ON public.protocolos_bases
@@ -64,7 +66,7 @@ USING (
     SELECT 1
     FROM public.usuarios u
     WHERE u.id = auth.uid()::text::integer
-      AND u.rol IN ('recursos-humanos', 'administracion', 'gerencia')
+      AND u.rol IN ('recursos-humanos', 'administracion')
   )
 )
 WITH CHECK (
@@ -72,11 +74,10 @@ WITH CHECK (
     SELECT 1
     FROM public.usuarios u
     WHERE u.id = auth.uid()::text::integer
-      AND u.rol IN ('recursos-humanos', 'administracion', 'gerencia')
+      AND u.rol IN ('recursos-humanos', 'administracion')
   )
 );
 
--- Índices
 CREATE INDEX IF NOT EXISTS idx_protocolos_bases_created_at ON public.protocolos_bases(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_protocolos_bases_tipo ON public.protocolos_bases(tipo);
 

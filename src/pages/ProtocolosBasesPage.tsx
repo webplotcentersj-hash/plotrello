@@ -323,8 +323,15 @@ export default function ProtocolosBasesPage() {
             ← Volver al Tablero
           </button>
           <div className="protocolos-bases-title">
-            <h1>Protocolos y Bases</h1>
-            <p className="subtitle">Documentos para que el equipo trabaje con el mismo criterio.</p>
+            <img
+              className="protocolos-bases-logo"
+              src="https://trello.plotcenter.com.ar/Group%20187.png"
+              alt="Plot Center Logo"
+            />
+            <div className="protocolos-bases-title-text">
+              <h1>Protocolos y Bases</h1>
+              <p className="subtitle">Documentos para que el equipo trabaje con el mismo criterio.</p>
+            </div>
           </div>
         </div>
       </header>
@@ -468,6 +475,7 @@ export default function ProtocolosBasesPage() {
         <section className="protocolos-bases-library">
           <div className="protocolos-bases-library-toolbar">
             <div className="search-row">
+              <div className="protocolos-bases-search-title">Buscar</div>
               <input
                 className="form-input"
                 value={search}

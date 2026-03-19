@@ -12,7 +12,7 @@ USING (
   EXISTS (
     SELECT 1
     FROM public.usuarios u
-    WHERE u.id = auth.uid()
+    WHERE u.id = auth.uid()::text::integer
       AND u.rol IN ('recursos-humanos', 'administracion')
   )
 )
@@ -20,7 +20,7 @@ WITH CHECK (
   EXISTS (
     SELECT 1
     FROM public.usuarios u
-    WHERE u.id = auth.uid()
+    WHERE u.id = auth.uid()::text::integer
       AND u.rol IN ('recursos-humanos', 'administracion')
   )
 );

@@ -15,6 +15,25 @@
   gap: 14px;
 }
 
+.protocolos-bases-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.protocolos-bases-title-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.protocolos-bases-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  margin-right: 12px;
+  vertical-align: middle;
+}
+
 .protocolos-bases-title h1 {
   margin: 0;
   color: var(--text-color);
@@ -107,11 +126,50 @@
 
 .protocolos-bases-library-toolbar {
   margin-bottom: 12px;
+  padding: 12px;
+  background: #000;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .search-row {
   display: flex;
   gap: 10px;
+  align-items: center;
+}
+
+.protocolos-bases-search-title {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.protocolos-bases-library-toolbar .form-input {
+  background: #000 !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.protocolos-bases-library-toolbar .form-input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.protocolos-bases-library-toolbar .form-input:focus {
+  outline: none;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.protocolos-bases-library-toolbar select.form-input {
+  background: #000 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.protocolos-bases-library-toolbar option {
+  background: #000;
+  color: #fff;
 }
 
 .protocolos-bases-list {
