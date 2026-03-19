@@ -97,6 +97,7 @@ import PedidoClienteDetalleAdminPage from './pages/PedidoClienteDetalleAdminPage
 import ConvertirPedidoAOpPage from './pages/ConvertirPedidoAOpPage'
 import LibroActasSectorPage from './pages/LibroActasSectorPage'
 import LibroActasPage from './pages/LibroActasPage'
+import ProtocolosBasesPage from './pages/ProtocolosBasesPage'
 import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -1015,6 +1016,10 @@ function AppRoutes({
       <Route
         path="/libro-actas/sector/:sectorId"
         element={<LibroActasSectorPage />}
+      />
+      <Route
+        path="/protocolos-bases"
+        element={<ProtocolosBasesPage />}
       />
       {/* Rutas de Gestión de Flota */}
       <Route

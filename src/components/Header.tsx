@@ -252,6 +252,12 @@ const Header = ({
               📝 Libro de Actas
             </a>
             <a
+              href="/protocolos-bases"
+              className="brand-button"
+            >
+              📚 Protocolos y Bases
+            </a>
+            <a
               href="/galeria"
               className="brand-button"
             >

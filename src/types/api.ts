@@ -160,6 +160,21 @@ export interface UsuarioRecord {
   rol: UserRole
 }
 
+export interface ProtocoloBaseRecord {
+  id: string
+  titulo: string
+  tipo: 'protocolo' | 'base' | 'otro'
+  categoria: string | null
+  tags: string[] | null
+  archivo_url: string | null
+  archivo_nombre: string | null
+  file_mime: string | null
+  contenido_texto: string | null
+  creado_por: number | null
+  creado_por_nombre: string | null
+  created_at: string
+}
+
 export interface LegajoEmpleado {
   id?: number
   id_usuario: number

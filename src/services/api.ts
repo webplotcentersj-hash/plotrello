@@ -41,7 +41,8 @@ import type {
   MenuSeleccion,
   Vehiculo,
   RegistroSalidaVehiculo,
-  CitaAsesorTecnico
+  CitaAsesorTecnico,
+  ProtocoloBaseRecord
   // Types used in function signatures and return types
   // OportunidadVenta,
   // Venta,
@@ -12415,6 +12416,79 @@ class ApiService {
       }
     }
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ============================================
+  // PROTOCOLOS Y BASES (RRHH / ADMIN)
+  // ============================================
+
+  async getProtocolosBases(): Promise<ApiResponse<ProtocoloBaseRecord[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase
+        .from('protocolos_bases')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as ProtocoloBaseRecord[]) ?? [] }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async createProtocoloBase(input: {
+    titulo: string
+    categoria: string | null
+    tipo: 'protocolo' | 'base' | 'otro'
+    tags: string[]
+    archivoUrl: string | null
+    archivoNombre: string | null
+    fileMime: string | null
+    contenidoTexto: string | null
+  }): Promise<ApiResponse<ProtocoloBaseRecord>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const createdBy = userData.user?.id ? parseInt(userData.user.id) : null
+
+      // Nombre para mostrar (evitamos un join extra; si no hay email, queda como null).
+      const creadoPorNombre: string | null = userData.user?.email ?? null
+
+      const { data, error } = await supabase
+        .from('protocolos_bases')
+        .insert({
+          titulo: input.titulo,
+          categoria: input.categoria,
+          tipo: input.tipo,
+          tags: input.tags,
+          archivo_url: input.archivoUrl,
+          archivo_nombre: input.archivoNombre,
+          file_mime: input.fileMime,
+          contenido_texto: input.contenidoTexto,
+          creado_por: createdBy,
+          creado_por_nombre: creadoPorNombre
+        })
+        .select('*')
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as ProtocoloBaseRecord }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async deleteProtocoloBase(id: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { error } = await supabase.from('protocolos_bases').delete().eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: true }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
   }
 
   // ============================================
