@@ -12,6 +12,7 @@ type ColumnProps = {
   maxTasksInColumn: number
   droppableProvided: DroppableProvided
   isActive: boolean
+  isBoardDragging?: boolean
   containerRef: Ref<HTMLDivElement>
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
@@ -41,7 +42,8 @@ const Column = ({
   onMoveTask,
   columns = [],
   selectedTaskId,
-  onSelectTask
+  onSelectTask,
+  isBoardDragging = false
 }: ColumnProps) => {
   // Calcular el porcentaje de carga de la columna
   const loadPercentage = maxTasksInColumn > 0 ? (tasks.length / maxTasksInColumn) * 100 : 0
@@ -91,6 +93,7 @@ const Column = ({
             columns={columns}
             isSelected={selectedTaskId === task.id}
             onSelect={onSelectTask}
+            isBoardDragging={isBoardDragging}
           />
         ))}
         {droppableProvided.placeholder}

@@ -115,6 +115,7 @@ const Board = ({
                   maxTasksInColumn={maxTasksInColumn}
                   droppableProvided={provided}
                   isActive={snapshot.isDraggingOver}
+                  isBoardDragging={isDragging}
                   containerRef={(node) => {
                     columnRefs.current[column.id as TaskStatus] = node
                   }}

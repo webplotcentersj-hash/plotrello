@@ -34,6 +34,7 @@ type TaskCardProps = {
   columns?: ColumnConfig[]
   isSelected?: boolean
   onSelect?: (taskId: string | null) => void
+  isBoardDragging?: boolean
 }
 
 const formatShortDate = (value: string) => {
@@ -97,7 +98,8 @@ const TaskCard = ({
   onMoveTask,
   columns = [],
   isSelected = false,
-  onSelect
+  onSelect,
+  isBoardDragging = false
 }: TaskCardProps) => {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
@@ -402,6 +404,7 @@ const TaskCard = ({
 
   const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
     const { ref, className: extraClassName, ...restProps } = draggableProps || {}
+    const isDragLightMode = Boolean(isBoardDragging || (extraClassName && String(extraClassName).includes('is-dragging')))
     return (
       <>
         <article
@@ -428,7 +431,7 @@ const TaskCard = ({
           }}
           {...restProps}
         >
-          {isMinimized && (
+          {(isMinimized || isDragLightMode) && (
             <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
               {task.photoUrl && (
                 <span className="task-min-thumb" aria-hidden="true">
@@ -441,6 +444,7 @@ const TaskCard = ({
               {isNewMove && <span className="task-new-pill">NEW</span>}
             </div>
           )}
+          {/* Durante drag: el resto del DOM pesado queda deshabilitado por condiciones abajo */}
           {!isMinimized && (
             <button
               type="button"
@@ -512,7 +516,7 @@ const TaskCard = ({
               </div>
             ) : null
           })()}
-          {!isMinimized && <div className="task-actions">
+          {!isMinimized && !isDragLightMode && <div className="task-actions">
             {onEdit && (
               <button
                 type="button"
@@ -590,13 +594,13 @@ const TaskCard = ({
               </button>
             )}
           </div>}
-          {!isMinimized && task.photoUrl && (
+          {!isMinimized && !isDragLightMode && task.photoUrl && (
             <div className="task-photo">
               <img src={task.photoUrl} alt={`Trabajo ${task.title}`} loading="lazy" />
             </div>
           )}
 
-          {!isMinimized && <div className="task-meta">
+          {!isMinimized && !isDragLightMode && <div className="task-meta">
             {/* Sector asignado al principio */}
             {task.assignedSector && (
               <div className="task-sector-header">
@@ -801,7 +805,7 @@ const TaskCard = ({
             )}
           </div>}
 
-          {!isMinimized && <div className="task-body">
+          {!isMinimized && !isDragLightMode && <div className="task-body">
             <p className="task-description">{task.summary}</p>
 
             {/* Brief Público */}
@@ -1204,7 +1208,7 @@ const TaskCard = ({
             </footer>
           </div>}
 
-          {!isMinimized && <button
+          {!isMinimized && !isDragLightMode && <button
             type="button"
             className="task-toggle"
             onClick={(event) => {

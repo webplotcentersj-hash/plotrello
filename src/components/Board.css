@@ -6,6 +6,7 @@
 .board-wrapper.is-dragging .task-card {
   transition: none !important;
   backdrop-filter: none !important;
+  box-shadow: none !important;
 }
 
 .board-wrapper.is-dragging .task-card:hover {
