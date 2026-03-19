@@ -1278,6 +1278,7 @@ class ApiService {
       }
       const currentData = current as {
         id: number
+        numero_op: string
         estado: string
         sector: string
         es_duplicado?: boolean | null
@@ -1354,7 +1355,50 @@ class ApiService {
         .eq('id', id)
 
       if (updateError) {
-        return { success: false, error: updateError.message }
+        const updateErrorMessage = updateError.message || ''
+        // Fallback robusto: si choca contra unicidad (numero_op+sector), fusionar en caliente.
+        if (updateErrorMessage.includes('ux_ordenes_op_sector') || updateErrorMessage.includes('duplicate key value')) {
+          const { data: conflictingRows, error: conflictingError } = await supabase
+            .from('ordenes_trabajo')
+            .select('id')
+            .eq('numero_op', currentData.numero_op)
+            .eq('sector', nuevoSector)
+            .neq('id', id)
+            .limit(1)
+
+          if (conflictingError) {
+            return { success: false, error: conflictingError.message }
+          }
+
+          const conflictingId = (conflictingRows as Array<{ id: number }> | null)?.[0]?.id
+          if (conflictingId) {
+            const fusionRes = await this.fusionarOrdenesDuplicadas(conflictingId, id)
+            if (!fusionRes.success) return fusionRes
+
+            await this.registrarCambioHistorial(
+              conflictingId,
+              currentEstado,
+              nuevoEstado,
+              `Fusión por colisión OP+sector "${currentData.numero_op}" en "${nuevoSector}" (ID ${id} -> ${conflictingId})`,
+              'edicion_ficha',
+              {
+                fusion_duplicadas: {
+                  id_conservada: conflictingId,
+                  id_fusionada: id,
+                  sector: nuevoSector,
+                  motivo: 'colision_unica_numero_op_sector'
+                }
+              }
+            )
+
+            return {
+              success: true,
+              data: { id: conflictingId, estado: nuevoEstado, fusionada: true, fusionadaId: id }
+            }
+          }
+        }
+
+        return { success: false, error: updateErrorMessage }
       }
 
       // Registrar movimiento con auditoría profesional
