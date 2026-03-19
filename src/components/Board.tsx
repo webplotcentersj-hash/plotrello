@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -34,6 +34,7 @@ const Board = ({
   selectedTaskId,
   onSelectTask
 }: BoardProps) => {
+  const [isDragging, setIsDragging] = useState(false)
   const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({
     'diseno-grafico': null,
     'diseno-proceso': null,
@@ -84,6 +85,7 @@ const Board = ({
   }, [groupedByStatus])
 
   const handleDragEnd = (result: DropResult) => {
+    setIsDragging(false)
     const { destination, source, draggableId } = result
     if (!destination) return
     if (
@@ -96,8 +98,11 @@ const Board = ({
   }
 
   return (
-    <div className="board-wrapper">
-      <DragDropContext onDragEnd={handleDragEnd}>
+    <div className={`board-wrapper ${isDragging ? 'is-dragging' : ''}`}>
+      <DragDropContext
+        onDragStart={() => setIsDragging(true)}
+        onDragEnd={handleDragEnd}
+      >
         <div className="columns-grid">
           {columns.map((column) => (
             <Droppable droppableId={column.id} key={column.id}>

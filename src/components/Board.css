@@ -2,6 +2,21 @@
   overflow: hidden;
 }
 
+/* During drag, disable expensive visual effects to avoid UI stutter */
+.board-wrapper.is-dragging .task-card {
+  transition: none !important;
+  backdrop-filter: none !important;
+}
+
+.board-wrapper.is-dragging .task-card:hover {
+  transform: none !important;
+}
+
+.board-wrapper.is-dragging .task-min-thumb img {
+  transition: none !important;
+  transform: none !important;
+}
+
 .board-nav {
   display: flex;
   gap: 8px;

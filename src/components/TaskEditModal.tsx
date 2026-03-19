@@ -3,7 +3,7 @@ import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { ComentarioOrden, HistorialMovimiento, MaterialRecord, SectorRecord } from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
-import { parseTaskIdToOrdenId, filterOperariosBySector, mapEstadoToStatus } from '../utils/dataMappers'
+import { parseTaskIdToOrdenId, filterOperariosBySector } from '../utils/dataMappers'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
 import BriefLinkSection from './BriefLinkSection'
@@ -293,22 +293,15 @@ const TaskEditModal = ({
       return
     }
 
-    // Determinar el status (columna) basado en el sector asignado
-    const nuevoSector = selectedSectors[0] || task.assignedSector
-    const sectorCambio = task.assignedSector !== nuevoSector
-    
-    // Si cambió el sector, actualizar el status para que aparezca en la columna correcta
-    // Si no cambió el sector, preservar el status actual
-    let nuevoStatus: Task['status'] = task.status
-    if (sectorCambio && nuevoSector) {
-      nuevoStatus = mapEstadoToStatus(nuevoSector)
-      console.log(`🔄 Sector cambiado de "${task.assignedSector}" a "${nuevoSector}" -> Nueva columna: ${nuevoStatus}`)
-    }
+    // ⚠️ Importante: editar ficha NO debe moverla de columna automáticamente.
+    // El movimiento entre columnas se hace por drag/flechas/context menu.
+    const nuevoSector = task.assignedSector
+    const nuevoStatus: Task['status'] = task.status
     
     const updated: Task = {
       ...task,
       ...formData,
-      status: nuevoStatus, // Usar el nuevo status si cambió el sector, sino mantener el actual
+      status: nuevoStatus,
       tags,
       materials: materials.map((m) => m.name),
       assignedSector: nuevoSector,
