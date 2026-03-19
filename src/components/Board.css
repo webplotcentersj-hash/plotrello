@@ -7,6 +7,7 @@
   transition: none !important;
   backdrop-filter: none !important;
   box-shadow: none !important;
+  will-change: transform;
 }
 
 .board-wrapper.is-dragging .task-card.is-new-move::before {
@@ -20,6 +21,23 @@
 .board-wrapper.is-dragging .task-min-thumb img {
   transition: none !important;
   transform: none !important;
+}
+
+/* Turbo mode: during drag disable costly paints/animations globally in board */
+.board-wrapper.is-dragging .columns-grid,
+.board-wrapper.is-dragging .columns-grid * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Hide expensive thumbnails while dragging; reappear on drop */
+.board-wrapper.is-dragging .task-min-thumb {
+  display: none !important;
+}
+
+/* Reduce glow/paint pressure while dragging */
+.board-wrapper.is-dragging .task-new-pill {
+  box-shadow: none !important;
 }
 
 .board-nav {
