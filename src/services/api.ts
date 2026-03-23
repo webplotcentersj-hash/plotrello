@@ -265,6 +265,37 @@ class ApiService {
       }
       // Sin prefijo para coincidir con BD (ej: "OP-1" -> "1")
       const opNormalized = raw.replace(/^OP-?/i, '').trim() || raw
+      const fichaStripped = raw.replace(/^FICHA[\s-_#:]*/i, '').trim()
+
+      const candidates: string[] = []
+      const addCand = (s: string) => {
+        const t = (s || '').trim()
+        if (t && !candidates.includes(t)) candidates.push(t)
+      }
+      addCand(raw)
+      addCand(opNormalized)
+      addCand(fichaStripped)
+      if (fichaStripped && fichaStripped !== raw) {
+        addCand(fichaStripped.replace(/^OP-?/i, '').trim())
+      }
+
+      const pickBestPublicOrdenRow = (rows: OrdenTrabajo[]): OrdenTrabajo | null => {
+        if (!rows?.length) return null
+        // Preferir filas que siguen visibles en tablero (fusión sin DELETE)
+        const visible = rows.filter((r) => r.visible_en_tablero !== false)
+        const pool = visible.length > 0 ? visible : rows
+        const sorted = [...pool].sort((a, b) => {
+          const dupA = a.es_duplicado ? 1 : 0
+          const dupB = b.es_duplicado ? 1 : 0
+          if (dupA !== dupB) return dupA - dupB
+          const ra = a as OrdenTrabajo & { updated_at?: string }
+          const rb = b as OrdenTrabajo & { updated_at?: string }
+          const ta = new Date(ra.updated_at || ra.fecha_ingreso || 0).getTime() || 0
+          const tb = new Date(rb.updated_at || rb.fecha_ingreso || 0).getTime() || 0
+          return tb - ta
+        })
+        return sorted[0] ?? null
+      }
 
       // Crear cliente sin autenticación para acceso público (página QR cliente / tablet firma)
       const { createClient } = await import('@supabase/supabase-js')
@@ -277,26 +308,26 @@ class ApiService {
 
       const publicClient = createClient(supabaseUrl, supabaseAnonKey)
 
-      // Intentar primero valor normalizado; si no hay filas, intentar con el valor raw (por si la BD tiene "OP-1")
-      const toTry = opNormalized === raw ? [opNormalized] : [opNormalized, raw]
-      let data: unknown = null
+      let data: OrdenTrabajo | null = null
       let error: { message: string } | null = null
 
-      for (const num of toTry) {
+      for (const num of candidates) {
         const { data: rows, error: err } = await publicClient
           .from('ordenes_trabajo')
           .select('*')
           .eq('numero_op', num)
-          .order('es_duplicado', { ascending: true, nullsFirst: false })
-          .limit(1)
+          .limit(25)
         error = err
         if (err) {
           console.error('Error fetching orden by OP number:', err)
           break
         }
         if (Array.isArray(rows) && rows.length > 0) {
-          data = rows[0]
-          break
+          const best = pickBestPublicOrdenRow(rows as OrdenTrabajo[])
+          if (best) {
+            data = best
+            break
+          }
         }
       }
 
@@ -307,7 +338,7 @@ class ApiService {
         return { success: false, error: 'Orden no encontrada' }
       }
 
-      return { success: true, data: data as OrdenTrabajo }
+      return { success: true, data }
     }
 
     return { success: false, error: 'Supabase no configurado' }

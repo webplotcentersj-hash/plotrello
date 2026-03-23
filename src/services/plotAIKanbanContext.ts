@@ -1,5 +1,6 @@
 import type { Task, ActivityEvent, TeamMember } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { findTaskForActivityEvent, findTeamMemberForActorId } from '../utils/activityTaskResolve'
 
 /**
  * Formatea información detallada del kanban para PlotAI
@@ -58,8 +59,8 @@ export function formatKanbanDetailedContext(
   const recentMovements = activity.slice(0, 20).map(event => {
     const fromCol = BOARD_COLUMNS.find(col => col.id === event.from)
     const toCol = BOARD_COLUMNS.find(col => col.id === event.to)
-    const task = tasks.find(t => t.id === event.taskId)
-    const actor = teamMembers.find(m => m.id === event.actorId)?.name || event.actorId
+    const task = findTaskForActivityEvent(tasks, event.taskId)
+    const actor = findTeamMemberForActorId(teamMembers, event.actorId)?.name || event.actorId
     
     return {
       op: task?.opNumber || 'N/A',

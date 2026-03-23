@@ -364,6 +364,10 @@ const BoardPage = ({
         if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
           const fusionadaId = String((response.data as any).fusionadaId)
           const conservadaId = String((response.data as any).id ?? '')
+          // PlotAI / feed: el historial local seguía apuntando al id fusionado (ya no está en tasks)
+          setActivity((prev) =>
+            prev.map((ev) => (ev.taskId === fusionadaId ? { ...ev, taskId: conservadaId } : ev))
+          )
           setTasks((prev) => {
             const movedTask = prev.find((task) => task.id === taskId)
             const hadConservada = prev.some((task) => task.id === conservadaId)

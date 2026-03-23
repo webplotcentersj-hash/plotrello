@@ -13,6 +13,7 @@ import {
   saveConversationMemory
 } from './plotAIMemoryService'
 import { formatManualForPrompt } from './plotAIManualService'
+import { findTeamMemberForActorId } from '../utils/activityTaskResolve'
 
 // El nuevo SDK de Google GenAI puede usar la API key desde variable de entorno
 // o se puede pasar en el constructor si es necesario
@@ -93,7 +94,7 @@ export function getSystemContext(
   })
 
   const recentActivity = activity.slice(0, 10).map((event) => {
-    const member = teamMembers.find((m) => m.id === event.actorId)
+    const member = findTeamMemberForActorId(teamMembers, event.actorId)
     const fromCol = BOARD_COLUMNS.find((col) => col.id === event.from)
     const toCol = BOARD_COLUMNS.find((col) => col.id === event.to)
     return {

@@ -66,7 +66,7 @@ export function useApiData() {
           // Mapear historial a eventos de actividad
           const mappedActivity: ActivityEvent[] = historialRes.data.map((mov: any) => ({
             id: `activity-${mov.id}`,
-            taskId: `task-${mov.id_orden}`,
+            taskId: String(mov.id_orden),
             from: mapEstadoToStatus(mov.estado_anterior),
             to: mapEstadoToStatus(mov.estado_nuevo),
             actorId: `user-${mov.id_usuario}`,

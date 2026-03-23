@@ -29,7 +29,7 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
     const generateQRCode = async () => {
       try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-        const qrUrl = `${baseUrl}/op-public/${opNumber}`
+        const qrUrl = `${baseUrl}/op-public/${encodeURIComponent(opNumber)}`
         const dataUrl = await toDataURL(qrUrl, { width: 300, margin: 2 })
         setQrDataUrl(dataUrl)
       } catch (error) {

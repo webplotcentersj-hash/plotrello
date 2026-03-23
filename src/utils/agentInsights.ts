@@ -1,4 +1,5 @@
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
+import { findTaskForActivityEvent } from './activityTaskResolve'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -71,7 +72,7 @@ export const buildAgenticContext = (
     .filter((event) => event.note.toLowerCase().includes('urgente') || event.note.toLowerCase().includes('bloqueado'))
     .slice(0, 3)
     .map((event) => {
-      const task = tasks.find((t) => t.id === event.taskId)
+      const task = findTaskForActivityEvent(tasks, event.taskId)
       return `OP ${task?.opNumber || task?.title || event.taskId} movida a ${event.to} (${event.note})`
     })
 

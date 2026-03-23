@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { findTaskForActivityEvent } from '../utils/activityTaskResolve'
 import './ChatAI.css'
 
 type ChatAIProps = {
@@ -65,7 +66,7 @@ const ChatAI = ({ tasks, teamMembers, activity, onClose }: ChatAIProps) => {
     })
 
     const recentActivity = activity.slice(0, 10).map((event) => {
-      const task = tasks.find((t) => t.id === event.taskId)
+      const task = findTaskForActivityEvent(tasks, event.taskId)
       const fromCol = BOARD_COLUMNS.find((col) => col.id === event.from)
       const toCol = BOARD_COLUMNS.find((col) => col.id === event.to)
       return {
