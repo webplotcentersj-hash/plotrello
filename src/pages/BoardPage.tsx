@@ -127,7 +127,14 @@ const BoardPage = ({
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [taskViewId, setTaskViewId] = useState<string | null>(null)
+  /** Estadísticas del tablero: ocultas por defecto; se abren con el botón del panel lateral */
+  const [statsPanelOpen, setStatsPanelOpen] = useState(false)
+  /** Movimientos recientes: ocultos por defecto para dar más ancho al tablero */
+  const [activityFeedOpen, setActivityFeedOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const sidebarCompact =
+    isAdmin ? !statsPanelOpen && !activityFeedOpen : !activityFeedOpen
   const tasksRef = useRef<Task[]>(tasks)
   useEffect(() => {
     tasksRef.current = tasks
@@ -240,21 +247,35 @@ const BoardPage = ({
   }, [tasks])
 
   const filteredTasks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const matchesSearchText = (task: Task) => {
+      if (!q) return true
+      const hay = (s: string | null | undefined) => (s ?? '').toLowerCase().includes(q)
+      if (hay(task.id)) return true
+      if (hay(task.opNumber)) return true
+      if (hay(task.title)) return true
+      if (hay(task.summary)) return true
+      if (task.tags?.some((t) => t.toLowerCase().includes(q))) return true
+      if (task.materials?.some((m) => m.toLowerCase().includes(q))) return true
+      if (hay(task.clientPhone)) return true
+      if (hay(task.clientEmail)) return true
+      if (hay(task.dniCuit)) return true
+      if (hay(task.workingUser)) return true
+      if (hay(task.assignedSector)) return true
+      return false
+    }
+
     return tasks.filter((task) => {
       // Excluir fichas entregadas/archivadas del board principal
       if (task.entregado) return false
-      
+
       const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
-      const matchesSector = 
-        sectorFilter === 'todos' || 
+      const matchesSector =
+        sectorFilter === 'todos' ||
         task.assignedSector === sectorFilter ||
         (task.sectores && task.sectores.includes(sectorFilter))
-      const matchesSearch =
-        task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.summary.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesStatus && matchesPriority && matchesSector && matchesSearch
+      return matchesStatus && matchesPriority && matchesSector && matchesSearchText(task)
     })
   }, [tasks, statusFocus, priorityFilter, sectorFilter, searchQuery])
 
@@ -375,7 +396,7 @@ const BoardPage = ({
             return next
           })
           startTransition(() => {
-            setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
+            setActionSuccess('Fichas unificadas en el sector destino (la otra queda oculta del tablero, no eliminada).')
           })
         } else {
           startTransition(() => {
@@ -956,7 +977,9 @@ const BoardPage = ({
         }}
       />
 
-      <main className="app-layout">
+      <main
+        className={`app-layout${sidebarCompact ? ' app-layout--sidebar-compact' : ''}`}
+      >
         <section className="board-panel">
           <Board
             columns={BOARD_COLUMNS}
@@ -975,9 +998,51 @@ const BoardPage = ({
           />
         </section>
 
-        <aside className="insights-panel">
-          {isAdmin && <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />}
-          <ActivityFeed activity={activity} teamMembers={teamMembers} />
+        <aside
+          className={`insights-panel${sidebarCompact ? ' insights-panel--compact' : ''}`}
+        >
+          {isAdmin && (
+            <button
+              type="button"
+              className="insights-toggle-btn"
+              onClick={() => setStatsPanelOpen((v) => !v)}
+              aria-expanded={statsPanelOpen}
+              aria-controls="board-stats-panel"
+              id="board-stats-toggle"
+            >
+              <span className="insights-toggle-icon" aria-hidden="true">
+                {statsPanelOpen ? '📉' : '📊'}
+              </span>
+              <span className="insights-toggle-label">
+                {statsPanelOpen ? 'Ocultar estadísticas' : 'Mostrar estadísticas'}
+              </span>
+            </button>
+          )}
+          {isAdmin && statsPanelOpen && (
+            <div id="board-stats-panel" role="region" aria-labelledby="board-stats-toggle">
+              <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />
+            </div>
+          )}
+          <button
+            type="button"
+            className="insights-toggle-btn"
+            onClick={() => setActivityFeedOpen((v) => !v)}
+            aria-expanded={activityFeedOpen}
+            aria-controls="board-activity-panel"
+            id="board-activity-toggle"
+          >
+            <span className="insights-toggle-icon" aria-hidden="true">
+              {activityFeedOpen ? '📋' : '🕐'}
+            </span>
+            <span className="insights-toggle-label">
+              {activityFeedOpen ? 'Ocultar movimientos' : 'Mostrar movimientos recientes'}
+            </span>
+          </button>
+          {activityFeedOpen && (
+            <div id="board-activity-panel" role="region" aria-labelledby="board-activity-toggle">
+              <ActivityFeed activity={activity} teamMembers={teamMembers} />
+            </div>
+          )}
         </aside>
       </main>
 

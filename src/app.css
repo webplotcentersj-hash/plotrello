@@ -11,6 +11,13 @@
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 24px;
   margin-top: 24px;
+  align-items: start;
+}
+
+/* Tablero más ancho: columna derecha angosta si estadísticas y actividad están cerradas */
+.app-layout.app-layout--sidebar-compact {
+  grid-template-columns: minmax(0, 1fr) minmax(152px, 220px);
+  gap: 16px;
 }
 
 .board-panel {
@@ -25,6 +32,60 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.insights-panel--compact {
+  gap: 12px;
+}
+
+/* Botones estadísticas / movimientos recientes */
+.insights-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--surface-border);
+  background: color-mix(in srgb, var(--surface-card) 88%, transparent);
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.insights-panel--compact .insights-toggle-btn {
+  flex-direction: column;
+  padding: 10px 8px;
+  font-size: 0.78rem;
+}
+
+.insights-toggle-btn:hover {
+  background: color-mix(in srgb, var(--surface-card) 100%, transparent);
+  border-color: rgba(235, 103, 27, 0.45);
+  box-shadow: 0 0 0 1px rgba(235, 103, 27, 0.12);
+}
+
+.insights-toggle-btn:focus-visible {
+  outline: 2px solid #eb671b;
+  outline-offset: 2px;
+}
+
+.insights-toggle-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.insights-toggle-label {
+  line-height: 1.25;
+  min-width: 0;
 }
 
 @media (max-width: 1200px) {

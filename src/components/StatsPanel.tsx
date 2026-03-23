@@ -46,7 +46,7 @@ const StatsPanel = ({ tasks, activity, teamMembers }: StatsPanelProps) => {
 
   return (
     <section className="stats-panel">
-      <header>
+      <header className="stats-panel__header">
         <div>
           <p className="panel-title">Estadísticas Trello Plot</p>
           <h3>Rendimiento del squad</h3>
@@ -54,6 +54,7 @@ const StatsPanel = ({ tasks, activity, teamMembers }: StatsPanelProps) => {
         <span className="pulse">viva · realtime</span>
       </header>
 
+      <div className="stats-panel__body">
       <div className="metric-cards">
         <article>
           <span>Entrega confirmada</span>
@@ -72,8 +73,8 @@ const StatsPanel = ({ tasks, activity, teamMembers }: StatsPanelProps) => {
           <h4>Movimientos a done · últimos 7 días</h4>
           <span>{throughput.reduce((acc, item) => acc + item.total, 0)} entregas</span>
         </div>
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={throughput}>
+        <ResponsiveContainer width="100%" height={96}>
+          <AreaChart data={throughput} margin={{ top: 2, right: 4, left: -18, bottom: 0 }}>
             <defs>
               <linearGradient id="brandGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#eb671b" stopOpacity={0.8} />
@@ -81,8 +82,8 @@ const StatsPanel = ({ tasks, activity, teamMembers }: StatsPanelProps) => {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="label" stroke="var(--text-muted)" />
-            <YAxis stroke="var(--text-muted)" allowDecimals={false} />
+            <XAxis dataKey="label" stroke="var(--text-muted)" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
+            <YAxis stroke="var(--text-muted)" allowDecimals={false} width={22} tick={{ fontSize: 9 }} />
             <Tooltip
               contentStyle={{
                 background: '#0f111c',
@@ -99,18 +100,26 @@ const StatsPanel = ({ tasks, activity, teamMembers }: StatsPanelProps) => {
           <h4>Carga por persona</h4>
           <span>Historias actuales</span>
         </div>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={workload}>
+        <ResponsiveContainer width="100%" height={112}>
+          <BarChart data={workload} margin={{ top: 2, right: 2, left: -16, bottom: 22 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="name" stroke="var(--text-muted)" />
-            <YAxis stroke="var(--text-muted)" allowDecimals={false} />
+            <XAxis
+              dataKey="name"
+              stroke="var(--text-muted)"
+              tick={{ fontSize: 8 }}
+              interval={0}
+              angle={-22}
+              textAnchor="end"
+              height={32}
+            />
+            <YAxis stroke="var(--text-muted)" allowDecimals={false} width={22} tick={{ fontSize: 9 }} />
             <Tooltip
               contentStyle={{
                 background: '#0f111c',
                 border: '1px solid rgba(255,255,255,0.1)'
               }}
             />
-            <Bar dataKey="total" fill="#ff914d" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="total" fill="#ff914d" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -129,6 +138,7 @@ const StatsPanel = ({ tasks, activity, teamMembers }: StatsPanelProps) => {
             </li>
           ))}
         </ul>
+      </div>
       </div>
     </section>
   )

@@ -386,8 +386,11 @@ class ApiService {
           return { success: false, error: error.message }
         }
 
+        // Ocultas del tablero (fusión sin borrar fila). Si no existe la columna, visible_en_tablero es undefined → se muestran todas.
+        const visibles = (data || []).filter((orden: any) => orden.visible_en_tablero !== false)
+
         // Si hay datos, asegurarse de que los campos opcionales estén definidos (aunque sean null)
-        const normalizedData = (data || []).map((orden: any) => ({
+        const normalizedData = visibles.map((orden: any) => ({
           ...orden,
           foto_url: orden.foto_url || null,
           telefono_cliente: orden.telefono_cliente || null,
@@ -1247,18 +1250,28 @@ class ApiService {
     return { success: true }
   }
 
+  /**
+   * Política: una fila de ordenes_trabajo solo se ELIMINA (DELETE) por deleteOrden (acción explícita).
+   * La “fusión” por movimiento solo oculta la ficha duplicada (visible_en_tablero = false), sin borrarla.
+   */
   private async fusionarOrdenesDuplicadas(keepId: number, removeId: number): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
 
     try {
-      // Reasignar relaciones para mantener trazabilidad y datos
       await supabase.from('enlaces_adjuntos').update({ id_orden: keepId }).eq('id_orden', removeId)
       await supabase.from('comentarios_orden').update({ id_orden: keepId }).eq('id_orden', removeId)
       await supabase.from('tarea_subitems').update({ id_orden: keepId }).eq('id_orden', removeId)
       await supabase.from('historial_movimientos').update({ id_orden: keepId }).eq('id_orden', removeId)
 
-      const { error: deleteError } = await supabase.from('ordenes_trabajo').delete().eq('id', removeId)
-      if (deleteError) return { success: false, error: deleteError.message }
+      const { error: hideError } = await supabase
+        .from('ordenes_trabajo')
+        .update({ visible_en_tablero: false })
+        .eq('id', removeId)
+
+      if (hideError) {
+        console.error('fusionarOrdenesDuplicadas: no se pudo ocultar ficha (¿falta columna visible_en_tablero?):', hideError)
+        return { success: false, error: hideError.message }
+      }
 
       return { success: true }
     } catch (error: any) {
@@ -1311,36 +1324,40 @@ class ApiService {
 
       const { data: siblingRows, error: siblingError } = await supabase
         .from('ordenes_trabajo')
-        .select('id')
+        .select('id, visible_en_tablero')
         .eq('sector', nuevoSector)
         .neq('id', id)
         .or(`id.eq.${groupRootId},id_orden_original.eq.${groupRootId}`)
-        .limit(1)
+        .limit(25)
 
       if (siblingError) {
         return { success: false, error: siblingError.message }
       }
 
-      destinationId = (siblingRows as Array<{ id: number }> | null)?.[0]?.id
+      const sib = (siblingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null)?.find(
+        (r) => r.visible_en_tablero !== false
+      )
+      destinationId = sib?.id
 
       if (!destinationId) {
         const { data: destinationRows, error: destinationError } = await supabase
           .from('ordenes_trabajo')
-          .select('id')
+          .select('id, visible_en_tablero')
           .eq('numero_op', currentData.numero_op)
           .eq('sector', nuevoSector)
           .neq('id', id)
-          .limit(1)
+          .limit(25)
 
         if (destinationError) {
           return { success: false, error: destinationError.message }
         }
-        destinationId = (destinationRows as Array<{ id: number }> | null)?.[0]?.id
+        const dest = (destinationRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null)?.find(
+          (r) => r.visible_en_tablero !== false
+        )
+        destinationId = dest?.id
       }
 
       if (destinationId) {
-        // Conservar la ficha que se está moviendo para evitar "desaparición" visual.
-        // Se fusiona la ficha existente en destino dentro de la movida.
         const fusionRes = await this.fusionarOrdenesDuplicadas(id, destinationId)
         if (!fusionRes.success) return fusionRes
 
@@ -1360,12 +1377,12 @@ class ApiService {
           id,
           currentEstado,
           nuevoEstado,
-          `Fusión automática por llegada al sector "${nuevoSector}" (ID ${destinationId} -> ID ${id})`,
+          `Fusión por llegada al sector "${nuevoSector}" (ficha ${destinationId} oculta del tablero, sin borrar fila)`,
           'edicion_ficha',
           {
-            fusion_duplicadas: {
+            fusion_oculta_tablero: {
               id_conservada: id,
-              id_fusionada: destinationId,
+              id_oculta: destinationId,
               sector: nuevoSector,
               motivo: 'fusion_por_llegada'
             }
@@ -1393,19 +1410,20 @@ class ApiService {
         if (updateErrorMessage.includes('ux_ordenes_op_sector') || updateErrorMessage.includes('duplicate key value')) {
           const { data: conflictingRows, error: conflictingError } = await supabase
             .from('ordenes_trabajo')
-            .select('id')
+            .select('id, visible_en_tablero')
             .eq('numero_op', currentData.numero_op)
             .eq('sector', nuevoSector)
             .neq('id', id)
-            .limit(1)
+            .limit(25)
 
           if (conflictingError) {
             return { success: false, error: conflictingError.message }
           }
 
-          const conflictingId = (conflictingRows as Array<{ id: number }> | null)?.[0]?.id
+          const conflictingId = (
+            conflictingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
+          )?.find((r) => r.visible_en_tablero !== false)?.id
           if (conflictingId) {
-            // Mantener el ID que mueve el usuario para preservar continuidad en UI.
             const fusionRes = await this.fusionarOrdenesDuplicadas(id, conflictingId)
             if (!fusionRes.success) return fusionRes
 
@@ -1425,12 +1443,12 @@ class ApiService {
               id,
               currentEstado,
               nuevoEstado,
-              `Fusión por colisión OP+sector "${currentData.numero_op}" en "${nuevoSector}" (ID ${conflictingId} -> ${id})`,
+              `Fusión por colisión OP+sector "${currentData.numero_op}" en "${nuevoSector}" (ficha ${conflictingId} oculta del tablero)`,
               'edicion_ficha',
               {
-                fusion_duplicadas: {
+                fusion_oculta_tablero: {
                   id_conservada: id,
-                  id_fusionada: conflictingId,
+                  id_oculta: conflictingId,
                   sector: nuevoSector,
                   motivo: 'colision_unica_numero_op_sector'
                 }

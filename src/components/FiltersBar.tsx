@@ -78,7 +78,7 @@ const FiltersBar = ({
       <div className="search-filter">
         <input
           type="text"
-          placeholder="Buscar por ID, título o tags…"
+          placeholder="Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
           ref={searchInputRef}

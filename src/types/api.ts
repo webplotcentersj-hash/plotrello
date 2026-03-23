@@ -70,6 +70,8 @@ export interface OrdenTrabajo {
   ficha_tecnica_pdf_url?: string | null // URL del PDF de la ficha técnica
   ficha_tecnica_cargada?: boolean | null // Indica si la ficha técnica fue cargada (checklist)
   presupuesto_enviado_cliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
+  /** false = no listar en tablero; la fila sigue en BD (fusión / unificación sin DELETE) */
+  visible_en_tablero?: boolean | null
 }
 
 export interface RevisionOrden {

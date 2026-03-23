@@ -353,6 +353,11 @@ function App() {
         return
       }
       const taskId = orden.id!.toString()
+      // Fusión / unificación sin DELETE: la fila sigue en BD pero no debe verse en el tablero
+      if ((orden as { visible_en_tablero?: boolean | null }).visible_en_tablero === false) {
+        setTasks((prev) => prev.filter((task) => task.id !== taskId))
+        return
+      }
       const mapped = ordenToTask(orden)
       
       // Verificar si hay un movimiento reciente del usuario para esta ficha
