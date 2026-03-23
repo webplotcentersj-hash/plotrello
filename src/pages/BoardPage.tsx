@@ -1001,43 +1001,45 @@ const BoardPage = ({
         <aside
           className={`insights-panel${sidebarCompact ? ' insights-panel--compact' : ''}`}
         >
-          {isAdmin && (
+          <div className="insights-toggle-row">
+            {isAdmin && (
+              <button
+                type="button"
+                className="insights-toggle-btn"
+                onClick={() => setStatsPanelOpen((v) => !v)}
+                aria-expanded={statsPanelOpen}
+                aria-controls="board-stats-panel"
+                id="board-stats-toggle"
+                title={statsPanelOpen ? 'Ocultar estadísticas' : 'Mostrar estadísticas'}
+                aria-label={statsPanelOpen ? 'Ocultar estadísticas del tablero' : 'Mostrar estadísticas del tablero'}
+              >
+                <span className="insights-toggle-icon" aria-hidden="true">
+                  {statsPanelOpen ? '📉' : '📊'}
+                </span>
+              </button>
+            )}
             <button
               type="button"
               className="insights-toggle-btn"
-              onClick={() => setStatsPanelOpen((v) => !v)}
-              aria-expanded={statsPanelOpen}
-              aria-controls="board-stats-panel"
-              id="board-stats-toggle"
+              onClick={() => setActivityFeedOpen((v) => !v)}
+              aria-expanded={activityFeedOpen}
+              aria-controls="board-activity-panel"
+              id="board-activity-toggle"
+              title={activityFeedOpen ? 'Ocultar movimientos' : 'Mostrar movimientos recientes'}
+              aria-label={
+                activityFeedOpen ? 'Ocultar movimientos recientes' : 'Mostrar movimientos recientes'
+              }
             >
               <span className="insights-toggle-icon" aria-hidden="true">
-                {statsPanelOpen ? '📉' : '📊'}
-              </span>
-              <span className="insights-toggle-label">
-                {statsPanelOpen ? 'Ocultar estadísticas' : 'Mostrar estadísticas'}
+                {activityFeedOpen ? '📋' : '🕐'}
               </span>
             </button>
-          )}
+          </div>
           {isAdmin && statsPanelOpen && (
             <div id="board-stats-panel" role="region" aria-labelledby="board-stats-toggle">
               <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />
             </div>
           )}
-          <button
-            type="button"
-            className="insights-toggle-btn"
-            onClick={() => setActivityFeedOpen((v) => !v)}
-            aria-expanded={activityFeedOpen}
-            aria-controls="board-activity-panel"
-            id="board-activity-toggle"
-          >
-            <span className="insights-toggle-icon" aria-hidden="true">
-              {activityFeedOpen ? '📋' : '🕐'}
-            </span>
-            <span className="insights-toggle-label">
-              {activityFeedOpen ? 'Ocultar movimientos' : 'Mostrar movimientos recientes'}
-            </span>
-          </button>
           {activityFeedOpen && (
             <div id="board-activity-panel" role="region" aria-labelledby="board-activity-toggle">
               <ActivityFeed activity={activity} teamMembers={teamMembers} />
