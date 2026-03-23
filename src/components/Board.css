@@ -96,6 +96,8 @@
   position: relative;
   overflow: hidden;
   height: fit-content;
+  /* Reduce repaint scope during drag (validate scroll/DnD if something looks off) */
+  contain: layout paint;
 }
 
 .column-load-indicator {

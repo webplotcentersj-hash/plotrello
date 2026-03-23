@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
 import Header from '../components/Header'
@@ -27,6 +27,10 @@ import {
   mapEstadoToStatus
 } from '../utils/dataMappers'
 import Subtasks from '../components/Subtasks'
+import {
+  getSectorEtapaKanbanBySectorName,
+  sectorNameSupportsEtapaKanban
+} from '../data/sectorEtapaKanban'
 
 type BoardPageProps = {
   tasks: Task[]
@@ -122,6 +126,10 @@ const BoardPage = ({
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const tasksRef = useRef<Task[]>(tasks)
+  useEffect(() => {
+    tasksRef.current = tasks
+  }, [tasks])
 
   useEffect(() => {
     if (actionError || actionSuccess) {
@@ -195,7 +203,7 @@ const BoardPage = ({
     return 'Operador'
   }
 
-  const persistWorkingUser = async (taskId: string, workingUser: string | null) => {
+  const persistWorkingUser = useCallback(async (taskId: string, workingUser: string | null) => {
     setTasks((prev) =>
       prev.map((task) =>
         task.id === taskId ? { ...task, workingUser: workingUser ?? undefined } : task
@@ -213,7 +221,7 @@ const BoardPage = ({
     } catch (error) {
       console.error('Error actualizando trabajador activo:', error)
     }
-  }
+  }, [setTasks])
 
   // Obtener sectores únicos de las tareas
   const availableSectors = useMemo(() => {
@@ -253,6 +261,108 @@ const BoardPage = ({
       prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]
     )
   }
+
+  const handleMoveTask = useCallback(async (taskId: string, destination: TaskStatus) => {
+    const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
+    const movedAt = Date.now()
+    try {
+      localStorage.setItem(`taskcard:new-move:${taskId}`, String(movedAt))
+    } catch {
+      // ignore storage failures
+    }
+
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id !== taskId) return task
+        return {
+          ...task,
+          status: destination,
+          assignedSector: destinationColumn?.label ?? task.assignedSector,
+          updatedAt: new Date().toISOString(),
+          uiMovedAt: movedAt,
+          progress: destination === 'almacen-entrega' ? 100 : task.progress
+        }
+      })
+    )
+
+    const taskSnapshot = tasksRef.current.find((task) => task.id === taskId)
+    if (!taskSnapshot || taskSnapshot.status === destination) return
+
+    setActivity((prev) => [
+      {
+        id: `move-${Date.now()}`,
+        taskId,
+        from: taskSnapshot.status,
+        to: destination,
+        actorId: taskSnapshot.ownerId,
+        timestamp: new Date().toISOString(),
+        note: `Movimiento rápido hacia ${destination}`
+      },
+      ...prev
+    ])
+
+    const ordenId = parseTaskIdToOrdenId(taskId)
+    if (ordenId) {
+      const nuevoEstado = mapStatusToEstado(destination)
+
+      window.dispatchEvent(
+        new CustomEvent('user-moved-task', {
+          detail: { taskId: ordenId.toString(), estado: nuevoEstado, timestamp: Date.now() }
+        })
+      )
+
+      const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
+      const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
+      if (!response.success) {
+        setActionError(response.error || 'No se pudo actualizar la orden en Supabase.')
+        setTasks((prev) =>
+          prev.map((task) => {
+            if (task.id !== taskId) return task
+            return taskSnapshot
+          })
+        )
+      } else {
+        if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
+          const fusionadaId = String((response.data as any).fusionadaId)
+          const conservadaId = String((response.data as any).id ?? '')
+          setTasks((prev) => {
+            const movedTask = prev.find((task) => task.id === taskId)
+            const hadConservada = prev.some((task) => task.id === conservadaId)
+            const next = prev
+              .map((task) => {
+                if (task.id !== conservadaId) return task
+                return {
+                  ...task,
+                  status: destination,
+                  assignedSector: destinationColumn?.label ?? task.assignedSector,
+                  updatedAt: new Date().toISOString(),
+                  uiMovedAt: movedAt,
+                  progress: destination === 'almacen-entrega' ? 100 : task.progress
+                }
+              })
+              .filter((task) => task.id !== fusionadaId)
+
+            if (!hadConservada && movedTask && conservadaId) {
+              next.push({
+                ...movedTask,
+                id: conservadaId,
+                status: destination,
+                assignedSector: destinationColumn?.label ?? movedTask.assignedSector,
+                updatedAt: new Date().toISOString(),
+                uiMovedAt: movedAt,
+                progress: destination === 'almacen-entrega' ? 100 : movedTask.progress
+              })
+            }
+
+            return next
+          })
+          setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
+        } else {
+          setActionSuccess('Orden actualizada en Supabase.')
+        }
+      }
+    }
+  }, [setTasks, setActivity, setActionError, setActionSuccess])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -322,7 +432,7 @@ const BoardPage = ({
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [selectedTaskId, filteredTasks])
+  }, [selectedTaskId, filteredTasks, handleMoveTask])
 
   // Listener para actualizar solo la etapa de una tarea sin recargar todo
   useEffect(() => {
@@ -379,120 +489,11 @@ const BoardPage = ({
     return () => window.removeEventListener('update-task-etapa', handleUpdateTaskEtapa)
   }, [])
 
-  const handleMoveTask = async (taskId: string, destination: TaskStatus) => {
-    const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
-    const movedAt = Date.now()
-    try {
-      localStorage.setItem(`taskcard:new-move:${taskId}`, String(movedAt))
-    } catch {
-      // ignore storage failures
-    }
-
-    setTasks((prev) =>
-      prev.map((task) => {
-        if (task.id !== taskId) return task
-        return {
-          ...task,
-          status: destination,
-          assignedSector: destinationColumn?.label ?? task.assignedSector,
-          updatedAt: new Date().toISOString(),
-          uiMovedAt: movedAt,
-          progress: destination === 'almacen-entrega' ? 100 : task.progress
-        }
-      })
-    )
-
-    const taskSnapshot = tasks.find((task) => task.id === taskId)
-    if (!taskSnapshot || taskSnapshot.status === destination) return
-
-    setActivity((prev) => [
-      {
-        id: `move-${Date.now()}`,
-        taskId,
-        from: taskSnapshot.status,
-        to: destination,
-        actorId: taskSnapshot.ownerId,
-        timestamp: new Date().toISOString(),
-        note: `Movimiento rápido hacia ${destination}`
-      },
-      ...prev
-    ])
-
-    const ordenId = parseTaskIdToOrdenId(taskId)
-    if (ordenId) {
-      const nuevoEstado = mapStatusToEstado(destination)
-      
-      // Notificar a App.tsx sobre el movimiento reciente para evitar efecto espejo
-      window.dispatchEvent(new CustomEvent('user-moved-task', {
-        detail: { taskId: ordenId.toString(), estado: nuevoEstado, timestamp: Date.now() }
-      }))
-      
-      const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-      const response = await apiService.moveOrden(
-        ordenId,
-        nuevoEstado,
-        usuarioId
-      )
-      if (!response.success) {
-        setActionError(response.error || 'No se pudo actualizar la orden en Supabase.')
-        // Revertir el cambio local si falla
-        setTasks((prev) =>
-          prev.map((task) => {
-            if (task.id !== taskId) return task
-            return taskSnapshot
-          })
-        )
-      } else {
-        if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
-          const fusionadaId = String((response.data as any).fusionadaId)
-          const conservadaId = String((response.data as any).id ?? '')
-          setTasks((prev) => {
-            const movedTask = prev.find((task) => task.id === taskId)
-            const hadConservada = prev.some((task) => task.id === conservadaId)
-            const next = prev
-              .map((task) => {
-                if (task.id !== conservadaId) return task
-                return {
-                  ...task,
-                  status: destination,
-                  assignedSector: destinationColumn?.label ?? task.assignedSector,
-                  updatedAt: new Date().toISOString(),
-                  uiMovedAt: movedAt,
-                  progress: destination === 'almacen-entrega' ? 100 : task.progress
-                }
-              })
-              .filter((task) => task.id !== fusionadaId)
-
-            if (!hadConservada && movedTask && conservadaId) {
-              next.push({
-                ...movedTask,
-                id: conservadaId,
-                status: destination,
-                assignedSector: destinationColumn?.label ?? movedTask.assignedSector,
-                updatedAt: new Date().toISOString(),
-                uiMovedAt: movedAt,
-                progress: destination === 'almacen-entrega' ? 100 : movedTask.progress
-              })
-            }
-
-            return next
-          })
-          setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
-        } else {
-          setActionSuccess('Orden actualizada en Supabase.')
-        }
-        // ⚠️ NO recargar todos los datos - confiar en el realtime subscription
-        // El realtime actualizará automáticamente cuando la BD cambie
-        // onReloadData() causaba que las fichas volvieran al estado anterior
-      }
-    }
-  }
-
-  const handleEditTask = (task: Task) => {
+  const handleEditTask = useCallback((task: Task) => {
     const editingUserName = resolveCurrentUserName()
     void persistWorkingUser(task.id, editingUserName)
     setTaskToEdit({ ...task, workingUser: editingUserName })
-  }
+  }, [usuario, persistWorkingUser])
 
   const handleCloseEditModal = (taskId?: string) => {
     if (taskId) {
@@ -596,8 +597,8 @@ const BoardPage = ({
     }
   }
 
-  const handleDeleteTask = async (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId)
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    const task = tasksRef.current.find((t) => t.id === taskId)
 
     const motivo = window.prompt(
       '¿Por qué eliminás esta OP?\n(Este motivo va a quedar registrado en la auditoría.)',
@@ -640,9 +641,9 @@ const BoardPage = ({
     if (onReloadData) {
       await onReloadData()
     }
-  }
+  }, [usuario, onReloadData, persistWorkingUser, setTasks, setTaskToEdit, setActionError])
 
-  const handleMarkDelivered = async (taskId: string, delivered: boolean) => {
+  const handleMarkDelivered = useCallback(async (taskId: string, delivered: boolean) => {
     const ordenId = parseTaskIdToOrdenId(taskId)
     if (!ordenId) {
       console.error('❌ No se pudo obtener ordenId de taskId:', taskId)
@@ -684,7 +685,7 @@ const BoardPage = ({
       setActionError(error instanceof Error ? error.message : 'Error desconocido al marcar como entregado')
       throw error
     }
-  }
+  }, [setTasks, setActionError, setActionSuccess])
 
   const handleCreateTask = async (
     newTaskData: Omit<Task, 'id'> & { attachments?: Array<{ name: string; remoteUrl: string; uploading?: boolean }> },
@@ -924,6 +925,13 @@ const BoardPage = ({
           setIsLibraryModalOpen(true)
         }}
         onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
+        showEtapaKanbanButton={
+          sectorFilter !== 'todos' && sectorNameSupportsEtapaKanban(sectorFilter)
+        }
+        onOpenEtapaKanban={() => {
+          const cfg = getSectorEtapaKanbanBySectorName(sectorFilter)
+          if (cfg) navigate(`/kanban-etapas/${cfg.slug}`)
+        }}
       />
 
       <main className="app-layout">

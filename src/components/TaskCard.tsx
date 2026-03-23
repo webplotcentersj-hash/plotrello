@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react'
+import { memo, useState, useEffect, useMemo } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import clsx from 'clsx'
 import type { ActivityEvent, Task, TaskStatus, TeamMember, ColumnConfig } from '../types/board'
@@ -392,11 +392,14 @@ const TaskCard = ({
   // Detectar si hay modificaciones (updatedAt es más reciente que createdAt)
   const hasModifications = new Date(task.updatedAt).getTime() > new Date(task.createdAt).getTime() + 1000 // +1 segundo para evitar falsos positivos
   
-  // Obtener el color del sector asignado
-  const sectorInfo = sectores.find((s) => s.nombre === task.assignedSector)
+  // Obtener el color del sector asignado (Column ya pasa activity filtrada por tarea)
+  const sectorInfo = useMemo(
+    () => sectores.find((s) => s.nombre === task.assignedSector),
+    [sectores, task.assignedSector]
+  )
   const sectorColor = sectorInfo?.color || '#6B7280'
 
-  const auditEvents = activity.filter((event) => event.taskId === task.id)
+  const auditEvents = activity
 
   const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
     const { ref, className: extraClassName, ...restProps } = draggableProps || {}

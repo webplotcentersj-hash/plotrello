@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -35,6 +35,10 @@ const Board = ({
   onSelectTask
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
+  const columnContainerRefCallbacks = useRef<
+    Partial<Record<TaskStatus, (node: HTMLDivElement | null) => void>>
+  >({})
+
   const columnRefs = useRef<Record<TaskStatus, HTMLDivElement | null>>({
     'diseno-grafico': null,
     'diseno-proceso': null,
@@ -84,19 +88,33 @@ const Board = ({
     return Math.max(...Object.values(groupedByStatus).map((tasks) => tasks.length), 1)
   }, [groupedByStatus])
 
-  const handleDragEnd = (result: DropResult) => {
-    setIsDragging(false)
-    window.dispatchEvent(new CustomEvent('board-dragging-changed', { detail: { dragging: false } }))
-    const { destination, source, draggableId } = result
-    if (!destination) return
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      setIsDragging(false)
+      window.dispatchEvent(new CustomEvent('board-dragging-changed', { detail: { dragging: false } }))
+      const { destination, source, draggableId } = result
+      if (!destination) return
+      if (
+        destination.droppableId === source.droppableId &&
+        destination.index === source.index
+      ) {
+        return
+      }
+      onMoveTask(draggableId, destination.droppableId as TaskStatus)
+    },
+    [onMoveTask]
+  )
+
+  const getColumnContainerRef = useCallback((columnId: TaskStatus) => {
+    let cb = columnContainerRefCallbacks.current[columnId]
+    if (!cb) {
+      cb = (node: HTMLDivElement | null) => {
+        columnRefs.current[columnId] = node
+      }
+      columnContainerRefCallbacks.current[columnId] = cb
     }
-    onMoveTask(draggableId, destination.droppableId as TaskStatus)
-  }
+    return cb
+  }, [])
 
   return (
     <div className={`board-wrapper ${isDragging ? 'is-dragging' : ''}`}>
@@ -120,9 +138,7 @@ const Board = ({
                   droppableProvided={provided}
                   isActive={snapshot.isDraggingOver}
                   isBoardDragging={isDragging}
-                  containerRef={(node) => {
-                    columnRefs.current[column.id as TaskStatus] = node
-                  }}
+                  containerRef={getColumnContainerRef(column.id as TaskStatus)}
                   onEditTask={onEditTask}
                   onDeleteTask={onDeleteTask}
                   sectores={sectores}
