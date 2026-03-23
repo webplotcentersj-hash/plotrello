@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
 import Header from '../components/Header'
@@ -6,6 +6,7 @@ import FiltersBar from '../components/FiltersBar'
 import StatsPanel from '../components/StatsPanel'
 import ActivityFeed from '../components/ActivityFeed'
 import TaskEditModal from '../components/TaskEditModal'
+import TaskViewModal from '../components/TaskViewModal'
 import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
 import PlotAIChat from '../components/PlotAIChat'
@@ -125,6 +126,7 @@ const BoardPage = ({
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [taskViewId, setTaskViewId] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const tasksRef = useRef<Task[]>(tasks)
   useEffect(() => {
@@ -256,6 +258,20 @@ const BoardPage = ({
     })
   }, [tasks, statusFocus, priorityFilter, sectorFilter, searchQuery])
 
+  const taskToView = useMemo(
+    () => (taskViewId ? tasks.find((t) => t.id === taskViewId) ?? null : null),
+    [tasks, taskViewId]
+  )
+
+  useEffect(() => {
+    if (taskViewId && !tasks.some((t) => t.id === taskViewId)) setTaskViewId(null)
+  }, [tasks, taskViewId])
+
+  const handleViewTask = useCallback((task: Task) => {
+    setSelectedTaskId(task.id)
+    setTaskViewId(task.id)
+  }, [])
+
   const toggleStatusFocus = (status: TaskStatus) => {
     setStatusFocus((prev) =>
       prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]
@@ -288,18 +304,20 @@ const BoardPage = ({
     const taskSnapshot = tasksRef.current.find((task) => task.id === taskId)
     if (!taskSnapshot || taskSnapshot.status === destination) return
 
-    setActivity((prev) => [
-      {
-        id: `move-${Date.now()}`,
-        taskId,
-        from: taskSnapshot.status,
-        to: destination,
-        actorId: taskSnapshot.ownerId,
-        timestamp: new Date().toISOString(),
-        note: `Movimiento rápido hacia ${destination}`
-      },
-      ...prev
-    ])
+    startTransition(() => {
+      setActivity((prev) => [
+        {
+          id: `move-${Date.now()}`,
+          taskId,
+          from: taskSnapshot.status,
+          to: destination,
+          actorId: taskSnapshot.ownerId,
+          timestamp: new Date().toISOString(),
+          note: `Movimiento rápido hacia ${destination}`
+        },
+        ...prev
+      ])
+    })
 
     const ordenId = parseTaskIdToOrdenId(taskId)
     if (ordenId) {
@@ -356,9 +374,13 @@ const BoardPage = ({
 
             return next
           })
-          setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
+          startTransition(() => {
+            setActionSuccess('Fichas duplicadas unificadas automáticamente en el sector destino.')
+          })
         } else {
-          setActionSuccess('Orden actualizada en Supabase.')
+          startTransition(() => {
+            setActionSuccess('Orden actualizada en Supabase.')
+          })
         }
       }
     }
@@ -949,6 +971,7 @@ const BoardPage = ({
             activity={activity}
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
+            onViewTask={handleViewTask}
           />
         </section>
 
@@ -957,6 +980,15 @@ const BoardPage = ({
           <ActivityFeed activity={activity} teamMembers={teamMembers} />
         </aside>
       </main>
+
+      {taskToView && (
+        <TaskViewModal
+          task={taskToView}
+          teamMembers={teamMembers}
+          sectores={sectores}
+          onClose={() => setTaskViewId(null)}
+        />
+      )}
 
       {taskToEdit && (
         <TaskEditModal

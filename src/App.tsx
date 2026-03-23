@@ -75,6 +75,7 @@ const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInve
 const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashboardPage'))
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
 const OpEliminadasPage = lazy(() => import('./pages/OpEliminadasPage'))
+const SectorEtapaKanbanPage = lazy(() => import('./pages/SectorEtapaKanbanPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -334,7 +335,10 @@ function App() {
       isBoardDraggingRef.current = dragging
       if (!dragging && needsSyncAfterDragRef.current) {
         needsSyncAfterDragRef.current = false
-        void loadRemoteData()
+        // Defer sync hasta después del paint / animación de soltar (evita tildado al drop)
+        window.setTimeout(() => {
+          void loadRemoteData()
+        }, 320)
       }
     }
 
@@ -706,6 +710,18 @@ function AppRoutes({
             syncError={syncError}
             sectores={sectores}
             materialesCatalog={materiales}
+          />
+        }
+      />
+      <Route
+        path="/kanban-etapas/:slug"
+        element={
+          <SectorEtapaKanbanPage
+            tasks={tasks}
+            setTasks={setTasks}
+            teamMembers={teamMembers}
+            activity={filteredActivity}
+            sectores={sectores}
           />
         }
       />

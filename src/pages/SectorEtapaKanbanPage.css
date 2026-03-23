@@ -1,0 +1,68 @@
+.sector-etapa-kanban-page {
+  min-height: 100vh;
+  background: var(--app-bg, #0f1117);
+  color: var(--text-primary, #e2e8f0);
+  padding: 16px 20px 32px;
+}
+
+.sector-etapa-kanban-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sector-etapa-kanban-header h1 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+}
+
+.sector-etapa-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #94a3b8);
+  max-width: 720px;
+}
+
+.sector-etapa-back {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.6);
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.sector-etapa-back:hover {
+  background: rgba(51, 65, 85, 0.7);
+}
+
+.sector-etapa-error {
+  color: #fca5a5;
+  padding: 12px;
+}
+
+.sector-etapa-banner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.sector-etapa-banner--error {
+  background: rgba(127, 29, 29, 0.45);
+  color: #fecaca;
+}
+
+.sector-etapa-banner--info {
+  background: rgba(30, 58, 138, 0.4);
+  color: #bfdbfe;
+}
+
+.sector-etapa-footnote {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #94a3b8);
+}

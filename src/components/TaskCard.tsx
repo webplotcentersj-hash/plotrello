@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo, type MouseEvent } from 'react'
+import { memo, useState, useEffect, useMemo, useRef, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Draggable } from '@hello-pangea/dnd'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
@@ -70,6 +70,8 @@ type TaskCardProps = {
   columns?: ColumnConfig[]
   isSelected?: boolean
   onSelect?: (taskId: string | null) => void
+  /** Clic en la ficha (vista solo lectura); no usar en menú contextual */
+  onViewTask?: (task: Task) => void
   isBoardDragging?: boolean
   /** Si viene definido, no se envuelve en Draggable (lo pone Column.tsx) */
   boardDnD?: TaskCardBoardDnD | null
@@ -133,6 +135,7 @@ const TaskCardInner = ({
   columns = [],
   isSelected = false,
   onSelect,
+  onViewTask,
   isBoardDragging = false,
   boardDnD = null
 }: TaskCardProps) => {
@@ -160,6 +163,15 @@ const TaskCardInner = ({
   const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
+  const boardDragJustEndedAt = useRef(0)
+  useEffect(() => {
+    const fn = (e: Event) => {
+      const d = (e as CustomEvent<{ dragging?: boolean }>).detail
+      if (d && d.dragging === false) boardDragJustEndedAt.current = Date.now()
+    }
+    window.addEventListener('board-dragging-changed', fn)
+    return () => window.removeEventListener('board-dragging-changed', fn)
+  }, [])
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
   const etiquetaOrden = task.esFichaNoOP ? 'Ficha' : 'OP'
   const displayNumeroOrden = (() => {
@@ -466,6 +478,12 @@ const TaskCardInner = ({
               return
             }
             onSelect?.(task.id)
+            if (
+              onViewTask &&
+              Date.now() - boardDragJustEndedAt.current > 420
+            ) {
+              onViewTask(task)
+            }
           }}
           onContextMenuCapture={(e) => {
             e.preventDefault()
@@ -1876,7 +1894,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       prev.members === next.members &&
       prev.isBoardDragging === next.isBoardDragging &&
       prev.isSelected === next.isSelected &&
-      prev.onSelect === next.onSelect
+      prev.onSelect === next.onSelect &&
+      prev.onViewTask === next.onViewTask
     )
   }
   if ((prev.boardDnD == null) !== (next.boardDnD == null)) return false
@@ -1939,6 +1958,7 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   if (prev.onMoveTask !== next.onMoveTask) return false
   if (prev.onMarkDelivered !== next.onMarkDelivered) return false
   if (prev.onSelect !== next.onSelect) return false
+  if (prev.onViewTask !== next.onViewTask) return false
   return true
 }
 

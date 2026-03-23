@@ -18,6 +18,7 @@ type BoardProps = {
   activity?: ActivityEvent[]
   selectedTaskId?: string | null
   onSelectTask?: (taskId: string | null) => void
+  onViewTask?: (task: Task) => void
 }
 
 const Board = ({
@@ -32,7 +33,8 @@ const Board = ({
   onMarkDelivered,
   activity,
   selectedTaskId,
-  onSelectTask
+  onSelectTask,
+  onViewTask
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
   const columnContainerRefCallbacks = useRef<
@@ -100,7 +102,11 @@ const Board = ({
       ) {
         return
       }
-      onMoveTask(draggableId, destination.droppableId as TaskStatus)
+      const dest = destination.droppableId as TaskStatus
+      // Deja terminar el frame del DnD antes de actualizar estado React (menos tirón al soltar)
+      requestAnimationFrame(() => {
+        onMoveTask(draggableId, dest)
+      })
     },
     [onMoveTask]
   )
@@ -148,6 +154,7 @@ const Board = ({
                   columns={columns}
                   selectedTaskId={selectedTaskId}
                   onSelectTask={onSelectTask}
+                  onViewTask={onViewTask}
                 />
               )}
             </Droppable>

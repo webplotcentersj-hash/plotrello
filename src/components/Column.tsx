@@ -26,6 +26,7 @@ type ColumnProps = {
   columns?: ColumnConfig[]
   selectedTaskId?: string | null
   onSelectTask?: (taskId: string | null) => void
+  onViewTask?: (task: Task) => void
 }
 
 const Column = ({
@@ -46,6 +47,7 @@ const Column = ({
   columns = [],
   selectedTaskId,
   onSelectTask,
+  onViewTask,
   isBoardDragging = false
 }: ColumnProps) => {
   const INITIAL_VISIBLE_TASKS = 5
@@ -103,6 +105,7 @@ const Column = ({
                 columns={columns}
                 isSelected={selectedTaskId === task.id}
                 onSelect={onSelectTask}
+                onViewTask={onViewTask}
                 isBoardDragging={isBoardDragging}
                 isDraggable={false}
                 boardDnD={{ provided, snapshot }}
