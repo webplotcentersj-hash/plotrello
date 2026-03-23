@@ -306,7 +306,13 @@ export function formatMemoryForPrompt(
   if (conversaciones.length === 0 && patrones.length === 0 && conocimientos.length === 0) {
     memoriaTexto += 'Sin memoria previa relevante. Esta es una nueva interacción.\n\n'
   }
-  
+
+  if (conversaciones.length > 0 || patrones.length > 0 || conocimientos.length > 0) {
+    memoriaTexto +=
+      '\n⚠️ Esta memoria es solo referencia de estilo o temas viejos. NO la uses como datos actuales de OPs, estados ni clientes; ' +
+      'para eso usá el índice del kanban y el contexto de esta conversación.\n\n'
+  }
+
   return memoriaTexto
 }
 

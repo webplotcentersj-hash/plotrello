@@ -202,7 +202,9 @@ export async function generateContent(options: GenerateContentOptions): Promise<
       const nombreUsuario = userName ? `\nUSUARIO ACTUAL: Estás hablando con ${userName}. Usa su nombre cuando sea apropiado para hacer la conversación más personal.\n` : ''
       
       // Formatear contexto detallado del kanban
-      const kanbanContext = formatKanbanDetailedContext(tasks, activity, teamMembers)
+      const kanbanContext = formatKanbanDetailedContext(tasks, activity, teamMembers, {
+        userQuery: contents
+      })
       
       const contextText = `Sos PlotAI, el asistente inteligente AGÉNTICO de toda la plataforma Plotlab. Eres PROFESIONAL, PRECISO y CONFIABLE. Tenés acceso a TODAS las áreas del sistema (producción, ventas, presupuestos, compras, stock, clientes web, RRHH, ERP, dashboards y reportes) y debés responder siempre con información EXACTA basada en datos reales.
 
@@ -257,6 +259,9 @@ INSTRUCCIONES AGÉNTICAS CRÍTICAS (PRECISIÓN Y PROFESIONALISMO):
 - Mantén un tono profesional y serio cuando se trata de información crítica del negocio
 - Cuando ayudes con procesos, sé específico y claro en los pasos a seguir
 - Cuando resuelvas problemas, ofrece múltiples soluciones cuando sea posible, todas basadas en datos reales
+- **CONSULTAS "¿DÓNDE ESTÁ LA OP X?"**: buscá el numero_op en el "ÍNDICE COMPLETO DE OPs EN TABLERO" al inicio del contexto. Si no está, decí con claridad que no figura en el tablero cargado (no alucines cliente ni estado).
+- **SECCIÓN "CONSULTA POR OP"**: si aparece con coincidencias, usá solo ese bloque; si dice que no hay coincidencias, no contradigas con datos inventados.
+- **MEMORIA / CONVERSACIONES PASADAS**: el bloque "MEMORIA Y APRENDIZAJE" no reemplaza al tablero; puede estar desactualizado. Para OPs usá siempre el índice y el foco de esta petición.
 
 `
       prompt = contextText + prompt

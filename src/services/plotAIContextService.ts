@@ -167,7 +167,9 @@ export async function getCompleteSystemContext(
       // Órdenes de Trabajo
       supabase
         .from('ordenes_trabajo')
-        .select('id, estado, prioridad, sector, fecha_entrega, fecha_creacion, entregado, fecha_entrega_efectiva, usuario_trabajando_id')
+        .select(
+          'id, estado, prioridad, sector, fecha_entrega, fecha_creacion, entregado, fecha_entrega_efectiva, usuario_trabajando_id, visible_en_tablero'
+        )
         .then(r => r.data || []),
       
       // Clientes
@@ -267,6 +269,21 @@ export async function getCompleteSystemContext(
         .then(r => r.data || [])
     ])
     
+    // Solo órdenes visibles en tablero (alineado con getOrdenes / kanban; evita contradicción de totales)
+    type OrdenStatsRow = {
+      visible_en_tablero?: boolean | null
+      estado?: string
+      prioridad?: string
+      sector?: string
+      fecha_entrega?: string
+      entregado?: boolean
+      fecha_entrega_efectiva?: string
+      usuario_trabajando_id?: number | null
+    }
+    const ordenesVisibles = (ordenesData as OrdenStatsRow[]).filter(
+      (o) => o.visible_en_tablero !== false
+    )
+
     // Procesar datos de órdenes
     const ordenesPorEstado: Record<string, number> = {}
     const ordenesPorPrioridad: Record<string, number> = {}
@@ -275,8 +292,8 @@ export async function getCompleteSystemContext(
     let atrasadas = 0
     let completadasHoy = 0
     let enProceso = 0
-    
-    ordenesData.forEach((orden: { estado?: string; prioridad?: string; sector?: string; fecha_entrega?: string; entregado?: boolean; fecha_entrega_efectiva?: string }) => {
+
+    ordenesVisibles.forEach((orden: OrdenStatsRow) => {
       const est = orden.estado ?? ''
       const pri = orden.prioridad ?? ''
       const sec = orden.sector ?? ''
@@ -420,14 +437,14 @@ export async function getCompleteSystemContext(
       ? tiemposCompletados.reduce((a: number, b: number) => a + b, 0) / tiemposCompletados.length
       : 0
     
-    const totalOrdenes = ordenesData.length
-    const ordenesCompletadas = ordenesData.filter((o: { entregado?: boolean }) => o.entregado).length
+    const totalOrdenes = ordenesVisibles.length
+    const ordenesCompletadas = ordenesVisibles.filter((o: { entregado?: boolean }) => o.entregado).length
     const tasaCompletacion = totalOrdenes > 0 ? (ordenesCompletadas / totalOrdenes) * 100 : 0
     
     // Eficiencia por sector (simplificado)
     const eficienciaPorSector: Record<string, number> = {}
     Object.keys(ordenesPorSector).forEach(sector => {
-      const ordenesSector = ordenesData.filter((o: { sector?: string }) => o.sector === sector)
+      const ordenesSector = ordenesVisibles.filter((o: { sector?: string }) => o.sector === sector)
       const completadasSector = ordenesSector.filter((o: { entregado?: boolean }) => o.entregado).length
       eficienciaPorSector[sector] = ordenesSector.length > 0
         ? (completadasSector / ordenesSector.length) * 100
@@ -488,7 +505,7 @@ export async function getCompleteSystemContext(
     }
     
     // Contar usuarios trabajando
-    const usuariosTrabajando = ordenesData.filter((o: any) => o.usuario_trabajando_id).length
+    const usuariosTrabajando = ordenesVisibles.filter((o: any) => o.usuario_trabajando_id).length
 
     // Procesar reclamos (Atención al público)
     const reclamosPorEstado: Record<string, number> = {}
@@ -519,7 +536,7 @@ export async function getCompleteSystemContext(
     
     return {
       ordenes: {
-        total: ordenesData.length,
+        total: ordenesVisibles.length,
         porEstado: ordenesPorEstado,
         porPrioridad: ordenesPorPrioridad,
         porSector: ordenesPorSector,
@@ -660,6 +677,10 @@ export async function getCompleteSystemContext(
 export function formatCompleteContextForPrompt(context: CompleteSystemContext): string {
   return `
 CONTEXTO COMPLETO DEL SISTEMA PLOTRELLO:
+
+NOTA PARA PLOTAI (precisión):
+- Los totales de órdenes abajo refieren filas de trabajo **visibles en tablero** (alineado con el kanban), no uses estos agregados para adivinar datos de una OP puntual.
+- Para cliente/estado/columna de una OP específica usá el "ÍNDICE COMPLETO DE OPs EN TABLERO" del bloque kanban, no inventes a partir de totales.
 
 === ÓRDENES DE TRABAJO ===
 Total: ${context.ordenes.total}
