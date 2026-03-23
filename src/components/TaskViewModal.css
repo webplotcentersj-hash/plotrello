@@ -171,6 +171,42 @@
   }
 }
 
+/* Etiquetas (colores del catálogo) arriba de los chips de estado */
+.task-view-tags-hero {
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.task-view-tags-hero-title {
+  margin: 0 0 14px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.03em;
+}
+
+.task-view-tags-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.task-view-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.task-view-tags-hero-empty {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
 .task-view-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -456,25 +492,6 @@
 .task-view-kv a:hover {
   color: #bae6fd;
   border-bottom-color: #bae6fd;
-}
-
-.task-view-tag-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.task-view-tag-list li {
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 1rem;
-  font-weight: 600;
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  color: #e0e7ff;
 }
 
 /* ——— Subtasks ——— */

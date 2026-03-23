@@ -1,7 +1,8 @@
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { useTagColors } from '../hooks/useTagColors'
 import './TaskEditModal.css'
 import './TaskViewModal.css'
 
@@ -60,6 +61,8 @@ function KvBlock({ label, value }: { label: string; value: string | null | undef
 }
 
 export default function TaskViewModal({ task, teamMembers, sectores, onClose }: TaskViewModalProps) {
+  const { getTagColor, loadTagColor } = useTagColors()
+  const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(() => new Map())
   const owner = teamMembers.find((m) => m.id === task.ownerId)
   const createdByMember = teamMembers.find((m) => m.id === task.createdBy)
   const columnCfg = BOARD_COLUMNS.find((c) => c.id === task.status)
@@ -127,6 +130,44 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
 
           <section className="task-view-hero-card">
             <div className="task-view-hero-main">
+              <div className="task-view-tags-hero">
+                <h3 className="task-view-tags-hero-title">Etiquetas</h3>
+                {task.tags?.length ? (
+                  <div className="task-view-tags-hero-row" role="list">
+                    {task.tags.map((tag) => {
+                      const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
+                      if (!tagColorsCache.has(tag.toLowerCase())) {
+                        void loadTagColor(tag).then((loadedColor) => {
+                          setTagColorsCache((prev) => {
+                            const next = new Map(prev)
+                            next.set(tag.toLowerCase(), loadedColor)
+                            return next
+                          })
+                        })
+                      }
+                      return (
+                        <span
+                          key={tag}
+                          role="listitem"
+                          className="task-view-tag-pill"
+                          style={{
+                            background: color,
+                            border: `2px solid ${color}`,
+                            color: '#ffffff',
+                            fontWeight: 600,
+                            textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="task-view-empty task-view-tags-hero-empty">Sin etiquetas</p>
+                )}
+              </div>
+
               <div className="task-view-chip-row">
                 <span className={`task-view-chip task-view-chip--priority task-view-chip--${task.priority}`}>
                   Prioridad {task.priority}
@@ -325,19 +366,6 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                 <Kv label="Tiene referencias">{YesNo(task.tieneReferencias)}</Kv>
                 <Kv label="Links de referencias">{task.referenciasLinks}</Kv>
               </dl>
-            </section>
-
-            <section className="task-view-panel">
-              <h3 className="task-view-panel-title">Etiquetas</h3>
-              {task.tags?.length ? (
-                <ul className="task-view-tag-list">
-                  {task.tags.map((t) => (
-                    <li key={t}>{t}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="task-view-empty">Sin etiquetas</p>
-              )}
             </section>
 
             <section className="task-view-panel">
