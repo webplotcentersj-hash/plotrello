@@ -36,7 +36,38 @@
 
 .sector-filter-control {
   min-width: 200px;
-  max-width: 250px;
+  max-width: 320px;
+}
+
+.sector-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.sector-filter-row .sector-select {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.etapa-kanban-expand-btn {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(235, 103, 27, 0.45);
+  background: linear-gradient(135deg, rgba(235, 103, 27, 0.25), rgba(235, 103, 27, 0.08));
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.etapa-kanban-expand-btn:hover {
+  background: linear-gradient(135deg, rgba(235, 103, 27, 0.4), rgba(235, 103, 27, 0.15));
+  transform: translateY(-1px);
 }
 
 .library-button-container {

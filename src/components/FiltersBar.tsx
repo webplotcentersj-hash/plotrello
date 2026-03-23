@@ -22,6 +22,9 @@ type FiltersBarProps = {
   onOpenLibrary?: () => void
   onAddNewOrder?: () => void
   onOptimizeSprint?: () => void
+  /** Botón para abrir kanban de etapas del sector (solo si el sector tiene etapas internas) */
+  showEtapaKanbanButton?: boolean
+  onOpenEtapaKanban?: () => void
 }
 
 const FiltersBar = ({
@@ -40,7 +43,9 @@ const FiltersBar = ({
   onSectorChange,
   onOpenLibrary,
   onAddNewOrder,
-  onOptimizeSprint
+  onOptimizeSprint,
+  showEtapaKanbanButton = false,
+  onOpenEtapaKanban
 }: FiltersBarProps) => {
   const { isAdmin, isDiseno, usuario } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
@@ -100,18 +105,30 @@ const FiltersBar = ({
           {onSectorChange && availableSectors.length > 0 && (
             <div className="filter-control sector-filter-control">
               <label>Sector</label>
-              <select
-                value={sectorFilter}
-                onChange={(e) => onSectorChange(e.target.value)}
-                className="sector-select"
-              >
-                <option value="todos">Todos los sectores</option>
-                {availableSectors.map((sector) => (
-                  <option key={sector} value={sector}>
-                    {sector}
-                  </option>
-                ))}
-              </select>
+              <div className="sector-filter-row">
+                <select
+                  value={sectorFilter}
+                  onChange={(e) => onSectorChange(e.target.value)}
+                  className="sector-select"
+                >
+                  <option value="todos">Todos los sectores</option>
+                  {availableSectors.map((sector) => (
+                    <option key={sector} value={sector}>
+                      {sector}
+                    </option>
+                  ))}
+                </select>
+                {showEtapaKanbanButton && onOpenEtapaKanban && (
+                  <button
+                    type="button"
+                    className="etapa-kanban-expand-btn"
+                    onClick={onOpenEtapaKanban}
+                    title="Abrir vista ampliada: kanban solo con las etapas de este sector"
+                  >
+                    Kanban etapas
+                  </button>
+                )}
+              </div>
             </div>
           )}
           <div className="library-button-container">
