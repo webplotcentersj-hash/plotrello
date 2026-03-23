@@ -919,6 +919,16 @@ body.compact-mode .task-actions {
   box-shadow: 0 20px 45px rgba(235, 103, 27, 0.3);
 }
 
+/* Tablero en drag: compactar fichas que no son el arrastre (menos layout) */
+.board-wrapper.is-dragging .task-card.is-drag-surface:not(.is-dragging) {
+  padding: 10px 12px !important;
+  gap: 0 !important;
+  min-height: 0 !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  backdrop-filter: none !important;
+}
+
 .task-head {
   display: flex;
   justify-content: space-between;
@@ -1661,6 +1671,12 @@ body.compact-mode .task-actions {
 }
 
 /* Menú contextual (clic derecho) */
+/* Durante drag del tablero, .columns-grid * no debe bloquear el menú */
+.board-wrapper.is-dragging .task-card-context-menu,
+.board-wrapper.is-dragging .task-card-context-menu * {
+  pointer-events: auto !important;
+}
+
 .task-card-context-menu {
   position: fixed;
   z-index: 10000;

@@ -96,8 +96,8 @@
   position: relative;
   overflow: hidden;
   height: fit-content;
-  /* Reduce repaint scope during drag (validate scroll/DnD if something looks off) */
-  contain: layout paint;
+  /* Solo paint: `layout` en contain puede empeorar el costo del DnD al medir columnas */
+  contain: paint;
 }
 
 .column-load-indicator {

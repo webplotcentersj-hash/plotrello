@@ -1,5 +1,6 @@
-import { memo, useState, useEffect, useMemo } from 'react'
+import { memo, useState, useEffect, useMemo, type MouseEvent } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
+import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import clsx from 'clsx'
 import type { ActivityEvent, Task, TaskStatus, TeamMember, ColumnConfig } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -19,6 +20,12 @@ import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 
+/** DnD provisto por Column (Draggable fuera) para poder memoizar la ficha sin romper el arrastre */
+export type TaskCardBoardDnD = {
+  provided: DraggableProvided
+  snapshot: DraggableStateSnapshot
+}
+
 type TaskCardProps = {
   task: Task
   index: number
@@ -35,6 +42,8 @@ type TaskCardProps = {
   isSelected?: boolean
   onSelect?: (taskId: string | null) => void
   isBoardDragging?: boolean
+  /** Si viene definido, no se envuelve en Draggable (lo pone Column.tsx) */
+  boardDnD?: TaskCardBoardDnD | null
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat('es-AR', {
@@ -80,7 +89,7 @@ const stripEmailDomain = (value?: string | null) => {
   return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
 }
 
-const TaskCard = ({
+const TaskCardInner = ({
   task,
   index,
   owner,
@@ -95,7 +104,8 @@ const TaskCard = ({
   columns = [],
   isSelected = false,
   onSelect,
-  isBoardDragging = false
+  isBoardDragging = false,
+  boardDnD = null
 }: TaskCardProps) => {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
@@ -402,7 +412,7 @@ const TaskCard = ({
   const auditEvents = activity
 
   const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
-    const { ref, className: extraClassName, ...restProps } = draggableProps || {}
+    const { ref, className: extraClassName, onClick: dndOnClick, ...restProps } = draggableProps || {}
     const isDragLightMode = Boolean(isBoardDragging || (extraClassName && String(extraClassName).includes('is-dragging')))
     return (
       <>
@@ -414,21 +424,28 @@ const TaskCard = ({
             'is-collapsed': !isExpanded,
             'is-minimized': isMinimized,
             'is-new-move': isNewMove,
-            'is-selected': isSelected
+            'is-selected': isSelected,
+            'is-drag-surface': isDragLightMode
           }, extraClassName)}
           ref={ref}
-          onClick={() => {
+          {...restProps}
+          onClick={(e: MouseEvent<HTMLElement>) => {
+            dndOnClick?.(e)
+            if (e.defaultPrevented) return
             if (isMinimized) {
               toggleMinimized()
               return
             }
             onSelect?.(task.id)
           }}
-          onContextMenu={(e) => {
+          onContextMenuCapture={(e) => {
+            // Capture: gana al menú nativo de imágenes/hijos y no lo pisa {...restProps} del DnD
             e.preventDefault()
-            if (onMoveTask && columns.length) setContextMenu({ x: e.clientX, y: e.clientY })
+            e.stopPropagation()
+            if (onMoveTask && columns.length) {
+              setContextMenu({ x: e.clientX, y: e.clientY })
+            }
           }}
-          {...restProps}
         >
           {(isMinimized || isDragLightMode) && (
             <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
@@ -443,8 +460,8 @@ const TaskCard = ({
               {isNewMove && <span className="task-new-pill">NEW</span>}
             </div>
           )}
-          {/* Durante drag: el resto del DOM pesado queda deshabilitado por condiciones abajo */}
-          {!isMinimized && (
+          {/* Durante drag global: sin botones extra ni flechas (menos nodos y menos reconciliación) */}
+          {!isMinimized && !isDragLightMode && (
             <button
               type="button"
               className="task-minimize-btn"
@@ -458,33 +475,32 @@ const TaskCard = ({
               ⊟
             </button>
           )}
-          {!isMinimized && isNewMove && <span className="task-new-pill task-new-pill-floating">NEW</span>}
-          {task.priority === 'alta' && (
+          {!isMinimized && !isDragLightMode && isNewMove && (
+            <span className="task-new-pill task-new-pill-floating">NEW</span>
+          )}
+          {!isDragLightMode && task.priority === 'alta' && (
             <div className="priority-led-indicator" title="Prioridad Alta"></div>
           )}
-          {/* Marquita del sector en esquina superior derecha */}
-          {task.assignedSector && (
-            <div 
-              className="sector-corner-marker" 
+          {!isDragLightMode && task.assignedSector && (
+            <div
+              className="sector-corner-marker"
               style={{ backgroundColor: sectorColor }}
               title={task.assignedSector}
             ></div>
           )}
-          {/* Indicador de ficha duplicada */}
-          {task.esDuplicado && (
-            <div 
-              className="duplicate-indicator" 
+          {!isDragLightMode && task.esDuplicado && (
+            <div
+              className="duplicate-indicator"
               title={`Ficha duplicada de ${etiquetaOrden} #${task.opNumber}`}
             >
               📋
             </div>
           )}
-          {/* Flechas para mover entre columnas */}
-          {onMoveTask && columns.length > 0 && (() => {
+          {!isDragLightMode && onMoveTask && columns.length > 0 && (() => {
             const idx = columns.findIndex((c) => c.id === task.status)
             const prevCol = idx > 0 ? columns[idx - 1] : null
             const nextCol = idx >= 0 && idx < columns.length - 1 ? columns[idx + 1] : null
-            return (prevCol || nextCol) ? (
+            return prevCol || nextCol ? (
               <div className="task-move-arrows">
                 {prevCol && (
                   <button
@@ -1433,22 +1449,32 @@ const TaskCard = ({
     )
   }
 
-  const cardContent = isDraggable ? (
-    <Draggable draggableId={task.id} index={index}>
-      {(provided, snapshot) =>
-        renderCardContent({
-          ref: provided.innerRef,
-          className: clsx({
-            'is-dragging': snapshot.isDragging
-          }),
-          ...provided.draggableProps,
-          ...provided.dragHandleProps
-        })
-      }
-    </Draggable>
-  ) : (
-    renderCardContent()
-  )
+  const cardContent =
+    boardDnD != null ? (
+      renderCardContent({
+        ref: boardDnD.provided.innerRef,
+        className: clsx({
+          'is-dragging': boardDnD.snapshot.isDragging
+        }),
+        ...boardDnD.provided.draggableProps,
+        ...(boardDnD.provided.dragHandleProps ?? {})
+      })
+    ) : isDraggable ? (
+      <Draggable draggableId={task.id} index={index}>
+        {(provided, snapshot) =>
+          renderCardContent({
+            ref: provided.innerRef,
+            className: clsx({
+              'is-dragging': snapshot.isDragging
+            }),
+            ...provided.draggableProps,
+            ...(provided.dragHandleProps ?? {})
+          })
+        }
+      </Draggable>
+    ) : (
+      renderCardContent()
+    )
 
   return (
     <>
@@ -1797,5 +1823,85 @@ const TaskCard = ({
   )
 }
 
-export default memo(TaskCard)
+function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolean {
+  if (prev.boardDnD == null && next.boardDnD == null) {
+    if (prev.isDraggable || next.isDraggable) return false
+    return (
+      prev.task === next.task &&
+      prev.index === next.index &&
+      prev.owner === next.owner &&
+      prev.onEdit === next.onEdit &&
+      prev.onDelete === next.onDelete &&
+      prev.sectores === next.sectores &&
+      prev.onMarkDelivered === next.onMarkDelivered &&
+      prev.members === next.members &&
+      prev.isBoardDragging === next.isBoardDragging &&
+      prev.isSelected === next.isSelected &&
+      prev.onSelect === next.onSelect
+    )
+  }
+  if ((prev.boardDnD == null) !== (next.boardDnD == null)) return false
+
+  const pb = prev.boardDnD!
+  const nb = next.boardDnD!
+  if (pb.snapshot.isDragging || nb.snapshot.isDragging) return false
+
+  if (
+    pb.snapshot.isDropAnimating !== nb.snapshot.isDropAnimating ||
+    pb.snapshot.draggingOver !== nb.snapshot.draggingOver ||
+    pb.snapshot.combineWith !== nb.snapshot.combineWith ||
+    pb.snapshot.combineTargetFor !== nb.snapshot.combineTargetFor ||
+    pb.snapshot.mode !== nb.snapshot.mode ||
+    pb.snapshot.isClone !== nb.snapshot.isClone
+  ) {
+    return false
+  }
+
+  const ps = pb.provided.draggableProps.style
+  const ns = nb.provided.draggableProps.style
+  if (ps !== ns) {
+    if (ps == null && ns == null) {
+      // ok
+    } else if (!ps || !ns) {
+      return false
+    } else if (JSON.stringify(ps) !== JSON.stringify(ns)) {
+      return false
+    }
+  }
+
+  if (prev.task !== next.task) {
+    if (prev.task.id !== next.task.id) return false
+    const keys = [
+      'status',
+      'title',
+      'opNumber',
+      'priority',
+      'updatedAt',
+      'workingUser',
+      'entregado',
+      'assignedSector',
+      'uiMovedAt',
+      'summary'
+    ] as const
+    for (const k of keys) {
+      if (prev.task[k] !== next.task[k]) return false
+    }
+  }
+  if (prev.index !== next.index) return false
+  if (prev.isBoardDragging !== next.isBoardDragging) return false
+  if (prev.isSelected !== next.isSelected) return false
+  if (prev.owner !== next.owner) return false
+  if (prev.activity !== next.activity) return false
+  if (prev.members !== next.members) return false
+  if (prev.sectores !== next.sectores) return false
+  if (prev.columns !== next.columns) return false
+  if (prev.onEdit !== next.onEdit) return false
+  if (prev.onDelete !== next.onDelete) return false
+  if (prev.onMoveTask !== next.onMoveTask) return false
+  if (prev.onMarkDelivered !== next.onMarkDelivered) return false
+  if (prev.onSelect !== next.onSelect) return false
+  return true
+}
+
+export default memo(TaskCardInner, taskCardPropsAreEqual)
 

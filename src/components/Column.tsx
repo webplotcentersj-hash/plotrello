@@ -1,8 +1,11 @@
 import { memo, useMemo, useState, type Ref } from 'react'
-import { type DroppableProvided } from '@hello-pangea/dnd'
+import { Draggable, type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
+
+/** Referencia estable para memo(TaskCard); `?? []` en cada render rompe la igualdad superficial */
+const EMPTY_ACTIVITY: ActivityEvent[] = []
 
 type ColumnProps = {
   column: ColumnConfig
@@ -84,23 +87,28 @@ const Column = ({
 
       <div className="column-body" ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
         {visibleTasks.map((task, index) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            index={index}
-            owner={membersById.get(task.ownerId)}
-            onEdit={onEditTask}
-            onDelete={onDeleteTask}
-            sectores={sectores}
-            onMarkDelivered={onMarkDelivered}
-            activity={activityByTaskId.get(task.id) ?? []}
-            members={members}
-            onMoveTask={onMoveTask}
-            columns={columns}
-            isSelected={selectedTaskId === task.id}
-            onSelect={onSelectTask}
-            isBoardDragging={isBoardDragging}
-          />
+          <Draggable key={task.id} draggableId={task.id} index={index}>
+            {(provided, snapshot) => (
+              <TaskCard
+                task={task}
+                index={index}
+                owner={membersById.get(task.ownerId)}
+                onEdit={onEditTask}
+                onDelete={onDeleteTask}
+                sectores={sectores}
+                onMarkDelivered={onMarkDelivered}
+                activity={activityByTaskId.get(task.id) ?? EMPTY_ACTIVITY}
+                members={members}
+                onMoveTask={onMoveTask}
+                columns={columns}
+                isSelected={selectedTaskId === task.id}
+                onSelect={onSelectTask}
+                isBoardDragging={isBoardDragging}
+                isDraggable={false}
+                boardDnD={{ provided, snapshot }}
+              />
+            )}
+          </Draggable>
         ))}
         {droppableProvided.placeholder}
 
