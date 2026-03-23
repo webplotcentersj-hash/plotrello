@@ -7,6 +7,10 @@
   transition: none !important;
   backdrop-filter: none !important;
   box-shadow: none !important;
+}
+
+/* will-change en todas las fichas promueve capas GPU y puede tildar; solo la que se arrastra */
+.board-wrapper.is-dragging .task-card.is-dragging {
   will-change: transform;
 }
 
@@ -96,8 +100,6 @@
   position: relative;
   overflow: hidden;
   height: fit-content;
-  /* Solo paint: `layout` en contain puede empeorar el costo del DnD al medir columnas */
-  contain: paint;
 }
 
 .column-load-indicator {

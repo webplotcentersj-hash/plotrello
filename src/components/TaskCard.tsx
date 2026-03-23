@@ -1,4 +1,5 @@
 import { memo, useState, useEffect, useMemo, type MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Draggable } from '@hello-pangea/dnd'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import clsx from 'clsx'
@@ -19,6 +20,34 @@ import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
 import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
+
+const CONTEXT_MENU_MIN_WIDTH = 200
+const CONTEXT_MENU_TITLE_H = 40
+const CONTEXT_MENU_ITEM_H = 44
+const CONTEXT_MENU_PAD = 8
+
+/** Menú en viewport: al costado de la ficha; `fixed` dentro del tablero quedaba desfasado por transform/contain del DnD */
+function getContextMenuViewportPosition(
+  cardEl: HTMLElement,
+  _clientX: number,
+  clientY: number,
+  itemCount: number
+): { left: number; top: number } {
+  const rect = cardEl.getBoundingClientRect()
+  const estWidth = Math.max(CONTEXT_MENU_MIN_WIDTH, 220)
+  const estHeight = CONTEXT_MENU_TITLE_H + itemCount * CONTEXT_MENU_ITEM_H + CONTEXT_MENU_PAD * 2
+
+  let left = rect.right + CONTEXT_MENU_PAD
+  let top = clientY - 12
+  top = Math.max(CONTEXT_MENU_PAD, Math.min(top, window.innerHeight - estHeight - CONTEXT_MENU_PAD))
+
+  if (left + estWidth > window.innerWidth - CONTEXT_MENU_PAD) {
+    left = rect.left - estWidth - CONTEXT_MENU_PAD
+  }
+  if (left < CONTEXT_MENU_PAD) left = CONTEXT_MENU_PAD
+
+  return { left, top }
+}
 
 /** DnD provisto por Column (Draggable fuera) para poder memoizar la ficha sin romper el arrastre */
 export type TaskCardBoardDnD = {
@@ -130,7 +159,7 @@ const TaskCardInner = ({
   const [showEtapasImpresionDigitalModal, setShowEtapasImpresionDigitalModal] = useState(false)
   const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
   const etiquetaOrden = task.esFichaNoOP ? 'Ficha' : 'OP'
   const displayNumeroOrden = (() => {
@@ -439,12 +468,15 @@ const TaskCardInner = ({
             onSelect?.(task.id)
           }}
           onContextMenuCapture={(e) => {
-            // Capture: gana al menú nativo de imágenes/hijos y no lo pisa {...restProps} del DnD
             e.preventDefault()
             e.stopPropagation()
-            if (onMoveTask && columns.length) {
-              setContextMenu({ x: e.clientX, y: e.clientY })
-            }
+            if (!onMoveTask || columns.length === 0) return
+            const el = e.currentTarget as HTMLElement
+            const itemCount = columns.filter((c) => c.id !== task.status).length
+            if (itemCount === 0) return
+            setContextMenu(
+              getContextMenuViewportPosition(el, e.clientX, e.clientY, itemCount)
+            )
           }}
         >
           {(isMinimized || isDragLightMode) && (
@@ -1479,30 +1511,37 @@ const TaskCardInner = ({
   return (
     <>
       {cardContent}
-      {contextMenu && onMoveTask && columns.length > 0 && (
-        <div
-          className="task-card-context-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="context-menu-title">Mover a →</div>
-          {columns
-            .filter((c) => c.id !== task.status)
-            .map((col) => (
-              <button
-                key={col.id}
-                type="button"
-                className="context-menu-item"
-                onClick={() => {
-                  onMoveTask(task.id, col.id)
-                  setContextMenu(null)
-                }}
-              >
-                {col.label}
-              </button>
-            ))}
-        </div>
-      )}
+      {contextMenu &&
+        onMoveTask &&
+        columns.length > 0 &&
+        createPortal(
+          <div
+            className="task-card-context-menu"
+            style={{ left: contextMenu.left, top: contextMenu.top }}
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div className="context-menu-title">Mover a →</div>
+            {columns
+              .filter((c) => c.id !== task.status)
+              .map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  className="context-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    onMoveTask(task.id, col.id)
+                    setContextMenu(null)
+                  }}
+                >
+                  {col.label}
+                </button>
+              ))}
+          </div>,
+          document.body
+        )}
       {showQRPrint && qrPrintData && (
         <QRPrintView
           opNumber={qrPrintData.opNumber}

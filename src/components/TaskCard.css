@@ -1671,12 +1671,6 @@ body.compact-mode .task-actions {
 }
 
 /* Menú contextual (clic derecho) */
-/* Durante drag del tablero, .columns-grid * no debe bloquear el menú */
-.board-wrapper.is-dragging .task-card-context-menu,
-.board-wrapper.is-dragging .task-card-context-menu * {
-  pointer-events: auto !important;
-}
-
 .task-card-context-menu {
   position: fixed;
   z-index: 10000;
