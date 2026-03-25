@@ -153,7 +153,8 @@ const DashboardPantallasPage = () => {
 
     let raf = 0
     let hDir = 1
-    const hSpeed = 0.45
+    /** Vaivén horizontal del tablero (abajo): lento para lectura en pantalla */
+    const hSpeed = 0.12
     const vSpeed = 0.35
 
     const tick = () => {
@@ -424,19 +425,24 @@ const DashboardPantallasPage = () => {
 
                       return (
                       <div key={task.id} className={cardClass}>
-                        {task.priority === 'alta' && (
-                          <div className="priority-led-red"></div>
-                        )}
-                        {esNueva && (
-                          <span className="task-nueva-badge" title="Orden nueva o reciente">
-                            NUEVA
-                          </span>
-                        )}
                         <div className="task-header">
                           <span className="task-op">OP: {task.opNumber}</span>
-                          {task.priority === 'alta' && (
-                            <span className="priority-badge">URGENTE</span>
-                          )}
+                          <div className="task-header-right">
+                            {task.priority === 'alta' && (
+                              <>
+                                <span className="task-priority-led" aria-hidden />
+                                <span className="priority-badge">URGENTE</span>
+                              </>
+                            )}
+                            {esNueva && (
+                              <span
+                                className="task-nueva-badge"
+                                title="Orden nueva o reciente"
+                              >
+                                NUEVA
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="task-client">{task.title}</div>
                         {task.dniCuit && (

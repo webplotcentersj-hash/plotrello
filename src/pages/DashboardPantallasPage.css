@@ -494,11 +494,17 @@
   }
 }
 
+.task-header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
 .task-nueva-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 12;
+  flex-shrink: 0;
   background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
   color: #0f172a;
   font-size: 0.65rem;
@@ -507,10 +513,17 @@
   padding: 4px 8px;
   border-radius: 6px;
   box-shadow: 0 2px 12px rgba(34, 211, 238, 0.5);
+  white-space: nowrap;
 }
 
-.task-card.high-priority .task-nueva-badge {
-  top: 36px;
+.task-priority-led {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: blink-red 1s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.85);
 }
 
 @keyframes pulse-card {
@@ -523,27 +536,17 @@
   }
 }
 
-.priority-led-red {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 16px;
-  height: 16px;
-  background: #ef4444;
-  border-radius: 50%;
-  animation: blink-red 1s ease-in-out infinite;
-  box-shadow: 0 0 15px rgba(239, 68, 68, 1), 0 0 30px rgba(239, 68, 68, 0.5);
-  z-index: 10;
-}
-
 .task-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 10px;
 }
 
 .task-op {
+  flex: 1;
+  min-width: 0;
   font-weight: 700;
   font-size: 0.95rem;
   color: #eb671b;
