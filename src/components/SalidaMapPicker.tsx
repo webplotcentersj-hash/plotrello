@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+import { FLOTA_MAP_CENTER, FLOTA_MAP_ZOOM_CIUDAD, FLOTA_MAP_ZOOM_CERCA } from '../utils/flotaMapSanJuan'
 
 // Vite + Leaflet: iconos por defecto
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
@@ -14,7 +15,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow
 })
 
-const BA: L.LatLngExpression = [-34.6037, -58.3816]
+const SAN_JUAN: L.LatLngExpression = FLOTA_MAP_CENTER
 
 type SalidaMapPickerProps = {
   lat: number | null
@@ -47,7 +48,7 @@ export default function SalidaMapPicker({ lat, lng, onChange, height = 260 }: Sa
 
   const center = useMemo<L.LatLngExpression>(() => {
     if (lat != null && lng != null) return [lat, lng]
-    return BA
+    return SAN_JUAN
   }, [lat, lng])
 
   const runSearch = useCallback(async () => {
@@ -56,7 +57,8 @@ export default function SalidaMapPicker({ lat, lng, onChange, height = 260 }: Sa
     setSearching(true)
     setSearchError(null)
     try {
-      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lang=es`
+      const [sjLat, sjLon] = FLOTA_MAP_CENTER
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=8&lang=es&lat=${sjLat}&lon=${sjLon}`
       const res = await fetch(url)
       if (!res.ok) throw new Error('Error en búsqueda')
       const data = (await res.json()) as {
@@ -85,7 +87,7 @@ export default function SalidaMapPicker({ lat, lng, onChange, height = 260 }: Sa
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar dirección o lugar (Photon / OSM)"
+          placeholder="Buscar en San Juan y zona (dirección, barrio, localidad…)"
           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), void runSearch())}
         />
         <button type="button" className="btn-map-search" onClick={() => void runSearch()} disabled={searching}>
@@ -95,7 +97,12 @@ export default function SalidaMapPicker({ lat, lng, onChange, height = 260 }: Sa
       {searchError && <p className="salida-map-search-error">{searchError}</p>}
       <p className="salida-map-hint">Tocá el mapa o arrastrá el marcador para ajustar el punto de salida.</p>
       <div className="salida-map-wrap" style={{ height }}>
-        <MapContainer center={center} zoom={hasPin ? 15 : 12} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+        <MapContainer
+          center={center}
+          zoom={hasPin ? FLOTA_MAP_ZOOM_CERCA : FLOTA_MAP_ZOOM_CIUDAD}
+          style={{ height: '100%', width: '100%' }}
+          scrollWheelZoom
+        >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

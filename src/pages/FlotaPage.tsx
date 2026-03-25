@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Vehiculo, RegistroSalidaVehiculo } from '../types/api'
+import { vehiculosParqueDesdeApi } from '../utils/flotaVehiculosCatalogo'
 import RegistroSalidaModal from '../components/RegistroSalidaModal'
 import MarcarLlegadaModal from '../components/MarcarLlegadaModal'
 import FlotaMapa from '../components/FlotaMapa'
@@ -43,6 +44,8 @@ function RelojCabecera() {
   )
 }
 
+type ItemParque = ReturnType<typeof vehiculosParqueDesdeApi>[number]
+
 function regsPorVehiculo(vid: number, todos: RegistroSalidaVehiculo[]) {
   const same = todos.filter((r) => r.id_vehiculo === vid)
   const activo = same.find((r) => r.estado === 'en_uso' || r.estado === 'retrasado')
@@ -55,7 +58,7 @@ const FlotaPage = () => {
   const { isAdmin, isCaja, usuario } = useAuth()
   const canAutorizar = isAdmin || isCaja
 
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
+  const [itemsParque, setItemsParque] = useState<ItemParque[]>([])
   const [registros, setRegistros] = useState<RegistroSalidaVehiculo[]>([])
   const [historial, setHistorial] = useState<RegistroSalidaVehiculo[]>([])
   const [loading, setLoading] = useState(true)
@@ -85,7 +88,9 @@ const FlotaPage = () => {
       ])
 
       if (vehiculosResp.success && vehiculosResp.data) {
-        setVehiculos(vehiculosResp.data)
+        setItemsParque(vehiculosParqueDesdeApi(vehiculosResp.data))
+      } else {
+        setItemsParque(vehiculosParqueDesdeApi([]))
       }
 
       if (activosResp.success && activosResp.data) {
@@ -125,8 +130,16 @@ const FlotaPage = () => {
     [registros]
   )
 
-  const handleRegistrarSalida = (vehiculo: Vehiculo) => {
-    setVehiculoSeleccionado(vehiculo)
+  const handleRegistrarSalida = (item: ItemParque) => {
+    if (!item.enBase || item.id == null) return
+    const v: Vehiculo = {
+      id: item.id,
+      nombre: item.nombre,
+      activo: item.activo,
+      created_at: '',
+      updated_at: ''
+    }
+    setVehiculoSeleccionado(v)
     setShowRegistroModal(true)
   }
 
@@ -164,8 +177,11 @@ const FlotaPage = () => {
     else alert(response.error || 'Error al finalizar')
   }
 
-  const cardState = (vehiculo: Vehiculo) => {
-    const { activo, pendiente } = regsPorVehiculo(vehiculo.id, registros)
+  const cardState = (item: ItemParque) => {
+    if (!item.enBase || item.id == null) {
+      return { tipo: 'disponible' as const, registro: null, retrasado: false, sinBase: true as const }
+    }
+    const { activo, pendiente } = regsPorVehiculo(item.id, registros)
     if (activo) {
       const ahora = new Date()
       const horaEst = activo.hora_estimada_llegada ? new Date(activo.hora_estimada_llegada) : null
@@ -174,10 +190,10 @@ const FlotaPage = () => {
         ahora > horaEst &&
         !activo.hora_llegada_real &&
         (activo.estado === 'retrasado' || activo.estado === 'en_uso')
-      return { tipo: 'en_uso' as const, registro: activo, retrasado }
+      return { tipo: 'en_uso' as const, registro: activo, retrasado, sinBase: false as const }
     }
-    if (pendiente) return { tipo: 'pendiente' as const, registro: pendiente, retrasado: false }
-    return { tipo: 'disponible' as const, registro: null, retrasado: false }
+    if (pendiente) return { tipo: 'pendiente' as const, registro: pendiente, retrasado: false, sinBase: false as const }
+    return { tipo: 'disponible' as const, registro: null, retrasado: false, sinBase: false as const }
   }
 
   if (loading && !ultimaSync) {
@@ -246,14 +262,16 @@ const FlotaPage = () => {
           </div>
           <div className="flota-stat wide">
             <span className="flota-stat-label">Vehículos en parque</span>
-            <span className="flota-stat-value subtle">{vehiculos.length}</span>
+            <span className="flota-stat-value subtle">{itemsParque.length}</span>
           </div>
         </div>
 
         <section className="flota-panel flota-mapa-real">
           <div className="flota-panel-head">
             <h2>Mapa en tiempo real</h2>
-            <p className="flota-panel-desc">Unidades con salida autorizada (ubicación registrada al solicitar)</p>
+            <p className="flota-panel-desc">
+              Vista centrada en <strong>San Juan, Argentina</strong>. Marcadores: salidas autorizadas con ubicación.
+            </p>
           </div>
           <div className="flota-mapa-frame">
             <FlotaMapa registros={enMapa} height={400} />
@@ -445,22 +463,30 @@ const FlotaPage = () => {
             <h2>Parque de vehículos</h2>
           </div>
           <div className="vehiculos-grid">
-            {vehiculos.map((vehiculo) => {
-              const { tipo, registro, retrasado } = cardState(vehiculo)
+            {itemsParque.map((item) => {
+              const { tipo, registro, retrasado, sinBase } = cardState(item)
 
               return (
                 <div
-                  key={vehiculo.id}
-                  className={`vehiculo-card ${tipo} ${retrasado ? 'retrasado' : ''}`}
+                  key={item.enBase && item.id != null ? `id-${item.id}` : `nom-${item.nombre}`}
+                  className={`vehiculo-card ${tipo} ${retrasado ? 'retrasado' : ''} ${sinBase ? 'sin-base' : ''}`}
                 >
                   <div className="vehiculo-header">
-                    <h3>{vehiculo.nombre}</h3>
+                    <h3>{item.nombre}</h3>
                     <span className={`estado-badge ${tipo}`}>
-                      {tipo === 'disponible' && 'Disponible'}
-                      {tipo === 'pendiente' && 'Pendiente'}
-                      {tipo === 'en_uso' && (retrasado ? 'Retrasado' : 'En ruta')}
+                      {sinBase && 'Sin BD'}
+                      {!sinBase && tipo === 'disponible' && 'Disponible'}
+                      {!sinBase && tipo === 'pendiente' && 'Pendiente'}
+                      {!sinBase && tipo === 'en_uso' && (retrasado ? 'Retrasado' : 'En ruta')}
                     </span>
                   </div>
+
+                  {sinBase && (
+                    <p className="flota-sin-base-msg">
+                      Este vehículo no está cargado en Supabase. Ejecutá el SQL de flota (insert en{' '}
+                      <code>vehiculos</code>) para poder solicitar salidas.
+                    </p>
+                  )}
 
                   {tipo === 'pendiente' && registro && (
                     <div className="vehiculo-info">
@@ -543,9 +569,14 @@ const FlotaPage = () => {
                   )}
 
                   <div className="vehiculo-actions">
-                    {tipo === 'disponible' && (
-                      <button type="button" className="flota-btn primary" onClick={() => handleRegistrarSalida(vehiculo)}>
+                    {tipo === 'disponible' && !sinBase && (
+                      <button type="button" className="flota-btn primary" onClick={() => handleRegistrarSalida(item)}>
                         Solicitar salida
+                      </button>
+                    )}
+                    {sinBase && (
+                      <button type="button" className="flota-btn secondary" disabled>
+                        Solicitar salida (requiere BD)
                       </button>
                     )}
                     {tipo === 'pendiente' && !canAutorizar && (

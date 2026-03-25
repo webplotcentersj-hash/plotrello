@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Vehiculo, RegistroSalidaVehiculo } from '../types/api'
@@ -159,14 +160,18 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
     }
   }
 
-  return (
+  const modal = (
     <div
-      className="modal-overlay"
+      className="registro-salida-modal-overlay"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="modal-content registro-salida-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="registro-salida-modal registro-salida-modal-inner"
+        onClick={(e) => e.stopPropagation()}
+        role="document"
+      >
         <header className="modal-header">
           <h2>Solicitud de salida — {vehiculo.nombre}</h2>
           <button type="button" className="modal-close" onClick={onClose}>
@@ -255,7 +260,7 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
           </div>
 
           <div className="form-group">
-            <label>Punto de salida en mapa</label>
+            <label>Punto de salida en mapa (San Juan, Argentina)</label>
             <div className="map-toolbar">
               <button type="button" className="btn-secondary btn-sm" onClick={geolocalizarAqui}>
                 📍 Mi ubicación
@@ -281,6 +286,8 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }
 
 export default RegistroSalidaModal

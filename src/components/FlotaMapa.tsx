@@ -6,6 +6,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import type { RegistroSalidaVehiculo } from '../types/api'
+import { FLOTA_MAP_CENTER, FLOTA_MAP_ZOOM_CIUDAD } from '../utils/flotaMapSanJuan'
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -14,7 +15,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow
 })
 
-const BA: L.LatLngExpression = [-34.6037, -58.3816]
+const SAN_JUAN: L.LatLngExpression = FLOTA_MAP_CENTER
 
 type FlotaMapaProps = {
   registros: RegistroSalidaVehiculo[]
@@ -34,7 +35,7 @@ export default function FlotaMapa({ registros, height = 360 }: FlotaMapaProps) {
   )
 
   const center = useMemo(() => {
-    if (puntos.length === 0) return BA
+    if (puntos.length === 0) return SAN_JUAN
     const la = puntos.reduce((s, r) => s + Number(r.latitud), 0) / puntos.length
     const lo = puntos.reduce((s, r) => s + Number(r.longitud), 0) / puntos.length
     return [la, lo] as L.LatLngExpression
@@ -42,7 +43,11 @@ export default function FlotaMapa({ registros, height = 360 }: FlotaMapaProps) {
 
   return (
     <div className="flota-mapa-leaflet" style={{ height, borderRadius: 12, overflow: 'hidden' }}>
-      <MapContainer center={center} zoom={puntos.length ? 11 : 12} style={{ height: '100%', width: '100%' }}>
+      <MapContainer
+        center={center}
+        zoom={puntos.length ? 11 : FLOTA_MAP_ZOOM_CIUDAD}
+        style={{ height: '100%', width: '100%' }}
+      >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
