@@ -7,6 +7,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import type { RegistroSalidaVehiculo } from '../types/api'
 import { FLOTA_MAP_CENTER, FLOTA_MAP_ZOOM_CIUDAD } from '../utils/flotaMapSanJuan'
+import './FlotaMapa.css'
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -54,7 +55,7 @@ export default function FlotaMapa({ registros, height = 360 }: FlotaMapaProps) {
         />
         {puntos.map((r) => (
           <Marker key={r.id} position={[Number(r.latitud), Number(r.longitud)]}>
-            <Popup>
+            <Popup className="flota-viaje-popup">
               <strong>{r.vehiculo?.nombre ?? 'Vehículo'}</strong>
               <br />
               {r.nombre_usuario} · {r.sector}

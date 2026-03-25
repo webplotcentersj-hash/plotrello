@@ -35,14 +35,14 @@
 .marcar-llegada-modal h2 {
   margin: 0 0 8px 0;
   font-size: 1.25rem;
-  color: #f1f5f9;
+  color: #ffffff;
   font-weight: 700;
 }
 
 .marcar-llegada-sub {
   margin: 0 0 20px 0;
   font-size: 0.88rem;
-  color: #94a3b8;
+  color: #ffffff;
   line-height: 1.45;
 }
 
@@ -50,7 +50,7 @@
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #cbd5e1;
+  color: #ffffff;
   margin-bottom: 8px;
 }
 
@@ -60,10 +60,15 @@
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(15, 23, 42, 0.8);
-  color: #f8fafc;
+  color: #ffffff;
+  color-scheme: dark;
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
   margin-bottom: 12px;
+}
+
+.marcar-llegada-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .marcar-llegada-input:focus {
@@ -75,7 +80,7 @@
 .marcar-llegada-error {
   margin: 0 0 12px 0;
   font-size: 0.85rem;
-  color: #fca5a5;
+  color: #ffffff;
 }
 
 .marcar-llegada-actions {
@@ -113,7 +118,8 @@
 
 .marcar-llegada-btn.secondary {
   background: rgba(51, 65, 85, 0.9);
-  color: #e2e8f0;
+  color: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .marcar-llegada-btn.secondary:hover:not(:disabled) {

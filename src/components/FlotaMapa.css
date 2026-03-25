@@ -1,0 +1,36 @@
+/* className va en .leaflet-popup; hijos: content-wrapper + tip */
+.flota-viaje-popup .leaflet-popup-content-wrapper {
+  background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%) !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+  padding: 4px 2px;
+}
+
+.flota-viaje-popup .leaflet-popup-content {
+  margin: 12px 14px !important;
+  color: #ffffff !important;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.flota-viaje-popup .leaflet-popup-content strong {
+  color: #ffffff !important;
+  font-size: 1rem;
+}
+
+.flota-viaje-popup .leaflet-popup-tip-container .leaflet-popup-tip {
+  background: #0f172a !important;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.flota-viaje-popup a.leaflet-popup-close-button {
+  color: #ffffff !important;
+  font-weight: 700;
+  padding: 8px 10px 0 0 !important;
+}
+
+.flota-viaje-popup a.leaflet-popup-close-button:hover {
+  color: #7dd3fc !important;
+}
