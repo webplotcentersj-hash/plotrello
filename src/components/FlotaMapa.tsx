@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -19,31 +19,46 @@ L.Icon.Default.mergeOptions({
 
 const SAN_JUAN: L.LatLngExpression = FLOTA_MAP_CENTER
 
-const luzIconEnRuta = L.divIcon({
-  className: 'flota-marker-divicon',
-  html: '<div class="flota-marker-luz flota-marker-luz--ok"><span class="flota-marker-luz-core"></span></div>',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-  popupAnchor: [0, -16]
-})
-
-const luzIconRetrasado = L.divIcon({
-  className: 'flota-marker-divicon',
-  html: '<div class="flota-marker-luz flota-marker-luz--warn"><span class="flota-marker-luz-core"></span></div>',
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-  popupAnchor: [0, -16]
-})
+/** Un DivIcon por instancia de mapa: compartir el mismo entre dos MapContainer rompe el DOM de Leaflet. */
+function crearIconosLuz() {
+  return {
+    ok: L.divIcon({
+      className: 'flota-marker-divicon',
+      html: '<div class="flota-marker-luz flota-marker-luz--ok"><span class="flota-marker-luz-core"></span></div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -16]
+    }),
+    warn: L.divIcon({
+      className: 'flota-marker-divicon',
+      html: '<div class="flota-marker-luz flota-marker-luz--warn"><span class="flota-marker-luz-core"></span></div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -16]
+    })
+  }
+}
 
 function MapInvalidateSize() {
   const map = useMap()
   useEffect(() => {
-    const t = window.setTimeout(() => map.invalidateSize(), 50)
-    const onResize = () => map.invalidateSize()
-    window.addEventListener('resize', onResize)
+    let alive = true
+    const safeInvalidate = () => {
+      if (!alive) return
+      try {
+        const el = map?.getContainer?.()
+        if (!el?.isConnected) return
+        map.invalidateSize({ animate: false })
+      } catch {
+        /* mapa ya desmontado */
+      }
+    }
+    const t = window.setTimeout(safeInvalidate, 50)
+    window.addEventListener('resize', safeInvalidate)
     return () => {
+      alive = false
       window.clearTimeout(t)
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', safeInvalidate)
     }
   }, [map])
   return null
@@ -85,10 +100,31 @@ export default function FlotaMapa({
     return [la, lo] as L.LatLngExpression
   }, [puntos])
 
+  const iconosLuz = useMemo(() => crearIconosLuz(), [])
+
+  /** Evita montar Leaflet en el primer ciclo de React Strict Mode (deja el mapa sin contenedor válido). */
+  const [mapaMontar, setMapaMontar] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMapaMontar(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   const h = typeof height === 'number' ? `${height}px` : height
   const wrapClass = ['flota-mapa-leaflet', className, square ? 'flota-mapa-leaflet--square' : '']
     .filter(Boolean)
     .join(' ')
+
+  if (!mapaMontar) {
+    return (
+      <div
+        className={wrapClass}
+        style={{ height: h, borderRadius: square ? 0 : 12, overflow: 'hidden' }}
+        aria-hidden
+      >
+        <div className="flota-mapa-placeholder" />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -112,8 +148,8 @@ export default function FlotaMapa({
             icon={
               marcadoresLuz
                 ? r.estado === 'retrasado'
-                  ? luzIconRetrasado
-                  : luzIconEnRuta
+                  ? iconosLuz.warn
+                  : iconosLuz.ok
                 : undefined
             }
           >
