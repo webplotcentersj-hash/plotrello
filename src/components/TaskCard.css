@@ -47,6 +47,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 22;
   background: rgba(6, 182, 212, 0.9);
   color: white;
   padding: 4px 10px;
@@ -81,6 +82,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 22;
   background: rgba(245, 158, 11, 0.9);
   color: white;
   padding: 4px 10px;
@@ -111,6 +113,7 @@
 
 .task-card.ficha-tecnica-cargada.presupuesto-enviado::after {
   content: '✓ COMPLETADO';
+  z-index: 22;
   background: rgba(16, 185, 129, 0.9);
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
 }
@@ -280,6 +283,14 @@
   top: 12px;
   left: 12px;
   z-index: 12;
+}
+
+/* Checklist / planilla: no recortar badges si también es “new move” */
+.task-card.is-new-move.ficha-tecnica-cargada,
+.task-card.is-new-move.presupuesto-enviado,
+.task-card.is-new-move.planilla-preliminar,
+.task-card.is-new-move.ficha-tecnica-cargada.presupuesto-enviado {
+  overflow: visible;
 }
 
 .task-card.is-new-move {

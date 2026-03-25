@@ -232,6 +232,24 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Etapas (columnas): acento por columna — refuerzo sobre fondo glass */
+.asesor-presupuestos-board-wrap .board-column .column-load-indicator {
+  opacity: 0.85;
+}
+
+.asesor-presupuestos-board-wrap .board-column header .column-eyebrow {
+  color: color-mix(in srgb, var(--column-accent) 72%, var(--ap-muted));
+}
+
+/* Checklist / planilla: tintes visibles (el blur de la tarjeta diluía el color) */
+.asesor-presupuestos-board-wrap .task-card.planilla-preliminar,
+.asesor-presupuestos-board-wrap .task-card.ficha-tecnica-cargada,
+.asesor-presupuestos-board-wrap .task-card.presupuesto-enviado,
+.asesor-presupuestos-board-wrap .task-card.ficha-tecnica-cargada.presupuesto-enviado {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* Filtros: tono oscuro solo dentro de esta página */
 .asesor-presupuestos-page .filters-bar {
   background: var(--ap-glass);

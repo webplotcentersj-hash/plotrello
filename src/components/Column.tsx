@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, type Ref } from 'react'
+import { memo, useMemo, useState, type CSSProperties, type Ref } from 'react'
 import { Draggable, type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -75,7 +75,11 @@ const Column = ({
   const hiddenTasksCount = Math.max(0, tasks.length - visibleTasks.length)
 
   return (
-    <div className={`board-column ${isActive ? 'column-active' : ''}`} ref={containerRef}>
+    <div
+      className={`board-column ${isActive ? 'column-active' : ''}`}
+      ref={containerRef}
+      style={{ '--column-accent': column.accent } as CSSProperties}
+    >
       <div className="column-load-indicator" style={{ height: `${loadPercentage}%` }} />
       <header>
         <div>
