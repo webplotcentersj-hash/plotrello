@@ -68,6 +68,8 @@ const FlotaPage = () => {
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<Vehiculo | null>(null)
   const [llegadaRegistro, setLlegadaRegistro] = useState<RegistroSalidaVehiculo | null>(null)
   const [historialAbierto, setHistorialAbierto] = useState(true)
+  /** Ayuda cuando la API devuelve vacío (típico: RLS solo para `authenticated` y la app usa rol `anon`). */
+  const [vehiculosLoadHint, setVehiculosLoadHint] = useState<string | null>(null)
 
   const loadData = useCallback(async (opts?: { quiet?: boolean }) => {
     const quiet = opts?.quiet === true
@@ -87,10 +89,22 @@ const FlotaPage = () => {
         })
       ])
 
-      if (vehiculosResp.success && vehiculosResp.data) {
-        setItemsParque(vehiculosParqueDesdeApi(vehiculosResp.data))
+      const rawVehiculos = vehiculosResp.success ? (vehiculosResp.data ?? []) : []
+      const mergedParque = vehiculosParqueDesdeApi(rawVehiculos)
+      setItemsParque(mergedParque)
+
+      if (!vehiculosResp.success) {
+        setVehiculosLoadHint(vehiculosResp.error ?? 'No se pudieron cargar los vehículos desde Supabase.')
+      } else if (rawVehiculos.length === 0) {
+        setVehiculosLoadHint(
+          'Supabase devolvió 0 vehículos. Si ya ejecutaste el INSERT, la causa habitual es RLS: Plotrello usa la clave anónima sin login de Supabase Auth (rol anon). Ejecutá en SQL el patch: supabase/patches/2026-03-28_flota_rls_anon_plotrello.sql'
+        )
+      } else if (mergedParque.every((m) => !m.enBase)) {
+        setVehiculosLoadHint(
+          'Hay filas en vehículos pero ningún nombre coincide con el catálogo (Amarok, Berlingo, Camión MB, Lifán, Máster, Ránger, Camión LED). Revisá la columna nombre en la tabla.'
+        )
       } else {
-        setItemsParque(vehiculosParqueDesdeApi([]))
+        setVehiculosLoadHint(null)
       }
 
       if (activosResp.success && activosResp.data) {
@@ -246,6 +260,12 @@ const FlotaPage = () => {
             )}
           </div>
         </header>
+
+        {vehiculosLoadHint && (
+          <div className="flota-rls-banner" role="status">
+            <strong>Flota / Supabase:</strong> {vehiculosLoadHint}
+          </div>
+        )}
 
         <div className="flota-stats-strip">
           <div className="flota-stat">
