@@ -9,6 +9,14 @@
   position: relative;
 }
 
+.dashboard-pantallas--fullscreen .dashboard-title {
+  font-size: 2rem;
+}
+
+.dashboard-pantallas--fullscreen .dashboard-reloj-hora {
+  font-size: 2.25rem;
+}
+
 /* Loading State */
 .dashboard-pantallas-loading,
 .dashboard-pantallas-error {
@@ -47,11 +55,108 @@
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(10px);
   border-bottom: 2px solid rgba(235, 103, 27, 0.3);
-  padding: 20px 40px;
+  padding: 20px 40px 0;
   position: sticky;
   top: 0;
   z-index: 100;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Barra de jornada 8:00–19:00 (solo esta pantalla) */
+.dashboard-jornada {
+  width: 100%;
+  padding: 14px 0 18px;
+  margin-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, transparent 100%);
+}
+
+.dashboard-jornada-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.dashboard-jornada-extremo {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.75);
+  min-width: 3rem;
+}
+
+.dashboard-jornada-extremo:first-child {
+  text-align: left;
+}
+
+.dashboard-jornada-extremo:last-child {
+  text-align: right;
+}
+
+.dashboard-jornada-titulo {
+  flex: 1;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.dashboard-jornada-track {
+  position: relative;
+  height: 16px;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
+  overflow: visible;
+  background-color: rgba(255, 255, 255, 0.06);
+  /* Marcas horarias aproximadas (11 intervalos entre 8 y 19 h) */
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent calc(100% / 11 - 1px),
+    rgba(255, 255, 255, 0.07) calc(100% / 11 - 1px),
+    rgba(255, 255, 255, 0.07) calc(100% / 11)
+  );
+}
+
+.dashboard-jornada-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  max-width: 100%;
+  background: linear-gradient(90deg, #9a3412 0%, #ea580c 35%, #eb671b 70%, #fbbf24 100%);
+  box-shadow: 0 0 16px rgba(235, 103, 27, 0.35);
+  transition: width 0.85s linear;
+  pointer-events: none;
+}
+
+.dashboard-jornada-marcador {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 26px;
+  background: #ffffff;
+  border-radius: 3px;
+  box-shadow:
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 0 24px rgba(235, 103, 27, 0.5);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.dashboard-jornada-estado {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
 }
 
 .header-content {
@@ -61,6 +166,68 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 20px;
+}
+
+.header-pantalla-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-reloj {
+  text-align: center;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  border: 1px solid rgba(235, 103, 27, 0.35);
+  min-width: 200px;
+}
+
+.dashboard-reloj time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.dashboard-reloj-hora {
+  font-size: 1.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(235, 103, 27, 0.45);
+}
+
+.dashboard-reloj-fecha {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.btn-pantalla-completa {
+  cursor: pointer;
+  border: 2px solid rgba(235, 103, 27, 0.6);
+  background: linear-gradient(180deg, rgba(235, 103, 27, 0.35) 0%, rgba(180, 60, 10, 0.45) 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 12px 20px;
+  border-radius: 12px;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-pantalla-completa:hover {
+  transform: scale(1.03);
+  border-color: #eb671b;
+  box-shadow: 0 4px 24px rgba(235, 103, 27, 0.35);
+}
+
+.btn-pantalla-completa:active {
+  transform: scale(0.98);
 }
 
 .dashboard-title {
@@ -145,11 +312,13 @@
   font-size: 1.1rem;
 }
 
-/* Content */
+/* Content: scroll horizontal automático (vaivén vía JS) */
 .dashboard-content {
   padding: 30px 20px;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: auto;
 }
 
 .columns-container {
@@ -298,6 +467,52 @@
   animation: pulse-card 2s ease-in-out infinite;
 }
 
+/* Órdenes nuevas (últimas 12 h o recién insertadas por realtime) */
+.task-card.task-nueva {
+  border-color: rgba(34, 211, 238, 0.65);
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
+}
+
+.task-card.task-nueva--en-vivo {
+  animation: nueva-op-vivo 2.2s ease-in-out infinite;
+  border-color: rgba(52, 211, 153, 0.9);
+  box-shadow: 0 0 28px rgba(52, 211, 153, 0.45);
+}
+
+@keyframes nueva-op-vivo {
+  0%,
+  100% {
+    box-shadow: 0 0 22px rgba(52, 211, 153, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 36px rgba(52, 211, 153, 0.65);
+  }
+}
+
+.task-nueva-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 12;
+  background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+  color: #0f172a;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(34, 211, 238, 0.5);
+}
+
+.task-card.high-priority .task-nueva-badge {
+  top: 36px;
+}
+
 @keyframes pulse-card {
   0%,
   100% {
@@ -436,7 +651,17 @@
 
 @media (max-width: 768px) {
   .dashboard-header {
-    padding: 15px 20px;
+    padding: 15px 20px 0;
+  }
+
+  .dashboard-jornada {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .dashboard-jornada-titulo {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
   }
 
   .header-content {
