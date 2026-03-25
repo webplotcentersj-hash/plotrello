@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
+import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
 import type { ClienteRecord } from '../types/api'
 import QRPrintView from './QRPrintView'
 import './FichaNoOPModal.css'
@@ -236,6 +237,8 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
         alert(response.error || 'Error al crear la ficha')
         return
       }
+
+      broadcastOrdenesChanged()
 
       const created = response.data
       const ordenId = created?.id

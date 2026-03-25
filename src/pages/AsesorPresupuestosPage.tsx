@@ -6,6 +6,7 @@ import FiltersBar from '../components/FiltersBar'
 import TaskEditModal from '../components/TaskEditModal'
 import FichaNoOPModal from '../components/FichaNoOPModal'
 import AgendaAsesorTecnico from '../components/AgendaAsesorTecnico'
+import HistorialFichasAsesorPanel from '../components/HistorialFichasAsesorPanel'
 import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
@@ -15,6 +16,7 @@ import {
   parseTaskIdToOrdenId,
   taskToOrdenPayload
 } from '../utils/dataMappers'
+import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import './AsesorPresupuestosPage.css'
 
 type AsesorPresupuestosPageProps = {
@@ -27,7 +29,7 @@ type AsesorPresupuestosPageProps = {
   onNavigateToUsuarios?: () => void
   onNavigateToChat?: () => void
   onLogout?: () => void
-  onReloadData?: () => Promise<void>
+  onReloadData?: (options?: { silent?: boolean }) => Promise<void>
 }
 
 const AsesorPresupuestosPage = ({
@@ -51,7 +53,7 @@ const AsesorPresupuestosPage = ({
   const [isFichaNoOPModalOpen, setIsFichaNoOPModalOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'kanban' | 'agenda'>('kanban')
+  const [activeTab, setActiveTab] = useState<'kanban' | 'agenda' | 'historial'>('kanban')
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -117,6 +119,26 @@ const AsesorPresupuestosPage = ({
       return () => clearTimeout(timer)
     }
   }, [actionError, actionSuccess])
+
+  // Otras pestañas / usuarios: realtime puede no entregar el INSERT; mantener lista al día
+  useEffect(() => {
+    if (!canAccess || !onReloadData) return
+    const silentReload = () => {
+      if (document.visibilityState !== 'visible') return
+      void onReloadData({ silent: true })
+    }
+    const unsubBroadcast = subscribeOrdenesBroadcast(silentReload)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') silentReload()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    const intervalId = window.setInterval(silentReload, 40000)
+    return () => {
+      unsubBroadcast()
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.clearInterval(intervalId)
+    }
+  }, [canAccess, onReloadData])
 
   const toggleStatusFocus = (status: TaskStatus) => {
     setStatusFocus((prev) =>
@@ -247,9 +269,18 @@ const AsesorPresupuestosPage = ({
   if (!canAccess) {
     return (
       <div className="asesor-presupuestos-page">
-        <div className="access-denied">
-          <h2>Acceso Denegado</h2>
-          <p>No tienes permisos para acceder a esta sección.</p>
+        <div className="asesor-presupuestos-ambient" aria-hidden />
+        <div className="asesor-presupuestos-inner">
+          <div className="asesor-presupuestos-denied-card">
+            <div className="asesor-presupuestos-denied-icon" aria-hidden>
+              🔒
+            </div>
+            <h2>Acceso restringido</h2>
+            <p>Tu usuario no tiene permiso para esta vista. Si creés que es un error, consultá con administración.</p>
+            <button type="button" className="asesor-p-btn asesor-p-btn-primary" onClick={() => navigate('/')}>
+              Ir al tablero
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -257,6 +288,7 @@ const AsesorPresupuestosPage = ({
 
   return (
     <div className="asesor-presupuestos-page">
+      <div className="asesor-presupuestos-ambient" aria-hidden />
       <Header
         teamMembers={teamMembers}
         activity={activity}
@@ -267,43 +299,77 @@ const AsesorPresupuestosPage = ({
       />
 
       <div className="asesor-presupuestos-content">
-        <div className="asesor-presupuestos-header">
-          <div className="asesor-presupuestos-header-top">
-            <h1>Asesor Técnico y Presupuestos</h1>
+        <div className="asesor-presupuestos-inner">
+          <header className="asesor-presupuestos-hero">
+            <button type="button" className="asesor-presupuestos-back" onClick={() => navigate('/')}>
+              <span aria-hidden>←</span> Tablero general
+            </button>
+            <div className="asesor-presupuestos-hero-badge">Flujo asesoría</div>
+            <h1 className="asesor-presupuestos-title">Asesor técnico y presupuestos</h1>
+            <p className="asesor-presupuestos-lead">
+              Mediciones, factibilidad y armado de presupuestos en un tablero dedicado.
+            </p>
+            {activeTab === 'kanban' && (
+              <div className="asesor-presupuestos-stats">
+                <div className="asesor-presupuestos-stat">
+                  <span className="asesor-presupuestos-stat-value">{filteredTasks.length}</span>
+                  <span className="asesor-presupuestos-stat-label">Órdenes visibles</span>
+                </div>
+                <div className="asesor-presupuestos-stat">
+                  <span className="asesor-presupuestos-stat-value">{ASESOR_PRESUPUESTOS_COLUMNS.length}</span>
+                  <span className="asesor-presupuestos-stat-label">Etapas</span>
+                </div>
+              </div>
+            )}
+          </header>
+
+          <div className="asesor-presupuestos-segment" role="tablist" aria-label="Vista">
             <button
               type="button"
-              className="btn-volver-tablero"
-              onClick={() => navigate('/')}
+              role="tab"
+              aria-selected={activeTab === 'kanban'}
+              className={`asesor-presupuestos-segment-btn ${activeTab === 'kanban' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('kanban')}
             >
-              ← Volver a tablero general
+              <span className="asesor-presupuestos-segment-ico" aria-hidden>
+                ▦
+              </span>
+              Kanban
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'agenda'}
+              className={`asesor-presupuestos-segment-btn ${activeTab === 'agenda' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('agenda')}
+            >
+              <span className="asesor-presupuestos-segment-ico" aria-hidden>
+                ◷
+              </span>
+              Agenda
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'historial'}
+              className={`asesor-presupuestos-segment-btn ${activeTab === 'historial' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('historial')}
+            >
+              <span className="asesor-presupuestos-segment-ico" aria-hidden>
+                ☰
+              </span>
+              Historial fichas
             </button>
           </div>
-          <p className="subtitle">Gestión de mediciones, factibilidad y presupuestos</p>
-        </div>
-
-        <div className="asesor-tabs">
-          <button
-            className={`tab-button ${activeTab === 'kanban' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kanban')}
-          >
-            📋 Kanban
-          </button>
-          <button
-            className={`tab-button ${activeTab === 'agenda' ? 'active' : ''}`}
-            onClick={() => setActiveTab('agenda')}
-          >
-            📅 Agenda
-          </button>
-        </div>
 
         {actionError && (
-          <div className="alert alert-error">
+          <div className="asesor-presupuestos-toast asesor-presupuestos-toast--error" role="alert">
             {actionError}
           </div>
         )}
 
         {actionSuccess && (
-          <div className="alert alert-success">
+          <div className="asesor-presupuestos-toast asesor-presupuestos-toast--ok" role="status">
             {actionSuccess}
           </div>
         )}
@@ -329,7 +395,7 @@ const AsesorPresupuestosPage = ({
               onAddNewOrder={() => setIsFichaNoOPModalOpen(true)}
             />
 
-            <div className="board-container">
+            <div className="asesor-presupuestos-board-wrap">
               <Board
                 tasks={filteredTasks}
                 allTasks={tasks}
@@ -344,15 +410,26 @@ const AsesorPresupuestosPage = ({
               />
             </div>
           </>
-        ) : (
+        ) : activeTab === 'agenda' ? (
           idAsesorParaAgenda != null ? (
             <AgendaAsesorTecnico idAsesor={idAsesorParaAgenda} />
           ) : (
-            <div className="agenda-sin-asesor">
-              <p>No hay asesores técnicos en el sistema para mostrar la agenda.</p>
-              <p>La agenda muestra las citas de mediciones y visitas del asesor técnico.</p>
+            <div className="asesor-presupuestos-empty-agenda">
+              <div className="asesor-presupuestos-empty-agenda-icon" aria-hidden>
+                ◷
+              </div>
+              <p className="asesor-presupuestos-empty-agenda-title">Sin asesor para la agenda</p>
+              <p className="asesor-presupuestos-empty-agenda-text">
+                No hay usuarios con rol asesor técnico cargados. La agenda muestra citas de mediciones y visitas.
+              </p>
             </div>
           )
+        ) : (
+          <HistorialFichasAsesorPanel
+            tasks={tasks}
+            onEditTask={(task) => setTaskToEdit(task)}
+            onRefrescarTablero={onReloadData}
+          />
         )}
 
         {taskToEdit && (
@@ -377,6 +454,7 @@ const AsesorPresupuestosPage = ({
             }}
           />
         )}
+        </div>
       </div>
     </div>
   )

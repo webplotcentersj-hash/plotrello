@@ -2,6 +2,7 @@ import { BOARD_COLUMNS } from '../data/mockData'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import type {
   ClienteRecord,
+  FichaHistorialItem,
   HistorialMovimiento,
   HistorialEtapaTallerGrafico,
   HistorialEtapaInstalaciones,
@@ -8742,6 +8743,77 @@ class ApiService {
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Fichas No OP activas + órdenes que fueron ficha y ya tienen OP (requiere columna numero_ficha_original en BD).
+   */
+  async getHistorialFichasAsesor(limit = 400): Promise<ApiResponse<FichaHistorialItem[]>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    const mapRow = (r: Record<string, unknown>): FichaHistorialItem => {
+      const leg = r.numero_ficha_original
+      const legStr =
+        leg != null && String(leg).trim() !== '' ? String(leg).trim() : null
+      return {
+        id: r.id as number,
+        numero_op: String(r.numero_op ?? ''),
+        cliente: (r.cliente as string) ?? null,
+        estado: (r.estado as string) ?? null,
+        sector: (r.sector as string) ?? null,
+        fecha_creacion: (r.fecha_creacion as string) ?? null,
+        nombre_creador: (r.nombre_creador as string) ?? null,
+        es_ficha_no_op: (r.es_ficha_no_op as boolean | null) ?? null,
+        numero_ficha_original: legStr,
+        descripcion: (r.descripcion as string) ?? null
+      }
+    }
+
+    const baseCols =
+      'id, numero_op, cliente, estado, sector, fecha_creacion, nombre_creador, es_ficha_no_op, descripcion, visible_en_tablero'
+    const withLegacy = `${baseCols}, numero_ficha_original`
+
+    let { data, error } = await supabase
+      .from('ordenes_trabajo')
+      .select(withLegacy)
+      .or('es_ficha_no_op.eq.true,numero_ficha_original.not.is.null')
+      .order('fecha_creacion', { ascending: false })
+      .limit(limit)
+
+    if (error?.message?.includes('numero_ficha_original')) {
+      const fb = await supabase
+        .from('ordenes_trabajo')
+        .select(baseCols)
+        .eq('es_ficha_no_op', true)
+        .order('fecha_creacion', { ascending: false })
+        .limit(limit)
+      if (fb.error) {
+        return { success: false, error: fb.error.message }
+      }
+      const rows = ((fb.data || []) as Record<string, unknown>[])
+        .filter((r) => r.visible_en_tablero !== false)
+        .map((r) => mapRow({ ...r, numero_ficha_original: null }))
+      return { success: true, data: rows }
+    }
+
+    if (error) {
+      console.error('getHistorialFichasAsesor:', error)
+      return { success: false, error: error.message }
+    }
+
+    const rows = ((data || []) as Record<string, unknown>[])
+      .filter((r) => {
+        const hasLegacy =
+          r.numero_ficha_original != null && String(r.numero_ficha_original).trim() !== ''
+        if (hasLegacy) return true
+        if (r.es_ficha_no_op === true) return r.visible_en_tablero !== false
+        return false
+      })
+      .map(mapRow)
+
+    return { success: true, data: rows }
   }
 
   /**

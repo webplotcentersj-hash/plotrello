@@ -200,20 +200,25 @@ function App() {
     setMateriales([])
   }
 
-  const loadRemoteData = useCallback(async () => {
-    setDataLoading(true)
-    setDataError(null)
+  const loadRemoteData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
+    if (!silent) {
+      setDataLoading(true)
+      setDataError(null)
+    }
     try {
       if (!supabase) {
-        setDataLoading(false)
-        const errorMsg = 'Supabase no está configurado. Define las variables VITE_SUPABASE_* y vuelve a intentar.'
-        setDataError(errorMsg)
-        console.error('❌', errorMsg)
-        setTasks([])
-        setActivity([])
-        setTeamMembers([])
-        setSectores([])
-        setMateriales([])
+        if (!silent) {
+          setDataLoading(false)
+          const errorMsg = 'Supabase no está configurado. Define las variables VITE_SUPABASE_* y vuelve a intentar.'
+          setDataError(errorMsg)
+          console.error('❌', errorMsg)
+          setTasks([])
+          setActivity([])
+          setTeamMembers([])
+          setSectores([])
+          setMateriales([])
+        }
         return
       }
 
@@ -222,10 +227,23 @@ function App() {
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
       
       if (!supabaseUrl || !supabaseKey) {
-        const errorMsg = 'Variables de entorno de Supabase no configuradas. Verifica VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.'
-        setDataError(errorMsg)
-        setDataLoading(false)
-        console.error('❌', errorMsg)
+        if (!silent) {
+          const errorMsg = 'Variables de entorno de Supabase no configuradas. Verifica VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.'
+          setDataError(errorMsg)
+          setDataLoading(false)
+          console.error('❌', errorMsg)
+        }
+        return
+      }
+
+      // Refresco ligero: solo órdenes (Kanban compartido / realtime ausente o RLS en eventos)
+      if (silent) {
+        const ordenesResp = await apiService.getOrdenes()
+        if (ordenesResp.success && ordenesResp.data) {
+          setTasks(ordenesResp.data.map((orden) => ordenToTask(orden)))
+        } else if (!ordenesResp.success) {
+          console.warn('🔄 Actualización silenciosa: órdenes no disponibles', ordenesResp.error)
+        }
         return
       }
 
@@ -295,7 +313,9 @@ function App() {
         setDataError(`No se pudieron sincronizar los datos con Supabase: ${errorMessage}`)
       }
     } finally {
-      setDataLoading(false)
+      if (!silent) {
+        setDataLoading(false)
+      }
     }
   }, [])
 
@@ -622,7 +642,7 @@ function AppRoutes({
   activity: ActivityEvent[]
   setActivity: React.Dispatch<React.SetStateAction<ActivityEvent[]>>
   onLogout: () => void
-  onReloadData: () => Promise<void>
+  onReloadData: (options?: { silent?: boolean }) => Promise<void>
   isSyncing: boolean
   syncError: string | null
   teamMembers: TeamMember[]

@@ -1,176 +1,580 @@
+/* Asesor técnico y presupuestos — vista editorial / glass (alineada a protocolos-bases) */
+
 .asesor-presupuestos-page {
+  --ap-bg0: #030712;
+  --ap-bg1: #0f172a;
+  --ap-glass: rgba(15, 23, 42, 0.55);
+  --ap-border: rgba(148, 163, 184, 0.14);
+  --ap-text: #f1f5f9;
+  --ap-muted: #94a3b8;
+  --ap-accent: #a78bfa;
+  --ap-accent2: #38bdf8;
+  --ap-ok: #34d399;
+  --ap-err: #f87171;
+
   min-height: 100vh;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  position: relative;
+  color: var(--ap-text);
+  background: radial-gradient(ellipse 100% 70% at 50% -25%, rgba(167, 139, 250, 0.12), transparent),
+    linear-gradient(168deg, var(--ap-bg0) 0%, var(--ap-bg1) 45%, #020617 100%);
+}
+
+.asesor-presupuestos-ambient {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(rgba(167, 139, 250, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 80% 55% at 50% 15%, black, transparent);
+  z-index: 0;
+}
+
+.asesor-presupuestos-page .tp-header {
+  position: relative;
+  z-index: 2;
 }
 
 .asesor-presupuestos-content {
-  padding: 24px;
+  position: relative;
+  z-index: 1;
+  padding: 12px 18px 40px;
   max-width: 100%;
   margin: 0 auto;
 }
 
-.asesor-presupuestos-header {
-  margin-bottom: 24px;
+.asesor-presupuestos-inner {
+  max-width: 1680px;
+  margin: 0 auto;
 }
 
-.asesor-presupuestos-header-top {
-  display: flex;
+/* Hero */
+.asesor-presupuestos-hero {
+  margin-bottom: 20px;
+  padding: 20px 22px 22px;
+  border-radius: 20px;
+  background: var(--ap-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--ap-border);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
+}
+
+.asesor-presupuestos-back {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-
-.btn-volver-tablero {
-  padding: 10px 18px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.9rem;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ap-border);
+  background: rgba(15, 23, 42, 0.5);
+  color: var(--ap-muted);
+  font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
-.btn-volver-tablero:hover {
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+.asesor-presupuestos-back:hover {
+  color: var(--ap-text);
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.1);
 }
 
-.asesor-presupuestos-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-}
-
-.asesor-presupuestos-header .subtitle {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.board-container {
-  margin-top: 24px;
-}
-
-.access-denied {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  text-align: center;
-}
-
-.access-denied h2 {
-  font-size: 1.5rem;
-  color: var(--text-primary);
+.asesor-presupuestos-hero-badge {
+  display: inline-block;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ddd6fe;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(167, 139, 250, 0.14);
+  border: 1px solid rgba(167, 139, 250, 0.28);
   margin-bottom: 12px;
 }
 
-.access-denied p {
-  color: var(--text-secondary);
-  font-size: 1rem;
+.asesor-presupuestos-title {
+  margin: 0 0 10px;
+  font-size: clamp(1.55rem, 3.5vw, 2.05rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  background: linear-gradient(115deg, #f8fafc 0%, #ddd6fe 40%, #bae6fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.asesor-tabs {
+.asesor-presupuestos-lead {
+  margin: 0;
+  max-width: 40rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--ap-muted);
+}
+
+.asesor-presupuestos-stats {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #e0e0e0;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
 }
 
-.tab-button {
-  padding: 12px 24px;
+.asesor-presupuestos-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid var(--ap-border);
+  min-width: 130px;
+}
+
+.asesor-presupuestos-stat-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
+  line-height: 1;
+}
+
+.asesor-presupuestos-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ap-muted);
+}
+
+/* Segment tabs */
+.asesor-presupuestos-segment {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 20px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid var(--ap-border);
+}
+
+.asesor-presupuestos-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 11px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--ap-muted);
+  background: transparent;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.asesor-presupuestos-segment-btn:hover {
+  color: var(--ap-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.asesor-presupuestos-segment-btn.is-active {
+  color: #0f172a;
+  background: linear-gradient(135deg, #c4b5fd 0%, #7dd3fc 100%);
+  box-shadow: 0 4px 18px rgba(167, 139, 250, 0.28);
+}
+
+.asesor-presupuestos-segment-ico {
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* Toasts */
+.asesor-presupuestos-toast {
+  padding: 14px 18px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  border: 1px solid transparent;
+}
+
+.asesor-presupuestos-toast--error {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+.asesor-presupuestos-toast--ok {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.32);
+  color: #a7f3d0;
+}
+
+/* Board area */
+.asesor-presupuestos-board-wrap {
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid var(--ap-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Filtros: tono oscuro solo dentro de esta página */
+.asesor-presupuestos-page .filters-bar {
+  background: var(--ap-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--ap-border);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+}
+
+.asesor-presupuestos-page .filters-bar .search-filter input,
+.asesor-presupuestos-page .filters-bar .sector-select {
+  background: rgba(2, 6, 23, 0.55) !important;
+  border-color: var(--ap-border) !important;
+  color: var(--ap-text) !important;
+}
+
+.asesor-presupuestos-page .filters-bar .search-filter input::placeholder {
+  color: rgba(148, 163, 184, 0.75) !important;
+}
+
+.asesor-presupuestos-page .filters-bar .filter-control label,
+.asesor-presupuestos-page .filters-bar .priority-group button {
+  color: var(--ap-muted);
+}
+
+.asesor-presupuestos-page .filters-bar .priority-group button.active {
+  color: #0f172a;
+  background: linear-gradient(135deg, #c4b5fd, #93c5fd) !important;
+  border-color: transparent !important;
+}
+
+.asesor-presupuestos-page .filters-bar .chip {
+  border-color: var(--ap-border);
+  background: rgba(2, 6, 23, 0.4);
+  color: #e2e8f0;
+}
+
+.asesor-presupuestos-page .filters-bar .chip:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.asesor-presupuestos-page .filters-bar .chip.active {
+  background: rgba(167, 139, 250, 0.2);
+  border-color: rgba(167, 139, 250, 0.4);
+  color: #f5f3ff;
+}
+
+.asesor-presupuestos-page .filters-bar .chip.reset {
+  color: var(--ap-muted);
+}
+
+/* Acceso denegado */
+.asesor-presupuestos-denied-card {
+  max-width: 420px;
+  margin: 15vh auto 0;
+  padding: 36px 28px;
+  text-align: center;
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--ap-border);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.4);
+}
+
+.asesor-presupuestos-denied-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 16px;
+  opacity: 0.9;
+}
+
+.asesor-presupuestos-denied-card h2 {
+  margin: 0 0 12px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.asesor-presupuestos-denied-card p {
+  margin: 0 0 22px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--ap-muted);
+}
+
+.asesor-p-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 22px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: box-shadow 0.15s;
+}
+
+.asesor-p-btn-primary {
+  background: linear-gradient(135deg, #8b5cf6 0%, #0ea5e9 100%);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(139, 92, 246, 0.3);
+}
+
+.asesor-p-btn-primary:hover {
+  box-shadow: 0 6px 22px rgba(14, 165, 233, 0.35);
+}
+
+.asesor-p-btn-secondary {
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  border-color: var(--ap-border);
+}
+
+.asesor-p-btn-secondary:hover:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.12);
+}
+
+.asesor-p-btn-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Agenda vacía */
+.asesor-presupuestos-empty-agenda {
+  padding: 48px 28px;
+  text-align: center;
+  border-radius: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  background: rgba(2, 6, 23, 0.4);
+}
+
+.asesor-presupuestos-empty-agenda-icon {
+  font-size: 2.25rem;
+  line-height: 1;
+  margin-bottom: 14px;
+  opacity: 0.85;
+  color: var(--ap-accent);
+}
+
+.asesor-presupuestos-empty-agenda-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.asesor-presupuestos-empty-agenda-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--ap-muted);
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Historial de fichas */
+.ap-historial {
+  margin-top: 8px;
+  padding: 20px 22px;
+  border-radius: 20px;
+  background: var(--ap-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--ap-border);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
+}
+
+.ap-historial--loading {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ap-historial-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.ap-historial-intro {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.ap-historial-title {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.ap-historial-muted {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--ap-muted);
+}
+
+.ap-historial-code {
+  font-size: 0.78em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--ap-border);
+}
+
+.ap-historial-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.ap-historial-search {
+  min-width: 200px;
+  flex: 1 1 200px;
+  max-width: 320px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--ap-border);
+  background: rgba(2, 6, 23, 0.45);
+  color: var(--ap-text);
+  font-size: 0.9rem;
+}
+
+.ap-historial-search::placeholder {
+  color: rgba(148, 163, 184, 0.65);
+}
+
+.ap-historial-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--ap-muted);
+  font-size: 0.92rem;
+}
+
+.ap-historial-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--ap-border);
+}
+
+.ap-historial-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.ap-historial-table th,
+.ap-historial-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--ap-border);
+  vertical-align: middle;
+}
+
+.ap-historial-table th {
+  font-weight: 700;
+  color: #cbd5e1;
+  background: rgba(2, 6, 23, 0.35);
+  white-space: nowrap;
+}
+
+.ap-historial-table tbody tr:hover {
+  background: rgba(167, 139, 250, 0.06);
+}
+
+.ap-historial-mono {
+  font-family: ui-monospace, monospace;
+  font-size: 0.84rem;
+  color: #e2e8f0;
+}
+
+.ap-historial-cell-sub {
+  display: block;
+  max-width: 220px;
+  color: var(--ap-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.ap-historial-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ap-historial-badge--activa {
+  background: rgba(167, 139, 250, 0.2);
+  color: #ddd6fe;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+}
+
+.ap-historial-badge--op {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.ap-historial-actions-cell {
+  white-space: nowrap;
+}
+
+.ap-historial-linkbtn {
   background: none;
   border: none;
-  border-bottom: 3px solid transparent;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #666;
-  transition: all 0.2s;
-  margin-bottom: -2px;
-}
-
-.tab-button:hover {
-  color: #333;
-  background: #f5f5f5;
-}
-
-.tab-button.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: var(--ap-accent2);
+  font-size: 0.86rem;
   font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-right: 4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ap-historial-linkbtn:hover {
+  color: #e0f2fe;
 }
 
 @media (max-width: 768px) {
-  .asesor-presupuestos-header-top {
-    flex-direction: column;
-    align-items: flex-start;
+  .asesor-presupuestos-segment {
+    width: 100%;
   }
 
-  .btn-volver-tablero {
-    align-self: stretch;
+  .asesor-presupuestos-segment-btn {
+    flex: 1;
+    justify-content: center;
   }
 
-  .asesor-tabs {
-    flex-direction: column;
-    border-bottom: none;
+  .asesor-presupuestos-board-wrap {
+    padding: 10px;
   }
-
-  .tab-button {
-    border-bottom: none;
-    border-left: 3px solid transparent;
-    margin-bottom: 0;
-    margin-left: -2px;
-  }
-
-  .tab-button.active {
-    border-left-color: #667eea;
-    border-bottom-color: transparent;
-  }
-}
-
-.alert {
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 0.875rem;
-}
-
-.alert-error {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.alert-success {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.agenda-sin-asesor {
-  padding: 48px 24px;
-  text-align: center;
-  background: var(--bg-secondary, #f8f9fa);
-  border-radius: 12px;
-  color: var(--text-secondary);
-}
-
-.agenda-sin-asesor p {
-  margin: 0 0 8px 0;
-}
-
-.agenda-sin-asesor p:last-child {
-  margin-bottom: 0;
-  font-size: 0.9rem;
-  opacity: 0.9;
 }

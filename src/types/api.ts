@@ -72,6 +72,22 @@ export interface OrdenTrabajo {
   presupuesto_enviado_cliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
   /** false = no listar en tablero; la fila sigue en BD (fusión / unificación sin DELETE) */
   visible_en_tablero?: boolean | null
+  /** Número FICHA-* antes de convertir a OP (historial) */
+  numero_ficha_original?: string | null
+}
+
+/** Fila listada en historial de fichas (asesor-presupuestos) */
+export interface FichaHistorialItem {
+  id: number
+  numero_op: string
+  cliente: string | null
+  estado: string | null
+  sector: string | null
+  fecha_creacion: string | null
+  nombre_creador: string | null
+  es_ficha_no_op: boolean | null
+  numero_ficha_original: string | null
+  descripcion: string | null
 }
 
 export interface RevisionOrden {
