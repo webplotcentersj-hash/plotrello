@@ -68,7 +68,6 @@ import type {
   EstadoPago
 } from '../types/pedidos'
 import { supabase, stockSupabase } from './supabaseClient'
-import bcrypt from 'bcryptjs'
 
 const LEGACY_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const hasLegacyBackend = Boolean(LEGACY_API_BASE_URL)
@@ -2504,33 +2503,44 @@ class ApiService {
         lastError = 'La función RPC no retornó datos'
       }
 
-      // Intentar fallback directo sobre la tabla usuarios usando hash local
+      // Fallback: hash en servidor (igual que crear_usuario / login_usuario). bcryptjs en cliente rompía el login.
       try {
-        const passwordHash = await bcrypt.hash(usuario.password, 10)
-        const { data: insertData, error: insertError } = await supabase
-          .from('usuarios')
-          .insert({
-            nombre: usuario.nombre.trim(),
-            password_hash: passwordHash,
-            rol: usuario.rol
-          })
-          .select('id, nombre, rol')
-          .single()
+        const { data: passwordHash, error: hashErr } = await supabase.rpc('generar_password_hash', {
+          p_password: usuario.password
+        })
+        const hashStr = typeof passwordHash === 'string' ? passwordHash : null
+        if (hashErr || !hashStr) {
+          lastError =
+            hashErr?.message ||
+            lastError ||
+            'No se pudo generar la contraseña en el servidor. Ejecutá el parche SQL generar_password_hash en Supabase.'
+          console.error('❌ generar_password_hash:', hashErr)
+        } else {
+          const { data: insertData, error: insertError } = await supabase
+            .from('usuarios')
+            .insert({
+              nombre: usuario.nombre.trim(),
+              password_hash: hashStr,
+              rol: usuario.rol
+            })
+            .select('id, nombre, rol')
+            .single()
 
-        if (!insertError && insertData) {
-          console.warn('ℹ️ Usuario creado mediante inserción directa como fallback.')
-          return { success: true, data: insertData as UsuarioRecord }
-        }
+          if (!insertError && insertData) {
+            console.warn('ℹ️ Usuario creado por inserción directa (hash compatible con login).')
+            return { success: true, data: insertData as UsuarioRecord }
+          }
 
-        if (insertError) {
-          lastError = insertError.message || lastError
-          console.error('❌ Inserción directa falló:', insertError)
+          if (insertError) {
+            lastError = insertError.message || lastError
+            console.error('❌ Inserción directa falló:', insertError)
+          }
         }
       } catch (hashError) {
         lastError =
           (hashError instanceof Error ? hashError.message : null) ||
-          'No se pudo generar el hash de la contraseña'
-        console.error('❌ Error generando hash para inserción directa:', hashError)
+          'No se pudo completar el fallback de creación de usuario'
+        console.error('❌ Error en fallback crear usuario:', hashError)
       }
     }
 
