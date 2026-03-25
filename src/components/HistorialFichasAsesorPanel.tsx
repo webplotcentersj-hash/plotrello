@@ -42,7 +42,7 @@ const HistorialFichasAsesorPanel = ({
   const load = useCallback(async () => {
     setError(null)
     const res = await apiService.getHistorialFichasAsesor()
-    if (res.success && res.data) {
+    if (res.success && Array.isArray(res.data)) {
       setRows(res.data)
     } else {
       setRows([])
@@ -135,7 +135,11 @@ const HistorialFichasAsesorPanel = ({
 
       {filtered.length === 0 ? (
         <div className="ap-historial-empty">
-          <p>No hay fichas que coincidan con la búsqueda.</p>
+          <p>
+            {rows.length === 0
+              ? 'No hay fichas en el historial. Creá una desde el Kanban o verificá la conexión con Supabase.'
+              : 'No hay resultados para esa búsqueda.'}
+          </p>
         </div>
       ) : (
         <div className="ap-historial-table-wrap">

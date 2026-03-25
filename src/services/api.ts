@@ -8773,16 +8773,51 @@ class ApiService {
 
     const baseCols =
       'id, numero_op, cliente, estado, sector, fecha_creacion, nombre_creador, es_ficha_no_op, descripcion, visible_en_tablero'
-    const withLegacy = `${baseCols}, numero_ficha_original`
+    const fullCols = `${baseCols}, numero_ficha_original`
 
-    let { data, error } = await supabase
+    const sortByFechaDesc = (a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const ta = new Date(String(a.fecha_creacion || 0)).getTime()
+      const tb = new Date(String(b.fecha_creacion || 0)).getTime()
+      return tb - ta
+    }
+
+    const mergeById = (chunks: Record<string, unknown>[][]): Record<string, unknown>[] => {
+      const byId = new Map<number, Record<string, unknown>>()
+      for (const chunk of chunks) {
+        for (const r of chunk) {
+          const id = r.id as number
+          if (Number.isFinite(id) && !byId.has(id)) {
+            byId.set(id, r)
+          }
+        }
+      }
+      return [...byId.values()].sort(sortByFechaDesc)
+    }
+
+    const filterHistorialRows = (raw: Record<string, unknown>[]) =>
+      raw.filter((r) => {
+        const hasLegacy =
+          r.numero_ficha_original != null && String(r.numero_ficha_original).trim() !== ''
+        if (hasLegacy) return true
+        if (r.es_ficha_no_op === true) return r.visible_en_tablero !== false
+        return false
+      })
+
+    // Dos consultas: el .or() en PostgREST con boolean + null falla en varios despliegues
+    const { data: dFichas, error: eFichas } = await supabase
       .from('ordenes_trabajo')
-      .select(withLegacy)
-      .or('es_ficha_no_op.eq.true,numero_ficha_original.not.is.null')
+      .select(fullCols)
+      .eq('es_ficha_no_op', true)
       .order('fecha_creacion', { ascending: false })
       .limit(limit)
 
-    if (error?.message?.includes('numero_ficha_original')) {
+    const missingCol =
+      !!eFichas &&
+      (eFichas.message?.includes('numero_ficha_original') ||
+        eFichas.code === '42703' ||
+        /column.*numero_ficha_original/i.test(eFichas.message || ''))
+
+    if (missingCol) {
       const fb = await supabase
         .from('ordenes_trabajo')
         .select(baseCols)
@@ -8798,21 +8833,28 @@ class ApiService {
       return { success: true, data: rows }
     }
 
-    if (error) {
-      console.error('getHistorialFichasAsesor:', error)
-      return { success: false, error: error.message }
+    if (eFichas) {
+      console.error('getHistorialFichasAsesor (fichas activas):', eFichas)
+      return { success: false, error: eFichas.message }
     }
 
-    const rows = ((data || []) as Record<string, unknown>[])
-      .filter((r) => {
-        const hasLegacy =
-          r.numero_ficha_original != null && String(r.numero_ficha_original).trim() !== ''
-        if (hasLegacy) return true
-        if (r.es_ficha_no_op === true) return r.visible_en_tablero !== false
-        return false
-      })
-      .map(mapRow)
+    const { data: dExFicha, error: eEx } = await supabase
+      .from('ordenes_trabajo')
+      .select(fullCols)
+      .not('numero_ficha_original', 'is', null)
+      .order('fecha_creacion', { ascending: false })
+      .limit(limit)
 
+    if (eEx) {
+      console.error('getHistorialFichasAsesor (ex-fichas):', eEx)
+      return { success: false, error: eEx.message }
+    }
+
+    const merged = mergeById([
+      (dFichas || []) as Record<string, unknown>[],
+      (dExFicha || []) as Record<string, unknown>[]
+    ])
+    const rows = filterHistorialRows(merged).map(mapRow)
     return { success: true, data: rows }
   }
 
