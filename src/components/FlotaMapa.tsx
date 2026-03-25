@@ -7,6 +7,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import type { RegistroSalidaVehiculo } from '../types/api'
 import { FLOTA_MAP_CENTER, FLOTA_MAP_ZOOM_CIUDAD } from '../utils/flotaMapSanJuan'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import './FlotaMapa.css'
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
@@ -56,9 +57,10 @@ export default function FlotaMapa({ registros, height = 360 }: FlotaMapaProps) {
         {puntos.map((r) => (
           <Marker key={r.id} position={[Number(r.latitud), Number(r.longitud)]}>
             <Popup className="flota-viaje-popup">
-              <strong>{r.vehiculo?.nombre ?? 'Vehículo'}</strong>
-              <br />
-              {r.nombre_usuario} · {r.sector}
+              <div className="flota-viaje-popup-inner">
+                <strong>{r.vehiculo?.nombre ?? 'Vehículo'}</strong>
+                <br />
+                {etiquetaUsuarioNombre(r.nombre_usuario)} · {r.sector}
               <br />
               {r.numero_op && <>OP {r.numero_op}<br /></>}
               {r.hora_estimada_llegada && (
@@ -67,6 +69,7 @@ export default function FlotaMapa({ registros, height = 360 }: FlotaMapaProps) {
                   {new Date(r.hora_estimada_llegada).toLocaleString('es-AR')}
                 </>
               )}
+              </div>
             </Popup>
           </Marker>
         ))}

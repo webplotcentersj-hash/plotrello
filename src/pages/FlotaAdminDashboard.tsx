@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type { RegistroSalidaVehiculo } from '../types/api'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import './FlotaAdminDashboard.css'
 
 const FlotaAdminDashboard = () => {
@@ -178,7 +179,7 @@ const FlotaAdminDashboard = () => {
                     <div className="retrasado-info">
                       <div className="info-row">
                         <span className="info-label">Operario:</span>
-                        <span className="info-value">{registro.nombre_usuario}</span>
+                        <span className="info-value">{etiquetaUsuarioNombre(registro.nombre_usuario)}</span>
                       </div>
                       <div className="info-row">
                         <span className="info-label">Sector:</span>

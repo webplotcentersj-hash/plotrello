@@ -7,6 +7,7 @@ import { vehiculosParqueDesdeApi } from '../utils/flotaVehiculosCatalogo'
 import RegistroSalidaModal from '../components/RegistroSalidaModal'
 import MarcarLlegadaModal from '../components/MarcarLlegadaModal'
 import FlotaMapa from '../components/FlotaMapa'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import './FlotaPage.css'
 
 const HISTORIAL_LIMIT = 200
@@ -309,7 +310,7 @@ const FlotaPage = () => {
                 <div key={p.id} className="flota-pendiente-card">
                   <strong>{p.vehiculo?.nombre ?? 'Vehículo'}</strong>
                   <div className="info-row">
-                    <span>Solicitante:</span> {p.nombre_usuario}
+                    <span>Solicitante:</span> {etiquetaUsuarioNombre(p.nombre_usuario)}
                   </div>
                   <div className="info-row">
                     <span>Sector:</span> {p.sector}
@@ -369,7 +370,7 @@ const FlotaPage = () => {
                     return (
                       <tr key={r.id} className={paso ? 'fila-retrasada' : ''}>
                         <td>{r.vehiculo?.nombre ?? '—'}</td>
-                        <td>{r.nombre_usuario}</td>
+                        <td>{etiquetaUsuarioNombre(r.nombre_usuario)}</td>
                         <td>{r.numero_op ?? '—'}</td>
                         <td>
                           {r.hora_estimada_llegada
@@ -452,7 +453,7 @@ const FlotaPage = () => {
                             {h.hora_salida ? new Date(h.hora_salida).toLocaleString('es-AR') : '—'}
                           </td>
                           <td>{h.vehiculo?.nombre ?? '—'}</td>
-                          <td>{h.nombre_usuario}</td>
+                          <td>{etiquetaUsuarioNombre(h.nombre_usuario)}</td>
                           <td>{h.km_aproximado ?? '—'}</td>
                           <td>{h.numero_op ?? '—'}</td>
                           <td>
@@ -512,7 +513,7 @@ const FlotaPage = () => {
                     <div className="vehiculo-info">
                       <div className="info-row">
                         <span className="info-label">Solicitante:</span>
-                        <span className="info-value">{registro.nombre_usuario}</span>
+                        <span className="info-value">{etiquetaUsuarioNombre(registro.nombre_usuario)}</span>
                       </div>
                       <p className="flota-mini-hint">Bloqueado hasta autorizar o cancelar el flujo.</p>
                       {canAutorizar && (
@@ -531,7 +532,7 @@ const FlotaPage = () => {
                     <div className="vehiculo-info">
                       <div className="info-row">
                         <span className="info-label">Operario:</span>
-                        <span className="info-value">{registro.nombre_usuario}</span>
+                        <span className="info-value">{etiquetaUsuarioNombre(registro.nombre_usuario)}</span>
                       </div>
                       <div className="info-row">
                         <span className="info-label">Sector:</span>
