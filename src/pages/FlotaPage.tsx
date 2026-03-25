@@ -69,7 +69,6 @@ const FlotaPage = () => {
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<Vehiculo | null>(null)
   const [llegadaRegistro, setLlegadaRegistro] = useState<RegistroSalidaVehiculo | null>(null)
   const [historialAbierto, setHistorialAbierto] = useState(true)
-  const [mapaFullscreen, setMapaFullscreen] = useState(false)
   /** Ayuda cuando la API devuelve vacío (típico: RLS solo para `authenticated` y la app usa rol `anon`). */
   const [vehiculosLoadHint, setVehiculosLoadHint] = useState<string | null>(null)
 
@@ -145,31 +144,6 @@ const FlotaPage = () => {
     () => registros.filter((r) => r.estado === 'pendiente_autorizacion'),
     [registros]
   )
-
-  /** Vehículos del catálogo en BD que no están en ruta (en_uso / retrasado). */
-  const vehiculosEnParque = useMemo(() => {
-    let n = 0
-    for (const item of itemsParque) {
-      if (!item.enBase || item.id == null) continue
-      const { activo } = regsPorVehiculo(item.id, registros)
-      if (!activo) n += 1
-    }
-    return n
-  }, [itemsParque, registros])
-
-  useEffect(() => {
-    if (!mapaFullscreen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMapaFullscreen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
-  }, [mapaFullscreen])
 
   const handleRegistrarSalida = (item: ItemParque) => {
     if (!item.enBase || item.id == null) return
@@ -309,25 +283,16 @@ const FlotaPage = () => {
           </div>
           <div className="flota-stat wide">
             <span className="flota-stat-label">Vehículos en parque</span>
-            <span className="flota-stat-value subtle">{vehiculosEnParque}</span>
+            <span className="flota-stat-value subtle">{itemsParque.length}</span>
           </div>
         </div>
 
         <section className="flota-panel flota-mapa-real">
-          <div className="flota-panel-head flota-mapa-panel-head">
-            <div className="flota-mapa-panel-text">
-              <h2>Mapa en tiempo real</h2>
-              <p className="flota-panel-desc">
-                Vista centrada en <strong>San Juan, Argentina</strong>. Marcadores: salidas autorizadas con ubicación.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="flota-btn secondary flota-mapa-fs-btn"
-              onClick={() => setMapaFullscreen(true)}
-            >
-              Mapa pantalla completa
-            </button>
+          <div className="flota-panel-head">
+            <h2>Mapa en tiempo real</h2>
+            <p className="flota-panel-desc">
+              Vista centrada en <strong>San Juan, Argentina</strong>. Marcadores: salidas autorizadas con ubicación.
+            </p>
           </div>
           <div className="flota-mapa-frame">
             <FlotaMapa registros={enMapa} height={400} />
@@ -685,35 +650,6 @@ const FlotaPage = () => {
           onClose={() => setLlegadaRegistro(null)}
           onConfirm={(litros) => confirmarLlegada(litros)}
         />
-      )}
-
-      {mapaFullscreen && (
-        <div
-          className="flota-mapa-fullscreen-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Mapa de flota en pantalla completa"
-        >
-          <header className="flota-mapa-fullscreen-bar">
-            <span className="flota-mapa-fullscreen-title">Mapa en vivo · Flota</span>
-            <button
-              type="button"
-              className="flota-btn ghost flota-mapa-fullscreen-close"
-              onClick={() => setMapaFullscreen(false)}
-            >
-              Cerrar (Esc)
-            </button>
-          </header>
-          <div className="flota-mapa-fullscreen-body">
-            <FlotaMapa
-              registros={enMapa}
-              height="100%"
-              square
-              marcadoresLuz
-              className="flota-mapa-leaflet--fullscreen"
-            />
-          </div>
-        </div>
       )}
     </div>
   )

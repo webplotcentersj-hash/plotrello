@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { useMemo } from 'react'
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -19,69 +19,12 @@ L.Icon.Default.mergeOptions({
 
 const SAN_JUAN: L.LatLngExpression = FLOTA_MAP_CENTER
 
-/** Un DivIcon por instancia de mapa: compartir el mismo entre dos MapContainer rompe el DOM de Leaflet. */
-function crearIconosLuz() {
-  return {
-    ok: L.divIcon({
-      className: 'flota-marker-divicon',
-      html: '<div class="flota-marker-luz flota-marker-luz--ok"><span class="flota-marker-luz-core"></span></div>',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
-      popupAnchor: [0, -16]
-    }),
-    warn: L.divIcon({
-      className: 'flota-marker-divicon',
-      html: '<div class="flota-marker-luz flota-marker-luz--warn"><span class="flota-marker-luz-core"></span></div>',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
-      popupAnchor: [0, -16]
-    })
-  }
-}
-
-function MapInvalidateSize() {
-  const map = useMap()
-  useEffect(() => {
-    let alive = true
-    const safeInvalidate = () => {
-      if (!alive) return
-      try {
-        const el = map?.getContainer?.()
-        if (!el?.isConnected) return
-        map.invalidateSize({ animate: false })
-      } catch {
-        /* mapa ya desmontado */
-      }
-    }
-    const t = window.setTimeout(safeInvalidate, 50)
-    window.addEventListener('resize', safeInvalidate)
-    return () => {
-      alive = false
-      window.clearTimeout(t)
-      window.removeEventListener('resize', safeInvalidate)
-    }
-  }, [map])
-  return null
-}
-
 type FlotaMapaProps = {
   registros: RegistroSalidaVehiculo[]
-  /** Altura en px, o cadena CSS (ej. `100%`) si el contenedor padre tiene alto definido */
-  height?: number | string
-  /** Sin bordes redondeados (p. ej. pantalla completa) */
-  square?: boolean
-  /** Marcadores con brillo pulsante (p. ej. mapa grande / monitor) */
-  marcadoresLuz?: boolean
-  className?: string
+  height?: number
 }
 
-export default function FlotaMapa({
-  registros,
-  height = 360,
-  square = false,
-  marcadoresLuz = false,
-  className
-}: FlotaMapaProps) {
+export default function FlotaMapa({ registros, height = 360 }: FlotaMapaProps) {
   const puntos = useMemo(
     () =>
       registros.filter(
@@ -100,59 +43,19 @@ export default function FlotaMapa({
     return [la, lo] as L.LatLngExpression
   }, [puntos])
 
-  const iconosLuz = useMemo(() => crearIconosLuz(), [])
-
-  /** Evita montar Leaflet en el primer ciclo de React Strict Mode (deja el mapa sin contenedor válido). */
-  const [mapaMontar, setMapaMontar] = useState(false)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setMapaMontar(true))
-    return () => cancelAnimationFrame(id)
-  }, [])
-
-  const h = typeof height === 'number' ? `${height}px` : height
-  const wrapClass = ['flota-mapa-leaflet', className, square ? 'flota-mapa-leaflet--square' : '']
-    .filter(Boolean)
-    .join(' ')
-
-  if (!mapaMontar) {
-    return (
-      <div
-        className={wrapClass}
-        style={{ height: h, borderRadius: square ? 0 : 12, overflow: 'hidden' }}
-        aria-hidden
-      >
-        <div className="flota-mapa-placeholder" />
-      </div>
-    )
-  }
-
   return (
-    <div
-      className={wrapClass}
-      style={{ height: h, borderRadius: square ? 0 : 12, overflow: 'hidden' }}
-    >
+    <div className="flota-mapa-leaflet" style={{ height, borderRadius: 12, overflow: 'hidden' }}>
       <MapContainer
         center={center}
         zoom={puntos.length ? 11 : FLOTA_MAP_ZOOM_CIUDAD}
         style={{ height: '100%', width: '100%' }}
       >
-        <MapInvalidateSize />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {puntos.map((r) => (
-          <Marker
-            key={r.id}
-            position={[Number(r.latitud), Number(r.longitud)]}
-            icon={
-              marcadoresLuz
-                ? r.estado === 'retrasado'
-                  ? iconosLuz.warn
-                  : iconosLuz.ok
-                : undefined
-            }
-          >
+          <Marker key={r.id} position={[Number(r.latitud), Number(r.longitud)]}>
             <Popup className="flota-viaje-popup">
               <div className="flota-viaje-popup-inner">
                 <strong>{r.vehiculo?.nombre ?? 'Vehículo'}</strong>
