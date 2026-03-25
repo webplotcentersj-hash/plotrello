@@ -1069,10 +1069,12 @@ export interface RegistroSalidaVehiculo {
   hora_salida: string
   hora_estimada_llegada?: string | null
   hora_llegada_real?: string | null
+  /** Litros de combustible informados al marcar llegada */
+  litros_combustible_llegada?: number | null
   ubicacion_destino?: string | null
   latitud?: number | null
   longitud?: number | null
-  estado: 'en_uso' | 'retrasado' | 'finalizado'
+  estado: 'pendiente_autorizacion' | 'en_uso' | 'retrasado' | 'finalizado'
   llave_entregada: boolean
   id_usuario_caja_entrego_llave?: number | null
   nombre_usuario_caja_entrego_llave?: string | null

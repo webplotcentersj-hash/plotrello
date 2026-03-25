@@ -22,7 +22,8 @@ INSERT INTO public.vehiculos (nombre, patente, activo) VALUES
   ('Camión MB', NULL, true),
   ('Lifán', NULL, true),
   ('Máster', NULL, true),
-  ('Ránger', NULL, true)
+  ('Ránger', NULL, true),
+  ('Camión LED', NULL, true)
 ON CONFLICT (nombre) DO NOTHING;
 
 -- ============================================
@@ -40,10 +41,11 @@ CREATE TABLE IF NOT EXISTS public.registros_salidas_vehiculos (
   hora_salida TIMESTAMPTZ DEFAULT now(),
   hora_estimada_llegada TIMESTAMPTZ,
   hora_llegada_real TIMESTAMPTZ,
+  litros_combustible_llegada NUMERIC(10, 2),
   ubicacion_destino TEXT,
   latitud NUMERIC(10, 8),
   longitud NUMERIC(11, 8),
-  estado VARCHAR(50) DEFAULT 'en_uso' CHECK (estado IN ('en_uso', 'retrasado', 'finalizado')),
+  estado VARCHAR(50) DEFAULT 'en_uso' CHECK (estado IN ('pendiente_autorizacion', 'en_uso', 'retrasado', 'finalizado')),
   llave_entregada BOOLEAN DEFAULT false,
   id_usuario_caja_entrego_llave INTEGER REFERENCES public.usuarios(id) ON DELETE SET NULL,
   nombre_usuario_caja_entrego_llave VARCHAR(255),
@@ -124,7 +126,7 @@ CREATE POLICY "Solo admin y caja pueden modificar vehículos"
   USING (
     EXISTS (
       SELECT 1 FROM public.usuarios
-      WHERE id = auth.uid()
+      WHERE id = auth.uid()::text::integer
       AND rol IN ('administracion', 'caja', 'gerencia')
     )
   );
@@ -144,10 +146,10 @@ CREATE POLICY "Todos pueden actualizar sus propios registros"
   ON public.registros_salidas_vehiculos FOR UPDATE
   TO authenticated
   USING (
-    id_usuario = (SELECT id FROM public.usuarios WHERE id = auth.uid())
+    id_usuario = auth.uid()::text::integer
     OR EXISTS (
       SELECT 1 FROM public.usuarios
-      WHERE id = auth.uid()
+      WHERE id = auth.uid()::text::integer
       AND rol IN ('administracion', 'caja', 'gerencia')
     )
   );

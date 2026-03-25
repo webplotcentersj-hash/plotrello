@@ -1,97 +1,193 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Vehiculo, RegistroSalidaVehiculo } from '../types/api'
 import RegistroSalidaModal from '../components/RegistroSalidaModal'
+import MarcarLlegadaModal from '../components/MarcarLlegadaModal'
+import FlotaMapa from '../components/FlotaMapa'
 import './FlotaPage.css'
+
+const HISTORIAL_LIMIT = 200
+const POLL_MS = 15000
+
+function RetrasoLive({ hasta }: { hasta: string }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(t)
+  }, [])
+  const end = new Date(hasta).getTime()
+  if (!Number.isFinite(end) || now <= end) return null
+  const sec = Math.floor((now - end) / 1000)
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  return (
+    <div className="retraso-counter">
+      Retraso: {h}h {m}m {s}s
+    </div>
+  )
+}
+
+function RelojCabecera() {
+  const [t, setT] = useState(() => new Date())
+  useEffect(() => {
+    const i = window.setInterval(() => setT(new Date()), 1000)
+    return () => window.clearInterval(i)
+  }, [])
+  return (
+    <time className="flota-reloj" dateTime={t.toISOString()}>
+      {t.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+    </time>
+  )
+}
+
+function regsPorVehiculo(vid: number, todos: RegistroSalidaVehiculo[]) {
+  const same = todos.filter((r) => r.id_vehiculo === vid)
+  const activo = same.find((r) => r.estado === 'en_uso' || r.estado === 'retrasado')
+  const pendiente = same.find((r) => r.estado === 'pendiente_autorizacion')
+  return { activo, pendiente }
+}
 
 const FlotaPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja } = useAuth()
+  const { isAdmin, isCaja, usuario } = useAuth()
+  const canAutorizar = isAdmin || isCaja
+
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
-  const [registrosActivos, setRegistrosActivos] = useState<RegistroSalidaVehiculo[]>([])
+  const [registros, setRegistros] = useState<RegistroSalidaVehiculo[]>([])
+  const [historial, setHistorial] = useState<RegistroSalidaVehiculo[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [ultimaSync, setUltimaSync] = useState<Date | null>(null)
   const [showRegistroModal, setShowRegistroModal] = useState(false)
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<Vehiculo | null>(null)
+  const [llegadaRegistro, setLlegadaRegistro] = useState<RegistroSalidaVehiculo | null>(null)
+  const [historialAbierto, setHistorialAbierto] = useState(true)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (opts?: { quiet?: boolean }) => {
+    const quiet = opts?.quiet === true
+    if (quiet) setRefreshing(true)
+    else setLoading(true)
     try {
-      // Actualizar estados retrasados antes de cargar datos
       await apiService.actualizarEstadosRetrasados()
-      
-      const [vehiculosResp, registrosResp] = await Promise.all([
+
+      const [vehiculosResp, activosResp, histResp] = await Promise.all([
         apiService.getVehiculos(),
-        apiService.getRegistrosSalidasVehiculos({ estado: 'en_uso' })
+        apiService.getRegistrosSalidasVehiculos({
+          estados: ['en_uso', 'retrasado', 'pendiente_autorizacion']
+        }),
+        apiService.getRegistrosSalidasVehiculos({
+          estado: 'finalizado',
+          limit: HISTORIAL_LIMIT
+        })
       ])
 
       if (vehiculosResp.success && vehiculosResp.data) {
         setVehiculos(vehiculosResp.data)
       }
 
-      if (registrosResp.success && registrosResp.data) {
-        // Incluir también los retrasados
-        const retrasadosResp = await apiService.getRegistrosSalidasVehiculos({ estado: 'retrasado' })
-        const todosActivos = [
-          ...registrosResp.data,
-          ...(retrasadosResp.success && retrasadosResp.data ? retrasadosResp.data : [])
-        ]
-        setRegistrosActivos(todosActivos)
+      if (activosResp.success && activosResp.data) {
+        setRegistros(activosResp.data)
+      } else {
+        setRegistros([])
       }
+
+      if (histResp.success && histResp.data) {
+        setHistorial(histResp.data)
+      } else {
+        setHistorial([])
+      }
+
+      setUltimaSync(new Date())
     } catch (error) {
       console.error('Error cargando datos de flota:', error)
     } finally {
-      setLoading(false)
+      if (quiet) setRefreshing(false)
+      else setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     void loadData()
-    
-    // Recargar cada 30 segundos para ver cambios en tiempo real
-    const interval = setInterval(() => {
-      void loadData()
-    }, 30000)
-
-    return () => clearInterval(interval)
+    const interval = window.setInterval(() => void loadData({ quiet: true }), POLL_MS)
+    return () => window.clearInterval(interval)
   }, [loadData])
+
+  const enMapa = useMemo(
+    () => registros.filter((r) => r.estado === 'en_uso' || r.estado === 'retrasado'),
+    [registros]
+  )
+
+  const pendientes = useMemo(
+    () => registros.filter((r) => r.estado === 'pendiente_autorizacion'),
+    [registros]
+  )
 
   const handleRegistrarSalida = (vehiculo: Vehiculo) => {
     setVehiculoSeleccionado(vehiculo)
     setShowRegistroModal(true)
   }
 
-  const handleFinalizarSalida = async (idRegistro: number) => {
-    if (!confirm('¿Confirmar que el vehículo ha regresado?')) return
+  const handleAutorizar = async (idRegistro: number) => {
+    if (!usuario) return
+    if (!confirm('¿Autorizar esta salida y entregar el uso del vehículo?')) return
+    const res = await apiService.autorizarRegistroSalidaVehiculo(
+      idRegistro,
+      usuario.id,
+      usuario.nombre || 'Caja/Admin'
+    )
+    if (res.success) await loadData({ quiet: true })
+    else alert(res.error || 'Error al autorizar')
+  }
 
-    const response = await apiService.finalizarRegistroSalidaVehiculo(idRegistro)
-    if (response.success) {
-      await loadData()
+  const abrirLlegada = (r: RegistroSalidaVehiculo) => {
+    setLlegadaRegistro(r)
+  }
+
+  const confirmarLlegada = async (litros: number) => {
+    if (!llegadaRegistro) return
+    const res = await apiService.marcarLlegadaRegistroSalidaVehiculo(llegadaRegistro.id, litros)
+    if (res.success) {
+      setLlegadaRegistro(null)
+      await loadData({ quiet: true })
     } else {
-      alert('Error al finalizar el registro: ' + response.error)
+      alert(res.error || 'Error')
     }
   }
 
-  const getEstadoVehiculo = (vehiculo: Vehiculo) => {
-    const registro = registrosActivos.find(r => r.id_vehiculo === vehiculo.id)
-    if (!registro) return { estado: 'disponible', registro: null }
-    
-    const ahora = new Date()
-    const horaEstimada = registro.hora_estimada_llegada ? new Date(registro.hora_estimada_llegada) : null
-    const retrasado = horaEstimada && ahora > horaEstimada && !registro.hora_llegada_real
-    
-    return {
-      estado: retrasado ? 'retrasado' : 'en_uso',
-      registro
-    }
+  const handleFinalizarSalida = async (idRegistro: number) => {
+    if (!confirm('¿Confirmar cierre del viaje y liberación del vehículo?')) return
+    const response = await apiService.finalizarRegistroSalidaVehiculo(idRegistro)
+    if (response.success) await loadData({ quiet: true })
+    else alert(response.error || 'Error al finalizar')
   }
 
-  if (loading) {
+  const cardState = (vehiculo: Vehiculo) => {
+    const { activo, pendiente } = regsPorVehiculo(vehiculo.id, registros)
+    if (activo) {
+      const ahora = new Date()
+      const horaEst = activo.hora_estimada_llegada ? new Date(activo.hora_estimada_llegada) : null
+      const retrasado =
+        !!horaEst &&
+        ahora > horaEst &&
+        !activo.hora_llegada_real &&
+        (activo.estado === 'retrasado' || activo.estado === 'en_uso')
+      return { tipo: 'en_uso' as const, registro: activo, retrasado }
+    }
+    if (pendiente) return { tipo: 'pendiente' as const, registro: pendiente, retrasado: false }
+    return { tipo: 'disponible' as const, registro: null, retrasado: false }
+  }
+
+  if (loading && !ultimaSync) {
     return (
       <div className="flota-page">
         <div className="flota-container">
-          <div style={{ textAlign: 'center', padding: '40px' }}>Cargando...</div>
+          <div className="flota-loading">
+            <div className="flota-loading-orbit" aria-hidden />
+            <p>Sincronizando flota…</p>
+          </div>
         </div>
       </div>
     )
@@ -99,50 +195,293 @@ const FlotaPage = () => {
 
   return (
     <div className="flota-page">
+      <div className="flota-bg-grid" aria-hidden />
       <div className="flota-container">
         <header className="flota-header">
-          <div>
-            <h1>Gestión de Flota</h1>
-            <p>Estado de vehículos en tiempo real</p>
+          <div className="flota-header-main">
+            <div className="flota-title-row">
+              <h1>Flota en vivo</h1>
+              <span className="flota-live-pill">
+                <span className="flota-live-dot" />
+                EN VIVO
+              </span>
+            </div>
+            <p className="flota-tagline">
+              Mapa y estado actualizado cada {POLL_MS / 1000}s · Solicitudes, salidas y historial de viajes
+            </p>
+            <div className="flota-meta-row">
+              <RelojCabecera />
+              {ultimaSync && (
+                <span className="flota-ultima-sync">
+                  Última sync: {ultimaSync.toLocaleTimeString('es-AR')}
+                </span>
+              )}
+              {refreshing && <span className="flota-refreshing">Actualizando…</span>}
+            </div>
           </div>
           <div className="flota-header-actions">
-            <button className="btn-secondary" onClick={() => navigate('/')}>
-              ← Volver al Tablero
+            <button type="button" className="flota-btn ghost" onClick={() => navigate('/')}>
+              ← Tablero
             </button>
-            {(isAdmin || isCaja) && (
-              <button 
-                className="btn-primary" 
-                onClick={() => navigate('/flota/admin')}
-              >
-                📊 Panel de Administración
+            {canAutorizar && (
+              <button type="button" className="flota-btn accent" onClick={() => navigate('/flota/admin')}>
+                Panel admin
               </button>
             )}
           </div>
         </header>
 
-        {/* Mapa de Vehículos */}
-        <section className="flota-mapa-section">
-          <h2>Estado de Vehículos</h2>
+        <div className="flota-stats-strip">
+          <div className="flota-stat">
+            <span className="flota-stat-value">{enMapa.length}</span>
+            <span className="flota-stat-label">En ruta</span>
+          </div>
+          <div className="flota-stat">
+            <span className="flota-stat-value">{pendientes.length}</span>
+            <span className="flota-stat-label">Pendientes</span>
+          </div>
+          <div className="flota-stat">
+            <span className="flota-stat-value">{historial.length}</span>
+            <span className="flota-stat-label">En historial</span>
+          </div>
+          <div className="flota-stat wide">
+            <span className="flota-stat-label">Vehículos en parque</span>
+            <span className="flota-stat-value subtle">{vehiculos.length}</span>
+          </div>
+        </div>
+
+        <section className="flota-panel flota-mapa-real">
+          <div className="flota-panel-head">
+            <h2>Mapa en tiempo real</h2>
+            <p className="flota-panel-desc">Unidades con salida autorizada (ubicación registrada al solicitar)</p>
+          </div>
+          <div className="flota-mapa-frame">
+            <FlotaMapa registros={enMapa} height={400} />
+          </div>
+        </section>
+
+        {pendientes.length > 0 && (
+          <section className="flota-panel flota-pendientes-section">
+            <div className="flota-panel-head">
+              <h2>Solicitudes pendientes</h2>
+              <span className="flota-count-badge">{pendientes.length}</span>
+            </div>
+            <div className="flota-pendientes-grid">
+              {pendientes.map((p) => (
+                <div key={p.id} className="flota-pendiente-card">
+                  <strong>{p.vehiculo?.nombre ?? 'Vehículo'}</strong>
+                  <div className="info-row">
+                    <span>Solicitante:</span> {p.nombre_usuario}
+                  </div>
+                  <div className="info-row">
+                    <span>Sector:</span> {p.sector}
+                  </div>
+                  {p.numero_op && (
+                    <div className="info-row">
+                      <span>OP:</span> {p.numero_op}
+                    </div>
+                  )}
+                  <div className="info-row">
+                    <span>Motivo:</span> {p.motivo_salida}
+                  </div>
+                  {canAutorizar ? (
+                    <button type="button" className="flota-btn primary btn-block" onClick={() => void handleAutorizar(p.id)}>
+                      Autorizar salida
+                    </button>
+                  ) : (
+                    <p className="flota-espera-msg">Esperando Caja o Administración…</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="flota-panel flota-lista-section">
+          <div className="flota-panel-head">
+            <h2>Salidas activas</h2>
+          </div>
+          {enMapa.length === 0 ? (
+            <p className="flota-sin-datos">Nadie en ruta con salida autorizada ahora mismo.</p>
+          ) : (
+            <div className="flota-tabla-wrap">
+              <table className="flota-tabla">
+                <thead>
+                  <tr>
+                    <th>Vehículo</th>
+                    <th>Usuario</th>
+                    <th>OP</th>
+                    <th>Llegada est.</th>
+                    <th>Llegada / Litros</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enMapa.map((r) => {
+                    const horaEst = r.hora_estimada_llegada ? new Date(r.hora_estimada_llegada) : null
+                    const ahora = new Date()
+                    const paso =
+                      !!horaEst &&
+                      ahora > horaEst &&
+                      !r.hora_llegada_real &&
+                      (r.estado === 'retrasado' || r.estado === 'en_uso')
+                    const soyConductor = usuario?.id != null && r.id_usuario === usuario.id
+                    const litros = r.litros_combustible_llegada
+                    return (
+                      <tr key={r.id} className={paso ? 'fila-retrasada' : ''}>
+                        <td>{r.vehiculo?.nombre ?? '—'}</td>
+                        <td>{r.nombre_usuario}</td>
+                        <td>{r.numero_op ?? '—'}</td>
+                        <td>
+                          {r.hora_estimada_llegada
+                            ? new Date(r.hora_estimada_llegada).toLocaleString('es-AR')
+                            : '—'}
+                          {paso && r.hora_estimada_llegada && <RetrasoLive hasta={r.hora_estimada_llegada} />}
+                        </td>
+                        <td>
+                          {r.hora_llegada_real ? (
+                            <span className="flota-llegada-ok">
+                              {new Date(r.hora_llegada_real).toLocaleTimeString('es-AR')}
+                              {litros != null && (
+                                <span className="flota-litros-chip">{Number(litros)} L</span>
+                              )}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td>{r.estado === 'retrasado' ? 'Retrasado' : 'En ruta'}</td>
+                        <td className="flota-acciones-cel">
+                          {soyConductor && !r.hora_llegada_real && (
+                            <button type="button" className="flota-btn llegue" onClick={() => abrirLlegada(r)}>
+                              Llegué
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="flota-btn secondary sm"
+                            onClick={() => void handleFinalizarSalida(r.id)}
+                          >
+                            Cerrar viaje
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="flota-panel">
+          <button
+            type="button"
+            className="flota-historial-toggle"
+            onClick={() => setHistorialAbierto((v) => !v)}
+            aria-expanded={historialAbierto}
+          >
+            <span className="flota-historial-toggle-title">Historial de viajes finalizados</span>
+            <span className="flota-historial-toggle-meta">
+              {historial.length} registros · combustible y horarios guardados
+            </span>
+            <span className="flota-historial-chevron">{historialAbierto ? '▼' : '▶'}</span>
+          </button>
+          {historialAbierto && (
+            <div className="flota-historial-body">
+              {historial.length === 0 ? (
+                <p className="flota-sin-datos">Aún no hay viajes cerrados en el historial.</p>
+              ) : (
+                <div className="flota-tabla-wrap">
+                  <table className="flota-tabla flota-tabla-historial">
+                    <thead>
+                      <tr>
+                        <th>Salida</th>
+                        <th>Vehículo</th>
+                        <th>Conductor</th>
+                        <th>KM salida</th>
+                        <th>OP</th>
+                        <th>Llegada real</th>
+                        <th>Combustible (L)</th>
+                        <th>Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historial.map((h) => (
+                        <tr key={h.id}>
+                          <td className="flota-cell-muted">
+                            {h.hora_salida ? new Date(h.hora_salida).toLocaleString('es-AR') : '—'}
+                          </td>
+                          <td>{h.vehiculo?.nombre ?? '—'}</td>
+                          <td>{h.nombre_usuario}</td>
+                          <td>{h.km_aproximado ?? '—'}</td>
+                          <td>{h.numero_op ?? '—'}</td>
+                          <td>
+                            {h.hora_llegada_real
+                              ? new Date(h.hora_llegada_real).toLocaleString('es-AR')
+                              : '—'}
+                          </td>
+                          <td>
+                            {h.litros_combustible_llegada != null
+                              ? `${Number(h.litros_combustible_llegada)} L`
+                              : '—'}
+                          </td>
+                          <td className="flota-cell-clip" title={h.motivo_salida}>
+                            {h.motivo_salida}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="flota-panel flota-vehiculos-section">
+          <div className="flota-panel-head">
+            <h2>Parque de vehículos</h2>
+          </div>
           <div className="vehiculos-grid">
             {vehiculos.map((vehiculo) => {
-              const { estado, registro } = getEstadoVehiculo(vehiculo)
-              const estaRetrasado = estado === 'retrasado'
-              
+              const { tipo, registro, retrasado } = cardState(vehiculo)
+
               return (
-                <div 
-                  key={vehiculo.id} 
-                  className={`vehiculo-card ${estado} ${estaRetrasado ? 'retrasado' : ''}`}
+                <div
+                  key={vehiculo.id}
+                  className={`vehiculo-card ${tipo} ${retrasado ? 'retrasado' : ''}`}
                 >
                   <div className="vehiculo-header">
                     <h3>{vehiculo.nombre}</h3>
-                    <span className={`estado-badge ${estado}`}>
-                      {estado === 'disponible' && '✓ Disponible'}
-                      {estado === 'en_uso' && '🚗 En Uso'}
-                      {estado === 'retrasado' && '⚠️ Retrasado'}
+                    <span className={`estado-badge ${tipo}`}>
+                      {tipo === 'disponible' && 'Disponible'}
+                      {tipo === 'pendiente' && 'Pendiente'}
+                      {tipo === 'en_uso' && (retrasado ? 'Retrasado' : 'En ruta')}
                     </span>
                   </div>
 
-                  {registro && (
+                  {tipo === 'pendiente' && registro && (
+                    <div className="vehiculo-info">
+                      <div className="info-row">
+                        <span className="info-label">Solicitante:</span>
+                        <span className="info-value">{registro.nombre_usuario}</span>
+                      </div>
+                      <p className="flota-mini-hint">Bloqueado hasta autorizar o cancelar el flujo.</p>
+                      {canAutorizar && (
+                        <button
+                          type="button"
+                          className="flota-btn primary"
+                          onClick={() => void handleAutorizar(registro.id)}
+                        >
+                          Autorizar salida
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {tipo === 'en_uso' && registro && (
                     <div className="vehiculo-info">
                       <div className="info-row">
                         <span className="info-label">Operario:</span>
@@ -160,12 +499,25 @@ const FlotaPage = () => {
                       )}
                       {registro.hora_estimada_llegada && (
                         <div className="info-row">
-                          <span className="info-label">Llegada estimada:</span>
-                          <span className={`info-value ${estaRetrasado ? 'retrasado-text' : ''}`}>
-                            {new Date(registro.hora_estimada_llegada).toLocaleTimeString('es-AR', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                          <span className="info-label">Llegada est.:</span>
+                          <span className={`info-value ${retrasado ? 'retrasado-text' : ''}`}>
+                            {new Date(registro.hora_estimada_llegada).toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      )}
+                      {retrasado && registro.hora_estimada_llegada && (
+                        <RetrasoLive hasta={registro.hora_estimada_llegada} />
+                      )}
+                      {registro.hora_llegada_real && (
+                        <div className="info-row">
+                          <span className="info-label">Llegó:</span>
+                          <span className="info-value flota-llegada-ok">
+                            {new Date(registro.hora_llegada_real).toLocaleTimeString('es-AR')}
+                            {registro.litros_combustible_llegada != null && (
+                              <span className="flota-litros-chip">
+                                {Number(registro.litros_combustible_llegada)} L
+                              </span>
+                            )}
                           </span>
                         </div>
                       )}
@@ -183,35 +535,39 @@ const FlotaPage = () => {
                             rel="noopener noreferrer"
                             className="map-link"
                           >
-                            📍 Ver en Mapa
+                            Abrir en mapa
                           </a>
-                        </div>
-                      )}
-                      {estaRetrasado && (
-                        <div className="retrasado-alert">
-                          ⚠️ El vehículo se ha retrasado
                         </div>
                       )}
                     </div>
                   )}
 
                   <div className="vehiculo-actions">
-                    {estado === 'disponible' ? (
-                      <button
-                        className="btn-primary"
-                        onClick={() => handleRegistrarSalida(vehiculo)}
-                      >
-                        Registrar Salida
+                    {tipo === 'disponible' && (
+                      <button type="button" className="flota-btn primary" onClick={() => handleRegistrarSalida(vehiculo)}>
+                        Solicitar salida
                       </button>
-                    ) : (
-                      registro && (
+                    )}
+                    {tipo === 'pendiente' && !canAutorizar && (
+                      <button type="button" className="flota-btn secondary" disabled>
+                        En espera
+                      </button>
+                    )}
+                    {tipo === 'en_uso' && registro && (
+                      <>
+                        {usuario?.id != null && registro.id_usuario === usuario.id && !registro.hora_llegada_real && (
+                          <button type="button" className="flota-btn llegue" onClick={() => abrirLlegada(registro)}>
+                            Llegué
+                          </button>
+                        )}
                         <button
-                          className="btn-secondary"
-                          onClick={() => handleFinalizarSalida(registro.id)}
+                          type="button"
+                          className="flota-btn secondary"
+                          onClick={() => void handleFinalizarSalida(registro.id)}
                         >
-                          Finalizar Salida
+                          Cerrar viaje
                         </button>
-                      )
+                      </>
                     )}
                   </div>
                 </div>
@@ -229,10 +585,18 @@ const FlotaPage = () => {
             setVehiculoSeleccionado(null)
           }}
           onSuccess={async () => {
-            await loadData()
+            await loadData({ quiet: true })
             setShowRegistroModal(false)
             setVehiculoSeleccionado(null)
           }}
+        />
+      )}
+
+      {llegadaRegistro && (
+        <MarcarLlegadaModal
+          registro={llegadaRegistro}
+          onClose={() => setLlegadaRegistro(null)}
+          onConfirm={(litros) => confirmarLlegada(litros)}
         />
       )}
     </div>
@@ -240,4 +604,3 @@ const FlotaPage = () => {
 }
 
 export default FlotaPage
-

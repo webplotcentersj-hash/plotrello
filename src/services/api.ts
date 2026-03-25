@@ -11067,10 +11067,13 @@ class ApiService {
   }
 
   async getRegistrosSalidasVehiculos(filtros?: {
-    estado?: 'en_uso' | 'retrasado' | 'finalizado'
+    estado?: RegistroSalidaVehiculo['estado']
+    estados?: RegistroSalidaVehiculo['estado'][]
     id_vehiculo?: number
     fecha_desde?: string
     fecha_hasta?: string
+    /** Máx. filas (p. ej. historial) */
+    limit?: number
   }): Promise<ApiResponse<RegistroSalidaVehiculo[]>> {
     if (supabase) {
       let query = supabase
@@ -11081,7 +11084,9 @@ class ApiService {
         `)
         .order('hora_salida', { ascending: false })
 
-      if (filtros?.estado) {
+      if (filtros?.estados && filtros.estados.length > 0) {
+        query = query.in('estado', filtros.estados)
+      } else if (filtros?.estado) {
         query = query.eq('estado', filtros.estado)
       }
 
@@ -11097,6 +11102,10 @@ class ApiService {
         query = query.lte('hora_salida', filtros.fecha_hasta)
       }
 
+      if (filtros?.limit != null && filtros.limit > 0) {
+        query = query.limit(filtros.limit)
+      }
+
       const { data, error } = await query
 
       if (error) return { success: false, error: error.message }
@@ -11106,20 +11115,51 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  /** Datos de OP para ubicación en mapa de salida (sin auth pública). */
+  async getOrdenUbicacionPorNumeroOp(numeroOp: string): Promise<
+    ApiResponse<{
+      id: number
+      numero_op: string
+      ubicacion_link: string | null
+      direccion_cliente: string | null
+    } | null>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const raw = (numeroOp || '').trim()
+    if (!raw) return { success: true, data: null }
+    const normalized = raw.replace(/^OP-?/i, '').trim() || raw
+    const candidates = normalized === raw ? [raw] : [raw, normalized]
+    for (const num of candidates) {
+      const { data, error } = await supabase
+        .from('ordenes_trabajo')
+        .select('id, numero_op, ubicacion_link, direccion_cliente')
+        .eq('numero_op', num)
+        .limit(1)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message }
+      if (data) return { success: true, data: data as any }
+    }
+    return { success: true, data: null }
+  }
+
   async crearRegistroSalidaVehiculo(
     registro: Omit<RegistroSalidaVehiculo, 'id' | 'created_at' | 'updated_at' | 'vehiculo'>
   ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
     if (supabase) {
-      // Verificar que el vehículo no esté en uso
+      // Vehículo ocupado: salida autorizada, retrasada o solicitud pendiente
       const { data: registrosActivos } = await supabase
         .from('registros_salidas_vehiculos')
         .select('id')
         .eq('id_vehiculo', registro.id_vehiculo)
-        .eq('estado', 'en_uso')
+        .in('estado', ['en_uso', 'retrasado', 'pendiente_autorizacion'])
         .limit(1)
 
       if (registrosActivos && registrosActivos.length > 0) {
-        return { success: false, error: 'El vehículo ya está en uso' }
+        return {
+          success: false,
+          error:
+            'Este vehículo ya tiene una salida activa o una solicitud pendiente de autorización'
+        }
       }
 
       const { data, error } = await supabase
@@ -11138,20 +11178,116 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
-  async finalizarRegistroSalidaVehiculo(
+  /** Caja / Admin: autoriza solicitud → vehículo pasa a en_uso (no disponible para otros). */
+  async autorizarRegistroSalidaVehiculo(
     idRegistro: number,
-    hora_llegada?: string,
-    observaciones?: string
+    idUsuarioCaja: number,
+    nombreUsuarioCaja: string
   ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
     if (supabase) {
+      const { data: reg, error: fetchErr } = await supabase
+        .from('registros_salidas_vehiculos')
+        .select('id, id_vehiculo, estado')
+        .eq('id', idRegistro)
+        .maybeSingle()
+      if (fetchErr) return { success: false, error: fetchErr.message }
+      if (!reg) return { success: false, error: 'Registro no encontrado' }
+      if (reg.estado !== 'pendiente_autorizacion') {
+        return { success: false, error: 'Solo se pueden autorizar solicitudes pendientes' }
+      }
+
+      const { data: bloqueo } = await supabase
+        .from('registros_salidas_vehiculos')
+        .select('id')
+        .eq('id_vehiculo', reg.id_vehiculo)
+        .in('estado', ['en_uso', 'retrasado'])
+        .neq('id', idRegistro)
+        .limit(1)
+      if (bloqueo && bloqueo.length > 0) {
+        return { success: false, error: 'El vehículo ya está en uso por otra salida' }
+      }
+
+      const ahora = new Date().toISOString()
       const { data, error } = await supabase
         .from('registros_salidas_vehiculos')
         .update({
-          estado: 'finalizado',
-          hora_llegada_real: hora_llegada || new Date().toISOString(),
-          observaciones: observaciones || null,
-          updated_at: new Date().toISOString()
+          estado: 'en_uso',
+          llave_entregada: true,
+          hora_salida: ahora,
+          id_usuario_caja_entrego_llave: idUsuarioCaja,
+          nombre_usuario_caja_entrego_llave: nombreUsuarioCaja,
+          updated_at: ahora
         })
+        .eq('id', idRegistro)
+        .select(`*, vehiculo:vehiculos(*)`)
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as RegistroSalidaVehiculo }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /** Conductor: marca hora real de llegada y litros de combustible (sigue en uso hasta finalizar). */
+  async marcarLlegadaRegistroSalidaVehiculo(
+    idRegistro: number,
+    litrosCombustible: number
+  ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
+    if (supabase) {
+      if (!Number.isFinite(litrosCombustible) || litrosCombustible < 0) {
+        return { success: false, error: 'Indicá los litros de combustible (número ≥ 0)' }
+      }
+      const ahora = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('registros_salidas_vehiculos')
+        .update({
+          hora_llegada_real: ahora,
+          litros_combustible_llegada: litrosCombustible,
+          updated_at: ahora
+        })
+        .eq('id', idRegistro)
+        .in('estado', ['en_uso', 'retrasado'])
+        .is('hora_llegada_real', null)
+        .select(`*, vehiculo:vehiculos(*)`)
+        .maybeSingle()
+
+      if (error) return { success: false, error: error.message }
+      if (!data) {
+        return { success: false, error: 'No se pudo registrar: ya marcaste llegada o el viaje no está activo' }
+      }
+      return { success: true, data: data as RegistroSalidaVehiculo }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async finalizarRegistroSalidaVehiculo(
+    idRegistro: number,
+    horaLlegada?: string,
+    observaciones?: string
+  ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
+    if (supabase) {
+      const updatedAt = new Date().toISOString()
+      const { data: cur, error: fetchErr } = await supabase
+        .from('registros_salidas_vehiculos')
+        .select('hora_llegada_real')
+        .eq('id', idRegistro)
+        .maybeSingle()
+      if (fetchErr) return { success: false, error: fetchErr.message }
+
+      const patch: Record<string, unknown> = {
+        estado: 'finalizado',
+        observaciones: observaciones ?? null,
+        updated_at: updatedAt
+      }
+      if (horaLlegada) {
+        patch.hora_llegada_real = horaLlegada
+      } else if (!cur?.hora_llegada_real) {
+        patch.hora_llegada_real = updatedAt
+      }
+
+      const { data, error } = await supabase
+        .from('registros_salidas_vehiculos')
+        .update(patch)
         .eq('id', idRegistro)
         .select(`
           *,

@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Vehiculo, RegistroSalidaVehiculo } from '../types/api'
+import { sectorDesdeRolUsuario } from '../utils/flotaSector'
+import { parseLatLngFromMapsUrl } from '../utils/mapsUrlParse'
+import SalidaMapPicker from './SalidaMapPicker'
 import './RegistroSalidaModal.css'
 
 type RegistroSalidaModalProps = {
@@ -10,110 +13,107 @@ type RegistroSalidaModalProps = {
   onSuccess: () => void
 }
 
-const SECTORES = [
+const SECTORES_EXTRA = [
   'Diseño Gráfico',
   'Taller de Imprenta',
   'Taller Gráfico',
   'Instalaciones',
   'Metalúrgica',
   'Mostrador',
-  'Caja'
+  'Caja',
+  'Administración',
+  'Gerencia',
+  'Compras',
+  'Asesor Técnico',
+  'Presupuestos',
+  'Recursos Humanos'
 ]
 
 const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaModalProps) => {
   const { usuario } = useAuth()
   const [sector, setSector] = useState('')
-  const [kmAproximado, setKmAproximado] = useState<string>('')
+  const [kmSalida, setKmSalida] = useState<string>('')
   const [numeroOp, setNumeroOp] = useState('')
   const [motivoSalida, setMotivoSalida] = useState('')
   const [horaEstimadaLlegada, setHoraEstimadaLlegada] = useState('')
   const [ubicacionDestino, setUbicacionDestino] = useState('')
   const [latitud, setLatitud] = useState<number | null>(null)
   const [longitud, setLongitud] = useState<number | null>(null)
-  const [solicitandoLlave, setSolicitandoLlave] = useState(false)
-  const [llaveEntregada, setLlaveEntregada] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cargandoOp, setCargandoOp] = useState(false)
 
-  // Obtener ubicación actual al hacer click en el mapa
-  const handleObtenerUbicacion = () => {
-    if (!navigator.geolocation) {
-      alert('Tu navegador no soporta geolocalización')
+  useEffect(() => {
+    const s = sectorDesdeRolUsuario(usuario?.rol ?? null)
+    if (s) setSector(s)
+  }, [usuario?.rol])
+
+  const aplicarCoords = useCallback((lat: number, lng: number) => {
+    setLatitud(lat)
+    setLongitud(lng)
+  }, [])
+
+  const buscarUbicacionOp = useCallback(async () => {
+    const op = numeroOp.trim()
+    if (!op) {
+      setError('Ingresá un número de OP para buscar ubicación')
       return
     }
-
+    setCargandoOp(true)
     setError(null)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitud(position.coords.latitude)
-        setLongitud(position.coords.longitude)
-        // Opcional: obtener dirección desde coordenadas usando un servicio de geocodificación inversa
-        // Por ahora solo guardamos las coordenadas
-      },
-      (error) => {
-        console.error('Error obteniendo ubicación:', error)
-        setError('No se pudo obtener la ubicación. Asegúrate de permitir el acceso a la ubicación.')
-      }
-    )
-  }
-
-  // Solicitar llave a caja
-  const handleSolicitarLlave = async () => {
-    if (!usuario) {
-      alert('Debes estar autenticado para solicitar la llave')
-      return
-    }
-
-    setSolicitandoLlave(true)
-    setError(null)
-    
     try {
-      // Obtener usuarios de caja y notificarles
-      const usuariosResp = await apiService.getUsuarios()
-      if (usuariosResp.success && usuariosResp.data) {
-        const usuariosCaja = usuariosResp.data.filter(u => u.rol === 'caja' || u.rol === 'administracion')
-        
-        // Notificar a todos los usuarios de caja
-        for (const usuarioCaja of usuariosCaja) {
-          await apiService.createNotification({
-            user_id: usuarioCaja.id,
-            title: '🔑 Solicitud de Llave de Vehículo',
-            description: `${usuario.nombre} solicita la llave del vehículo ${vehiculo.nombre}`,
-            type: 'info'
-          })
+      const res = await apiService.getOrdenUbicacionPorNumeroOp(op)
+      if (!res.success || !res.data) {
+        setError(res.error || 'No se encontró la OP')
+        return
+      }
+      const link = res.data.ubicacion_link
+      if (link) {
+        const parsed = parseLatLngFromMapsUrl(link)
+        if (parsed) {
+          aplicarCoords(parsed.lat, parsed.lng)
+          if (!ubicacionDestino.trim() && res.data.direccion_cliente) {
+            setUbicacionDestino(res.data.direccion_cliente)
+          }
+          return
         }
       }
-      
-      // Por ahora, marcamos como entregada automáticamente
-      // En el futuro, esto podría esperar confirmación de caja
-      setLlaveEntregada(true)
-      alert('✓ Solicitud de llave enviada a caja. La llave ha sido marcada como entregada.')
-    } catch (error) {
-      setError('Error al solicitar la llave')
-      console.error('Error solicitando llave:', error)
+      if (res.data.direccion_cliente) {
+        setUbicacionDestino(res.data.direccion_cliente)
+        setError(
+          'La OP tiene dirección pero no coordenadas en el enlace. Buscá la dirección en el mapa de abajo.'
+        )
+      } else {
+        setError('La OP no tiene ubicación guardada. Marcá el punto en el mapa.')
+      }
     } finally {
-      setSolicitandoLlave(false)
+      setCargandoOp(false)
     }
+  }, [numeroOp, aplicarCoords, ubicacionDestino])
+
+  const geolocalizarAqui = () => {
+    if (!navigator.geolocation) {
+      setError('Tu navegador no soporta geolocalización')
+      return
+    }
+    setError(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => aplicarCoords(pos.coords.latitude, pos.coords.longitude),
+      () => setError('No se pudo obtener tu ubicación. Revisá permisos del navegador.')
+    )
   }
 
   const handleGuardar = async () => {
     if (!sector) {
-      setError('Debes seleccionar un sector')
+      setError('Sector requerido')
       return
     }
-
     if (!motivoSalida.trim()) {
-      setError('Debes ingresar el motivo de la salida')
+      setError('Motivo de la salida requerido')
       return
     }
-
-    if (!llaveEntregada) {
-      setError('Debes solicitar y recibir la llave de caja antes de registrar la salida')
-      return
-    }
-
     if (!usuario) {
-      setError('Debes estar autenticado')
+      setError('Debés estar autenticado')
       return
     }
 
@@ -126,31 +126,34 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
         id_usuario: usuario.id || null,
         nombre_usuario: usuario.nombre || 'Usuario',
         sector,
-        km_aproximado: kmAproximado ? parseInt(kmAproximado) : null,
+        km_aproximado: kmSalida ? parseInt(kmSalida, 10) : null,
         numero_op: numeroOp.trim() || null,
         motivo_salida: motivoSalida.trim(),
         hora_salida: new Date().toISOString(),
         hora_estimada_llegada: horaEstimadaLlegada ? new Date(horaEstimadaLlegada).toISOString() : null,
         hora_llegada_real: null,
         ubicacion_destino: ubicacionDestino.trim() || null,
-        latitud: latitud,
-        longitud: longitud,
-        estado: 'en_uso',
-        llave_entregada: true,
-        id_usuario_caja_entrego_llave: usuario.id || null,
-        nombre_usuario_caja_entrego_llave: usuario.nombre || null,
+        latitud,
+        longitud,
+        estado: 'pendiente_autorizacion',
+        llave_entregada: false,
+        id_usuario_caja_entrego_llave: null,
+        nombre_usuario_caja_entrego_llave: null,
         observaciones: null
       }
 
       const response = await apiService.crearRegistroSalidaVehiculo(registro)
-      
+
       if (response.success) {
+        alert(
+          '✓ Solicitud guardada. Caja o Administración debe autorizar la salida antes de retirar el vehículo.'
+        )
         onSuccess()
       } else {
-        setError(response.error || 'Error al registrar la salida')
+        setError(response.error || 'Error al guardar')
       }
-    } catch (error: any) {
-      setError(error.message || 'Error al registrar la salida')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error al guardar')
     } finally {
       setGuardando(false)
     }
@@ -162,146 +165,108 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
-      onTouchStart={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
     >
       <div className="modal-content registro-salida-modal" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
-          <h2>Registrar Salida - {vehiculo.nombre}</h2>
+          <h2>Solicitud de salida — {vehiculo.nombre}</h2>
           <button type="button" className="modal-close" onClick={onClose}>
             ×
           </button>
         </header>
 
         <div className="modal-body">
-          {error && (
-            <div className="error-message" style={{ 
-              padding: '12px', 
-              background: '#fee2e2', 
-              color: '#991b1b', 
-              borderRadius: '6px',
-              marginBottom: '20px'
-            }}>
-              {error}
-            </div>
-          )}
+          {error && <div className="flota-form-error">{error}</div>}
 
-          {/* Solicitar Llave */}
-          <div className="form-section">
-            <h3>🔑 Solicitar Llave a Caja</h3>
-            {!llaveEntregada ? (
-              <button
-                type="button"
-                className="btn-solicitar-llave"
-                onClick={handleSolicitarLlave}
-                disabled={solicitandoLlave}
-              >
-                {solicitandoLlave ? 'Solicitando...' : 'Solicitar Llave a Caja'}
-              </button>
-            ) : (
-              <div className="llave-entregada">
-                ✓ Llave entregada por caja
-              </div>
-            )}
-          </div>
+          <p className="flota-form-info">
+            Completá el formulario. <strong>Caja o Administración</strong> autorizará la salida; hasta entonces el
+            vehículo no puede usarse en otro trámite.
+          </p>
 
           <div className="form-row">
             <div className="form-group">
               <label>Sector *</label>
-              <select
-                value={sector}
-                onChange={(e) => setSector(e.target.value)}
-                required
-              >
-                <option value="">Seleccionar sector</option>
-                {SECTORES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+              <select value={sector} onChange={(e) => setSector(e.target.value)} required>
+                <option value="">Seleccionar…</option>
+                {[...new Set([sectorDesdeRolUsuario(usuario?.rol ?? null), ...SECTORES_EXTRA].filter(Boolean))].map(
+                  (s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  )
+                )}
               </select>
             </div>
-
             <div className="form-group">
-              <label>Km Aproximado</label>
+              <label>Km de salida (odómetro)</label>
               <input
                 type="number"
-                value={kmAproximado}
-                onChange={(e) => setKmAproximado(e.target.value)}
-                placeholder="Ej: 15000"
-                min="0"
+                value={kmSalida}
+                onChange={(e) => setKmSalida(e.target.value)}
+                placeholder="Ej: 45200"
+                min={0}
               />
             </div>
           </div>
 
           <div className="form-row">
-            <div className="form-group">
-              <label>Número de OP</label>
-              <input
-                type="text"
-                value={numeroOp}
-                onChange={(e) => setNumeroOp(e.target.value)}
-                placeholder="Ej: VENT-20260114-0018"
-              />
+            <div className="form-group flex-grow">
+              <label>Nº OP del trabajo</label>
+              <div className="inline-actions">
+                <input
+                  type="text"
+                  value={numeroOp}
+                  onChange={(e) => setNumeroOp(e.target.value)}
+                  placeholder="Ej: 1234 o VENT-…"
+                />
+                <button type="button" className="btn-secondary btn-sm" onClick={() => void buscarUbicacionOp()} disabled={cargandoOp}>
+                  {cargandoOp ? '…' : 'Ubicación desde OP'}
+                </button>
+              </div>
             </div>
-
             <div className="form-group">
-              <label>Hora Estimada de Llegada</label>
+              <label>Hora estimada de llegada</label>
               <input
                 type="datetime-local"
                 value={horaEstimadaLlegada}
                 onChange={(e) => setHoraEstimadaLlegada(e.target.value)}
-                min={new Date().toISOString().slice(0, 16)}
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label>Motivo de la Salida *</label>
+            <label>Motivo de la salida *</label>
             <textarea
               value={motivoSalida}
               onChange={(e) => setMotivoSalida(e.target.value)}
-              placeholder="Describir el motivo de la salida..."
+              placeholder="Motivo del viaje…"
               rows={3}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Ubicación Destino</label>
+            <label>Destino (texto)</label>
             <input
               type="text"
               value={ubicacionDestino}
               onChange={(e) => setUbicacionDestino(e.target.value)}
-              placeholder="Dirección o descripción del destino"
+              placeholder="Dirección o referencia"
             />
           </div>
 
           <div className="form-group">
-            <label>Ubicación en Mapa</label>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <button
-                type="button"
-                className="btn-ubicacion"
-                onClick={handleObtenerUbicacion}
-              >
-                📍 Obtener Mi Ubicación
+            <label>Punto de salida en mapa</label>
+            <div className="map-toolbar">
+              <button type="button" className="btn-secondary btn-sm" onClick={geolocalizarAqui}>
+                📍 Mi ubicación
               </button>
-              {latitud && longitud && (
-                <span className="coordenadas">
-                  {latitud.toFixed(6)}, {longitud.toFixed(6)}
+              {latitud != null && longitud != null && (
+                <span className="coord-chip">
+                  {latitud.toFixed(5)}, {longitud.toFixed(5)}
                 </span>
               )}
             </div>
-            {latitud && longitud && (
-              <a
-                href={`https://www.google.com/maps?q=${latitud},${longitud}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="map-link"
-              >
-                Ver en Google Maps
-              </a>
-            )}
+            <SalidaMapPicker lat={latitud} lng={longitud} onChange={aplicarCoords} height={280} />
           </div>
         </div>
 
@@ -309,13 +274,8 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancelar
           </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleGuardar}
-            disabled={guardando || !llaveEntregada}
-          >
-            {guardando ? 'Guardando...' : 'Registrar Salida'}
+          <button type="button" className="btn-primary" onClick={() => void handleGuardar()} disabled={guardando}>
+            {guardando ? 'Guardando…' : 'Enviar solicitud'}
           </button>
         </footer>
       </div>
@@ -324,4 +284,3 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
 }
 
 export default RegistroSalidaModal
-
