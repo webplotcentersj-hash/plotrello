@@ -347,6 +347,76 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
+.flota-mapa-panel-head {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.flota-mapa-panel-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.flota-mapa-fs-btn {
+  flex-shrink: 0;
+  align-self: flex-start;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .flota-mapa-panel-head {
+    flex-direction: column;
+  }
+
+  .flota-mapa-fs-btn {
+    width: 100%;
+  }
+}
+
+.flota-mapa-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10500;
+  display: flex;
+  flex-direction: column;
+  background: #020617;
+}
+
+.flota-mapa-fullscreen-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  background: rgba(15, 23, 42, 0.96);
+  border-bottom: 1px solid var(--flota-border);
+  backdrop-filter: blur(12px);
+}
+
+.flota-mapa-fullscreen-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #f1f5f9;
+}
+
+.flota-mapa-fullscreen-close {
+  flex-shrink: 0;
+}
+
+.flota-mapa-fullscreen-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.flota-mapa-fullscreen-body .flota-mapa-leaflet--fullscreen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100% !important;
+}
+
 .flota-pendientes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
