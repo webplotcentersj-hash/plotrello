@@ -201,6 +201,8 @@ export interface PruebaPreguntaInput {
   texto: string
   tipo: PruebaPreguntaTipo
   tiempo_segundos?: number | null
+  /** Puntos que vale la pregunta (mínimo 0.01 en BD) */
+  puntos?: number | null
   opciones?: string[]
   indice_correcto?: number | null
 }

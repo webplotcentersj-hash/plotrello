@@ -10,10 +10,15 @@ type MisPruebaRow = {
   titulo: string
   descripcion?: string | null
   tiempo_total_segundos?: number | null
+  porcentaje_aprobacion?: number | null
   estado: string
   iniciado_at?: string | null
   finalizado_at?: string | null
   tiempo_limite_fin?: string | null
+  puntaje_obtenido?: number | null
+  puntaje_maximo?: number | null
+  aprobado?: boolean | null
+  calificacion_pendiente?: boolean
 }
 
 type PreguntaPantalla = {
@@ -22,6 +27,7 @@ type PreguntaPantalla = {
   texto: string
   tipo: string
   tiempo_segundos?: number | null
+  puntos?: number | null
   opciones?: string[] | null
 }
 
@@ -30,9 +36,25 @@ type PantallaExamen = {
   estado: string
   tiempo_limite_fin?: string | null
   iniciado_at?: string | null
-  prueba: { id: string; titulo: string; descripcion?: string | null; tiempo_total_segundos?: number | null }
+  finalizado_at?: string | null
+  puntaje_obtenido?: number | null
+  puntaje_maximo?: number | null
+  aprobado?: boolean | null
+  calificacion_pendiente?: boolean
+  prueba: {
+    id: string
+    titulo: string
+    descripcion?: string | null
+    tiempo_total_segundos?: number | null
+    porcentaje_aprobacion?: number | null
+  }
   preguntas: PreguntaPantalla[]
-  mis_respuestas?: { id_pregunta: string; respuesta_texto?: string | null; opcion_elegida?: number | null }[]
+  mis_respuestas?: {
+    id_pregunta: string
+    respuesta_texto?: string | null
+    opcion_elegida?: number | null
+    puntos_obtenidos?: number | null
+  }[]
 }
 
 export default function MisPruebasPage() {
@@ -146,6 +168,23 @@ export default function MisPruebasPage() {
           <div>
             <h1>{examen.prueba.titulo}</h1>
             {examen.prueba.descripcion && <p className="mis-pruebas-desc">{examen.prueba.descripcion}</p>}
+            {examen.estado === 'finalizada' && (
+              <p className="mis-pruebas-resultado-resumen">
+                {examen.calificacion_pendiente ? (
+                  <>
+                    Puntaje parcial: {examen.puntaje_obtenido ?? '—'} / {examen.puntaje_maximo ?? '—'} · Pendiente de
+                    calificación (desarrollo)
+                  </>
+                ) : (
+                  <>
+                    Puntaje: {examen.puntaje_obtenido ?? '—'} / {examen.puntaje_maximo ?? '—'}
+                    {examen.aprobado === true && ' · Aprobado'}
+                    {examen.aprobado === false && ' · No aprobado'}
+                    {examen.aprobado == null && !examen.calificacion_pendiente && ''}
+                  </>
+                )}
+              </p>
+            )}
           </div>
           <div className="mis-pruebas-examen-meta">
             {tiempoRestanteGlobal != null && (
@@ -176,7 +215,12 @@ export default function MisPruebasPage() {
               <li key={pq.id} className="mis-pruebas-pregunta">
                 <div className="mis-pruebas-pregunta-top">
                   <span className="mis-pruebas-n">{idx + 1}.</span>
-                  <p>{pq.texto}</p>
+                  <p>
+                    {pq.texto}
+                    {pq.puntos != null && (
+                      <span className="mis-pruebas-puntos-badge"> ({pq.puntos} pts)</span>
+                    )}
+                  </p>
                 </div>
                 {pq.tiempo_segundos != null && (
                   <p className="mis-pruebas-hint">Sugerencia: {pq.tiempo_segundos}s para esta pregunta</p>
@@ -257,6 +301,15 @@ export default function MisPruebasPage() {
                 Estado: <strong>{row.estado}</strong>
                 {row.tiempo_total_segundos != null && (
                   <> · Tiempo total: {Math.round(row.tiempo_total_segundos / 60)} min</>
+                )}
+                {row.estado === 'finalizada' && row.puntaje_maximo != null && (
+                  <>
+                    {' '}
+                    · Puntaje: {row.puntaje_obtenido ?? '—'} / {row.puntaje_maximo}
+                    {row.calificacion_pendiente && ' (pendiente calif.)'}
+                    {!row.calificacion_pendiente && row.aprobado === true && ' · Aprobado'}
+                    {!row.calificacion_pendiente && row.aprobado === false && ' · No aprobado'}
+                  </>
                 )}
               </p>
             </div>

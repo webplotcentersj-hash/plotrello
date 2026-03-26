@@ -116,6 +116,83 @@
   padding: 10px 12px;
   color: #f1f5f9;
   font-size: 0.95rem;
+  color-scheme: dark;
+}
+
+.rrhh-pruebas-grid--3 {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* Select nativo (respaldo): fondo oscuro en opciones donde el SO lo permite */
+.rrhh-pruebas-card select option {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Desplegable oscuro (reemplazo visual del select nativo) */
+.rrhh-pruebas-darkselect {
+  position: relative;
+  width: 100%;
+}
+
+.rrhh-pruebas-darkselect-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #f1f5f9;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rrhh-pruebas-darkselect-btn:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.rrhh-pruebas-darkselect-caret {
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+
+.rrhh-pruebas-darkselect-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #020617;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.rrhh-pruebas-darkselect-opt {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rrhh-pruebas-darkselect-opt:hover,
+.rrhh-pruebas-darkselect-opt.is-active {
+  background: rgba(56, 189, 248, 0.18);
+  color: #fff;
 }
 
 .rrhh-pruebas-pregunta {
@@ -220,6 +297,125 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.rrhh-pruebas-modal--wide {
+  max-width: 1100px;
+}
+
+.rrhh-pruebas-modal-sub {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: normal;
+}
+
+.rrhh-pruebas-modal-body {
+  overflow: auto;
+  padding: 12px 16px 20px;
+  flex: 1;
+}
+
+.rrhh-pruebas-result-block {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.rrhh-pruebas-result-user {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rrhh-pruebas-result-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.rrhh-pruebas-result-scores {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.rrhh-pruebas-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+}
+
+.rrhh-pruebas-badge--ok {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.rrhh-pruebas-badge--no {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.rrhh-pruebas-badge--warn {
+  background: rgba(234, 179, 8, 0.2);
+  color: #fde047;
+}
+
+.rrhh-pruebas-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.rrhh-pruebas-result-table th,
+.rrhh-pruebas-result-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+  text-align: left;
+}
+
+.rrhh-pruebas-result-table th {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.rrhh-pruebas-result-answer {
+  max-width: 320px;
+  word-break: break-word;
+}
+
+.rrhh-pruebas-calif-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rrhh-pruebas-calif-input {
+  width: 72px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #f1f5f9;
+}
+
+.rrhh-pruebas-calif-max {
+  font-size: 0.8rem;
+  color: #94a3b8;
 }
 
 .rrhh-pruebas-modal-head {

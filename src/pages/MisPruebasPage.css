@@ -220,3 +220,15 @@
   font-size: 0.95rem;
   resize: vertical;
 }
+
+.mis-pruebas-resultado-resumen {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+  color: #a7f3d0;
+}
+
+.mis-pruebas-puntos-badge {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-weight: normal;
+}

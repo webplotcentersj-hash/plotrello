@@ -12825,6 +12825,8 @@ class ApiService {
     titulo: string
     descripcion: string | null
     tiempoTotalSegundos: number | null
+    /** Porcentaje mínimo sobre el total de puntos para aprobar (1–100) */
+    porcentajeAprobacion: number
     preguntas: PruebaPreguntaInput[]
   }): Promise<ApiResponse<string>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
@@ -12836,6 +12838,7 @@ class ApiService {
         texto: p.texto,
         tipo: p.tipo,
         tiempo_segundos: p.tiempo_segundos ?? null,
+        puntos: p.puntos != null && p.puntos > 0 ? p.puntos : 1,
         opciones: p.tipo === 'multiple_choice' ? p.opciones ?? [] : [],
         indice_correcto:
           p.tipo === 'multiple_choice' && p.indice_correcto != null ? p.indice_correcto : null
@@ -12846,6 +12849,7 @@ class ApiService {
         p_titulo: input.titulo,
         p_descripcion: input.descripcion,
         p_tiempo_total_segundos: input.tiempoTotalSegundos,
+        p_porcentaje_aprobacion: input.porcentajeAprobacion,
         p_preguntas: p_preguntas
       })
       if (error) return { success: false, error: error.message }
@@ -12898,6 +12902,29 @@ class ApiService {
       })
       if (error) return { success: false, error: error.message }
       return { success: true, data }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  /** Calificar pregunta de desarrollo (0 al máximo de la pregunta). Requiere patch SQL 2026-03-27. */
+  async rrhhPruebaCalificarDesarrollo(
+    idAsignacion: string,
+    idPregunta: string,
+    puntos: number
+  ): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_prueba_calificar_desarrollo', {
+        p_usuario_id: usuarioId,
+        p_id_asignacion: idAsignacion,
+        p_id_pregunta: idPregunta,
+        p_puntos: puntos
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: Boolean(data) }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
     }
