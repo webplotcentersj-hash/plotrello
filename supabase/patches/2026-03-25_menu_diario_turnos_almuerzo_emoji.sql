@@ -12,7 +12,10 @@ ALTER TABLE public.menu_selecciones
 COMMENT ON COLUMN public.menu_selecciones.turno_almuerzo IS '1: 13:30-14:15, 2: 14:20-15:00, 3: 15:05-15:45';
 COMMENT ON COLUMN public.menu_selecciones.emoji_estado IS 'Emoji de cómo se siente (validado en RPC)';
 
--- Reemplazar firma de selección (nuevos parámetros obligatorios)
+-- CREATE OR REPLACE no puede cambiar RETURNS TABLE (OUT distintos): dropear antes
+DROP FUNCTION IF EXISTS public.obtener_selecciones_menu(integer);
+DROP FUNCTION IF EXISTS public.obtener_seleccion_usuario_menu(integer, integer);
+DROP FUNCTION IF EXISTS public.seleccionar_plato_menu(integer, integer, integer, smallint, text);
 DROP FUNCTION IF EXISTS public.seleccionar_plato_menu(integer, integer, integer);
 
 CREATE OR REPLACE FUNCTION public.seleccionar_plato_menu(
