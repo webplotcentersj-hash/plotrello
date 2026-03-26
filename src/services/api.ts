@@ -43,7 +43,8 @@ import type {
   Vehiculo,
   RegistroSalidaVehiculo,
   CitaAsesorTecnico,
-  ProtocoloBaseRecord
+  ProtocoloBaseRecord,
+  PruebaPreguntaInput
   // Types used in function signatures and return types
   // OportunidadVenta,
   // Venta,
@@ -12813,6 +12814,180 @@ class ApiService {
     if (!raw) return null
     const n = parseInt(raw, 10)
     return Number.isFinite(n) ? n : null
+  }
+
+  // ============================================
+  // PRUEBAS DE CONOCIMIENTO (RRHH)
+  // ============================================
+
+  async rrhhPruebaGuardar(input: {
+    idPrueba?: string | null
+    titulo: string
+    descripcion: string | null
+    tiempoTotalSegundos: number | null
+    preguntas: PruebaPreguntaInput[]
+  }): Promise<ApiResponse<string>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const p_preguntas = input.preguntas.map((p, idx) => ({
+        orden: p.orden ?? idx + 1,
+        texto: p.texto,
+        tipo: p.tipo,
+        tiempo_segundos: p.tiempo_segundos ?? null,
+        opciones: p.tipo === 'multiple_choice' ? p.opciones ?? [] : [],
+        indice_correcto:
+          p.tipo === 'multiple_choice' && p.indice_correcto != null ? p.indice_correcto : null
+      }))
+      const { data, error } = await supabase.rpc('rrhh_prueba_guardar', {
+        p_usuario_id: usuarioId,
+        p_id_prueba: input.idPrueba ?? null,
+        p_titulo: input.titulo,
+        p_descripcion: input.descripcion,
+        p_tiempo_total_segundos: input.tiempoTotalSegundos,
+        p_preguntas: p_preguntas
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as string }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async rrhhPruebaAsignar(idPrueba: string, idsUsuarios: number[]): Promise<ApiResponse<number>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_prueba_asignar', {
+        p_usuario_id: usuarioId,
+        p_id_prueba: idPrueba,
+        p_ids_usuarios: idsUsuarios
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as number }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async rrhhPruebasListar(): Promise<ApiResponse<unknown>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_pruebas_listar', {
+        p_usuario_id: usuarioId
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async rrhhPruebaResultados(idPrueba: string): Promise<ApiResponse<unknown>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_prueba_resultados', {
+        p_usuario_id: usuarioId,
+        p_id_prueba: idPrueba
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async usuarioMisPruebas(): Promise<ApiResponse<unknown>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('usuario_mis_pruebas', {
+        p_usuario_id: usuarioId
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async usuarioPruebaIniciar(idPrueba: string): Promise<ApiResponse<string>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('usuario_prueba_iniciar', {
+        p_usuario_id: usuarioId,
+        p_id_prueba: idPrueba
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as string }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async usuarioPruebaPantalla(idAsignacion: string): Promise<ApiResponse<unknown>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('usuario_prueba_pantalla', {
+        p_usuario_id: usuarioId,
+        p_id_asignacion: idAsignacion
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async usuarioPruebaResponder(
+    idAsignacion: string,
+    idPregunta: string,
+    respuestaTexto: string | null,
+    opcionElegida: number | null
+  ): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('usuario_prueba_responder', {
+        p_usuario_id: usuarioId,
+        p_id_asignacion: idAsignacion,
+        p_id_pregunta: idPregunta,
+        p_respuesta_texto: respuestaTexto,
+        p_opcion_elegida: opcionElegida
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: Boolean(data) }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async usuarioPruebaFinalizar(idAsignacion: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('usuario_prueba_finalizar', {
+        p_usuario_id: usuarioId,
+        p_id_asignacion: idAsignacion
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: Boolean(data) }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
   }
 
   // ============================================

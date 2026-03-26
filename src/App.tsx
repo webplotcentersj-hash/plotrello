@@ -59,6 +59,8 @@ const CajaDashboardPage = lazy(() => import('./pages/CajaDashboardPage'))
 const RecursosHumanosNotificacionesPage = lazy(() => import('./pages/RecursosHumanosNotificacionesPage'))
 const RecursosHumanosCapacitacionesPage = lazy(() => import('./pages/RecursosHumanosCapacitacionesPage'))
 const RecursosHumanosMenuDiarioPage = lazy(() => import('./pages/RecursosHumanosMenuDiarioPage'))
+const RecursosHumanosPruebasPage = lazy(() => import('./pages/RecursosHumanosPruebasPage'))
+const MisPruebasPage = lazy(() => import('./pages/MisPruebasPage'))
 const CapacitacionesPage = lazy(() => import('./pages/CapacitacionesPage'))
 const MenuDiarioPage = lazy(() => import('./pages/MenuDiarioPage'))
 const CRMVentasPage = lazy(() => import('./pages/CRMVentasPage'))
@@ -1000,6 +1002,14 @@ function AppRoutes({
       <Route
         path="/rrhh/notificaciones"
         element={<RecursosHumanosNotificacionesPage />}
+      />
+      <Route
+        path="/rrhh/pruebas"
+        element={<RecursosHumanosPruebasPage />}
+      />
+      <Route
+        path="/mis-pruebas"
+        element={<MisPruebasPage />}
       />
       <Route
         path="/capacitaciones"

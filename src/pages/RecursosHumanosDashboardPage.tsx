@@ -166,6 +166,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/pruebas')}
+            >
+              <div className="rrhh-action-icon">📝</div>
+              <h3>Pruebas de conocimiento</h3>
+              <p>Crear pruebas, asignarlas y ver respuestas</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/capacitaciones')}
             >
               <div className="rrhh-action-icon">📚</div>

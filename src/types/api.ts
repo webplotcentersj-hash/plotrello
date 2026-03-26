@@ -193,6 +193,18 @@ export interface ProtocoloBaseRecord {
   created_at: string
 }
 
+/** Pregunta de prueba de conocimiento (RRHH) */
+export type PruebaPreguntaTipo = 'multiple_choice' | 'desarrollo'
+
+export interface PruebaPreguntaInput {
+  orden: number
+  texto: string
+  tipo: PruebaPreguntaTipo
+  tiempo_segundos?: number | null
+  opciones?: string[]
+  indice_correcto?: number | null
+}
+
 export interface LegajoEmpleado {
   id?: number
   id_usuario: number

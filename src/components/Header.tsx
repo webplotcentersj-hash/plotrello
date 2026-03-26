@@ -269,6 +269,13 @@ const Header = ({
             >
               📚 Capacitaciones
             </a>
+            <Link
+              to="/mis-pruebas"
+              className="brand-button"
+              onClick={() => setActionsOpen(false)}
+            >
+              📝 Mis evaluaciones
+            </Link>
             <button
               className="brand-button"
               onClick={() => {
