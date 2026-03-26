@@ -4,7 +4,7 @@ import type { Notification } from '../types/api'
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import './HeaderSpotlightCard.css'
 
-type Props = { userId: number | null | undefined }
+type Props = { userId: number | null | undefined; compact?: boolean }
 
 function sameMonthDayInArgentina(isoDate: string | undefined, todayYmd: string): boolean {
   if (!isoDate) return false
@@ -27,7 +27,7 @@ function yearsInCompany(ingresoKey: string, todayYmd: string): number | null {
   return diff >= 0 ? diff : null
 }
 
-export default function HeaderSpotlightCard({ userId }: Props) {
+export default function HeaderSpotlightCard({ userId, compact = false }: Props) {
   const [cumple, setCumple] = useState(false)
   const [aniversario, setAniversario] = useState(false)
   const [aniosEmpresa, setAniosEmpresa] = useState<number | null>(null)
@@ -101,9 +101,17 @@ export default function HeaderSpotlightCard({ userId }: Props) {
     }
   }, [userId])
 
+  const cardClass = [
+    'header-spotlight-card',
+    compact ? 'header-spotlight-card--compact' : '',
+    userId == null ? 'header-spotlight-card--muted' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   if (userId == null) {
     return (
-      <div className="header-spotlight-card header-spotlight-card--muted">
+      <div className={cardClass}>
         <span className="header-spotlight-kicker">Tu día en Plot</span>
         <div className="header-spotlight-day-slot" aria-hidden />
       </div>
@@ -111,7 +119,7 @@ export default function HeaderSpotlightCard({ userId }: Props) {
   }
 
   return (
-    <div className="header-spotlight-card">
+    <div className={cardClass}>
       <span className="header-spotlight-kicker">Tu día en Plot</span>
       <div className="header-spotlight-day-slot">
         {loading ? (

@@ -39,7 +39,7 @@ type HeaderProps = {
 
 const Header = ({
   teamMembers: _teamMembers,
-  activity,
+  activity: _activity,
   currentUserName,
   onNavigateToStats,
   onNavigateToCalendar,
@@ -77,17 +77,6 @@ const Header = ({
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
-  const today = new Date()
-  const movesToday = activity.filter((event) => {
-    const eventDate = new Date(event.timestamp)
-    return (
-      eventDate.getFullYear() === today.getFullYear() &&
-      eventDate.getMonth() === today.getMonth() &&
-      eventDate.getDate() === today.getDate()
-    )
-  }).length
-
-  const activePeople = new Set(activity.map((event) => event.actorId)).size
 
   return (
     <header className="tp-header">
@@ -339,17 +328,9 @@ const Header = ({
         </div>
       </div>
 
-      <div className="header-stats">
-        <div className="header-stat-card">
-          <span>Movimientos hoy</span>
-          <strong>{movesToday}</strong>
-        </div>
-        <div className="header-stat-card">
-          <span>Personas activas</span>
-          <strong>{activePeople}</strong>
-        </div>
+      <div className="header-stats header-stats--single">
         <div className="header-stat-card header-stat-card--spotlight">
-          <HeaderSpotlightCard userId={usuario?.id} />
+          <HeaderSpotlightCard userId={usuario?.id} compact />
         </div>
       </div>
     </header>

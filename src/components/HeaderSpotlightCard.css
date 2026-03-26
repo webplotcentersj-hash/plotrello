@@ -119,3 +119,56 @@
   white-space: nowrap;
   max-width: 100%;
 }
+
+/* Modo compacto (~mitad de tamaño) para el header con una sola tarjeta */
+.header-spotlight-card--compact {
+  min-height: 66px;
+  gap: 4px;
+}
+
+.header-spotlight-card--compact .header-spotlight-day-slot {
+  min-height: 24px;
+  gap: 3px;
+}
+
+.header-spotlight-card--compact .header-spotlight-kicker {
+  font-size: 0.65rem;
+  margin-bottom: 0;
+}
+
+.header-spotlight-card--compact .header-spotlight-line {
+  font-size: 0.7rem;
+}
+
+.header-spotlight-card--compact .header-spotlight-notifs {
+  margin-top: 2px;
+  padding-top: 4px;
+}
+
+.header-spotlight-card--compact .header-spotlight-notifs-label {
+  font-size: 0.6rem;
+  margin-bottom: 2px;
+}
+
+.header-spotlight-card--compact .header-spotlight-notifs-list {
+  font-size: 0.65rem;
+  padding-left: 10px;
+}
+
+.header-stat-card .header-spotlight-card--compact .header-spotlight-meta-label {
+  font-size: 0.58rem;
+}
+
+.header-spotlight-card--compact .header-spotlight-badge {
+  font-size: 0.65rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+.header-spotlight-card--compact .header-spotlight-badges {
+  gap: 4px;
+}
+
+.header-spotlight-card--compact .header-spotlight-meta {
+  gap: 2px;
+}
