@@ -589,7 +589,8 @@ GRANT EXECUTE ON FUNCTION public.usuario_prueba_responder(integer, uuid, uuid, t
 GRANT EXECUTE ON FUNCTION public.usuario_prueba_finalizar(integer, uuid) TO anon, authenticated;
 
 COMMIT;
-\n-- Pruebas: puntos por pregunta, % aprobación, autocalificación MC, calificación manual desarrollo, estadísticas.
+
+-- Pruebas: puntos por pregunta, % aprobación, autocalificación MC, calificación manual desarrollo, estadísticas.
 -- Requiere haber aplicado antes 2026-03-26_pruebas_rrhh_conocimiento.sql
 
 BEGIN;
