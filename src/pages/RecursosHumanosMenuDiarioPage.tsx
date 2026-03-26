@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { MenuDiario, MenuSeleccion } from '../types/api'
 import { formatArgentinaDate, formatArgentinaTime } from '../utils/dateUtils'
+import { getTurnoAlmuerzoLabel } from '../constants/menuDiario'
 import jsPDF from 'jspdf'
 import './RecursosHumanosMenuDiarioPage.css'
 
@@ -116,72 +117,83 @@ const RecursosHumanosMenuDiarioPage = () => {
 
   const handleDescargarPDF = async () => {
     if (!menuHoy) return
-    
-    await loadSelecciones()
-    
+
+    const selRes = await apiService.obtenerSeleccionesMenu(menuHoy.id)
+    const listaPdf =
+      selRes.success && selRes.data ? selRes.data : []
+    setSelecciones(listaPdf)
+
+    const porPlato = new Map<number, MenuSeleccion[]>()
+    for (const sel of listaPdf) {
+      const arr = porPlato.get(sel.id_plato) ?? []
+      arr.push(sel)
+      porPlato.set(sel.id_plato, arr)
+    }
+
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
     const margin = 20
     let yPos = margin
 
-    // Título
+    const nuevaPaginaSiHaceFalta = (extra: number) => {
+      if (yPos + extra > 280) {
+        doc.addPage()
+        yPos = margin
+      }
+    }
+
     doc.setFontSize(18)
-    doc.text('Menú Diario', pageWidth / 2, yPos, { align: 'center' })
+    doc.text('Resumen del día — Menú', pageWidth / 2, yPos, { align: 'center' })
     yPos += 10
 
-    // Fecha
-    doc.setFontSize(12)
+    doc.setFontSize(11)
     const fechaFormateada = formatArgentinaDate(menuHoy.fecha)
     doc.text(`Fecha: ${fechaFormateada}`, margin, yPos)
-    yPos += 10
+    yPos += 4
+    doc.setFontSize(9)
+    doc.setTextColor(100, 100, 100)
+    doc.text(
+      `Total de pedidos: ${listaPdf.length}`,
+      margin,
+      yPos
+    )
+    doc.setTextColor(0, 0, 0)
+    yPos += 12
 
-    // Menú
-    doc.setFontSize(14)
-    doc.text('Platos del Día:', margin, yPos)
-    yPos += 8
-    doc.setFontSize(11)
-    
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Platos del menú', margin, yPos)
+    yPos += 7
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
     menuHoy.platos.forEach((plato, index) => {
-      doc.text(`${index + 1}. ${plato.nombre_plato}`, margin + 5, yPos)
+      nuevaPaginaSiHaceFalta(8)
+      doc.text(`${index + 1}. ${plato.nombre_plato}`, margin + 4, yPos)
       yPos += 6
     })
 
-    yPos += 5
-
-    // Selecciones
-    doc.setFontSize(14)
-    doc.text('Selecciones de Empleados:', margin, yPos)
     yPos += 8
+    nuevaPaginaSiHaceFalta(14)
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Pedidos por plato', margin, yPos)
+    yPos += 8
+    doc.setFont('helvetica', 'normal')
 
-    if (selecciones.length === 0) {
+    for (const plato of menuHoy.platos) {
+      const n = (porPlato.get(plato.id) ?? []).length
+      nuevaPaginaSiHaceFalta(12)
       doc.setFontSize(11)
-      doc.text('No hay selecciones registradas', margin + 5, yPos)
-    } else {
-      doc.setFontSize(10)
-      
-      // Encabezados de tabla
       doc.setFont('helvetica', 'bold')
-      doc.text('Empleado', margin, yPos)
-      doc.text('Plato Seleccionado', margin + 80, yPos)
-      doc.text('Hora', margin + 140, yPos)
-      yPos += 6
+      doc.text(`${plato.nombre_plato}`, margin, yPos)
+      yPos += 5
       doc.setFont('helvetica', 'normal')
-      
-      selecciones.forEach((sel) => {
-        if (yPos > 270) {
-          doc.addPage()
-          yPos = margin
-        }
-        
-        doc.text(sel.nombre_usuario || `Usuario ${sel.id_usuario}`, margin, yPos)
-        doc.text(sel.nombre_plato || '-', margin + 80, yPos)
-        doc.text(formatArgentinaTime(sel.fecha_seleccion), margin + 140, yPos)
-        yPos += 6
-      })
+      doc.setFontSize(10)
+      doc.text(`Pedidos: ${n}`, margin + 4, yPos)
+      yPos += 10
     }
 
-    // Guardar PDF
-    doc.save(`menu-diario-${menuHoy.fecha}.pdf`)
+    doc.save(`resumen-menu-${menuHoy.fecha}.pdf`)
   }
 
   if (loading) {
@@ -264,20 +276,24 @@ const RecursosHumanosMenuDiarioPage = () => {
                 <thead>
                   <tr>
                     <th>Empleado</th>
-                    <th>Plato Seleccionado</th>
+                    <th>Plato</th>
+                    <th>Turno almuerzo</th>
+                    <th>Cómo se siente</th>
                     <th>Hora</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selecciones.length === 0 ? (
                     <tr>
-                      <td colSpan={3} style={{ textAlign: 'center' }}>No hay selecciones registradas</td>
+                      <td colSpan={5} style={{ textAlign: 'center' }}>No hay selecciones registradas</td>
                     </tr>
                   ) : (
                     selecciones.map((sel) => (
                       <tr key={sel.id}>
                         <td>{sel.nombre_usuario || `Usuario ${sel.id_usuario}`}</td>
                         <td>{sel.nombre_plato || '-'}</td>
+                        <td>{getTurnoAlmuerzoLabel(sel.turno_almuerzo ?? 1)}</td>
+                        <td className="rrhh-table-emoji">{sel.emoji_estado || '—'}</td>
                         <td>{formatArgentinaTime(sel.fecha_seleccion)}</td>
                       </tr>
                     ))

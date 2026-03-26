@@ -7,58 +7,64 @@ import './RecursosHumanosDashboardPage.css'
 
 const RecursosHumanosDashboardPage = () => {
   const navigate = useNavigate()
-  const { canManageRecursosHumanos, loading: authLoading } = useAuth()
+  const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
+  const canAccessRrhhDashboard =
+    !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
   const [loading, setLoading] = useState(true)
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [stats, setStats] = useState({
     totalUsuarios: 0,
-    usuariosActivos: 0,
+    rolesDistintos: 0,
     usuariosPorRol: {} as Record<string, number>,
-    usuariosPorSector: {} as Record<string, number>,
-    actividadHoy: 0,
-    actividadSemana: 0,
-    actividadMes: 0
+    totalPruebas: 0,
+    pruebasAsignaciones: 0,
+    pruebasFinalizadas: 0
   })
 
   useEffect(() => {
     if (authLoading) return
-    if (!canManageRecursosHumanos) {
+    if (!canAccessRrhhDashboard) {
       navigate('/')
       return
     }
     loadDashboardData()
-  }, [canManageRecursosHumanos, navigate, authLoading])
+  }, [canAccessRrhhDashboard, navigate, authLoading])
 
   const loadDashboardData = async () => {
     setLoading(true)
     try {
-      // Cargar usuarios
-      const usuariosResponse = await apiService.getUsuarios()
+      const [usuariosResponse, pruebasResponse] = await Promise.all([
+        apiService.getUsuarios(),
+        apiService.rrhhPruebasListar()
+      ])
+
       if (usuariosResponse.success && usuariosResponse.data) {
         setUsuarios(usuariosResponse.data)
-        
-        // Calcular estadísticas
         const totalUsuarios = usuariosResponse.data.length
-        const usuariosActivos = usuariosResponse.data.filter(() => {
-          // Considerar activo si ha estado activo en las últimas 24 horas
-          // Esto se puede mejorar con last_seen si está disponible
-          return true // Por ahora todos son activos
-        }).length
-
-        // Contar por rol
         const usuariosPorRol: Record<string, number> = {}
-        usuariosResponse.data.forEach(u => {
+        usuariosResponse.data.forEach((u) => {
           usuariosPorRol[u.rol] = (usuariosPorRol[u.rol] || 0) + 1
         })
+        const rolesDistintos = Object.keys(usuariosPorRol).length
+
+        let totalPruebas = 0
+        let pruebasAsignaciones = 0
+        let pruebasFinalizadas = 0
+        if (pruebasResponse.success && Array.isArray(pruebasResponse.data)) {
+          totalPruebas = pruebasResponse.data.length
+          pruebasResponse.data.forEach((p: { asignados?: number; finalizados?: number }) => {
+            pruebasAsignaciones += Number(p.asignados) || 0
+            pruebasFinalizadas += Number(p.finalizados) || 0
+          })
+        }
 
         setStats({
           totalUsuarios,
-          usuariosActivos,
+          rolesDistintos,
           usuariosPorRol,
-          usuariosPorSector: {},
-          actividadHoy: 0,
-          actividadSemana: 0,
-          actividadMes: 0
+          totalPruebas,
+          pruebasAsignaciones,
+          pruebasFinalizadas
         })
       }
     } catch (error) {
@@ -89,6 +95,16 @@ const RecursosHumanosDashboardPage = () => {
       </header>
 
       <div className="rrhh-dashboard-content">
+        <div className="rrhh-dashboard-personal">
+          <div className="rrhh-dashboard-personal-text">
+            <strong>Mis evaluaciones</strong>
+            <span>Pruebas asignadas a tu usuario (todos los sectores)</span>
+          </div>
+          <button type="button" className="rrhh-dashboard-personal-btn" onClick={() => navigate('/mis-pruebas')}>
+            Abrir
+          </button>
+        </div>
+
         {/* Estadísticas principales */}
         <div className="rrhh-stats-grid">
           <div className="rrhh-stat-card">
@@ -100,26 +116,28 @@ const RecursosHumanosDashboardPage = () => {
           </div>
 
           <div className="rrhh-stat-card">
-            <div className="rrhh-stat-icon">✅</div>
+            <div className="rrhh-stat-icon">🏷️</div>
             <div className="rrhh-stat-info">
-              <h3>Usuarios Activos</h3>
-              <p className="rrhh-stat-value">{stats.usuariosActivos}</p>
+              <h3>Roles distintos</h3>
+              <p className="rrhh-stat-value">{stats.rolesDistintos}</p>
             </div>
           </div>
 
           <div className="rrhh-stat-card">
-            <div className="rrhh-stat-icon">📊</div>
+            <div className="rrhh-stat-icon">📝</div>
             <div className="rrhh-stat-info">
-              <h3>Actividad Hoy</h3>
-              <p className="rrhh-stat-value">{stats.actividadHoy}</p>
+              <h3>Pruebas de conocimiento</h3>
+              <p className="rrhh-stat-value">{stats.totalPruebas}</p>
             </div>
           </div>
 
           <div className="rrhh-stat-card">
-            <div className="rrhh-stat-icon">📈</div>
+            <div className="rrhh-stat-icon">📋</div>
             <div className="rrhh-stat-info">
-              <h3>Actividad Semanal</h3>
-              <p className="rrhh-stat-value">{stats.actividadSemana}</p>
+              <h3>Asignaciones / Finalizadas</h3>
+              <p className="rrhh-stat-value">
+                {stats.pruebasAsignaciones} / {stats.pruebasFinalizadas}
+              </p>
             </div>
           </div>
         </div>
@@ -267,7 +285,9 @@ const RecursosHumanosDashboardPage = () => {
                     <td>
                       <button
                         className="btn-edit"
-                        onClick={() => navigate(`/rrhh/usuarios/${user.id}`)}
+                        onClick={() =>
+                          navigate('/rrhh/usuarios', { state: { openEditUserId: user.id } })
+                        }
                       >
                         Editar
                       </button>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
@@ -9,7 +9,10 @@ import './RecursosHumanosUsuariosPage.css'
 
 const RecursosHumanosUsuariosPage = () => {
   const navigate = useNavigate()
-  const { canManageRecursosHumanos, loading: authLoading } = useAuth()
+  const location = useLocation()
+  const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
+  const canAccessUsuarios =
+    !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -43,12 +46,30 @@ const RecursosHumanosUsuariosPage = () => {
 
   useEffect(() => {
     if (authLoading) return
-    if (!canManageRecursosHumanos) {
+    if (!canAccessUsuarios) {
       navigate('/rrhh/dashboard')
       return
     }
     loadUsuarios()
-  }, [canManageRecursosHumanos, navigate, authLoading])
+  }, [canAccessUsuarios, navigate, authLoading])
+
+  useEffect(() => {
+    if (loading || !canAccessUsuarios) return
+    const st = location.state as { openEditUserId?: number } | undefined
+    const id = st?.openEditUserId
+    if (id == null) return
+    if (usuarios.length === 0) {
+      navigate(location.pathname, { replace: true, state: {} })
+      return
+    }
+    const user = usuarios.find((u) => u.id === id)
+    if (user) {
+      setSelectedUsuario(user)
+      setFormData({ nombre: user.nombre, password: '', rol: user.rol })
+      setShowEditModal(true)
+    }
+    navigate(location.pathname, { replace: true, state: {} })
+  }, [loading, usuarios, location.state, location.pathname, navigate, canAccessUsuarios])
 
   const loadUsuarios = async () => {
     setLoading(true)

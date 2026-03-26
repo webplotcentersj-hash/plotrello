@@ -54,6 +54,53 @@
   margin: 0 auto;
 }
 
+.rrhh-dashboard-personal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+}
+
+.rrhh-dashboard-personal-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rrhh-dashboard-personal-text strong {
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.rrhh-dashboard-personal-text span {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.rrhh-dashboard-personal-btn {
+  padding: 10px 20px;
+  background: rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  border-radius: 8px;
+  color: #93c5fd;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.rrhh-dashboard-personal-btn:hover {
+  background: rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
+}
+
 .rrhh-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));

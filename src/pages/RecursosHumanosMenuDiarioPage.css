@@ -257,6 +257,11 @@
   color: var(--text-secondary);
 }
 
+.rrhh-table-emoji {
+  font-size: 1.35rem;
+  text-align: center;
+}
+
 .rrhh-modal-actions {
   display: flex;
   gap: 10px;

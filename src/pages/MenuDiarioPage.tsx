@@ -1,10 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { MenuDiario, MenuSeleccion } from '../types/api'
 import { getArgentinaDate, formatArgentinaTime, formatArgentinaDate, isBeforeArgentinaTime } from '../utils/dateUtils'
+import {
+  MENU_TURNOS_ALMUERZO,
+  MENU_ALMUERZO_CUPO_POR_TURNO,
+  MENU_EMOJIS_ESTADO,
+  getTurnoAlmuerzoLabel,
+  type MenuTurnoAlmuerzoId
+} from '../constants/menuDiario'
+import jsPDF from 'jspdf'
 import './MenuDiarioPage.css'
+
+function seatsForTurn(selecciones: MenuSeleccion[], turno: MenuTurnoAlmuerzoId) {
+  const list = selecciones
+    .filter((s) => (s.turno_almuerzo ?? 1) === turno)
+    .sort((a, b) => a.fecha_seleccion.localeCompare(b.fecha_seleccion))
+  return Array.from({ length: MENU_ALMUERZO_CUPO_POR_TURNO }, (_, i) => {
+    const s = list[i]
+    return s
+      ? {
+          ocupado: true as const,
+          nombre: s.nombre_usuario || `Usuario ${s.id_usuario}`,
+          emoji: s.emoji_estado || '😊'
+        }
+      : { ocupado: false as const }
+  })
+}
 
 const MenuDiarioPage = () => {
   const navigate = useNavigate()
@@ -12,9 +36,14 @@ const MenuDiarioPage = () => {
   const [loading, setLoading] = useState(true)
   const [menu, setMenu] = useState<MenuDiario | null>(null)
   const [miSeleccion, setMiSeleccion] = useState<MenuSeleccion | null>(null)
+  const [seleccionesMesa, setSeleccionesMesa] = useState<MenuSeleccion[]>([])
   const [seleccionando, setSeleccionando] = useState(false)
   const [horaActual, setHoraActual] = useState(getArgentinaDate())
   const [puedeSeleccionar, setPuedeSeleccionar] = useState(true)
+
+  const [platoElegido, setPlatoElegido] = useState<number | null>(null)
+  const [turnoElegido, setTurnoElegido] = useState<MenuTurnoAlmuerzoId | null>(null)
+  const [emojiElegido, setEmojiElegido] = useState<string | null>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -23,7 +52,6 @@ const MenuDiarioPage = () => {
       return
     }
     loadMenu()
-    // Actualizar hora cada minuto
     const interval = setInterval(() => {
       setHoraActual(getArgentinaDate())
     }, 60000)
@@ -31,10 +59,24 @@ const MenuDiarioPage = () => {
   }, [authLoading, usuario, navigate])
 
   useEffect(() => {
-    // Verificar si puede seleccionar (hasta las 9:30 AM en Argentina)
-    const puede = isBeforeArgentinaTime(9, 30)
-    setPuedeSeleccionar(puede)
+    setPuedeSeleccionar(isBeforeArgentinaTime(9, 30))
   }, [horaActual])
+
+  const loadSeleccionesMesa = useCallback(async (idMenu: number) => {
+    const response = await apiService.obtenerSeleccionesMenu(idMenu)
+    if (response.success && response.data) {
+      setSeleccionesMesa(response.data)
+    } else {
+      setSeleccionesMesa([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!menu?.id) return
+    loadSeleccionesMesa(menu.id)
+    const t = setInterval(() => loadSeleccionesMesa(menu.id), 45000)
+    return () => clearInterval(t)
+  }, [menu?.id, loadSeleccionesMesa])
 
   const loadMenu = async () => {
     setLoading(true)
@@ -45,8 +87,10 @@ const MenuDiarioPage = () => {
         if (usuario?.id) {
           await loadMiSeleccion(response.data.id, usuario.id)
         }
+        await loadSeleccionesMesa(response.data.id)
       } else {
         setMenu(null)
+        setSeleccionesMesa([])
       }
     } catch (error) {
       console.error('Error cargando menú:', error)
@@ -59,30 +103,59 @@ const MenuDiarioPage = () => {
     const response = await apiService.obtenerSeleccionUsuarioMenu(idMenu, idUsuario)
     if (response.success && response.data) {
       setMiSeleccion(response.data)
+      setPlatoElegido(response.data.id_plato)
+      setTurnoElegido((response.data.turno_almuerzo ?? 1) as MenuTurnoAlmuerzoId)
+      setEmojiElegido(response.data.emoji_estado ?? '😊')
     } else {
       setMiSeleccion(null)
+      setPlatoElegido(null)
+      setTurnoElegido(null)
+      setEmojiElegido(null)
     }
   }
 
-  const handleSeleccionar = async (idPlato: number) => {
+  const countEnTurno = (turno: MenuTurnoAlmuerzoId, excluirUsuarioId?: number) =>
+    seleccionesMesa.filter(
+      (s) =>
+        (s.turno_almuerzo ?? 1) === turno &&
+        (excluirUsuarioId == null || s.id_usuario !== excluirUsuarioId)
+    ).length
+
+  const handleConfirmarPedido = async () => {
     if (!usuario?.id || !menu) return
     if (!puedeSeleccionar) {
       alert('El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM (hora Argentina)')
       return
     }
+    if (platoElegido == null || turnoElegido == null || !emojiElegido) {
+      alert('Elegí plato, turno de almuerzo y cómo te sentís (emoji).')
+      return
+    }
+
+    const otros = countEnTurno(turnoElegido, usuario.id)
+    if (otros >= MENU_ALMUERZO_CUPO_POR_TURNO) {
+      alert('Ese turno ya está completo (10 lugares). Elegí otro horario.')
+      return
+    }
 
     setSeleccionando(true)
     try {
-      const response = await apiService.seleccionarPlatoMenu(menu.id, usuario.id, idPlato)
+      const response = await apiService.seleccionarPlatoMenu(
+        menu.id,
+        usuario.id,
+        platoElegido,
+        turnoElegido,
+        emojiElegido
+      )
       if (response.success && response.data) {
         setMiSeleccion(response.data)
-        alert('Selección registrada correctamente')
-        loadMenu()
+        alert('Pedido registrado correctamente')
+        await loadMenu()
       } else {
         alert('Error: ' + response.error)
       }
-    } catch (error: any) {
-      alert('Error: ' + (error.message || 'Error al seleccionar plato'))
+    } catch (error: unknown) {
+      alert('Error: ' + (error instanceof Error ? error.message : 'Error al confirmar'))
     } finally {
       setSeleccionando(false)
     }
@@ -95,16 +168,46 @@ const MenuDiarioPage = () => {
       return
     }
 
-    if (!confirm('¿Estás seguro de cancelar tu selección?')) return
+    if (!confirm('¿Cancelar tu pedido del menú?')) return
 
     const response = await apiService.cancelarSeleccionMenu(menu.id, usuario.id)
     if (response.success) {
       setMiSeleccion(null)
-      alert('Selección cancelada correctamente')
+      setPlatoElegido(null)
+      setTurnoElegido(null)
+      setEmojiElegido(null)
+      alert('Pedido cancelado')
       loadMenu()
     } else {
       alert('Error: ' + response.error)
     }
+  }
+
+  const handleDescargarPedido = () => {
+    if (!usuario || !menu || !miSeleccion) return
+
+    const doc = new jsPDF()
+    const w = doc.internal.pageSize.getWidth()
+    const m = 18
+    let y = m
+
+    doc.setFontSize(16)
+    doc.text('Pedido — Menú del día', w / 2, y, { align: 'center' })
+    y += 10
+    doc.setFontSize(11)
+    doc.text(`Fecha: ${formatArgentinaDate(menu.fecha)}`, m, y)
+    y += 7
+    doc.text(`Empleado/a: ${usuario.nombre}`, m, y)
+    y += 7
+    doc.text(`Plato: ${miSeleccion.nombre_plato || '—'}`, m, y)
+    y += 7
+    doc.text(`Turno almuerzo: ${getTurnoAlmuerzoLabel(miSeleccion.turno_almuerzo ?? 1)}`, m, y)
+    y += 7
+    doc.text(`Cómo te sentís: ${miSeleccion.emoji_estado || '—'}`, m, y)
+    y += 7
+    doc.text(`Registrado: ${formatArgentinaTime(miSeleccion.fecha_seleccion)}`, m, y)
+
+    doc.save(`pedido-menu-${menu.fecha}-${usuario.nombre.replace(/\s+/g, '-')}.pdf`)
   }
 
   if (loading) {
@@ -130,16 +233,15 @@ const MenuDiarioPage = () => {
       </div>
 
       <div className="menu-diario-content">
-        {/* Información de horario */}
         <div className="menu-horario-info">
           <div className={`horario-badge ${puedeSeleccionar ? 'horario-activo' : 'horario-expirado'}`}>
             {puedeSeleccionar ? (
               <>
-                ⏰ Hora actual (Argentina): {horaFormateada} - Puedes seleccionar hasta las 9:30 AM
+                ⏰ Hora actual (Argentina): {horaFormateada} — Podés elegir menú, turno y estado hasta las 9:30
               </>
             ) : (
               <>
-                ⏰ Hora actual (Argentina): {horaFormateada} - El plazo para seleccionar ha expirado
+                ⏰ Hora actual (Argentina): {horaFormateada} — El plazo para elegir o cambiar el menú ya cerró
               </>
             )}
           </div>
@@ -152,20 +254,17 @@ const MenuDiarioPage = () => {
           </div>
         ) : (
           <>
-            {/* Menú del día */}
             <div className="menu-card">
               <div className="menu-card-header">
-                <h2>Menú del Día</h2>
-                <span className="menu-fecha">
-                  {formatArgentinaDate(menu.fecha)}
-                </span>
+                <h2>Menú del día</h2>
+                <span className="menu-fecha">{formatArgentinaDate(menu.fecha)}</span>
               </div>
               <div className="menu-card-body">
                 <div className="menu-platos-grid">
                   {menu.platos && menu.platos.length > 0 ? (
-                    menu.platos.map((plato) => (
+                    menu.platos.map((plato, idx) => (
                       <div key={plato.id} className="menu-plato-card">
-                        <div className="plato-number">{menu.platos.indexOf(plato) + 1}</div>
+                        <div className="plato-number">{idx + 1}</div>
                         <div className="plato-name">{plato.nombre_plato}</div>
                       </div>
                     ))
@@ -176,59 +275,172 @@ const MenuDiarioPage = () => {
               </div>
             </div>
 
-            {/* Selección */}
+            <div className="menu-mesa-section">
+              <div className="menu-mesa-header">
+                <h3>🪑 Mesas por turno de almuerzo</h3>
+                <p className="menu-mesa-sub">
+                  Cada turno tiene {MENU_ALMUERZO_CUPO_POR_TURNO} lugares. Asientos ocupados se actualizan solos.
+                </p>
+                <button type="button" className="btn-mesa-refresh" onClick={() => menu.id && loadSeleccionesMesa(menu.id)}>
+                  🔄 Actualizar
+                </button>
+              </div>
+              <div className="menu-mesa-grid">
+                {MENU_TURNOS_ALMUERZO.map((t) => {
+                  const seats = seatsForTurn(seleccionesMesa, t.id)
+                  const ocupados = seleccionesMesa.filter((s) => (s.turno_almuerzo ?? 1) === t.id).length
+                  return (
+                    <div key={t.id} className="menu-mesa-mesa">
+                      <div className="menu-mesa-mesa-top">
+                        <span className="menu-mesa-titulo">{t.label}</span>
+                        <span className="menu-mesa-hora">{t.horario}</span>
+                        <span className="menu-mesa-cupo">
+                          {ocupados} / {MENU_ALMUERZO_CUPO_POR_TURNO}
+                        </span>
+                      </div>
+                      <div className="menu-mesa-tabla" aria-label={`Asientos turno ${t.id}`}>
+                        {seats.map((seat, idx) => (
+                          <div
+                            key={idx}
+                            className={`menu-mesa-asiento ${seat.ocupado ? 'ocupado' : 'libre'}`}
+                            title={seat.ocupado ? seat.nombre : `Lugar ${idx + 1} libre`}
+                          >
+                            {seat.ocupado ? (
+                              <>
+                                <span className="menu-mesa-emoji">{seat.emoji}</span>
+                                <span className="menu-mesa-nombre">{seat.nombre}</span>
+                              </>
+                            ) : (
+                              <span className="menu-mesa-libre">+</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
             {miSeleccion ? (
               <div className="menu-seleccion-card">
-                <h3>✅ Tu Selección</h3>
+                <h3>✅ Tu pedido</h3>
                 <div className="seleccion-info">
                   <p>
-                    <strong>Plato seleccionado:</strong> {miSeleccion.nombre_plato || 'Plato seleccionado'}
+                    <strong>Plato:</strong> {miSeleccion.nombre_plato || '—'}
                   </p>
                   <p>
-                    <strong>Hora de selección:</strong>{' '}
-                    {formatArgentinaTime(miSeleccion.fecha_seleccion)}
+                    <strong>Turno:</strong> {getTurnoAlmuerzoLabel(miSeleccion.turno_almuerzo ?? 1)}
+                  </p>
+                  <p>
+                    <strong>Cómo te sentís:</strong> {miSeleccion.emoji_estado || '—'}
+                  </p>
+                  <p>
+                    <strong>Registrado:</strong> {formatArgentinaTime(miSeleccion.fecha_seleccion)}
                   </p>
                 </div>
-                {puedeSeleccionar && (
-                  <button
-                    className="btn-secondary"
-                    onClick={handleCancelarSeleccion}
-                    disabled={seleccionando}
-                  >
-                    Cambiar Selección
+                <div className="menu-pedido-acciones">
+                  <button type="button" className="btn-descargar-pedido" onClick={handleDescargarPedido}>
+                    📄 Descargar pedido (PDF)
                   </button>
-                )}
-              </div>
-            ) : puedeSeleccionar ? (
-              <div className="menu-seleccion-card">
-                <h3>Selecciona tu plato</h3>
-                <p className="seleccion-subtitle">
-                  Tienes tiempo hasta las 9:30 AM (hora Argentina) para seleccionar tu plato
-                </p>
-                <div className="seleccion-buttons">
-                  {menu.platos && menu.platos.length > 0 ? (
-                    menu.platos.map((plato) => (
-                      <button
-                        key={plato.id}
-                        className="btn-seleccion"
-                        onClick={() => handleSeleccionar(plato.id)}
-                        disabled={seleccionando}
-                      >
-                        🍽️ {plato.nombre_plato}
-                      </button>
-                    ))
-                  ) : (
-                    <p>No hay platos disponibles para seleccionar</p>
+                  {puedeSeleccionar && (
+                    <button
+                      className="btn-secondary"
+                      onClick={handleCancelarSeleccion}
+                      disabled={seleccionando}
+                    >
+                      Cancelar pedido
+                    </button>
                   )}
                 </div>
-                {seleccionando && <p className="seleccion-loading">Procesando...</p>}
               </div>
-            ) : (
+            ) : null}
+
+            {!miSeleccion && puedeSeleccionar ? (
+              <div className="menu-seleccion-card menu-form-pedido">
+                <h3>Armar tu pedido</h3>
+                <p className="seleccion-subtitle">Elegí plato, turno de almuerzo y cómo te sentís (al menos 5 opciones de emoji).</p>
+
+                <h4 className="menu-form-step">1. Plato</h4>
+                <div className="menu-plato-pick">
+                  {menu.platos?.map((plato) => (
+                    <button
+                      key={plato.id}
+                      type="button"
+                      className={`menu-plato-opt ${platoElegido === plato.id ? 'selected' : ''}`}
+                      onClick={() => setPlatoElegido(plato.id)}
+                    >
+                      {plato.nombre_plato}
+                    </button>
+                  ))}
+                </div>
+
+                <h4 className="menu-form-step">2. Turno de almuerzo</h4>
+                <div className="menu-turno-pick">
+                  {MENU_TURNOS_ALMUERZO.map((t) => {
+                    const otros = countEnTurno(t.id, usuario?.id)
+                    const lleno = otros >= MENU_ALMUERZO_CUPO_POR_TURNO
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        disabled={lleno}
+                        className={`menu-turno-opt ${turnoElegido === t.id ? 'selected' : ''} ${lleno ? 'disabled' : ''}`}
+                        onClick={() => setTurnoElegido(t.id)}
+                      >
+                        <span className="menu-turno-nombre">{t.label}</span>
+                        <span className="menu-turno-hora">{t.horario}</span>
+                        <span className="menu-turno-cupo">
+                          {otros}/{MENU_ALMUERZO_CUPO_POR_TURNO}
+                        </span>
+                        {lleno ? <span className="menu-turno-lleno">Completo</span> : null}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <h4 className="menu-form-step">3. ¿Cómo te sentís hoy?</h4>
+                <div className="menu-emoji-pick">
+                  {MENU_EMOJIS_ESTADO.map(({ emoji, label }) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className={`menu-emoji-opt ${emojiElegido === emoji ? 'selected' : ''}`}
+                      onClick={() => setEmojiElegido(emoji)}
+                      title={label}
+                    >
+                      <span className="menu-emoji-big">{emoji}</span>
+                      <span className="menu-emoji-lbl">{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-confirmar-pedido"
+                  onClick={handleConfirmarPedido}
+                  disabled={seleccionando}
+                >
+                  {seleccionando ? 'Guardando…' : 'Confirmar pedido'}
+                </button>
+                {seleccionando && <p className="seleccion-loading">Procesando…</p>}
+              </div>
+            ) : null}
+
+            {!miSeleccion && !puedeSeleccionar ? (
               <div className="menu-seleccion-card menu-seleccion-expirada">
-                <h3>⏰ Plazo Expirado</h3>
-                <p>El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM (hora Argentina).</p>
+                <h3>⏰ Plazo vencido</h3>
+                <p>No registraste pedido a tiempo (hasta las 9:30 AM Argentina). Contactá a RRHH si necesitás ayuda.</p>
               </div>
-            )}
+            ) : null}
+
+            {miSeleccion && puedeSeleccionar ? (
+              <div className="menu-seleccion-card menu-cambiar-hint">
+                <p>
+                  Para cambiar plato, turno o emoji, cancelá el pedido con el botón de arriba y volvé a cargarlo.
+                </p>
+              </div>
+            ) : null}
           </>
         )}
       </div>

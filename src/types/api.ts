@@ -987,6 +987,9 @@ export interface MenuSeleccion {
   nombre_plato?: string
   fecha_seleccion: string
   created_at: string
+  /** 1: 13:30–14:15, 2: 14:20–15:00, 3: 15:05–15:45 */
+  turno_almuerzo: number
+  emoji_estado: string
 }
 
 // ============================================

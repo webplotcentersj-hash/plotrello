@@ -1,6 +1,6 @@
 .menu-diario-page {
   padding: 20px;
-  max-width: 900px;
+  max-width: 1100px;
   margin: 0 auto;
   color: var(--text-primary);
 }
@@ -252,5 +252,328 @@
 .btn-secondary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Mesa por turnos */
+.menu-mesa-section {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px 22px 24px;
+}
+
+.menu-mesa-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.menu-mesa-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  flex: 1 1 200px;
+}
+
+.menu-mesa-sub {
+  margin: 0;
+  width: 100%;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.btn-mesa-refresh {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-mesa-refresh:hover {
+  background: rgba(59, 130, 246, 0.28);
+}
+
+.menu-mesa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.menu-mesa-mesa {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.menu-mesa-mesa-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.menu-mesa-titulo {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.menu-mesa-hora {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.menu-mesa-cupo {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.menu-mesa-tabla {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.menu-mesa-asiento {
+  min-height: 52px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  font-size: 0.7rem;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.menu-mesa-asiento.libre {
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.menu-mesa-asiento.ocupado {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.menu-mesa-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.menu-mesa-nombre {
+  font-size: 0.65rem;
+  color: var(--text-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.menu-mesa-libre {
+  font-size: 1.1rem;
+  opacity: 0.45;
+}
+
+/* Formulario pedido */
+.menu-form-pedido .menu-form-step {
+  margin: 18px 0 10px;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.menu-plato-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.menu-plato-opt {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.menu-plato-opt:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.menu-plato-opt.selected {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.menu-turno-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.menu-turno-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 2px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.menu-turno-opt:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.menu-turno-opt.selected {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.menu-turno-opt.disabled,
+.menu-turno-opt:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.menu-turno-nombre {
+  font-weight: 700;
+}
+
+.menu-turno-hora {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.menu-turno-cupo {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.menu-turno-lleno {
+  font-size: 0.75rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.menu-emoji-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.menu-emoji-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 2px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.menu-emoji-opt:hover {
+  border-color: rgba(234, 179, 8, 0.45);
+}
+
+.menu-emoji-opt.selected {
+  border-color: #eab308;
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.menu-emoji-big {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.menu-emoji-lbl {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.btn-confirmar-pedido {
+  margin-top: 20px;
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-confirmar-pedido:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.btn-confirmar-pedido:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.menu-pedido-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.btn-descargar-pedido {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-descargar-pedido:hover {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.menu-cambiar-hint {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.menu-cambiar-hint p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 600px) {
+  .menu-mesa-tabla {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
