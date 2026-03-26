@@ -49,8 +49,13 @@ export default function ProtocolosBasesPage() {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
 
-  // Solo pueden subir: Administracion y Recursos Humanos
-  const canUpload = !!usuario && (usuario.rol === 'administracion' || usuario.rol === 'recursos-humanos' || canManageRecursosHumanos)
+  // Misma regla que la RPC en BD: administración, RRHH o gerencia
+  const canUpload =
+    !!usuario &&
+    (usuario.rol === 'administracion' ||
+      usuario.rol === 'recursos-humanos' ||
+      usuario.rol === 'gerencia' ||
+      canManageRecursosHumanos)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

@@ -12759,31 +12759,28 @@ class ApiService {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
 
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      const createdBy = userData.user?.id ? parseInt(userData.user.id) : null
+      const usuarioId = this.getUsuarioIdFromStorage()
+      if (usuarioId == null) {
+        return { success: false, error: 'Sesión no disponible. Volvé a iniciar sesión.' }
+      }
 
-      // Nombre para mostrar (evitamos un join extra; si no hay email, queda como null).
-      const creadoPorNombre: string | null = userData.user?.email ?? null
-
-      const { data, error } = await supabase
-        .from('protocolos_bases')
-        .insert({
-          titulo: input.titulo,
-          categoria: input.categoria,
-          tipo: input.tipo,
-          tags: input.tags,
-          archivo_url: input.archivoUrl,
-          archivo_nombre: input.archivoNombre,
-          file_mime: input.fileMime,
-          contenido_texto: input.contenidoTexto,
-          creado_por: createdBy,
-          creado_por_nombre: creadoPorNombre
-        })
-        .select('*')
-        .single()
+      // Login por RPC (sin JWT de Supabase Auth): la tabla usa RLS; el alta va por RPC SECURITY DEFINER.
+      const { data, error } = await supabase.rpc('crear_protocolo_base', {
+        p_usuario_id: usuarioId,
+        p_titulo: input.titulo,
+        p_categoria: input.categoria,
+        p_tipo: input.tipo,
+        p_tags: input.tags,
+        p_archivo_url: input.archivoUrl,
+        p_archivo_nombre: input.archivoNombre,
+        p_file_mime: input.fileMime,
+        p_contenido_texto: input.contenidoTexto
+      })
 
       if (error) return { success: false, error: error.message }
-      return { success: true, data: data as ProtocoloBaseRecord }
+      const row = data as ProtocoloBaseRecord | null
+      if (!row) return { success: false, error: 'No se pudo crear el registro' }
+      return { success: true, data: row }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
     }
@@ -12792,12 +12789,30 @@ class ApiService {
   async deleteProtocoloBase(id: string): Promise<ApiResponse<boolean>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
-      const { error } = await supabase.from('protocolos_bases').delete().eq('id', id)
+      const usuarioId = this.getUsuarioIdFromStorage()
+      if (usuarioId == null) {
+        return { success: false, error: 'Sesión no disponible. Volvé a iniciar sesión.' }
+      }
+
+      const { data, error } = await supabase.rpc('eliminar_protocolo_base', {
+        p_id: id,
+        p_usuario_id: usuarioId
+      })
+
       if (error) return { success: false, error: error.message }
-      return { success: true, data: true }
+      return { success: true, data: Boolean(data) }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
     }
+  }
+
+  /** ID de public.usuarios guardado en login (login_usuario); no confundir con Supabase Auth UUID */
+  private getUsuarioIdFromStorage(): number | null {
+    if (typeof window === 'undefined') return null
+    const raw = localStorage.getItem('usuario_id')
+    if (!raw) return null
+    const n = parseInt(raw, 10)
+    return Number.isFinite(n) ? n : null
   }
 
   // ============================================
