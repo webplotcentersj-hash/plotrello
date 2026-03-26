@@ -46,7 +46,7 @@ export default function HeaderSpotlightCard({ userId }: Props) {
       const today = getArgentinaDateString()
       const [legRes, notRes] = await Promise.all([
         apiService.getLegajoEmpleado(userId),
-        apiService.getUserNotifications(userId, 8)
+        apiService.getUserNotificationsRrhhMasivos(userId, 8)
       ])
       if (cancelled) return
       if (legRes.success && legRes.data) {
@@ -105,7 +105,7 @@ export default function HeaderSpotlightCard({ userId }: Props) {
     return (
       <div className="header-spotlight-card header-spotlight-card--muted">
         <span className="header-spotlight-kicker">Tu día en Plot</span>
-        <p className="header-spotlight-line">Iniciá sesión para ver cumpleaños, aniversarios y avisos.</p>
+        <div className="header-spotlight-day-slot" aria-hidden />
       </div>
     )
   }
@@ -113,68 +113,61 @@ export default function HeaderSpotlightCard({ userId }: Props) {
   return (
     <div className="header-spotlight-card">
       <span className="header-spotlight-kicker">Tu día en Plot</span>
-      {loading ? (
-        <p className="header-spotlight-line header-spotlight-line--muted">Cargando…</p>
-      ) : (
-        <>
-          {tieneLegajoFechas && (
-            <div className="header-spotlight-meta" aria-label="Fechas del legajo">
-              {nacimientoDdMm && (
-                <p className="header-spotlight-line">
-                  <span className="header-spotlight-meta-label">Cumple</span>{' '}
-                  {nacimientoDdMm}
-                  {cumple && <span className="header-spotlight-today"> · ¡hoy!</span>}
-                </p>
-              )}
-              {ingresoDdMmYyyy && (
-                <p className="header-spotlight-line">
-                  <span className="header-spotlight-meta-label">Alta en la empresa</span>{' '}
-                  {ingresoDdMmYyyy}
-                  {aniosEnEmpresaSiempre != null && aniosEnEmpresaSiempre > 0 && (
-                    <span className="header-spotlight-meta-years"> · {aniosEnEmpresaSiempre} años</span>
-                  )}
-                  {aniversario && <span className="header-spotlight-today"> · ¡aniversario hoy!</span>}
-                </p>
-              )}
-            </div>
-          )}
-          {(cumple || aniversario) && (
-            <div className="header-spotlight-badges" role="status">
-              {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
-              {aniversario && (
-                <span className="header-spotlight-badge">
-                  🎉 Aniversario en la empresa
-                  {aniosEmpresa != null && aniosEmpresa > 0 ? ` · ${aniosEmpresa} años` : ''}
-                </span>
-              )}
-            </div>
-          )}
-          {!tieneLegajoFechas && (
-            <p className="header-spotlight-line header-spotlight-line--hint">
-              RRHH puede cargar tu fecha de nacimiento y de alta en el legajo para verlas aquí.
-            </p>
-          )}
-          <div
-            className="header-spotlight-notifs"
-            title="Mismas notificaciones que la campana; el RRHH envía avisos masivos desde Recursos Humanos → Notificador."
-          >
-            <span className="header-spotlight-notifs-label">Notificaciones</span>
-            {notifs.length > 0 ? (
-              <ul className="header-spotlight-notifs-list">
-                {notifs.slice(0, 3).map((n) => (
-                  <li key={n.id} className={n.is_read ? '' : 'unread'} title={n.description || n.title}>
-                    {n.title}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="header-spotlight-line header-spotlight-line--muted header-spotlight-notifs-empty">
-                Sin avisos recientes
-              </p>
+      <div className="header-spotlight-day-slot">
+        {loading ? (
+          <p className="header-spotlight-line header-spotlight-line--muted">Cargando…</p>
+        ) : (
+          <>
+            {tieneLegajoFechas && (
+              <div className="header-spotlight-meta" aria-label="Fechas del legajo">
+                {nacimientoDdMm && (
+                  <p className="header-spotlight-line">
+                    <span className="header-spotlight-meta-label">Cumple</span>{' '}
+                    {nacimientoDdMm}
+                    {cumple && <span className="header-spotlight-today"> · ¡hoy!</span>}
+                  </p>
+                )}
+                {ingresoDdMmYyyy && (
+                  <p className="header-spotlight-line">
+                    <span className="header-spotlight-meta-label">Alta en la empresa</span>{' '}
+                    {ingresoDdMmYyyy}
+                    {aniosEnEmpresaSiempre != null && aniosEnEmpresaSiempre > 0 && (
+                      <span className="header-spotlight-meta-years"> · {aniosEnEmpresaSiempre} años</span>
+                    )}
+                    {aniversario && <span className="header-spotlight-today"> · ¡aniversario hoy!</span>}
+                  </p>
+                )}
+              </div>
             )}
-          </div>
-        </>
-      )}
+            {(cumple || aniversario) && (
+              <div className="header-spotlight-badges" role="status">
+                {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
+                {aniversario && (
+                  <span className="header-spotlight-badge">
+                    🎉 Aniversario en la empresa
+                    {aniosEmpresa != null && aniosEmpresa > 0 ? ` · ${aniosEmpresa} años` : ''}
+                  </span>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <div
+        className="header-spotlight-notifs"
+        title="Comunicados enviados desde Recursos Humanos → Notificador masivo (/rrhh/notificaciones)."
+      >
+        <span className="header-spotlight-notifs-label">Comunicados RRHH</span>
+        {notifs.length > 0 && (
+          <ul className="header-spotlight-notifs-list">
+            {notifs.slice(0, 3).map((n) => (
+              <li key={n.id} className={n.is_read ? '' : 'unread'} title={n.description || n.title}>
+                {n.title}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }

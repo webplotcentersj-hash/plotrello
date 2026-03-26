@@ -1,5 +1,6 @@
 .header-spotlight-card {
-  min-height: 72px;
+  /* Altura estable: bloque “Tu día” + notificaciones (como cuando había texto de ayuda) */
+  min-height: 132px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -31,9 +32,13 @@
   color: var(--text-muted);
 }
 
-.header-spotlight-line--hint {
-  color: var(--text-muted);
-  font-size: 0.78rem;
+/* Reserva el espacio del bloque superior aunque no haya cumple/fechas (sin texto vacío) */
+.header-spotlight-day-slot {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: flex-start;
 }
 
 .header-spotlight-meta {
@@ -60,11 +65,6 @@
 .header-spotlight-today {
   color: #fde68a;
   font-weight: 700;
-}
-
-.header-spotlight-notifs-empty {
-  margin: 0;
-  font-size: 0.78rem;
 }
 
 .header-spotlight-badges {

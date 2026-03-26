@@ -767,6 +767,8 @@ export interface Notification {
   title: string
   description: string | null
   type: 'info' | 'success' | 'warning' | 'error' | 'mention'
+  /** sistema | rrhh_masivo (notificador masivo en /rrhh/notificaciones) */
+  origen?: string | null
   orden_id: number | null
   pedido_id: number | null
   solicitud_id?: number | null

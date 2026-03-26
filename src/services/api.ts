@@ -3857,6 +3857,30 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  /**
+   * Solo comunicados del notificador masivo RRHH (/rrhh/notificaciones).
+   * Requiere columna user_notifications.origen y función enviar_notificacion_masiva actualizadas (patch 2026-03-25).
+   */
+  async getUserNotificationsRrhhMasivos(
+    userId: number,
+    limit: number = 50
+  ): Promise<ApiResponse<Notification[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('user_notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('origen', 'rrhh_masivo')
+        .order('timestamp', { ascending: false })
+        .limit(limit)
+
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as Notification[]) ?? [] }
+    }
+
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async createNotification(notification: {
     user_id: number
     title: string
