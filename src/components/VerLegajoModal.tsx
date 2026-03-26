@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import apiService from '../services/api'
 import type { LegajoEmpleado, UsuarioRecord } from '../types/api'
+import { isoToArgentinaDateKey } from '../utils/dateUtils'
 import './VerLegajoModal.css'
 
 type VerLegajoModalProps = {
@@ -24,7 +25,16 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
     try {
       const response = await apiService.getLegajoEmpleado(usuario.id)
       if (response.success && response.data) {
-        setLegajo(response.data)
+        const d = response.data
+        setLegajo({
+          ...d,
+          fecha_ingreso: d.fecha_ingreso
+            ? isoToArgentinaDateKey(String(d.fecha_ingreso)) || d.fecha_ingreso
+            : d.fecha_ingreso,
+          fecha_nacimiento: d.fecha_nacimiento
+            ? isoToArgentinaDateKey(String(d.fecha_nacimiento)) || d.fecha_nacimiento
+            : d.fecha_nacimiento
+        })
       } else {
         setLegajo(null)
       }
@@ -40,12 +50,18 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'No especificada'
+    const key = isoToArgentinaDateKey(String(dateString))
+    if (key.length === 10) {
+      const [y, m, d] = key.split('-')
+      return `${d}/${m}/${y}`
+    }
     try {
       const date = new Date(dateString)
       return date.toLocaleDateString('es-AR', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
+        year: 'numeric',
+        timeZone: 'America/Argentina/Buenos_Aires'
       })
     } catch {
       return dateString

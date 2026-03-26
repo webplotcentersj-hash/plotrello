@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import apiService from '../services/api'
 import type { LegajoEmpleado, UsuarioRecord } from '../types/api'
+import { isoToArgentinaDateKey } from '../utils/dateUtils'
 import './LegajoEmpleadoModal.css'
 
 type LegajoEmpleadoModalProps = {
@@ -30,9 +31,18 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
     try {
       const response = await apiService.getLegajoEmpleado(usuario.id)
       if (response.success && response.data) {
-        setLegajo(response.data)
-        if (response.data.foto_url) {
-          setFotoPreview(response.data.foto_url)
+        const d = response.data
+        setLegajo({
+          ...d,
+          fecha_ingreso: d.fecha_ingreso
+            ? isoToArgentinaDateKey(String(d.fecha_ingreso)) || d.fecha_ingreso
+            : d.fecha_ingreso,
+          fecha_nacimiento: d.fecha_nacimiento
+            ? isoToArgentinaDateKey(String(d.fecha_nacimiento)) || d.fecha_nacimiento
+            : d.fecha_nacimiento
+        })
+        if (d.foto_url) {
+          setFotoPreview(d.foto_url)
         }
       } else {
         // Si no existe legajo, inicializar vacío (el nombre de usuario se muestra aparte en el header)

@@ -22,6 +22,10 @@ const RecursosHumanosUsuariosPage = () => {
   const [selectedUsuario, setSelectedUsuario] = useState<UsuarioRecord | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRol, setFilterRol] = useState<string>('todos')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<UsuarioRecord | null>(null)
+  const [motivoBaja, setMotivoBaja] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   // Formulario
   const [formData, setFormData] = useState({
@@ -30,7 +34,7 @@ const RecursosHumanosUsuariosPage = () => {
     rol: 'mostrador' as UsuarioRecord['rol']
   })
 
-  const roleOptions = [
+  const roleOptions: { value: UsuarioRecord['rol']; label: string; color: string }[] = [
     { value: 'administracion', label: 'Administración', color: '#ef4444' },
     { value: 'gerencia', label: 'Gerencia', color: '#f59e0b' },
     { value: 'recursos-humanos', label: 'Recursos Humanos', color: '#f472b6' },
@@ -41,7 +45,9 @@ const RecursosHumanosUsuariosPage = () => {
     { value: 'metalurgica', label: 'Metalúrgica', color: '#ec4899' },
     { value: 'caja', label: 'Caja', color: '#facc15' },
     { value: 'mostrador', label: 'Mostrador', color: '#10b981' },
-    { value: 'compras', label: 'Compras', color: '#06b6d4' }
+    { value: 'compras', label: 'Compras', color: '#06b6d4' },
+    { value: 'asesor-tecnico', label: 'Asesor técnico', color: '#14b8a6' },
+    { value: 'presupuestos', label: 'Presupuestos', color: '#a78bfa' }
   ]
 
   useEffect(() => {
@@ -150,23 +156,37 @@ const RecursosHumanosUsuariosPage = () => {
     }
   }
 
-  const handleDelete = async (userId: number) => {
-    if (!confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
+  const openDeleteModal = (user: UsuarioRecord) => {
+    setUserToDelete(user)
+    setMotivoBaja('')
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteUsuario = async () => {
+    if (!userToDelete || !usuario?.id) return
+    const m = motivoBaja.trim()
+    if (m.length < 5) {
+      alert('El motivo de baja es obligatorio (mínimo 5 caracteres).')
       return
     }
 
+    setDeleting(true)
     try {
-      const response = await apiService.deleteUsuario(userId)
-
+      const response = await apiService.deleteUsuario(userToDelete.id, m, usuario.id)
       if (response.success) {
+        setShowDeleteModal(false)
+        setUserToDelete(null)
+        setMotivoBaja('')
         await loadUsuarios()
-        alert('Usuario eliminado exitosamente')
+        alert('Usuario dado de baja correctamente')
       } else {
         alert(`Error: ${response.error}`)
       }
     } catch (error) {
       console.error('Error eliminando usuario:', error)
       alert('Error al eliminar usuario')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -189,7 +209,10 @@ const RecursosHumanosUsuariosPage = () => {
     <div className="rrhh-usuarios-page">
       <header className="rrhh-usuarios-header">
         <div className="rrhh-header-content">
-          <h1>👤 Gestión de Usuarios</h1>
+          <div>
+            <p className="rrhh-usuarios-breadcrumb">Recursos Humanos / Usuarios</p>
+            <h1>👤 Gestión de usuarios</h1>
+          </div>
           <div className="rrhh-header-actions">
             <button className="btn-back" onClick={() => navigate('/rrhh/dashboard')}>
               ← Volver
@@ -231,6 +254,12 @@ const RecursosHumanosUsuariosPage = () => {
           </select>
         </div>
 
+        <p className="rrhh-usuarios-meta">
+          {filteredUsuarios.length === usuarios.length
+            ? `${usuarios.length} usuario${usuarios.length === 1 ? '' : 's'}`
+            : `Mostrando ${filteredUsuarios.length} de ${usuarios.length} usuarios`}
+        </p>
+
         {/* Tabla de usuarios */}
         <div className="rrhh-users-table-container">
           <table className="rrhh-users-table">
@@ -244,72 +273,139 @@ const RecursosHumanosUsuariosPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredUsuarios.map((user) => (
-                <tr key={user.id}>
-                  <td>{user.id}</td>
-                  <td>{user.nombre}</td>
-                  <td>
-                    <span
-                      className="rrhh-role-badge"
-                      style={{
-                        backgroundColor: `${roleOptions.find(r => r.value === user.rol)?.color}20`,
-                        color: roleOptions.find(r => r.value === user.rol)?.color
-                      }}
-                    >
-                      {roleOptions.find(r => r.value === user.rol)?.label || user.rol}
-                    </span>
+              {filteredUsuarios.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="rrhh-users-empty">
+                    {usuarios.length === 0
+                      ? 'No hay usuarios cargados.'
+                      : 'Ningún usuario coincide con la búsqueda o el filtro.'}
                   </td>
-                  <td>Hoy</td>
-                  <td>
-                    <div className="rrhh-actions-buttons">
-                      <button
-                        className="btn-ver-legajo"
-                        onClick={() => {
-                          setSelectedUsuario(user)
-                          setShowVerLegajoModal(true)
-                        }}
-                        title="Ver Legajo Completo"
-                      >
-                        👁️ Ver Legajo
-                      </button>
-                      <button
-                        className="btn-legajo"
-                        onClick={() => {
-                          setSelectedUsuario(user)
-                          setShowLegajoModal(true)
-                        }}
-                        title="Editar Legajo Completo"
-                      >
-                        📝 Editar Legajo
-                      </button>
-                      <button
-                        className="btn-edit"
-                        onClick={() => {
-                          setSelectedUsuario(user)
-                          setFormData({
-                            nombre: user.nombre,
-                            password: '',
-                            rol: user.rol
-                          })
-                          setShowEditModal(true)
+                </tr>
+              ) : (
+                filteredUsuarios.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.id}</td>
+                    <td>{user.nombre}</td>
+                    <td>
+                      <span
+                        className="rrhh-role-badge"
+                        style={{
+                          backgroundColor: `${roleOptions.find(r => r.value === user.rol)?.color}20`,
+                          color: roleOptions.find(r => r.value === user.rol)?.color
                         }}
                       >
-                        Editar
-                      </button>
+                        {roleOptions.find(r => r.value === user.rol)?.label || user.rol}
+                      </span>
+                    </td>
+                    <td>Hoy</td>
+                    <td>
+                      <div className="rrhh-actions-buttons">
+                        <button
+                          className="btn-ver-legajo"
+                          onClick={() => {
+                            setSelectedUsuario(user)
+                            setShowVerLegajoModal(true)
+                          }}
+                          title="Ver Legajo Completo"
+                        >
+                          👁️ Ver Legajo
+                        </button>
+                        <button
+                          className="btn-legajo"
+                          onClick={() => {
+                            setSelectedUsuario(user)
+                            setShowLegajoModal(true)
+                          }}
+                          title="Editar Legajo Completo"
+                        >
+                          📝 Editar Legajo
+                        </button>
+                        <button
+                          className="btn-edit"
+                          onClick={() => {
+                            setSelectedUsuario(user)
+                            setFormData({
+                              nombre: user.nombre,
+                              password: '',
+                              rol: user.rol
+                            })
+                            setShowEditModal(true)
+                          }}
+                        >
+                          Editar
+                        </button>
                       <button
                         className="btn-delete"
-                        onClick={() => handleDelete(user.id)}
+                        onClick={() => openDeleteModal(user)}
                       >
                         Eliminar
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Modal motivo de baja */}
+      {showDeleteModal && userToDelete && (
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !deleting) {
+              setShowDeleteModal(false)
+              setUserToDelete(null)
+            }
+          }}
+        >
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <h3>Dar de baja usuario</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => !deleting && setShowDeleteModal(false)}
+                disabled={deleting}
+              >
+                ×
+              </button>
+            </header>
+            <div className="modal-body">
+              <p className="rrhh-delete-intro">
+                Vas a eliminar a <strong>{userToDelete.nombre}</strong>. Esta acción no se puede deshacer. El
+                motivo queda registrado para auditoría de RRHH.
+              </p>
+              <div className="form-group">
+                <label>Motivo de la baja *</label>
+                <textarea
+                  className="rrhh-motivo-baja"
+                  rows={4}
+                  value={motivoBaja}
+                  onChange={(e) => setMotivoBaja(e.target.value)}
+                  placeholder="Ej.: Renuncia voluntaria, fin de contrato, etc."
+                  disabled={deleting}
+                />
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                >
+                  Cancelar
+                </button>
+                <button type="button" className="btn-delete" onClick={confirmDeleteUsuario} disabled={deleting}>
+                  {deleting ? 'Procesando…' : 'Confirmar baja'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Crear Usuario */}
       {showCreateModal && (

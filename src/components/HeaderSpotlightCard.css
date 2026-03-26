@@ -1,0 +1,121 @@
+.header-spotlight-card {
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.header-spotlight-card--muted {
+  opacity: 0.85;
+}
+
+.header-spotlight-kicker {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.header-spotlight-line {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.header-spotlight-line--muted {
+  color: var(--text-muted);
+}
+
+.header-spotlight-line--hint {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.header-spotlight-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header-stat-card .header-spotlight-card .header-spotlight-meta-label {
+  display: inline;
+  font-size: 0.72rem;
+  margin-bottom: 0;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.header-spotlight-meta-years {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.header-spotlight-today {
+  color: #fde68a;
+  font-weight: 700;
+}
+
+.header-spotlight-notifs-empty {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.header-spotlight-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.header-spotlight-badge {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #fde68a;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 8px;
+  padding: 6px 10px;
+  line-height: 1.25;
+}
+
+.header-spotlight-notifs {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.header-spotlight-notifs-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.header-spotlight-notifs-list {
+  margin: 0;
+  padding: 0 0 0 14px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.header-spotlight-notifs-list li.unread {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.header-spotlight-notifs-list li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}

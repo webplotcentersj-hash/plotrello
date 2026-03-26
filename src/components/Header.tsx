@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import NotificationsDropdown from './NotificationsDropdown'
+import HeaderSpotlightCard from './HeaderSpotlightCard'
 import ClockWidget from './ClockWidget'
 import WeatherWidget from './WeatherWidget'
 import AdminAlertButton from './AdminAlertButton'
@@ -37,7 +38,7 @@ type HeaderProps = {
 }
 
 const Header = ({
-  teamMembers,
+  teamMembers: _teamMembers,
   activity,
   currentUserName,
   onNavigateToStats,
@@ -63,6 +64,7 @@ const Header = ({
   isDiseno = false
 }: HeaderProps) => {
   const {
+    usuario,
     canManageCompras,
     canManageCaja,
     canManageRecursosHumanos,
@@ -85,7 +87,6 @@ const Header = ({
     )
   }).length
 
-  const highPriority = teamMembers.length
   const activePeople = new Set(activity.map((event) => event.actorId)).size
 
   return (
@@ -347,9 +348,8 @@ const Header = ({
           <span>Personas activas</span>
           <strong>{activePeople}</strong>
         </div>
-        <div className="header-stat-card">
-          <span>Squad Trello Plot</span>
-          <strong>{highPriority}</strong>
+        <div className="header-stat-card header-stat-card--spotlight">
+          <HeaderSpotlightCard userId={usuario?.id} />
         </div>
       </div>
     </header>

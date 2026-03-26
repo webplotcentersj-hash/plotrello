@@ -18,6 +18,40 @@
   margin-bottom: 30px;
 }
 
+.rrhh-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rrhh-usuarios-breadcrumb {
+  margin: 0 0 6px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.rrhh-usuarios-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.rrhh-usuarios-meta {
+  margin: 0 0 16px 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.rrhh-users-empty {
+  text-align: center;
+  padding: 32px 16px !important;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
 .rrhh-header-actions {
   display: flex;
   gap: 12px;
@@ -204,6 +238,31 @@
 
 .form-group {
   margin-bottom: 20px;
+}
+
+.rrhh-delete-intro {
+  margin: 0 0 16px 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.rrhh-motivo-baja {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 96px;
+}
+
+.rrhh-motivo-baja:focus {
+  outline: none;
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 .form-group label {

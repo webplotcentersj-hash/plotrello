@@ -2435,11 +2435,17 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
-  async deleteUsuario(id: number): Promise<ApiResponse<void>> {
+  async deleteUsuario(
+    id: number,
+    motivoBaja: string,
+    registradoPor: number
+  ): Promise<ApiResponse<void>> {
     if (supabase) {
       try {
         const { error } = await supabase.rpc('eliminar_usuario', {
-          p_id: id
+          p_id: id,
+          p_motivo: motivoBaja.trim(),
+          p_registrado_por: registradoPor
         })
 
         if (error) {
