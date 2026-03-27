@@ -409,11 +409,11 @@ const RecursosHumanosPruebasPage = () => {
 
   const eliminarPrueba = async (pr: PruebaRow) => {
     const n = pr.asignados ?? 0
-    if (n > 0) {
-      setError('No se puede eliminar: hay usuarios asignados.')
-      return
-    }
-    if (!window.confirm(`¿Eliminar la prueba "${pr.titulo}"? No se puede deshacer.`)) return
+    const msg =
+      n > 0
+        ? `¿Eliminar la prueba "${pr.titulo}"? Se borrarán ${n} asignación(es) y todas las respuestas. No se puede deshacer.`
+        : `¿Eliminar la prueba "${pr.titulo}"? No se puede deshacer.`
+    if (!window.confirm(msg)) return
     setLoading(true)
     setError(null)
     const r = await apiService.rrhhPruebaEliminar(pr.id)
@@ -846,10 +846,9 @@ const RecursosHumanosPruebasPage = () => {
                     <button
                       type="button"
                       className="rrhh-pruebas-linkbtn"
-                      disabled={(pr.asignados ?? 0) > 0}
                       title={
                         (pr.asignados ?? 0) > 0
-                          ? 'Hay asignaciones: no se puede eliminar'
+                          ? 'Eliminar prueba (incluye asignaciones y respuestas)'
                           : 'Eliminar prueba'
                       }
                       onClick={() => void eliminarPrueba(pr)}
