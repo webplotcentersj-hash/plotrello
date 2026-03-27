@@ -327,6 +327,16 @@ function App() {
     }
   }, [isAuthenticated, loadRemoteData])
 
+  // Tras procesar entrega (mostrador/tablet): refrescar tablero por si el realtime llega tarde
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const onOrdenEntregada = () => {
+      void loadRemoteData({ silent: true })
+    }
+    window.addEventListener('plotrello-orden-entregada', onOrdenEntregada)
+    return () => window.removeEventListener('plotrello-orden-entregada', onOrdenEntregada)
+  }, [isAuthenticated, loadRemoteData])
+
   useEffect(() => {
     if (!supabase || !isAuthenticated) return
 
@@ -377,6 +387,13 @@ function App() {
       const taskId = orden.id!.toString()
       // Fusión / unificación sin DELETE: la fila sigue en BD pero no debe verse en el tablero
       if ((orden as { visible_en_tablero?: boolean | null }).visible_en_tablero === false) {
+        setTasks((prev) => prev.filter((task) => task.id !== taskId))
+        return
+      }
+      // Entrega desde mostrador (u otro flujo): no debe seguir en Finalizado en Taller / Almacén
+      const ordenEntregada =
+        orden.entregado === true || orden.estado === 'Entregado o Instalado'
+      if (ordenEntregada) {
         setTasks((prev) => prev.filter((task) => task.id !== taskId))
         return
       }

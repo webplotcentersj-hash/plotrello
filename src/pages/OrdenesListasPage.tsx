@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
 import './OrdenesListasPage.css'
 
 const OrdenesListasPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [loading, setLoading] = useState(true)
   const [ordenesListas, setOrdenesListas] = useState<OrdenTrabajo[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -13,7 +14,7 @@ const OrdenesListasPage = () => {
 
   useEffect(() => {
     loadOrdenesListas()
-  }, [])
+  }, [location.key])
 
   const loadOrdenesListas = async () => {
     setLoading(true)
@@ -21,7 +22,10 @@ const OrdenesListasPage = () => {
       const response = await apiService.getOrdenes()
       if (response.success && response.data) {
         const listas = response.data.filter(
-          (orden) => orden.estado === 'Finalizado en Taller' || orden.estado === 'Almacén de Entrega'
+          (orden) =>
+            !orden.entregado &&
+            orden.estado !== 'Entregado o Instalado' &&
+            (orden.estado === 'Finalizado en Taller' || orden.estado === 'Almacén de Entrega')
         )
         setOrdenesListas(listas)
       }

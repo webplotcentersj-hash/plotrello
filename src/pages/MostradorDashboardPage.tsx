@@ -274,9 +274,12 @@ const MostradorDashboardPage = () => {
         const hoy = new Date()
         hoy.setHours(0, 0, 0, 0)
         
-        // Órdenes listas para retirar (Finalizado en Taller o Almacén de Entrega)
+        // Órdenes listas para retirar (Finalizado en Taller o Almacén de Entrega), sin entregar aún
         const listas = ordenesResponse.data.filter(
-          (orden) => orden.estado === 'Finalizado en Taller' || orden.estado === 'Almacén de Entrega'
+          (orden) =>
+            !orden.entregado &&
+            orden.estado !== 'Entregado o Instalado' &&
+            (orden.estado === 'Finalizado en Taller' || orden.estado === 'Almacén de Entrega')
         )
         setOrdenesListas(listas)
 

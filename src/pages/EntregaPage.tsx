@@ -292,6 +292,7 @@ const EntregaPage = () => {
       }
 
       setSuccess(true)
+      window.dispatchEvent(new Event('plotrello-orden-entregada'))
       // Descargar comprobante PDF automáticamente al entregar
       try {
         if (comprobanteRef.current && orden) {

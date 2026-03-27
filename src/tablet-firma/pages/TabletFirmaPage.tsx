@@ -259,6 +259,7 @@ export default function TabletFirmaPage() {
       }
 
       setSuccess(true)
+      window.dispatchEvent(new Event('plotrello-orden-entregada'))
       setTimeout(() => {
         navigate('/')
       }, 2000)
