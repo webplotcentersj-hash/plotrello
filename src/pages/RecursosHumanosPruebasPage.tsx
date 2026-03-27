@@ -74,6 +74,23 @@ function emptyPregunta(orden: number): PruebaPreguntaInput & { opcionesStr: stri
   }
 }
 
+const MC_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+/** Líneas de opción MC (mínimo 2 filas para editar). */
+function mcLinesFromStr(s: string): string[] {
+  if (s.trim() === '') return ['', '']
+  const lines = s.split('\n')
+  return lines.length < 2 ? [...lines, ...Array(2 - lines.length).fill('')] : lines
+}
+
+function mcStrFromLines(lines: string[]): string {
+  return lines.join('\n')
+}
+
+function mcLetterAt(i: number): string {
+  return MC_LETTERS[i] ?? String(i + 1)
+}
+
 function fmtFecha(iso?: string | null): string {
   if (!iso) return '—'
   try {
@@ -152,7 +169,7 @@ function DarkSelect<T extends string>({
 
 const TIPO_OPTS: { value: PruebaPreguntaTipo; label: string }[] = [
   { value: 'desarrollo', label: 'Desarrollo (texto libre)' },
-  { value: 'multiple_choice', label: 'Multiple choice' },
+  { value: 'multiple_choice', label: 'Varias opciones (elegí la correcta)' },
   { value: 'verdadero_falso', label: 'Verdadero / Falso' }
 ]
 
@@ -182,7 +199,7 @@ function mapPreguntaDesdeApi(raw: Record<string, unknown>): PruebaPreguntaInput 
 }
 
 function labelTipoPregunta(t?: string): string {
-  if (t === 'multiple_choice') return 'MC'
+  if (t === 'multiple_choice') return 'Opc. múlt.'
   if (t === 'verdadero_falso') return 'V/F'
   if (t === 'desarrollo') return 'Desarrollo'
   return t ?? '—'
@@ -280,7 +297,7 @@ const RecursosHumanosPruebasPage = () => {
           .map((s) => s.trim())
           .filter(Boolean)
         if (opts.length < 2) {
-          setError('Multiple choice: al menos 2 opciones (una por línea).')
+          setError('Opción múltiple: necesitás al menos 2 opciones con texto.')
           return
         }
         const idx = p.indice_correcto ?? 0
@@ -576,7 +593,9 @@ const RecursosHumanosPruebasPage = () => {
         </label>
 
         <h3>Preguntas (podés agregar todas las que necesites)</h3>
-        {preguntas.map((p, idx) => (
+        {preguntas.map((p, idx) => {
+          const mcLines = p.tipo === 'multiple_choice' ? mcLinesFromStr(p.opcionesStr) : []
+          return (
           <div key={idx} className="rrhh-pruebas-pregunta">
             <div className="rrhh-pruebas-pregunta-head">
               <span>Pregunta {idx + 1}</span>
@@ -615,7 +634,13 @@ const RecursosHumanosPruebasPage = () => {
                       const n = [...prev]
                       const cur = n[idx]
                       if (t === 'multiple_choice') {
-                        n[idx] = { ...cur, tipo: t, opcionesStr: cur.opcionesStr }
+                        const str = cur.opcionesStr.trim() === '' ? '\n' : cur.opcionesStr
+                        n[idx] = {
+                          ...cur,
+                          tipo: t,
+                          opcionesStr: str,
+                          indice_correcto: cur.indice_correcto ?? 0
+                        }
                       } else if (t === 'verdadero_falso') {
                         n[idx] = {
                           ...cur,
@@ -672,40 +697,100 @@ const RecursosHumanosPruebasPage = () => {
               </label>
             </div>
             {p.tipo === 'multiple_choice' && (
-              <>
-                <label className="rrhh-pruebas-block">
-                  Opciones (una por línea) — se corrige automático según índice correcto
-                  <textarea
-                    value={p.opcionesStr}
-                    disabled={bloquearEdicionPreguntas}
-                    onChange={(e) =>
+              <div className="rrhh-pruebas-mc-editor">
+                <div className="rrhh-pruebas-mc-editor-head">
+                  <span className="rrhh-pruebas-mc-editor-title">Opciones</span>
+                  <span className="rrhh-pruebas-mc-editor-hint">Escribí cada alternativa y marcá la correcta</span>
+                </div>
+                <div className="rrhh-pruebas-mc-rows" role="group" aria-label="Opciones de respuesta">
+                  {mcLines.map((line, oi) => (
+                    <div key={oi} className="rrhh-pruebas-mc-row">
+                      <span className="rrhh-pruebas-mc-letter" aria-hidden>
+                        {mcLetterAt(oi)}
+                      </span>
+                      <input
+                        type="text"
+                        className="rrhh-pruebas-mc-input"
+                        value={line}
+                        disabled={bloquearEdicionPreguntas}
+                        placeholder={`Texto opción ${mcLetterAt(oi)}`}
+                        onChange={(e) => {
+                          const next = [...mcLines]
+                          next[oi] = e.target.value
+                          setPreguntas((prev) => {
+                            const n = [...prev]
+                            n[idx] = { ...n[idx], opcionesStr: mcStrFromLines(next) }
+                            return n
+                          })
+                        }}
+                      />
+                      <label className="rrhh-pruebas-mc-correct">
+                        <input
+                          type="radio"
+                          name={`mc-correct-${idx}`}
+                          checked={(p.indice_correcto ?? 0) === oi}
+                          disabled={bloquearEdicionPreguntas}
+                          onChange={() =>
+                            setPreguntas((prev) => {
+                              const n = [...prev]
+                              n[idx] = { ...n[idx], indice_correcto: oi }
+                              return n
+                            })
+                          }
+                        />
+                        <span>Correcta</span>
+                      </label>
+                      {!bloquearEdicionPreguntas && mcLines.length > 2 && (
+                        <button
+                          type="button"
+                          className="rrhh-pruebas-mc-remove"
+                          title="Quitar opción"
+                          aria-label={`Quitar opción ${mcLetterAt(oi)}`}
+                          onClick={() => {
+                            setPreguntas((prev) => {
+                              const n = [...prev]
+                              const cur = n[idx]
+                              if (cur.tipo !== 'multiple_choice') return prev
+                              const lines = mcLinesFromStr(cur.opcionesStr)
+                              lines.splice(oi, 1)
+                              let ic = cur.indice_correcto ?? 0
+                              if (oi === ic) ic = Math.max(0, lines.length - 1)
+                              else if (oi < ic) ic -= 1
+                              ic = Math.min(ic, Math.max(0, lines.length - 1))
+                              n[idx] = {
+                                ...cur,
+                                opcionesStr: mcStrFromLines(lines),
+                                indice_correcto: ic
+                              }
+                              return n
+                            })
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!bloquearEdicionPreguntas && (
+                  <button
+                    type="button"
+                    className="rrhh-pruebas-mc-add"
+                    onClick={() =>
                       setPreguntas((prev) => {
                         const n = [...prev]
-                        n[idx] = { ...n[idx], opcionesStr: e.target.value }
+                        const cur = n[idx]
+                        if (cur.tipo !== 'multiple_choice') return prev
+                        const lines = [...mcLinesFromStr(cur.opcionesStr), '']
+                        n[idx] = { ...cur, opcionesStr: mcStrFromLines(lines) }
                         return n
                       })
                     }
-                    rows={4}
-                    placeholder={'Opción A\nOpción B\nOpción C'}
-                  />
-                </label>
-                <label>
-                  Índice opción correcta (0 = primera línea)
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={bloquearEdicionPreguntas}
-                    value={p.indice_correcto ?? 0}
-                    onChange={(e) =>
-                      setPreguntas((prev) => {
-                        const n = [...prev]
-                        n[idx] = { ...n[idx], indice_correcto: parseInt(e.target.value, 10) || 0 }
-                        return n
-                      })
-                    }
-                  />
-                </label>
-              </>
+                  >
+                    + Agregar opción
+                  </button>
+                )}
+              </div>
             )}
             {p.tipo === 'verdadero_falso' && (
               <div className="rrhh-pruebas-vf-row">
@@ -745,7 +830,8 @@ const RecursosHumanosPruebasPage = () => {
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
         <button
           type="button"
           className="rrhh-pruebas-secondary"

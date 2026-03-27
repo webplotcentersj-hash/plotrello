@@ -226,25 +226,36 @@ export default function MisPruebasPage() {
                   <p className="mis-pruebas-hint">Sugerencia: {pq.tiempo_segundos}s para esta pregunta</p>
                 )}
                 {(pq.tipo === 'multiple_choice' || pq.tipo === 'verdadero_falso') && pq.opciones && (
-                  <div className="mis-pruebas-mc">
-                    {pq.opciones.map((op, i) => (
-                      <label key={i} className="mis-pruebas-radio">
-                        <input
-                          type="radio"
-                          name={pq.id}
-                          checked={local.opcion === i}
+                  <div
+                    className="mis-pruebas-mc"
+                    role="radiogroup"
+                    aria-label={`Respuestas pregunta ${idx + 1}`}
+                  >
+                    {pq.opciones.map((op, i) => {
+                      const letter = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[i] ?? String(i + 1)
+                      const selected = local.opcion === i
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
                           disabled={soloLectura}
-                          onChange={() => {
+                          className={`mis-pruebas-opt-card ${selected ? 'is-selected' : ''}`}
+                          onClick={() => {
+                            if (soloLectura) return
                             setRespuestasLocales((prev) => ({
                               ...prev,
                               [pq.id]: { ...local, opcion: i }
                             }))
                             void guardarRespuesta(pq.id, '', i)
                           }}
-                        />
-                        {op}
-                      </label>
-                    ))}
+                        >
+                          <span className="mis-pruebas-opt-letter">{letter}</span>
+                          <span className="mis-pruebas-opt-text">{op}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
                 {pq.tipo === 'desarrollo' && (

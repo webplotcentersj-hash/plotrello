@@ -123,6 +123,118 @@
   font-size: 0.92rem;
 }
 
+/* Editor: opción múltiple (filas con letra + texto + “Correcta”) */
+.rrhh-pruebas-mc-editor {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgba(2, 6, 23, 0.45);
+}
+
+.rrhh-pruebas-mc-editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rrhh-pruebas-mc-editor-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #38bdf8;
+  letter-spacing: 0.02em;
+}
+
+.rrhh-pruebas-mc-editor-hint {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.rrhh-pruebas-mc-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rrhh-pruebas-mc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.rrhh-pruebas-mc-row .rrhh-pruebas-mc-input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.rrhh-pruebas-mc-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #e0f2fe;
+  background: linear-gradient(145deg, rgba(14, 165, 233, 0.35), rgba(2, 132, 199, 0.2));
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  flex-shrink: 0;
+}
+
+.rrhh-pruebas-mc-correct {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #a7f3d0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rrhh-pruebas-mc-correct input {
+  accent-color: #34d399;
+}
+
+.rrhh-pruebas-mc-remove {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.25);
+  color: #fecaca;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rrhh-pruebas-mc-remove:hover {
+  background: rgba(185, 28, 28, 0.45);
+}
+
+.rrhh-pruebas-mc-add {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.rrhh-pruebas-mc-add:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #38bdf8;
+}
+
 .rrhh-pruebas-usuarios-toolbar {
   display: flex;
   flex-wrap: wrap;
