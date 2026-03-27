@@ -225,7 +225,7 @@ export default function MisPruebasPage() {
                 {pq.tiempo_segundos != null && (
                   <p className="mis-pruebas-hint">Sugerencia: {pq.tiempo_segundos}s para esta pregunta</p>
                 )}
-                {pq.tipo === 'multiple_choice' && pq.opciones && (
+                {(pq.tipo === 'multiple_choice' || pq.tipo === 'verdadero_falso') && pq.opciones && (
                   <div className="mis-pruebas-mc">
                     {pq.opciones.map((op, i) => (
                       <label key={i} className="mis-pruebas-radio">

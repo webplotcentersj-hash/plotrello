@@ -186,6 +186,15 @@ const Header = ({
                 👥 Recursos Humanos
               </button>
             )}
+            {canManageRecursosHumanos && (
+              <Link
+                to="/rrhh/pruebas"
+                className="brand-button"
+                onClick={() => setActionsOpen(false)}
+              >
+                📝 Pruebas RRHH
+              </Link>
+            )}
             {(isAdmin || isMostrador || isPresupuestos || canManageCaja) && onNavigateToClientesWeb && (
               <button className="brand-button" onClick={onNavigateToClientesWeb}>
                 Clientes

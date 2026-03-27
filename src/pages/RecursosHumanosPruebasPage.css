@@ -75,6 +75,101 @@
   margin-bottom: 22px;
 }
 
+.rrhh-pruebas-card-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.rrhh-pruebas-card-title-row h2 {
+  margin: 0;
+}
+
+.rrhh-pruebas-hint--warn {
+  color: #fbbf24;
+  margin: 0 0 12px 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.rrhh-pruebas-vf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.rrhh-pruebas-vf-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rrhh-pruebas-vf-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.rrhh-pruebas-usuarios-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rrhh-pruebas-table-actions {
+  white-space: normal;
+  min-width: 200px;
+}
+
+.rrhh-pruebas-table-actions .rrhh-pruebas-linkbtn {
+  display: inline-block;
+  margin-right: 8px;
+  margin-bottom: 4px;
+}
+
+.rrhh-pruebas-modal-search {
+  padding: 0 1rem 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-pruebas-modal-search label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.rrhh-pruebas-modal-search-input {
+  width: 100%;
+  max-width: 360px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 12, 20, 0.9);
+  color: var(--text-primary);
+}
+
+.rrhh-pruebas-modal-search-hint {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 .rrhh-pruebas-card h2 {
   margin: 0 0 16px;
   font-size: 1.2rem;

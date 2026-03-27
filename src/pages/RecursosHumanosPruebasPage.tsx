@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -88,12 +88,14 @@ function DarkSelect<T extends string>({
   value,
   onChange,
   options,
-  className
+  className,
+  disabled = false
 }: {
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
   className?: string
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -114,7 +116,8 @@ function DarkSelect<T extends string>({
         type="button"
         className="rrhh-pruebas-darkselect-btn"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
       >
         <span>{label}</span>
         <span className="rrhh-pruebas-darkselect-caret" aria-hidden>
@@ -132,6 +135,7 @@ function DarkSelect<T extends string>({
                   o.value === value ? 'rrhh-pruebas-darkselect-opt is-active' : 'rrhh-pruebas-darkselect-opt'
                 }
                 onClick={() => {
+                  if (disabled) return
                   onChange(o.value)
                   setOpen(false)
                 }}
@@ -148,8 +152,41 @@ function DarkSelect<T extends string>({
 
 const TIPO_OPTS: { value: PruebaPreguntaTipo; label: string }[] = [
   { value: 'desarrollo', label: 'Desarrollo (texto libre)' },
-  { value: 'multiple_choice', label: 'Multiple choice' }
+  { value: 'multiple_choice', label: 'Multiple choice' },
+  { value: 'verdadero_falso', label: 'Verdadero / Falso' }
 ]
+
+function mapPreguntaDesdeApi(raw: Record<string, unknown>): PruebaPreguntaInput & { opcionesStr: string } {
+  const tipo = (raw.tipo as PruebaPreguntaTipo) || 'desarrollo'
+  const opciones = Array.isArray(raw.opciones) ? (raw.opciones as string[]) : []
+  const opcionesStr =
+    tipo === 'multiple_choice' ? opciones.map((x) => String(x)).join('\n') : ''
+  return {
+    orden: Number(raw.orden) || 0,
+    texto: String(raw.texto ?? ''),
+    tipo,
+    tiempo_segundos:
+      raw.tiempo_segundos != null && raw.tiempo_segundos !== ''
+        ? Number(raw.tiempo_segundos)
+        : null,
+    puntos: raw.puntos != null ? Number(raw.puntos) : 1,
+    opciones,
+    indice_correcto:
+      raw.indice_correcto != null && raw.indice_correcto !== ''
+        ? Number(raw.indice_correcto)
+        : tipo === 'verdadero_falso'
+          ? 0
+          : null,
+    opcionesStr
+  }
+}
+
+function labelTipoPregunta(t?: string): string {
+  if (t === 'multiple_choice') return 'MC'
+  if (t === 'verdadero_falso') return 'V/F'
+  if (t === 'desarrollo') return 'Desarrollo'
+  return t ?? '—'
+}
 
 const RecursosHumanosPruebasPage = () => {
   const navigate = useNavigate()
@@ -169,14 +206,30 @@ const RecursosHumanosPruebasPage = () => {
   const [preguntas, setPreguntas] = useState<(PruebaPreguntaInput & { opcionesStr: string })[]>([
     emptyPregunta(1)
   ])
+  const [editingPruebaId, setEditingPruebaId] = useState<string | null>(null)
+  const [editAsignacionesCount, setEditAsignacionesCount] = useState(0)
 
   const [pruebaAsignarId, setPruebaAsignarId] = useState<string>('')
   const [seleccionUsuarios, setSeleccionUsuarios] = useState<Record<number, boolean>>({})
 
   const [resultadoData, setResultadoData] = useState<ResultadoPayload | null>(null)
+  const [resultadosBusqueda, setResultadosBusqueda] = useState('')
   const [resultadoPruebaId, setResultadoPruebaId] = useState<string | null>(null)
   const [resultadosTitulo, setResultadosTitulo] = useState('')
   const [calificarDraft, setCalificarDraft] = useState<Record<string, string>>({})
+
+  const bloquearEdicionPreguntas = editAsignacionesCount > 0
+
+  const asignacionesModalFiltradas = useMemo(() => {
+    const list = resultadoData?.asignaciones ?? []
+    const q = resultadosBusqueda.trim().toLowerCase()
+    if (!q) return list
+    return list.filter((a) => {
+      const nombre = (a.nombre_usuario ?? '').toLowerCase()
+      const uid = String(a.id_usuario ?? '')
+      return nombre.includes(q) || uid.includes(q)
+    })
+  }, [resultadoData, resultadosBusqueda])
 
   const load = async () => {
     setLoading(true)
@@ -247,6 +300,24 @@ const RecursosHumanosPruebasPage = () => {
           opciones: opts,
           indice_correcto: idx
         })
+      } else if (p.tipo === 'verdadero_falso') {
+        const idx = p.indice_correcto ?? 0
+        if (idx < 0 || idx > 1) {
+          setError('Verdadero/Falso: la respuesta correcta debe ser Verdadero (0) o Falso (1).')
+          return
+        }
+        preparadas.push({
+          orden: preparadas.length + 1,
+          texto: p.texto.trim(),
+          tipo: 'verdadero_falso',
+          tiempo_segundos:
+            typeof p.tiempo_segundos === 'number' && !Number.isNaN(p.tiempo_segundos)
+              ? p.tiempo_segundos
+              : null,
+          puntos: pts,
+          opciones: ['Verdadero', 'Falso'],
+          indice_correcto: idx
+        })
       } else {
         preparadas.push({
           orden: preparadas.length + 1,
@@ -276,6 +347,7 @@ const RecursosHumanosPruebasPage = () => {
     const payload = preparadas.map((p, i) => ({ ...p, orden: i + 1 }))
 
     const resp = await apiService.rrhhPruebaGuardar({
+      idPrueba: editingPruebaId,
       titulo: titulo.trim(),
       descripcion: descripcion.trim() || null,
       tiempoTotalSegundos: tiempoSeg,
@@ -292,6 +364,66 @@ const RecursosHumanosPruebasPage = () => {
     setTiempoTotalMin('')
     setPorcentajeAprobacion('60')
     setPreguntas([emptyPregunta(1)])
+    setEditingPruebaId(null)
+    setEditAsignacionesCount(0)
+    await load()
+  }
+
+  const cancelarEdicion = () => {
+    setEditingPruebaId(null)
+    setEditAsignacionesCount(0)
+    setTitulo('')
+    setDescripcion('')
+    setTiempoTotalMin('')
+    setPorcentajeAprobacion('60')
+    setPreguntas([emptyPregunta(1)])
+    setError(null)
+  }
+
+  const abrirEditar = async (pr: PruebaRow) => {
+    setError(null)
+    setLoading(true)
+    const r = await apiService.rrhhPruebaObtener(pr.id)
+    setLoading(false)
+    if (!r.success || !r.data) {
+      setError(r.error || 'No se pudo cargar la prueba')
+      return
+    }
+    const d = r.data as Record<string, unknown>
+    setEditingPruebaId(pr.id)
+    setEditAsignacionesCount(pr.asignados ?? 0)
+    setTitulo(String(d.titulo ?? ''))
+    setDescripcion(String(d.descripcion ?? ''))
+    const seg = d.tiempo_total_segundos
+    setTiempoTotalMin(
+      seg != null && Number(seg) > 0 ? String(Math.round(Number(seg) / 60)) : ''
+    )
+    setPorcentajeAprobacion(String(d.porcentaje_aprobacion ?? 60))
+    const preg = Array.isArray(d.preguntas) ? d.preguntas : []
+    if (preg.length === 0) {
+      setPreguntas([emptyPregunta(1)])
+    } else {
+      setPreguntas(preg.map((x) => mapPreguntaDesdeApi(x as Record<string, unknown>)))
+    }
+  }
+
+  const eliminarPrueba = async (pr: PruebaRow) => {
+    const n = pr.asignados ?? 0
+    if (n > 0) {
+      setError('No se puede eliminar: hay usuarios asignados.')
+      return
+    }
+    if (!window.confirm(`¿Eliminar la prueba "${pr.titulo}"? No se puede deshacer.`)) return
+    setLoading(true)
+    setError(null)
+    const r = await apiService.rrhhPruebaEliminar(pr.id)
+    setLoading(false)
+    if (!r.success) {
+      setError(r.error || 'No se pudo eliminar')
+      return
+    }
+    if (editingPruebaId === pr.id) cancelarEdicion()
+    if (pruebaAsignarId === pr.id) setPruebaAsignarId('')
     await load()
   }
 
@@ -322,6 +454,7 @@ const RecursosHumanosPruebasPage = () => {
   const verResultados = async (pr: PruebaRow) => {
     setLoading(true)
     setError(null)
+    setResultadosBusqueda('')
     const r = await apiService.rrhhPruebaResultados(pr.id)
     setLoading(false)
     if (!r.success) {
@@ -380,9 +513,9 @@ const RecursosHumanosPruebasPage = () => {
         <div>
           <h1>📝 Pruebas de conocimiento</h1>
           <p className="rrhh-pruebas-lead">
-            Varias preguntas por prueba, puntos por ítem, nota de aprobación y corrección automática en
-            multiple choice. Las de desarrollo las calificás vos. Asigná usuarios y revisá resultados con
-            estadísticas.
+            Preguntas de desarrollo, multiple choice, verdadero/falso; puntos por ítem; aprobación por % y
+            corrección automática en ítems cerrados. Asigná usuarios (incl. todos), editá o borrá pruebas sin
+            asignaciones, y revisá resultados con buscador.
           </p>
         </div>
         <button type="button" className="rrhh-pruebas-back" onClick={() => navigate('/rrhh/dashboard')}>
@@ -397,7 +530,20 @@ const RecursosHumanosPruebasPage = () => {
       )}
 
       <section className="rrhh-pruebas-card">
-        <h2>Nueva prueba</h2>
+        <div className="rrhh-pruebas-card-title-row">
+          <h2>{editingPruebaId ? 'Editar prueba' : 'Nueva prueba'}</h2>
+          {editingPruebaId && (
+            <button type="button" className="rrhh-pruebas-secondary" onClick={cancelarEdicion}>
+              Cancelar edición
+            </button>
+          )}
+        </div>
+        {bloquearEdicionPreguntas && (
+          <p className="rrhh-pruebas-hint rrhh-pruebas-hint--warn">
+            Esta prueba ya tiene asignaciones: solo podés cambiar título, descripción, tiempos y porcentaje de
+            aprobación. Las preguntas no se modifican hasta que no queden asignaciones.
+          </p>
+        )}
         <div className="rrhh-pruebas-grid">
           <label>
             Título
@@ -434,7 +580,7 @@ const RecursosHumanosPruebasPage = () => {
           <div key={idx} className="rrhh-pruebas-pregunta">
             <div className="rrhh-pruebas-pregunta-head">
               <span>Pregunta {idx + 1}</span>
-              {preguntas.length > 1 && (
+              {preguntas.length > 1 && !bloquearEdicionPreguntas && (
                 <button
                   type="button"
                   className="rrhh-pruebas-linkbtn"
@@ -446,6 +592,7 @@ const RecursosHumanosPruebasPage = () => {
             </div>
             <textarea
               value={p.texto}
+              disabled={bloquearEdicionPreguntas}
               onChange={(e) => {
                 const v = e.target.value
                 setPreguntas((prev) => {
@@ -462,10 +609,23 @@ const RecursosHumanosPruebasPage = () => {
                 Tipo
                 <DarkSelect
                   value={p.tipo}
+                  disabled={bloquearEdicionPreguntas}
                   onChange={(t) =>
                     setPreguntas((prev) => {
                       const n = [...prev]
-                      n[idx] = { ...n[idx], tipo: t, opcionesStr: t === 'multiple_choice' ? n[idx].opcionesStr : '' }
+                      const cur = n[idx]
+                      if (t === 'multiple_choice') {
+                        n[idx] = { ...cur, tipo: t, opcionesStr: cur.opcionesStr }
+                      } else if (t === 'verdadero_falso') {
+                        n[idx] = {
+                          ...cur,
+                          tipo: t,
+                          opcionesStr: '',
+                          indice_correcto: cur.indice_correcto === 1 ? 1 : 0
+                        }
+                      } else {
+                        n[idx] = { ...cur, tipo: t, opcionesStr: '', indice_correcto: null }
+                      }
                       return n
                     })
                   }
@@ -478,6 +638,7 @@ const RecursosHumanosPruebasPage = () => {
                   type="number"
                   min={0.01}
                   step={0.5}
+                  disabled={bloquearEdicionPreguntas}
                   value={p.puntos ?? 1}
                   onChange={(e) => {
                     const v = parseFloat(e.target.value)
@@ -494,6 +655,7 @@ const RecursosHumanosPruebasPage = () => {
                 <input
                   type="number"
                   min={1}
+                  disabled={bloquearEdicionPreguntas}
                   value={p.tiempo_segundos ?? ''}
                   onChange={(e) => {
                     const v = e.target.value
@@ -515,6 +677,7 @@ const RecursosHumanosPruebasPage = () => {
                   Opciones (una por línea) — se corrige automático según índice correcto
                   <textarea
                     value={p.opcionesStr}
+                    disabled={bloquearEdicionPreguntas}
                     onChange={(e) =>
                       setPreguntas((prev) => {
                         const n = [...prev]
@@ -531,6 +694,7 @@ const RecursosHumanosPruebasPage = () => {
                   <input
                     type="number"
                     min={0}
+                    disabled={bloquearEdicionPreguntas}
                     value={p.indice_correcto ?? 0}
                     onChange={(e) =>
                       setPreguntas((prev) => {
@@ -543,17 +707,55 @@ const RecursosHumanosPruebasPage = () => {
                 </label>
               </>
             )}
+            {p.tipo === 'verdadero_falso' && (
+              <div className="rrhh-pruebas-vf-row">
+                <span className="rrhh-pruebas-vf-label">Respuesta correcta</span>
+                <label className="rrhh-pruebas-vf-opt">
+                  <input
+                    type="radio"
+                    name={`vf-correct-${idx}`}
+                    checked={(p.indice_correcto ?? 0) === 0}
+                    disabled={bloquearEdicionPreguntas}
+                    onChange={() =>
+                      setPreguntas((prev) => {
+                        const n = [...prev]
+                        n[idx] = { ...n[idx], indice_correcto: 0 }
+                        return n
+                      })
+                    }
+                  />{' '}
+                  Verdadero
+                </label>
+                <label className="rrhh-pruebas-vf-opt">
+                  <input
+                    type="radio"
+                    name={`vf-correct-${idx}`}
+                    checked={(p.indice_correcto ?? 0) === 1}
+                    disabled={bloquearEdicionPreguntas}
+                    onChange={() =>
+                      setPreguntas((prev) => {
+                        const n = [...prev]
+                        n[idx] = { ...n[idx], indice_correcto: 1 }
+                        return n
+                      })
+                    }
+                  />{' '}
+                  Falso
+                </label>
+              </div>
+            )}
           </div>
         ))}
         <button
           type="button"
           className="rrhh-pruebas-secondary"
+          disabled={bloquearEdicionPreguntas}
           onClick={() => setPreguntas((prev) => [...prev, emptyPregunta(prev.length + 1)])}
         >
           + Agregar pregunta
         </button>
         <button type="button" className="rrhh-pruebas-primary" onClick={() => void guardarPrueba()}>
-          Guardar prueba
+          {editingPruebaId ? 'Guardar cambios' : 'Guardar prueba'}
         </button>
       </section>
 
@@ -571,6 +773,24 @@ const RecursosHumanosPruebasPage = () => {
               ]}
             />
           </label>
+        </div>
+        <div className="rrhh-pruebas-usuarios-toolbar">
+          <button
+            type="button"
+            className="rrhh-pruebas-linkbtn"
+            onClick={() =>
+              setSeleccionUsuarios(Object.fromEntries(usuarios.map((u) => [u.id, true])))
+            }
+          >
+            Seleccionar todos
+          </button>
+          <button
+            type="button"
+            className="rrhh-pruebas-linkbtn"
+            onClick={() => setSeleccionUsuarios({})}
+          >
+            Ninguno
+          </button>
         </div>
         <div className="rrhh-pruebas-usuarios">
           {usuarios.map((u) => (
@@ -619,7 +839,23 @@ const RecursosHumanosPruebasPage = () => {
                   <td>
                     {pr.tasa_aprobacion_pct != null ? `${pr.tasa_aprobacion_pct}%` : '—'}
                   </td>
-                  <td>
+                  <td className="rrhh-pruebas-table-actions">
+                    <button type="button" className="rrhh-pruebas-linkbtn" onClick={() => void abrirEditar(pr)}>
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="rrhh-pruebas-linkbtn"
+                      disabled={(pr.asignados ?? 0) > 0}
+                      title={
+                        (pr.asignados ?? 0) > 0
+                          ? 'Hay asignaciones: no se puede eliminar'
+                          : 'Eliminar prueba'
+                      }
+                      onClick={() => void eliminarPrueba(pr)}
+                    >
+                      Eliminar
+                    </button>
                     <button type="button" className="rrhh-pruebas-linkbtn" onClick={() => void verResultados(pr)}>
                       Ver respuestas
                     </button>
@@ -640,6 +876,7 @@ const RecursosHumanosPruebasPage = () => {
             if (e.target === e.currentTarget) {
               setResultadoData(null)
               setResultadoPruebaId(null)
+              setResultadosBusqueda('')
             }
           }}
         >
@@ -648,8 +885,8 @@ const RecursosHumanosPruebasPage = () => {
               <div>
                 <h3>Resultados: {resultadosTitulo}</h3>
                 <p className="rrhh-pruebas-modal-sub">
-                  Aprobación: ≥ {resultadoData.prueba.porcentaje_aprobacion ?? '—'}% del total de puntos · Multiple
-                  choice corregido automático
+                  Aprobación: ≥ {resultadoData.prueba.porcentaje_aprobacion ?? '—'}% del total de puntos · Ítems
+                  cerrados (MC y V/F) corregidos automático
                 </p>
               </div>
               <button
@@ -657,14 +894,32 @@ const RecursosHumanosPruebasPage = () => {
                 onClick={() => {
                   setResultadoData(null)
                   setResultadoPruebaId(null)
+                  setResultadosBusqueda('')
                 }}
                 aria-label="Cerrar"
               >
                 ✕
               </button>
             </div>
+            <div className="rrhh-pruebas-modal-search">
+              <label>
+                Buscar por nombre o ID de usuario
+                <input
+                  type="search"
+                  value={resultadosBusqueda}
+                  onChange={(e) => setResultadosBusqueda(e.target.value)}
+                  placeholder="Ej. Juan o 12"
+                  className="rrhh-pruebas-modal-search-input"
+                />
+              </label>
+              {resultadosBusqueda.trim() && (
+                <p className="rrhh-pruebas-modal-search-hint">
+                  Mostrando {asignacionesModalFiltradas.length} de {(resultadoData.asignaciones || []).length}
+                </p>
+              )}
+            </div>
             <div className="rrhh-pruebas-modal-body">
-              {(resultadoData.asignaciones || []).map((asig) => (
+              {asignacionesModalFiltradas.map((asig) => (
                 <article key={asig.id_asignacion} className="rrhh-pruebas-result-block">
                   <header className="rrhh-pruebas-result-user">
                     <div>
@@ -705,10 +960,12 @@ const RecursosHumanosPruebasPage = () => {
                         const key = `${asig.id_asignacion}:${r.id_pregunta}`
                         const maxP = Number(r.puntos_pregunta ?? 0)
                         const esDev = r.requiere_calificacion || r.tipo === 'desarrollo'
+                        const esCerrada =
+                          r.tipo === 'multiple_choice' || r.tipo === 'verdadero_falso'
                         return (
                           <tr key={r.id_pregunta}>
                             <td>{r.pregunta_texto ?? '—'}</td>
-                            <td>{r.tipo === 'multiple_choice' ? 'MC' : 'Desarrollo'}</td>
+                            <td>{labelTipoPregunta(r.tipo)}</td>
                             <td>{r.puntos_pregunta ?? '—'}</td>
                             <td>
                               {esDev ? (
@@ -745,7 +1002,7 @@ const RecursosHumanosPruebasPage = () => {
                               )}
                             </td>
                             <td className="rrhh-pruebas-result-answer">
-                              {r.tipo === 'multiple_choice' && Array.isArray(r.opciones) ? (
+                              {esCerrada && Array.isArray(r.opciones) ? (
                                 <span>
                                   Elegida:{' '}
                                   {r.opcion_elegida != null

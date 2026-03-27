@@ -12978,9 +12978,12 @@ class ApiService {
         tipo: p.tipo,
         tiempo_segundos: p.tiempo_segundos ?? null,
         puntos: p.puntos != null && p.puntos > 0 ? p.puntos : 1,
-        opciones: p.tipo === 'multiple_choice' ? p.opciones ?? [] : [],
+        opciones:
+          p.tipo === 'multiple_choice' || p.tipo === 'verdadero_falso' ? p.opciones ?? [] : [],
         indice_correcto:
-          p.tipo === 'multiple_choice' && p.indice_correcto != null ? p.indice_correcto : null
+          (p.tipo === 'multiple_choice' || p.tipo === 'verdadero_falso') && p.indice_correcto != null
+            ? p.indice_correcto
+            : null
       }))
       const { data, error } = await supabase.rpc('rrhh_prueba_guardar', {
         p_usuario_id: usuarioId,
@@ -13010,6 +13013,38 @@ class ApiService {
       })
       if (error) return { success: false, error: error.message }
       return { success: true, data: data as number }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async rrhhPruebaObtener(idPrueba: string): Promise<ApiResponse<unknown>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_prueba_obtener', {
+        p_usuario_id: usuarioId,
+        p_id_prueba: idPrueba
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+    }
+  }
+
+  async rrhhPruebaEliminar(idPrueba: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const usuarioId = this.getUsuarioIdFromStorage()
+    if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_prueba_eliminar', {
+        p_usuario_id: usuarioId,
+        p_id_prueba: idPrueba
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: Boolean(data) }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
     }

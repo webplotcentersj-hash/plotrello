@@ -194,7 +194,7 @@ export interface ProtocoloBaseRecord {
 }
 
 /** Pregunta de prueba de conocimiento (RRHH) */
-export type PruebaPreguntaTipo = 'multiple_choice' | 'desarrollo'
+export type PruebaPreguntaTipo = 'multiple_choice' | 'desarrollo' | 'verdadero_falso'
 
 export interface PruebaPreguntaInput {
   orden: number
