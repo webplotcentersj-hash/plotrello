@@ -1,10 +1,28 @@
 import { useEffect, useState } from 'react'
 import apiService from '../services/api'
-import type { Notification } from '../types/api'
+import type { FechaPlotHoyItem, Notification } from '../types/api'
 import { getArgentinaDateString, legajoCalendarDateKey } from '../utils/dateUtils'
 import './HeaderSpotlightCard.css'
 
 type Props = { userId: number | null | undefined; compact?: boolean }
+
+/** id desde props o localStorage (login guarda usuario_id; a veces el objeto usuario no trae id) */
+function resolveSessionUserId(propId: number | null | undefined): number | null {
+  const n = Number(propId)
+  if (Number.isFinite(n) && n > 0) return Math.floor(n)
+  const fromLs = Number(localStorage.getItem('usuario_id'))
+  if (Number.isFinite(fromLs) && fromLs > 0) return Math.floor(fromLs)
+  try {
+    const raw = localStorage.getItem('usuario')
+    if (!raw) return null
+    const u = JSON.parse(raw) as { id?: unknown }
+    const id = Number(u?.id)
+    if (Number.isFinite(id) && id > 0) return Math.floor(id)
+  } catch {
+    /* ignore */
+  }
+  return null
+}
 
 function sameMonthDayInArgentina(isoDate: string | undefined, todayYmd: string): boolean {
   if (!isoDate) return false
@@ -25,6 +43,18 @@ function yearsInCompany(ingresoKey: string, todayYmd: string): number | null {
   const yNow = parseInt(todayYmd.slice(0, 4), 10)
   const diff = yNow - yIn
   return diff >= 0 ? diff : null
+}
+
+function formatEquipoLinea(row: FechaPlotHoyItem): string {
+  const bits: string[] = []
+  if (row.cumple_hoy) bits.push('cumpleaños')
+  if (row.aniversario_empresa_hoy) {
+    const a = row.anios_en_empresa
+    if (a != null && a > 0) bits.push(`${a} años en la empresa`)
+    else if (a === 0) bits.push('primera jornada en Plot')
+    else bits.push('aniversario en la empresa')
+  }
+  return bits.length ? `${row.nombre_mostrar} — ${bits.join(' · ')}` : row.nombre_mostrar
 }
 
 function comunicadoAccentClass(type: Notification['type']): string {
@@ -51,21 +81,37 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
   const [ingresoDdMmYyyy, setIngresoDdMmYyyy] = useState<string | null>(null)
   const [aniosEnEmpresaSiempre, setAniosEnEmpresaSiempre] = useState<number | null>(null)
   const [notifs, setNotifs] = useState<Notification[]>([])
+  const [equipoHoy, setEquipoHoy] = useState<FechaPlotHoyItem[]>([])
   const [loading, setLoading] = useState(false)
 
+  const resolvedId = resolveSessionUserId(userId)
+
   useEffect(() => {
-    if (userId == null) return
-    const uid = Number(userId)
-    if (Number.isNaN(uid) || uid <= 0) return
     let cancelled = false
     const run = async () => {
+      const uid = resolvedId
+      if (uid == null) {
+        setTieneLegajoFechas(false)
+        setNacimientoDdMm(null)
+        setIngresoDdMmYyyy(null)
+        setNotifs([])
+        setEquipoHoy([])
+        setLoading(false)
+        return
+      }
       setLoading(true)
       const today = getArgentinaDateString()
-      const [legRes, notRes] = await Promise.all([
-        apiService.getLegajoEmpleado(uid),
-        apiService.getUserNotificationsRrhhMasivos(uid, 6)
+      const [legRes, equipoRes, notRes] = await Promise.all([
+        apiService.getLegajoEmpleado(uid).catch(() => ({ success: false as const, error: 'Error de red' })),
+        apiService.listarFechasPlotHoy().catch(() => ({ success: false as const })),
+        apiService.getUserNotificationsRrhhMasivos(uid, 6).catch(() => ({ success: false as const }))
       ])
       if (cancelled) return
+      if (equipoRes.success && equipoRes.data) {
+        setEquipoHoy(equipoRes.data)
+      } else {
+        setEquipoHoy([])
+      }
       if (legRes.success && legRes.data) {
         const fn = legRes.data.fecha_nacimiento
         const fi = legRes.data.fecha_ingreso
@@ -105,28 +151,28 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
         setAniversario(false)
         setAniosEmpresa(null)
       }
-      if (notRes.success && notRes.data) {
+      if (!cancelled && notRes.success && notRes.data) {
         setNotifs(notRes.data)
-      } else {
+      } else if (!cancelled) {
         setNotifs([])
       }
-      setLoading(false)
+      if (!cancelled) setLoading(false)
     }
     run()
     return () => {
       cancelled = true
     }
-  }, [userId])
+  }, [resolvedId])
 
   const cardClass = [
     'header-spotlight-card',
     compact ? 'header-spotlight-card--compact' : '',
-    userId == null ? 'header-spotlight-card--muted' : ''
+    resolvedId == null ? 'header-spotlight-card--muted' : ''
   ]
     .filter(Boolean)
     .join(' ')
 
-  if (userId == null) {
+  if (resolvedId == null) {
     return (
       <div className={cardClass}>
         <span className="header-spotlight-kicker">Tu día en Plot</span>
@@ -145,6 +191,18 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
               <p className="header-spotlight-line header-spotlight-line--muted">Cargando…</p>
             ) : (
               <>
+                {equipoHoy.length > 0 && (
+                  <div className="header-spotlight-equipo" aria-label="Cumples y aniversarios del equipo hoy">
+                    <p className="header-spotlight-equipo-title">Hoy en Plot (equipo)</p>
+                    <ul className="header-spotlight-equipo-list">
+                      {equipoHoy.map((row) => (
+                        <li key={row.id_usuario} className="header-spotlight-equipo-line">
+                          {formatEquipoLinea(row)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {tieneLegajoFechas && (
                   <div className="header-spotlight-meta" aria-label="Fechas del legajo">
                     {nacimientoDdMm && (

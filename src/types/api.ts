@@ -230,6 +230,15 @@ export interface LegajoEmpleado {
   updated_at?: string
 }
 
+/** Fila de listar_fechas_plot_hoy (cumples / aniversarios de alta hoy, visible para todo el equipo) */
+export interface FechaPlotHoyItem {
+  id_usuario: number
+  nombre_mostrar: string
+  cumple_hoy: boolean
+  aniversario_empresa_hoy: boolean
+  anios_en_empresa: number | null
+}
+
 export interface ClienteRecord {
   id: number
   nombre: string

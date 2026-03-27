@@ -17,6 +17,7 @@ import type {
   UsuarioRecord,
   UserRole,
   LegajoEmpleado,
+  FechaPlotHoyItem,
   ClienteWebRecord,
   ArticuloEmpresaRecord,
   ArticuloEmpresaImagenRecord,
@@ -1955,6 +1956,19 @@ class ApiService {
     }
 
     return { success: true, data: null }
+  }
+
+  /** Cumples y aniversarios de alta HOY (Argentina) para todos los usuarios en home */
+  async listarFechasPlotHoy(): Promise<ApiResponse<FechaPlotHoyItem[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
+    }
+    const { data, error } = await supabase.rpc('listar_fechas_plot_hoy')
+    if (error) {
+      return { success: false, error: error.message }
+    }
+    const rows = Array.isArray(data) ? data : []
+    return { success: true, data: rows as FechaPlotHoyItem[] }
   }
 
   async crearActualizarLegajo(
