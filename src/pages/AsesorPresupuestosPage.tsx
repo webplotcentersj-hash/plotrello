@@ -169,65 +169,40 @@ const AsesorPresupuestosPage = ({
         return
       }
 
-      // Finalizado: estado "Finalizado" pero sector sigue siendo Asesor o Presupuestos (no usar moveOrden: pondría sector="Finalizado")
-      if (destination === 'finalizado-asesor-presupuestos') {
-        if (taskToUpdate.esFichaNoOP) {
-          const sectorActual =
-            taskToUpdate.assignedSector ||
-            taskToUpdate.sectorInicial ||
-            (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
-            'Asesor Técnico'
+      // Si se mueve a Finalizado y es una ficha, transformarla a orden general
+      if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
+        const sectorActual =
+          taskToUpdate.assignedSector ||
+          taskToUpdate.sectorInicial ||
+          (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
+          'Asesor Técnico'
 
-          const updatedTask = {
-            ...taskToUpdate,
-            status: destination,
-            assignedSector: sectorActual
-          }
-          const payload = taskToOrdenPayload(updatedTask)
-          payload.estado = 'Finalizado'
-          payload.sector = sectorActual
-
-          const updateResponse = await apiService.updateOrden(ordenId, payload)
-          if (!updateResponse.success) {
-            setActionError(updateResponse.error || 'Error al mover la orden')
-            return
-          }
-
-          const transformResponse = await apiService.transformarFichaNoOPAOP(ordenId)
-          if (!transformResponse.success) {
-            setActionError(transformResponse.error || 'Error al transformar la ficha')
-            return
-          }
-
-          setActionSuccess(
-            `Ficha convertida a orden: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
-          )
-        } else {
-          const sectorActual =
-            taskToUpdate.assignedSector ||
-            taskToUpdate.sectorInicial ||
-            (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
-            'Asesor Técnico'
-
-          const updatedTask = {
-            ...taskToUpdate,
-            status: destination,
-            assignedSector: sectorActual
-          }
-          const payload = taskToOrdenPayload(updatedTask)
-          payload.estado = 'Finalizado'
-          payload.sector = sectorActual
-
-          const response = await apiService.updateOrden(ordenId, payload)
-          if (!response.success) {
-            setActionError(response.error || 'Error al mover la orden')
-            return
-          }
-
-          setActionSuccess('Orden movida correctamente')
+        const updatedTask = {
+          ...taskToUpdate,
+          status: destination,
+          assignedSector: sectorActual
         }
-      } else {
-        // Asesor Técnico ↔ Presupuestos: dos filas con el mismo OP (instancias distintas). moveOrden fusiona si ya existe la pareja (mismo criterio que tablero general).
+        const payload = taskToOrdenPayload(updatedTask)
+        payload.estado = 'Finalizado'
+        payload.sector = sectorActual
+
+        const updateResponse = await apiService.updateOrden(ordenId, payload)
+        if (!updateResponse.success) {
+          setActionError(updateResponse.error || 'Error al mover la orden')
+          return
+        }
+
+        const transformResponse = await apiService.transformarFichaNoOPAOP(ordenId)
+        if (!transformResponse.success) {
+          setActionError(transformResponse.error || 'Error al transformar la ficha')
+          return
+        }
+
+        setActionSuccess(
+          `Ficha convertida a orden: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
+        )
+      } else if (destination === 'asesor-tecnico' || destination === 'presupuestos') {
+        // Misma lógica que tablero general: fusiona instancias duplicadas (mismo OP en otro sector) sin violar ux_ordenes_op_sector
         const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
         const nuevoEstado = mapStatusToEstado(destination)
         const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
@@ -242,6 +217,32 @@ const AsesorPresupuestosPage = ({
         } else {
           setActionSuccess('Orden movida correctamente')
         }
+      } else {
+        // Finalizado sin ser ficha No OP: estado Finalizado, sector sigue Asesor o Presupuestos
+        const sectorActual =
+          taskToUpdate.assignedSector ||
+          taskToUpdate.sectorInicial ||
+          (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
+          'Asesor Técnico'
+
+        const updatedTask = {
+          ...taskToUpdate,
+          status: destination,
+          assignedSector: sectorActual
+        }
+        const payload = taskToOrdenPayload(updatedTask)
+        if (destination === 'finalizado-asesor-presupuestos') {
+          payload.estado = 'Finalizado'
+          payload.sector = sectorActual
+        }
+
+        const response = await apiService.updateOrden(ordenId, payload)
+        if (!response.success) {
+          setActionError(response.error || 'Error al mover la orden')
+          return
+        }
+
+        setActionSuccess('Orden movida correctamente')
       }
 
       if (onReloadData) {

@@ -1286,17 +1286,64 @@ class ApiService {
   /**
    * Política: una fila de ordenes_trabajo solo se ELIMINA (DELETE) por deleteOrden (acción explícita).
    * La “fusión” por movimiento solo oculta la ficha duplicada (visible_en_tablero = false), sin borrarla.
+   * Antes de ocultar, unifica en la fila visible los flags que pintan la tarjeta (planilla, FT incompleta, checklists, PDF).
    */
   private async fusionarOrdenesDuplicadas(keepId: number, removeId: number): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const sb = supabase
 
     try {
-      await supabase.from('enlaces_adjuntos').update({ id_orden: keepId }).eq('id_orden', removeId)
-      await supabase.from('comentarios_orden').update({ id_orden: keepId }).eq('id_orden', removeId)
-      await supabase.from('tarea_subitems').update({ id_orden: keepId }).eq('id_orden', removeId)
-      await supabase.from('historial_movimientos').update({ id_orden: keepId }).eq('id_orden', removeId)
+      const mergeVisualFlags = async () => {
+        const fullSelect =
+          'id, planilla_preliminar, ficha_tecnica_incompleta, ficha_tecnica_cargada, presupuesto_enviado_cliente, ficha_tecnica_pdf_url'
+        let pair: Array<Record<string, unknown>> | null = null
+        const r1 = await sb.from('ordenes_trabajo').select(fullSelect).in('id', [keepId, removeId])
+        if (r1.error && /ficha_tecnica_incompleta|column/i.test(String(r1.error.message))) {
+          const r2 = await sb
+            .from('ordenes_trabajo')
+            .select(
+              'id, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, ficha_tecnica_pdf_url'
+            )
+            .in('id', [keepId, removeId])
+          if (!r2.error) pair = r2.data as Array<Record<string, unknown>>
+        } else if (!r1.error) {
+          pair = r1.data as Array<Record<string, unknown>>
+        }
 
-      const { error: hideError } = await supabase
+        if (!pair || pair.length < 2) return
+
+        const a = pair.find((row) => Number(row.id) === keepId)
+        const b = pair.find((row) => Number(row.id) === removeId)
+        if (!a || !b) return
+
+        const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+        const pdfA = str(a.ficha_tecnica_pdf_url)
+        const pdfB = str(b.ficha_tecnica_pdf_url)
+        const merged: Record<string, unknown> = {
+          planilla_preliminar: Boolean(a.planilla_preliminar) || Boolean(b.planilla_preliminar),
+          ficha_tecnica_cargada: Boolean(a.ficha_tecnica_cargada) || Boolean(b.ficha_tecnica_cargada),
+          presupuesto_enviado_cliente: Boolean(a.presupuesto_enviado_cliente) || Boolean(b.presupuesto_enviado_cliente),
+          ficha_tecnica_pdf_url: pdfA || pdfB || null
+        }
+        if ('ficha_tecnica_incompleta' in a || 'ficha_tecnica_incompleta' in b) {
+          merged.ficha_tecnica_incompleta =
+            Boolean(a.ficha_tecnica_incompleta) || Boolean(b.ficha_tecnica_incompleta)
+        }
+
+        const { error: mergeErr } = await sb.from('ordenes_trabajo').update(merged).eq('id', keepId)
+        if (mergeErr) {
+          console.warn('fusionarOrdenesDuplicadas: no se pudieron unificar colores/flags en fila', keepId, mergeErr)
+        }
+      }
+
+      await mergeVisualFlags()
+
+      await sb.from('enlaces_adjuntos').update({ id_orden: keepId }).eq('id_orden', removeId)
+      await sb.from('comentarios_orden').update({ id_orden: keepId }).eq('id_orden', removeId)
+      await sb.from('tarea_subitems').update({ id_orden: keepId }).eq('id_orden', removeId)
+      await sb.from('historial_movimientos').update({ id_orden: keepId }).eq('id_orden', removeId)
+
+      const { error: hideError } = await sb
         .from('ordenes_trabajo')
         .update({ visible_en_tablero: false })
         .eq('id', removeId)
