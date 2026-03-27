@@ -68,6 +68,20 @@ export function isoToArgentinaDateKey(value: string): string {
 }
 
 /**
+ * Fecha de calendario para legajo (alta, nacimiento): sin corrimiento por UTC.
+ * Postgres suele devolver `2026-03-25` o `2026-03-25T00:00:00+00:00`; si usamos
+ * isoToArgentinaDateKey sobre medianoche UTC, en Argentina puede quedar el día anterior
+ * y no coincide “hoy” con el aniversario/cumple.
+ */
+export function legajoCalendarDateKey(value: string | undefined | null): string {
+  if (value == null || value === '') return ''
+  const s = String(value).trim()
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (m) return m[1]
+  return isoToArgentinaDateKey(s)
+}
+
+/**
  * Dado un ISO/timestamptz, devuelve la hora HH:mm en Argentina.
  */
 export function isoToArgentinaTime(value: string): string {

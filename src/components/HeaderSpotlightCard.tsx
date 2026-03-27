@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import apiService from '../services/api'
 import type { Notification } from '../types/api'
-import { getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
+import { getArgentinaDateString, legajoCalendarDateKey } from '../utils/dateUtils'
 import './HeaderSpotlightCard.css'
 
 type Props = { userId: number | null | undefined; compact?: boolean }
 
 function sameMonthDayInArgentina(isoDate: string | undefined, todayYmd: string): boolean {
   if (!isoDate) return false
-  const d = isoToArgentinaDateKey(isoDate)
+  const d = legajoCalendarDateKey(isoDate)
   return d.length >= 10 && d.slice(5, 10) === todayYmd.slice(5, 10)
 }
 
@@ -67,8 +67,8 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
       if (legRes.success && legRes.data) {
         const fn = legRes.data.fecha_nacimiento
         const fi = legRes.data.fecha_ingreso
-        const fnKey = fn ? isoToArgentinaDateKey(String(fn)) : ''
-        const fiKey = fi ? isoToArgentinaDateKey(String(fi)) : ''
+        const fnKey = fn ? legajoCalendarDateKey(String(fn)) : ''
+        const fiKey = fi ? legajoCalendarDateKey(String(fi)) : ''
         const hasDates = !!(fn || fi)
         setTieneLegajoFechas(hasDates)
         setNacimientoDdMm(fnKey.length >= 10 ? ymdToDdMm(fnKey) : null)
@@ -84,7 +84,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
         const esAniv = sameMonthDayInArgentina(fi as string, today)
         setAniversario(esAniv)
         if (esAniv && fi) {
-          const ing = isoToArgentinaDateKey(String(fi))
+          const ing = legajoCalendarDateKey(String(fi))
           if (ing.length >= 10) {
             const yIn = parseInt(ing.slice(0, 4), 10)
             const yNow = parseInt(today.slice(0, 4), 10)
