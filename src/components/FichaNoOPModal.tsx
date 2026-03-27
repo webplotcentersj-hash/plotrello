@@ -4,15 +4,31 @@ import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
 import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
 import type { ClienteRecord } from '../types/api'
+import type { Task } from '../types/board'
+import { parseTaskIdToOrdenId, taskToOrdenPayload } from '../utils/dataMappers'
 import QRPrintView from './QRPrintView'
 import './FichaNoOPModal.css'
+
+type AdjuntoItem = {
+  id: string
+  name: string
+  remoteUrl?: string
+  uploading: boolean
+  type?: string
+  error?: string
+  file?: File
+  /** Si viene de enlaces_adjuntos (edición) */
+  dbId?: number
+}
 
 type FichaNoOPModalProps = {
   onClose: () => void
   onSuccess: () => void
+  /** Si se pasa, el modal edita esa ficha (misma UI que al crear). */
+  editTask?: Task | null
 }
 
-const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
+const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalProps) => {
   const { usuario } = useAuth()
   const [nombreCliente, setNombreCliente] = useState('')
   const [datosContacto, setDatosContacto] = useState('')
@@ -22,17 +38,7 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   const [ubicacionLink, setUbicacionLink] = useState('')
   const [prioridad, setPrioridad] = useState('Normal')
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
-  const [adjuntos, setAdjuntos] = useState<
-    Array<{
-      id: string
-      name: string
-      remoteUrl?: string
-      uploading: boolean
-      type?: string
-      error?: string
-      file?: File
-    }>
-  >([])
+  const [adjuntos, setAdjuntos] = useState<AdjuntoItem[]>([])
   const adjuntosRef = useRef(adjuntos)
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
@@ -44,6 +50,53 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
   useEffect(() => {
     adjuntosRef.current = adjuntos
   }, [adjuntos])
+
+  const isEditMode = editTask != null
+
+  // Cargar datos al editar o limpiar al crear
+  useEffect(() => {
+    if (editTask) {
+      setNombreCliente(editTask.title ?? '')
+      setDatosContacto(editTask.clientPhone ?? '')
+      setUbicacionTexto(editTask.clientAddress ?? '')
+      setObservaciones(
+        editTask.summary && editTask.summary !== 'Sin descripción' ? editTask.summary : ''
+      )
+      setDriveLink(editTask.driveUrl ?? '')
+      setUbicacionLink(editTask.locationUrl ?? '')
+      setPrioridad(editTask.priority === 'alta' ? 'Alta' : 'Normal')
+      setPlanillaPreliminar(editTask.planillaPreliminar ?? false)
+      setAdjuntos([])
+      const ordenId = parseTaskIdToOrdenId(editTask.id)
+      if (ordenId) {
+        void (async () => {
+          const res = await apiService.getArchivosOrden(ordenId)
+          const archivos = res.success && Array.isArray(res.data) ? res.data : []
+          if (archivos.length > 0) {
+            setAdjuntos(
+              archivos.map((row: { id?: number; titulo?: string; url?: string }) => ({
+                id: `db-${row.id}`,
+                name: String(row.titulo || 'Archivo'),
+                remoteUrl: String(row.url || ''),
+                uploading: false,
+                dbId: typeof row.id === 'number' ? row.id : undefined
+              }))
+            )
+          }
+        })()
+      }
+    } else {
+      setNombreCliente('')
+      setDatosContacto('')
+      setUbicacionTexto('')
+      setObservaciones('')
+      setDriveLink('')
+      setUbicacionLink('')
+      setPrioridad('Normal')
+      setPlanillaPreliminar(false)
+      setAdjuntos([])
+    }
+  }, [editTask])
 
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
@@ -140,7 +193,15 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     }
   }
 
-  const handleRemoveAdjunto = (id: string) => {
+  const handleRemoveAdjunto = async (id: string) => {
+    const row = adjuntosRef.current.find((a) => a.id === id)
+    if (row?.dbId) {
+      const res = await apiService.eliminarArchivoOrden(row.dbId)
+      if (!res.success) {
+        alert(res.error || 'No se pudo eliminar el archivo')
+        return
+      }
+    }
     setAdjuntos((prev) => prev.filter((a) => a.id !== id))
   }
 
@@ -260,6 +321,68 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
     }
   }
 
+  const handleUpdate = async () => {
+    if (!editTask) return
+    if (!nombreCliente.trim()) {
+      alert('El nombre del cliente es requerido')
+      return
+    }
+    const ordenId = parseTaskIdToOrdenId(editTask.id)
+    if (!ordenId) {
+      alert('No se pudo identificar la orden')
+      return
+    }
+
+    try {
+      await uploadAdjuntosPendientes()
+    } catch (error) {
+      console.error('Error subiendo adjuntos:', error)
+      alert('Error al subir los archivos. Intenta nuevamente.')
+      return
+    }
+
+    const adjSubidos = adjuntosRef.current.filter((a) => a.remoteUrl)
+    const firstPdf = adjSubidos.find((a) => (a.type || '').toLowerCase() === 'application/pdf')
+
+    const merged: Task = {
+      ...editTask,
+      title: nombreCliente.trim(),
+      summary: observaciones.trim() || 'Sin descripción',
+      clientPhone: datosContacto.trim() || undefined,
+      clientAddress: ubicacionTexto.trim() || undefined,
+      driveUrl: driveLink.trim() || undefined,
+      locationUrl: ubicacionLink.trim() || undefined,
+      priority: prioridad === 'Alta' ? 'alta' : 'media',
+      planillaPreliminar,
+      fichaTecnicaPdfUrl: firstPdf?.remoteUrl ?? editTask.fichaTecnicaPdfUrl ?? undefined
+    }
+
+    const payload = taskToOrdenPayload(merged)
+    const response = await apiService.updateOrden(ordenId, payload)
+    if (!response.success) {
+      alert(response.error || 'Error al guardar la ficha')
+      return
+    }
+
+    for (const a of adjuntosRef.current) {
+      if (a.file && a.remoteUrl && !a.dbId) {
+        await apiService.guardarArchivoOrden(ordenId, a.name, a.remoteUrl)
+      }
+    }
+
+    broadcastOrdenesChanged()
+    onSuccess()
+    onClose()
+  }
+
+  const handlePrimaryAction = () => {
+    if (isEditMode) {
+      void handleUpdate()
+    } else {
+      void handleCreate()
+    }
+  }
+
   const handleCloseQR = () => {
     setQrPrintData(null)
     onSuccess()
@@ -280,7 +403,11 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
       >
         <div className="ficha-no-op-modal" onClick={(e) => e.stopPropagation()}>
         <div className="ficha-no-op-modal-header">
-          <h2>Crear Nueva Ficha</h2>
+          <h2>
+            {isEditMode
+              ? `Editar ficha${editTask?.opNumber ? ` · ${editTask.opNumber}` : ''}`
+              : 'Crear Nueva Ficha'}
+          </h2>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
 
@@ -499,8 +626,8 @@ const FichaNoOPModal = ({ onClose, onSuccess }: FichaNoOPModalProps) => {
           <button className="cancel-button" onClick={onClose}>
             Cancelar
           </button>
-          <button className="create-button" onClick={handleCreate}>
-            Crear
+          <button className="create-button" onClick={handlePrimaryAction}>
+            {isEditMode ? 'Guardar cambios' : 'Crear'}
           </button>
         </div>
         </div>

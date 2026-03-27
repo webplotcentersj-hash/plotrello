@@ -50,7 +50,9 @@ const AsesorPresupuestosPage = ({
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
-  const [isFichaNoOPModalOpen, setIsFichaNoOPModalOpen] = useState(false)
+  /** Modal de ficha No OP: null = crear, Task = editar (misma UI que al crear). */
+  const [fichaModalOpen, setFichaModalOpen] = useState(false)
+  const [fichaModalEditTask, setFichaModalEditTask] = useState<Task | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'kanban' | 'agenda' | 'historial'>('kanban')
@@ -392,7 +394,10 @@ const AsesorPresupuestosPage = ({
                 { id: 'baja', label: 'Baja' }
               ]}
               onPriorityChange={setPriorityFilter}
-              onAddNewOrder={() => setIsFichaNoOPModalOpen(true)}
+              onAddNewOrder={() => {
+                setFichaModalEditTask(null)
+                setFichaModalOpen(true)
+              }}
             />
 
             <div className="asesor-presupuestos-board-wrap">
@@ -401,7 +406,14 @@ const AsesorPresupuestosPage = ({
                 allTasks={tasks}
                 onMoveTask={handleTaskMove}
                 members={teamMembers}
-                onEditTask={(task) => setTaskToEdit(task)}
+                onEditTask={(task) => {
+                  if (task.esFichaNoOP) {
+                    setFichaModalEditTask(task)
+                    setFichaModalOpen(true)
+                  } else {
+                    setTaskToEdit(task)
+                  }
+                }}
                 columns={ASESOR_PRESUPUESTOS_COLUMNS}
                 sectores={sectores}
                 activity={activity}
@@ -427,7 +439,14 @@ const AsesorPresupuestosPage = ({
         ) : (
           <HistorialFichasAsesorPanel
             tasks={tasks}
-            onEditTask={(task) => setTaskToEdit(task)}
+            onEditTask={(task) => {
+              if (task.esFichaNoOP) {
+                setFichaModalEditTask(task)
+                setFichaModalOpen(true)
+              } else {
+                setTaskToEdit(task)
+              }
+            }}
             onRefrescarTablero={onReloadData}
           />
         )}
@@ -444,13 +463,19 @@ const AsesorPresupuestosPage = ({
           />
         )}
 
-        {isFichaNoOPModalOpen && (
+        {fichaModalOpen && (
           <FichaNoOPModal
-            onClose={() => setIsFichaNoOPModalOpen(false)}
+            editTask={fichaModalEditTask}
+            onClose={() => {
+              setFichaModalOpen(false)
+              setFichaModalEditTask(null)
+            }}
             onSuccess={() => {
               if (onReloadData) {
                 onReloadData()
               }
+              setFichaModalOpen(false)
+              setFichaModalEditTask(null)
             }}
           />
         )}
