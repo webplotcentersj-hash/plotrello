@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import apiService from '../services/api'
 import type { FechaPlotHoyItem, Notification } from '../types/api'
-import { getArgentinaDateString, legajoCalendarDateKey } from '../utils/dateUtils'
+import {
+  formatAnosEnEmpresa,
+  fullYearsBetweenCalendar,
+  getArgentinaDateString,
+  legajoCalendarDateKey
+} from '../utils/dateUtils'
 import './HeaderSpotlightCard.css'
 
 type Props = { userId: number | null | undefined; compact?: boolean }
@@ -37,20 +42,12 @@ function ymdToDdMm(key: string): string {
   return `${d}/${m}`
 }
 
-function yearsInCompany(ingresoKey: string, todayYmd: string): number | null {
-  if (ingresoKey.length < 10) return null
-  const yIn = parseInt(ingresoKey.slice(0, 4), 10)
-  const yNow = parseInt(todayYmd.slice(0, 4), 10)
-  const diff = yNow - yIn
-  return diff >= 0 ? diff : null
-}
-
 function formatEquipoLinea(row: FechaPlotHoyItem): string {
   const bits: string[] = []
   if (row.cumple_hoy) bits.push('cumpleaños')
   if (row.aniversario_empresa_hoy) {
     const a = row.anios_en_empresa
-    if (a != null && a > 0) bits.push(`${a} años en la empresa`)
+    if (a != null && a > 0) bits.push(`${formatAnosEnEmpresa(a)} en la empresa`)
     else if (a === 0) bits.push('primera jornada en Plot')
     else bits.push('aniversario en la empresa')
   }
@@ -123,7 +120,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
         if (fiKey.length >= 10) {
           const [y, m, d] = fiKey.split('-')
           setIngresoDdMmYyyy(`${d}/${m}/${y}`)
-          setAniosEnEmpresaSiempre(yearsInCompany(fiKey, today))
+          setAniosEnEmpresaSiempre(fullYearsBetweenCalendar(fiKey, today))
         } else {
           setIngresoDdMmYyyy(null)
           setAniosEnEmpresaSiempre(null)
@@ -134,10 +131,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
         if (esAniv && fi) {
           const ing = legajoCalendarDateKey(String(fi))
           if (ing.length >= 10) {
-            const yIn = parseInt(ing.slice(0, 4), 10)
-            const yNow = parseInt(today.slice(0, 4), 10)
-            const years = yNow - yIn
-            setAniosEmpresa(years >= 0 ? years : null)
+            setAniosEmpresa(fullYearsBetweenCalendar(ing, today))
           }
         } else {
           setAniosEmpresa(null)
@@ -217,7 +211,10 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                         <span className="header-spotlight-meta-label">Alta en la empresa</span>{' '}
                         {ingresoDdMmYyyy}
                         {aniosEnEmpresaSiempre != null && aniosEnEmpresaSiempre > 0 && (
-                          <span className="header-spotlight-meta-years"> · {aniosEnEmpresaSiempre} años</span>
+                          <span className="header-spotlight-meta-years">
+                            {' '}
+                            · {formatAnosEnEmpresa(aniosEnEmpresaSiempre)}
+                          </span>
                         )}
                         {aniversario && <span className="header-spotlight-today"> · ¡aniversario hoy!</span>}
                       </p>
@@ -230,7 +227,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                     {aniversario && (
                       <span className="header-spotlight-badge">
                         {aniosEmpresa != null && aniosEmpresa > 0
-                          ? `🎉 Aniversario en la empresa · ${aniosEmpresa} años`
+                          ? `🎉 Aniversario en la empresa · ${formatAnosEnEmpresa(aniosEmpresa)}`
                           : '🎉 ¡Hoy empezás en Plot!'}
                       </span>
                     )}

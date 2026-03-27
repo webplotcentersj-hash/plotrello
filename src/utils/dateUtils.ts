@@ -97,6 +97,29 @@ export function legajoCalendarDateKey(value: string | undefined | null): string 
 }
 
 /**
+ * Años calendario completos entre dos fechas `YYYY-MM-DD` (desde alta hasta hoy).
+ * Equivale a `EXTRACT(YEAR FROM age(end::date, start::date))` en PostgreSQL.
+ * No usar solo `año_fin - año_inicio`: eso ignora mes/día y puede sumar de más.
+ */
+export function fullYearsBetweenCalendar(startYmd: string, endYmd: string): number | null {
+  if (startYmd.length < 10 || endYmd.length < 10) return null
+  const sp = startYmd.slice(0, 10).split('-').map((x) => parseInt(x, 10))
+  const ep = endYmd.slice(0, 10).split('-').map((x) => parseInt(x, 10))
+  if (sp.length !== 3 || ep.length !== 3) return null
+  const [sy, sm, sd] = sp
+  const [ey, em, ed] = ep
+  if ([sy, sm, sd, ey, em, ed].some((n) => Number.isNaN(n))) return null
+  let y = ey - sy
+  if (em < sm || (em === sm && ed < sd)) y -= 1
+  return y >= 0 ? y : null
+}
+
+/** "1 año" o "N años" para textos de antigüedad */
+export function formatAnosEnEmpresa(n: number): string {
+  return n === 1 ? '1 año' : `${n} años`
+}
+
+/**
  * Dado un ISO/timestamptz, devuelve la hora HH:mm en Argentina.
  */
 export function isoToArgentinaTime(value: string): string {
