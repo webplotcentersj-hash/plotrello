@@ -3886,6 +3886,8 @@ class ApiService {
     title: string
     description?: string
     type?: 'info' | 'success' | 'warning' | 'error' | 'mention'
+    /** rrhh_masivo: mismo criterio que enviar_notificacion_masiva (columna origen) */
+    origen?: 'sistema' | 'rrhh_masivo'
     orden_id?: number
     pedido_id?: number
     solicitud_id?: number
@@ -3896,6 +3898,7 @@ class ApiService {
     reclamo_id?: number
   }): Promise<ApiResponse<Notification>> {
     if (supabase) {
+      const origen = notification.origen ?? 'sistema'
       const { data, error } = await supabase
         .from('user_notifications')
         .insert({
@@ -3903,6 +3906,7 @@ class ApiService {
           title: notification.title,
           description: notification.description || null,
           type: notification.type || 'info',
+          origen,
           orden_id: notification.orden_id || null,
           pedido_id: notification.pedido_id || null,
           solicitud_id: notification.solicitud_id || null,
@@ -4165,6 +4169,50 @@ class ApiService {
       return { success: true }
     }
 
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /** Comunicados agrupados del notificador masivo (solo RRHH/admin vía RPC). Requiere patch listar_comunicados_rrhh_masivos. */
+  async listarComunicadosRrhhMasivos(
+    usuarioId: number
+  ): Promise<
+    ApiResponse<
+      Array<{ titulo: string; descripcion: string; tipo: string; ultima: string; copias: number }>
+    >
+  > {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('listar_comunicados_rrhh_masivos', {
+        p_usuario_id: usuarioId
+      })
+      if (error) return { success: false, error: error.message }
+      const rows = (data || []) as Array<{
+        titulo: string
+        descripcion: string
+        tipo: string
+        ultima: string
+        copias: number
+      }>
+      return { success: true, data: rows }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /** Quita todas las copias de un comunicado masivo (mismo título y descripción). */
+  async eliminarComunicadoRrhhMasivo(
+    usuarioId: number,
+    titulo: string,
+    descripcion: string
+  ): Promise<ApiResponse<{ eliminadas: number }>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('eliminar_comunicado_rrhh_masivo', {
+        p_usuario_id: usuarioId,
+        p_titulo: titulo,
+        p_descripcion: descripcion
+      })
+      if (error) return { success: false, error: error.message }
+      const j = data as { eliminadas?: number } | null
+      return { success: true, data: { eliminadas: j?.eliminadas ?? 0 } }
+    }
     return { success: false, error: 'Supabase no configurado' }
   }
 

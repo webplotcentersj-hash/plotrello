@@ -59,6 +59,10 @@ const RecursosHumanosNotificacionesPage = () => {
   })
 
   const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null)
+  const [comunicadosEnviados, setComunicadosEnviados] = useState<
+    Array<{ titulo: string; descripcion: string; tipo: string; ultima: string; copias: number }>
+  >([])
+  const [eliminandoClave, setEliminandoClave] = useState<string | null>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -67,7 +71,7 @@ const RecursosHumanosNotificacionesPage = () => {
       return
     }
     loadData()
-  }, [canManageRecursosHumanos, navigate, authLoading])
+  }, [canManageRecursosHumanos, navigate, authLoading, usuario?.id])
 
   const loadData = async () => {
     setLoading(true)
@@ -82,6 +86,15 @@ const RecursosHumanosNotificacionesPage = () => {
       const statsResponse = await apiService.obtenerEstadisticasNotificaciones()
       if (statsResponse.success && statsResponse.data) {
         setEstadisticas(statsResponse.data)
+      }
+
+      if (usuario?.id) {
+        const comRes = await apiService.listarComunicadosRrhhMasivos(usuario.id)
+        if (comRes.success && comRes.data) {
+          setComunicadosEnviados(comRes.data)
+        } else {
+          setComunicadosEnviados([])
+        }
       }
     } catch (error) {
       console.error('Error cargando datos:', error)
@@ -139,7 +152,8 @@ const RecursosHumanosNotificacionesPage = () => {
             user_id: userId,
             title: formData.titulo,
             description: formData.descripcion,
-            type: formData.tipo
+            type: formData.tipo,
+            origen: 'rrhh_masivo'
           })
           if (notifResponse.success) {
             enviadas++
@@ -190,6 +204,40 @@ const RecursosHumanosNotificacionesPage = () => {
       })
     } finally {
       setEnviando(false)
+    }
+  }
+
+  const handleEliminarComunicado = async (row: {
+    titulo: string
+    descripcion: string
+    tipo: string
+    ultima: string
+    copias: number
+  }) => {
+    if (!usuario?.id) return
+    const clave = `${row.titulo}::${row.descripcion}::${row.ultima}`
+    if (
+      !window.confirm(
+        '¿Quitar este comunicado para todos los usuarios? Se borrarán todas las copias en sus bandejas.'
+      )
+    ) {
+      return
+    }
+    setEliminandoClave(clave)
+    setMensaje(null)
+    const res = await apiService.eliminarComunicadoRrhhMasivo(usuario.id, row.titulo, row.descripcion)
+    setEliminandoClave(null)
+    if (res.success && res.data) {
+      setMensaje({
+        tipo: 'success',
+        texto: `✅ Se eliminaron ${res.data.eliminadas} notificación(es) de este comunicado.`
+      })
+      await loadData()
+    } else {
+      setMensaje({
+        tipo: 'error',
+        texto: res.error || 'No se pudo eliminar el comunicado'
+      })
     }
   }
 
@@ -262,9 +310,50 @@ const RecursosHumanosNotificacionesPage = () => {
           </div>
         )}
 
+        <div className="rrhh-comunicados-enviados">
+          <h2>📋 Comunicados masivos enviados</h2>
+          <p className="rrhh-form-hint">
+            Solo RRHH puede quitar un comunicado: se borran todas las copias en el equipo (incluida la tarjeta del
+            inicio).
+          </p>
+          {comunicadosEnviados.length === 0 ? (
+            <p className="rrhh-comunicados-vacio">No hay comunicados del notificador masivo todavía.</p>
+          ) : (
+            <ul className="rrhh-comunicados-lista">
+              {comunicadosEnviados.map((c) => {
+                const clave = `${c.titulo}::${c.descripcion}::${c.ultima}`
+                return (
+                  <li key={clave} className="rrhh-comunicado-fila">
+                    <div className="rrhh-comunicado-texto">
+                      <strong className="rrhh-comunicado-titulo">{c.titulo}</strong>
+                      {c.descripcion ? <p className="rrhh-comunicado-desc">{c.descripcion}</p> : null}
+                      <small className="rrhh-comunicado-meta">
+                        {c.copias} envío{c.copias === 1 ? '' : 's'} · último:{' '}
+                        {new Date(c.ultima).toLocaleString('es-AR')} · {c.tipo}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="rrhh-comunicado-borrar"
+                      disabled={eliminandoClave === clave}
+                      onClick={() => void handleEliminarComunicado(c)}
+                    >
+                      {eliminandoClave === clave ? '…' : '🗑️ Quitar'}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
         {/* Formulario de notificación */}
         <div className="rrhh-notificacion-form">
           <h2>✉️ Crear Nueva Notificación</h2>
+          <p className="rrhh-form-hint">
+            Podés usar emojis en el título y en el mensaje; en Plot Lab se muestran con color según el tipo
+            elegido abajo.
+          </p>
 
           {mensaje && (
             <div className={`rrhh-mensaje ${mensaje.tipo}`}>
@@ -278,7 +367,7 @@ const RecursosHumanosNotificacionesPage = () => {
               type="text"
               value={formData.titulo}
               onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
-              placeholder="Ej: Reunión de equipo mañana"
+              placeholder="Ej: 📅 Reunión de equipo mañana"
               maxLength={255}
             />
           </div>

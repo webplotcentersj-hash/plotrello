@@ -330,7 +330,7 @@ const Header = ({
 
       <div className="header-stats header-stats--single">
         <div className="header-stat-card header-stat-card--spotlight">
-          <HeaderSpotlightCard userId={usuario?.id} compact />
+          <HeaderSpotlightCard userId={usuario?.id} />
         </div>
       </div>
     </header>

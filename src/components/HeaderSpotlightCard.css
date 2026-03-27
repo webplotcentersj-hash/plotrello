@@ -1,9 +1,8 @@
 .header-spotlight-card {
-  /* Altura estable: bloque “Tu día” + notificaciones (como cuando había texto de ayuda) */
-  min-height: 132px;
+  min-height: 140px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-start;
 }
 
@@ -13,18 +12,18 @@
 
 .header-spotlight-kicker {
   display: block;
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  font-size: 0.72rem;
+  color: rgba(165, 180, 252, 0.95);
   margin-bottom: 2px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .header-spotlight-line {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  font-size: 0.88rem;
+  line-height: 1.4;
   color: var(--text-primary);
 }
 
@@ -32,9 +31,8 @@
   color: var(--text-muted);
 }
 
-/* Reserva el espacio del bloque superior aunque no haya cumple/fechas (sin texto vacío) */
 .header-spotlight-day-slot {
-  min-height: 48px;
+  min-height: 52px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -85,42 +83,147 @@
   line-height: 1.25;
 }
 
-.header-spotlight-notifs {
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+/* ——— Comunicados RRHH ——— */
+.header-spotlight-comunicados {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(129, 140, 248, 0.2);
 }
 
-.header-spotlight-notifs-label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  display: block;
-  margin-bottom: 4px;
+.header-spotlight-comunicados-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
-.header-spotlight-notifs-list {
-  margin: 0;
-  padding: 0 0 0 14px;
+/* Evitar reglas globales .header-stat-card span que rompen el encabezado */
+.header-stat-card.header-stat-card--spotlight .header-spotlight-comunicados-head span {
+  display: inline-block;
+  margin-bottom: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.header-spotlight-comunicados-head-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.45));
+}
+
+.header-spotlight-comunicados-head-title {
   font-size: 0.78rem;
-  color: var(--text-secondary);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #a5b4fc 0%, #e9d5ff 50%, #93c5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.header-spotlight-comunicados-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.header-spotlight-comunicados-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.header-spotlight-comunicados-list::-webkit-scrollbar-thumb {
+  background: rgba(129, 140, 248, 0.35);
+  border-radius: 6px;
+}
+
+.header-spotlight-comunicado-item {
+  --comunicado-accent: #a5b4fc;
+  display: block;
+  padding: 0.65rem 0.75rem 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.65) 0%,
+    rgba(15, 23, 42, 0.55) 100%
+  );
+  box-shadow: inset 3px 0 0 0 var(--comunicado-accent);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    'Segoe UI',
+    'Segoe UI Emoji',
+    'Apple Color Emoji',
+    'Noto Color Emoji',
+    sans-serif;
+}
+
+.header-spotlight-comunicado-item--info {
+  --comunicado-accent: #818cf8;
+}
+
+.header-spotlight-comunicado-item--success {
+  --comunicado-accent: #34d399;
+}
+
+.header-spotlight-comunicado-item--warning {
+  --comunicado-accent: #fbbf24;
+}
+
+.header-spotlight-comunicado-item--error {
+  --comunicado-accent: #f87171;
+}
+
+.header-spotlight-comunicado-item--mention {
+  --comunicado-accent: #c084fc;
+}
+
+.header-spotlight-comunicado-item--nuevo {
+  background: linear-gradient(
+    135deg,
+    rgba(49, 46, 129, 0.45) 0%,
+    rgba(15, 23, 42, 0.55) 100%
+  );
+  border-color: rgba(129, 140, 248, 0.35);
+  box-shadow:
+    inset 3px 0 0 0 var(--comunicado-accent),
+    0 0 0 1px rgba(129, 140, 248, 0.15);
+}
+
+.header-spotlight-comunicado-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-spotlight-comunicado-title {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.92rem;
+  font-weight: 700;
   line-height: 1.35;
+  color: #f1f5f9;
+  word-break: break-word;
 }
 
-.header-spotlight-notifs-list li.unread {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.header-spotlight-notifs-list li {
+.header-spotlight-comunicado-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(203, 213, 225, 0.95);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
 }
 
-/* Modo compacto (~mitad de tamaño) para el header con una sola tarjeta */
+/* Modo compacto (opcional) */
 .header-spotlight-card--compact {
   min-height: 66px;
   gap: 4px;
@@ -140,23 +243,26 @@
   font-size: 0.7rem;
 }
 
-.header-spotlight-card--compact .header-spotlight-notifs {
+.header-spotlight-card--compact .header-spotlight-comunicados {
   margin-top: 2px;
-  padding-top: 4px;
+  padding-top: 6px;
 }
 
-.header-spotlight-card--compact .header-spotlight-notifs-label {
+.header-spotlight-card--compact .header-spotlight-comunicados-head-title {
   font-size: 0.6rem;
-  margin-bottom: 2px;
 }
 
-.header-spotlight-card--compact .header-spotlight-notifs-list {
-  font-size: 0.65rem;
-  padding-left: 10px;
+.header-spotlight-card--compact .header-spotlight-comunicados-head-icon {
+  font-size: 1rem;
 }
 
-.header-stat-card .header-spotlight-card--compact .header-spotlight-meta-label {
-  font-size: 0.58rem;
+.header-spotlight-card--compact .header-spotlight-comunicado-title {
+  font-size: 0.75rem;
+}
+
+.header-spotlight-card--compact .header-spotlight-comunicado-desc {
+  font-size: 0.68rem;
+  -webkit-line-clamp: 2;
 }
 
 .header-spotlight-card--compact .header-spotlight-badge {
@@ -171,4 +277,8 @@
 
 .header-spotlight-card--compact .header-spotlight-meta {
   gap: 2px;
+}
+
+.header-stat-card .header-spotlight-card--compact .header-spotlight-meta-label {
+  font-size: 0.58rem;
 }

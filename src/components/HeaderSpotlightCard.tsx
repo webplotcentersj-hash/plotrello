@@ -27,6 +27,21 @@ function yearsInCompany(ingresoKey: string, todayYmd: string): number | null {
   return diff >= 0 ? diff : null
 }
 
+function comunicadoAccentClass(type: Notification['type']): string {
+  switch (type) {
+    case 'success':
+      return 'header-spotlight-comunicado-item--success'
+    case 'warning':
+      return 'header-spotlight-comunicado-item--warning'
+    case 'error':
+      return 'header-spotlight-comunicado-item--error'
+    case 'mention':
+      return 'header-spotlight-comunicado-item--mention'
+    default:
+      return 'header-spotlight-comunicado-item--info'
+  }
+}
+
 export default function HeaderSpotlightCard({ userId, compact = false }: Props) {
   const [cumple, setCumple] = useState(false)
   const [aniversario, setAniversario] = useState(false)
@@ -46,7 +61,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
       const today = getArgentinaDateString()
       const [legRes, notRes] = await Promise.all([
         apiService.getLegajoEmpleado(userId),
-        apiService.getUserNotificationsRrhhMasivos(userId, 8)
+        apiService.getUserNotificationsRrhhMasivos(userId, 6)
       ])
       if (cancelled) return
       if (legRes.success && legRes.data) {
@@ -162,19 +177,35 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
         )}
       </div>
       <div
-        className="header-spotlight-notifs"
+        className="header-spotlight-comunicados"
         title="Comunicados enviados desde Recursos Humanos → Notificador masivo (/rrhh/notificaciones)."
       >
-        <span className="header-spotlight-notifs-label">Comunicados RRHH</span>
-        {notifs.length > 0 && (
-          <ul className="header-spotlight-notifs-list">
-            {notifs.slice(0, 3).map((n) => (
-              <li key={n.id} className={n.is_read ? '' : 'unread'} title={n.description || n.title}>
-                {n.title}
+        <div className="header-spotlight-comunicados-head">
+          <span className="header-spotlight-comunicados-head-icon" aria-hidden>
+            📢
+          </span>
+          <span className="header-spotlight-comunicados-head-title">Comunicados RRHH</span>
+        </div>
+        {notifs.length > 0 ? (
+          <ul className="header-spotlight-comunicados-list">
+            {notifs.map((n) => (
+              <li key={n.id}>
+                <article
+                  className={`header-spotlight-comunicado-item ${comunicadoAccentClass(n.type)}${
+                    n.is_read ? '' : ' header-spotlight-comunicado-item--nuevo'
+                  }`}
+                >
+                  <div className="header-spotlight-comunicado-copy">
+                    <p className="header-spotlight-comunicado-title">{n.title}</p>
+                    {n.description ? (
+                      <p className="header-spotlight-comunicado-desc">{n.description}</p>
+                    ) : null}
+                  </div>
+                </article>
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
       </div>
     </div>
   )
