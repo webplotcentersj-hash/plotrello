@@ -1895,23 +1895,66 @@ class ApiService {
 
   // ========== USUARIOS ==========
   async getLegajoEmpleado(idUsuario: number): Promise<ApiResponse<LegajoEmpleado | null>> {
-    if (supabase) {
-      const { data, error } = await supabase.rpc('obtener_legajo_empleado', {
-        p_id_usuario: idUsuario
-      })
-
-      if (error) {
-        return { success: false, error: error.message }
-      }
-
-      if (data && Array.isArray(data) && data.length > 0) {
-        return { success: true, data: data[0] as LegajoEmpleado }
-      }
-
-      return { success: true, data: null }
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
     }
 
-    return { success: false, error: 'Supabase no configurado' }
+    const uid = Math.floor(Number(idUsuario))
+    if (!Number.isFinite(uid) || uid <= 0) {
+      return { success: false, error: 'ID de usuario inválido' }
+    }
+
+    const normalizeLegajoRow = (row: Record<string, unknown>): LegajoEmpleado => {
+      const fi = row.fecha_ingreso ?? row.fechaIngreso
+      const fn = row.fecha_nacimiento ?? row.fechaNacimiento
+      const toDateStr = (v: unknown): string | null => {
+        if (v == null || v === '') return null
+        if (typeof v === 'string') return v
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          const d = new Date(v)
+          return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
+        }
+        if (v instanceof Date) return v.toISOString().slice(0, 10)
+        return String(v)
+      }
+      return {
+        ...(row as unknown as LegajoEmpleado),
+        fecha_ingreso: toDateStr(fi),
+        fecha_nacimiento: toDateStr(fn)
+      }
+    }
+
+    const { data, error } = await supabase.rpc('obtener_legajo_empleado', {
+      p_id_usuario: uid
+    })
+
+    let raw: Record<string, unknown> | null = null
+    if (!error && data != null) {
+      if (Array.isArray(data) && data.length > 0) {
+        raw = data[0] as Record<string, unknown>
+      } else if (!Array.isArray(data) && typeof data === 'object') {
+        raw = data as Record<string, unknown>
+      }
+    }
+
+    if (!raw) {
+      const { data: direct, error: selErr } = await supabase
+        .from('legajos_empleados')
+        .select('*')
+        .eq('id_usuario', uid)
+        .maybeSingle()
+      if (!selErr && direct) {
+        raw = direct as Record<string, unknown>
+      } else if (error) {
+        return { success: false, error: error.message }
+      }
+    }
+
+    if (raw) {
+      return { success: true, data: normalizeLegajoRow(raw) }
+    }
+
+    return { success: true, data: null }
   }
 
   async crearActualizarLegajo(

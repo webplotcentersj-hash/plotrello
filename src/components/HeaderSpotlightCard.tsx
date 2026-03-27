@@ -55,13 +55,15 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
 
   useEffect(() => {
     if (userId == null) return
+    const uid = Number(userId)
+    if (Number.isNaN(uid) || uid <= 0) return
     let cancelled = false
     const run = async () => {
       setLoading(true)
       const today = getArgentinaDateString()
       const [legRes, notRes] = await Promise.all([
-        apiService.getLegajoEmpleado(userId),
-        apiService.getUserNotificationsRrhhMasivos(userId, 6)
+        apiService.getLegajoEmpleado(uid),
+        apiService.getUserNotificationsRrhhMasivos(uid, 6)
       ])
       if (cancelled) return
       if (legRes.success && legRes.data) {
