@@ -169,8 +169,9 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                     {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
                     {aniversario && (
                       <span className="header-spotlight-badge">
-                        🎉 Aniversario en la empresa
-                        {aniosEmpresa != null && aniosEmpresa > 0 ? ` · ${aniosEmpresa} años` : ''}
+                        {aniosEmpresa != null && aniosEmpresa > 0
+                          ? `🎉 Aniversario en la empresa · ${aniosEmpresa} años`
+                          : '🎉 ¡Hoy empezás en Plot!'}
                       </span>
                     )}
                   </div>

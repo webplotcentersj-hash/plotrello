@@ -7,21 +7,30 @@
  * Obtiene la fecha actual en zona horaria de Argentina
  */
 export function getArgentinaDate(): Date {
-  const now = new Date()
-  // Convertir a string en formato ISO con zona horaria de Argentina
-  const argentinaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }))
-  return argentinaTime
+  return new Date()
 }
 
 /**
- * Obtiene la fecha actual como string en formato YYYY-MM-DD en zona horaria de Argentina
+ * Obtiene la fecha actual como string en formato YYYY-MM-DD en zona horaria de Argentina.
+ * Usa Intl formatToParts (no toLocaleString parseado) para evitar desfases según el huso del navegador.
  */
 export function getArgentinaDateString(): string {
-  const date = getArgentinaDate()
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date())
+  const y = parts.find((p) => p.type === 'year')?.value
+  const m = parts.find((p) => p.type === 'month')?.value?.padStart(2, '0')
+  const d = parts.find((p) => p.type === 'day')?.value?.padStart(2, '0')
+  if (y && m && d) return `${y}-${m}-${d}`
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date())
 }
 
 /**
@@ -76,8 +85,14 @@ export function isoToArgentinaDateKey(value: string): string {
 export function legajoCalendarDateKey(value: string | undefined | null): string {
   if (value == null || value === '') return ''
   const s = String(value).trim()
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})/)
-  if (m) return m[1]
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (iso) return iso[1]
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (dmy) {
+    const dd = dmy[1].padStart(2, '0')
+    const mm = dmy[2].padStart(2, '0')
+    return `${dmy[3]}-${mm}-${dd}`
+  }
   return isoToArgentinaDateKey(s)
 }
 
@@ -99,11 +114,19 @@ export function isoToArgentinaTime(value: string): string {
  * Obtiene la hora actual en zona horaria de Argentina
  */
 export function getArgentinaTime(): { hours: number; minutes: number; seconds: number } {
-  const date = getArgentinaDate()
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(new Date())
+  const n = (t: Intl.DateTimeFormatPartTypes) =>
+    parseInt(parts.find((p) => p.type === t)?.value ?? '0', 10)
   return {
-    hours: date.getHours(),
-    minutes: date.getMinutes(),
-    seconds: date.getSeconds()
+    hours: n('hour'),
+    minutes: n('minute'),
+    seconds: n('second')
   }
 }
 
@@ -212,9 +235,10 @@ export function compareDates(date1: Date | string, date2: Date | string): number
  */
 export function isTodayArgentina(date: Date | string): boolean {
   const today = getArgentinaDateString()
-  const dateStr = typeof date === 'string' 
-    ? date.split('T')[0] 
-    : getArgentinaDateString()
-  return today === dateStr
+  const dateStr =
+    typeof date === 'string'
+      ? legajoCalendarDateKey(date.split('T')[0] || date)
+      : formatArgentinaDateOnly(date)
+  return today === dateStr && dateStr.length >= 10
 }
 
