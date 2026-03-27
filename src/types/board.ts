@@ -98,9 +98,13 @@ export interface Task {
   fechaLimiteBrief?: string | null
   esUrgencia?: boolean | null
   esFichaNoOP?: boolean | null
+  /** Si existía como FICHA-* antes de convertir a OP (historial) */
+  numeroFichaOriginal?: string | null
   planillaPreliminar?: boolean | null
   fichaTecnicaPdfUrl?: string | null
   fichaTecnicaCargada?: boolean | null // Indica si la ficha técnica fue cargada (checklist)
+  /** Marcado manual en edición: ficha técnica incompleta */
+  fichaTecnicaIncompleta?: boolean | null
   presupuestoEnviadoCliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
   /** UI only: marca cuando se movió entre columnas para mostrar "NEW" */
   uiMovedAt?: number

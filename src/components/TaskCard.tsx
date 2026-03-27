@@ -20,7 +20,6 @@ import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
 import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
-
 const CONTEXT_MENU_MIN_WIDTH = 200
 const CONTEXT_MENU_TITLE_H = 40
 const CONTEXT_MENU_ITEM_H = 44
@@ -460,6 +459,7 @@ const TaskCardInner = ({
         <article
           className={clsx('task-card', `priority-${task.priority}`, {
             'planilla-preliminar': task.planillaPreliminar,
+            'ficha-tecnica-incompleta': task.fichaTecnicaIncompleta,
             'ficha-tecnica-cargada': task.fichaTecnicaCargada,
             'presupuesto-enviado': task.presupuestoEnviadoCliente,
             'is-collapsed': !isExpanded,
@@ -758,28 +758,24 @@ const TaskCardInner = ({
               <div className="task-tags">
                 {task.tags.map((tag) => {
                   const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
-                  // Cargar color si no está en cache
                   if (!tagColorsCache.has(tag.toLowerCase())) {
-                    loadTagColor(tag).then(loadedColor => {
-                      setTagColorsCache(prev => {
+                    loadTagColor(tag).then((loadedColor) => {
+                      setTagColorsCache((prev) => {
                         const newMap = new Map(prev)
                         newMap.set(tag.toLowerCase(), loadedColor)
                         return newMap
                       })
                     })
                   }
+                  const tagStyle = {
+                    background: color,
+                    border: `2px solid ${color}`,
+                    color: '#ffffff',
+                    fontWeight: '600' as const,
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
+                  }
                   return (
-                    <span
-                      key={tag}
-                      className="task-tag"
-                      style={{
-                        background: color,
-                        border: `2px solid ${color}`,
-                        color: '#ffffff',
-                        fontWeight: '600',
-                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
-                      }}
-                    >
+                    <span key={tag} className="task-tag" style={tagStyle}>
                       {tag}
                     </span>
                   )
@@ -1011,28 +1007,24 @@ const TaskCardInner = ({
               <div className="task-tags">
                 {task.tags.map((tag) => {
                   const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
-                  // Cargar color si no está en cache
                   if (!tagColorsCache.has(tag.toLowerCase())) {
-                    loadTagColor(tag).then(loadedColor => {
-                      setTagColorsCache(prev => {
+                    loadTagColor(tag).then((loadedColor) => {
+                      setTagColorsCache((prev) => {
                         const newMap = new Map(prev)
                         newMap.set(tag.toLowerCase(), loadedColor)
                         return newMap
                       })
                     })
                   }
+                  const tagStyle = {
+                    background: color,
+                    border: `2px solid ${color}`,
+                    color: '#ffffff',
+                    fontWeight: '600' as const,
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
+                  }
                   return (
-                    <span
-                      key={tag}
-                      className="task-tag"
-                      style={{
-                        background: color,
-                        border: `2px solid ${color}`,
-                        color: '#ffffff',
-                        fontWeight: '600',
-                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
-                      }}
-                    >
+                    <span key={tag} className="task-tag" style={tagStyle}>
                       {tag}
                     </span>
                   )

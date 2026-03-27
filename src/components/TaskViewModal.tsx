@@ -300,6 +300,7 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
               <h3 className="task-view-panel-title">Checklist & pedido</h3>
               <dl className="task-view-kv">
                 <Kv label="Planilla preliminar">{YesNo(task.planillaPreliminar)}</Kv>
+                <Kv label="Ficha técnica incompleta (manual)">{YesNo(task.fichaTecnicaIncompleta)}</Kv>
                 <Kv label="Ficha técnica cargada">{YesNo(task.fichaTecnicaCargada)}</Kv>
                 <Kv label="Presupuesto enviado al cliente">{YesNo(task.presupuestoEnviadoCliente)}</Kv>
                 <Kv label="Estado revisión">{task.estadoRevision}</Kv>

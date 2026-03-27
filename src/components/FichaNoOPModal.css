@@ -65,6 +65,7 @@
 .ficha-no-op-modal-body {
   padding: 28px;
   background: #ffffff;
+  color: #000000;
 }
 
 .form-group {
@@ -74,10 +75,10 @@
 .form-group label {
   display: block;
   margin-bottom: 10px;
-  font-weight: 600;
-  color: #1f2937;
-  font-size: 0.9rem;
-  letter-spacing: 0.01em;
+  font-weight: 700;
+  color: #000000;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
 }
 
 .form-group input,
@@ -85,13 +86,21 @@
 .form-group select {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #cbd5e1;
   border-radius: 10px;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  font-weight: 500;
   font-family: inherit;
   transition: all 0.2s;
   background: #ffffff;
-  color: #1f2937;
+  color: #000000;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #525252;
+  font-weight: 500;
+  opacity: 1;
 }
 
 .form-group input:focus,
@@ -101,6 +110,11 @@
   border-color: #f97316;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
   transform: translateY(-1px);
+}
+
+.form-group select option {
+  color: #000000;
+  font-weight: 500;
 }
 
 .cliente-dropdown {
@@ -134,16 +148,17 @@
 }
 
 .cliente-nombre {
-  font-weight: 600;
+  font-weight: 700;
   color: #000000;
   margin-bottom: 4px;
+  font-size: 0.95rem;
 }
 
 .cliente-info {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   color: #000000;
   margin-top: 2px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .dropdown-item.crear-nuevo {
@@ -166,18 +181,72 @@
   gap: 8px;
 }
 
+.ficha-adjunto-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.ficha-adjunto-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+}
+
+.ficha-adjunto-row .ficha-adjunto-name {
+  font-weight: 700;
+  color: #000000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+
+.ficha-adjunto-row .ficha-adjunto-status {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #000000;
+  margin-top: 2px;
+}
+
+.ficha-no-op-modal .ficha-adjunto-eliminar {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 2px solid #cbd5e1;
+  background: #ffffff;
+  color: #000000;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.ficha-no-op-modal .ficha-adjunto-eliminar:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.ficha-no-op-modal .ficha-adjunto-eliminar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .select-file-button {
   padding: 12px 20px;
-  border: 2px solid #f97316;
+  border: 2px solid #ea580c;
   border-radius: 10px;
   background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
-  color: #f97316;
+  color: #000000;
   cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   transition: all 0.2s;
   align-self: flex-start;
-  box-shadow: 0 2px 4px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 2px 4px rgba(249, 115, 22, 0.15);
 }
 
 .select-file-button:hover {
@@ -188,9 +257,10 @@
 }
 
 .file-name {
-  font-size: 0.875rem;
-  color: #6b7280;
-  font-style: italic;
+  font-size: 0.95rem;
+  color: #000000;
+  font-weight: 600;
+  font-style: normal;
 }
 
 .upload-button {
@@ -234,15 +304,15 @@
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  color: #1d4ed8;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #000000;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
   border-radius: 10px;
-  border: 2px solid #3b82f6;
+  border: 2px solid #0284c7;
   transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .link-relevos:hover {
@@ -291,49 +361,49 @@
 
 .checkbox-label span {
   font-size: 0.95rem;
-  color: #78350f;
-  font-weight: 600;
+  color: #000000;
+  font-weight: 700;
 }
 
 /* Checkbox Relevos mejorado */
-/* Estado desmarcado: amarillo suave */
+/* Estado desmarcado: fondo claro, texto siempre negro y legible */
 .checkbox-relevos-label {
   display: flex;
   align-items: flex-start;
   gap: 14px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #fefce8 0%, #fef9c3 50%, #fef08a 100%);
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   border-radius: 12px;
-  border: 2px solid #eab308;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.15);
+  border: 2px solid #f59e0b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
 }
 
 .checkbox-relevos-label:hover {
-  background: linear-gradient(135deg, #fef9c3 0%, #fef08a 50%, #fde047 100%);
-  border-color: #ca8a04;
-  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.25);
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #d97706;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Estado marcado: verde fuerte - cambio de color muy visible */
+/* Estado marcado: verde claro, texto negro (misma legibilidad que el resto del modal) */
 .checkbox-relevos-label.checkbox-relevos-checked {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%) !important;
-  border: 3px solid #166534 !important;
-  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.25) !important;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 50%, #6ee7b7 100%) !important;
+  border: 3px solid #059669 !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28) !important;
 }
 
 .checkbox-relevos-label.checkbox-relevos-checked .checkbox-relevos-text {
-  color: #ffffff !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  color: #000000 !important;
+  text-shadow: none;
 }
 
 .checkbox-relevos-label.checkbox-relevos-checked .checkbox-relevos-hint {
-  color: rgba(255, 255, 255, 0.95) !important;
+  color: #000000 !important;
+  opacity: 0.88;
 }
 
 .checkbox-relevos-label.checkbox-relevos-checked .checkbox-relevos-input {
-  accent-color: #ffffff;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  accent-color: #059669;
 }
 
 .checkbox-check-icon {
@@ -359,16 +429,17 @@
 }
 
 .checkbox-relevos-text {
-  font-size: 1rem !important;
-  font-weight: 700 !important;
-  color: #78350f !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #000000 !important;
+  letter-spacing: 0.01em;
 }
 
 .checkbox-relevos-hint {
-  font-size: 0.82rem !important;
-  font-weight: 500 !important;
-  color: #92400e !important;
-  opacity: 0.95;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  color: #000000 !important;
+  opacity: 1;
 }
 
 .ficha-no-op-modal-footer {
@@ -376,8 +447,8 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 24px 28px;
-  border-top: 2px solid rgba(249, 115, 22, 0.15);
-  background: #fafafa;
+  border-top: 2px solid rgba(249, 115, 22, 0.2);
+  background: #f1f5f9;
   border-radius: 0 0 16px 16px;
 }
 
@@ -395,8 +466,9 @@
 
 .cancel-button {
   background: #f3f4f6;
-  color: #374151;
-  border: 2px solid #e5e7eb;
+  color: #000000;
+  font-weight: 700;
+  border: 2px solid #cbd5e1;
 }
 
 .cancel-button:hover {

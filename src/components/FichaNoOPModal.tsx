@@ -558,26 +558,12 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
             {adjuntos.length === 0 ? (
               <span className="file-name">Ningún archivo seleccionado</span>
             ) : (
-              <div style={{ marginTop: '10px', display: 'grid', gap: '8px' }}>
+              <div className="ficha-adjunto-list">
                 {adjuntos.map((a) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '10px',
-                      padding: '8px 10px',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.10)'
-                    }}
-                  >
+                  <div key={a.id} className="ficha-adjunto-row">
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {a.name}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#b7bed3' }}>
+                      <div className="ficha-adjunto-name">{a.name}</div>
+                      <div className="ficha-adjunto-status">
                         {a.uploading
                           ? 'Subiendo…'
                           : a.remoteUrl
@@ -589,10 +575,9 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                     </div>
                     <button
                       type="button"
-                      className="btn-secondary"
-                      onClick={() => handleRemoveAdjunto(a.id)}
+                      className="ficha-adjunto-eliminar"
+                      onClick={() => void handleRemoveAdjunto(a.id)}
                       disabled={a.uploading}
-                      style={{ padding: '8px 10px' }}
                     >
                       Eliminar
                     </button>

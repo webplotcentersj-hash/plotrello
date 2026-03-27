@@ -83,6 +83,7 @@ const TaskEditModal = ({
   const [uploadingFichaTecnica, setUploadingFichaTecnica] = useState(false)
   const fichaTecnicaInputRef = useRef<HTMLInputElement>(null)
   const [fichaTecnicaCargada, setFichaTecnicaCargada] = useState(false)
+  const [fichaTecnicaIncompleta, setFichaTecnicaIncompleta] = useState(false)
   const [presupuestoEnviado, setPresupuestoEnviado] = useState(false)
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
   const [fichaRelacionadaTienePlanillaPreliminar, setFichaRelacionadaTienePlanillaPreliminar] = useState(false)
@@ -156,6 +157,7 @@ const TaskEditModal = ({
       setFichaTecnicaUrl(task.fichaTecnicaPdfUrl || null)
       // Cargar estados de checklist
       setFichaTecnicaCargada(task.fichaTecnicaCargada ?? false)
+      setFichaTecnicaIncompleta(task.fichaTecnicaIncompleta ?? false)
       setPresupuestoEnviado(task.presupuestoEnviadoCliente ?? false)
       setPlanillaPreliminar(task.planillaPreliminar ?? false)
       
@@ -254,6 +256,11 @@ const TaskEditModal = ({
 
   if (!task) return null
 
+  /** Ficha No OP, u OP ya convertida desde ficha (pueden subir PDF y desmarcar incompleta) */
+  const muestraFichaTecnicaPdfEIncompleta =
+    task.esFichaNoOP === true ||
+    (task.numeroFichaOriginal != null && String(task.numeroFichaOriginal).trim() !== '')
+
   // Función para verificar si la ficha relacionada tiene planilla preliminar
   const checkFichaRelacionadaPlanillaPreliminar = async (numeroOP: string, sectorActual: string) => {
     try {
@@ -314,6 +321,7 @@ const TaskEditModal = ({
       deadlineBrief: deadlineBrief || undefined,
       fichaTecnicaPdfUrl: fichaTecnicaUrl || undefined,
       fichaTecnicaCargada: fichaTecnicaCargada,
+      fichaTecnicaIncompleta: fichaTecnicaIncompleta,
       presupuestoEnviadoCliente: presupuestoEnviado,
       planillaPreliminar: planillaPreliminar,
       // Asegurar que ownerId se preserve correctamente
@@ -1413,10 +1421,15 @@ const TaskEditModal = ({
             </div>
           </div>
 
-          {/* Sección de Ficha Técnica (solo para fichas No OP) */}
-          {task?.esFichaNoOP && (
+          {/* Ficha técnica PDF + incompleta: fichas No OP y OP convertidas desde ficha (historial) */}
+          {muestraFichaTecnicaPdfEIncompleta && (
             <div className="form-group">
               <label>Ficha Técnica</label>
+              {task.esFichaNoOP !== true && task.numeroFichaOriginal && (
+                <p className="form-hint" style={{ marginTop: 0, marginBottom: '10px', fontSize: '0.85rem', opacity: 0.85 }}>
+                  Orden convertida desde {task.numeroFichaOriginal}. Podés subir un PDF nuevo y desmarcar &quot;ficha incompleta&quot; para quitar el resaltado en el tablero.
+                </p>
+              )}
               {fichaTecnicaUrl ? (
                 <div className="ficha-tecnica-section">
                   <div className="ficha-tecnica-info">
@@ -1523,6 +1536,25 @@ const TaskEditModal = ({
                   )}
                 </div>
               )}
+              <div className="planilla-preliminar-section" style={{ marginTop: '14px' }}>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={fichaTecnicaIncompleta}
+                    onChange={async (e) => {
+                      const nuevoValor = e.target.checked
+                      setFichaTecnicaIncompleta(nuevoValor)
+                      const ordenId = parseTaskIdToOrdenId(task.id)
+                      if (ordenId) {
+                        await apiService.updateOrden(ordenId, {
+                          ficha_tecnica_incompleta: nuevoValor
+                        })
+                      }
+                    }}
+                  />
+                  <span>Ficha técnica incompleta (marcado manual)</span>
+                </label>
+              </div>
             </div>
           )}
 

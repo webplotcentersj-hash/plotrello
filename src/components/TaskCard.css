@@ -1,11 +1,15 @@
-/* Planilla preliminar: rosa sólido, sin rayas, buen contraste */
+/* Planilla preliminar: rosa sólido, sin rayas — texto SIEMPRE oscuro (no heredar blanco del tablero) */
 .task-card.planilla-preliminar {
+  --text-primary: #0f172a;
+  --text-secondary: #1e293b;
+  --text-muted: #475569;
   background: linear-gradient(160deg, #fce7f3 0%, #fbcfe8 48%, #f9a8d4 100%) !important;
   border-left: 6px solid #db2777 !important;
   border: 2px solid rgba(219, 39, 119, 0.45) !important;
-  color: #831843 !important;
+  color: #0f172a !important;
   box-shadow: 0 8px 28px rgba(219, 39, 119, 0.22) !important;
   position: relative;
+  backdrop-filter: none !important;
 }
 
 .task-card.planilla-preliminar:hover {
@@ -13,6 +17,81 @@
   border-color: rgba(190, 24, 93, 0.55) !important;
   box-shadow: 0 12px 36px rgba(219, 39, 119, 0.28) !important;
   transform: translateY(-2px);
+}
+
+/* Vista compacta / minimizada: antes forzaba blanco — oscuro sobre rosa */
+.task-card.planilla-preliminar .task-minimized-label {
+  color: #0f172a !important;
+  text-shadow: none;
+}
+
+.task-card.planilla-preliminar .task-min-op,
+.task-card.planilla-preliminar .task-min-client,
+.task-card.planilla-preliminar .task-min-sep {
+  color: #0f172a !important;
+}
+
+.task-card.planilla-preliminar .task-min-op {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(190, 24, 93, 0.35) !important;
+  font-weight: 800;
+}
+
+.task-card.planilla-preliminar .task-min-client {
+  font-weight: 800;
+}
+
+.task-card.planilla-preliminar .task-min-sep {
+  opacity: 0.5 !important;
+}
+
+.task-card.planilla-preliminar .task-meta {
+  border-bottom-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.task-card.planilla-preliminar .task-description {
+  color: var(--text-secondary) !important;
+}
+
+/* Etiqueta PRELIMINAR: abajo a la izq. (evita NEW arriba-izq. y badges ::after arriba-der.) */
+.task-card.planilla-preliminar::before {
+  content: 'PRELIMINAR';
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  top: auto;
+  right: auto;
+  z-index: 21;
+  background: rgba(190, 24, 93, 0.92);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  box-shadow: 0 2px 8px rgba(190, 24, 93, 0.35);
+  pointer-events: none;
+}
+
+.task-card.planilla-preliminar.is-minimized::before {
+  top: 6px;
+  right: 6px;
+  bottom: auto;
+  left: auto;
+  font-size: 0.55rem;
+  padding: 2px 7px;
+}
+
+/* Marcado manual en edición: ficha técnica aún incompleta (no confundir con planilla preliminar) */
+.task-card.ficha-tecnica-incompleta {
+  border-top: 4px solid #f59e0b !important;
+  box-shadow:
+    0 8px 24px rgba(245, 158, 11, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.task-card.planilla-preliminar.ficha-tecnica-incompleta {
+  border-top: 4px solid #f59e0b !important;
 }
 
 /* Estilos para checklist: Ficha Técnica Cargada - MÁS NOTORIO */
