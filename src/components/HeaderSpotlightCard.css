@@ -6,6 +6,44 @@
   justify-content: flex-start;
 }
 
+/* Tu día en Plot | Comunicados RRHH (lado a lado en pantallas anchas) */
+.header-spotlight-split {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem 1.25rem;
+  width: 100%;
+}
+
+.header-spotlight-split-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.header-spotlight-split-col--plot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.header-spotlight-split-col--rrhh {
+  padding-left: 1rem;
+  border-left: 1px solid rgba(129, 140, 248, 0.22);
+}
+
+@media (max-width: 720px) {
+  .header-spotlight-split {
+    flex-direction: column;
+  }
+
+  .header-spotlight-split-col--rrhh {
+    padding-left: 0;
+    padding-top: 0.75rem;
+    border-left: none;
+    border-top: 1px solid rgba(129, 140, 248, 0.22);
+  }
+}
+
 .header-spotlight-card--muted {
   opacity: 0.85;
 }
@@ -85,9 +123,9 @@
 
 /* ——— Comunicados RRHH ——— */
 .header-spotlight-comunicados {
-  margin-top: 6px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(129, 140, 248, 0.2);
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .header-spotlight-comunicados-head {
@@ -243,9 +281,20 @@
   font-size: 0.7rem;
 }
 
-.header-spotlight-card--compact .header-spotlight-comunicados {
-  margin-top: 2px;
+.header-spotlight-card--compact .header-spotlight-split {
+  flex-direction: column;
+}
+
+.header-spotlight-card--compact .header-spotlight-split-col--rrhh {
+  padding-left: 0;
   padding-top: 6px;
+  border-left: none;
+  border-top: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+.header-spotlight-card--compact .header-spotlight-comunicados {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .header-spotlight-card--compact .header-spotlight-comunicados-head-title {

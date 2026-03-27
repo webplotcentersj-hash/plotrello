@@ -135,77 +135,83 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
 
   return (
     <div className={cardClass}>
-      <span className="header-spotlight-kicker">Tu día en Plot</span>
-      <div className="header-spotlight-day-slot">
-        {loading ? (
-          <p className="header-spotlight-line header-spotlight-line--muted">Cargando…</p>
-        ) : (
-          <>
-            {tieneLegajoFechas && (
-              <div className="header-spotlight-meta" aria-label="Fechas del legajo">
-                {nacimientoDdMm && (
-                  <p className="header-spotlight-line">
-                    <span className="header-spotlight-meta-label">Cumple</span>{' '}
-                    {nacimientoDdMm}
-                    {cumple && <span className="header-spotlight-today"> · ¡hoy!</span>}
-                  </p>
-                )}
-                {ingresoDdMmYyyy && (
-                  <p className="header-spotlight-line">
-                    <span className="header-spotlight-meta-label">Alta en la empresa</span>{' '}
-                    {ingresoDdMmYyyy}
-                    {aniosEnEmpresaSiempre != null && aniosEnEmpresaSiempre > 0 && (
-                      <span className="header-spotlight-meta-years"> · {aniosEnEmpresaSiempre} años</span>
+      <div className="header-spotlight-split">
+        <div className="header-spotlight-split-col header-spotlight-split-col--plot">
+          <span className="header-spotlight-kicker">Tu día en Plot</span>
+          <div className="header-spotlight-day-slot">
+            {loading ? (
+              <p className="header-spotlight-line header-spotlight-line--muted">Cargando…</p>
+            ) : (
+              <>
+                {tieneLegajoFechas && (
+                  <div className="header-spotlight-meta" aria-label="Fechas del legajo">
+                    {nacimientoDdMm && (
+                      <p className="header-spotlight-line">
+                        <span className="header-spotlight-meta-label">Cumple</span>{' '}
+                        {nacimientoDdMm}
+                        {cumple && <span className="header-spotlight-today"> · ¡hoy!</span>}
+                      </p>
                     )}
-                    {aniversario && <span className="header-spotlight-today"> · ¡aniversario hoy!</span>}
-                  </p>
-                )}
-              </div>
-            )}
-            {(cumple || aniversario) && (
-              <div className="header-spotlight-badges" role="status">
-                {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
-                {aniversario && (
-                  <span className="header-spotlight-badge">
-                    🎉 Aniversario en la empresa
-                    {aniosEmpresa != null && aniosEmpresa > 0 ? ` · ${aniosEmpresa} años` : ''}
-                  </span>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      <div
-        className="header-spotlight-comunicados"
-        title="Comunicados enviados desde Recursos Humanos → Notificador masivo (/rrhh/notificaciones)."
-      >
-        <div className="header-spotlight-comunicados-head">
-          <span className="header-spotlight-comunicados-head-icon" aria-hidden>
-            📢
-          </span>
-          <span className="header-spotlight-comunicados-head-title">Comunicados RRHH</span>
-        </div>
-        {notifs.length > 0 ? (
-          <ul className="header-spotlight-comunicados-list">
-            {notifs.map((n) => (
-              <li key={n.id}>
-                <article
-                  className={`header-spotlight-comunicado-item ${comunicadoAccentClass(n.type)}${
-                    n.is_read ? '' : ' header-spotlight-comunicado-item--nuevo'
-                  }`}
-                >
-                  <div className="header-spotlight-comunicado-copy">
-                    <p className="header-spotlight-comunicado-title">{n.title}</p>
-                    {n.description ? (
-                      <p className="header-spotlight-comunicado-desc">{n.description}</p>
-                    ) : null}
+                    {ingresoDdMmYyyy && (
+                      <p className="header-spotlight-line">
+                        <span className="header-spotlight-meta-label">Alta en la empresa</span>{' '}
+                        {ingresoDdMmYyyy}
+                        {aniosEnEmpresaSiempre != null && aniosEnEmpresaSiempre > 0 && (
+                          <span className="header-spotlight-meta-years"> · {aniosEnEmpresaSiempre} años</span>
+                        )}
+                        {aniversario && <span className="header-spotlight-today"> · ¡aniversario hoy!</span>}
+                      </p>
+                    )}
                   </div>
-                </article>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+                )}
+                {(cumple || aniversario) && (
+                  <div className="header-spotlight-badges" role="status">
+                    {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
+                    {aniversario && (
+                      <span className="header-spotlight-badge">
+                        🎉 Aniversario en la empresa
+                        {aniosEmpresa != null && aniosEmpresa > 0 ? ` · ${aniosEmpresa} años` : ''}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        <div className="header-spotlight-split-col header-spotlight-split-col--rrhh">
+          <div
+            className="header-spotlight-comunicados"
+            title="Comunicados enviados desde Recursos Humanos → Notificador masivo (/rrhh/notificaciones)."
+          >
+            <div className="header-spotlight-comunicados-head">
+              <span className="header-spotlight-comunicados-head-icon" aria-hidden>
+                📢
+              </span>
+              <span className="header-spotlight-comunicados-head-title">Comunicados RRHH</span>
+            </div>
+            {notifs.length > 0 ? (
+              <ul className="header-spotlight-comunicados-list">
+                {notifs.map((n) => (
+                  <li key={n.id}>
+                    <article
+                      className={`header-spotlight-comunicado-item ${comunicadoAccentClass(n.type)}${
+                        n.is_read ? '' : ' header-spotlight-comunicado-item--nuevo'
+                      }`}
+                    >
+                      <div className="header-spotlight-comunicado-copy">
+                        <p className="header-spotlight-comunicado-title">{n.title}</p>
+                        {n.description ? (
+                          <p className="header-spotlight-comunicado-desc">{n.description}</p>
+                        ) : null}
+                      </div>
+                    </article>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   )
