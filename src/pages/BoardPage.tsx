@@ -33,6 +33,16 @@ import {
   sectorNameSupportsEtapaKanban
 } from '../data/sectorEtapaKanban'
 
+/** Igual que en fichas: quitar email y normalizar para comparar operario asignado vs nombre de sesión */
+function normalizePersonNameKey(value: string | null | undefined): string {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const atIndex = trimmed.indexOf('@')
+  const base = atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
+  return base.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
 type BoardPageProps = {
   tasks: Task[]
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>
@@ -97,6 +107,7 @@ const BoardPage = ({
   const navigate = useNavigate()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
+  const [misTrabajosFilter, setMisTrabajosFilter] = useState(false)
   const [sectorFilter, setSectorFilter] = useState<string>('todos')
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
@@ -193,6 +204,25 @@ const BoardPage = ({
     return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
   }
 
+  const isTaskAssignedToMe = useCallback(
+    (task: Task) => {
+      const me = normalizePersonNameKey(usuario?.nombre)
+      if (!me) return false
+      if (
+        task.ownerId &&
+        task.ownerId !== 'sin-asignar' &&
+        normalizePersonNameKey(task.ownerId) === me
+      ) {
+        return true
+      }
+      if (task.workingUser && normalizePersonNameKey(task.workingUser) === me) {
+        return true
+      }
+      return false
+    },
+    [usuario?.nombre]
+  )
+
   const resolveCurrentUserName = () => {
     const preferred = sanitizeWorkerName(usuario?.nombre) ?? usuario?.nombre
     if (preferred) return preferred
@@ -275,9 +305,20 @@ const BoardPage = ({
         sectorFilter === 'todos' ||
         task.assignedSector === sectorFilter ||
         (task.sectores && task.sectores.includes(sectorFilter))
-      return matchesStatus && matchesPriority && matchesSector && matchesSearchText(task)
+      const matchesMisTrabajos = !misTrabajosFilter || isTaskAssignedToMe(task)
+      return (
+        matchesStatus && matchesPriority && matchesSector && matchesSearchText(task) && matchesMisTrabajos
+      )
     })
-  }, [tasks, statusFocus, priorityFilter, sectorFilter, searchQuery])
+  }, [
+    tasks,
+    statusFocus,
+    priorityFilter,
+    misTrabajosFilter,
+    sectorFilter,
+    searchQuery,
+    isTaskAssignedToMe
+  ])
 
   const taskToView = useMemo(
     () => (taskViewId ? tasks.find((t) => t.id === taskViewId) ?? null : null),
@@ -953,6 +994,8 @@ const BoardPage = ({
           { id: 'baja', label: 'Baja' }
         ]}
         onPriorityChange={setPriorityFilter}
+        misTrabajosFilter={misTrabajosFilter}
+        onMisTrabajosChange={setMisTrabajosFilter}
         sectorFilter={sectorFilter}
         availableSectors={availableSectors}
         onSectorChange={setSectorFilter}

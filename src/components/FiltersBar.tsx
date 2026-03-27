@@ -16,6 +16,9 @@ type FiltersBarProps = {
   priorityFilter: Priority | 'todas'
   priorityFilters: ReadonlyArray<{ id: Priority | 'todas'; label: string }>
   onPriorityChange: (value: Priority | 'todas') => void
+  /** Solo en home: filtrar OPs donde el usuario es operario asignado o está trabajando la ficha */
+  misTrabajosFilter?: boolean
+  onMisTrabajosChange?: (value: boolean) => void
   sectorFilter?: string
   availableSectors?: string[]
   onSectorChange?: (value: string) => void
@@ -38,6 +41,8 @@ const FiltersBar = ({
   priorityFilter,
   priorityFilters,
   onPriorityChange,
+  misTrabajosFilter = false,
+  onMisTrabajosChange,
   sectorFilter = 'todos',
   availableSectors = [],
   onSectorChange,
@@ -99,6 +104,16 @@ const FiltersBar = ({
                 {filter.label}
               </button>
             ))}
+            {onMisTrabajosChange && (
+              <button
+                type="button"
+                className={misTrabajosFilter ? 'active' : ''}
+                onClick={() => onMisTrabajosChange(!misTrabajosFilter)}
+                title="Solo fichas donde estás asignado como operario o figuras como quien trabaja la OP"
+              >
+                Mis trabajos
+              </button>
+            )}
           </div>
         </div>
         <div className="filter-right-section">

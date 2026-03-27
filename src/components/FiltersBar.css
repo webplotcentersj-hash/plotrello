@@ -21,7 +21,7 @@
 
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(0, 200px) 1fr;
+  grid-template-columns: minmax(0, 520px) 1fr;
   gap: 16px;
   align-items: flex-end;
 }
