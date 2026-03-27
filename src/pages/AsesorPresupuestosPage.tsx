@@ -13,6 +13,7 @@ import type { MaterialRecord, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import {
+  mapStatusToEstado,
   parseTaskIdToOrdenId,
   taskToOrdenPayload
 } from '../utils/dataMappers'
@@ -168,68 +169,79 @@ const AsesorPresupuestosPage = ({
         return
       }
 
-      // Si se mueve a Finalizado y es una ficha, transformarla a orden general
-      if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
-        // Primero actualizar el estado a Finalizado (manteniendo el sector actual válido)
-        const sectorActual = taskToUpdate.assignedSector || taskToUpdate.sectorInicial || 
-                            (taskToUpdate.sectores && taskToUpdate.sectores[0]) || 'Asesor Técnico'
-        
-        const updatedTask = {
-          ...taskToUpdate,
-          status: destination,
-          // Mantener el sector actual en lugar de usar "Finalizado" que no es válido
-          assignedSector: sectorActual
-        }
-        const payload = taskToOrdenPayload(updatedTask)
-        // Establecer estado explícitamente a "Finalizado" para la transformación
-        payload.estado = 'Finalizado'
-        // Asegurar que el sector sea válido (no "Finalizado")
-        payload.sector = sectorActual
+      // Finalizado: estado "Finalizado" pero sector sigue siendo Asesor o Presupuestos (no usar moveOrden: pondría sector="Finalizado")
+      if (destination === 'finalizado-asesor-presupuestos') {
+        if (taskToUpdate.esFichaNoOP) {
+          const sectorActual =
+            taskToUpdate.assignedSector ||
+            taskToUpdate.sectorInicial ||
+            (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
+            'Asesor Técnico'
 
-        const updateResponse = await apiService.updateOrden(ordenId, payload)
-        if (!updateResponse.success) {
-          setActionError(updateResponse.error || 'Error al mover la orden')
-          return
-        }
-
-        // Luego transformar la ficha a orden general
-        const transformResponse = await apiService.transformarFichaNoOPAOP(ordenId)
-        if (!transformResponse.success) {
-          setActionError(transformResponse.error || 'Error al transformar la ficha')
-          return
-        }
-
-        setActionSuccess(
-          `Ficha convertida a orden: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
-        )
-      } else {
-        // Movimiento normal (no es ficha No OP o no se mueve a Finalizado)
-        const sectorActual = taskToUpdate.assignedSector || taskToUpdate.sectorInicial || 
-                            (taskToUpdate.sectores && taskToUpdate.sectores[0]) || 'Asesor Técnico'
-        
-        const updatedTask = {
-          ...taskToUpdate,
-          status: destination,
-          // Si es Finalizado, mantener el sector actual en lugar de usar "Finalizado"
-          assignedSector: destination === 'finalizado-asesor-presupuestos' 
-            ? sectorActual
-            : destinationColumn.label
-        }
-        const payload = taskToOrdenPayload(updatedTask)
-        
-        // Si es Finalizado, establecer estado pero mantener sector válido
-        if (destination === 'finalizado-asesor-presupuestos') {
+          const updatedTask = {
+            ...taskToUpdate,
+            status: destination,
+            assignedSector: sectorActual
+          }
+          const payload = taskToOrdenPayload(updatedTask)
           payload.estado = 'Finalizado'
-          payload.sector = sectorActual // Asegurar sector válido
-        }
+          payload.sector = sectorActual
 
-        const response = await apiService.updateOrden(ordenId, payload)
+          const updateResponse = await apiService.updateOrden(ordenId, payload)
+          if (!updateResponse.success) {
+            setActionError(updateResponse.error || 'Error al mover la orden')
+            return
+          }
+
+          const transformResponse = await apiService.transformarFichaNoOPAOP(ordenId)
+          if (!transformResponse.success) {
+            setActionError(transformResponse.error || 'Error al transformar la ficha')
+            return
+          }
+
+          setActionSuccess(
+            `Ficha convertida a orden: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
+          )
+        } else {
+          const sectorActual =
+            taskToUpdate.assignedSector ||
+            taskToUpdate.sectorInicial ||
+            (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
+            'Asesor Técnico'
+
+          const updatedTask = {
+            ...taskToUpdate,
+            status: destination,
+            assignedSector: sectorActual
+          }
+          const payload = taskToOrdenPayload(updatedTask)
+          payload.estado = 'Finalizado'
+          payload.sector = sectorActual
+
+          const response = await apiService.updateOrden(ordenId, payload)
+          if (!response.success) {
+            setActionError(response.error || 'Error al mover la orden')
+            return
+          }
+
+          setActionSuccess('Orden movida correctamente')
+        }
+      } else {
+        // Asesor Técnico ↔ Presupuestos: dos filas con el mismo OP (instancias distintas). moveOrden fusiona si ya existe la pareja (mismo criterio que tablero general).
+        const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
+        const nuevoEstado = mapStatusToEstado(destination)
+        const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
         if (!response.success) {
           setActionError(response.error || 'Error al mover la orden')
           return
         }
-
-        setActionSuccess('Orden movida correctamente')
+        if ((response.data as { fusionada?: boolean })?.fusionada) {
+          setActionSuccess(
+            'Ficha unificada en el sector destino (la otra instancia queda oculta del tablero, sin borrarla).'
+          )
+        } else {
+          setActionSuccess('Orden movida correctamente')
+        }
       }
 
       if (onReloadData) {
