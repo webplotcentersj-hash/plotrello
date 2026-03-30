@@ -65,7 +65,7 @@ type TaskCardProps = {
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
   activity?: ActivityEvent[]
   members?: TeamMember[]
-  onMoveTask?: (taskId: string, destination: TaskStatus) => void
+  onMoveTask?: (taskId: string, destination: TaskStatus, sourceColumn?: TaskStatus) => void
   columns?: ColumnConfig[]
   isSelected?: boolean
   onSelect?: (taskId: string | null) => void
@@ -558,7 +558,7 @@ const TaskCardInner = ({
                     className="task-action-btn task-move-arrow"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onMoveTask(task.id, prevCol.id)
+                      onMoveTask(task.id, prevCol.id, task.status)
                     }}
                     title={`Mover a ${prevCol.label}`}
                   >
@@ -571,7 +571,7 @@ const TaskCardInner = ({
                     className="task-action-btn task-move-arrow"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onMoveTask(task.id, nextCol.id)
+                      onMoveTask(task.id, nextCol.id, task.status)
                     }}
                     title={`Mover a ${nextCol.label}`}
                   >
@@ -1542,7 +1542,7 @@ const TaskCardInner = ({
                   className="context-menu-item"
                   role="menuitem"
                   onClick={() => {
-                    onMoveTask(task.id, col.id)
+                    onMoveTask(task.id, col.id, task.status)
                     setContextMenu(null)
                   }}
                 >

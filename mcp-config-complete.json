@@ -38,6 +38,12 @@
         "@modelcontextprotocol/server-filesystem",
         "C:\\Users\\USUARIO\\Desktop\\Recue\\Trello\\7"
       ]
+    },
+    "trellofinal": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=bwdtrzcdzbzrtykjzber&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cstorage",
+      "headers": {
+        "Authorization": "Bearer tu-personal-access-token-supabase"
+      }
     }
   }
 }

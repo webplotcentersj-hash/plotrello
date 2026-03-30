@@ -22,7 +22,7 @@ type ColumnProps = {
   sectores?: SectorRecord[]
   onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
   activity?: ActivityEvent[]
-  onMoveTask?: (taskId: string, destination: TaskStatus) => void
+  onMoveTask?: (taskId: string, destination: TaskStatus, sourceColumn?: TaskStatus) => void
   columns?: ColumnConfig[]
   selectedTaskId?: string | null
   onSelectTask?: (taskId: string | null) => void

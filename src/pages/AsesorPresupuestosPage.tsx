@@ -202,7 +202,15 @@ const AsesorPresupuestosPage = ({
     )
   }
 
-  const handleTaskMove = async (taskId: string, destination: TaskStatus) => {
+  /**
+   * Flujo acordado (ficha No OP):
+   * Asesor crea la ficha → la pasa a Presupuestos → desde Presupuestos a Finalizado se convierte en OP y entra al tablero general.
+   */
+  const handleTaskMove = async (
+    taskId: string,
+    destination: TaskStatus,
+    sourceColumn?: TaskStatus
+  ) => {
     try {
       const ordenId = parseTaskIdToOrdenId(taskId)
       if (!ordenId) {
@@ -222,8 +230,16 @@ const AsesorPresupuestosPage = ({
         return
       }
 
-      // Si se mueve a Finalizado y es una ficha, transformarla a orden general
+      // Ficha No OP → OP: solo desde la columna Presupuestos (no desde Asesor directo a Finalizado)
       if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
+        const effectiveSource =
+          sourceColumn ?? normalizeTaskForAsesorKanban(taskToUpdate).status
+        if (effectiveSource !== 'presupuestos') {
+          setActionError(
+            'Flujo: Asesor → Presupuestos → Finalizado. Desde Presupuestos, al finalizar, la ficha pasa a OP en el tablero general.'
+          )
+          return
+        }
         const sectorActual =
           taskToUpdate.assignedSector ||
           taskToUpdate.sectorInicial ||

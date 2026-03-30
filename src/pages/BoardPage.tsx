@@ -340,7 +340,11 @@ const BoardPage = ({
     )
   }
 
-  const handleMoveTask = useCallback(async (taskId: string, destination: TaskStatus) => {
+  const handleMoveTask = useCallback(async (
+    taskId: string,
+    destination: TaskStatus,
+    _sourceColumn?: TaskStatus
+  ) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
     const movedAt = Date.now()
     try {

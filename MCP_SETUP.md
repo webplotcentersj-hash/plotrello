@@ -7,6 +7,23 @@ El archivo de configuración MCP está en:
 C:\Users\USUARIO\.cursor\mcp.json
 ```
 
+## Servidor `trellofinal` (Supabase de Plotrello)
+
+En `mcp.json` puede existir una entrada **`trellofinal`** que apunta al MCP alojado de Supabase del proyecto (`project_ref=bwdtrzcdzbzrtykjzber`), con funciones de docs, base de datos, etc. (sin `read_only` en la URL, a diferencia de otra entrada tipo `supabase81` si la tenés en solo lectura).
+
+Si las herramientas no responden o piden autenticación:
+
+1. Creá un **Personal Access Token** en [Supabase Account → Access Tokens](https://supabase.com/dashboard/account/tokens).
+2. En `trellofinal`, completá el header:
+   ```json
+   "headers": {
+     "Authorization": "Bearer TU_TOKEN_AQUÍ"
+   }
+   ```
+3. Guardá y **reiniciá Cursor** (o recargá los servidores MCP).
+
+Si Cursor abre el flujo OAuth al usar el MCP, podés dejar `"headers": {}` vacío y completar el login en el navegador.
+
 ## 🚀 Configuración Recomendada
 
 ### Opción 1: Solo Vercel (Actual)

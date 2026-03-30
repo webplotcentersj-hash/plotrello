@@ -9,7 +9,8 @@ type BoardProps = {
   columns: ColumnConfig[]
   tasks: Task[]
   allTasks: Task[]
-  onMoveTask: (taskId: string, destination: TaskStatus) => void
+  /** `sourceColumn` = columna de origen (drag); útil en tableros con reglas por flujo (ej. asesor-presupuestos). */
+  onMoveTask: (taskId: string, destination: TaskStatus, sourceColumn?: TaskStatus) => void
   members: TeamMember[]
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
@@ -103,9 +104,10 @@ const Board = ({
         return
       }
       const dest = destination.droppableId as TaskStatus
+      const src = source.droppableId as TaskStatus
       // Deja terminar el frame del DnD antes de actualizar estado React (menos tirón al soltar)
       requestAnimationFrame(() => {
-        onMoveTask(draggableId, dest)
+        onMoveTask(draggableId, dest, src)
       })
     },
     [onMoveTask]
