@@ -35,11 +35,14 @@ export function useDmMensajeriaUnread(usuarioId: number | null | undefined) {
     if (!res.success || res.data == null) return
     const next = res.data
     const prev = prevTotalRef.current
+    const onMensajeriaRoute =
+      typeof window !== 'undefined' && window.location.pathname === '/mensajeria'
     if (
       initialFetchDoneRef.current &&
       prev != null &&
       next > prev &&
       document.hidden &&
+      !onMensajeriaRoute &&
       typeof Notification !== 'undefined' &&
       Notification.permission === 'granted'
     ) {

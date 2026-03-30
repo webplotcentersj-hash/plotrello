@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import apiService from '../services/api'
+import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import type { UsuarioRecord } from '../types/api'
 import './RrhhMessagingCenter.css'
 
@@ -75,8 +76,11 @@ const RrhhMessagingCenter = ({ usuarios, currentUserId, currentUserName }: RrhhM
         setLoadingThread(false)
         return
       }
-      setRoomId(roomRes.data.roomId)
-      await loadMessages(roomRes.data.roomId)
+      const rid = roomRes.data.roomId
+      setRoomId(rid)
+      await loadMessages(rid)
+      await apiService.marcarChatLeido(`dm:${rid}`, currentUserId)
+      dispatchMensajeriaDmUnreadRefresh()
       if (!cancelled) setLoadingThread(false)
     }
     void run()

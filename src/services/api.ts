@@ -135,6 +135,16 @@ const roomToChatChannel: Record<number, string> = {
   7: 'random'
 }
 
+/** `dm:<id>` = sala 1:1 en `chat_rooms` (id numérico). Canales sin prefijo = chat grupal. */
+function roomIdFromCanal(canal: string): number {
+  const dm = /^dm:(\d+)$/.exec(String(canal).trim())
+  if (dm) {
+    const id = Number(dm[1])
+    if (Number.isFinite(id)) return id
+  }
+  return chatChannelToRoom[canal] ?? 1
+}
+
 class ApiService {
   // Helper para obtener usuario actual desde localStorage
   private getCurrentUser(): { id: number; nombre: string } {
@@ -3109,7 +3119,7 @@ class ApiService {
   // ========== CHAT ==========
   async getMensajesChat(canal: string, limit: number = 50): Promise<ApiResponse<ChatMessageUI[]>> {
     if (supabase) {
-      const roomId = chatChannelToRoom[canal] ?? 1
+      const roomId = roomIdFromCanal(canal)
 
       const { data, error } = await supabase
         .from('chat_messages')
@@ -3466,7 +3476,7 @@ class ApiService {
 
   async marcarChatLeido(canal: string, usuarioId: number): Promise<void> {
     if (!supabase) return
-    const roomId = chatChannelToRoom[canal] ?? 1
+    const roomId = roomIdFromCanal(canal)
     try {
       await supabase.rpc('chat_marcar_leido', { p_user_id: usuarioId, p_room_id: roomId })
     } catch (e) {
