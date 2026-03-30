@@ -486,7 +486,23 @@ class ApiService {
     if (supabase) {
       // Capturar supabase en variable local para TypeScript
       const supabaseClient = supabase
-      
+
+      // Ficha No OP con placeholder "FICHA-" / "FICHA": asignar correlativo real (MAX+1) para no violar ux_ordenes_op_sector
+      if (orden.es_ficha_no_op) {
+        const raw = (orden.numero_op || '').trim()
+        if (raw === '' || /^FICHA-?$/i.test(raw)) {
+          const { data: nextOp, error: nextErr } = await supabaseClient.rpc('next_numero_ficha_no_op')
+          if (!nextErr && nextOp != null && String(nextOp).trim() !== '') {
+            orden.numero_op = String(nextOp).trim()
+          } else if (nextErr) {
+            console.warn(
+              'next_numero_ficha_no_op: correlativo no asignado (¿falta el parche SQL?).',
+              nextErr.message
+            )
+          }
+        }
+      }
+
       // SOLUCIÓN DIRECTA: Si hay campos de contacto o sectores múltiples, usar función SQL que evita schema cache
       const hasContactFields = orden.telefono_cliente || orden.direccion_cliente || orden.drive_link || 
           orden.ubicacion_link || orden.email_cliente || orden.whatsapp_link

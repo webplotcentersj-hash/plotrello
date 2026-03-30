@@ -20,6 +20,44 @@ import {
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import './AsesorPresupuestosPage.css'
 
+/** Columnas del Kanban asesor: el Board agrupa solo por `task.status`. */
+const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
+  'asesor-tecnico',
+  'presupuestos',
+  'finalizado-asesor-presupuestos'
+]
+
+/**
+ * Si la orden entra al filtro por sector/sectores pero el estado mapeado sigue siendo de otro
+ * tablero (p. ej. En espera), sin esto la tarjeta no cae en ninguna columna.
+ */
+function normalizeTaskForAsesorKanban(task: Task): Task {
+  if (ASESOR_KANBAN_STATUSES.includes(task.status)) {
+    return task
+  }
+  const sector = task.assignedSector || task.sectorInicial
+  if (sector === 'Asesor Técnico') {
+    return { ...task, status: 'asesor-tecnico' }
+  }
+  if (sector === 'Presupuestos') {
+    return { ...task, status: 'presupuestos' }
+  }
+  const inAt = task.sectores?.includes('Asesor Técnico')
+  const inPr = task.sectores?.includes('Presupuestos')
+  if (inAt && !inPr) {
+    return { ...task, status: 'asesor-tecnico' }
+  }
+  if (inPr && !inAt) {
+    return { ...task, status: 'presupuestos' }
+  }
+  if (inAt && inPr) {
+    return task.assignedSector === 'Presupuestos'
+      ? { ...task, status: 'presupuestos' }
+      : { ...task, status: 'asesor-tecnico' }
+  }
+  return { ...task, status: 'asesor-tecnico' }
+}
+
 type AsesorPresupuestosPageProps = {
   tasks: Task[]
   activity: ActivityEvent[]
@@ -93,13 +131,21 @@ const AsesorPresupuestosPage = ({
     // Aplicar filtros
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(
-        (task) =>
-          task.opNumber.toLowerCase().includes(query) ||
-          task.title.toLowerCase().includes(query) ||
-          task.summary.toLowerCase().includes(query) ||
-          task.tags.some((tag) => tag.toLowerCase().includes(query))
-      )
+      filtered = filtered.filter((task) => {
+        const tags = task.tags ?? []
+        return (
+          String(task.opNumber ?? '')
+            .toLowerCase()
+            .includes(query) ||
+          String(task.title ?? '')
+            .toLowerCase()
+            .includes(query) ||
+          String(task.summary ?? '')
+            .toLowerCase()
+            .includes(query) ||
+          tags.some((tag) => String(tag).toLowerCase().includes(query))
+        )
+      })
     }
 
     if (priorityFilter !== 'todas') {
@@ -107,11 +153,18 @@ const AsesorPresupuestosPage = ({
     }
 
     if (statusFocus.length > 0) {
-      filtered = filtered.filter((task) => statusFocus.includes(task.status))
+      filtered = filtered.filter((task) =>
+        statusFocus.includes(normalizeTaskForAsesorKanban(task).status)
+      )
     }
 
     return filtered
   }, [tasks, searchQuery, priorityFilter, statusFocus, canAccess])
+
+  const kanbanTasksForBoard = useMemo(
+    () => filteredTasks.map(normalizeTaskForAsesorKanban),
+    [filteredTasks]
+  )
 
   useEffect(() => {
     if (actionError || actionSuccess) {
@@ -415,8 +468,8 @@ const AsesorPresupuestosPage = ({
 
             <div className="asesor-presupuestos-board-wrap">
               <Board
-                tasks={filteredTasks}
-                allTasks={tasks}
+                tasks={kanbanTasksForBoard}
+                allTasks={kanbanTasksForBoard}
                 onMoveTask={handleTaskMove}
                 members={teamMembers}
                 onEditTask={(task) => {

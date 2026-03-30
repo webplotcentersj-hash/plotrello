@@ -295,7 +295,15 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     try {
       const response = await apiService.createOrden(payload as any)
       if (!response.success) {
-        alert(response.error || 'Error al crear la ficha')
+        const err = response.error || 'Error al crear la ficha'
+        if (err.includes('ux_ordenes_op_sector') || err.includes('duplicate key')) {
+          alert(
+            `${err}\n\nSi ya tenés esa ficha (aunque esté finalizada), no podés crear otra con el mismo número. ` +
+              'Ejecutá en Supabase el parche next_numero_ficha_no_op (correlativo MAX+1) o buscá la ficha en Historial / Finalizado para editarla.'
+          )
+        } else {
+          alert(err)
+        }
         return
       }
 
