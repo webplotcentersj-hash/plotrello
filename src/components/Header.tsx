@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { useDmMensajeriaUnread } from '../hooks/useDmMensajeriaUnread'
@@ -77,7 +77,10 @@ const Header = ({
     canAccessAtencionPublico,
     isTallerGrafico
   } = useAuth()
+  const location = useLocation()
   const dmMensajeriaUnread = useDmMensajeriaUnread(usuario?.id)
+  const showMensajeriaUnreadBadge =
+    dmMensajeriaUnread > 0 && !!onNavigateToMensajeria && location.pathname !== '/mensajeria'
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -107,12 +110,12 @@ const Header = ({
             <AdminAlertButton />
           )}
           <button
-            className={`ghost-button actions-toggle ${dmMensajeriaUnread > 0 && onNavigateToMensajeria ? 'has-mensajeria-unread' : ''}`}
+            className={`ghost-button actions-toggle ${showMensajeriaUnreadBadge ? 'has-mensajeria-unread' : ''}`}
             type="button"
             onClick={() => setActionsOpen((prev) => !prev)}
             aria-expanded={actionsOpen}
             aria-label={
-              dmMensajeriaUnread > 0 && onNavigateToMensajeria
+              showMensajeriaUnreadBadge
                 ? `Abrir menú de acciones. Mensajes sin leer en mensajería: ${dmMensajeriaUnread}`
                 : 'Abrir menú de acciones'
             }
@@ -133,7 +136,7 @@ const Header = ({
                 >
                   ✉️ Mensajería
                 </button>
-                {dmMensajeriaUnread > 0 && (
+                {showMensajeriaUnreadBadge && (
                   <span className="header-dm-unread-badge" title="Mensajes sin leer">
                     {dmMensajeriaUnread > 99 ? '99+' : dmMensajeriaUnread}
                   </span>
