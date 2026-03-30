@@ -209,20 +209,32 @@ const BoardPage = ({
   const isTaskAssignedToMe = useCallback(
     (task: Task) => {
       const me = normalizePersonNameKey(usuario?.nombre)
-      if (!me) return false
+      const myIdStr = usuario?.id != null ? String(usuario.id) : ''
+
+      // operario_asignado suele guardarse como id de usuario (select en crear/editar ficha)
       if (
+        myIdStr &&
+        task.ownerId &&
+        task.ownerId !== 'sin-asignar' &&
+        task.ownerId.trim() === myIdStr
+      ) {
+        return true
+      }
+      // Compatibilidad: operario guardado como nombre (datos viejos o carga manual)
+      if (
+        me &&
         task.ownerId &&
         task.ownerId !== 'sin-asignar' &&
         normalizePersonNameKey(task.ownerId) === me
       ) {
         return true
       }
-      if (task.workingUser && normalizePersonNameKey(task.workingUser) === me) {
+      if (me && task.workingUser && normalizePersonNameKey(task.workingUser) === me) {
         return true
       }
       return false
     },
-    [usuario?.nombre]
+    [usuario?.id, usuario?.nombre]
   )
 
   const resolveCurrentUserName = () => {
