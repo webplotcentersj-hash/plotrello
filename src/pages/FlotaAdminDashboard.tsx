@@ -219,7 +219,7 @@ const FlotaAdminDashboard = () => {
   if (authLoading) {
     return (
       <div className="flota-admin-page">
-        <div style={{ textAlign: 'center', padding: '40px' }}>Cargando sesión…</div>
+        <div className="flota-admin-loading-msg">Cargando sesión…</div>
       </div>
     )
   }
@@ -470,7 +470,7 @@ const FlotaAdminDashboard = () => {
         {estadisticasLoading && !estadisticas && (
           <section className="estadisticas-section">
             <h2>Estadísticas</h2>
-            <p style={{ color: '#94a3b8', margin: 0 }}>Cargando estadísticas de flota…</p>
+            <p className="flota-admin-estadisticas-cargando">Cargando estadísticas de flota…</p>
           </section>
         )}
         {estadisticas && (
@@ -519,7 +519,7 @@ const FlotaAdminDashboard = () => {
         {/* Registros Retrasados */}
         {registrosRetrasados.length > 0 && (
           <section className="retrasados-section">
-            <h2 style={{ color: '#ef4444' }}>⚠️ Vehículos Retrasados</h2>
+            <h2>⚠️ Vehículos Retrasados</h2>
             <div className="retrasados-list">
               {registrosRetrasados.map((registro) => {
                 const horaEstimada = registro.hora_estimada_llegada 
