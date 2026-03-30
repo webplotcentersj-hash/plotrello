@@ -63,6 +63,16 @@
   font-size: 1.05rem;
 }
 
+.flota-admin-badge-salida {
+  background: #dbeafe;
+}
+
+.flota-admin-poll-hint {
+  margin: 6px 0 0 0;
+  font-size: 0.85rem;
+  color: #333;
+}
+
 .filtros-section,
 .estadisticas-section,
 .retrasados-section {

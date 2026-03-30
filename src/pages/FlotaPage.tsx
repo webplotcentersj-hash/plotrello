@@ -201,6 +201,10 @@ const FlotaPage = () => {
   }
 
   const handleFinalizarSalida = async (idRegistro: number) => {
+    if (!canAutorizar) {
+      alert('Solo Caja o Administración puede cerrar el viaje.')
+      return
+    }
     if (!confirm('¿Confirmar cierre del viaje y liberación del vehículo?')) return
     const response = await apiService.finalizarRegistroSalidaVehiculo(idRegistro)
     if (response.success) await loadData({ quiet: true })
@@ -414,13 +418,17 @@ const FlotaPage = () => {
                               Llegué
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className="flota-btn secondary sm"
-                            onClick={() => void handleFinalizarSalida(r.id)}
-                          >
-                            Cerrar viaje
-                          </button>
+                          {canAutorizar ? (
+                            <button
+                              type="button"
+                              className="flota-btn secondary sm"
+                              onClick={() => void handleFinalizarSalida(r.id)}
+                            >
+                              Cerrar viaje
+                            </button>
+                          ) : (
+                            <span className="flota-espera-msg">Cierre: Caja o Administración</span>
+                          )}
                         </td>
                       </tr>
                     )
@@ -652,13 +660,17 @@ const FlotaPage = () => {
                             Llegué
                           </button>
                         )}
-                        <button
-                          type="button"
-                          className="flota-btn secondary"
-                          onClick={() => void handleFinalizarSalida(registro.id)}
-                        >
-                          Cerrar viaje
-                        </button>
+                        {canAutorizar ? (
+                          <button
+                            type="button"
+                            className="flota-btn secondary"
+                            onClick={() => void handleFinalizarSalida(registro.id)}
+                          >
+                            Cerrar viaje
+                          </button>
+                        ) : (
+                          <p className="flota-espera-msg">El cierre del viaje lo realiza Caja o Administración.</p>
+                        )}
                       </>
                     )}
                   </div>

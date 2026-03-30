@@ -9,6 +9,7 @@ import {
   FLOTA_MAP_CENTER,
   FLOTA_MAP_ZOOM_CIUDAD,
   FLOTA_MAP_ZOOM_CERCA,
+  FLOTA_SEARCH_BBOX,
   flotaDistanciaKm
 } from '../utils/flotaMapSanJuan'
 
@@ -85,19 +86,111 @@ function scoreHit(lat: number, lon: number, p: PhotonProperties | undefined): nu
   const cc = (p?.countrycode ?? '').toLowerCase()
   const country = (p?.country ?? '').toLowerCase()
   const state = `${p?.state ?? ''} ${p?.county ?? ''}`.toLowerCase()
+  const cityBlob = `${p?.city ?? ''} ${p?.district ?? ''} ${p?.locality ?? ''} ${p?.name ?? ''}`.toLowerCase()
   const isAR = cc === 'ar' || country.includes('argentina')
-  const isSanJuanProv = state.includes('san juan') || state.includes('s.juan')
+  const isSanJuanProv =
+    state.includes('san juan') ||
+    state.includes('s.juan') ||
+    cityBlob.includes('san juan') ||
+    cityBlob.includes('rawson') ||
+    cityBlob.includes('rivadavia') ||
+    cityBlob.includes('pocito') ||
+    cityBlob.includes('chimbas') ||
+    cityBlob.includes('santa lucía')
   const dist = flotaDistanciaKm(REF_LAT, REF_LON, lat, lon)
-  return (isAR ? 5000 : 0) + (isSanJuanProv ? 2500 : 0) - Math.min(dist, 8000)
+  return (isAR ? 8000 : 0) + (isSanJuanProv ? 5000 : 0) - Math.min(dist, 12000)
 }
 
-async function fetchPhoton(q: string): Promise<PhotonFeature[]> {
+function mergePhotonFeatures(a: PhotonFeature[], b: PhotonFeature[]): PhotonFeature[] {
+  const seen = new Set<string>()
+  const out: PhotonFeature[] = []
+  for (const list of [a, b]) {
+    for (const f of list) {
+      const pair = coordsFromFeature(f)
+      if (!pair) continue
+      const key = `${pair[0].toFixed(4)}_${pair[1].toFixed(4)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(f)
+    }
+  }
+  return out
+}
+
+async function fetchPhoton(q: string, opts: { bbox: boolean }): Promise<PhotonFeature[]> {
   const [sjLat, sjLon] = FLOTA_MAP_CENTER
-  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=12&lang=es&lat=${sjLat}&lon=${sjLon}`
+  let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=18&lang=es&lat=${sjLat}&lon=${sjLon}`
+  if (opts.bbox) {
+    url += `&bbox=${encodeURIComponent(FLOTA_SEARCH_BBOX)}`
+  }
   const res = await fetch(url)
   if (!res.ok) throw new Error('Error en búsqueda')
   const data = (await res.json()) as PhotonResponse
   return data.features ?? []
+}
+
+type NominatimHit = { lat: string; lon: string; display_name: string }
+
+/** Bbox minLon,minLat,maxLon,maxLat → viewbox Nominatim: left,top,right,bottom (lon/lat). */
+function nominatimViewbox(): string {
+  const p = FLOTA_SEARCH_BBOX.split(',').map((x) => x.trim())
+  if (p.length !== 4) return FLOTA_SEARCH_BBOX
+  const [minLon, minLat, maxLon, maxLat] = p
+  return `${minLon},${maxLat},${maxLon},${minLat}`
+}
+
+async function fetchNominatimSanJuan(q: string): Promise<SalidaMapSearchHit[]> {
+  const query = /\b(argentina|san juan)\b/i.test(q) ? q.trim() : `${q.trim()}, San Juan, Argentina`
+
+  const request = async (bounded: boolean): Promise<SalidaMapSearchHit[]> => {
+    const params = new URLSearchParams({
+      q: query,
+      format: 'json',
+      limit: '12',
+      countrycodes: 'ar',
+      'accept-language': 'es'
+    })
+    if (bounded) {
+      params.set('viewbox', nominatimViewbox())
+      params.set('bounded', '1')
+    }
+    const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'PlotrelloFlota/1.0 (https://plotrello.vercel.app; flota ubicación)'
+      }
+    })
+    if (!res.ok) return []
+    const data = (await res.json()) as NominatimHit[]
+    if (!Array.isArray(data)) return []
+    return data
+      .map((item, i) => {
+        const lat = parseFloat(item.lat)
+        const lon = parseFloat(item.lon)
+        return {
+          id: `n-${i}-${lat.toFixed(4)}-${lon.toFixed(4)}`,
+          label: item.display_name || 'Ubicación',
+          lat,
+          lon
+        }
+      })
+      .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lon))
+  }
+
+  let hits = await request(true)
+  if (hits.length === 0) {
+    hits = await request(false)
+  }
+  return sortHitsByDistance(hits)
+}
+
+function sortHitsByDistance(hits: SalidaMapSearchHit[]): SalidaMapSearchHit[] {
+  return [...hits].sort((a, b) => {
+    const da = flotaDistanciaKm(REF_LAT, REF_LON, a.lat, a.lon)
+    const db = flotaDistanciaKm(REF_LAT, REF_LON, b.lat, b.lon)
+    return da - db
+  })
 }
 
 function hitsFromFeatures(features: PhotonFeature[]): SalidaMapSearchHit[] {
@@ -116,7 +209,7 @@ function hitsFromFeatures(features: PhotonFeature[]): SalidaMapSearchHit[] {
     withScore.push({ hit, sc: scoreHit(lat, lon, f.properties) })
   }
   withScore.sort((a, b) => b.sc - a.sc)
-  return withScore.map((x) => x.hit).slice(0, 10)
+  return withScore.map((x) => x.hit).slice(0, 12)
 }
 
 type SalidaMapPickerProps = {
@@ -161,18 +254,32 @@ export default function SalidaMapPicker({ lat, lng, onChange, height = 260 }: Sa
     setSearchError(null)
     setResults([])
     try {
-      let features = await fetchPhoton(q)
-      if (features.length === 0 && !/\b(argentina|san juan)\b/i.test(q)) {
-        features = await fetchPhoton(`${q}, San Juan, Argentina`)
+      let features = await fetchPhoton(q, { bbox: true })
+      if (features.length < 5) {
+        const wide = await fetchPhoton(q, { bbox: false })
+        features = mergePhotonFeatures(features, wide)
       }
-      const hits = hitsFromFeatures(features)
+      if (features.length === 0 && !/\b(argentina|san juan)\b/i.test(q)) {
+        const q2 = `${q}, San Juan, Argentina`
+        features = mergePhotonFeatures(
+          await fetchPhoton(q2, { bbox: true }),
+          await fetchPhoton(q2, { bbox: false })
+        )
+      }
+      let hits = hitsFromFeatures(features)
       if (hits.length === 0) {
-        setSearchError('No se encontró el lugar. Probá con calle y ciudad o otra redacción.')
+        hits = await fetchNominatimSanJuan(q)
+      }
+      if (hits.length === 0) {
+        setSearchError(
+          'No se encontró el lugar. Probá con calle y número, barrio o localidad (ej. Rawson, Pocito).'
+        )
         return
       }
       setResults(hits)
-      const [first] = hits
-      onChange(first.lat, first.lon)
+      if (hits.length === 1) {
+        onChange(hits[0].lat, hits[0].lon)
+      }
     } catch {
       setSearchError('No se pudo buscar. Revisá tu conexión e intentá de nuevo.')
     } finally {
@@ -220,7 +327,8 @@ export default function SalidaMapPicker({ lat, lng, onChange, height = 260 }: Sa
         </ul>
       )}
       <p className="salida-map-hint">
-        Elegí un resultado si hay varios. Tocá el mapa o arrastrá el marcador para afinar el punto.
+        Si hay varios resultados, elegí uno en la lista. Si hay uno solo, el marcador se coloca automáticamente. Podés
+        tocar el mapa o arrastrar el pin para afinar.
       </p>
       <div className="salida-map-wrap" style={{ height }}>
         <MapContainer

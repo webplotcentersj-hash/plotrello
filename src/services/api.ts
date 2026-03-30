@@ -6,6 +6,7 @@ import {
   normalizeTimeHHMMSS,
   timeStringToSecondsSinceMidnight
 } from '../utils/dateUtils'
+import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import type {
   ClienteRecord,
   FichaHistorialItem,
@@ -12198,6 +12199,23 @@ class ApiService {
     horaLlegada?: string,
     observaciones?: string
   ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('usuario')
+        const u = raw ? (JSON.parse(raw) as { rol?: string }) : null
+        if (!puedeFinalizarViajeFlota(u?.rol)) {
+          return {
+            success: false,
+            error: 'Solo Caja o Administración puede cerrar el viaje.'
+          }
+        }
+      } catch {
+        return {
+          success: false,
+          error: 'No se pudo verificar el permiso para cerrar el viaje.'
+        }
+      }
+    }
     if (supabase) {
       const updatedAt = new Date().toISOString()
       const { data: cur, error: fetchErr } = await supabase

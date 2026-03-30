@@ -1,6 +1,12 @@
 /** Centro de mapa: San Juan, Argentina (capital). */
 export const FLOTA_MAP_CENTER: [number, number] = [-31.5375, -68.5364]
 
+/**
+ * Bbox Photon/Nominatim: provincia de San Juan (aprox.) para priorizar resultados locales
+ * y evitar homónimos (ej. San Juan, Puerto Rico). Formato minLon,minLat,maxLon,maxLat.
+ */
+export const FLOTA_SEARCH_BBOX = '-69.9,-32.55,-65.85,-28.25' as const
+
 export const FLOTA_MAP_ZOOM_CIUDAD = 12
 export const FLOTA_MAP_ZOOM_CERCA = 14
 

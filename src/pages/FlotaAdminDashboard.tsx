@@ -51,6 +51,31 @@ const FlotaAdminDashboard = () => {
   const [loadingReservas, setLoadingReservas] = useState(false)
   const [errorReservas, setErrorReservas] = useState<string | null>(null)
   const [reservaAccionId, setReservaAccionId] = useState<number | null>(null)
+  const [solicitudesSalidaPendientes, setSolicitudesSalidaPendientes] = useState<RegistroSalidaVehiculo[]>([])
+  const [loadingSolicitudesSalida, setLoadingSolicitudesSalida] = useState(false)
+  const [errorSolicitudesSalida, setErrorSolicitudesSalida] = useState<string | null>(null)
+  const [autorizarSalidaId, setAutorizarSalidaId] = useState<number | null>(null)
+
+  const loadSolicitudesSalidaPendientes = useCallback(async () => {
+    setLoadingSolicitudesSalida(true)
+    setErrorSolicitudesSalida(null)
+    try {
+      const r = await apiService.getRegistrosSalidasVehiculos({
+        estados: ['pendiente_autorizacion']
+      })
+      if (r.success && r.data) {
+        setSolicitudesSalidaPendientes(r.data)
+      } else {
+        setSolicitudesSalidaPendientes([])
+        setErrorSolicitudesSalida(r.error ?? 'No se pudieron cargar las solicitudes de salida.')
+      }
+    } catch (e) {
+      setSolicitudesSalidaPendientes([])
+      setErrorSolicitudesSalida(e instanceof Error ? e.message : 'Error al cargar solicitudes de salida.')
+    } finally {
+      setLoadingSolicitudesSalida(false)
+    }
+  }, [])
 
   const loadReservasPendientes = useCallback(async () => {
     setLoadingReservas(true)
@@ -154,6 +179,36 @@ const FlotaAdminDashboard = () => {
     }
   }
 
+  const autorizarSalidaPendiente = async (id: number) => {
+    if (!usuario) {
+      alert('No hay usuario en sesión.')
+      return
+    }
+    if (
+      !confirm(
+        '¿Autorizar esta salida y registrar entrega de llave? El vehículo pasará a en uso y el conductor podrá retirarlo.'
+      )
+    ) {
+      return
+    }
+    setAutorizarSalidaId(id)
+    try {
+      const res = await apiService.autorizarRegistroSalidaVehiculo(
+        id,
+        usuario.id,
+        usuario.nombre || 'Caja/Admin'
+      )
+      if (res.success) {
+        await loadSolicitudesSalidaPendientes()
+        void loadEstadisticas()
+      } else {
+        alert(res.error || 'No se pudo autorizar')
+      }
+    } finally {
+      setAutorizarSalidaId(null)
+    }
+  }
+
   const rechazarReservaFlota = async (id: number) => {
     if (!usuario) {
       alert('No hay usuario en sesión.')
@@ -194,9 +249,11 @@ const FlotaAdminDashboard = () => {
     void loadEstadisticas()
     void loadVehiculos()
     void loadReservasPendientes()
+    void loadSolicitudesSalidaPendientes()
 
     const pollReservas = window.setInterval(() => {
       void loadReservasPendientes()
+      void loadSolicitudesSalidaPendientes()
     }, 15000)
     const pollStats = window.setInterval(() => {
       void loadEstadisticas()
@@ -211,6 +268,7 @@ const FlotaAdminDashboard = () => {
     loadEstadisticas,
     loadVehiculos,
     loadReservasPendientes,
+    loadSolicitudesSalidaPendientes,
     isAdmin,
     isCaja,
     navigate
@@ -235,18 +293,96 @@ const FlotaAdminDashboard = () => {
           <div>
             <h1>Panel de Administración - Flota</h1>
             <p>Estadísticas y gestión de vehículos</p>
+            {solicitudesSalidaPendientes.length > 0 && (
+              <p className="flota-admin-solicitudes-badge flota-admin-badge-salida" role="status">
+                <strong>{solicitudesSalidaPendientes.length}</strong> solicitud
+                {solicitudesSalidaPendientes.length === 1 ? '' : 'es'} de salida / llave pendiente
+                {solicitudesSalidaPendientes.length === 1 ? '' : 's'}.
+              </p>
+            )}
             {reservasPendientes.length > 0 && (
               <p className="flota-admin-solicitudes-badge" role="status">
                 <strong>{reservasPendientes.length}</strong> solicitud
-                {reservasPendientes.length === 1 ? '' : 'es'} de reserva pendiente
-                {reservasPendientes.length === 1 ? '' : 's'} (actualización cada 15 s).
+                {reservasPendientes.length === 1 ? '' : 'es'} de reserva de vehículo pendiente
+                {reservasPendientes.length === 1 ? '' : 's'}.
               </p>
+            )}
+            {(solicitudesSalidaPendientes.length > 0 || reservasPendientes.length > 0) && (
+              <p className="flota-admin-poll-hint">Las listas se actualizan solas cada 15 s.</p>
             )}
           </div>
           <button type="button" className="btn-secondary" onClick={() => navigate('/flota')}>
             ← Volver a Flota
           </button>
         </header>
+
+        <section className="parque-section flota-reservas-admin-section">
+          <div className="flota-reservas-admin-title-row">
+            <h2>Solicitudes de salida (llave / autorización)</h2>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => void loadSolicitudesSalidaPendientes()}>
+              Actualizar lista
+            </button>
+          </div>
+          <p className="parque-section-desc">
+            Cuando un usuario envía <strong>Enviar solicitud</strong> desde Flota, el registro queda acá hasta que Caja o
+            Administración <strong>autoriza la salida</strong> (se registra entrega de llave y el vehículo pasa a en
+            uso). Es lo mismo que la sección &quot;Solicitudes pendientes&quot; en la página Flota.
+          </p>
+          {errorSolicitudesSalida && (
+            <div className="parque-error" role="alert">
+              {errorSolicitudesSalida}
+            </div>
+          )}
+          {loadingSolicitudesSalida && solicitudesSalidaPendientes.length === 0 && !errorSolicitudesSalida ? (
+            <p>Cargando solicitudes de salida…</p>
+          ) : solicitudesSalidaPendientes.length === 0 && !errorSolicitudesSalida ? (
+            <p className="flota-reservas-admin-vacio">No hay solicitudes de salida pendientes.</p>
+          ) : solicitudesSalidaPendientes.length > 0 ? (
+            <div className="parque-table-wrap">
+              <table className="parque-table">
+                <thead>
+                  <tr>
+                    <th>Enviada</th>
+                    <th>Vehículo</th>
+                    <th>Solicitante</th>
+                    <th>Sector</th>
+                    <th>OP</th>
+                    <th>Motivo</th>
+                    <th>Llave</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solicitudesSalidaPendientes.map((s) => (
+                    <tr key={s.id}>
+                      <td>
+                        {s.hora_salida ? new Date(s.hora_salida).toLocaleString('es-AR') : '—'}
+                      </td>
+                      <td>
+                        <strong>{s.vehiculo?.nombre ?? '—'}</strong>
+                      </td>
+                      <td>{etiquetaUsuarioNombre(s.nombre_usuario)}</td>
+                      <td>{s.sector}</td>
+                      <td>{s.numero_op ?? '—'}</td>
+                      <td>{s.motivo_salida}</td>
+                      <td>{s.llave_entregada ? 'Sí' : 'Pendiente'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-primary btn-parque-save"
+                          disabled={autorizarSalidaId != null}
+                          onClick={() => void autorizarSalidaPendiente(s.id)}
+                        >
+                          {autorizarSalidaId === s.id ? '…' : 'Autorizar y entregar llave'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
 
         <section className="parque-section flota-reservas-admin-section">
           <div className="flota-reservas-admin-title-row">
