@@ -3224,6 +3224,23 @@ class ApiService {
     }
   }
 
+  /** Total de mensajes DM sin leer (mensajería interna), sumando todas las salas del usuario. */
+  async getTotalDmMensajeriaUnread(usuarioId: number): Promise<ApiResponse<number>> {
+    const roomsRes = await this.listarRoomsDmParaUsuario(usuarioId, 250)
+    if (!roomsRes.success) return { success: false, error: roomsRes.error || 'Error listando salas' }
+    const rooms = roomsRes.data ?? []
+    if (rooms.length === 0) return { success: true, data: 0 }
+    const unreadRes = await this.contarNoLeidosPorRooms(
+      usuarioId,
+      rooms.map((r) => r.id)
+    )
+    if (!unreadRes.success || unreadRes.data == null) {
+      return { success: false, error: unreadRes.error || 'Error contando no leídos' }
+    }
+    const total = Object.values(unreadRes.data).reduce((a, b) => a + (Number(b) || 0), 0)
+    return { success: true, data: total }
+  }
+
   /**
    * Clave estable del room 1:1 entre dos usuarios.
    * Uso principal: mensajería RRHH (dashboard), distinta del chat por canales (#general, etc.).

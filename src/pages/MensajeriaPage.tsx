@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import { useAuth } from '../hooks/useAuth'
+import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
 import './MensajeriaPage.css'
@@ -27,7 +28,7 @@ const parseDmPeerId = (roomNombre: string, currentUserId: number): number | null
 
 export default function MensajeriaPage() {
   const navigate = useNavigate()
-  const { usuario } = useAuth()
+  const { usuario, canManageRecursosHumanos } = useAuth()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [rooms, setRooms] = useState<DmRoom[]>([])
   const [unreadByRoomId, setUnreadByRoomId] = useState<Record<number, number>>({})
@@ -39,6 +40,8 @@ export default function MensajeriaPage() {
   const [loadingThread, setLoadingThread] = useState(false)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [recipientSearch, setRecipientSearch] = useState('')
+  const [openingPeerId, setOpeningPeerId] = useState<number | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const currentUserId = usuario?.id ?? null
@@ -57,10 +60,13 @@ export default function MensajeriaPage() {
 
   const selected = useMemo(() => peers.find((p) => p.room.id === selectedRoomId) || null, [peers, selectedRoomId])
 
-  const loadIndex = async () => {
+  const loadIndex = async (opts?: { silent?: boolean }) => {
     if (!usuario) return
-    setLoading(true)
-    setError(null)
+    const silent = opts?.silent ?? false
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+    }
     const [uRes, rRes] = await Promise.all([
       apiService.getUsuarios(),
       apiService.listarRoomsDmParaUsuario(usuario.id, 250)
@@ -73,10 +79,39 @@ export default function MensajeriaPage() {
       const unreadRes = await apiService.contarNoLeidosPorRooms(usuario.id, roomIds)
       if (unreadRes.success && unreadRes.data) setUnreadByRoomId(unreadRes.data)
     }
-    if ((!uRes.success && uRes.error) || (!rRes.success && rRes.error)) {
+    if (!silent && ((!uRes.success && uRes.error) || (!rRes.success && rRes.error))) {
       setError(uRes.error || rRes.error || 'No se pudo cargar mensajería')
     }
-    setLoading(false)
+    if (!silent) setLoading(false)
+    dispatchMensajeriaDmUnreadRefresh()
+  }
+
+  const searchRecipients = useMemo(() => {
+    if (!usuario || !canManageRecursosHumanos) return []
+    const q = recipientSearch.trim().toLowerCase()
+    const list = usuarios.filter((u) => u.id !== usuario.id)
+    if (!q) return list
+    return list.filter(
+      (u) =>
+        u.nombre.toLowerCase().includes(q) ||
+        String(u.id).includes(q) ||
+        u.rol.toLowerCase().includes(q)
+    )
+  }, [usuarios, usuario, canManageRecursosHumanos, recipientSearch])
+
+  const openConversationWithPeer = async (peerId: number) => {
+    if (!usuario || openingPeerId != null) return
+    setOpeningPeerId(peerId)
+    setError(null)
+    const res = await apiService.obtenerOCrearRoomDm(usuario.id, peerId)
+    setOpeningPeerId(null)
+    if (!res.success || !res.data) {
+      setError(res.error || 'No se pudo abrir la conversación')
+      return
+    }
+    setSelectedRoomId(res.data.roomId)
+    setRecipientSearch('')
+    await loadIndex({ silent: true })
   }
 
   const loadThread = async (roomId: number) => {
@@ -119,6 +154,7 @@ export default function MensajeriaPage() {
       const roomIds = rooms.map((r) => r.id)
       const unreadRes = await apiService.contarNoLeidosPorRooms(usuario.id, roomIds)
       if (unreadRes.success && unreadRes.data) setUnreadByRoomId(unreadRes.data)
+      dispatchMensajeriaDmUnreadRefresh()
     })()
   }, [usuario?.id, selectedRoomId, rooms])
 
@@ -163,6 +199,7 @@ export default function MensajeriaPage() {
         teamMembers={[]}
         activity={[]}
         onNavigateToChat={() => navigate('/chat')}
+        onNavigateToMensajeria={() => navigate('/mensajeria')}
         onNavigateToStats={() => navigate('/statistics')}
         onNavigateToUsuarios={() => navigate('/usuarios')}
         onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
@@ -194,6 +231,47 @@ export default function MensajeriaPage() {
 
         <div className="mensajeria-layout">
           <aside className="mensajeria-sidebar">
+            {canManageRecursosHumanos && (
+              <div className="mensajeria-recipient-search">
+                <label className="mensajeria-search-label" htmlFor="mensajeria-buscar-dest">
+                  Buscar destinatario
+                </label>
+                <input
+                  id="mensajeria-buscar-dest"
+                  type="search"
+                  className="mensajeria-search-input"
+                  placeholder="Nombre, rol o ID…"
+                  value={recipientSearch}
+                  onChange={(e) => setRecipientSearch(e.target.value)}
+                  autoComplete="off"
+                  aria-label="Buscar usuario para escribirle"
+                />
+                <ul className="mensajeria-search-results" role="listbox" aria-label="Resultados de búsqueda">
+                  {searchRecipients.map((u) => (
+                    <li key={u.id}>
+                      <button
+                        type="button"
+                        className="mensajeria-search-pick"
+                        role="option"
+                        disabled={openingPeerId != null}
+                        onClick={() => void openConversationWithPeer(u.id)}
+                      >
+                        <span className="mensajeria-search-pick-name">
+                          {openingPeerId === u.id ? 'Abriendo…' : u.nombre}
+                        </span>
+                        <span className="mensajeria-search-pick-meta">
+                          {u.rol} · #{u.id}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {recipientSearch.trim() && searchRecipients.length === 0 && (
+                  <p className="mensajeria-search-empty">Sin coincidencias.</p>
+                )}
+              </div>
+            )}
+
             <div className="mensajeria-sidebar-head">
               <strong>Conversaciones</strong>
               <button type="button" className="mensajeria-link" onClick={() => void loadIndex()}>
@@ -204,7 +282,9 @@ export default function MensajeriaPage() {
               <p className="mensajeria-muted">Cargando…</p>
             ) : peers.length === 0 ? (
               <p className="mensajeria-muted">
-                Todavía no tenés conversaciones. RRHH/Administración pueden iniciarlas desde /rrhh/dashboard.
+                {canManageRecursosHumanos
+                  ? 'Buscar arriba un destinatario para abrir el chat, o esperá a que alguien te escriba.'
+                  : 'Todavía no tenés conversaciones. RRHH/Administración pueden iniciarlas desde el panel de RRHH o mensajería.'}
               </p>
             ) : (
               <ul className="mensajeria-list">

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
+import { useDmMensajeriaUnread } from '../hooks/useDmMensajeriaUnread'
 import NotificationsDropdown from './NotificationsDropdown'
 import HeaderSpotlightCard from './HeaderSpotlightCard'
 import ClockWidget from './ClockWidget'
@@ -76,6 +77,7 @@ const Header = ({
     canAccessAtencionPublico,
     isTallerGrafico
   } = useAuth()
+  const dmMensajeriaUnread = useDmMensajeriaUnread(usuario?.id)
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -105,20 +107,38 @@ const Header = ({
             <AdminAlertButton />
           )}
           <button
-            className="ghost-button actions-toggle"
+            className={`ghost-button actions-toggle ${dmMensajeriaUnread > 0 && onNavigateToMensajeria ? 'has-mensajeria-unread' : ''}`}
             type="button"
             onClick={() => setActionsOpen((prev) => !prev)}
             aria-expanded={actionsOpen}
-            aria-label="Abrir menú de acciones"
+            aria-label={
+              dmMensajeriaUnread > 0 && onNavigateToMensajeria
+                ? `Abrir menú de acciones. Mensajes sin leer en mensajería: ${dmMensajeriaUnread}`
+                : 'Abrir menú de acciones'
+            }
           >
           {actionsOpen ? '✕' : '☰'}
           </button>
           <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
             <PwaUpdateButton className="ghost-button pwa-update-button" />
             {onNavigateToMensajeria && (
-              <button className="brand-button" onClick={onNavigateToMensajeria}>
-                ✉️ Mensajería
-              </button>
+              <span className="header-mensajeria-btn-wrap">
+                <button
+                  type="button"
+                  className="brand-button"
+                  onClick={() => {
+                    setActionsOpen(false)
+                    onNavigateToMensajeria()
+                  }}
+                >
+                  ✉️ Mensajería
+                </button>
+                {dmMensajeriaUnread > 0 && (
+                  <span className="header-dm-unread-badge" title="Mensajes sin leer">
+                    {dmMensajeriaUnread > 99 ? '99+' : dmMensajeriaUnread}
+                  </span>
+                )}
+              </span>
             )}
             {onNavigateToStats && isAdmin && (
               <button className="brand-button" onClick={onNavigateToStats}>
