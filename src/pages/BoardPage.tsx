@@ -54,6 +54,7 @@ type BoardPageProps = {
   onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
   onNavigateToChat?: () => void
+  onNavigateToMensajeria?: () => void
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
@@ -84,6 +85,7 @@ const BoardPage = ({
   onNavigateToGantt,
   onNavigateToUsuarios,
   onNavigateToChat,
+  onNavigateToMensajeria,
   onNavigateToHerramienta,
   onNavigateToMostrador,
   onNavigateToCompras,
@@ -965,6 +967,7 @@ const BoardPage = ({
         onNavigateToGantt={onNavigateToGantt}
         onNavigateToUsuarios={onNavigateToUsuarios}
         onNavigateToChat={onNavigateToChat}
+        onNavigateToMensajeria={onNavigateToMensajeria}
         onNavigateToHerramienta={onNavigateToHerramienta}
         onNavigateToMostrador={onNavigateToMostrador}
         onNavigateToCompras={onNavigateToCompras}

@@ -3176,6 +3176,55 @@ class ApiService {
   }
 
   /**
+   * Lista salas de mensajería (DM) donde participa el usuario.
+   * Las DMs son `chat_rooms.tipo = 'privado'` y nombre `dm:<a>:<b>`.
+   */
+  async listarRoomsDmParaUsuario(
+    usuarioId: number,
+    limit = 200
+  ): Promise<ApiResponse<Array<{ id: number; nombre: string; created_at?: string }>>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const likeA = `dm:${usuarioId}:%`
+      const likeB = `dm:%:${usuarioId}`
+      const { data, error } = await supabase
+        .from('chat_rooms')
+        .select('id, nombre, created_at')
+        .eq('tipo', 'privado')
+        .or(`nombre.like.${likeA},nombre.like.${likeB}`)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as any[]) ?? [] }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error listando salas DM' }
+    }
+  }
+
+  /** No leídos por room_id (batch). Requiere RPC `chat_contar_no_leidos_por_rooms`. */
+  async contarNoLeidosPorRooms(
+    usuarioId: number,
+    roomIds: number[]
+  ): Promise<ApiResponse<Record<number, number>>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const ids = roomIds.filter((n) => Number.isFinite(n))
+    if (ids.length === 0) return { success: true, data: {} }
+    try {
+      const { data, error } = await supabase.rpc('chat_contar_no_leidos_por_rooms', {
+        p_user_id: usuarioId,
+        p_room_ids: ids
+      })
+      if (error) return { success: false, error: error.message }
+      const rows = (Array.isArray(data) ? data : []) as Array<{ room_id: number; unread_count: number }>
+      const out: Record<number, number> = {}
+      for (const r of rows) out[Number(r.room_id)] = Number(r.unread_count) || 0
+      return { success: true, data: out }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error contando no leídos' }
+    }
+  }
+
+  /**
    * Clave estable del room 1:1 entre dos usuarios.
    * Uso principal: mensajería RRHH (dashboard), distinta del chat por canales (#general, etc.).
    * Misma tabla `chat_messages` pero rooms `nombre` tipo `dm:a:b`, no `chatChannelToRoom`.

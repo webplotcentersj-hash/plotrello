@@ -6,6 +6,7 @@ import GlobalAlertScreen from './components/GlobalAlertScreen'
 // Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
+const MensajeriaPage = lazy(() => import('./pages/MensajeriaPage'))
 const ClienteConsultaPage = lazy(() => import('./pages/ClienteConsultaPage'))
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage'))
 const DashboardPantallasPage = lazy(() => import('./pages/DashboardPantallasPage'))
@@ -737,6 +738,7 @@ function AppRoutes({
             onNavigateToGantt={() => navigate('/gantt')}
             onNavigateToUsuarios={() => navigate('/usuarios')}
             onNavigateToChat={() => navigate('/chat')}
+            onNavigateToMensajeria={() => navigate('/mensajeria')}
             onNavigateToHerramienta={() => navigate('/herramienta')}
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onNavigateToCompras={() => navigate('/compras/dashboard')}
@@ -802,6 +804,10 @@ function AppRoutes({
             activity={filteredActivity}
           />
         }
+      />
+      <Route
+        path="/mensajeria"
+        element={<MensajeriaPage />}
       />
       <Route
         path="/consulta-cliente"

@@ -31,6 +31,7 @@ type HeaderProps = {
   onNavigateToERP?: () => void
   onSolicitarProductos?: () => void
   onNavigateToChat?: () => void
+  onNavigateToMensajeria?: () => void
   onLogout?: () => void
   isAdmin?: boolean
   isMostrador?: boolean
@@ -58,6 +59,7 @@ const Header = ({
   onNavigateToERP,
   onSolicitarProductos,
   onNavigateToChat,
+  onNavigateToMensajeria,
   onLogout,
   isAdmin: isAdminProp = false,
   isMostrador = false,
@@ -113,6 +115,11 @@ const Header = ({
           </button>
           <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
             <PwaUpdateButton className="ghost-button pwa-update-button" />
+            {onNavigateToMensajeria && (
+              <button className="brand-button" onClick={onNavigateToMensajeria}>
+                ✉️ Mensajería
+              </button>
+            )}
             {onNavigateToStats && isAdmin && (
               <button className="brand-button" onClick={onNavigateToStats}>
                 📊 Estadísticas
