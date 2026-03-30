@@ -20,6 +20,10 @@ import {
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import './AsesorPresupuestosPage.css'
 
+/**
+ * Tablero Asesor / Presupuestos: las tarjetas son fichas (No OP, ej. FICHA-…).
+ * Solo al pasar por este flujo y cerrar en Finalizado se convierten en OP y van al Kanban general.
+ */
 /** Columnas del Kanban asesor: el Board agrupa solo por `task.status`. */
 const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
   'asesor-tecnico',
@@ -28,7 +32,7 @@ const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
 ]
 
 /**
- * Si la orden entra al filtro por sector/sectores pero el estado mapeado sigue siendo de otro
+ * Si la ficha entra al filtro por sector/sectores pero el estado mapeado sigue siendo de otro
  * tablero (p. ej. En espera), sin esto la tarjeta no cae en ninguna columna.
  */
 function normalizeTaskForAsesorKanban(task: Task): Task {
@@ -109,7 +113,7 @@ const AsesorPresupuestosPage = ({
     return asesor ? parseInt(asesor.id, 10) : null
   }, [usuario, isAsesorTecnico, teamMembers])
 
-  // Filtrar tareas solo de Asesor Técnico y Presupuestos
+  // Filtrar fichas del flujo Asesor Técnico y Presupuestos (no es el tablero general de OPs)
   const filteredTasks = useMemo(() => {
     if (!canAccess) return []
     
@@ -214,7 +218,7 @@ const AsesorPresupuestosPage = ({
     try {
       const ordenId = parseTaskIdToOrdenId(taskId)
       if (!ordenId) {
-        setActionError('No se pudo identificar la orden')
+        setActionError('No se pudo identificar la ficha')
         return
       }
 
@@ -226,7 +230,7 @@ const AsesorPresupuestosPage = ({
 
       const taskToUpdate = tasks.find((t) => t.id === taskId)
       if (!taskToUpdate) {
-        setActionError('Tarea no encontrada')
+        setActionError('Ficha no encontrada')
         return
       }
 
@@ -257,7 +261,7 @@ const AsesorPresupuestosPage = ({
 
         const updateResponse = await apiService.updateOrden(ordenId, payload)
         if (!updateResponse.success) {
-          setActionError(updateResponse.error || 'Error al mover la orden')
+          setActionError(updateResponse.error || 'Error al finalizar la ficha')
           return
         }
 
@@ -268,15 +272,15 @@ const AsesorPresupuestosPage = ({
         }
 
         setActionSuccess(
-          `Ficha convertida a orden: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ahora aparecerá en el Kanban general.`
+          `Ficha convertida en OP: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ya está en el tablero general.`
         )
       } else if (destination === 'asesor-tecnico' || destination === 'presupuestos') {
-        // Misma lógica que tablero general: fusiona instancias duplicadas (mismo OP en otro sector) sin violar ux_ordenes_op_sector
+        // Fusión si la misma ficha (mismo código FICHA-*) ya tenía instancia en el otro sector
         const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
         const nuevoEstado = mapStatusToEstado(destination)
         const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
         if (!response.success) {
-          setActionError(response.error || 'Error al mover la orden')
+          setActionError(response.error || 'Error al mover la ficha')
           return
         }
         if ((response.data as { fusionada?: boolean })?.fusionada) {
@@ -284,7 +288,7 @@ const AsesorPresupuestosPage = ({
             'Ficha unificada en el sector destino (la otra instancia queda oculta del tablero, sin borrarla).'
           )
         } else {
-          setActionSuccess('Orden movida correctamente')
+          setActionSuccess('Ficha movida correctamente')
         }
       } else {
         // Finalizado sin ser ficha No OP: estado Finalizado, sector sigue Asesor o Presupuestos
@@ -307,19 +311,19 @@ const AsesorPresupuestosPage = ({
 
         const response = await apiService.updateOrden(ordenId, payload)
         if (!response.success) {
-          setActionError(response.error || 'Error al mover la orden')
+          setActionError(response.error || 'Error al mover la ficha')
           return
         }
 
-        setActionSuccess('Orden movida correctamente')
+        setActionSuccess('Ficha movida correctamente')
       }
 
       if (onReloadData) {
         await onReloadData()
       }
     } catch (error) {
-      console.error('Error moviendo tarea:', error)
-      setActionError('Error al mover la orden')
+      console.error('Error moviendo ficha:', error)
+      setActionError('Error al mover la ficha')
     }
   }
 
@@ -327,7 +331,7 @@ const AsesorPresupuestosPage = ({
     try {
       const ordenId = parseTaskIdToOrdenId(updatedTask.id)
       if (!ordenId) {
-        setActionError('No se pudo identificar la orden')
+        setActionError('No se pudo identificar la ficha')
         return
       }
 
@@ -335,18 +339,18 @@ const AsesorPresupuestosPage = ({
 
       const response = await apiService.updateOrden(ordenId, payload)
       if (!response.success) {
-        setActionError(response.error || 'Error al actualizar la orden')
+        setActionError(response.error || 'Error al actualizar la ficha')
         return
       }
 
-      setActionSuccess('Orden actualizada correctamente')
+      setActionSuccess('Ficha actualizada correctamente')
       setTaskToEdit(null)
       if (onReloadData) {
         await onReloadData()
       }
     } catch (error) {
-      console.error('Error actualizando tarea:', error)
-      setActionError('Error al actualizar la orden')
+      console.error('Error actualizando ficha:', error)
+      setActionError('Error al actualizar la ficha')
     }
   }
 
@@ -391,13 +395,13 @@ const AsesorPresupuestosPage = ({
             <div className="asesor-presupuestos-hero-badge">Flujo asesoría</div>
             <h1 className="asesor-presupuestos-title">Asesor técnico y presupuestos</h1>
             <p className="asesor-presupuestos-lead">
-              Mediciones, factibilidad y armado de presupuestos en un tablero dedicado.
+              Fichas (No OP): medición, factibilidad y presupuesto. Al cerrar en Finalizado pasan a ser OP en el tablero general.
             </p>
             {activeTab === 'kanban' && (
               <div className="asesor-presupuestos-stats">
                 <div className="asesor-presupuestos-stat">
                   <span className="asesor-presupuestos-stat-value">{filteredTasks.length}</span>
-                  <span className="asesor-presupuestos-stat-label">Órdenes visibles</span>
+                  <span className="asesor-presupuestos-stat-label">Fichas visibles</span>
                 </div>
                 <div className="asesor-presupuestos-stat">
                   <span className="asesor-presupuestos-stat-value">{ASESOR_PRESUPUESTOS_COLUMNS.length}</span>
@@ -464,6 +468,7 @@ const AsesorPresupuestosPage = ({
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               searchInputRef={searchInputRef}
+              searchPlaceholder="Buscar: FICHA-, cliente, descripción, etiquetas…"
               statusFocus={statusFocus}
               onStatusToggle={toggleStatusFocus}
               onStatusReset={() => setStatusFocus([])}

@@ -28,6 +28,8 @@ type FiltersBarProps = {
   /** Botón para abrir kanban de etapas del sector (solo si el sector tiene etapas internas) */
   showEtapaKanbanButton?: boolean
   onOpenEtapaKanban?: () => void
+  /** Placeholder del buscador (ej. asesor-presupuestos: fichas FICHA-*, no OP de taller) */
+  searchPlaceholder?: string
 }
 
 const FiltersBar = ({
@@ -50,7 +52,8 @@ const FiltersBar = ({
   onAddNewOrder,
   onOptimizeSprint,
   showEtapaKanbanButton = false,
-  onOpenEtapaKanban
+  onOpenEtapaKanban,
+  searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…'
 }: FiltersBarProps) => {
   const { isAdmin, isDiseno, usuario } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
@@ -83,7 +86,7 @@ const FiltersBar = ({
       <div className="search-filter">
         <input
           type="text"
-          placeholder="Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…"
+          placeholder={searchPlaceholder}
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
           ref={searchInputRef}

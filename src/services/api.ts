@@ -1359,9 +1359,11 @@ class ApiService {
       await sb.from('tarea_subitems').update({ id_orden: keepId }).eq('id_orden', removeId)
       await sb.from('historial_movimientos').update({ id_orden: keepId }).eq('id_orden', removeId)
 
+      // sector NULL excluye la fila de ux_ordenes_op_sector (índice parcial WHERE sector IS NOT NULL).
+      // Sin esto, la fila oculta seguía ocupando (numero_op, sector) y el UPDATE de la fila conservada chocaba.
       const { error: hideError } = await sb
         .from('ordenes_trabajo')
-        .update({ visible_en_tablero: false })
+        .update({ visible_en_tablero: false, sector: null })
         .eq('id', removeId)
 
       if (hideError) {
@@ -1430,9 +1432,9 @@ class ApiService {
         return { success: false, error: siblingError.message }
       }
 
-      const sib = (siblingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null)?.find(
-        (r) => r.visible_en_tablero !== false
-      )
+      const rowsSib = siblingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
+      const sib =
+        rowsSib?.find((r) => r.visible_en_tablero !== false) ?? rowsSib?.[0]
       destinationId = sib?.id
 
       if (!destinationId) {
@@ -1447,9 +1449,8 @@ class ApiService {
         if (destinationError) {
           return { success: false, error: destinationError.message }
         }
-        const dest = (destinationRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null)?.find(
-          (r) => r.visible_en_tablero !== false
-        )
+        const rowsDest = destinationRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
+        const dest = rowsDest?.find((r) => r.visible_en_tablero !== false) ?? rowsDest?.[0]
         destinationId = dest?.id
       }
 
@@ -1516,9 +1517,9 @@ class ApiService {
             return { success: false, error: conflictingError.message }
           }
 
-          const conflictingId = (
-            conflictingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
-          )?.find((r) => r.visible_en_tablero !== false)?.id
+          const rowsConf = conflictingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
+          const conflictingId =
+            rowsConf?.find((r) => r.visible_en_tablero !== false)?.id ?? rowsConf?.[0]?.id
           if (conflictingId) {
             const fusionRes = await this.fusionarOrdenesDuplicadas(id, conflictingId)
             if (!fusionRes.success) return fusionRes
