@@ -3187,17 +3187,15 @@ class ApiService {
   }
 
   /**
-   * Obtiene o crea un `chat_rooms` privado para conversación entre dos usuarios.
+   * Fallback si la RPC `obtener_o_crear_room_dm` no está desplegada en Supabase.
+   * Ver: supabase/patches/2026-03-28_obtener_o_crear_room_dm.sql
    */
-  async obtenerOCrearRoomDm(
+  private async obtenerOCrearRoomDmLegacy(
     usuarioIdA: number,
     usuarioIdB: number
   ): Promise<ApiResponse<{ roomId: number }>> {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
-    }
-    if (usuarioIdA === usuarioIdB) {
-      return { success: false, error: 'No podés chatear contigo mismo' }
     }
     const nombre = this.dmRoomNombreKey(usuarioIdA, usuarioIdB)
     try {
@@ -3222,7 +3220,8 @@ class ApiService {
         .single()
 
       if (insErr) {
-        if (insErr.code === '23505' || String(insErr.message).includes('duplicate')) {
+        const msg = String(insErr.message || '')
+        if (insErr.code === '23505' || msg.toLowerCase().includes('duplicate')) {
           const { data: again } = await supabase
             .from('chat_rooms')
             .select('id')
@@ -3231,6 +3230,13 @@ class ApiService {
           const id = (again as { id: number } | null)?.id
           if (id != null) return { success: true, data: { roomId: id } }
         }
+        if (msg.includes('chat_rooms_pkey')) {
+          return {
+            success: false,
+            error:
+              'Error al crear la sala (secuencia de IDs desincronizada). Ejecutá en Supabase el SQL: supabase/patches/2026-03-28_obtener_o_crear_room_dm.sql'
+          }
+        }
         return { success: false, error: insErr.message }
       }
 
@@ -3238,6 +3244,52 @@ class ApiService {
       return { success: true, data: { roomId: row.id } }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error al crear sala DM' }
+    }
+  }
+
+  /**
+   * Obtiene o crea un `chat_rooms` privado para conversación entre dos usuarios.
+   * Preferís RPC en BD (sincroniza secuencia y evita duplicate key `chat_rooms_pkey`).
+   */
+  async obtenerOCrearRoomDm(
+    usuarioIdA: number,
+    usuarioIdB: number
+  ): Promise<ApiResponse<{ roomId: number }>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+    if (usuarioIdA === usuarioIdB) {
+      return { success: false, error: 'No podés chatear contigo mismo' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_o_crear_room_dm', {
+        p_usuario_a: usuarioIdA,
+        p_usuario_b: usuarioIdB
+      })
+
+      if (!error && data != null && Number.isFinite(Number(data))) {
+        return { success: true, data: { roomId: Number(data) } }
+      }
+
+      const errMsg = String(error?.message || '')
+      if (errMsg.includes('mismos_usuarios')) {
+        return { success: false, error: 'No podés chatear contigo mismo' }
+      }
+
+      const missingRpc =
+        error?.code === '42883' ||
+        errMsg.includes('Could not find the function') ||
+        errMsg.includes('does not exist') ||
+        errMsg.includes('obtener_o_crear_room_dm')
+
+      if (missingRpc) {
+        return this.obtenerOCrearRoomDmLegacy(usuarioIdA, usuarioIdB)
+      }
+
+      return { success: false, error: errMsg || 'No se pudo abrir la sala de mensajería' }
+    } catch {
+      return this.obtenerOCrearRoomDmLegacy(usuarioIdA, usuarioIdB)
     }
   }
 
