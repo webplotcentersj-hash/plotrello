@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type { Vehiculo, RegistroSalidaVehiculo } from '../types/api'
-import { vehiculosParqueDesdeApi } from '../utils/flotaVehiculosCatalogo'
+import {
+  vehiculosParqueDesdeApi,
+  type ItemParqueFlota,
+  vehiculoPuedeSolicitarSalida,
+  etiquetaEstadoParque
+} from '../utils/flotaVehiculosCatalogo'
 import RegistroSalidaModal from '../components/RegistroSalidaModal'
 import MarcarLlegadaModal from '../components/MarcarLlegadaModal'
 import FlotaMapa from '../components/FlotaMapa'
+import FlotaReservasPanel from '../components/FlotaReservasPanel'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import './FlotaPage.css'
 
@@ -45,8 +51,6 @@ function RelojCabecera() {
   )
 }
 
-type ItemParque = ReturnType<typeof vehiculosParqueDesdeApi>[number]
-
 function regsPorVehiculo(vid: number, todos: RegistroSalidaVehiculo[]) {
   const same = todos.filter((r) => r.id_vehiculo === vid)
   const activo = same.find((r) => r.estado === 'en_uso' || r.estado === 'retrasado')
@@ -59,7 +63,7 @@ const FlotaPage = () => {
   const { isAdmin, isCaja, usuario } = useAuth()
   const canAutorizar = isAdmin || isCaja
 
-  const [itemsParque, setItemsParque] = useState<ItemParque[]>([])
+  const [itemsParque, setItemsParque] = useState<ItemParqueFlota[]>([])
   const [registros, setRegistros] = useState<RegistroSalidaVehiculo[]>([])
   const [historial, setHistorial] = useState<RegistroSalidaVehiculo[]>([])
   const [loading, setLoading] = useState(true)
@@ -145,8 +149,19 @@ const FlotaPage = () => {
     [registros]
   )
 
-  const handleRegistrarSalida = (item: ItemParque) => {
+  const handleRegistrarSalida = async (item: ItemParqueFlota) => {
     if (!item.enBase || item.id == null) return
+    if (!vehiculoPuedeSolicitarSalida(item)) {
+      alert(
+        `Este vehículo no acepta solicitudes de salida ahora: ${etiquetaEstadoParque(item.estado_parque, item.estado_parque_detalle)}. Caja o Administración puede cambiar el estado en Panel admin.`
+      )
+      return
+    }
+    const chk = await apiService.verificarReservaFlotaSalida(item.id, usuario?.id ?? null)
+    if (chk.success && chk.data && !chk.data.permitido) {
+      alert(chk.data.mensaje ?? 'No podés solicitar salida con este vehículo hoy.')
+      return
+    }
     const v: Vehiculo = {
       id: item.id,
       nombre: item.nombre,
@@ -192,7 +207,7 @@ const FlotaPage = () => {
     else alert(response.error || 'Error al finalizar')
   }
 
-  const cardState = (item: ItemParque) => {
+  const cardState = (item: ItemParqueFlota) => {
     if (!item.enBase || item.id == null) {
       return { tipo: 'disponible' as const, registro: null, retrasado: false, sinBase: true as const }
     }
@@ -286,6 +301,8 @@ const FlotaPage = () => {
             <span className="flota-stat-value subtle">{itemsParque.length}</span>
           </div>
         </div>
+
+        <FlotaReservasPanel itemsParque={itemsParque} onReservasChanged={() => void loadData({ quiet: true })} />
 
         <section className="flota-panel flota-mapa-real">
           <div className="flota-panel-head">
@@ -494,12 +511,22 @@ const FlotaPage = () => {
                 >
                   <div className="vehiculo-header">
                     <h3>{item.nombre}</h3>
-                    <span className={`estado-badge ${tipo}`}>
-                      {sinBase && 'Sin BD'}
-                      {!sinBase && tipo === 'disponible' && 'Disponible'}
-                      {!sinBase && tipo === 'pendiente' && 'Pendiente'}
-                      {!sinBase && tipo === 'en_uso' && (retrasado ? 'Retrasado' : 'En ruta')}
-                    </span>
+                    <div className="flota-badges-row">
+                      <span className={`estado-badge ${tipo}`}>
+                        {sinBase && 'Sin BD'}
+                        {!sinBase && tipo === 'disponible' && 'Disponible'}
+                        {!sinBase && tipo === 'pendiente' && 'Pendiente'}
+                        {!sinBase && tipo === 'en_uso' && (retrasado ? 'Retrasado' : 'En ruta')}
+                      </span>
+                      {!sinBase && item.estado_parque !== 'disponible' && (
+                        <span
+                          className="flota-estado-parque-badge"
+                          title={etiquetaEstadoParque(item.estado_parque, item.estado_parque_detalle)}
+                        >
+                          {etiquetaEstadoParque(item.estado_parque, item.estado_parque_detalle)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {sinBase && (
@@ -590,10 +617,23 @@ const FlotaPage = () => {
                   )}
 
                   <div className="vehiculo-actions">
-                    {tipo === 'disponible' && !sinBase && (
-                      <button type="button" className="flota-btn primary" onClick={() => handleRegistrarSalida(item)}>
+                    {tipo === 'disponible' && !sinBase && vehiculoPuedeSolicitarSalida(item) && (
+                      <button type="button" className="flota-btn primary" onClick={() => void handleRegistrarSalida(item)}>
                         Solicitar salida
                       </button>
+                    )}
+                    {tipo === 'disponible' && !sinBase && !vehiculoPuedeSolicitarSalida(item) && (
+                      <>
+                        <p className="flota-no-salida-msg">
+                          No se puede solicitar salida:{' '}
+                          <strong>
+                            {etiquetaEstadoParque(item.estado_parque, item.estado_parque_detalle)}
+                          </strong>
+                        </p>
+                        <button type="button" className="flota-btn secondary" disabled>
+                          Solicitar salida
+                        </button>
+                      </>
                     )}
                     {sinBase && (
                       <button type="button" className="flota-btn secondary" disabled>

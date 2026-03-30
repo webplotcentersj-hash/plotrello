@@ -212,3 +212,134 @@
   background: #475569;
 }
 
+.parque-section {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.parque-section h2 {
+  margin: 0 0 10px 0;
+  color: #1e293b;
+  font-size: 1.5rem;
+}
+
+.parque-section-desc {
+  margin: 0 0 18px 0;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.parque-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.parque-error-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.parque-error-hint code {
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.parque-table-wrap {
+  overflow-x: auto;
+}
+
+.parque-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.parque-table th,
+.parque-table td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.parque-table th {
+  font-weight: 700;
+  color: #334155;
+  background: #f8fafc;
+}
+
+.parque-select {
+  width: 100%;
+  min-width: 200px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.parque-input-detalle {
+  width: 100%;
+  min-width: 180px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.parque-input-detalle:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.btn-parque-save {
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+}
+
+.parque-actions-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-parque-delete {
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  background: #dc2626;
+  color: #fff;
+}
+
+.btn-parque-delete:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.btn-parque-delete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.parque-current-label {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+

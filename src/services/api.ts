@@ -1,5 +1,5 @@
 import { BOARD_COLUMNS } from '../data/mockData'
-import { getArgentinaDateString } from '../utils/dateUtils'
+import { getArgentinaDateString, formatArgentinaDateOnly } from '../utils/dateUtils'
 import type {
   ClienteRecord,
   FichaHistorialItem,
@@ -42,7 +42,9 @@ import type {
   MenuDiario,
   MenuSeleccion,
   Vehiculo,
+  VehiculoEstadoParque,
   RegistroSalidaVehiculo,
+  ReservaVehiculoFlota,
   CitaAsesorTecnico,
   ProtocoloBaseRecord,
   PruebaPreguntaInput
@@ -11680,17 +11682,225 @@ class ApiService {
 
   async getVehiculos(): Promise<ApiResponse<Vehiculo[]>> {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('vehiculos')
-        .select('*')
-        .eq('activo', true)
-        .order('nombre', { ascending: true })
+      const { data, error } = await supabase.from('vehiculos').select('*').order('nombre', { ascending: true })
 
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as Vehiculo[]) ?? [] }
     }
 
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /** Admin / Caja: cambiar estado operativo del vehículo en el parque. */
+  async actualizarVehiculoEstadoParque(
+    idVehiculo: number,
+    estado_parque: VehiculoEstadoParque,
+    estado_parque_detalle?: string | null
+  ): Promise<ApiResponse<Vehiculo>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const detalle =
+      estado_parque === 'otro' ? (estado_parque_detalle?.trim() || null) : null
+    const { data, error } = await supabase
+      .from('vehiculos')
+      .update({
+        estado_parque,
+        estado_parque_detalle: detalle
+      })
+      .eq('id', idVehiculo)
+      .select('*')
+      .single()
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, data: data as Vehiculo }
+  }
+
+  /**
+   * Admin / Caja: elimina el vehículo y, por CASCADE en BD, todos sus registros de salida.
+   * No permite si hay salida pendiente, en uso o retrasada.
+   */
+  async eliminarVehiculo(idVehiculo: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const { data: activos, error: errQ } = await supabase
+      .from('registros_salidas_vehiculos')
+      .select('id')
+      .eq('id_vehiculo', idVehiculo)
+      .in('estado', ['pendiente_autorizacion', 'en_uso', 'retrasado'])
+      .limit(1)
+
+    if (errQ) return { success: false, error: errQ.message }
+    if (activos && activos.length > 0) {
+      return {
+        success: false,
+        error:
+          'No se puede eliminar: el vehículo tiene una solicitud pendiente o una salida en curso. Cerrá el viaje o resolvé la solicitud primero.'
+      }
+    }
+
+    const { error } = await supabase.from('vehiculos').delete().eq('id', idVehiculo)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, data: undefined }
+  }
+
+  async getReservasVehiculosFlota(params: {
+    fechaDesde: string
+    fechaHasta: string
+    estado?: ReservaVehiculoFlota['estado']
+  }): Promise<ApiResponse<ReservaVehiculoFlota[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    let query = supabase
+      .from('reservas_vehiculos_flota')
+      .select('*, vehiculo:vehiculos(*)')
+      .gte('fecha', params.fechaDesde)
+      .lte('fecha', params.fechaHasta)
+    if (params.estado) {
+      query = query.eq('estado', params.estado)
+    }
+    const { data, error } = await query
+      .order('fecha', { ascending: true })
+      .order('id_vehiculo', { ascending: true })
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, data: (data as ReservaVehiculoFlota[]) ?? [] }
+  }
+
+  async crearReservaVehiculoFlota(input: {
+    id_vehiculo: number
+    id_usuario: number | null
+    nombre_usuario: string
+    fecha: string
+    motivo?: string | null
+  }): Promise<ApiResponse<ReservaVehiculoFlota>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const hoy = getArgentinaDateString()
+    const f = (input.fecha || '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+      return { success: false, error: 'Fecha inválida' }
+    }
+    if (f < hoy) {
+      return { success: false, error: 'No se puede reservar un día pasado.' }
+    }
+
+    const { data, error } = await supabase
+      .from('reservas_vehiculos_flota')
+      .insert({
+        id_vehiculo: input.id_vehiculo,
+        id_usuario: input.id_usuario,
+        nombre_usuario: input.nombre_usuario.trim(),
+        fecha: f,
+        estado: 'pendiente_aprobacion',
+        motivo: input.motivo?.trim() || null
+      })
+      .select('*, vehiculo:vehiculos(*)')
+      .single()
+
+    if (error) {
+      if (error.code === '23505' || error.message.includes('duplicate')) {
+        return {
+          success: false,
+          error:
+            'Ya hay una reserva o solicitud pendiente para ese vehículo en esa fecha. Elegí otro día o vehículo.'
+        }
+      }
+      return { success: false, error: error.message }
+    }
+    return { success: true, data: data as ReservaVehiculoFlota }
+  }
+
+  async aprobarReservaVehiculoFlota(
+    idReserva: number,
+    idRevisor: number,
+    nombreRevisor: string
+  ): Promise<ApiResponse<ReservaVehiculoFlota>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const ahora = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('reservas_vehiculos_flota')
+      .update({
+        estado: 'aprobada',
+        id_usuario_reviso: idRevisor,
+        nombre_revisor: nombreRevisor.trim(),
+        revisado_at: ahora
+      })
+      .eq('id', idReserva)
+      .eq('estado', 'pendiente_aprobacion')
+      .select('*, vehiculo:vehiculos(*)')
+      .single()
+
+    if (error) return { success: false, error: error.message }
+    if (!data) return { success: false, error: 'Reserva no encontrada o ya no está pendiente' }
+    return { success: true, data: data as ReservaVehiculoFlota }
+  }
+
+  async rechazarReservaVehiculoFlota(
+    idReserva: number,
+    idRevisor: number,
+    nombreRevisor: string
+  ): Promise<ApiResponse<ReservaVehiculoFlota>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const ahora = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('reservas_vehiculos_flota')
+      .update({
+        estado: 'rechazada',
+        id_usuario_reviso: idRevisor,
+        nombre_revisor: nombreRevisor.trim(),
+        revisado_at: ahora
+      })
+      .eq('id', idReserva)
+      .eq('estado', 'pendiente_aprobacion')
+      .select('*, vehiculo:vehiculos(*)')
+      .single()
+
+    if (error) return { success: false, error: error.message }
+    if (!data) return { success: false, error: 'Reserva no encontrada o ya no está pendiente' }
+    return { success: true, data: data as ReservaVehiculoFlota }
+  }
+
+  async cancelarReservaVehiculoFlotaPropia(
+    idReserva: number,
+    idUsuario: number
+  ): Promise<ApiResponse<ReservaVehiculoFlota>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const { data, error } = await supabase
+      .from('reservas_vehiculos_flota')
+      .update({ estado: 'cancelada' })
+      .eq('id', idReserva)
+      .eq('id_usuario', idUsuario)
+      .eq('estado', 'pendiente_aprobacion')
+      .select('*, vehiculo:vehiculos(*)')
+      .single()
+
+    if (error) return { success: false, error: error.message }
+    if (!data) return { success: false, error: 'No se pudo cancelar (solo tus reservas pendientes)' }
+    return { success: true, data: data as ReservaVehiculoFlota }
+  }
+
+  /** Si hoy (AR) hay reserva aprobada para el vehículo y no sos vos, no podés solicitar salida. */
+  async verificarReservaFlotaSalida(
+    idVehiculo: number,
+    idUsuario: number | null
+  ): Promise<ApiResponse<{ permitido: boolean; mensaje?: string }>> {
+    if (!supabase) return { success: true, data: { permitido: true } }
+    const fechaAr = getArgentinaDateString()
+    const { data: apr, error } = await supabase
+      .from('reservas_vehiculos_flota')
+      .select('id_usuario, nombre_usuario')
+      .eq('id_vehiculo', idVehiculo)
+      .eq('fecha', fechaAr)
+      .eq('estado', 'aprobada')
+      .maybeSingle()
+
+    if (error) return { success: true, data: { permitido: true } }
+    if (!apr || apr.id_usuario == null) return { success: true, data: { permitido: true } }
+    if (idUsuario != null && apr.id_usuario === idUsuario) return { success: true, data: { permitido: true } }
+    return {
+      success: true,
+      data: {
+        permitido: false,
+        mensaje: `Este vehículo tiene reserva aprobada para hoy (${fechaAr}) a nombre de ${apr.nombre_usuario}. Solo esa persona puede solicitar la salida.`
+      }
+    }
   }
 
   async getRegistrosSalidasVehiculos(filtros?: {
@@ -11773,6 +11983,31 @@ class ApiService {
     registro: Omit<RegistroSalidaVehiculo, 'id' | 'created_at' | 'updated_at' | 'vehiculo'>
   ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
     if (supabase) {
+      const { data: filaVehiculo, error: errV } = await supabase
+        .from('vehiculos')
+        .select('id, activo, estado_parque, estado_parque_detalle, nombre')
+        .eq('id', registro.id_vehiculo)
+        .maybeSingle()
+
+      if (errV) return { success: false, error: errV.message }
+      if (!filaVehiculo) {
+        return { success: false, error: 'Vehículo no encontrado' }
+      }
+      const ep = (filaVehiculo as { estado_parque?: string | null }).estado_parque ?? 'disponible'
+      if (filaVehiculo.activo === false || ep !== 'disponible') {
+        return {
+          success: false,
+          error:
+            ep === 'fuera_servicio'
+              ? 'Este vehículo está fuera de servicio. No se puede solicitar salida.'
+              : ep === 'en_taller'
+                ? 'Este vehículo está en taller o mantenimiento. No se puede solicitar salida.'
+                : ep === 'otro'
+                  ? 'Este vehículo no está disponible para salidas. Consultá con Caja o Administración.'
+                  : 'Este vehículo no está disponible para solicitar salida.'
+        }
+      }
+
       // Vehículo ocupado: salida autorizada, retrasada o solicitud pendiente
       const { data: registrosActivos } = await supabase
         .from('registros_salidas_vehiculos')
@@ -11786,6 +12021,27 @@ class ApiService {
           success: false,
           error:
             'Este vehículo ya tiene una salida activa o una solicitud pendiente de autorización'
+        }
+      }
+
+      const fechaSalidaAr = formatArgentinaDateOnly(new Date(registro.hora_salida))
+      const { data: reservaBloqueo } = await supabase
+        .from('reservas_vehiculos_flota')
+        .select('id_usuario, nombre_usuario')
+        .eq('id_vehiculo', registro.id_vehiculo)
+        .eq('fecha', fechaSalidaAr)
+        .eq('estado', 'aprobada')
+        .maybeSingle()
+
+      if (
+        reservaBloqueo &&
+        reservaBloqueo.id_usuario != null &&
+        registro.id_usuario != null &&
+        reservaBloqueo.id_usuario !== registro.id_usuario
+      ) {
+        return {
+          success: false,
+          error: `Reserva del día: el vehículo está reservado para el ${fechaSalidaAr} por ${reservaBloqueo.nombre_usuario}. Solo esa persona puede solicitar salida ese día.`
         }
       }
 

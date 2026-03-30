@@ -1094,13 +1094,41 @@ export interface VentaItem {
 // SISTEMA DE GESTIÓN DE FLOTA
 // ============================================
 
+/** Estado del vehículo en el parque (no confundir con estado de un viaje en registros_salidas). */
+export type VehiculoEstadoParque = 'disponible' | 'fuera_servicio' | 'en_taller' | 'otro'
+
 export interface Vehiculo {
   id: number
   nombre: string
   patente?: string | null
   activo: boolean
+  estado_parque?: VehiculoEstadoParque | null
+  estado_parque_detalle?: string | null
   created_at: string
   updated_at: string
+}
+
+export type ReservaVehiculoFlotaEstado =
+  | 'pendiente_aprobacion'
+  | 'aprobada'
+  | 'rechazada'
+  | 'cancelada'
+
+export interface ReservaVehiculoFlota {
+  id: number
+  id_vehiculo: number
+  id_usuario?: number | null
+  nombre_usuario: string
+  /** YYYY-MM-DD (día calendario en uso operativo AR) */
+  fecha: string
+  estado: ReservaVehiculoFlotaEstado
+  motivo?: string | null
+  id_usuario_reviso?: number | null
+  nombre_revisor?: string | null
+  revisado_at?: string | null
+  created_at: string
+  updated_at: string
+  vehiculo?: Vehiculo
 }
 
 export interface RegistroSalidaVehiculo {

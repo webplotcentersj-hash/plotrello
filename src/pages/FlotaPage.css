@@ -712,6 +712,38 @@
   width: 100%;
 }
 
+.flota-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  max-width: 58%;
+}
+
+.flota-estado-parque-badge {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fde68a;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  line-height: 1.25;
+  text-align: right;
+}
+
+.flota-no-salida-msg {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--flota-muted);
+  line-height: 1.35;
+}
+
+.flota-no-salida-msg strong {
+  color: var(--flota-warn);
+}
+
 .btn-block {
   width: 100%;
   margin-top: 12px;
