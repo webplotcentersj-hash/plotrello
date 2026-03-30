@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
+import RrhhMessagingCenter from '../components/RrhhMessagingCenter'
 import './RecursosHumanosDashboardPage.css'
 
 const RecursosHumanosDashboardPage = () => {
@@ -141,6 +142,14 @@ const RecursosHumanosDashboardPage = () => {
             </div>
           </div>
         </div>
+
+        {usuario && usuarios.length > 0 && (
+          <RrhhMessagingCenter
+            usuarios={usuarios}
+            currentUserId={usuario.id}
+            currentUserName={usuario.nombre}
+          />
+        )}
 
         {/* Sección de acciones rápidas */}
         <div className="rrhh-actions-section">

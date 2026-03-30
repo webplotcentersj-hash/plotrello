@@ -1,0 +1,279 @@
+.rrhh-msg {
+  margin-bottom: 40px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.rrhh-msg-header {
+  margin-bottom: 16px;
+}
+
+.rrhh-msg-title {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rrhh-msg-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.rrhh-msg-notice {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  border-radius: 8px;
+}
+
+.rrhh-msg-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) 1fr;
+  gap: 0;
+  min-height: 380px;
+  max-height: 520px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 900px) {
+  .rrhh-msg-layout {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+}
+
+.rrhh-msg-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-msg-search {
+  padding: 10px 12px;
+  margin: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.rrhh-msg-user-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.rrhh-msg-user-btn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.rrhh-msg-user-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rrhh-msg-user-btn.is-active {
+  background: rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.rrhh-msg-user-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.rrhh-msg-user-meta {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.rrhh-msg-empty-sidebar {
+  padding: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.rrhh-msg-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rrhh-msg-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  padding: 24px;
+}
+
+.rrhh-msg-thread-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.rrhh-msg-thread-meta {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.rrhh-msg-thread-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #c4b5fd;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  white-space: nowrap;
+}
+
+.rrhh-msg-error {
+  margin: 8px 16px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #fecaca;
+  font-size: 0.85rem;
+}
+
+.rrhh-msg-thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rrhh-msg-loading {
+  padding: 16px;
+  color: var(--text-muted);
+}
+
+.rrhh-msg-bubbles {
+  list-style: none;
+  margin: 0;
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rrhh-msg-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 88%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+}
+
+.rrhh-msg-bubble.is-theirs {
+  background: rgba(255, 255, 255, 0.08);
+  align-self: flex-start;
+}
+
+.rrhh-msg-bubble.is-mine {
+  background: rgba(59, 130, 246, 0.28);
+  align-self: flex-end;
+}
+
+.rrhh-msg-bubble-author {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #93c5fd;
+  margin-bottom: 4px;
+}
+
+.rrhh-msg-bubble-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.rrhh-msg-bubble-time {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  align-self: flex-end;
+}
+
+.rrhh-msg-compose {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.rrhh-msg-input {
+  flex: 1;
+  resize: vertical;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.rrhh-msg-send {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.rrhh-msg-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rrhh-msg-send:not(:disabled):hover {
+  opacity: 0.95;
+}

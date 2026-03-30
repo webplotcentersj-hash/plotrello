@@ -3175,6 +3175,177 @@ class ApiService {
     return this.handleFallback(fallbackMensajes)
   }
 
+  /**
+   * Clave estable del room 1:1 entre dos usuarios.
+   * Uso principal: mensajería RRHH (dashboard), distinta del chat por canales (#general, etc.).
+   * Misma tabla `chat_messages` pero rooms `nombre` tipo `dm:a:b`, no `chatChannelToRoom`.
+   */
+  private dmRoomNombreKey(usuarioIdA: number, usuarioIdB: number): string {
+    const a = Math.min(usuarioIdA, usuarioIdB)
+    const b = Math.max(usuarioIdA, usuarioIdB)
+    return `dm:${a}:${b}`
+  }
+
+  /**
+   * Obtiene o crea un `chat_rooms` privado para conversación entre dos usuarios.
+   */
+  async obtenerOCrearRoomDm(
+    usuarioIdA: number,
+    usuarioIdB: number
+  ): Promise<ApiResponse<{ roomId: number }>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+    if (usuarioIdA === usuarioIdB) {
+      return { success: false, error: 'No podés chatear contigo mismo' }
+    }
+    const nombre = this.dmRoomNombreKey(usuarioIdA, usuarioIdB)
+    try {
+      const { data: existing, error: selErr } = await supabase
+        .from('chat_rooms')
+        .select('id')
+        .eq('nombre', nombre)
+        .maybeSingle()
+
+      if (selErr && selErr.code !== 'PGRST116') {
+        return { success: false, error: selErr.message }
+      }
+      const ex = existing as { id: number } | null
+      if (ex?.id != null) {
+        return { success: true, data: { roomId: ex.id } }
+      }
+
+      const { data: inserted, error: insErr } = await supabase
+        .from('chat_rooms')
+        .insert({ nombre, tipo: 'privado' })
+        .select('id')
+        .single()
+
+      if (insErr) {
+        if (insErr.code === '23505' || String(insErr.message).includes('duplicate')) {
+          const { data: again } = await supabase
+            .from('chat_rooms')
+            .select('id')
+            .eq('nombre', nombre)
+            .maybeSingle()
+          const id = (again as { id: number } | null)?.id
+          if (id != null) return { success: true, data: { roomId: id } }
+        }
+        return { success: false, error: insErr.message }
+      }
+
+      const row = inserted as { id: number }
+      return { success: true, data: { roomId: row.id } }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al crear sala DM' }
+    }
+  }
+
+  /** Mensajes de un room por id (DM u otro canal no mapeado en chatChannelToRoom). */
+  async getMensajesPorRoomId(roomId: number, limit: number = 80): Promise<ApiResponse<ChatMessageUI[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('id, room_id, id_usuario, nombre_usuario, mensaje, timestamp, archivos_urls, reply_to_id, reacciones, estado_entrega')
+        .eq('room_id', roomId)
+        .order('timestamp', { ascending: false })
+        .limit(limit)
+
+      if (error) return { success: false, error: error.message }
+
+      const mensajes =
+        data?.map((msg: any) => {
+          let archivosUrls: string[] | undefined = undefined
+          if (msg.archivos_urls) {
+            try {
+              if (typeof msg.archivos_urls === 'string') {
+                archivosUrls = JSON.parse(msg.archivos_urls)
+              } else if (Array.isArray(msg.archivos_urls)) {
+                archivosUrls = msg.archivos_urls
+              }
+            } catch (e) {
+              console.error('Error parseando archivos_urls:', e)
+            }
+          }
+
+          let reacciones: ReaccionesMap | undefined = undefined
+          const rawReacciones = msg.reacciones
+          if (rawReacciones) {
+            try {
+              if (typeof rawReacciones === 'string') {
+                reacciones = JSON.parse(rawReacciones)
+              } else {
+                reacciones = rawReacciones as ReaccionesMap
+              }
+            } catch (e) {
+              console.error('Error parseando reacciones:', e)
+            }
+          }
+
+          return {
+            id: msg.id,
+            canal: `dm:${roomId}`,
+            usuario_id: msg.id_usuario,
+            nombre_usuario: msg.nombre_usuario,
+            contenido: msg.mensaje,
+            tipo: inferChatType(msg.mensaje),
+            timestamp: msg.timestamp,
+            archivos_urls: archivosUrls,
+            reply_to_id: msg.reply_to_id,
+            reacciones,
+            estado_entrega: (msg.estado_entrega as ChatMessageUI['estado_entrega']) ?? 'sent'
+          }
+        }) ?? []
+
+      return { success: true, data: (mensajes.reverse() as ChatMessageUI[]) }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async enviarMensajeDm(params: {
+    roomId: number
+    contenido: string
+    usuarioId: number
+  }): Promise<ApiResponse<ChatMessageUI>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+    const nombreUsuario =
+      localStorage.getItem('usuario') != null
+        ? JSON.parse(localStorage.getItem('usuario') || '{}').nombre || 'Usuario'
+        : 'Usuario'
+
+    const payload: Record<string, unknown> = {
+      room_id: params.roomId,
+      id_usuario: params.usuarioId,
+      nombre_usuario: nombreUsuario,
+      mensaje: params.contenido,
+      reply_to_id: null,
+      estado_entrega: 'sent'
+    }
+
+    const { data, error } = await supabase.from('chat_messages').insert(payload).select().single()
+
+    if (error) return { success: false, error: error.message }
+
+    const row = data as any
+    return {
+      success: true,
+      data: {
+        id: row.id,
+        canal: `dm:${params.roomId}`,
+        usuario_id: params.usuarioId,
+        nombre_usuario: nombreUsuario,
+        contenido: params.contenido,
+        tipo: 'message',
+        timestamp: row.timestamp,
+        reply_to_id: null,
+        reacciones: {},
+        estado_entrega: 'sent'
+      } as ChatMessageUI
+    }
+  }
+
   async marcarChatLeido(canal: string, usuarioId: number): Promise<void> {
     if (!supabase) return
     const roomId = chatChannelToRoom[canal] ?? 1
