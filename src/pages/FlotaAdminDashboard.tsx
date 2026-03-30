@@ -9,6 +9,7 @@ import type {
   VehiculoEstadoParque
 } from '../types/api'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { formatHoraCortaDb } from '../utils/dateUtils'
 import { etiquetaEstadoParque } from '../utils/flotaVehiculosCatalogo'
 import './FlotaAdminDashboard.css'
 
@@ -335,8 +336,9 @@ const FlotaAdminDashboard = () => {
         <section className="parque-section flota-reservas-admin-section">
           <h2>Reservas de vehículos (pendientes de aprobación)</h2>
           <p className="parque-section-desc">
-            Los usuarios piden día y vehículo desde <strong>Flota</strong>. Al aprobar, solo esa persona puede solicitar
-            la salida ese día; el rechazo libera el cupo para otra solicitud.
+            Los usuarios piden día, <strong>franja horaria</strong> y vehículo desde <strong>Flota</strong>. Caja o
+            Administración <strong>aprueba o rechaza</strong> aquí. Si aprobás, solo esa persona puede solicitar salida
+            dentro de ese horario ese día; fuera de la franja puede pedirla otro usuario.
           </p>
           {loadingReservas && reservasPendientes.length === 0 ? (
             <p>Cargando solicitudes…</p>
@@ -348,6 +350,7 @@ const FlotaAdminDashboard = () => {
                 <thead>
                   <tr>
                     <th>Fecha</th>
+                    <th>Horario</th>
                     <th>Vehículo</th>
                     <th>Solicitante</th>
                     <th>Motivo</th>
@@ -358,6 +361,11 @@ const FlotaAdminDashboard = () => {
                   {reservasPendientes.map((res) => (
                     <tr key={res.id}>
                       <td>{res.fecha}</td>
+                      <td>
+                        {res.hora_desde != null && res.hora_hasta != null
+                          ? `${formatHoraCortaDb(res.hora_desde)}–${formatHoraCortaDb(res.hora_hasta)}`
+                          : '—'}
+                      </td>
                       <td>
                         <strong>{res.vehiculo?.nombre ?? '—'}</strong>
                       </td>

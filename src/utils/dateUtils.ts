@@ -58,6 +58,62 @@ export function formatArgentinaTimeOnly(date: Date): string {
   }).format(date)
 }
 
+/** Normaliza "HH:MM" o "HH:MM:SS" a "HH:MM:SS" para TIME en Postgres. */
+export function normalizeTimeHHMMSS(raw: string): string | null {
+  const s = raw.trim()
+  if (/^\d{2}:\d{2}$/.test(s)) return `${s}:00`
+  if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s
+  return null
+}
+
+/** Segundos desde medianoche (0–86399) a partir de "HH:MM" o "HH:MM:SS". */
+export function timeStringToSecondsSinceMidnight(t: string): number | null {
+  const n = normalizeTimeHHMMSS(t)
+  if (!n) return null
+  const [hh, mm, ss] = n.split(':').map((x) => parseInt(x, 10))
+  if ([hh, mm, ss].some((x) => Number.isNaN(x))) return null
+  if (hh < 0 || hh > 23 || mm > 59 || ss > 59) return null
+  return hh * 3600 + mm * 60 + ss
+}
+
+/** Hora de un instante visto en Argentina (segundos desde medianoche ese día AR). */
+export function dateToArgentinaSecondsSinceMidnight(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(date)
+  const h = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10)
+  const m = parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10)
+  const sec = parseInt(parts.find((p) => p.type === 'second')?.value ?? '0', 10)
+  return h * 3600 + m * 60 + sec
+}
+
+/**
+ * ¿`instante` (visto en AR) cae en [desde, hasta] del mismo día?
+ * Si faltan desde/hasta (datos viejos), se asume jornada completa.
+ */
+export function instanteArgentinaDentroFranjaHorariaReserva(
+  instante: Date,
+  desde: string | null | undefined,
+  hasta: string | null | undefined
+): boolean {
+  const d = timeStringToSecondsSinceMidnight(desde ?? '00:00:00')
+  const h = timeStringToSecondsSinceMidnight(hasta ?? '23:59:59')
+  if (d == null || h == null) return true
+  const t = dateToArgentinaSecondsSinceMidnight(instante)
+  return t >= d && t <= h
+}
+
+/** Texto corto tipo 08:00 (recorta segundos si vienen en HH:MM:SS). */
+export function formatHoraCortaDb(timeStr: string | null | undefined): string {
+  if (!timeStr) return ''
+  const m = /^(\d{2}):(\d{2})(?::\d{2})?/.exec(timeStr.trim())
+  return m ? `${m[1]}:${m[2]}` : timeStr
+}
+
 /**
  * Dado un ISO/timestamptz, devuelve la fecha YYYY-MM-DD en Argentina.
  * Si recibe YYYY-MM-DD, lo devuelve tal cual.

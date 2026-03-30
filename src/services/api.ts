@@ -1,5 +1,11 @@
 import { BOARD_COLUMNS } from '../data/mockData'
-import { getArgentinaDateString, formatArgentinaDateOnly } from '../utils/dateUtils'
+import {
+  getArgentinaDateString,
+  formatArgentinaDateOnly,
+  instanteArgentinaDentroFranjaHorariaReserva,
+  normalizeTimeHHMMSS,
+  timeStringToSecondsSinceMidnight
+} from '../utils/dateUtils'
 import type {
   ClienteRecord,
   FichaHistorialItem,
@@ -11769,6 +11775,9 @@ class ApiService {
     id_usuario: number | null
     nombre_usuario: string
     fecha: string
+    /** HH:MM o HH:MM:SS (horario Argentina, mismo día que fecha) */
+    hora_desde: string
+    hora_hasta: string
     motivo?: string | null
   }): Promise<ApiResponse<ReservaVehiculoFlota>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
@@ -11781,6 +11790,17 @@ class ApiService {
       return { success: false, error: 'No se puede reservar un día pasado.' }
     }
 
+    const hd = normalizeTimeHHMMSS((input.hora_desde || '').trim())
+    const hh = normalizeTimeHHMMSS((input.hora_hasta || '').trim())
+    if (!hd || !hh) {
+      return { success: false, error: 'Indicá horario desde y hasta (formato HH:MM).' }
+    }
+    const sd = timeStringToSecondsSinceMidnight(hd)
+    const sh = timeStringToSecondsSinceMidnight(hh)
+    if (sd == null || sh == null || sd > sh) {
+      return { success: false, error: 'El horario "desde" debe ser anterior o igual al "hasta".' }
+    }
+
     const { data, error } = await supabase
       .from('reservas_vehiculos_flota')
       .insert({
@@ -11788,6 +11808,8 @@ class ApiService {
         id_usuario: input.id_usuario,
         nombre_usuario: input.nombre_usuario.trim(),
         fecha: f,
+        hora_desde: hd,
+        hora_hasta: hh,
         estado: 'pendiente_aprobacion',
         motivo: input.motivo?.trim() || null
       })
@@ -11876,7 +11898,10 @@ class ApiService {
     return { success: true, data: data as ReservaVehiculoFlota }
   }
 
-  /** Si hoy (AR) hay reserva aprobada para el vehículo y no sos vos, no podés solicitar salida. */
+  /**
+   * Si hoy (AR) hay reserva aprobada para el vehículo en este momento y no sos vos, no podés solicitar salida.
+   * Fuera de la franja horaria de la reserva, otro usuario puede pedir salida el mismo día.
+   */
   async verificarReservaFlotaSalida(
     idVehiculo: number,
     idUsuario: number | null
@@ -11885,20 +11910,31 @@ class ApiService {
     const fechaAr = getArgentinaDateString()
     const { data: apr, error } = await supabase
       .from('reservas_vehiculos_flota')
-      .select('id_usuario, nombre_usuario')
+      .select('id_usuario, nombre_usuario, hora_desde, hora_hasta')
       .eq('id_vehiculo', idVehiculo)
       .eq('fecha', fechaAr)
       .eq('estado', 'aprobada')
       .maybeSingle()
 
     if (error) return { success: true, data: { permitido: true } }
-    if (!apr || apr.id_usuario == null) return { success: true, data: { permitido: true } }
-    if (idUsuario != null && apr.id_usuario === idUsuario) return { success: true, data: { permitido: true } }
+    const row = apr as {
+      id_usuario: number | null
+      nombre_usuario: string
+      hora_desde?: string | null
+      hora_hasta?: string | null
+    } | null
+    if (!row || row.id_usuario == null) return { success: true, data: { permitido: true } }
+    if (idUsuario != null && row.id_usuario === idUsuario) return { success: true, data: { permitido: true } }
+    if (!instanteArgentinaDentroFranjaHorariaReserva(new Date(), row.hora_desde, row.hora_hasta)) {
+      return { success: true, data: { permitido: true } }
+    }
+    const desde = (row.hora_desde ?? '').slice(0, 5)
+    const hasta = (row.hora_hasta ?? '').slice(0, 5)
     return {
       success: true,
       data: {
         permitido: false,
-        mensaje: `Este vehículo tiene reserva aprobada para hoy (${fechaAr}) a nombre de ${apr.nombre_usuario}. Solo esa persona puede solicitar la salida.`
+        mensaje: `Este vehículo tiene reserva aprobada hoy (${fechaAr}) entre ${desde} y ${hasta} a nombre de ${row.nombre_usuario}. Solo esa persona puede solicitar la salida en ese horario.`
       }
     }
   }
@@ -12027,21 +12063,35 @@ class ApiService {
       const fechaSalidaAr = formatArgentinaDateOnly(new Date(registro.hora_salida))
       const { data: reservaBloqueo } = await supabase
         .from('reservas_vehiculos_flota')
-        .select('id_usuario, nombre_usuario')
+        .select('id_usuario, nombre_usuario, hora_desde, hora_hasta')
         .eq('id_vehiculo', registro.id_vehiculo)
         .eq('fecha', fechaSalidaAr)
         .eq('estado', 'aprobada')
         .maybeSingle()
 
+      const rb = reservaBloqueo as {
+        id_usuario?: number | null
+        nombre_usuario?: string
+        hora_desde?: string | null
+        hora_hasta?: string | null
+      } | null
+
       if (
-        reservaBloqueo &&
-        reservaBloqueo.id_usuario != null &&
+        rb &&
+        rb.id_usuario != null &&
         registro.id_usuario != null &&
-        reservaBloqueo.id_usuario !== registro.id_usuario
+        rb.id_usuario !== registro.id_usuario &&
+        instanteArgentinaDentroFranjaHorariaReserva(
+          new Date(registro.hora_salida),
+          rb.hora_desde,
+          rb.hora_hasta
+        )
       ) {
+        const d = (rb.hora_desde ?? '').slice(0, 5)
+        const h = (rb.hora_hasta ?? '').slice(0, 5)
         return {
           success: false,
-          error: `Reserva del día: el vehículo está reservado para el ${fechaSalidaAr} por ${reservaBloqueo.nombre_usuario}. Solo esa persona puede solicitar salida ese día.`
+          error: `Reserva aprobada: el vehículo está asignado el ${fechaSalidaAr} entre ${d} y ${h} a ${rb.nombre_usuario ?? 'otro usuario'}. Solo esa persona puede solicitar salida en ese horario.`
         }
       }
 

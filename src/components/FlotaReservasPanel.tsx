@@ -6,7 +6,7 @@ import {
   type ItemParqueFlota,
   vehiculoPuedeSolicitarSalida
 } from '../utils/flotaVehiculosCatalogo'
-import { getArgentinaDateString } from '../utils/dateUtils'
+import { formatHoraCortaDb, getArgentinaDateString } from '../utils/dateUtils'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import './FlotaReservasPanel.css'
 
@@ -37,6 +37,13 @@ function monthMeta(ym: string) {
 function mondayOffsetFirstDay(year: number, month: number): number {
   const dow = new Date(year, month - 1, 1).getDay()
   return (dow + 6) % 7
+}
+
+function franjaReservaCorta(r: ReservaVehiculoFlota): string {
+  const a = formatHoraCortaDb(r.hora_desde ?? undefined)
+  const b = formatHoraCortaDb(r.hora_hasta ?? undefined)
+  if (!a && !b) return ''
+  return a && b ? `${a}–${b}` : a || b
 }
 
 function iniciales(nombre: string): string {
@@ -70,6 +77,8 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
   const [okMsg, setOkMsg] = useState<string | null>(null)
   const [vehiculoId, setVehiculoId] = useState('')
   const [fechaSel, setFechaSel] = useState('')
+  const [horaDesde, setHoraDesde] = useState('08:00')
+  const [horaHasta, setHoraHasta] = useState('18:00')
   const [motivo, setMotivo] = useState('')
   const [enviando, setEnviando] = useState(false)
 
@@ -141,6 +150,10 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
       setError('Elegí una fecha.')
       return
     }
+    if (!horaDesde.trim() || !horaHasta.trim()) {
+      setError('Indicá horario desde y hasta.')
+      return
+    }
     setEnviando(true)
     try {
       const res = await apiService.crearReservaVehiculoFlota({
@@ -148,6 +161,8 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
         id_usuario: usuario.id,
         nombre_usuario: usuario.nombre || `Usuario ${usuario.id}`,
         fecha: fechaSel,
+        hora_desde: horaDesde,
+        hora_hasta: horaHasta,
         motivo: motivo.trim() || null
       })
       if (res.success) {
@@ -179,11 +194,12 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
     <section className="flota-reservas-panel" aria-labelledby="flota-reservas-title">
       <div className="flota-reservas-head">
         <div>
-          <h2 id="flota-reservas-title">Reservas por día</h2>
+          <h2 id="flota-reservas-title">Reservas por día y horario</h2>
           <p>
-            Pedí con anticipación qué vehículo necesitás y en qué fecha. <strong>Caja o Administración</strong> aprueba
-            la reserva. Si un día está <span className="flota-reservas-dot aprobada" style={{ display: 'inline-block' }} />{' '}
-            aprobado para otra persona, ese vehículo no podrá pedirse para salir ese día por otro usuario.
+            Indicá vehículo, día y <strong>franja horaria</strong> en que lo necesitás. <strong>Caja o Administración</strong>{' '}
+            revisa y aprueba cada solicitud. Con reserva <span className="flota-reservas-dot aprobada" style={{ display: 'inline-block' }} />{' '}
+            aprobada, solo esa persona puede pedir salida en ese horario; fuera de esa franja el mismo día puede usarlo otro
+            usuario.
           </p>
         </div>
         <div className="flota-reservas-nav">
@@ -207,17 +223,18 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
           <span className="flota-reservas-dot pendiente" /> Pendiente de aprobación
         </span>
         <span>
-          <span className="flota-reservas-dot aprobada" /> Aprobada (solo ese usuario sale ese día)
+          <span className="flota-reservas-dot aprobada" /> Aprobada (solo ese usuario en el horario acordado)
         </span>
       </div>
 
       {error && (
         <p className="flota-reservas-msg error" role="alert">
           {error}
-          {error.includes('relation') || error.includes('does not exist') ? (
+          {error.includes('relation') || error.includes('does not exist') || error.includes('hora_desde') ? (
             <span>
               {' '}
-              Ejecutá en Supabase: <code>supabase/patches/2026-04-04_flota_reservas_dia.sql</code>
+              Ejecutá en Supabase: <code>2026-04-04_flota_reservas_dia.sql</code> y{' '}
+              <code>2026-04-05_flota_reservas_horario.sql</code>
             </span>
           ) : null}
         </p>
@@ -269,11 +286,12 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
                       </td>
                     )
                   }
+                  const franja = franjaReservaCorta(r)
                   return (
                     <td
                       key={fechaStr}
                       className={`flota-reservas-celda-slot ${r.estado === 'aprobada' ? 'aprobada' : 'pendiente'}`}
-                      title={`${etiquetaUsuarioNombre(r.nombre_usuario)} · ${r.estado === 'aprobada' ? 'Aprobada' : 'Pendiente'}`}
+                      title={`${etiquetaUsuarioNombre(r.nombre_usuario)} · ${franja ? `${franja} · ` : ''}${r.estado === 'aprobada' ? 'Aprobada' : 'Pendiente'} · Caja/Admin`}
                     >
                       <span className="iniciales">{iniciales(r.nombre_usuario)}</span>
                     </td>
@@ -320,6 +338,26 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
             disabled={esMesPasado}
           />
         </label>
+        <label>
+          Desde
+          <input
+            type="time"
+            value={horaDesde}
+            onChange={(e) => setHoraDesde(e.target.value)}
+            required
+            disabled={esMesPasado}
+          />
+        </label>
+        <label>
+          Hasta
+          <input
+            type="time"
+            value={horaHasta}
+            onChange={(e) => setHoraHasta(e.target.value)}
+            required
+            disabled={esMesPasado}
+          />
+        </label>
         <label style={{ flex: '1 1 200px' }}>
           Motivo (opcional)
           <input
@@ -340,7 +378,9 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
         <div className="flota-reservas-mis">
           <h3>Tus reservas este mes</h3>
           <ul>
-            {misReservasMes.map((r) => (
+            {misReservasMes.map((r) => {
+              const franjaMia = franjaReservaCorta(r)
+              return (
               <li key={r.id}>
                 <span className={`tag ${r.estado}`}>
                   {r.estado === 'pendiente_aprobacion'
@@ -354,14 +394,18 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
                           : r.estado}
                 </span>
                 <strong>{r.vehiculo?.nombre ?? 'Vehículo'}</strong>
-                <span>· {r.fecha}</span>
+                <span>
+                  · {r.fecha}
+                  {franjaMia ? ` · ${franjaMia}` : ''}
+                </span>
                 {r.estado === 'pendiente_aprobacion' && (
                   <button type="button" className="link-cancel" onClick={() => void cancelarMia(r.id)}>
                     Cancelar solicitud
                   </button>
                 )}
               </li>
-            ))}
+              )
+            })}
           </ul>
         </div>
       )}

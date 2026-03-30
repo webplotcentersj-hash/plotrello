@@ -208,6 +208,7 @@
 
 .flota-reservas-form select,
 .flota-reservas-form input[type='date'],
+.flota-reservas-form input[type='time'],
 .flota-reservas-form input[type='text'] {
   padding: 8px 10px;
   border-radius: 8px;
@@ -216,6 +217,10 @@
   color: #e2e8f0;
   font-size: 0.88rem;
   min-width: 160px;
+}
+
+.flota-reservas-form input[type='time'] {
+  min-width: 118px;
 }
 
 .flota-reservas-form button[type='submit'] {

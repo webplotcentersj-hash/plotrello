@@ -1121,6 +1121,10 @@ export interface ReservaVehiculoFlota {
   nombre_usuario: string
   /** YYYY-MM-DD (día calendario en uso operativo AR) */
   fecha: string
+  /** HH:MM:SS (zona operativa AR, mismo día que fecha) */
+  hora_desde?: string | null
+  /** HH:MM:SS inclusive */
+  hora_hasta?: string | null
   estado: ReservaVehiculoFlotaEstado
   motivo?: string | null
   id_usuario_reviso?: number | null
