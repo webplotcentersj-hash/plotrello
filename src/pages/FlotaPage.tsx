@@ -60,8 +60,8 @@ function regsPorVehiculo(vid: number, todos: RegistroSalidaVehiculo[]) {
 
 const FlotaPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja, usuario } = useAuth()
-  const canAutorizar = isAdmin || isCaja
+  const { isAdmin, isCaja, usuario, loading: authLoading } = useAuth()
+  const canAutorizar = !authLoading && (isAdmin || isCaja)
 
   const [itemsParque, setItemsParque] = useState<ItemParqueFlota[]>([])
   const [registros, setRegistros] = useState<RegistroSalidaVehiculo[]>([])

@@ -32,6 +32,20 @@
   font-size: 0.95rem;
 }
 
+.flota-admin-solicitudes-badge {
+  margin: 10px 0 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.9rem;
+  border: 1px solid #fcd34d;
+}
+
+.flota-admin-solicitudes-badge strong {
+  font-size: 1.05rem;
+}
+
 .filtros-section,
 .estadisticas-section,
 .retrasados-section {
@@ -231,6 +245,26 @@
   color: #475569;
   font-size: 0.95rem;
   line-height: 1.45;
+}
+
+.flota-reservas-admin-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.flota-reservas-admin-title-row h2 {
+  margin: 0;
+}
+
+.flota-reservas-admin-section .btn-sm {
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 .parque-error {

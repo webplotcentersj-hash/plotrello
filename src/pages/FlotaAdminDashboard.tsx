@@ -22,7 +22,7 @@ const OPCIONES_ESTADO_PARQUE: { value: VehiculoEstadoParque; label: string }[] =
 
 const FlotaAdminDashboard = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja, usuario } = useAuth()
+  const { isAdmin, isCaja, usuario, loading: authLoading } = useAuth()
   const [estadisticas, setEstadisticas] = useState<{
     total_salidas: number
     vehiculos_en_uso: number
@@ -38,7 +38,7 @@ const FlotaAdminDashboard = () => {
   const [fechaHasta, setFechaHasta] = useState<string>(
     new Date().toISOString().split('T')[0]
   )
-  const [loading, setLoading] = useState(true)
+  const [estadisticasLoading, setEstadisticasLoading] = useState(false)
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
   const [edits, setEdits] = useState<
     Record<number, { estado: VehiculoEstadoParque; detalle: string }>
@@ -49,20 +49,27 @@ const FlotaAdminDashboard = () => {
   const [errorVehiculos, setErrorVehiculos] = useState<string | null>(null)
   const [reservasPendientes, setReservasPendientes] = useState<ReservaVehiculoFlota[]>([])
   const [loadingReservas, setLoadingReservas] = useState(false)
+  const [errorReservas, setErrorReservas] = useState<string | null>(null)
   const [reservaAccionId, setReservaAccionId] = useState<number | null>(null)
 
   const loadReservasPendientes = useCallback(async () => {
     setLoadingReservas(true)
+    setErrorReservas(null)
     try {
       const r = await apiService.getReservasVehiculosFlota({
         fechaDesde: '2000-01-01',
         fechaHasta: '2100-12-31',
         estado: 'pendiente_aprobacion'
       })
-      if (r.success && r.data) setReservasPendientes(r.data)
-      else setReservasPendientes([])
-    } catch {
+      if (r.success && r.data) {
+        setReservasPendientes(r.data)
+      } else {
+        setReservasPendientes([])
+        setErrorReservas(r.error ?? 'No se pudieron cargar las solicitudes de reserva.')
+      }
+    } catch (e) {
       setReservasPendientes([])
+      setErrorReservas(e instanceof Error ? e.message : 'Error al cargar reservas.')
     } finally {
       setLoadingReservas(false)
     }
@@ -164,7 +171,7 @@ const FlotaAdminDashboard = () => {
   }
 
   const loadEstadisticas = useCallback(async () => {
-    setLoading(true)
+    setEstadisticasLoading(true)
     try {
       const response = await apiService.getEstadisticasFlota(fechaDesde, fechaHasta)
       if (response.success && response.data) {
@@ -174,11 +181,12 @@ const FlotaAdminDashboard = () => {
     } catch (error) {
       console.error('Error cargando estadísticas:', error)
     } finally {
-      setLoading(false)
+      setEstadisticasLoading(false)
     }
   }, [fechaDesde, fechaHasta])
 
   useEffect(() => {
+    if (authLoading) return
     if (!isAdmin && !isCaja) {
       navigate('/flota')
       return
@@ -187,26 +195,37 @@ const FlotaAdminDashboard = () => {
     void loadVehiculos()
     void loadReservasPendientes()
 
-    // Recargar cada 60 segundos
-    const interval = setInterval(() => {
-      void loadEstadisticas()
+    const pollReservas = window.setInterval(() => {
       void loadReservasPendientes()
-      // No recargar vehículos en intervalo: evita pisar el formulario de estado si hay edición sin guardar
+    }, 15000)
+    const pollStats = window.setInterval(() => {
+      void loadEstadisticas()
     }, 60000)
 
-    return () => clearInterval(interval)
-  }, [loadEstadisticas, loadVehiculos, loadReservasPendientes, isAdmin, isCaja, navigate])
+    return () => {
+      window.clearInterval(pollReservas)
+      window.clearInterval(pollStats)
+    }
+  }, [
+    authLoading,
+    loadEstadisticas,
+    loadVehiculos,
+    loadReservasPendientes,
+    isAdmin,
+    isCaja,
+    navigate
+  ])
+
+  if (authLoading) {
+    return (
+      <div className="flota-admin-page">
+        <div style={{ textAlign: 'center', padding: '40px' }}>Cargando sesión…</div>
+      </div>
+    )
+  }
 
   if (!isAdmin && !isCaja) {
     return null
-  }
-
-  if (loading) {
-    return (
-      <div className="flota-admin-page">
-        <div style={{ textAlign: 'center', padding: '40px' }}>Cargando...</div>
-      </div>
-    )
   }
 
   return (
@@ -216,11 +235,99 @@ const FlotaAdminDashboard = () => {
           <div>
             <h1>Panel de Administración - Flota</h1>
             <p>Estadísticas y gestión de vehículos</p>
+            {reservasPendientes.length > 0 && (
+              <p className="flota-admin-solicitudes-badge" role="status">
+                <strong>{reservasPendientes.length}</strong> solicitud
+                {reservasPendientes.length === 1 ? '' : 'es'} de reserva pendiente
+                {reservasPendientes.length === 1 ? '' : 's'} (actualización cada 15 s).
+              </p>
+            )}
           </div>
-          <button className="btn-secondary" onClick={() => navigate('/flota')}>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/flota')}>
             ← Volver a Flota
           </button>
         </header>
+
+        <section className="parque-section flota-reservas-admin-section">
+          <div className="flota-reservas-admin-title-row">
+            <h2>Reservas de vehículos (pendientes de aprobación)</h2>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => void loadReservasPendientes()}>
+              Actualizar solicitudes
+            </button>
+          </div>
+          <p className="parque-section-desc">
+            Los usuarios piden día, <strong>franja horaria</strong> y vehículo desde <strong>Flota</strong>. Caja o
+            Administración <strong>aprueba o rechaza</strong> aquí. Si aprobás, solo esa persona puede solicitar salida
+            dentro de ese horario ese día; fuera de la franja puede pedirla otro usuario.
+          </p>
+          {errorReservas && (
+            <div className="parque-error" role="alert">
+              {errorReservas}
+              <span className="parque-error-hint">
+                {' '}
+                Si falta la tabla o columnas: <code>2026-04-04_flota_reservas_dia.sql</code>,{' '}
+                <code>2026-04-05_flota_reservas_horario.sql</code>.
+              </span>
+            </div>
+          )}
+          {loadingReservas && reservasPendientes.length === 0 && !errorReservas ? (
+            <p>Cargando solicitudes…</p>
+          ) : reservasPendientes.length === 0 && !errorReservas ? (
+            <p className="flota-reservas-admin-vacio">No hay reservas pendientes.</p>
+          ) : reservasPendientes.length > 0 ? (
+            <div className="parque-table-wrap">
+              <table className="parque-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Horario</th>
+                    <th>Vehículo</th>
+                    <th>Solicitante</th>
+                    <th>Motivo</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reservasPendientes.map((res) => (
+                    <tr key={res.id}>
+                      <td>{res.fecha}</td>
+                      <td>
+                        {res.hora_desde != null && res.hora_hasta != null
+                          ? `${formatHoraCortaDb(res.hora_desde)}–${formatHoraCortaDb(res.hora_hasta)}`
+                          : '—'}
+                      </td>
+                      <td>
+                        <strong>{res.vehiculo?.nombre ?? '—'}</strong>
+                      </td>
+                      <td>{etiquetaUsuarioNombre(res.nombre_usuario)}</td>
+                      <td>{res.motivo?.trim() ? res.motivo : '—'}</td>
+                      <td>
+                        <div className="parque-actions-cell">
+                          <button
+                            type="button"
+                            className="btn-primary btn-parque-save"
+                            disabled={reservaAccionId != null}
+                            onClick={() => void aprobarReservaFlota(res.id)}
+                          >
+                            {reservaAccionId === res.id ? '…' : 'Aprobar'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-parque-delete"
+                            disabled={reservaAccionId != null}
+                            onClick={() => void rechazarReservaFlota(res.id)}
+                          >
+                            {reservaAccionId === res.id ? '…' : 'Rechazar'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
 
         <section className="parque-section">
           <h2>Estado del parque (vehículos)</h2>
@@ -333,72 +440,6 @@ const FlotaAdminDashboard = () => {
           )}
         </section>
 
-        <section className="parque-section flota-reservas-admin-section">
-          <h2>Reservas de vehículos (pendientes de aprobación)</h2>
-          <p className="parque-section-desc">
-            Los usuarios piden día, <strong>franja horaria</strong> y vehículo desde <strong>Flota</strong>. Caja o
-            Administración <strong>aprueba o rechaza</strong> aquí. Si aprobás, solo esa persona puede solicitar salida
-            dentro de ese horario ese día; fuera de la franja puede pedirla otro usuario.
-          </p>
-          {loadingReservas && reservasPendientes.length === 0 ? (
-            <p>Cargando solicitudes…</p>
-          ) : reservasPendientes.length === 0 ? (
-            <p className="flota-reservas-admin-vacio">No hay reservas pendientes.</p>
-          ) : (
-            <div className="parque-table-wrap">
-              <table className="parque-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Horario</th>
-                    <th>Vehículo</th>
-                    <th>Solicitante</th>
-                    <th>Motivo</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reservasPendientes.map((res) => (
-                    <tr key={res.id}>
-                      <td>{res.fecha}</td>
-                      <td>
-                        {res.hora_desde != null && res.hora_hasta != null
-                          ? `${formatHoraCortaDb(res.hora_desde)}–${formatHoraCortaDb(res.hora_hasta)}`
-                          : '—'}
-                      </td>
-                      <td>
-                        <strong>{res.vehiculo?.nombre ?? '—'}</strong>
-                      </td>
-                      <td>{etiquetaUsuarioNombre(res.nombre_usuario)}</td>
-                      <td>{res.motivo?.trim() ? res.motivo : '—'}</td>
-                      <td>
-                        <div className="parque-actions-cell">
-                          <button
-                            type="button"
-                            className="btn-primary btn-parque-save"
-                            disabled={reservaAccionId != null}
-                            onClick={() => void aprobarReservaFlota(res.id)}
-                          >
-                            {reservaAccionId === res.id ? '…' : 'Aprobar'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-parque-delete"
-                            disabled={reservaAccionId != null}
-                            onClick={() => void rechazarReservaFlota(res.id)}
-                          >
-                            {reservaAccionId === res.id ? '…' : 'Rechazar'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
         {/* Filtros de Fecha */}
         <section className="filtros-section">
           <h2>Filtros</h2>
@@ -426,6 +467,12 @@ const FlotaAdminDashboard = () => {
         </section>
 
         {/* Estadísticas */}
+        {estadisticasLoading && !estadisticas && (
+          <section className="estadisticas-section">
+            <h2>Estadísticas</h2>
+            <p style={{ color: '#94a3b8', margin: 0 }}>Cargando estadísticas de flota…</p>
+          </section>
+        )}
         {estadisticas && (
           <section className="estadisticas-section">
             <h2>Estadísticas</h2>
