@@ -597,6 +597,19 @@ const TaskCardInner = ({
                 ✏️
               </button>
             )}
+            {task.status === 'presupuestos' && task.fichaTecnicaPdfUrl && (
+              <button
+                type="button"
+                className="task-action-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  window.open(task.fichaTecnicaPdfUrl as string, '_blank', 'noopener,noreferrer')
+                }}
+                title="Ver ficha técnica (PDF)"
+              >
+                📄
+              </button>
+            )}
             {onDelete && (
               <button
                 type="button"

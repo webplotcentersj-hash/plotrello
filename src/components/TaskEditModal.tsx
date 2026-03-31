@@ -1621,8 +1621,13 @@ const TaskEditModal = ({
             </div>
           )}
 
-          {/* Sección de Checklists (solo para fichas No OP y si hay planilla preliminar) */}
-          {task?.esFichaNoOP && (planillaPreliminar || fichaRelacionadaTienePlanillaPreliminar) && (
+          {/* Sección de Checklists (fichas No OP).
+              En DT, Presupuestos necesita verlos siempre al llegar a su columna. */}
+          {task?.esFichaNoOP &&
+            (task.status === 'presupuestos' ||
+              task.assignedSector === 'Presupuestos' ||
+              planillaPreliminar ||
+              fichaRelacionadaTienePlanillaPreliminar) && (
             <div className="form-group">
               <label>Checklist</label>
               <div className="checklist-section">
