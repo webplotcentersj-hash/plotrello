@@ -241,6 +241,7 @@ const MisPedidosPage = () => {
           <option value="Aprobado">Aprobado</option>
           <option value="Rechazado">Rechazado</option>
           <option value="En Compra">En Compra</option>
+          <option value="En Viaje">En Viaje</option>
           <option value="Completado">Completado</option>
           <option value="Cancelado">Cancelado</option>
         </select>

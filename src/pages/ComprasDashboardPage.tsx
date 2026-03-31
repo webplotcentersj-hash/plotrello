@@ -136,12 +136,13 @@ const ComprasDashboardPage = () => {
 
   const loadDatosGraficos = (todosPedidos: PedidoCompra[]) => {
     // Pedidos por estado (Pie Chart)
-    const estados = ['Pendiente', 'En Revisión', 'Aprobado', 'En Compra', 'Completado', 'Rechazado']
+    const estados = ['Pendiente', 'En Revisión', 'Aprobado', 'En Compra', 'En Viaje', 'Completado', 'Rechazado']
     const coloresEstados: Record<string, string> = {
       'Pendiente': '#f59e0b',
       'En Revisión': '#3b82f6',
       'Aprobado': '#10b981',
       'En Compra': '#8b5cf6',
+      'En Viaje': '#22c55e',
       'Completado': '#059669',
       'Rechazado': '#ef4444'
     }
@@ -236,6 +237,7 @@ const ComprasDashboardPage = () => {
     const enRevision = pedidos.filter(p => p.estado === 'En Revisión').length
     const aprobados = pedidos.filter(p => p.estado === 'Aprobado').length
     const enCompra = pedidos.filter(p => p.estado === 'En Compra').length
+    const enViaje = pedidos.filter(p => p.estado === 'En Viaje').length
     const completados = pedidos.filter(p => p.estado === 'Completado').length
     const rechazados = pedidos.filter(p => p.estado === 'Rechazado').length
 
@@ -245,6 +247,7 @@ const ComprasDashboardPage = () => {
       enRevision,
       aprobados,
       enCompra,
+      enViaje,
       completados,
       rechazados
     }
@@ -259,6 +262,7 @@ const ComprasDashboardPage = () => {
       'Aprobado': '#10b981',
       'Rechazado': '#ef4444',
       'En Compra': '#8b5cf6',
+      'En Viaje': '#22c55e',
       'Completado': '#059669',
       'Cancelado': '#6b7280'
     }
@@ -375,6 +379,10 @@ const ComprasDashboardPage = () => {
             <div className="stat-value">{stats.enCompra}</div>
             <div className="stat-label">En Compra</div>
           </div>
+          <div className="stat-card success">
+            <div className="stat-value">{stats.enViaje}</div>
+            <div className="stat-label">En Viaje</div>
+          </div>
           <div className="stat-card completed">
             <div className="stat-value">{stats.completados}</div>
             <div className="stat-label">Completados</div>
@@ -414,6 +422,12 @@ const ComprasDashboardPage = () => {
             onClick={() => setFiltroEstado('En Compra')}
           >
             En Compra
+          </button>
+          <button
+            className={`filter-btn ${filtroEstado === 'En Viaje' ? 'active' : ''}`}
+            onClick={() => setFiltroEstado('En Viaje')}
+          >
+            En Viaje
           </button>
         </div>
       </section>

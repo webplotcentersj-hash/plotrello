@@ -184,6 +184,7 @@ const PedidoCompraDetallePage = () => {
       'Aprobado': '#10b981',
       'Rechazado': '#ef4444',
       'En Compra': '#8b5cf6',
+      'En Viaje': '#22c55e',
       'Completado': '#059669',
       'Cancelado': '#6b7280'
     }
@@ -669,6 +670,7 @@ const PedidoCompraDetallePage = () => {
                     <option value="En Revisión">En Revisión</option>
                     <option value="Aprobado">Aprobado</option>
                     <option value="En Compra">En Compra</option>
+                    <option value="En Viaje">En Viaje</option>
                     <option value="Completado">Completado</option>
                     <option value="Rechazado">Rechazado</option>
                     <option value="Cancelado">Cancelado</option>

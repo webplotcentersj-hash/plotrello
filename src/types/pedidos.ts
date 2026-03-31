@@ -6,6 +6,7 @@ export type EstadoPedido =
   | 'Aprobado'
   | 'Rechazado'
   | 'En Compra'
+  | 'En Viaje'
   | 'Completado'
   | 'Cancelado'
 
