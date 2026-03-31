@@ -33,7 +33,8 @@ const TG_ETAPAS: SectorEtapaColumnDef[] = [
   { id: 'Para Rotular', label: 'Para Rotular', accent: '#8b5cf6' },
   { id: 'Instalaciones/Ploteo', label: 'Instalaciones/Ploteo', accent: '#10b981' },
   { id: 'Metalurgica Instalacion', label: 'Metalurgica Instalacion', accent: '#ec4899' },
-  { id: 'laminas', label: 'laminas', accent: '#06b6d4' }
+  { id: 'laminas', label: 'laminas', accent: '#06b6d4' },
+  { id: 'FINALIZADO TG', label: 'FINALIZADO TG', accent: '#22c55e' }
 ]
 
 const INST_ETAPAS: SectorEtapaColumnDef[] = [

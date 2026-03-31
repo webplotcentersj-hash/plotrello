@@ -243,7 +243,8 @@ const TaskCardInner = ({
         'Para Rotular': '#8b5cf6',
         'Instalaciones/Ploteo': '#10b981',
         'Metalurgica Instalacion': '#ec4899',
-        'laminas': '#06b6d4'
+        'laminas': '#06b6d4',
+        'FINALIZADO TG': '#22c55e'
       }
       const iconos: Record<string, string> = {
         'Falta Material para Impresión o archivo': '⚠️',
@@ -252,7 +253,8 @@ const TaskCardInner = ({
         'Para Rotular': '🏷️',
         'Instalaciones/Ploteo': '🚚',
         'Metalurgica Instalacion': '🔧',
-        'laminas': '📄'
+        'laminas': '📄',
+        'FINALIZADO TG': '✅'
       }
       return { color: colores[etapa] || '#6b7280', icon: iconos[etapa] || '📍' }
     }

@@ -10,7 +10,8 @@ const ETAPAS_TALLER_GRAFICO = [
   'Para Rotular',
   'Instalaciones/Ploteo',
   'Metalurgica Instalacion',
-  'laminas'
+  'laminas',
+  'FINALIZADO TG'
 ] as const
 
 const ETAPAS_ICONOS: Record<string, string> = {
@@ -20,7 +21,8 @@ const ETAPAS_ICONOS: Record<string, string> = {
   'Para Rotular': '🏷️',
   'Instalaciones/Ploteo': '🚚',
   'Metalurgica Instalacion': '🔧',
-  'laminas': '📄'
+  'laminas': '📄',
+  'FINALIZADO TG': '✅'
 }
 
 const ETAPAS_COLORES: Record<string, string> = {
@@ -30,7 +32,8 @@ const ETAPAS_COLORES: Record<string, string> = {
   'Para Rotular': '#8b5cf6',
   'Instalaciones/Ploteo': '#10b981',
   'Metalurgica Instalacion': '#ec4899',
-  'laminas': '#06b6d4'
+  'laminas': '#06b6d4',
+  'FINALIZADO TG': '#22c55e'
 }
 
 type EtapaTallerGrafico = typeof ETAPAS_TALLER_GRAFICO[number]

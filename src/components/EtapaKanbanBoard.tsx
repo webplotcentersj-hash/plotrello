@@ -22,6 +22,8 @@ type EtapaKanbanBoardProps = {
   activity?: ActivityEvent[]
   sectores?: SectorRecord[]
   onEtapaMove: (taskId: string, destinationColumnId: string) => Promise<void>
+  /** Si se define, clic en tarjeta abre vista (solo lectura) */
+  onViewTask?: (task: Task) => void
 }
 
 const EtapaColumn = memo(function EtapaColumn({
@@ -34,7 +36,8 @@ const EtapaColumn = memo(function EtapaColumn({
   activityByTaskId,
   membersById,
   isBoardDragging,
-  sectores
+  sectores,
+  onViewTask
 }: {
   column: EtapaKanbanColumnModel
   tasks: Task[]
@@ -46,6 +49,7 @@ const EtapaColumn = memo(function EtapaColumn({
   membersById: Map<string, TeamMember>
   isBoardDragging: boolean
   sectores?: SectorRecord[]
+  onViewTask?: (task: Task) => void
 }) {
   const INITIAL_VISIBLE = 8
   const [showAll, setShowAll] = useState(false)
@@ -82,6 +86,7 @@ const EtapaColumn = memo(function EtapaColumn({
             members={members}
             columns={[]}
             isBoardDragging={isBoardDragging}
+            onViewTask={onViewTask}
           />
         ))}
         {droppableProvided.placeholder}
@@ -102,7 +107,8 @@ const EtapaKanbanBoard = ({
   members,
   activity = [],
   sectores,
-  onEtapaMove
+  onEtapaMove,
+  onViewTask
 }: EtapaKanbanBoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
 
@@ -169,6 +175,7 @@ const EtapaKanbanBoard = ({
                   activityByTaskId={activityByTaskId}
                   membersById={membersById}
                   sectores={sectores}
+                  onViewTask={onViewTask}
                 />
               )}
             </Droppable>

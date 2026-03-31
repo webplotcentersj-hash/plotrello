@@ -40,7 +40,8 @@ const getEtapaColor = (etapa: string): string => {
     'Para Rotular': '#8b5cf6', // Violeta
     'Instalaciones/Ploteo': '#10b981', // Verde
     'Metalurgica Instalacion': '#ec4899', // Rosa
-    'laminas': '#06b6d4' // Cian
+    'laminas': '#06b6d4', // Cian
+    'FINALIZADO TG': '#22c55e' // Verde
   }
   return colores[etapa] || '#6b7280'
 }
@@ -53,7 +54,8 @@ const getEtapaIcon = (etapa: string): string => {
     'Para Rotular': '🏷️',
     'Instalaciones/Ploteo': '🚚',
     'Metalurgica Instalacion': '🔧',
-    'laminas': '📄'
+    'laminas': '📄',
+    'FINALIZADO TG': '✅'
   }
   return iconos[etapa] || '📍'
 }

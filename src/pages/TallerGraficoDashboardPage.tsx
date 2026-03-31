@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import EtapaKanbanBoard from '../components/EtapaKanbanBoard'
+import TaskViewModal from '../components/TaskViewModal'
 import apiService from '../services/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { ordenToTask, parseTaskIdToOrdenId } from '../utils/dataMappers'
@@ -43,6 +44,7 @@ export default function TallerGraficoDashboardPage({ tasks, setTasks, teamMember
 
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
+  const [viewTask, setViewTask] = useState<Task | null>(null)
 
   const [bgPref, setBgPref] = useState<BgPref>(DEFAULT_BG)
   const [savingBg, setSavingBg] = useState(false)
@@ -247,7 +249,17 @@ export default function TallerGraficoDashboardPage({ tasks, setTasks, teamMember
         activity={activityScoped}
         sectores={sectores}
         onEtapaMove={handleEtapaMove}
+        onViewTask={(t) => setViewTask(t)}
       />
+
+      {viewTask && (
+        <TaskViewModal
+          task={viewTask}
+          teamMembers={teamMembers}
+          sectores={sectores}
+          onClose={() => setViewTask(null)}
+        />
+      )}
     </div>
   )
 }

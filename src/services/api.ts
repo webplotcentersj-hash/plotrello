@@ -7522,6 +7522,23 @@ class ApiService {
         })
 
         if (error) return { success: false, error: error.message }
+
+        // Si se marca como finalizado TG, también pasar a "Finalizado en Taller" (tablero general)
+        if (nuevaEtapa === 'FINALIZADO TG') {
+          const { error: updateEstadoError } = await supabase
+            .from('ordenes_trabajo')
+            .update({ estado: 'Finalizado en Taller' })
+            .eq('id', ordenId)
+
+          if (updateEstadoError) return { success: false, error: updateEstadoError.message }
+
+          await this.registrarCambioHistorial(
+            ordenId,
+            estadoActual,
+            'Finalizado en Taller',
+            'Taller Gráfico finalizado (FINALIZADO TG)'
+          )
+        }
         
         // Registrar cambio de etapa en historial_movimientos
         await this.registrarCambioHistorial(
