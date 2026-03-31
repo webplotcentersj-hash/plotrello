@@ -873,7 +873,9 @@ class ApiService {
       // Obtener estado anterior antes de actualizar
       const { data: ordenAnterior } = await supabaseClient
         .from('ordenes_trabajo')
-        .select('estado, operario_asignado, sector, prioridad')
+        .select(
+          'estado, operario_asignado, sector, prioridad, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera'
+        )
         .eq('id', id)
         .maybeSingle()
       
@@ -881,6 +883,11 @@ class ApiService {
       const operarioAnterior = ordenAnterior?.operario_asignado || null
       const sectorAnterior = ordenAnterior?.sector || null
       const prioridadAnterior = ordenAnterior?.prioridad || null
+      const planillaAnterior = (ordenAnterior as any)?.planilla_preliminar ?? null
+      const fichaCargadaAnterior = (ordenAnterior as any)?.ficha_tecnica_cargada ?? null
+      const presupuestoEnviadoAnterior = (ordenAnterior as any)?.presupuesto_enviado_cliente ?? null
+      const presupuestoArmadoAnterior = (ordenAnterior as any)?.presupuesto_armado ?? null
+      const presupuestoEnEsperaAnterior = (ordenAnterior as any)?.presupuesto_en_espera ?? null
       
       // SOLUCIÓN DIRECTA: Si hay campos de contacto, usar función SQL que evita schema cache
       if (orden.telefono_cliente || orden.direccion_cliente || orden.drive_link || 
@@ -920,8 +927,14 @@ class ApiService {
               const operarioNuevo = fullOrden.operario_asignado || null
               const sectorNuevo = fullOrden.sector || null
               const prioridadNueva = fullOrden.prioridad || null
+              const planillaNueva = (fullOrden as any)?.planilla_preliminar ?? null
+              const fichaCargadaNueva = (fullOrden as any)?.ficha_tecnica_cargada ?? null
+              const presupuestoEnviadoNuevo = (fullOrden as any)?.presupuesto_enviado_cliente ?? null
+              const presupuestoArmadoNuevo = (fullOrden as any)?.presupuesto_armado ?? null
+              const presupuestoEnEsperaNuevo = (fullOrden as any)?.presupuesto_en_espera ?? null
               
               const cambios: string[] = []
+              let checklistChanged = false
               
               if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
                 cambios.push(`Estado: ${estadoAnterior || 'N/A'} → ${estadoNuevo}`)
@@ -946,6 +959,33 @@ class ApiService {
               if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
                 cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${prioridadNueva}`)
               }
+
+              const pushBool = (
+                label: string,
+                prev: boolean | null | undefined,
+                next: boolean | null | undefined
+              ) => {
+                if (prev === next) return
+                checklistChanged = true
+                const prevTxt = prev === true ? 'Sí' : 'No'
+                const nextTxt = next === true ? 'Sí' : 'No'
+                cambios.push(`${label}: ${prevTxt} → ${nextTxt}`)
+              }
+
+              // Checklist / DT (registrar también destildados)
+              pushBool('Planilla preliminar', planillaAnterior, planillaNueva)
+              pushBool('Ficha técnica cargada', fichaCargadaAnterior, fichaCargadaNueva)
+              pushBool(
+                'Presupuesto enviado',
+                presupuestoEnviadoAnterior,
+                presupuestoEnviadoNuevo
+              )
+              pushBool('Presupuesto armado', presupuestoArmadoAnterior, presupuestoArmadoNuevo)
+              pushBool(
+                'Presupuesto en espera',
+                presupuestoEnEsperaAnterior,
+                presupuestoEnEsperaNuevo
+              )
               
               // Si hay cambios en el payload original, también registrarlos
               if (orden.estado && orden.estado !== estadoAnterior) {
@@ -978,12 +1018,36 @@ class ApiService {
                 if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
                   cambiosDetallados.prioridad = { anterior: prioridadAnterior, nuevo: prioridadNueva }
                 }
+
+                // Checklist / DT
+                if (planillaAnterior !== planillaNueva) {
+                  cambiosDetallados.planilla_preliminar = { anterior: planillaAnterior, nuevo: planillaNueva }
+                }
+                if (fichaCargadaAnterior !== fichaCargadaNueva) {
+                  cambiosDetallados.ficha_tecnica_cargada = { anterior: fichaCargadaAnterior, nuevo: fichaCargadaNueva }
+                }
+                if (presupuestoEnviadoAnterior !== presupuestoEnviadoNuevo) {
+                  cambiosDetallados.presupuesto_enviado_cliente = {
+                    anterior: presupuestoEnviadoAnterior,
+                    nuevo: presupuestoEnviadoNuevo
+                  }
+                }
+                if (presupuestoArmadoAnterior !== presupuestoArmadoNuevo) {
+                  cambiosDetallados.presupuesto_armado = { anterior: presupuestoArmadoAnterior, nuevo: presupuestoArmadoNuevo }
+                }
+                if (presupuestoEnEsperaAnterior !== presupuestoEnEsperaNuevo) {
+                  cambiosDetallados.presupuesto_en_espera = {
+                    anterior: presupuestoEnEsperaAnterior,
+                    nuevo: presupuestoEnEsperaNuevo
+                  }
+                }
                 
                 // Determinar tipo de acción
                 let accionTipo = 'actualizacion'
                 if (estadoAnterior !== estadoNuevo) accionTipo = 'cambio_estado'
                 else if (trim(operarioAnterior) !== trim(operarioNuevo)) accionTipo = 'cambio_operario'
                 else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
+                else if (checklistChanged) accionTipo = 'checklist'
                 
                 await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo || orden.estado || null, comentario, accionTipo, cambiosDetallados)
               }
@@ -1171,9 +1235,17 @@ class ApiService {
       const operarioNuevo = ordenToUpdate.operario_asignado || data?.operario_asignado || null
       const sectorNuevo = ordenToUpdate.sector || data?.sector || null
       const prioridadNueva = ordenToUpdate.prioridad || data?.prioridad || null
+      const planillaNueva = (ordenToUpdate as any)?.planilla_preliminar ?? (data as any)?.planilla_preliminar ?? null
+      const fichaCargadaNueva = (ordenToUpdate as any)?.ficha_tecnica_cargada ?? (data as any)?.ficha_tecnica_cargada ?? null
+      const presupuestoEnviadoNuevo =
+        (ordenToUpdate as any)?.presupuesto_enviado_cliente ?? (data as any)?.presupuesto_enviado_cliente ?? null
+      const presupuestoArmadoNuevo = (ordenToUpdate as any)?.presupuesto_armado ?? (data as any)?.presupuesto_armado ?? null
+      const presupuestoEnEsperaNuevo =
+        (ordenToUpdate as any)?.presupuesto_en_espera ?? (data as any)?.presupuesto_en_espera ?? null
       
       // Construir comentario descriptivo
       const cambios: string[] = []
+      let checklistChanged = false
       
       if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
         cambios.push(`Estado: ${estadoAnterior || 'N/A'} → ${estadoNuevo}`)
@@ -1198,6 +1270,21 @@ class ApiService {
       if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
         cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${prioridadNueva}`)
       }
+
+      const pushBool = (label: string, prev: boolean | null | undefined, next: boolean | null | undefined) => {
+        if (prev === next) return
+        checklistChanged = true
+        const prevTxt = prev === true ? 'Sí' : 'No'
+        const nextTxt = next === true ? 'Sí' : 'No'
+        cambios.push(`${label}: ${prevTxt} → ${nextTxt}`)
+      }
+
+      // Checklist / DT (registrar también destildados)
+      pushBool('Planilla preliminar', planillaAnterior, planillaNueva)
+      pushBool('Ficha técnica cargada', fichaCargadaAnterior, fichaCargadaNueva)
+      pushBool('Presupuesto enviado', presupuestoEnviadoAnterior, presupuestoEnviadoNuevo)
+      pushBool('Presupuesto armado', presupuestoArmadoAnterior, presupuestoArmadoNuevo)
+      pushBool('Presupuesto en espera', presupuestoEnEsperaAnterior, presupuestoEnEsperaNuevo)
       
       // Registrar SIEMPRE si hay cambios relevantes (AUDITORÍA PROFESIONAL)
       if (cambios.length > 0) {
@@ -1216,12 +1303,36 @@ class ApiService {
         if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
           cambiosDetallados.prioridad = { anterior: prioridadAnterior, nuevo: prioridadNueva }
         }
+
+        // Checklist / DT
+        if (planillaAnterior !== planillaNueva) {
+          cambiosDetallados.planilla_preliminar = { anterior: planillaAnterior, nuevo: planillaNueva }
+        }
+        if (fichaCargadaAnterior !== fichaCargadaNueva) {
+          cambiosDetallados.ficha_tecnica_cargada = { anterior: fichaCargadaAnterior, nuevo: fichaCargadaNueva }
+        }
+        if (presupuestoEnviadoAnterior !== presupuestoEnviadoNuevo) {
+          cambiosDetallados.presupuesto_enviado_cliente = {
+            anterior: presupuestoEnviadoAnterior,
+            nuevo: presupuestoEnviadoNuevo
+          }
+        }
+        if (presupuestoArmadoAnterior !== presupuestoArmadoNuevo) {
+          cambiosDetallados.presupuesto_armado = { anterior: presupuestoArmadoAnterior, nuevo: presupuestoArmadoNuevo }
+        }
+        if (presupuestoEnEsperaAnterior !== presupuestoEnEsperaNuevo) {
+          cambiosDetallados.presupuesto_en_espera = {
+            anterior: presupuestoEnEsperaAnterior,
+            nuevo: presupuestoEnEsperaNuevo
+          }
+        }
         
         // Determinar tipo de acción
         let accionTipo = 'actualizacion'
         if (estadoAnterior !== estadoNuevo) accionTipo = 'cambio_estado'
         else if (trim(operarioAnterior) !== trim(operarioNuevo)) accionTipo = 'cambio_operario'
         else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
+        else if (checklistChanged) accionTipo = 'checklist'
         
         await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo, comentario, accionTipo, cambiosDetallados)
       }
