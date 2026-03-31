@@ -500,7 +500,8 @@ body.compact-mode .task-actions {
 .priority-led-indicator {
   position: absolute;
   right: 8px;
-  top: 8px;
+  bottom: 8px;
+  top: auto;
   left: auto;
   transform: none;
   width: 7px;
