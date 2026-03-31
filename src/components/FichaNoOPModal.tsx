@@ -8,6 +8,7 @@ import type { Task } from '../types/board'
 import { parseTaskIdToOrdenId, taskToOrdenPayload } from '../utils/dataMappers'
 import QRPrintView from './QRPrintView'
 import './FichaNoOPModal.css'
+import './TaskEditModal.css'
 
 type AdjuntoItem = {
   id: string

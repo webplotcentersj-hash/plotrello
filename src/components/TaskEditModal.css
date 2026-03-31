@@ -1159,6 +1159,13 @@
   transition: all 0.2s;
 }
 
+/* Asegurar texto visible y en negrita (DT / Ficha No OP) */
+.checklist-item span {
+  color: var(--text-primary);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .checklist-item:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(102, 126, 234, 0.4);
