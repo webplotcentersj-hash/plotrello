@@ -5174,6 +5174,87 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  /**
+   * Actualizar pedido de compra + reemplazar items (uso: "Mis pedidos", antes de que Compras lo procese).
+   * Estrategia: actualizar cabecera, borrar items, insertar nuevos; si falla inserción, reintenta restaurar items anteriores.
+   */
+  async actualizarPedidoCompraConItems(
+    id: number,
+    updates: Partial<PedidoCompra>,
+    items: Array<{
+      id_articulo_stock?: number | null
+      codigo_articulo?: string | null
+      descripcion: string
+      cantidad_solicitada: number
+      unidad: string
+      observaciones?: string | null
+    }>
+  ): Promise<ApiResponse<PedidoCompra>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      // snapshot items actuales para poder restaurar si algo falla
+      const { data: prevItems, error: prevErr } = await supabase
+        .from('pedidos_compras_items')
+        .select('*')
+        .eq('id_pedido', id)
+
+      if (prevErr) return { success: false, error: prevErr.message }
+
+      const updateRes = await this.actualizarPedidoCompra(id, updates)
+      if (!updateRes.success) return updateRes
+
+      const { error: delErr } = await supabase
+        .from('pedidos_compras_items')
+        .delete()
+        .eq('id_pedido', id)
+      if (delErr) return { success: false, error: delErr.message }
+
+      const nextItems = (items || [])
+        .filter((it) => String(it.descripcion || '').trim() !== '')
+        .map((it) => ({
+          id_pedido: id,
+          id_articulo_stock: it.id_articulo_stock ?? null,
+          codigo_articulo: it.codigo_articulo ?? null,
+          descripcion: it.descripcion,
+          cantidad_solicitada: it.cantidad_solicitada,
+          unidad: it.unidad || 'unidad',
+          observaciones: it.observaciones ?? null
+        }))
+
+      if (nextItems.length > 0) {
+        const { error: insErr } = await supabase.from('pedidos_compras_items').insert(nextItems)
+        if (insErr) {
+          // best-effort: restaurar items previos
+          try {
+            if (Array.isArray(prevItems) && prevItems.length > 0) {
+              await supabase.from('pedidos_compras_items').insert(
+                prevItems.map((r: any) => ({
+                  id_pedido: id,
+                  id_articulo_stock: r.id_articulo_stock ?? null,
+                  codigo_articulo: r.codigo_articulo ?? null,
+                  descripcion: r.descripcion,
+                  cantidad_solicitada: r.cantidad_solicitada,
+                  unidad: r.unidad || 'unidad',
+                  observaciones: r.observaciones ?? null
+                }))
+              )
+            }
+          } catch {
+            // ignore restore failures
+          }
+          return { success: false, error: insErr.message }
+        }
+      }
+
+      return await this.getPedidoCompra(id)
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   async actualizarEstadoPedido(
     id: number,
     estado: EstadoPedido

@@ -12,6 +12,24 @@ const MisPedidosPage = () => {
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
+  const [editPedido, setEditPedido] = useState<PedidoCompra | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editForm, setEditForm] = useState({
+    sector_solicitante: '',
+    motivo: '',
+    observaciones: '',
+    prioridad: 'Normal' as PedidoCompra['prioridad']
+  })
+  const [editItems, setEditItems] = useState<
+    Array<{
+      id_articulo_stock?: number | null
+      codigo_articulo?: string | null
+      descripcion: string
+      cantidad_solicitada: number
+      unidad: string
+      observaciones?: string | null
+    }>
+  >([])
 
   useEffect(() => {
     if (authLoading) return
@@ -39,6 +57,88 @@ const MisPedidosPage = () => {
       console.error('Error cargando pedidos:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const puedeEditarOCancelar = (p: PedidoCompra) => p.estado === 'Pendiente' || p.estado === 'En Revisión'
+
+  const abrirEdicion = (p: PedidoCompra) => {
+    setEditPedido(p)
+    setEditForm({
+      sector_solicitante: p.sector_solicitante || '',
+      motivo: p.motivo || '',
+      observaciones: p.observaciones || '',
+      prioridad: p.prioridad || 'Normal'
+    })
+    setEditItems(
+      (p.items || []).map((it) => ({
+        id_articulo_stock: it.id_articulo_stock ?? null,
+        codigo_articulo: it.codigo_articulo ?? null,
+        descripcion: it.descripcion,
+        cantidad_solicitada: it.cantidad_solicitada,
+        unidad: it.unidad || 'unidad',
+        observaciones: it.observaciones ?? null
+      }))
+    )
+  }
+
+  const cancelarPedido = async (p: PedidoCompra) => {
+    if (!usuario) return
+    if (!confirm(`¿Cancelar el pedido ${p.numero_pedido}?`)) return
+    try {
+      const res = await apiService.actualizarEstadoPedido(p.id, 'Cancelado' as any)
+      if (!res.success) {
+        alert(res.error || 'No se pudo cancelar el pedido')
+        return
+      }
+      await loadPedidos()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al cancelar el pedido')
+    }
+  }
+
+  const guardarEdicion = async () => {
+    if (!usuario || !editPedido) return
+    if (!puedeEditarOCancelar(editPedido)) {
+      alert('Este pedido ya no se puede editar.')
+      return
+    }
+    setSavingEdit(true)
+    try {
+      const cleanedItems = editItems
+        .map((it) => ({
+          ...it,
+          descripcion: it.descripcion.trim(),
+          unidad: (it.unidad || 'unidad').trim(),
+          cantidad_solicitada: Number(it.cantidad_solicitada) || 1
+        }))
+        .filter((it) => it.descripcion !== '')
+
+      if (cleanedItems.length === 0) {
+        alert('Agregá al menos 1 producto.')
+        return
+      }
+
+      const res = await apiService.actualizarPedidoCompraConItems(
+        editPedido.id,
+        {
+          sector_solicitante: editForm.sector_solicitante || null,
+          motivo: editForm.motivo || null,
+          observaciones: editForm.observaciones || null,
+          prioridad: editForm.prioridad
+        } as any,
+        cleanedItems
+      )
+      if (!res.success) {
+        alert(res.error || 'No se pudo guardar')
+        return
+      }
+      setEditPedido(null)
+      await loadPedidos()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al guardar cambios')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -209,12 +309,140 @@ const MisPedidosPage = () => {
                   >
                     Ver Detalles
                   </button>
+                  {puedeEditarOCancelar(pedido) && (
+                    <>
+                      <button className="btn-secondary" onClick={() => abrirEdicion(pedido)}>
+                        Editar
+                      </button>
+                      <button className="btn-danger" onClick={() => void cancelarPedido(pedido)}>
+                        Cancelar
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {editPedido && (
+        <div className="mis-pedidos-modal-overlay" onClick={() => setEditPedido(null)}>
+          <div className="mis-pedidos-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mis-pedidos-modal-header">
+              <h2>Editar pedido {editPedido.numero_pedido}</h2>
+              <button className="btn-close" onClick={() => setEditPedido(null)}>
+                ×
+              </button>
+            </div>
+            <div className="mis-pedidos-modal-body">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Sector solicitante</label>
+                  <input
+                    value={editForm.sector_solicitante}
+                    onChange={(e) => setEditForm((p) => ({ ...p, sector_solicitante: e.target.value }))}
+                    placeholder="Ej. Taller gráfico"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Prioridad</label>
+                  <select
+                    value={editForm.prioridad}
+                    onChange={(e) => setEditForm((p) => ({ ...p, prioridad: e.target.value as any }))}
+                  >
+                    <option value="Baja">Baja</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Alta">Alta</option>
+                    <option value="Urgente">Urgente</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Motivo</label>
+                <input
+                  value={editForm.motivo}
+                  onChange={(e) => setEditForm((p) => ({ ...p, motivo: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label>Observaciones</label>
+                <textarea
+                  value={editForm.observaciones}
+                  onChange={(e) => setEditForm((p) => ({ ...p, observaciones: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Productos</label>
+                <div className="edit-items">
+                  {editItems.map((it, idx) => (
+                    <div key={idx} className="edit-item-row">
+                      <input
+                        className="edit-item-desc"
+                        value={it.descripcion}
+                        onChange={(e) =>
+                          setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, descripcion: e.target.value } : x)))
+                        }
+                        placeholder="Descripción"
+                      />
+                      <input
+                        className="edit-item-qty"
+                        type="number"
+                        min={1}
+                        value={it.cantidad_solicitada}
+                        onChange={(e) =>
+                          setEditItems((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, cantidad_solicitada: Number(e.target.value) } : x))
+                          )
+                        }
+                      />
+                      <input
+                        className="edit-item-unit"
+                        value={it.unidad}
+                        onChange={(e) =>
+                          setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, unidad: e.target.value } : x)))
+                        }
+                        placeholder="unidad"
+                      />
+                      <button
+                        type="button"
+                        className="btn-danger btn-xs"
+                        onClick={() => setEditItems((prev) => prev.filter((_, i) => i !== idx))}
+                        title="Quitar"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    onClick={() =>
+                      setEditItems((prev) => [
+                        ...prev,
+                        { descripcion: '', cantidad_solicitada: 1, unidad: 'unidad', observaciones: null }
+                      ])
+                    }
+                  >
+                    + Agregar producto
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="mis-pedidos-modal-footer">
+              <button className="btn-secondary" onClick={() => setEditPedido(null)} disabled={savingEdit}>
+                Cancelar
+              </button>
+              <button className="btn-primary" onClick={() => void guardarEdicion()} disabled={savingEdit}>
+                {savingEdit ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
