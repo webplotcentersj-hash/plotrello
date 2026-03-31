@@ -38,6 +38,9 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   const [ubicacionLink, setUbicacionLink] = useState('')
   const [prioridad, setPrioridad] = useState('Normal')
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
+  const [presupuestoArmado, setPresupuestoArmado] = useState(false)
+  const [presupuestoEnviado, setPresupuestoEnviado] = useState(false)
+  const [presupuestoEnEspera, setPresupuestoEnEspera] = useState(false)
   const [adjuntos, setAdjuntos] = useState<AdjuntoItem[]>([])
   const adjuntosRef = useRef(adjuntos)
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
@@ -66,6 +69,9 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setUbicacionLink(editTask.locationUrl ?? '')
       setPrioridad(editTask.priority === 'alta' ? 'Alta' : 'Normal')
       setPlanillaPreliminar(editTask.planillaPreliminar ?? false)
+      setPresupuestoArmado(editTask.presupuestoArmado ?? false)
+      setPresupuestoEnviado(editTask.presupuestoEnviadoCliente ?? false)
+      setPresupuestoEnEspera(editTask.presupuestoEnEspera ?? false)
       setAdjuntos([])
       const ordenId = parseTaskIdToOrdenId(editTask.id)
       if (ordenId) {
@@ -94,6 +100,9 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setUbicacionLink('')
       setPrioridad('Normal')
       setPlanillaPreliminar(false)
+      setPresupuestoArmado(false)
+      setPresupuestoEnviado(false)
+      setPresupuestoEnEspera(false)
       setAdjuntos([])
     }
   }, [editTask])
@@ -362,7 +371,10 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       locationUrl: ubicacionLink.trim() || undefined,
       priority: prioridad === 'Alta' ? 'alta' : 'media',
       planillaPreliminar,
-      fichaTecnicaPdfUrl: firstPdf?.remoteUrl ?? editTask.fichaTecnicaPdfUrl ?? undefined
+      fichaTecnicaPdfUrl: firstPdf?.remoteUrl ?? editTask.fichaTecnicaPdfUrl ?? undefined,
+      presupuestoArmado,
+      presupuestoEnviadoCliente: presupuestoEnviado,
+      presupuestoEnEspera
     }
 
     const payload = taskToOrdenPayload(merged)
@@ -420,6 +432,117 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         </div>
 
         <div className="ficha-no-op-modal-body">
+          {isEditMode && editTask?.fichaTecnicaPdfUrl && (
+            <div className="form-group">
+              <label>Ficha técnica (PDF)</label>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => window.open(editTask.fichaTecnicaPdfUrl as string, '_blank', 'noopener,noreferrer')}
+                >
+                  Ver
+                </button>
+                <a
+                  className="btn-secondary"
+                  href={editTask.fichaTecnicaPdfUrl as string}
+                  download={`Ficha-Tecnica-${editTask.opNumber || 'sin-op'}.pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Descargar
+                </a>
+              </div>
+              <iframe
+                src={editTask.fichaTecnicaPdfUrl as string}
+                title={`Ficha técnica ${editTask.opNumber || ''}`}
+                style={{
+                  width: '100%',
+                  height: 420,
+                  border: '1px solid rgba(0,0,0,0.15)',
+                  borderRadius: 10,
+                  background: '#fff'
+                }}
+              />
+            </div>
+          )}
+
+          {isEditMode && (
+            <div className="form-group">
+              <label>Checklist (Presupuestos)</label>
+              <div className="checklist-section">
+                <label className="checklist-item">
+                  <input
+                    type="checkbox"
+                    checked={presupuestoArmado}
+                    onChange={async (e) => {
+                      if (!editTask) return
+                      const ordenId = parseTaskIdToOrdenId(editTask.id)
+                      if (!ordenId) return
+                      const nuevo = e.target.checked
+                      setPresupuestoArmado(nuevo)
+                      await apiService.updateOrden(ordenId, { presupuesto_armado: nuevo })
+                      if (nuevo) {
+                        await apiService.notificarChecklistFichaNoOP(
+                          ordenId,
+                          'presupuesto_armado',
+                          editTask.opNumber || 'Sin ficha'
+                        )
+                      }
+                    }}
+                  />
+                  <span>ARMADO</span>
+                </label>
+
+                <label className="checklist-item">
+                  <input
+                    type="checkbox"
+                    checked={presupuestoEnviado}
+                    onChange={async (e) => {
+                      if (!editTask) return
+                      const ordenId = parseTaskIdToOrdenId(editTask.id)
+                      if (!ordenId) return
+                      const nuevo = e.target.checked
+                      setPresupuestoEnviado(nuevo)
+                      await apiService.updateOrden(ordenId, { presupuesto_enviado_cliente: nuevo })
+                      if (nuevo) {
+                        await apiService.notificarChecklistFichaNoOP(
+                          ordenId,
+                          'presupuesto_enviado',
+                          editTask.opNumber || 'Sin ficha'
+                        )
+                      }
+                    }}
+                  />
+                  <span>ENVIADO</span>
+                </label>
+
+                <label className="checklist-item">
+                  <input
+                    type="checkbox"
+                    checked={presupuestoEnEspera}
+                    onChange={async (e) => {
+                      if (!editTask) return
+                      const ordenId = parseTaskIdToOrdenId(editTask.id)
+                      if (!ordenId) return
+                      const nuevo = e.target.checked
+                      setPresupuestoEnEspera(nuevo)
+                      await apiService.updateOrden(ordenId, { presupuesto_en_espera: nuevo })
+                      if (nuevo) {
+                        await apiService.notificarChecklistFichaNoOP(
+                          ordenId,
+                          'presupuesto_en_espera',
+                          editTask.opNumber || 'Sin ficha'
+                        )
+                      }
+                    }}
+                  />
+                  <span>EN ESPERA</span>
+                </label>
+              </div>
+            </div>
+          )}
+
           <div className="form-group">
             <label>Nombre del Cliente</label>
             <div style={{ position: 'relative' }}>
