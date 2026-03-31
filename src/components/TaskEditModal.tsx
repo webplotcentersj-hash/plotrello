@@ -1575,8 +1575,8 @@ const TaskEditModal = ({
             </div>
           )}
 
-          {/* Sección de Planilla Preliminar (solo para fichas No OP) */}
-          {task?.esFichaNoOP && (
+          {/* Sección de Planilla Preliminar (fichas No OP o OP convertidas desde ficha) */}
+          {(task?.esFichaNoOP || (task?.numeroFichaOriginal != null && String(task.numeroFichaOriginal).trim() !== '')) && (
             <div className="form-group">
               <label>Estado Planilla Preliminar</label>
               <div className="planilla-preliminar-section">
@@ -1623,7 +1623,8 @@ const TaskEditModal = ({
 
           {/* Sección de Checklists (fichas No OP).
               En DT, Presupuestos necesita verlos siempre al llegar a su columna. */}
-          {task?.esFichaNoOP &&
+          {(task?.esFichaNoOP ||
+            (task?.numeroFichaOriginal != null && String(task.numeroFichaOriginal).trim() !== '')) &&
             (task.status === 'presupuestos' ||
               task.assignedSector === 'Presupuestos' ||
               planillaPreliminar ||
