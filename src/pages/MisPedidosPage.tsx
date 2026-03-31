@@ -14,6 +14,7 @@ const MisPedidosPage = () => {
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
   const [editPedido, setEditPedido] = useState<PedidoCompra | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [editSnapshot, setEditSnapshot] = useState<string>('')
   const [editForm, setEditForm] = useState({
     sector_solicitante: '',
     motivo: '',
@@ -70,7 +71,7 @@ const MisPedidosPage = () => {
       observaciones: p.observaciones || '',
       prioridad: p.prioridad || 'Normal'
     })
-    setEditItems(
+    const itemsMapped =
       (p.items || []).map((it) => ({
         id_articulo_stock: it.id_articulo_stock ?? null,
         codigo_articulo: it.codigo_articulo ?? null,
@@ -79,7 +80,31 @@ const MisPedidosPage = () => {
         unidad: it.unidad || 'unidad',
         observaciones: it.observaciones ?? null
       }))
+    setEditItems(itemsMapped)
+    setEditSnapshot(
+      JSON.stringify({
+        form: {
+          sector_solicitante: p.sector_solicitante || '',
+          motivo: p.motivo || '',
+          observaciones: p.observaciones || '',
+          prioridad: p.prioridad || 'Normal'
+        },
+        items: itemsMapped
+      })
     )
+  }
+
+  const closeEditModal = () => {
+    if (!editPedido) {
+      setEditPedido(null)
+      return
+    }
+    const current = JSON.stringify({ form: editForm, items: editItems })
+    const hasChanges = editSnapshot && current !== editSnapshot
+    if (hasChanges && !confirm('Tenés cambios sin guardar. ¿Cerrar y descartarlos?')) {
+      return
+    }
+    setEditPedido(null)
   }
 
   const cancelarPedido = async (p: PedidoCompra) => {
@@ -327,11 +352,11 @@ const MisPedidosPage = () => {
       </div>
 
       {editPedido && (
-        <div className="mis-pedidos-modal-overlay" onClick={() => setEditPedido(null)}>
+        <div className="mis-pedidos-modal-overlay">
           <div className="mis-pedidos-modal" onClick={(e) => e.stopPropagation()}>
             <div className="mis-pedidos-modal-header">
               <h2>Editar pedido {editPedido.numero_pedido}</h2>
-              <button className="btn-close" onClick={() => setEditPedido(null)}>
+              <button className="btn-close" onClick={closeEditModal}>
                 ×
               </button>
             </div>
@@ -433,7 +458,7 @@ const MisPedidosPage = () => {
               </div>
             </div>
             <div className="mis-pedidos-modal-footer">
-              <button className="btn-secondary" onClick={() => setEditPedido(null)} disabled={savingEdit}>
+              <button className="btn-secondary" onClick={closeEditModal} disabled={savingEdit}>
                 Cancelar
               </button>
               <button className="btn-primary" onClick={() => void guardarEdicion()} disabled={savingEdit}>
