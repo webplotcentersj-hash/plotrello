@@ -874,7 +874,7 @@ class ApiService {
       const { data: ordenAnterior } = await supabaseClient
         .from('ordenes_trabajo')
         .select(
-          'estado, operario_asignado, sector, prioridad, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera'
+          'estado, operario_asignado, sector, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera'
         )
         .eq('id', id)
         .maybeSingle()
@@ -883,6 +883,7 @@ class ApiService {
       const operarioAnterior = ordenAnterior?.operario_asignado || null
       const sectorAnterior = ordenAnterior?.sector || null
       const prioridadAnterior = ordenAnterior?.prioridad || null
+      const descripcionAnterior = (ordenAnterior as any)?.descripcion ?? null
       const planillaAnterior = (ordenAnterior as any)?.planilla_preliminar ?? null
       const fichaCargadaAnterior = (ordenAnterior as any)?.ficha_tecnica_cargada ?? null
       const presupuestoEnviadoAnterior = (ordenAnterior as any)?.presupuesto_enviado_cliente ?? null
@@ -927,6 +928,7 @@ class ApiService {
               const operarioNuevo = fullOrden.operario_asignado || null
               const sectorNuevo = fullOrden.sector || null
               const prioridadNueva = fullOrden.prioridad || null
+              const descripcionNueva = (fullOrden as any)?.descripcion ?? null
               const planillaNueva = (fullOrden as any)?.planilla_preliminar ?? null
               const fichaCargadaNueva = (fullOrden as any)?.ficha_tecnica_cargada ?? null
               const presupuestoEnviadoNuevo = (fullOrden as any)?.presupuesto_enviado_cliente ?? null
@@ -935,6 +937,7 @@ class ApiService {
               
               const cambios: string[] = []
               let checklistChanged = false
+              let motivosChanged = false
               
               if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
                 cambios.push(`Estado: ${estadoAnterior || 'N/A'} → ${estadoNuevo}`)
@@ -958,6 +961,22 @@ class ApiService {
               
               if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
                 cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${prioridadNueva}`)
+              }
+
+              const extractMotivos = (raw: string | null | undefined): string => {
+                const s = (raw || '').trim()
+                if (!s) return ''
+                const marker = '\n\nMotivos:\n'
+                const idx = s.indexOf(marker)
+                if (idx < 0) return ''
+                return s.slice(idx + marker.length).trim()
+              }
+              const motivosPrev = extractMotivos(descripcionAnterior)
+              const motivosNext = extractMotivos(descripcionNueva)
+              if (motivosPrev !== motivosNext) {
+                motivosChanged = true
+                const display = (v: string) => (v.trim() ? v.trim() : '—')
+                cambios.push(`Motivos: ${display(motivosPrev)} → ${display(motivosNext)}`)
               }
 
               const pushBool = (
@@ -1018,6 +1037,12 @@ class ApiService {
                 if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
                   cambiosDetallados.prioridad = { anterior: prioridadAnterior, nuevo: prioridadNueva }
                 }
+                if (motivosChanged) {
+                  cambiosDetallados.motivos = {
+                    anterior: extractMotivos(descripcionAnterior),
+                    nuevo: extractMotivos(descripcionNueva)
+                  }
+                }
 
                 // Checklist / DT
                 if (planillaAnterior !== planillaNueva) {
@@ -1048,6 +1073,7 @@ class ApiService {
                 else if (trim(operarioAnterior) !== trim(operarioNuevo)) accionTipo = 'cambio_operario'
                 else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
                 else if (checklistChanged) accionTipo = 'checklist'
+                else if (motivosChanged) accionTipo = 'motivos'
                 
                 await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo || orden.estado || null, comentario, accionTipo, cambiosDetallados)
               }
@@ -1235,6 +1261,7 @@ class ApiService {
       const operarioNuevo = ordenToUpdate.operario_asignado || data?.operario_asignado || null
       const sectorNuevo = ordenToUpdate.sector || data?.sector || null
       const prioridadNueva = ordenToUpdate.prioridad || data?.prioridad || null
+      const descripcionNueva = (ordenToUpdate as any)?.descripcion ?? (data as any)?.descripcion ?? null
       const planillaNueva = (ordenToUpdate as any)?.planilla_preliminar ?? (data as any)?.planilla_preliminar ?? null
       const fichaCargadaNueva = (ordenToUpdate as any)?.ficha_tecnica_cargada ?? (data as any)?.ficha_tecnica_cargada ?? null
       const presupuestoEnviadoNuevo =
@@ -1246,6 +1273,7 @@ class ApiService {
       // Construir comentario descriptivo
       const cambios: string[] = []
       let checklistChanged = false
+      let motivosChanged = false
       
       if (estadoAnterior !== estadoNuevo && estadoNuevo !== null) {
         cambios.push(`Estado: ${estadoAnterior || 'N/A'} → ${estadoNuevo}`)
@@ -1269,6 +1297,22 @@ class ApiService {
       
       if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
         cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${prioridadNueva}`)
+      }
+
+      const extractMotivos = (raw: string | null | undefined): string => {
+        const s = (raw || '').trim()
+        if (!s) return ''
+        const marker = '\n\nMotivos:\n'
+        const idx = s.indexOf(marker)
+        if (idx < 0) return ''
+        return s.slice(idx + marker.length).trim()
+      }
+      const motivosPrev = extractMotivos(descripcionAnterior)
+      const motivosNext = extractMotivos(descripcionNueva)
+      if (motivosPrev !== motivosNext) {
+        motivosChanged = true
+        const display = (v: string) => (v.trim() ? v.trim() : '—')
+        cambios.push(`Motivos: ${display(motivosPrev)} → ${display(motivosNext)}`)
       }
 
       const pushBool = (label: string, prev: boolean | null | undefined, next: boolean | null | undefined) => {
@@ -1303,6 +1347,9 @@ class ApiService {
         if (prioridadAnterior !== prioridadNueva && prioridadNueva !== null) {
           cambiosDetallados.prioridad = { anterior: prioridadAnterior, nuevo: prioridadNueva }
         }
+        if (motivosChanged) {
+          cambiosDetallados.motivos = { anterior: motivosPrev, nuevo: motivosNext }
+        }
 
         // Checklist / DT
         if (planillaAnterior !== planillaNueva) {
@@ -1333,6 +1380,7 @@ class ApiService {
         else if (trim(operarioAnterior) !== trim(operarioNuevo)) accionTipo = 'cambio_operario'
         else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
         else if (checklistChanged) accionTipo = 'checklist'
+        else if (motivosChanged) accionTipo = 'motivos'
         
         await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo, comentario, accionTipo, cambiosDetallados)
       }

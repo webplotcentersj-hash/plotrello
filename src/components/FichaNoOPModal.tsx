@@ -56,6 +56,13 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   }, [adjuntos])
 
   const isEditMode = editTask != null
+  const isPresupuestosStage =
+    Boolean(editTask) &&
+    (editTask?.status === 'presupuestos' ||
+      editTask?.status === 'no-aprobados-asesor-presupuestos' ||
+      editTask?.assignedSector === 'Presupuestos' ||
+      editTask?.assignedSector === 'No Aprobados')
+  const canShowMotivos = isEditMode && isPresupuestosStage
 
   const parseDescripcionYMotivos = (raw: string): { descripcion: string; motivos: string } => {
     const s = (raw || '').trim()
@@ -84,11 +91,15 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setNombreCliente(editTask.title ?? '')
       setDatosContacto(editTask.clientPhone ?? '')
       setUbicacionTexto(editTask.clientAddress ?? '')
-      const parsed = parseDescripcionYMotivos(
-        editTask.summary && editTask.summary !== 'Sin descripción' ? editTask.summary : ''
-      )
-      setObservaciones(parsed.descripcion)
-      setMotivos(parsed.motivos)
+      const raw = editTask.summary && editTask.summary !== 'Sin descripción' ? editTask.summary : ''
+      if (canShowMotivos) {
+        const parsed = parseDescripcionYMotivos(raw)
+        setObservaciones(parsed.descripcion)
+        setMotivos(parsed.motivos)
+      } else {
+        setObservaciones(raw)
+        setMotivos('')
+      }
       setDriveLink(editTask.driveUrl ?? '')
       setUbicacionLink(editTask.locationUrl ?? '')
       setPrioridad(editTask.priority === 'alta' ? 'Alta' : 'Normal')
@@ -130,7 +141,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setPresupuestoEnEspera(false)
       setAdjuntos([])
     }
-  }, [editTask])
+  }, [editTask, canShowMotivos])
 
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
@@ -304,7 +315,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     
     // El número de ficha se generará automáticamente en la base de datos
     // Solo enviamos 'FICHA-' como prefijo para que la función lo detecte
-    const descripcionFinal = buildDescripcionConMotivos(observaciones, motivos)
+    const descripcionFinal = buildDescripcionConMotivos(observaciones, '')
     const payload = {
       numero_op: 'FICHA-', // La base de datos generará el número completo automáticamente
       cliente: clienteFinal.nombre,
@@ -387,7 +398,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     const adjSubidos = adjuntosRef.current.filter((a) => a.remoteUrl)
     const firstPdf = adjSubidos.find((a) => (a.type || '').toLowerCase() === 'application/pdf')
 
-    const descripcionFinal = buildDescripcionConMotivos(observaciones, motivos)
+    const descripcionFinal = buildDescripcionConMotivos(observaciones, canShowMotivos ? motivos : '')
     const merged: Task = {
       ...editTask,
       title: nombreCliente.trim(),
@@ -570,15 +581,17 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
             </div>
           )}
 
-          <div className="form-group">
-            <label className="motivos-label">Motivos</label>
-            <textarea
-              placeholder="Motivos (por qué no aprueba / por qué queda en espera / etc.)"
-              value={motivos}
-              onChange={(e) => setMotivos(e.target.value)}
-              rows={4}
-            />
-          </div>
+          {canShowMotivos && (
+            <div className="form-group">
+              <label className="motivos-label">Motivos</label>
+              <textarea
+                placeholder="Motivos (por qué no aprueba / por qué queda en espera / etc.)"
+                value={motivos}
+                onChange={(e) => setMotivos(e.target.value)}
+                rows={4}
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label>Nombre del Cliente</label>
