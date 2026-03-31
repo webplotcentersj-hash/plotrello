@@ -9208,7 +9208,11 @@ class ApiService {
   // Notificar cambios en checklists de fichas No OP
   async notificarChecklistFichaNoOP(
     idOrden: number,
-    tipoChecklist: 'ficha_tecnica_cargada' | 'presupuesto_enviado',
+    tipoChecklist:
+      | 'ficha_tecnica_cargada'
+      | 'presupuesto_enviado'
+      | 'presupuesto_armado'
+      | 'presupuesto_en_espera',
     numeroOP: string
   ): Promise<ApiResponse<void>> {
     if (supabase) {

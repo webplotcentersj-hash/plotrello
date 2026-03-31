@@ -462,6 +462,8 @@ const TaskCardInner = ({
             'ficha-tecnica-incompleta': task.fichaTecnicaIncompleta,
             'ficha-tecnica-cargada': task.fichaTecnicaCargada,
             'presupuesto-enviado': task.presupuestoEnviadoCliente,
+            'presupuesto-armado': task.presupuestoArmado,
+            'presupuesto-en-espera': task.presupuestoEnEspera,
             'is-collapsed': !isExpanded,
             'is-minimized': isMinimized,
             'is-new-move': isNewMove,

@@ -55,6 +55,7 @@ const Board = ({
     'almacen-entrega': null,
     'asesor-tecnico': null,
     presupuestos: null,
+    'no-aprobados-asesor-presupuestos': null,
     'finalizado-asesor-presupuestos': null
   })
 

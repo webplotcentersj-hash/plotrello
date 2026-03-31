@@ -85,6 +85,8 @@ const TaskEditModal = ({
   const [fichaTecnicaCargada, setFichaTecnicaCargada] = useState(false)
   const [fichaTecnicaIncompleta, setFichaTecnicaIncompleta] = useState(false)
   const [presupuestoEnviado, setPresupuestoEnviado] = useState(false)
+  const [presupuestoArmado, setPresupuestoArmado] = useState(false)
+  const [presupuestoEnEspera, setPresupuestoEnEspera] = useState(false)
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
   const [fichaRelacionadaTienePlanillaPreliminar, setFichaRelacionadaTienePlanillaPreliminar] = useState(false)
 
@@ -159,6 +161,8 @@ const TaskEditModal = ({
       setFichaTecnicaCargada(task.fichaTecnicaCargada ?? false)
       setFichaTecnicaIncompleta(task.fichaTecnicaIncompleta ?? false)
       setPresupuestoEnviado(task.presupuestoEnviadoCliente ?? false)
+      setPresupuestoArmado(task.presupuestoArmado ?? false)
+      setPresupuestoEnEspera(task.presupuestoEnEspera ?? false)
       setPlanillaPreliminar(task.planillaPreliminar ?? false)
       
       // Verificar si la ficha relacionada tiene planilla preliminar
@@ -1479,6 +1483,19 @@ const TaskEditModal = ({
                       </button>
                     </div>
                   </div>
+                  <div style={{ marginTop: 10 }}>
+                    <iframe
+                      src={fichaTecnicaUrl}
+                      title={`Ficha técnica ${task.opNumber || ''}`}
+                      style={{
+                        width: '100%',
+                        height: 420,
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 10,
+                        background: '#0b1020'
+                      }}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="ficha-tecnica-upload-section">
@@ -1612,6 +1629,28 @@ const TaskEditModal = ({
                 <label className="checklist-item">
                   <input
                     type="checkbox"
+                    checked={presupuestoArmado}
+                    onChange={async (e) => {
+                      const nuevoValor = e.target.checked
+                      setPresupuestoArmado(nuevoValor)
+                      const ordenId = parseTaskIdToOrdenId(task.id)
+                      if (ordenId) {
+                        await apiService.updateOrden(ordenId, {
+                          presupuesto_armado: nuevoValor
+                        })
+                        await apiService.notificarChecklistFichaNoOP(
+                          ordenId,
+                          'presupuesto_armado',
+                          task.opNumber || 'Sin ficha'
+                        )
+                      }
+                    }}
+                  />
+                  <span>ARMADO</span>
+                </label>
+                <label className="checklist-item">
+                  <input
+                    type="checkbox"
                     checked={fichaTecnicaCargada}
                     onChange={async (e) => {
                       const nuevoValor = e.target.checked
@@ -1664,6 +1703,28 @@ const TaskEditModal = ({
                     }}
                   />
                   <span>PRESUPUESTO ENVIADO AL CLIENTE</span>
+                </label>
+                <label className="checklist-item">
+                  <input
+                    type="checkbox"
+                    checked={presupuestoEnEspera}
+                    onChange={async (e) => {
+                      const nuevoValor = e.target.checked
+                      setPresupuestoEnEspera(nuevoValor)
+                      const ordenId = parseTaskIdToOrdenId(task.id)
+                      if (ordenId) {
+                        await apiService.updateOrden(ordenId, {
+                          presupuesto_en_espera: nuevoValor
+                        })
+                        await apiService.notificarChecklistFichaNoOP(
+                          ordenId,
+                          'presupuesto_en_espera',
+                          task.opNumber || 'Sin ficha'
+                        )
+                      }
+                    }}
+                  />
+                  <span>EN ESPERA</span>
                 </label>
               </div>
             </div>

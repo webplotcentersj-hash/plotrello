@@ -28,6 +28,7 @@ import './AsesorPresupuestosPage.css'
 const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
   'asesor-tecnico',
   'presupuestos',
+  'no-aprobados-asesor-presupuestos',
   'finalizado-asesor-presupuestos'
 ]
 
@@ -45,6 +46,9 @@ function normalizeTaskForAsesorKanban(task: Task): Task {
   }
   if (sector === 'Presupuestos') {
     return { ...task, status: 'presupuestos' }
+  }
+  if (sector === 'No Aprobados') {
+    return { ...task, status: 'no-aprobados-asesor-presupuestos' }
   }
   const inAt = task.sectores?.includes('Asesor Técnico')
   const inPr = task.sectores?.includes('Presupuestos')

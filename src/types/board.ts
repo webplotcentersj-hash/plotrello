@@ -11,6 +11,7 @@ export type TaskStatus =
   | 'almacen-entrega'
   | 'asesor-tecnico'
   | 'presupuestos'
+  | 'no-aprobados-asesor-presupuestos'
   | 'finalizado-asesor-presupuestos'
 export type Priority = 'alta' | 'media' | 'baja'
 
@@ -106,6 +107,8 @@ export interface Task {
   /** Marcado manual en edición: ficha técnica incompleta */
   fichaTecnicaIncompleta?: boolean | null
   presupuestoEnviadoCliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
+  presupuestoArmado?: boolean | null // Presupuestos: checklist "Armado"
+  presupuestoEnEspera?: boolean | null // Presupuestos: checklist "En espera"
   /** UI only: marca cuando se movió entre columnas para mostrar "NEW" */
   uiMovedAt?: number
 }

@@ -15,6 +15,12 @@ export const ASESOR_PRESUPUESTOS_COLUMNS: ColumnConfig[] = [
     accent: '#f59e0b' // amber
   },
   {
+    id: 'no-aprobados-asesor-presupuestos',
+    label: 'No Aprobados',
+    description: 'Cliente no responde o no aprueba (queda en DT, no pasa a OP)',
+    accent: '#ef4444' // red
+  },
+  {
     id: 'finalizado-asesor-presupuestos',
     label: 'Finalizado',
     description: 'Cierre: la ficha pasa a OP real y entra al tablero general',

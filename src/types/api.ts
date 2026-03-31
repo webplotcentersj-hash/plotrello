@@ -72,6 +72,10 @@ export interface OrdenTrabajo {
   /** Marcado manual: la ficha técnica aún está incompleta */
   ficha_tecnica_incompleta?: boolean | null
   presupuesto_enviado_cliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
+  /** Presupuestos: checklist "Armado" */
+  presupuesto_armado?: boolean | null
+  /** Presupuestos: checklist "En espera" */
+  presupuesto_en_espera?: boolean | null
   /** false = no listar en tablero; la fila sigue en BD (fusión / unificación sin DELETE) */
   visible_en_tablero?: boolean | null
   /** Número FICHA-* antes de convertir a OP (historial) */

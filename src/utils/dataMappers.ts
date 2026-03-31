@@ -15,6 +15,7 @@ const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   'almacen-entrega': 'Almacén de Entrega',
   'asesor-tecnico': 'Asesor Técnico',
   presupuestos: 'Presupuestos',
+  'no-aprobados-asesor-presupuestos': 'No Aprobados',
   'finalizado-asesor-presupuestos': 'Finalizado'
 }
 
@@ -68,6 +69,7 @@ const STATUS_TO_PROGRESS: Record<TaskStatus, number> = {
   'almacen-entrega': 90,
   'asesor-tecnico': 15,
   presupuestos: 25,
+  'no-aprobados-asesor-presupuestos': 95,
   'finalizado-asesor-presupuestos': 100
 }
 
@@ -223,6 +225,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     fichaTecnicaCargada: orden.ficha_tecnica_cargada ?? false,
     fichaTecnicaIncompleta: orden.ficha_tecnica_incompleta ?? false,
     presupuestoEnviadoCliente: orden.presupuesto_enviado_cliente ?? false,
+    presupuestoArmado: orden.presupuesto_armado ?? false,
+    presupuestoEnEspera: orden.presupuesto_en_espera ?? false,
     etapaTallerGrafico: orden.etapa_taller_grafico ?? undefined,
     etapaTallerGraficoFechaInicio: orden.etapa_taller_grafico_fecha_inicio ?? undefined,
     etapaInstalaciones: orden.etapa_instalaciones ?? undefined,
@@ -356,7 +360,9 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     ficha_tecnica_pdf_url: task.fichaTecnicaPdfUrl?.trim() || null,
     ficha_tecnica_cargada: task.fichaTecnicaCargada ?? false,
     ficha_tecnica_incompleta: task.fichaTecnicaIncompleta ?? false,
-    presupuesto_enviado_cliente: task.presupuestoEnviadoCliente ?? false
+    presupuesto_enviado_cliente: task.presupuestoEnviadoCliente ?? false,
+    presupuesto_armado: task.presupuestoArmado ?? false,
+    presupuesto_en_espera: task.presupuestoEnEspera ?? false
   }
   
   console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)

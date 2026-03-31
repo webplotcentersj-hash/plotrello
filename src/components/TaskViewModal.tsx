@@ -236,6 +236,41 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
 
           <KvBlock label="Descripción / resumen" value={task.summary} />
 
+          {task.fichaTecnicaPdfUrl ? (
+            <section className="task-view-panel" style={{ marginTop: 14 }}>
+              <h3 className="task-view-panel-title">Ficha técnica (PDF)</h3>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => window.open(task.fichaTecnicaPdfUrl as string, '_blank', 'noopener,noreferrer')}
+                >
+                  Ver
+                </button>
+                <a
+                  className="btn-secondary"
+                  href={task.fichaTecnicaPdfUrl as string}
+                  download={`Ficha-Tecnica-${task.opNumber || 'sin-op'}.pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Descargar
+                </a>
+              </div>
+              <iframe
+                src={task.fichaTecnicaPdfUrl as string}
+                title={`Ficha técnica ${task.opNumber || ''}`}
+                style={{
+                  width: '100%',
+                  height: 520,
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 12,
+                  background: '#0b1020'
+                }}
+              />
+            </section>
+          ) : null}
+
           <div className="task-view-mega-grid">
             <section className="task-view-panel">
               <h3 className="task-view-panel-title">Equipo</h3>
