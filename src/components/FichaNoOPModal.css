@@ -81,6 +81,10 @@
   letter-spacing: 0.02em;
 }
 
+.ficha-no-op-modal .motivos-label {
+  color: #000000;
+}
+
 /* Checklist (Presupuestos) dentro de FichaNoOPModal: siempre negro y visible */
 .ficha-no-op-modal .checklist-section {
   display: flex;

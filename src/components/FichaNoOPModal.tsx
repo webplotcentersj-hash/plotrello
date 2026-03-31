@@ -34,6 +34,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   const [datosContacto, setDatosContacto] = useState('')
   const [ubicacionTexto, setUbicacionTexto] = useState('')
   const [observaciones, setObservaciones] = useState('')
+  const [motivos, setMotivos] = useState('')
   const [driveLink, setDriveLink] = useState('')
   const [ubicacionLink, setUbicacionLink] = useState('')
   const [prioridad, setPrioridad] = useState('Normal')
@@ -56,15 +57,38 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
 
   const isEditMode = editTask != null
 
+  const parseDescripcionYMotivos = (raw: string): { descripcion: string; motivos: string } => {
+    const s = (raw || '').trim()
+    if (!s) return { descripcion: '', motivos: '' }
+    const marker = '\n\nMotivos:\n'
+    const idx = s.indexOf(marker)
+    if (idx < 0) return { descripcion: s, motivos: '' }
+    return {
+      descripcion: s.slice(0, idx).trim(),
+      motivos: s.slice(idx + marker.length).trim()
+    }
+  }
+
+  const buildDescripcionConMotivos = (descripcion: string, motivosText: string) => {
+    const d = (descripcion || '').trim()
+    const m = (motivosText || '').trim()
+    if (!d && !m) return ''
+    if (d && !m) return d
+    if (!d && m) return `Motivos:\n${m}`
+    return `${d}\n\nMotivos:\n${m}`
+  }
+
   // Cargar datos al editar o limpiar al crear
   useEffect(() => {
     if (editTask) {
       setNombreCliente(editTask.title ?? '')
       setDatosContacto(editTask.clientPhone ?? '')
       setUbicacionTexto(editTask.clientAddress ?? '')
-      setObservaciones(
+      const parsed = parseDescripcionYMotivos(
         editTask.summary && editTask.summary !== 'Sin descripción' ? editTask.summary : ''
       )
+      setObservaciones(parsed.descripcion)
+      setMotivos(parsed.motivos)
       setDriveLink(editTask.driveUrl ?? '')
       setUbicacionLink(editTask.locationUrl ?? '')
       setPrioridad(editTask.priority === 'alta' ? 'Alta' : 'Normal')
@@ -96,6 +120,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setDatosContacto('')
       setUbicacionTexto('')
       setObservaciones('')
+      setMotivos('')
       setDriveLink('')
       setUbicacionLink('')
       setPrioridad('Normal')
@@ -279,10 +304,11 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     
     // El número de ficha se generará automáticamente en la base de datos
     // Solo enviamos 'FICHA-' como prefijo para que la función lo detecte
+    const descripcionFinal = buildDescripcionConMotivos(observaciones, motivos)
     const payload = {
       numero_op: 'FICHA-', // La base de datos generará el número completo automáticamente
       cliente: clienteFinal.nombre,
-      descripcion: observaciones.trim() || null,
+      descripcion: descripcionFinal || null,
       estado: 'Asesor Técnico',
       prioridad: prioridad,
       sector: 'Asesor Técnico',
@@ -361,10 +387,11 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     const adjSubidos = adjuntosRef.current.filter((a) => a.remoteUrl)
     const firstPdf = adjSubidos.find((a) => (a.type || '').toLowerCase() === 'application/pdf')
 
+    const descripcionFinal = buildDescripcionConMotivos(observaciones, motivos)
     const merged: Task = {
       ...editTask,
       title: nombreCliente.trim(),
-      summary: observaciones.trim() || 'Sin descripción',
+      summary: descripcionFinal || 'Sin descripción',
       clientPhone: datosContacto.trim() || undefined,
       clientAddress: ubicacionTexto.trim() || undefined,
       driveUrl: driveLink.trim() || undefined,
@@ -542,6 +569,16 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
               </div>
             </div>
           )}
+
+          <div className="form-group">
+            <label className="motivos-label">Motivos</label>
+            <textarea
+              placeholder="Motivos (por qué no aprueba / por qué queda en espera / etc.)"
+              value={motivos}
+              onChange={(e) => setMotivos(e.target.value)}
+              rows={4}
+            />
+          </div>
 
           <div className="form-group">
             <label>Nombre del Cliente</label>
