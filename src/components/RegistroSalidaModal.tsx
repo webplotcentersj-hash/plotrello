@@ -36,6 +36,7 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
   const [kmSalida, setKmSalida] = useState<string>('')
   const [numeroOp, setNumeroOp] = useState('')
   const [motivoSalida, setMotivoSalida] = useState('')
+  const [horaSalidaDeseada, setHoraSalidaDeseada] = useState<string>('')
   const [horaEstimadaLlegada, setHoraEstimadaLlegada] = useState('')
   const [ubicacionDestino, setUbicacionDestino] = useState('')
   const [latitud, setLatitud] = useState<number | null>(null)
@@ -48,6 +49,14 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
     const s = sectorDesdeRolUsuario(usuario?.rol ?? null)
     if (s) setSector(s)
   }, [usuario?.rol])
+
+  useEffect(() => {
+    // Default: ahora redondeado a minutos (para datetime-local)
+    const d = new Date()
+    d.setSeconds(0, 0)
+    const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+    setHoraSalidaDeseada(isoLocal)
+  }, [])
 
   const aplicarCoords = useCallback((lat: number, lng: number) => {
     setLatitud(lat)
@@ -122,6 +131,13 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
     setError(null)
 
     try {
+      const horaSalidaIso = (() => {
+        const raw = horaSalidaDeseada?.trim()
+        if (!raw) return new Date().toISOString()
+        const d = new Date(raw)
+        return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+      })()
+
       const registro: Omit<RegistroSalidaVehiculo, 'id' | 'created_at' | 'updated_at' | 'vehiculo'> = {
         id_vehiculo: vehiculo.id,
         id_usuario: usuario.id || null,
@@ -130,7 +146,7 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
         km_aproximado: kmSalida ? parseInt(kmSalida, 10) : null,
         numero_op: numeroOp.trim() || null,
         motivo_salida: motivoSalida.trim(),
-        hora_salida: new Date().toISOString(),
+        hora_salida: horaSalidaIso,
         hora_estimada_llegada: horaEstimadaLlegada ? new Date(horaEstimadaLlegada).toISOString() : null,
         hora_llegada_real: null,
         ubicacion_destino: ubicacionDestino.trim() || null,
@@ -209,6 +225,27 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
                 onChange={(e) => setKmSalida(e.target.value)}
                 placeholder="Ej: 45200"
                 min={0}
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Hora de salida (deseada) *</label>
+              <input
+                type="datetime-local"
+                value={horaSalidaDeseada}
+                onChange={(e) => setHoraSalidaDeseada(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Hora estimada de llegada</label>
+              <input
+                type="datetime-local"
+                value={horaEstimadaLlegada}
+                onChange={(e) => setHoraEstimadaLlegada(e.target.value)}
+                placeholder="Opcional"
               />
             </div>
           </div>
