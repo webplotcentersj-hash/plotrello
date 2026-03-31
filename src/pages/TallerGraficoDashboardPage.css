@@ -27,8 +27,8 @@
 }
 
 .tg-dashboard-header {
-  max-width: 1200px;
-  margin: 0 auto 28px auto;
+  max-width: 1400px;
+  margin: 0 auto 18px auto;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -46,12 +46,55 @@
   color: #9ca3af;
 }
 
-.tg-dashboard-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
+.tg-dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tg-bg-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  cursor: pointer;
+  font-weight: 700;
+  user-select: none;
+}
+
+.tg-bg-upload-btn:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.tg-bg-upload-btn:active {
+  transform: translateY(1px);
+}
+
+.tg-bg-reset-btn,
+.tg-back-button {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.tg-bg-reset-btn:hover,
+.tg-back-button:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.tg-bg-reset-btn:active,
+.tg-back-button:active {
+  transform: translateY(1px);
 }
 
 .tg-dashboard-section {
@@ -143,7 +186,8 @@
 }
 
 .tg-dashboard-error {
-  grid-column: 1 / -1;
+  max-width: 1400px;
+  margin: 0 auto 10px auto;
   background: rgba(127, 29, 29, 0.9);
   border-radius: 10px;
   border: 1px solid rgba(248, 113, 113, 0.8);
@@ -151,12 +195,19 @@
   font-size: 0.9rem;
 }
 
+.tg-dashboard-info {
+  max-width: 1400px;
+  margin: 0 auto 10px auto;
+  background: rgba(30, 41, 59, 0.92);
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  color: #e5e7eb;
+}
+
 @media (max-width: 768px) {
   .tg-dashboard-page {
     padding: 24px 16px;
-  }
-
-  .tg-dashboard-main {
-    grid-template-columns: 1fr;
   }
 }

@@ -1,197 +1,253 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { supabase } from '../services/supabaseClient'
+import type { ActivityEvent, Task, TeamMember } from '../types/board'
+import type { SectorRecord } from '../types/api'
+import EtapaKanbanBoard from '../components/EtapaKanbanBoard'
+import apiService from '../services/api'
+import { uploadAttachmentAndGetUrl } from '../utils/storage'
+import { ordenToTask, parseTaskIdToOrdenId } from '../utils/dataMappers'
+import {
+  SIN_ETAPA_COLUMN_ID,
+  filterTasksForSectorEtapaKanban,
+  getSectorEtapaKanbanBySlug,
+  resolveEtapaColumnId
+} from '../data/sectorEtapaKanban'
 import './TallerGraficoDashboardPage.css'
 
-type InventarioItem = {
-  id: number
-  sector: string | null
-  categoria: string | null
-  marca: string | null
-  descripcion: string | null
-  ancho: number | null
-  largo: number | null
-  cantidad_unidades: number | null
+type Props = {
+  tasks: Task[]
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>
+  teamMembers: TeamMember[]
+  activity: ActivityEvent[]
+  sectores: SectorRecord[]
 }
 
-export default function TallerGraficoDashboardPage() {
-  const { isAdmin } = useAuth()
+const DEFAULT_BG = {
+  kind: 'gradient' as const,
+  value:
+    'radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.18), transparent 55%), #020617'
+}
+
+function storageKeyForUserBg(userId?: number | string | null) {
+  return `tg_dashboard_bg_v1:${userId ?? 'anon'}`
+}
+
+type BgPref =
+  | { kind: 'gradient'; value: string }
+  | { kind: 'image'; value: string }
+
+export default function TallerGraficoDashboardPage({ tasks, setTasks, teamMembers, activity, sectores }: Props) {
+  const { isAdmin, isTallerGrafico, usuario } = useAuth()
   const navigate = useNavigate()
-  const [items, setItems] = useState<InventarioItem[]>([])
-  const [loading, setLoading] = useState(true)
+
   const [error, setError] = useState<string | null>(null)
+  const [moving, setMoving] = useState(false)
+
+  const [bgPref, setBgPref] = useState<BgPref>(DEFAULT_BG)
+  const [savingBg, setSavingBg] = useState(false)
+  const [bgError, setBgError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!isAdmin) {
-        setLoading(false)
-        return
+    const key = storageKeyForUserBg(usuario?.id ?? null)
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as BgPref
+      if (!parsed || typeof parsed !== 'object') return
+      if (parsed.kind === 'image' && typeof parsed.value === 'string' && parsed.value.trim()) {
+        setBgPref({ kind: 'image', value: parsed.value })
+      } else if (parsed.kind === 'gradient' && typeof parsed.value === 'string' && parsed.value.trim()) {
+        setBgPref({ kind: 'gradient', value: parsed.value })
       }
-      if (!supabase) {
-        setError('Supabase no está configurado')
-        setLoading(false)
-        return
-      }
-      try {
-        const { data, error: err } = await supabase
-          .from('inventario_taller_grafico')
-          .select('*')
-
-        if (err) setError(err.message)
-        else setItems((data as InventarioItem[]) || [])
-      } catch (e) {
-        setError('Error al cargar inventario')
-      } finally {
-        setLoading(false)
-      }
+    } catch {
+      // ignore
     }
-    void fetchData()
-  }, [isAdmin])
+  }, [usuario?.id])
 
-  const itemsTallerGrafico = useMemo(
-    () =>
-      items.filter((it) => (it.sector || '').toLowerCase().includes('taller grafico')), 
-    [items]
+  const persistBg = useCallback(
+    (next: BgPref) => {
+      setBgPref(next)
+      const key = storageKeyForUserBg(usuario?.id ?? null)
+      try {
+        localStorage.setItem(key, JSON.stringify(next))
+      } catch {
+        // ignore
+      }
+    },
+    [usuario?.id]
   )
 
-  const totalesPorCategoria = useMemo(() => {
-    const mapa = new Map<string, number>()
-    for (const it of itemsTallerGrafico) {
-      const cat = (it.categoria || 'Sin categoría').toLowerCase()
-      const key = cat.charAt(0).toUpperCase() + cat.slice(1)
-      const cantidad = Number(it.cantidad_unidades || 0)
-      mapa.set(key, (mapa.get(key) || 0) + cantidad)
+  const kanbanConfig = useMemo(() => getSectorEtapaKanbanBySlug('taller-grafico'), [])
+
+  const filtered = useMemo(() => {
+    if (!kanbanConfig) return []
+    return filterTasksForSectorEtapaKanban(tasks, kanbanConfig)
+  }, [tasks, kanbanConfig])
+
+  const columns = useMemo(() => {
+    if (!kanbanConfig) return []
+    return [
+      {
+        id: SIN_ETAPA_COLUMN_ID,
+        label: 'Sin etapa',
+        accent: '#64748b',
+        description: 'Arrastrá a la derecha para asignar etapa'
+      },
+      ...kanbanConfig.etapas.map((e) => ({
+        id: e.id,
+        label: e.label,
+        accent: e.accent,
+        description: ''
+      }))
+    ]
+  }, [kanbanConfig])
+
+  const groupedByColumnId = useMemo(() => {
+    const g: Record<string, Task[]> = {}
+    for (const c of columns) g[c.id] = []
+    if (!kanbanConfig) return g
+    for (const t of filtered) {
+      const col = resolveEtapaColumnId(t, kanbanConfig)
+      g[col].push(t)
     }
-    return Array.from(mapa.entries()).sort((a, b) => b[1] - a[1])
-  }, [itemsTallerGrafico])
+    return g
+  }, [filtered, columns, kanbanConfig])
 
-  const vinilosPorMarca = useMemo(() => {
-    const mapa = new Map<string, number>()
-    for (const it of itemsTallerGrafico) {
-      const cat = (it.categoria || '').toLowerCase()
-      if (!cat.includes('vinilo')) continue
-      const marca = it.marca || 'Sin marca'
-      const cantidad = Number(it.cantidad_unidades || 0) || 1
-      mapa.set(marca, (mapa.get(marca) || 0) + cantidad)
+  const activityScoped = useMemo(() => {
+    const ids = new Set(filtered.map((t) => t.id))
+    return activity.filter((a) => ids.has(a.taskId))
+  }, [filtered, activity])
+
+  const nombreUsuario = usuario?.nombre?.trim() || 'Usuario'
+
+  const handleEtapaMove = useCallback(
+    async (taskId: string, destinationColumnId: string) => {
+      if (!kanbanConfig) return
+      const ordenId = parseTaskIdToOrdenId(taskId)
+      if (!ordenId) {
+        setError('No se pudo obtener el id de la orden')
+        return
+      }
+      setError(null)
+      setMoving(true)
+      try {
+        const r = await apiService.actualizarEtapaTallerGrafico(ordenId, destinationColumnId, nombreUsuario)
+        if (!r.success || !r.data) {
+          setError(r.error ?? 'Error al guardar etapa')
+          return
+        }
+        const updated = ordenToTask(r.data)
+        setTasks((prev) => {
+          const idx = prev.findIndex((t) => t.id === updated.id)
+          if (idx < 0) return prev
+          const next = [...prev]
+          next[idx] = updated
+          return next
+        })
+      } finally {
+        setMoving(false)
+      }
+    },
+    [kanbanConfig, nombreUsuario, setTasks]
+  )
+
+  const pageBgStyle = useMemo(() => {
+    if (bgPref.kind === 'image') {
+      return {
+        backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.78), rgba(2, 6, 23, 0.78)), url(${bgPref.value})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      } as const
     }
-    return Array.from(mapa.entries()).sort((a, b) => b[1] - a[1])
-  }, [itemsTallerGrafico])
+    return { background: bgPref.value } as const
+  }, [bgPref])
 
-  const tintasPorMarca = useMemo(() => {
-    const mapa = new Map<string, number>()
-    for (const it of itemsTallerGrafico) {
-      const categoria = (it.categoria || '').toLowerCase()
-      const desc = (it.descripcion || '').toLowerCase()
-      const esTinta =
-        categoria.includes('tinta') ||
-        categoria.includes('toner') ||
-        desc.includes('tinta') ||
-        desc.includes('toner')
-      if (!esTinta) continue
-      const marca = it.marca || 'Sin marca'
-      const cantidad = Number(it.cantidad_unidades || 0) || 1
-      mapa.set(marca, (mapa.get(marca) || 0) + cantidad)
-    }
-    return Array.from(mapa.entries()).sort((a, b) => b[1] - a[1])
-  }, [itemsTallerGrafico])
+  const onPickBgFile = useCallback(
+    async (file: File | null) => {
+      if (!file) return
+      setBgError(null)
+      setSavingBg(true)
+      try {
+        const url = await uploadAttachmentAndGetUrl(file, 'tg-backgrounds')
+        persistBg({ kind: 'image', value: url })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'No se pudo subir la imagen'
+        setBgError(msg)
+      } finally {
+        setSavingBg(false)
+      }
+    },
+    [persistBg]
+  )
 
-  const maxCat = Math.max(...totalesPorCategoria.map(([, v]) => v), 1)
-  const maxVinilos = Math.max(...vinilosPorMarca.map(([, v]) => v), 1)
-  const maxTintas = Math.max(...tintasPorMarca.map(([, v]) => v), 1)
+  const canAccess = isAdmin || isTallerGrafico
 
-  if (!isAdmin) {
+  if (!canAccess) {
     return (
       <div className="tg-dashboard-page tg-dashboard-denied">
         <div className="tg-dashboard-card">
-          <h1>Solo administración</h1>
-          <p>Este panel de niveles de Taller Gráfico es solo para administradores.</p>
+          <h1>Acceso restringido</h1>
+          <p>Este dashboard es para Taller Gráfico / administración.</p>
           <button type="button" onClick={() => navigate('/')}>← Volver al tablero</button>
         </div>
       </div>
     )
   }
 
-  if (loading) {
-    return (
-      <div className="tg-dashboard-page">
-        <div className="tg-dashboard-loading">
-          <div className="tg-dashboard-spinner" />
-          <p>Cargando panel de niveles de Taller Gráfico...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="tg-dashboard-page">
+    <div className="tg-dashboard-page" style={pageBgStyle}>
       <header className="tg-dashboard-header">
         <div>
-          <h1>Panel de Niveles · Taller Gráfico</h1>
-          <p>Resumen visual de tintas, vinilos y categorías del sector.</p>
+          <h1>Kanban · Taller Gráfico</h1>
+          <p>
+            Etapas internas del sector (no cambia la columna del tablero general). {filtered.length} ficha
+            {filtered.length === 1 ? '' : 's'} activas.
+          </p>
         </div>
-        <button type="button" className="tg-back-button" onClick={() => navigate('/')}>← Volver al tablero</button>
+        <div className="tg-dashboard-actions">
+          <label className="tg-bg-upload-btn">
+            {savingBg ? 'Subiendo…' : '🖼️ Cambiar fondo'}
+            <input
+              type="file"
+              accept="image/*"
+              disabled={savingBg}
+              onChange={(e) => void onPickBgFile(e.target.files?.[0] ?? null)}
+              style={{ display: 'none' }}
+            />
+          </label>
+          <button
+            type="button"
+            className="tg-bg-reset-btn"
+            onClick={() => {
+              setBgError(null)
+              persistBg(DEFAULT_BG)
+            }}
+          >
+            Reset fondo
+          </button>
+          <button type="button" className="tg-back-button" onClick={() => navigate('/')}>
+            ← Volver al tablero
+          </button>
+        </div>
       </header>
 
-      <main className="tg-dashboard-main">
-        {error && (
-          <div className="tg-dashboard-error">{error}</div>
-        )}
+      {(bgError || error) && (
+        <div className="tg-dashboard-error" role="alert">
+          {bgError ?? error}
+        </div>
+      )}
+      {moving && <div className="tg-dashboard-info">Guardando etapa…</div>}
 
-        <section className="tg-dashboard-section">
-          <h2>Stock por categoría</h2>
-          <div className="tg-dashboard-bars">
-            {totalesPorCategoria.map(([cat, val]) => {
-              const width = `${(val / maxCat) * 100 || 0}%`
-              return (
-                <div key={cat} className="tg-bar-row">
-                  <span className="tg-bar-label">{cat}</span>
-                  <div className="tg-bar-track">
-                    <div className="tg-bar-fill cat" style={{ width }} />
-                  </div>
-                  <span className="tg-bar-value">{val}</span>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="tg-dashboard-section">
-          <h2>Vinilos por marca</h2>
-          <div className="tg-dashboard-bars">
-            {vinilosPorMarca.map(([marca, val]) => {
-              const width = `${(val / maxVinilos) * 100 || 0}%`
-              return (
-                <div key={marca} className="tg-bar-row">
-                  <span className="tg-bar-label">{marca}</span>
-                  <div className="tg-bar-track">
-                    <div className="tg-bar-fill vinilo" style={{ width }} />
-                  </div>
-                  <span className="tg-bar-value">{val}</span>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="tg-dashboard-section">
-          <h2>Tintas / Toners por marca</h2>
-          <div className="tg-dashboard-bars">
-            {tintasPorMarca.map(([marca, val]) => {
-              const width = `${(val / maxTintas) * 100 || 0}%`
-              return (
-                <div key={marca} className="tg-bar-row">
-                  <span className="tg-bar-label">{marca}</span>
-                  <div className="tg-bar-track">
-                    <div className="tg-bar-fill tinta" style={{ width }} />
-                  </div>
-                  <span className="tg-bar-value">{val}</span>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      </main>
+      <EtapaKanbanBoard
+        columns={columns}
+        groupedByColumnId={groupedByColumnId}
+        members={teamMembers}
+        activity={activityScoped}
+        sectores={sectores}
+        onEtapaMove={handleEtapaMove}
+      />
     </div>
   )
 }

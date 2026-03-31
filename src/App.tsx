@@ -827,7 +827,15 @@ function AppRoutes({
       />
       <Route
         path="/taller-grafico/dashboard"
-        element={<TallerGraficoDashboardPage />}
+        element={
+          <TallerGraficoDashboardPage
+            tasks={tasks}
+            setTasks={setTasks}
+            teamMembers={teamMembers}
+            activity={filteredActivity}
+            sectores={sectores}
+          />
+        }
       />
       <Route
         path="/herramienta"

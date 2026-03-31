@@ -234,12 +234,12 @@ const Header = ({
                 🧴 Inventario Taller Gráfico
               </a>
             )}
-            {isAdmin && (
+            {(isTallerGrafico || isAdmin) && (
               <a
                 href="/taller-grafico/dashboard"
                 className="brand-button"
               >
-                📊 Panel Niveles TG
+                🧩 Kanban Taller Gráfico
               </a>
             )}
             {canAccessAtencionPublico && onNavigateToAtencionPublico && (
