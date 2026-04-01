@@ -11,7 +11,7 @@ import { createClient } from '@supabase/supabase-js'
  * - TELEGRAM_DT_UN_SOLO_USUARIO=tgChatId:idAsesor (caso un solo DT; recordatorios + coherente con /agenda)
  * - TELEGRAM_ASESOR_MAP (varios tgUserId:idAsesor,...)
  * - TELEGRAM_DT_DEFAULT_ASESOR_ID + TELEGRAM_DT_REMINDER_CHAT_IDS (opcional)
- * - CRON_SECRET: si está definido, el header Authorization debe ser Bearer <CRON_SECRET>
+ * - CRON_SECRET: Bearer <CRON_SECRET> (se recorta espacios). Opcional: CRON_ALLOW_VERCEL_HEADER=1 si Vercel no manda Bearer.
  */
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
@@ -118,23 +118,42 @@ function buildReminderText(c: CitaRow): string {
   )
 }
 
+function authorizeCronRequest(req: VercelRequest): { ok: true } | { ok: false; error: string } {
+  const cronSecret = (process.env.CRON_SECRET || '').trim()
+  if (process.env.VERCEL_ENV === 'production' && !cronSecret) {
+    return { ok: false, error: 'Definí CRON_SECRET en Vercel (producción).' }
+  }
+  if (!cronSecret) {
+    return { ok: true }
+  }
+  const auth = (req.headers.authorization || '').trim()
+  const expected = `Bearer ${cronSecret}`
+  if (auth === expected) {
+    return { ok: true }
+  }
+  const vercelCron = req.headers['x-vercel-cron']
+  if (vercelCron === '1' && process.env.CRON_ALLOW_VERCEL_HEADER === '1') {
+    console.warn('[agenda-telegram-reminders] Auth por x-vercel-cron (CRON_ALLOW_VERCEL_HEADER=1)')
+    return { ok: true }
+  }
+  return {
+    ok: false,
+    error:
+      'Unauthorized (Bearer CRON_SECRET). Revisá que en Vercel no haya espacios de más en CRON_SECRET; tras cambiarla, redeploy.'
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
 
-  const cronSecret = process.env.CRON_SECRET
-  if (process.env.VERCEL_ENV === 'production' && !cronSecret) {
-    res.status(500).json({ ok: false, error: 'Definí CRON_SECRET en Vercel (producción).' })
+  const authz = authorizeCronRequest(req)
+  if (!authz.ok) {
+    const status = authz.error.startsWith('Definí') ? 500 : 401
+    res.status(status).json({ ok: false, error: authz.error })
     return
-  }
-  if (cronSecret) {
-    const auth = req.headers.authorization || ''
-    if (auth !== `Bearer ${cronSecret}`) {
-      res.status(401).json({ ok: false, error: 'Unauthorized' })
-      return
-    }
   }
 
   if (!supabase) {
@@ -147,6 +166,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const asesorToChats = parseAsesorToTelegramChats()
+  let totalChatsMapeados = 0
+  asesorToChats.forEach((ids) => {
+    totalChatsMapeados += ids.length
+  })
 
   const { data, error } = await supabase.rpc('obtener_citas_recordatorio_telegram_15m')
   if (error) {
@@ -194,6 +217,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     citas_en_ventana: citas.length,
     recordatorios_enviados: sent,
     sin_destinatario: skipped,
-    citas_marcadas: marked
+    citas_marcadas: marked,
+    /** Si es 0, TELEGRAM_DT_UN_SOLO_USUARIO / TELEGRAM_ASESOR_MAP no matchean o faltan */
+    asesores_con_chat_mapeado: asesorToChats.size,
+    chats_telegram_mapeados: totalChatsMapeados
   })
 }
