@@ -962,6 +962,10 @@ function AppRoutes({
         element={<DisenoDashboardPage />}
       />
       <Route
+        path="/as"
+        element={<Navigate to="/asesor-presupuestos" replace />}
+      />
+      <Route
         path="/asesor-presupuestos"
         element={
           <AsesorPresupuestosPage
