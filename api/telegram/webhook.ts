@@ -258,7 +258,7 @@ SIEMPRE responde en ESPAÑOL (español argentino). Sé profesional, preciso y ú
 
     // SDK @google/genai: usar ai.models.generateContent
     const response = await genAI.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }]
     } as any)
 

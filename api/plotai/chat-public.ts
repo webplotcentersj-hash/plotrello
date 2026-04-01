@@ -591,9 +591,11 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       .filter((img) => /^image\//.test(img.mimeType))
       .filter((img) => img.data.length > 0 && img.data.length < 2_500_000)
 
+    const publicChatModel = 'gemini-2.5-flash'
+
     const response = safeImages.length > 0
       ? await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: publicChatModel,
           contents: [
             {
               role: 'user',
@@ -607,7 +609,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           ]
         } as any)
       : await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: publicChatModel,
           contents: conversation
         } as any)
 
