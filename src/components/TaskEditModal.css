@@ -156,6 +156,24 @@
   color: var(--text-secondary);
 }
 
+/* Evita heredar --text-primary oscuro (p. ej. desde .task-card); el menú nativo del select debe leerse en fondo oscuro */
+.modal-content .form-group select,
+.modal-content.create-modal .form-group select {
+  color: #f8fafc;
+}
+
+.modal-content .form-group select option,
+.modal-content.create-modal .form-group select option {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+.modal-content .form-group select optgroup,
+.modal-content.create-modal .form-group select optgroup {
+  background-color: #1e293b;
+  color: #cbd5e1;
+}
+
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
