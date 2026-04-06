@@ -975,10 +975,10 @@ const TaskEditModal = ({
           </div>
 
           <div className="form-group">
-            <label>Sectores</label>
+            <label>Sectores de la OP</label>
             <input
               type="text"
-              placeholder="Buscar o seleccionar sector..."
+              placeholder="Buscar o agregar sector..."
               value={sectorSearch}
               onChange={(e) => setSectorSearch(e.target.value)}
               onFocus={() => setIsSectorDropdownOpen(true)}
@@ -1014,6 +1014,18 @@ const TaskEditModal = ({
                   </button>
                 </span>
               ))}
+            </div>
+            <div className="info-panel" style={{ marginTop: '10px' }}>
+              <small>
+                Podés <strong>agregar sectores</strong> a esta OP en cualquier momento: al guardar se sincroniza la lista en
+                todo el grupo y se crean en el tablero las <strong>fichas que falten</strong> para sectores nuevos (misma OP).
+                Quitar un sector del listado no borra automáticamente una ficha ya creada; consultá con sistema si necesitás
+                limpieza manual.
+                <br />
+                Si dos fichas de la misma OP entran en la <strong>misma columna</strong>, una absorbe a la otra a la vista del
+                tablero: la fila oculta no se elimina y la <strong>trazabilidad</strong> (movimientos, comentarios, adjuntos)
+                queda en la ficha visible.
+              </small>
             </div>
           </div>
 

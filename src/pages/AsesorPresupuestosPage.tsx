@@ -346,12 +346,22 @@ const AsesorPresupuestosPage = ({
         return
       }
 
+      const taskOriginal = tasks.find((t) => t.id === updatedTask.id)
       const payload = taskToOrdenPayload(updatedTask)
 
       const response = await apiService.updateOrden(ordenId, payload)
       if (!response.success) {
         setActionError(response.error || 'Error al actualizar la ficha')
         return
+      }
+
+      const sectoresAnt = JSON.stringify(taskOriginal?.sectores ?? [])
+      const sectoresNue = JSON.stringify(updatedTask.sectores ?? [])
+      if (sectoresAnt !== sectoresNue) {
+        const syncRes = await apiService.syncOpGrupoSectoresYFichas(ordenId)
+        if (!syncRes.success) {
+          console.warn('Sincronización sectores OP:', syncRes.error)
+        }
       }
 
       setActionSuccess('Ficha actualizada correctamente')

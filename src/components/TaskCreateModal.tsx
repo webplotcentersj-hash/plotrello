@@ -402,7 +402,7 @@ const TaskCreateModal = ({
 
     const creatorName = stripEmailDomain(usuario?.nombre) ?? usuario?.nombre ?? 'Usuario'
 
-    // Mapear el primer sector al status correspondiente (la primera ficha aparecerá ahí)
+    // Mapear el primer sector al status correspondiente (primera ficha de la OP en el tablero)
     const mapSectorToStatus = (sector: string): TaskStatus => {
       const sectorMap: Record<string, TaskStatus> = {
         'Diseño Gráfico': 'diseno-grafico',
@@ -419,7 +419,7 @@ const TaskCreateModal = ({
       return sectorMap[sector] || 'diseno-grafico'
     }
 
-    // El primer sector es donde aparecerá la primera ficha (se crearán automáticamente las demás)
+    // Primer sector = columna inicial de la OP; si hay más sectores, la BD crea fichas adicionales de la misma OP
     const primerSector = selectedSectores[0]
     const requiereMetrosTG = selectedSectores.includes('Taller Gráfico')
 
@@ -446,8 +446,8 @@ const TaskCreateModal = ({
       createdBy: creatorName,
       materials: materials.map((m) => m.name),
       assignedSector: primerSector, // Primer sector (se crearán automáticamente las demás)
-      sectores: selectedSectores, // Array de sectores requeridos - se crearán N fichas automáticamente
-      esSubTarea: false, // Es ficha principal
+      sectores: selectedSectores, // Sectores de la OP; N>1 → trigger crea N fichas tablero con mismo N° OP
+      esSubTarea: false, // Ficha principal de la OP (no subtarea checklist)
       photoUrl: photoUrl || '',
       tags: tags && tags.length > 0 ? tags : [], // Asegurar que siempre sea un array
       storyPoints: 0,
@@ -1322,7 +1322,7 @@ const TaskCreateModal = ({
           </div>
 
           <div className="form-group">
-            <label>Sectores requeridos (múltiple selección)</label>
+            <label>Sectores de la OP (múltiple selección)</label>
             <input
               type="text"
               placeholder="Buscar sectores..."
@@ -1381,13 +1381,30 @@ const TaskCreateModal = ({
               <label>Información</label>
               <div className="info-panel">
                 <small>
-                  ℹ️ Se crearán {selectedSectores.length} {selectedSectores.length === 1 ? 'ficha' : 'fichas'} (una por sector).
-                  Todas comparten el mismo OP #{opNumber || 'XXX'} y se mueven por separado. <br />
-                  {selectedSectores.length > 1
-                    ? 'Se unifican cuando todas llegan a "Finalizado en Taller".'
-                    : 'Si hay un solo sector, la ficha queda en "Finalizado en Taller" sin unificación.'}
+                  ℹ️ <strong>Una sola OP</strong> (N° {opNumber.trim() || '…'}):{' '}
+                  {selectedSectores.length > 1 ? (
+                    <>
+                      con {selectedSectores.length} sectores, en el tablero habrá{' '}
+                      <strong>{selectedSectores.length} fichas</strong> de <strong>esa misma OP</strong> (una por sector).
+                      Comparten el N° OP y cada una avanza en su columna.{' '}
+                      <br />
+                      Si dos fichas de la misma OP coinciden en <strong>una misma columna</strong>, queda una sola visible:
+                      la otra se <strong>absorbe</strong> (sigue en base de datos, oculta del tablero) y se conserva{' '}
+                      <strong>trazabilidad</strong>: historial, comentarios y adjuntos pasan a la ficha que queda a la vista.
+                      <br />
+                      Cuando <strong>todas</strong> las fichas de la OP llegan a &quot;Finalizado en Taller&quot;, se unifican
+                      en el cierre del flujo de taller.
+                    </>
+                  ) : (
+                    <>
+                      un solo sector → una ficha en el tablero para esta OP (no hay otras fichas de la misma OP que unificar).
+                    </>
+                  )}
                   <br />
-                  ✅ El checklist se habilita al crear la ficha. Usa “Crear y abrir checklist” para cargar subtareas al instante.
+                  Podés <strong>sumar sectores después</strong> editando la OP (modal Editar) y guardando: se actualiza la lista
+                  y se generan las fichas que falten para los sectores nuevos.
+                  <br />
+                  ✅ El checklist se habilita al crear la OP. Usa &quot;Crear y abrir checklist&quot; para cargar subtareas al instante.
                 </small>
               </div>
             </div>

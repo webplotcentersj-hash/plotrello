@@ -70,3 +70,11 @@ FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE n.nspname = 'public'
   AND p.proname = 'create_orden_with_contact';
+
+-- 8) RPC sync_op_grupo_sectores_y_fichas (tras editar sectores[] en modal; parche 2026-04-01)
+SELECT p.proname,
+       pg_get_function_identity_arguments(p.oid) AS args
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname = 'public'
+  AND p.proname = 'sync_op_grupo_sectores_y_fichas';

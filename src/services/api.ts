@@ -1505,6 +1505,25 @@ class ApiService {
     return { success: true, data: fallbackOrdenes[index] }
   }
 
+  /**
+   * Tras guardar el modal de edición con cambios en sectores[]: propaga el array a todo el grupo de la OP
+   * y crea fichas duplicadas faltantes (misma idea que el trigger en INSERT). Requiere el RPC en Supabase.
+   */
+  async syncOpGrupoSectoresYFichas(ordenId: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: true }
+    try {
+      const { error } = await supabase.rpc('sync_op_grupo_sectores_y_fichas', { p_orden_id: ordenId })
+      if (error) {
+        console.warn('sync_op_grupo_sectores_y_fichas:', error.message)
+        return { success: false, error: error.message }
+      }
+      return { success: true }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al sincronizar sectores del grupo OP'
+      return { success: false, error: msg }
+    }
+  }
+
   async deleteOrden(
     id: number,
     options?: {

@@ -698,6 +698,16 @@ const BoardPage = ({
           ...prev
         ])
         
+        const sectoresAnt = JSON.stringify(taskOriginal?.sectores ?? [])
+        const sectoresNue = JSON.stringify(updatedTask.sectores ?? [])
+        if (sectoresAnt !== sectoresNue) {
+          const syncRes = await apiService.syncOpGrupoSectoresYFichas(ordenId)
+          if (!syncRes.success) {
+            console.warn('Sincronización sectores OP:', syncRes.error)
+          }
+          if (onReloadData) await onReloadData()
+        }
+
         setActionSuccess(sectorCambio 
           ? `Cambios guardados. Ficha movida a ${updatedTask.assignedSector}` 
           : 'Cambios guardados correctamente.')
