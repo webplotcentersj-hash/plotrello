@@ -368,10 +368,11 @@ function App() {
       isBoardDraggingRef.current = dragging
       if (!dragging && needsSyncAfterDragRef.current) {
         needsSyncAfterDragRef.current = false
-        // Defer sync hasta después del paint / animación de soltar (evita tildado al drop)
+        // Defer sync hasta después del paint / animación de soltar (evita tildado al drop).
+        // silent: no spinner; evita pisar estado optimista con refetch a medio fusionar.
         window.setTimeout(() => {
-          void loadRemoteData()
-        }, 320)
+          void loadRemoteData({ silent: true })
+        }, 450)
       }
     }
 

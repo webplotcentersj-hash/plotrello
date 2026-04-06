@@ -432,43 +432,49 @@ const BoardPage = ({
         if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
           const fusionadaId = String((response.data as any).fusionadaId)
           const conservadaId = String((response.data as any).id ?? '')
-          // PlotAI / feed: el historial local seguía apuntando al id fusionado (ya no está en tasks)
-          setActivity((prev) =>
-            prev.map((ev) => (ev.taskId === fusionadaId ? { ...ev, taskId: conservadaId } : ev))
-          )
-          setTasks((prev) => {
-            const movedTask = prev.find((task) => task.id === taskId)
-            const hadConservada = prev.some((task) => task.id === conservadaId)
-            const next = prev
-              .map((task) => {
-                if (task.id !== conservadaId) return task
-                return {
-                  ...task,
+          // Defer hasta después del frame de soltar DnD (@hello-pangea) para evitar rebote visual al quitar un draggable.
+          const applyFusionState = () => {
+            // PlotAI / feed: el historial local seguía apuntando al id fusionado (ya no está en tasks)
+            setActivity((prev) =>
+              prev.map((ev) => (ev.taskId === fusionadaId ? { ...ev, taskId: conservadaId } : ev))
+            )
+            setTasks((prev) => {
+              const movedTask = prev.find((task) => task.id === taskId)
+              const hadConservada = prev.some((task) => task.id === conservadaId)
+              const next = prev
+                .map((task) => {
+                  if (task.id !== conservadaId) return task
+                  return {
+                    ...task,
+                    status: destination,
+                    assignedSector: destinationColumn?.label ?? task.assignedSector,
+                    updatedAt: new Date().toISOString(),
+                    uiMovedAt: movedAt,
+                    progress: destination === 'almacen-entrega' ? 100 : task.progress
+                  }
+                })
+                .filter((task) => task.id !== fusionadaId)
+
+              if (!hadConservada && movedTask && conservadaId) {
+                next.push({
+                  ...movedTask,
+                  id: conservadaId,
                   status: destination,
-                  assignedSector: destinationColumn?.label ?? task.assignedSector,
+                  assignedSector: destinationColumn?.label ?? movedTask.assignedSector,
                   updatedAt: new Date().toISOString(),
                   uiMovedAt: movedAt,
-                  progress: destination === 'almacen-entrega' ? 100 : task.progress
-                }
-              })
-              .filter((task) => task.id !== fusionadaId)
+                  progress: destination === 'almacen-entrega' ? 100 : movedTask.progress
+                })
+              }
 
-            if (!hadConservada && movedTask && conservadaId) {
-              next.push({
-                ...movedTask,
-                id: conservadaId,
-                status: destination,
-                assignedSector: destinationColumn?.label ?? movedTask.assignedSector,
-                updatedAt: new Date().toISOString(),
-                uiMovedAt: movedAt,
-                progress: destination === 'almacen-entrega' ? 100 : movedTask.progress
-              })
-            }
-
-            return next
-          })
-          startTransition(() => {
-            setActionSuccess('Fichas unificadas en el sector destino (la otra queda oculta del tablero, no eliminada).')
+              return next
+            })
+            startTransition(() => {
+              setActionSuccess('Fichas unificadas en el sector destino (la otra queda oculta del tablero, no eliminada).')
+            })
+          }
+          requestAnimationFrame(() => {
+            requestAnimationFrame(applyFusionState)
           })
         } else {
           startTransition(() => {

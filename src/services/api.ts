@@ -1745,8 +1745,8 @@ class ApiService {
       }
 
       const rowsSib = siblingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
-      const sib =
-        rowsSib?.find((r) => r.visible_en_tablero !== false) ?? rowsSib?.[0]
+      // Solo fusionar con una ficha visible en tablero; nunca elegir una ya oculta (rompe UPDATE / UX rebote).
+      const sib = rowsSib?.find((r) => r.visible_en_tablero !== false)
       destinationId = sib?.id
 
       if (!destinationId) {
@@ -1762,7 +1762,7 @@ class ApiService {
           return { success: false, error: destinationError.message }
         }
         const rowsDest = destinationRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
-        const dest = rowsDest?.find((r) => r.visible_en_tablero !== false) ?? rowsDest?.[0]
+        const dest = rowsDest?.find((r) => r.visible_en_tablero !== false)
         destinationId = dest?.id
       }
 
@@ -1830,8 +1830,7 @@ class ApiService {
           }
 
           const rowsConf = conflictingRows as Array<{ id: number; visible_en_tablero?: boolean | null }> | null
-          const conflictingId =
-            rowsConf?.find((r) => r.visible_en_tablero !== false)?.id ?? rowsConf?.[0]?.id
+          const conflictingId = rowsConf?.find((r) => r.visible_en_tablero !== false)?.id
           if (conflictingId) {
             const fusionRes = await this.fusionarOrdenesDuplicadas(id, conflictingId)
             if (!fusionRes.success) return fusionRes
