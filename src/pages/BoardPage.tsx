@@ -822,6 +822,13 @@ const BoardPage = ({
     newTaskData: Omit<Task, 'id'> & { attachments?: Array<{ name: string; remoteUrl: string; uploading?: boolean }> },
     options?: { openChecklist?: boolean }
   ): Promise<void> => {
+    const variosSectores = (newTaskData.sectores?.length ?? 0) > 1
+    const settleOp = variosSectores ? String(newTaskData.opNumber ?? '').trim() : ''
+    if (settleOp) {
+      window.dispatchEvent(
+        new CustomEvent('plotrello-op-multi-sector-settle', { detail: { numeroOp: settleOp } })
+      )
+    }
     try {
       console.log('📝 Creando nueva ficha:', {
         opNumber: newTaskData.opNumber,
@@ -866,9 +873,8 @@ const BoardPage = ({
           }
         }
         
-        const variosSectores = (newTaskData.sectores?.length ?? 0) > 1
-        // Con varios sectores el trigger crea filas extra: evitar prepend + reload inmediato
-        // (parpadeo / rebote) y dar tiempo a que la BD confirme antes del refetch.
+        // Con varios sectores el trigger crea filas extra: sin prepend; realtime de esa OP va
+        // silenciado en App hasta el refetch (plotrello-op-multi-sector-settle).
         if (!variosSectores) {
           setTasks((prev) => [createdTask, ...prev])
         }
@@ -899,7 +905,7 @@ const BoardPage = ({
         }
         if (onReloadData) {
           if (variosSectores) {
-            await new Promise((r) => setTimeout(r, 700))
+            await new Promise((r) => setTimeout(r, 1100))
           }
           await onReloadData({ silent: true })
         }
@@ -908,6 +914,10 @@ const BoardPage = ({
       }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Error inesperado al crear la orden.')
+    } finally {
+      if (settleOp) {
+        window.dispatchEvent(new CustomEvent('plotrello-op-multi-sector-settle-end'))
+      }
     }
   }
 

@@ -131,6 +131,8 @@ const DEFAULT_SECTORES: SectorRecord[] = [
   { id: 7, nombre: 'Caja', color: '#48BB78' }
 ]
 
+const normNumeroOp = (n: unknown) => String(n ?? '').trim().toLowerCase()
+
 const mapUsuariosToTeamMembers = (usuarios: UsuarioRecord[]): TeamMember[] =>
   usuarios.map((usuario) => ({
     id: usuario.id.toString(),
@@ -157,6 +159,8 @@ function App() {
   const [dataError, setDataError] = useState<string | null>(null)
   const isBoardDraggingRef = useRef(false)
   const needsSyncAfterDragRef = useRef(false)
+  /** Durante creación OP multi-sector: ignorar realtime de esa OP para evitar parpadeo/rebote antes del refetch. */
+  const multiSectorSettleRef = useRef<{ numeroOpNorm: string } | null>(null)
 
   useEffect(() => {
     if (!loading) {
@@ -339,6 +343,23 @@ function App() {
   }, [isAuthenticated, loadRemoteData])
 
   useEffect(() => {
+    const onSettle = (event: Event) => {
+      const d = (event as CustomEvent<{ numeroOp: string }>).detail
+      const n = normNumeroOp(d?.numeroOp)
+      if (n) multiSectorSettleRef.current = { numeroOpNorm: n }
+    }
+    const onSettleEnd = () => {
+      multiSectorSettleRef.current = null
+    }
+    window.addEventListener('plotrello-op-multi-sector-settle', onSettle)
+    window.addEventListener('plotrello-op-multi-sector-settle-end', onSettleEnd)
+    return () => {
+      window.removeEventListener('plotrello-op-multi-sector-settle', onSettle)
+      window.removeEventListener('plotrello-op-multi-sector-settle-end', onSettleEnd)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!supabase || !isAuthenticated) return
 
     // Track movimientos recientes del usuario para evitar efecto espejo del realtime
@@ -399,6 +420,12 @@ function App() {
         setTasks((prev) => prev.filter((task) => task.id !== taskId))
         return
       }
+      const settling = multiSectorSettleRef.current
+      const opNorm = normNumeroOp(orden.numero_op)
+      if (settling && opNorm && opNorm === settling.numeroOpNorm) {
+        return
+      }
+
       const mapped = ordenToTask(orden)
       
       // Verificar si hay un movimiento reciente del usuario para esta ficha
