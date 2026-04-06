@@ -1663,15 +1663,29 @@ class ApiService {
       await sb.from('historial_movimientos').update({ id_orden: keepId }).eq('id_orden', removeId)
 
       // sector NULL excluye la fila de ux_ordenes_op_sector (índice parcial WHERE sector IS NOT NULL).
-      // Sin esto, la fila oculta seguía ocupando (numero_op, sector) y el UPDATE de la fila conservada chocaba.
+      // Requiere que `sector` no tenga NOT NULL en la tabla (parche 2026-04-02_ordenes_trabajo_sector_nullable_fusion.sql).
       const { error: hideError } = await sb
         .from('ordenes_trabajo')
         .update({ visible_en_tablero: false, sector: null })
         .eq('id', removeId)
 
       if (hideError) {
-        console.error('fusionarOrdenesDuplicadas: no se pudo ocultar ficha (¿falta columna visible_en_tablero?):', hideError)
-        return { success: false, error: hideError.message }
+        const code = (hideError as { code?: string }).code
+        const hint23502 =
+          code === '23502' ||
+          (String(hideError.message || '').includes('sector') &&
+            String(hideError.message || '').toLowerCase().includes('not-null'))
+            ? ' Ejecutá en Supabase: supabase/patches/2026-04-02_ordenes_trabajo_sector_nullable_fusion.sql'
+            : ''
+        console.error(
+          'fusionarOrdenesDuplicadas: no se pudo ocultar ficha (¿falta visible_en_tablero o sector NOT NULL?):',
+          hideError,
+          hint23502 || undefined
+        )
+        return {
+          success: false,
+          error: hideError.message ? `${hideError.message}${hint23502}` : hideError.message
+        }
       }
 
       return { success: true }
