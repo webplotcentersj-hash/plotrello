@@ -101,7 +101,7 @@ BEGIN
     v_promedio_dias_completar
   FROM public.ordenes_trabajo o
   WHERE (
-    (p_fecha_desde IS NULL OR o.fecha_creacion::date >= p_fecha_desde) AND
+    (p_fecha_desdetene en  IS NULL OR o.fecha_creacion::date >= p_fecha_desde) AND
     (p_fecha_hasta IS NULL OR o.fecha_creacion::date <= p_fecha_hasta)
   )
   AND (

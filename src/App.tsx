@@ -421,7 +421,6 @@ function App() {
         const next = [...prev]
         const idx = next.findIndex((task) => task.id === taskId)
         if (idx >= 0) {
-          const taskActual = next[idx]
           // ⚠️ CRÍTICO: Preservar el status actual si la tarea fue editada recientemente
           // Esto evita que la ficha se mueva cuando solo se actualiza la etapa u otros campos
           const recentEdit = recentUserEdits.get(taskId)
@@ -435,14 +434,10 @@ function App() {
               // Si pasaron más de 5 segundos, limpiar el tracking
               recentUserEdits.delete(taskId)
             }
-          } else {
-            // Si no hay edición reciente, solo preservar si el sector no cambió
-            const sectorCambio = taskActual.assignedSector !== mapped.assignedSector
-            if (!sectorCambio) {
-              mapped.status = taskActual.status
-              console.log(`🔒 Preservando status actual (${taskActual.status}) para ${taskId} - sector no cambió`)
-            }
           }
+          // No forzar mapped.status = taskActual.status cuando el sector coincide: rompe OP multi-sector
+          // (realtime trae la columna correcta y el local aún tenía status viejo → rebote). Ya cubren
+          // recentUserMoves (drag) y recentUserEdits (modal).
           next[idx] = mapped
         } else {
           next.unshift(mapped)

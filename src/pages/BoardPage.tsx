@@ -67,7 +67,7 @@ type BoardPageProps = {
   onNavigateToFlota?: () => void
   onNavigateToERP?: () => void
   onLogout?: () => void
-  onReloadData?: () => Promise<void>
+  onReloadData?: (options?: { silent?: boolean }) => Promise<void>
   isSyncing?: boolean
   syncError?: string | null
   sectores: SectorRecord[]
@@ -866,7 +866,12 @@ const BoardPage = ({
           }
         }
         
-        setTasks((prev) => [createdTask, ...prev])
+        const variosSectores = (newTaskData.sectores?.length ?? 0) > 1
+        // Con varios sectores el trigger crea filas extra: evitar prepend + reload inmediato
+        // (parpadeo / rebote) y dar tiempo a que la BD confirme antes del refetch.
+        if (!variosSectores) {
+          setTasks((prev) => [createdTask, ...prev])
+        }
         setActivity((prev) => [
           {
             id: `create-${Date.now()}`,
@@ -892,7 +897,12 @@ const BoardPage = ({
         if (options?.openChecklist) {
           setChecklistTask(createdTask)
         }
-        if (onReloadData) await onReloadData()
+        if (onReloadData) {
+          if (variosSectores) {
+            await new Promise((r) => setTimeout(r, 700))
+          }
+          await onReloadData({ silent: true })
+        }
       } else {
         setActionError(response.error || 'No se pudo crear la orden en Supabase.')
       }

@@ -15,7 +15,9 @@
     "preview:tablet-firma": "vite preview --open /tablet-firma.html",
     "clear-cache": "node scripts/clear-cache.js",
     "clean": "node scripts/clear-cache.js && npm run build",
-    "clean-all": "node scripts/clear-cache.js --clean-node && npm run build"
+    "clean-all": "node scripts/clear-cache.js --clean-node && npm run build",
+    "manual:pdf": "node scripts/build-manual-pdf.mjs",
+    "manual:pdf:op-sectores": "node scripts/build-manual-pdf.mjs MANUAL_OP_SECTORES_MULTIPLES.md"
   },
   "devDependencies": {
     "@types/html2canvas": "^0.5.35",
