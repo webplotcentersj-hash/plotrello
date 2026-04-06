@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
-import type { ComentarioOrden, HistorialMovimiento, MaterialRecord, SectorRecord } from '../types/api'
+import type {
+  ComentarioOrden,
+  HistorialMovimiento,
+  MaterialRecord,
+  OrdenTrabajo,
+  SectorRecord
+} from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
-import { parseTaskIdToOrdenId, filterOperariosBySector } from '../utils/dataMappers'
+import { parseTaskIdToOrdenId, filterOperariosBySector, ordenToTask } from '../utils/dataMappers'
+import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
 import BriefLinkSection from './BriefLinkSection'
@@ -45,7 +52,7 @@ const TaskEditModal = ({
   onSave,
   onDelete
 }: TaskEditModalProps) => {
-  const { isAdmin, isDiseno } = useAuth()
+  const { isAdmin, isDiseno, usuario } = useAuth()
   const [formData, setFormData] = useState<Partial<Task>>({})
   const [selectedSectors, setSelectedSectors] = useState<string[]>([])
   const [materials, setMaterials] = useState<Array<{ name: string; quantity: number }>>([])
@@ -75,6 +82,7 @@ const TaskEditModal = ({
   const [newComment, setNewComment] = useState('')
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [savingComment, setSavingComment] = useState(false)
+  const [opBloqueadaSyncing, setOpBloqueadaSyncing] = useState(false)
   const attachmentsRef = useRef<LocalAttachment[]>([])
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
   const [previewAttachment, setPreviewAttachment] = useState<LocalAttachment | null>(null)
@@ -111,6 +119,7 @@ const TaskEditModal = ({
     if (task) {
       setFormData({
         opNumber: task.opNumber,
+        opBloqueada: task.opBloqueada ?? false,
         title: task.title,
         summary: task.summary || '',
         priority: task.priority,
@@ -258,7 +267,28 @@ const TaskEditModal = ({
     return filterOperariosBySector(teamMembers, task.assignedSector)
   }, [teamMembers, task])
 
+  const isAssignee = useMemo(() => {
+    if (!task) return false
+    return matchesOperarioAsignado(usuario, formData.ownerId ?? task.ownerId)
+  }, [usuario, formData.ownerId, task])
+
   if (!task) return null
+
+  const opLocked = Boolean(formData.opBloqueada ?? task.opBloqueada) && !isAdmin
+
+  const handleOpBloqueadaToggle = async (next: boolean) => {
+    const ordenId = parseTaskIdToOrdenId(task.id)
+    if (!ordenId) return
+    setOpBloqueadaSyncing(true)
+    const r = await apiService.updateOrden(ordenId, { op_bloqueada: next })
+    setOpBloqueadaSyncing(false)
+    if (!r.success) {
+      alert(r.error || 'No se pudo actualizar el bloqueo')
+      return
+    }
+    setFormData((f) => ({ ...f, opBloqueada: next }))
+    if (r.data) onSave(ordenToTask(r.data as OrdenTrabajo))
+  }
 
   /** Ficha No OP, u OP ya convertida desde ficha (pueden subir PDF y desmarcar incompleta) */
   const muestraFichaTecnicaPdfEIncompleta =
@@ -303,12 +333,27 @@ const TaskEditModal = ({
       alert('Espera a que termine la subida de archivos antes de guardar.')
       return
     }
+    if (opLocked) {
+      alert(
+        'Esta OP está trabada. Destabála para guardar cambios (solo el operario asignado o administración/gerencia).'
+      )
+      return
+    }
 
     // ⚠️ Importante: editar ficha NO debe moverla de columna automáticamente.
     // El movimiento entre columnas se hace por drag/flechas/context menu.
     const nuevoSector = task.assignedSector
     const nuevoStatus: Task['status'] = task.status
-    
+
+    const sectoresGuardados: string[] =
+      selectedSectors.length > 0
+        ? [...selectedSectors]
+        : task.sectores && task.sectores.length > 0
+          ? [...task.sectores]
+          : nuevoSector
+            ? [nuevoSector]
+            : []
+
     const updated: Task = {
       ...task,
       ...formData,
@@ -316,6 +361,7 @@ const TaskEditModal = ({
       tags,
       materials: materials.map((m) => m.name),
       assignedSector: nuevoSector,
+      sectores: sectoresGuardados,
       updatedAt: new Date().toISOString(),
       briefPublico: briefPublico.trim() || undefined,
       objetivoProyecto: objetivoProyecto.trim() || undefined,
@@ -329,7 +375,8 @@ const TaskEditModal = ({
       presupuestoEnviadoCliente: presupuestoEnviado,
       planillaPreliminar: planillaPreliminar,
       // Asegurar que ownerId se preserve correctamente
-      ownerId: formData.ownerId || task.ownerId || 'sin-asignar'
+      ownerId: formData.ownerId || task.ownerId || 'sin-asignar',
+      opBloqueada: formData.opBloqueada ?? task.opBloqueada
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
@@ -364,6 +411,12 @@ const TaskEditModal = ({
 
   const handleAddComment = async () => {
     if (!newComment.trim() || !task) return
+    if (opLocked) {
+      alert(
+        'Esta OP está trabada: no se pueden agregar comentarios hasta que se destabe (administración/gerencia puede hacerlo).'
+      )
+      return
+    }
     const ordenId = parseTaskIdToOrdenId(task.id)
     if (!ordenId) return
 
@@ -737,6 +790,26 @@ const TaskEditModal = ({
         </header>
 
         <div className="modal-body">
+          {opLocked && (
+            <div className="task-edit-op-lock-banner" role="alert">
+              Esta OP está trabada: no podés editarla ni guardar hasta que el operario asignado la destabe
+              (administración o gerencia pueden hacerlo con su usuario).
+            </div>
+          )}
+          {(isAssignee || isAdmin) && (
+            <div className="task-edit-op-lock-toggle">
+              <label className="task-edit-op-lock-label">
+                <input
+                  type="checkbox"
+                  checked={!!(formData.opBloqueada ?? task.opBloqueada)}
+                  disabled={opBloqueadaSyncing}
+                  onChange={(e) => void handleOpBloqueadaToggle(e.target.checked)}
+                />
+                <span>Trabar OP (nadie puede editarla ni moverla hasta que se destabe)</span>
+              </label>
+            </div>
+          )}
+          <fieldset className="task-edit-op-fieldset" disabled={opLocked}>
           <div className="task-cover-section">
             <div className="task-cover-header">
               <strong>Portada</strong>
@@ -1943,18 +2016,29 @@ const TaskEditModal = ({
               </span>
             </div>
           </div>
+          </fieldset>
         </div>
 
         <footer className="modal-footer">
           {onDelete && (
-            <button type="button" className="btn-delete" onClick={() => onDelete(task.id)}>
+            <button
+              type="button"
+              className="btn-delete"
+              disabled={opLocked}
+              onClick={() => !opLocked && onDelete(task.id)}
+            >
               Eliminar
             </button>
           )}
           <button type="button" className="btn-cancel" onClick={() => onClose(task?.id)}>
             Cancelar
           </button>
-          <button type="button" className="btn-save" onClick={handleSave} disabled={hasPendingUploads}>
+          <button
+            type="button"
+            className="btn-save"
+            onClick={handleSave}
+            disabled={opLocked || hasPendingUploads}
+          >
             Guardar Cambios
           </button>
         </footer>

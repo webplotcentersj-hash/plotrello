@@ -32,7 +32,7 @@ export default function SectorEtapaKanbanPage({
 }: Props) {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const { usuario } = useAuth()
+  const { usuario, isAdmin } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
 
@@ -130,6 +130,13 @@ export default function SectorEtapaKanbanPage({
         setError('No se pudo obtener el id de la orden')
         return
       }
+      const movingTask = tasks.find((t) => t.id === taskId)
+      if (movingTask?.opBloqueada && !isAdmin) {
+        setError(
+          'Esta OP está trabada: no se puede cambiar la etapa hasta que el operario asignado la destabe (administración/gerencia puede hacerlo).'
+        )
+        return
+      }
       setError(null)
       setMoving(true)
       try {
@@ -165,7 +172,7 @@ export default function SectorEtapaKanbanPage({
         setMoving(false)
       }
     },
-    [config, persistEtapa, setTasks]
+    [config, persistEtapa, setTasks, tasks, isAdmin]
   )
 
   if (!config) {

@@ -7,6 +7,7 @@ import {
   timeStringToSecondsSinceMidnight
 } from '../utils/dateUtils'
 import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
+import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import type {
   ClienteRecord,
   FichaHistorialItem,
@@ -164,6 +165,97 @@ class ApiService {
       : 'Usuario'
     // Nunca devolver 0 para evitar FK en historial_movimientos
     return { id: usuarioId || 1, nombre: nombreUsuario }
+  }
+
+  private getCurrentUserWithRol(): { id: number; nombre: string; rol: string | null } {
+    const base = this.getCurrentUser()
+    let rol: string | null = null
+    try {
+      const raw = localStorage.getItem('usuario')
+      if (raw) rol = JSON.parse(raw).rol ?? null
+    } catch {
+      /* ignore */
+    }
+    return { ...base, rol }
+  }
+
+  private isAdminOrGerenciaRole(): boolean {
+    const r = this.getCurrentUserWithRol().rol
+    return r === 'administracion' || r === 'gerencia'
+  }
+
+  /**
+   * OP trabada: no se edita ni mueve salvo admin/gerencia o destaque (solo `op_bloqueada: false`) por el operario asignado.
+   */
+  private evaluateOrdenOpLock(
+    ordenRow: { op_bloqueada?: boolean | null; operario_asignado?: string | null } | null | undefined,
+    ordenPatch: Partial<OrdenTrabajo>
+  ): { ok: true } | { ok: false; error: string } {
+    const locked = !!ordenRow?.op_bloqueada
+    const u = this.getCurrentUserWithRol()
+    const assignee = matchesOperarioAsignado(u, ordenRow?.operario_asignado ?? null)
+    const admin = this.isAdminOrGerenciaRole()
+
+    const definedKeys = Object.keys(ordenPatch).filter(
+      (k) => ordenPatch[k as keyof OrdenTrabajo] !== undefined
+    )
+
+    if (!locked) {
+      const onlyLockOn =
+        definedKeys.length === 1 &&
+        definedKeys[0] === 'op_bloqueada' &&
+        ordenPatch.op_bloqueada === true
+      if (onlyLockOn && !assignee && !admin) {
+        return {
+          ok: false,
+          error: 'Solo el operario asignado o administración/gerencia puede trabar esta OP.'
+        }
+      }
+      return { ok: true }
+    }
+
+    if (admin) return { ok: true }
+
+    const onlyUnlock =
+      definedKeys.length === 1 &&
+      definedKeys[0] === 'op_bloqueada' &&
+      ordenPatch.op_bloqueada === false
+    if (onlyUnlock && assignee) return { ok: true }
+    if (onlyUnlock && !assignee) {
+      return {
+        ok: false,
+        error:
+          'Solo el operario asignado puede destabar esta OP (administración/gerencia también puede editarla).'
+      }
+    }
+
+    return {
+      ok: false,
+      error:
+        'Esta OP está trabada: no se puede editar ni mover hasta que el operario asignado la destabe (administración/gerencia puede hacerlo).'
+    }
+  }
+
+  private async assertOpNotLockedForMutation(ordenId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!supabase) return { ok: true }
+    const { data, error } = await supabase
+      .from('ordenes_trabajo')
+      .select('op_bloqueada, operario_asignado')
+      .eq('id', ordenId)
+      .maybeSingle()
+
+    if (error) {
+      if (/op_bloqueada|column/i.test(String(error.message))) return { ok: true }
+      return { ok: false, error: error.message }
+    }
+    const row = data as { op_bloqueada?: boolean | null; operario_asignado?: string | null } | null
+    if (!row?.op_bloqueada) return { ok: true }
+    if (this.isAdminOrGerenciaRole()) return { ok: true }
+    return {
+      ok: false,
+      error:
+        'Esta OP está trabada: no se puede modificar hasta que el operario asignado la destabe (administración/gerencia puede hacerlo).'
+    }
   }
 
   // Helper para registrar cambios en historial_movimientos (AUDITORÍA PROFESIONAL)
@@ -874,10 +966,21 @@ class ApiService {
       const { data: ordenAnterior } = await supabaseClient
         .from('ordenes_trabajo')
         .select(
-          'estado, operario_asignado, sector, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera'
+          'estado, operario_asignado, sector, sectores, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera, op_bloqueada'
         )
         .eq('id', id)
         .maybeSingle()
+
+      const lockEval = this.evaluateOrdenOpLock(
+        ordenAnterior as {
+          op_bloqueada?: boolean | null
+          operario_asignado?: string | null
+        },
+        orden
+      )
+      if (!lockEval.ok) {
+        return { success: false, error: lockEval.error }
+      }
       
       const estadoAnterior = ordenAnterior?.estado || null
       const operarioAnterior = ordenAnterior?.operario_asignado || null
@@ -1094,7 +1197,7 @@ class ApiService {
       
       // Preparar el objeto para actualizar
       const ordenToUpdate = { ...orden }
-      
+
       // Solo eliminar foto_url si está vacío, null o undefined (pero NUNCA eliminarlo si tiene valor)
       if (ordenToUpdate.foto_url && ordenToUpdate.foto_url.trim() !== '') {
         // Mantener foto_url - es importante
@@ -1413,6 +1516,9 @@ class ApiService {
   ): Promise<ApiResponse<void>> {
     if (supabase) {
       try {
+        const delGuard = await this.assertOpNotLockedForMutation(id)
+        if (!delGuard.ok) return { success: false, error: delGuard.error }
+
         // Registrar SIEMPRE la eliminación y si falla, NO borrar (para no perder auditoría)
         const { id: currentUserId, nombre: currentUserName } = this.getCurrentUser()
         const changes: Record<string, any> = { origen: 'deleteOrden_frontend' }
@@ -1559,7 +1665,7 @@ class ApiService {
     if (supabase) {
       const { data: current, error: fetchError } = await supabase
         .from('ordenes_trabajo')
-        .select('id, numero_op, estado, sector, es_duplicado, id_orden_original')
+        .select('id, numero_op, estado, sector, es_duplicado, id_orden_original, op_bloqueada, operario_asignado')
         .eq('id', id)
         .maybeSingle()
 
@@ -1573,6 +1679,15 @@ class ApiService {
         sector: string
         es_duplicado?: boolean | null
         id_orden_original?: number | null
+        op_bloqueada?: boolean | null
+        operario_asignado?: string | null
+      }
+      if (currentData.op_bloqueada && !this.isAdminOrGerenciaRole()) {
+        return {
+          success: false,
+          error:
+            'Esta OP está trabada: no se puede mover hasta que el operario asignado la destabe (administración/gerencia puede hacerlo).'
+        }
       }
       const currentEstado = currentData.estado
       
@@ -1785,6 +1900,9 @@ class ApiService {
 
   async setOrdenWorkingUser(id: number, workingUser: string | null): Promise<ApiResponse<void>> {
     if (supabase) {
+      const guard = await this.assertOpNotLockedForMutation(id)
+      if (!guard.ok) return { success: false, error: guard.error }
+
       const { error } = await supabase
         .from('ordenes_trabajo')
         .update({ usuario_trabajando_nombre: workingUser })
@@ -1812,6 +1930,9 @@ class ApiService {
 
   async marcarEntregado(id: number, entregado: boolean): Promise<ApiResponse<void>> {
     if (supabase) {
+      const lockGuard = await this.assertOpNotLockedForMutation(id)
+      if (!lockGuard.ok) return { success: false, error: lockGuard.error }
+
       // Obtener el estado y sector actual antes de actualizar
       const { data: current, error: fetchError } = await supabase
         .from('ordenes_trabajo')
@@ -7553,6 +7674,9 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        const etapaGuard = await this.assertOpNotLockedForMutation(ordenId)
+        if (!etapaGuard.ok) return { success: false, error: etapaGuard.error }
+
         // Obtener etapa anterior
         const { data: ordenAnterior } = await supabase
           .from('ordenes_trabajo')
@@ -7619,6 +7743,9 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        const etapaGuard = await this.assertOpNotLockedForMutation(ordenId)
+        if (!etapaGuard.ok) return { success: false, error: etapaGuard.error }
+
         // Obtener etapa anterior
         const { data: ordenAnterior } = await supabase
           .from('ordenes_trabajo')
@@ -7676,6 +7803,9 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        const etapaGuard = await this.assertOpNotLockedForMutation(ordenId)
+        if (!etapaGuard.ok) return { success: false, error: etapaGuard.error }
+
         // Obtener etapa anterior
         const { data: ordenAnterior } = await supabase
           .from('ordenes_trabajo')
@@ -7733,6 +7863,9 @@ class ApiService {
   ): Promise<ApiResponse<{ etapa_impresion_digital: string | null; etapa_impresion_digital_fecha_inicio: string | null }>> {
     if (supabase) {
       try {
+        const etapaGuard = await this.assertOpNotLockedForMutation(ordenId)
+        if (!etapaGuard.ok) return { success: false, error: etapaGuard.error }
+
         const { data, error } = await supabase.rpc('actualizar_etapa_impresion_digital', {
           p_id_orden: ordenId,
           p_nueva_etapa: nuevaEtapa,
@@ -7763,6 +7896,9 @@ class ApiService {
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       try {
+        const etapaGuard = await this.assertOpNotLockedForMutation(ordenId)
+        if (!etapaGuard.ok) return { success: false, error: etapaGuard.error }
+
         // Obtener etapa anterior
         const { data: ordenAnterior } = await supabase
           .from('ordenes_trabajo')

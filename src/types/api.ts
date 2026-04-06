@@ -76,6 +76,8 @@ export interface OrdenTrabajo {
   presupuesto_armado?: boolean | null
   /** Presupuestos: checklist "En espera" */
   presupuesto_en_espera?: boolean | null
+  /** Si true, la ficha no debe editarse ni moverse (operario asignado puede destablar; admin/gerencia omiten) */
+  op_bloqueada?: boolean | null
   /** false = no listar en tablero; la fila sigue en BD (fusión / unificación sin DELETE) */
   visible_en_tablero?: boolean | null
   /** Número FICHA-* antes de convertir a OP (historial) */

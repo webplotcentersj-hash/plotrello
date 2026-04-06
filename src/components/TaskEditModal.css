@@ -1231,3 +1231,42 @@
   flex: 1;
 }
 
+.task-edit-op-lock-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  font-size: 0.9rem;
+  color: #fcd34d;
+}
+
+.task-edit-op-lock-toggle {
+  margin-bottom: 14px;
+}
+
+.task-edit-op-lock-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.task-edit-op-lock-label input {
+  margin-top: 3px;
+  accent-color: #38bdf8;
+}
+
+.task-edit-op-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.task-edit-op-fieldset:disabled {
+  opacity: 0.88;
+}
+

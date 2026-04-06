@@ -360,6 +360,16 @@ const BoardPage = ({
     _sourceColumn?: TaskStatus
   ) => {
     const destinationColumn = BOARD_COLUMNS.find((column) => column.id === destination)
+    const taskBeforeMove = tasksRef.current.find((t) => t.id === taskId)
+    if (!taskBeforeMove) return
+    if (taskBeforeMove.status === destination) return
+    if (taskBeforeMove.opBloqueada && !isAdmin) {
+      setActionError(
+        'Esta OP está trabada: no se puede mover hasta que el operario asignado la destabe (administración/gerencia puede hacerlo).'
+      )
+      return
+    }
+
     const movedAt = Date.now()
     try {
       localStorage.setItem(`taskcard:new-move:${taskId}`, String(movedAt))
@@ -381,8 +391,7 @@ const BoardPage = ({
       })
     )
 
-    const taskSnapshot = tasksRef.current.find((task) => task.id === taskId)
-    if (!taskSnapshot || taskSnapshot.status === destination) return
+    const taskSnapshot = taskBeforeMove
 
     startTransition(() => {
       setActivity((prev) => [
@@ -468,7 +477,7 @@ const BoardPage = ({
         }
       }
     }
-  }, [setTasks, setActivity, setActionError, setActionSuccess])
+  }, [setTasks, setActivity, setActionError, setActionSuccess, isAdmin])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {

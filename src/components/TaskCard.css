@@ -289,6 +289,7 @@
 .task-card.is-minimized .priority-led-indicator,
 .task-card.is-minimized .sector-corner-marker,
 .task-card.is-minimized .duplicate-indicator,
+.task-card.is-minimized .op-bloqueada-indicator,
 .task-card.is-minimized .task-move-arrows,
 .task-card.is-minimized .task-actions {
   display: none !important;
@@ -554,6 +555,16 @@ body.compact-mode .task-actions {
   right: 16px;
   font-size: 16px;
   opacity: 0.7;
+  z-index: 10;
+  cursor: help;
+}
+
+.op-bloqueada-indicator {
+  position: absolute;
+  top: 16px;
+  right: 42px;
+  font-size: 14px;
+  opacity: 0.95;
   z-index: 10;
   cursor: help;
 }

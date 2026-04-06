@@ -238,6 +238,13 @@ const AsesorPresupuestosPage = ({
         return
       }
 
+      if (taskToUpdate.opBloqueada && !isAdmin) {
+        setActionError(
+          'Esta ficha/OP está trabada: no se puede mover ni editar hasta que el operario asignado la destabe (administración/gerencia puede hacerlo).'
+        )
+        return
+      }
+
       // Ficha No OP → OP: solo desde la columna Presupuestos (no desde Asesor directo a Finalizado)
       if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
         const effectiveSource =

@@ -172,6 +172,7 @@ const TaskCardInner = ({
     return () => window.removeEventListener('board-dragging-changed', fn)
   }, [])
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
+  const moveBlocked = Boolean(task.opBloqueada) && !isAdmin
   const etiquetaOrden = task.esFichaNoOP ? 'Ficha' : 'OP'
   const displayNumeroOrden = (() => {
     const raw = (task.opNumber || '').trim()
@@ -492,7 +493,7 @@ const TaskCardInner = ({
           onContextMenuCapture={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (!onMoveTask || columns.length === 0) return
+            if (!onMoveTask || columns.length === 0 || moveBlocked) return
             const el = e.currentTarget as HTMLElement
             const itemCount = columns.filter((c) => c.id !== task.status).length
             if (itemCount === 0) return
@@ -550,7 +551,12 @@ const TaskCardInner = ({
               📋
             </div>
           )}
-          {!isDragLightMode && onMoveTask && columns.length > 0 && (() => {
+          {!isDragLightMode && task.opBloqueada && (
+            <div className="op-bloqueada-indicator" title="OP trabada: solo el operario asignado puede destablar (admin/gerencia puede editar)">
+              🔒
+            </div>
+          )}
+          {!isDragLightMode && onMoveTask && columns.length > 0 && !moveBlocked && (() => {
             const idx = columns.findIndex((c) => c.id === task.status)
             const prevCol = idx > 0 ? columns[idx - 1] : null
             const nextCol = idx >= 0 && idx < columns.length - 1 ? columns[idx + 1] : null
@@ -590,8 +596,10 @@ const TaskCardInner = ({
               <button
                 type="button"
                 className="task-action-btn task-edit"
+                disabled={moveBlocked}
                 onClick={(e) => {
                   e.stopPropagation()
+                  if (moveBlocked) return
                   onEdit(task)
                 }}
                 title="Editar"
@@ -1519,7 +1527,7 @@ const TaskCardInner = ({
         ...(boardDnD.provided.dragHandleProps ?? {})
       })
     ) : isDraggable ? (
-      <Draggable draggableId={task.id} index={index}>
+      <Draggable draggableId={task.id} index={index} isDragDisabled={moveBlocked}>
         {(provided, snapshot) =>
           renderCardContent({
             ref: provided.innerRef,
@@ -1541,6 +1549,7 @@ const TaskCardInner = ({
       {contextMenu &&
         onMoveTask &&
         columns.length > 0 &&
+        !moveBlocked &&
         createPortal(
           <div
             className="task-card-context-menu"
@@ -1948,7 +1957,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       'entregado',
       'assignedSector',
       'uiMovedAt',
-      'summary'
+      'summary',
+      'opBloqueada'
     ] as const
     for (const k of keys) {
       if (prev.task[k] !== next.task[k]) return false

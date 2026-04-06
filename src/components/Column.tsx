@@ -2,6 +2,7 @@ import { memo, useMemo, useState, type CSSProperties, type Ref } from 'react'
 import { Draggable, type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
+import { useAuth } from '../hooks/useAuth'
 import TaskCard from './TaskCard'
 
 /** Referencia estable para memo(TaskCard); `?? []` en cada render rompe la igualdad superficial */
@@ -50,6 +51,7 @@ const Column = ({
   onViewTask,
   isBoardDragging = false
 }: ColumnProps) => {
+  const { isAdmin } = useAuth()
   const INITIAL_VISIBLE_TASKS = 5
   const [showAllTasks, setShowAllTasks] = useState(false)
 
@@ -93,7 +95,12 @@ const Column = ({
 
       <div className="column-body" ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
         {visibleTasks.map((task, index) => (
-          <Draggable key={task.id} draggableId={task.id} index={index}>
+          <Draggable
+            key={task.id}
+            draggableId={task.id}
+            index={index}
+            isDragDisabled={Boolean(task.opBloqueada) && !isAdmin}
+          >
             {(provided, snapshot) => (
               <TaskCard
                 task={task}

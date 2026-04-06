@@ -216,6 +216,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     whatsappUrl,
     locationUrl,
     driveUrl,
+    opBloqueada: orden.op_bloqueada === true,
     entregado: orden.entregado ?? false,
     metrosCuadrados: orden.metros_cuadrados ?? undefined,
     esFichaNoOP: orden.es_ficha_no_op ?? false,
@@ -362,7 +363,8 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     ficha_tecnica_incompleta: task.fichaTecnicaIncompleta ?? false,
     presupuesto_enviado_cliente: task.presupuestoEnviadoCliente ?? false,
     presupuesto_armado: task.presupuestoArmado ?? false,
-    presupuesto_en_espera: task.presupuestoEnEspera ?? false
+    presupuesto_en_espera: task.presupuestoEnEspera ?? false,
+    ...(task.opBloqueada !== undefined ? { op_bloqueada: task.opBloqueada } : {})
   }
   
   console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)
