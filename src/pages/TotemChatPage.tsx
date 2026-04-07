@@ -6,10 +6,8 @@ const GREETING_SPEECH =
   'Hola bienvenido a Plot Center soy el asistente del mostrador decime en qué te puedo ayudar hoy'
 const CHAT_API = '/api/plotai/chat-public'
 const IMAGE_API = '/api/plotai/generate-image'
+/** TTS del tótem: solo esta ruta usa ElevenLabs (API servidor + reproducción acá). */
 const ELEVENLABS_TTS_API = '/api/plotai/elevenlabs-tts'
-const ELEVENLABS_CONVAI_SCRIPT = 'https://unpkg.com/@elevenlabs/convai-widget-embed'
-/** ConvAI: agente en ElevenLabs (sobreescribir con VITE_ELEVENLABS_CONVAI_AGENT_ID en build). */
-const DEFAULT_CONVAI_AGENT_ID = 'agent_5801knma3fxyeaa99cdhj9qwvdkv'
 const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
@@ -63,6 +61,8 @@ export default function TotemChatPage() {
   const historyRef = useRef(history)
   const conversationIdRef = useRef<number | null>(conversationId)
   const processUserTurnRef = useRef<(text: string) => Promise<void>>(async () => {})
+  /** Un solo aviso si ElevenLabs no está configurado y caemos a voz del navegador. */
+  const ttsElevenLabsFallbackWarnedRef = useRef(false)
 
   historyRef.current = history
   conversationIdRef.current = conversationId
@@ -135,17 +135,42 @@ export default function TotemChatPage() {
           synthRef.current = window.speechSynthesis
         }
 
-        void (async () => {
-          try {
-            const res = await fetch(`${apiBase}${ELEVENLABS_TTS_API}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: clean })
-            })
-            const ct = res.headers.get('content-type') || ''
-            if (res.ok && ct.includes('audio')) {
-              revokeTtsObjectUrl()
+        const tryElevenLabs = async (): Promise<boolean> => {
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const res = await fetch(`${apiBase}${ELEVENLABS_TTS_API}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: clean })
+              })
+              const ct = (res.headers.get('content-type') || '').toLowerCase()
+
+              if (res.ok && ct.includes('application/json')) {
+                const j = (await res.json().catch(() => null)) as { fallback?: boolean; error?: string } | null
+                if (j?.fallback && !ttsElevenLabsFallbackWarnedRef.current) {
+                  ttsElevenLabsFallbackWarnedRef.current = true
+                  setError(
+                    'Voz ElevenLabs: en Vercel configurá ELEVENLABS_API_KEY y ELEVENLABS_VOICE_ID o ELEVENLABS_VOICE_NAME. Mientras tanto se usa la voz del navegador.'
+                  )
+                }
+                return false
+              }
+
+              if (!res.ok) continue
+
               const blob = await res.blob()
+              if (blob.size < 80) continue
+              if ((blob.type || '').toLowerCase().includes('json')) continue
+
+              const looksAudio =
+                ct.includes('audio/') ||
+                ct.includes('octet-stream') ||
+                (blob.type || '').toLowerCase().includes('audio') ||
+                (blob.type === '' && blob.size > 500)
+
+              if (!looksAudio) continue
+
+              revokeTtsObjectUrl()
               const url = URL.createObjectURL(blob)
               ttsObjectUrlRef.current = url
               const audio = new Audio(url)
@@ -162,17 +187,25 @@ export default function TotemChatPage() {
               }
               try {
                 await audio.play()
+                setError((prev) =>
+                  prev && prev.includes('ElevenLabs') ? null : prev
+                )
+                return true
               } catch {
                 ttsAudioRef.current = null
                 revokeTtsObjectUrl()
-                speakBrowser()
               }
-              return
+            } catch {
+              /* red */
             }
-          } catch {
-            /* ElevenLabs no disponible o error de red */
+            if (attempt === 0) await new Promise((r) => setTimeout(r, 350))
           }
-          speakBrowser()
+          return false
+        }
+
+        void (async () => {
+          const ok = await tryElevenLabs()
+          if (!ok) speakBrowser()
         })()
       })
     },
@@ -380,33 +413,6 @@ export default function TotemChatPage() {
       cancelSpeak()
     }
   }, [cancelSpeak])
-
-  /** Widget ElevenLabs ConvAI (voz/agente); script oficial + custom element. */
-  useEffect(() => {
-    const agentId = (import.meta.env.VITE_ELEVENLABS_CONVAI_AGENT_ID || DEFAULT_CONVAI_AGENT_ID).trim()
-    if (!agentId) return
-
-    let script = document.querySelector(
-      'script[data-plotrello-convai]'
-    ) as HTMLScriptElement | null
-    if (!script) {
-      script = document.createElement('script')
-      script.src = ELEVENLABS_CONVAI_SCRIPT
-      script.async = true
-      script.type = 'text/javascript'
-      script.dataset.plotrelloConvai = '1'
-      document.body.appendChild(script)
-    }
-
-    const widget = document.createElement('elevenlabs-convai')
-    widget.setAttribute('agent-id', agentId)
-    widget.dataset.plotrelloTotem = '1'
-    document.body.appendChild(widget)
-
-    return () => {
-      widget.remove()
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
