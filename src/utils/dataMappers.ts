@@ -290,6 +290,21 @@ const toDateOnly = (value?: string) => {
   }).format(date)
 }
 
+/**
+ * Ficha No OP (presupuesto / asesor técnico): correlativo FICHA-n asignado por BD.
+ * No alcanza con el booleano en el Task: si numero_op es "FICHA-" (sin dígitos), es la misma alta.
+ */
+export function ordenUsaCorrelativoFichaNoOP(
+  numeroOp: string | null | undefined,
+  esFichaNoOP: boolean | null | undefined
+): boolean {
+  if (esFichaNoOP === true) return true
+  const s = (numeroOp ?? '').trim()
+  if (!s) return false
+  const up = s.toUpperCase()
+  return up.startsWith('FICHA') && !/^FICHA-[0-9]+$/.test(up)
+}
+
 export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<OrdenTrabajo> => {
   // Normalizar dniCuit: si es string vacío, convertir a null
   const dniCuitValue = task.dniCuit?.trim() || null
@@ -348,7 +363,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     estilo_diseno: task.estiloDiseno?.trim() || null,
     referencias: task.referencias?.trim() || null,
     deadline_brief: task.deadlineBrief ? toDateOnly(task.deadlineBrief) : null,
-    es_ficha_no_op: task.esFichaNoOP ?? false,
+    es_ficha_no_op: ordenUsaCorrelativoFichaNoOP(task.opNumber, task.esFichaNoOP),
     ...(task.numeroFichaOriginal !== undefined
       ? {
           numero_ficha_original:

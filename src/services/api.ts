@@ -8,6 +8,7 @@ import {
 } from '../utils/dateUtils'
 import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
+import { ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
 import type {
   ClienteRecord,
   FichaHistorialItem,
@@ -598,8 +599,23 @@ class ApiService {
       // Capturar supabase en variable local para TypeScript
       const supabaseClient = supabase
 
-      // Ficha No OP: correlativo FICHA-<n> salvo que ya venga un número explícito FICHA-<solo dígitos>
-      if (orden.es_ficha_no_op) {
+      const hasContactFields = Boolean(
+        orden.telefono_cliente ||
+          orden.direccion_cliente ||
+          orden.drive_link ||
+          orden.ubicacion_link ||
+          orden.email_cliente ||
+          orden.whatsapp_link
+      )
+      const hasMultipleSectors = Boolean(orden.sectores && orden.sectores.length > 0)
+      const usesCreateOrdenRpc = hasContactFields || hasMultipleSectors
+      const usaCorrelativoFichaNoOP = ordenUsaCorrelativoFichaNoOP(orden.numero_op, orden.es_ficha_no_op)
+      if (usaCorrelativoFichaNoOP) {
+        orden.es_ficha_no_op = true
+      }
+
+      // Ficha No OP: correlativo en cliente solo si NO va por create_orden_with_contact (ahí lo asigna la BD).
+      if (usaCorrelativoFichaNoOP && !usesCreateOrdenRpc) {
         const raw = (orden.numero_op || '').trim()
         const tieneCorrelativoExplicito = /^FICHA-[0-9]+$/i.test(raw)
         if (!tieneCorrelativoExplicito) {
@@ -615,12 +631,7 @@ class ApiService {
         }
       }
 
-      // SOLUCIÓN DIRECTA: Si hay campos de contacto o sectores múltiples, usar función SQL que evita schema cache
-      const hasContactFields = orden.telefono_cliente || orden.direccion_cliente || orden.drive_link || 
-          orden.ubicacion_link || orden.email_cliente || orden.whatsapp_link
-      const hasMultipleSectors = orden.sectores && orden.sectores.length > 0
-      
-      if (hasContactFields || hasMultipleSectors) {
+      if (usesCreateOrdenRpc) {
         try {
           console.log('🔄 Usando función SQL para crear orden (evita schema cache)')
           console.log('📋 Datos a enviar:', {
@@ -639,7 +650,8 @@ class ApiService {
           console.log('🏷️ Etiquetas normalizadas:', etiquetasNormalizadas)
           
           const rpcParams = {
-            p_numero_op: orden.numero_op || '',
+            // Ficha + RPC: vacío; create_orden_with_contact asigna next_numero_ficha_no_op (parche 2026-04-05).
+            p_numero_op: usaCorrelativoFichaNoOP && usesCreateOrdenRpc ? '' : orden.numero_op || '',
             p_cliente: orden.cliente || '',
             p_descripcion: orden.descripcion || null,
             p_estado: orden.estado || 'Pendiente',
@@ -661,7 +673,7 @@ class ApiService {
             p_drive_link: orden.drive_link || null,
             p_foto_url: orden.foto_url || null,
             p_dni_cuit: orden.dni_cuit || null,
-            p_es_ficha_no_op: orden.es_ficha_no_op || false,
+            p_es_ficha_no_op: usaCorrelativoFichaNoOP,
             p_planilla_preliminar: orden.planilla_preliminar || false,
             p_ficha_tecnica_pdf_url: orden.ficha_tecnica_pdf_url || null,
             p_etiquetas: etiquetasNormalizadas,
@@ -673,34 +685,14 @@ class ApiService {
             p_deadline_brief: orden.deadline_brief || null
           }
           
-          const refreshFichaNumeroParaRpc = async (): Promise<boolean> => {
-            if (!orden.es_ficha_no_op) return true
-            const { data: nextOp, error: nextErr } = await supabaseClient.rpc('next_numero_ficha_no_op')
-            if (nextErr || nextOp == null || String(nextOp).trim() === '') {
-              console.warn('next_numero_ficha_no_op (antes de RPC):', nextErr?.message)
-              return false
-            }
-            const n = String(nextOp).trim()
-            orden.numero_op = n
-            rpcParams.p_numero_op = n
-            return true
-          }
-
-          const maxRpcAttempts = orden.es_ficha_no_op ? 5 : 1
+          const maxRpcAttempts = usaCorrelativoFichaNoOP ? 3 : 1
           let data: unknown = null
           let error: { message?: string; hint?: string; details?: string; code?: string; name?: string } | null =
             null
 
           for (let attempt = 0; attempt < maxRpcAttempts; attempt++) {
-            if (orden.es_ficha_no_op) {
-              const okN = await refreshFichaNumeroParaRpc()
-              if (!okN) {
-                return {
-                  success: false,
-                  error:
-                    'No se pudo obtener el número de ficha. En Supabase debe existir la función next_numero_ficha_no_op (ver parche en supabase/patches).'
-                }
-              }
+            if (usaCorrelativoFichaNoOP && usesCreateOrdenRpc) {
+              rpcParams.p_numero_op = ''
             }
 
             console.log('🔍 Llamando función SQL con parámetros:', JSON.stringify(rpcParams, null, 2))
@@ -715,7 +707,7 @@ class ApiService {
 
             const msg = (error.message || '').toLowerCase()
             const dup = msg.includes('duplicate key') || msg.includes('ux_ordenes_op_sector')
-            if (orden.es_ficha_no_op && dup && attempt < maxRpcAttempts - 1) {
+            if (usaCorrelativoFichaNoOP && dup && attempt < maxRpcAttempts - 1) {
               console.warn(
                 `create_orden_with_contact: duplicado ux_ordenes_op_sector (intento ${attempt + 1}/${maxRpcAttempts}), nuevo correlativo…`
               )
