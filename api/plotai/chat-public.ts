@@ -54,6 +54,15 @@ type Body = {
   images?: Array<{ mimeType: string; data: string }>
 }
 
+/** Tótem (voz): sin asteriscos ni comas; puntos solo si cierran frase (no toca dominios tipo plotcenter.com.ar). */
+function sanitizeTotemReply(text: string): string {
+  let s = text.replace(/\*/g, '')
+  s = s.replace(/,/g, ' ')
+  s = s.replace(/\.(?=\s|$)/g, ' ')
+  s = s.replace(/\s+/g, ' ').trim()
+  return s
+}
+
 /** Normaliza número de OP: solo dígitos, sin espacios ni guiones. */
 function normalizeOp(op: string): string {
   return (op || '').trim().replace(/\D/g, '')
@@ -533,10 +542,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       modo === 'cliente_portal'
         ? ' Estás atendiendo desde el PORTAL DE CLIENTES: asumí que hablás con un cliente ya registrado, que consulta principalmente por sus pedidos y OP asociadas a su cuenta.'
         : modo === 'totem'
-        ? ' Estás atendiendo desde un TÓTEM/RECEPCIÓN en el local físico: tu rol es de mostrador/recepción. Sé muy directo, frases cortas, y pensá que el cliente está de pie frente al dispositivo. Priorizá responder sobre el estado de trabajos y dar indicaciones claras (dónde dirigirse, qué mostrar, si ya puede retirar, etc.).'
+        ? ' Estás en un TÓTEM con voz en el MOSTRADOR del local Plot Center: sos la primera cara de atención al público que entra o espera en recepción.'
         : ' Estás atendiendo desde el CHAT PÚBLICO de la web para cualquier visitante (potenciales clientes y clientes actuales).'
 
-    const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente.${canalPrompt} Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${notaSolicitud}
+    const totemMostradorBloque =
+      modo === 'totem'
+        ? `
+
+ATENCIÓN EN MOSTRADOR (TÓTEM CON VOZ) — OBLIGATORIO:
+- Hablá como quien atiende bien en mostrador: cordial respetuosa clara y servicial no fría ni robótica.
+- Soná natural al leerse en voz alta: usá frases completas y fluidas que se entiendan de una sola escucha; no seas telegráfica ni demasiado seca.
+- Mostrá disposición real: agradecé cuando corresponda usá "por favor" ofrecé "cualquier cosa estamos para ayudarte" y tranquilizá si hay dudas.
+- El cliente suele estar de pie frente al tótem: orientá con indicaciones concretas (a qué sector acercarse qué decir en mostrador si debe retirar o consultar una OP).
+- Priorizá estado de trabajos retiros horarios y ubicación del local según el contexto que tengas.
+- Tu texto será LEÍDO EN VOZ ALTA: no uses asteriscos ni markdown ni negritas; no uses comas ni puntos (uní ideas con "y" o con frases seguidas); no hagas listas con guiones ni numeraciones; no digas en voz alta el nombre de signos de puntuación.
+`
+        : ''
+
+    const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente.${canalPrompt} Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${totemMostradorBloque}${notaSolicitud}
 
 REGLA CRÍTICA — NO ALUCINAR (obligatorio):
 - Solo podés usar información que aparezca EXPLÍCITAMENTE en las secciones "CONOCIMIENTO DE LA EMPRESA" y "CLIENTE CON QUIEN ESTÁS HABLANDO" más abajo.
@@ -615,6 +638,10 @@ CÓMO TRATAR AL CLIENTE (atención al público):
 
     const text = (response as any)?.text ?? ''
     replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'
+    }
+
+    if (modo === 'totem' && replyText) {
+      replyText = sanitizeTotemReply(replyText)
     }
 
     let conversationId: number | null = null

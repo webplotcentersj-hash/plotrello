@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import './TotemChatPage.css'
 
-const GREETING_SPEECH = 'Hola, ¿cómo estás? ¿En qué te puedo ayudar?'
+/** Saludo de mostrador: claro al leer en voz alta (sin comas/puntos por formatTotemVoiceText). */
+const GREETING_SPEECH =
+  'Hola bienvenido a Plot Center soy el asistente del mostrador decime en qué te puedo ayudar hoy'
 const CHAT_API = '/api/plotai/chat-public'
 const IMAGE_API = '/api/plotai/generate-image'
+const ELEVENLABS_TTS_API = '/api/plotai/elevenlabs-tts'
+const ELEVENLABS_CONVAI_SCRIPT = 'https://unpkg.com/@elevenlabs/convai-widget-embed'
+/** ConvAI: agente en ElevenLabs (sobreescribir con VITE_ELEVENLABS_CONVAI_AGENT_ID en build). */
+const DEFAULT_CONVAI_AGENT_ID = 'agent_5801knma3fxyeaa99cdhj9qwvdkv'
 const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
+/** Mínimo de caracteres (interim o final) para cortar al asistente y escuchar al usuario. */
+const BARGE_IN_MIN_CHARS = 2
 
 /** Quita emojis y símbolos para que el TTS no los lea. */
 function stripEmojisForTTS(text: string): string {
@@ -15,6 +23,15 @@ function stripEmojisForTTS(text: string): string {
     .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F1E0}-\u{1F1FF}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/** Alineado al tótem: sin asteriscos ni comas; puntos solo al final de frase (preserva puntos en URLs/mails). */
+function formatTotemVoiceText(text: string): string {
+  let s = stripEmojisForTTS(text)
+  s = s.replace(/\*/g, '')
+  s = s.replace(/,/g, ' ')
+  s = s.replace(/\.(?=\s|$)/g, ' ')
+  return s.replace(/\s+/g, ' ').trim()
 }
 
 type TotemState = 'idle' | 'greeting' | 'listening' | 'thinking' | 'speaking'
@@ -31,33 +48,136 @@ export default function TotemChatPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const recognitionRef = useRef<{ start?: () => void } | null>(null)
+  const recognitionRef = useRef<{ start?: () => void; stop?: () => void } | null>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
-  const isListeningRef = useRef(false)
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
+  const ttsObjectUrlRef = useRef<string | null>(null)
+  /** Mantener el micrófono activo también mientras el asistente habla (interrupción / barge-in). */
+  const recShouldRunRef = useRef(false)
+  const isThinkingRef = useRef(false)
+  const isAssistantSpeakingRef = useRef(false)
+  const speakDoneRef = useRef<(() => void) | null>(null)
+  const turnAbortRef = useRef(false)
+  const processingUserTurnRef = useRef(false)
+  const stateRef = useRef<TotemState>('idle')
   const historyRef = useRef(history)
   const conversationIdRef = useRef<number | null>(conversationId)
+  const processUserTurnRef = useRef<(text: string) => Promise<void>>(async () => {})
 
   historyRef.current = history
   conversationIdRef.current = conversationId
+  stateRef.current = state
 
-  const speak = useCallback((text: string) => {
-    const clean = stripEmojisForTTS(text)
-    if (!clean) return Promise.resolve()
-    return new Promise<void>((resolve) => {
-      if (!('speechSynthesis' in window)) {
-        resolve()
-        return
-      }
-      window.speechSynthesis.cancel()
-      const u = new SpeechSynthesisUtterance(clean)
-      u.lang = 'es-AR'
-      u.rate = 0.95
-      u.onend = () => resolve()
-      u.onerror = () => resolve()
-      window.speechSynthesis.speak(u)
-      synthRef.current = window.speechSynthesis
-    })
+  const safeRecStart = useCallback(() => {
+    try {
+      recognitionRef.current?.start?.()
+    } catch {
+      /* ya está escuchando */
+    }
   }, [])
+
+  const revokeTtsObjectUrl = useCallback(() => {
+    if (ttsObjectUrlRef.current) {
+      URL.revokeObjectURL(ttsObjectUrlRef.current)
+      ttsObjectUrlRef.current = null
+    }
+  }, [])
+
+  const cancelSpeak = useCallback(() => {
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause()
+      try {
+        ttsAudioRef.current.currentTime = 0
+      } catch {
+        /* noop */
+      }
+      ttsAudioRef.current.removeAttribute('src')
+      ttsAudioRef.current.load()
+      ttsAudioRef.current = null
+    }
+    revokeTtsObjectUrl()
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+    isAssistantSpeakingRef.current = false
+    const done = speakDoneRef.current
+    speakDoneRef.current = null
+    done?.()
+  }, [revokeTtsObjectUrl])
+
+  const speak = useCallback(
+    (text: string) => {
+      const clean = formatTotemVoiceText(text)
+      if (!clean) return Promise.resolve()
+
+      const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
+
+      return new Promise<void>((resolve) => {
+        const finish = () => {
+          speakDoneRef.current = null
+          isAssistantSpeakingRef.current = false
+          resolve()
+        }
+
+        speakDoneRef.current = finish
+        isAssistantSpeakingRef.current = true
+
+        const speakBrowser = () => {
+          if (!('speechSynthesis' in window)) {
+            finish()
+            return
+          }
+          window.speechSynthesis.cancel()
+          const u = new SpeechSynthesisUtterance(clean)
+          u.lang = 'es-AR'
+          u.rate = 0.92
+          u.onend = () => finish()
+          u.onerror = () => finish()
+          window.speechSynthesis.speak(u)
+          synthRef.current = window.speechSynthesis
+        }
+
+        void (async () => {
+          try {
+            const res = await fetch(`${apiBase}${ELEVENLABS_TTS_API}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: clean })
+            })
+            const ct = res.headers.get('content-type') || ''
+            if (res.ok && ct.includes('audio')) {
+              revokeTtsObjectUrl()
+              const blob = await res.blob()
+              const url = URL.createObjectURL(blob)
+              ttsObjectUrlRef.current = url
+              const audio = new Audio(url)
+              ttsAudioRef.current = audio
+              audio.onended = () => {
+                revokeTtsObjectUrl()
+                ttsAudioRef.current = null
+                finish()
+              }
+              audio.onerror = () => {
+                ttsAudioRef.current = null
+                revokeTtsObjectUrl()
+                speakBrowser()
+              }
+              try {
+                await audio.play()
+              } catch {
+                ttsAudioRef.current = null
+                revokeTtsObjectUrl()
+                speakBrowser()
+              }
+              return
+            }
+          } catch {
+            /* ElevenLabs no disponible o error de red */
+          }
+          speakBrowser()
+        })()
+      })
+    },
+    [revokeTtsObjectUrl]
+  )
 
   const sendToChat = useCallback(async (userText: string): Promise<string | null> => {
     const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
@@ -89,28 +209,28 @@ export default function TotemChatPage() {
     return data.reply && String(data.reply).trim() ? data.reply : null
   }, [])
 
-  const startListening = useCallback(() => {
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognitionAPI) {
-      setError('Tu navegador no soporta reconocimiento de voz. Usá Chrome o Edge.')
-      return
-    }
-    const rec = new SpeechRecognitionAPI()
-    rec.continuous = false
-    rec.interimResults = false
-    rec.lang = 'es-AR'
-    rec.onresult = async (e: { results?: { [i: number]: { [j: number]: { transcript?: string } } } }) => {
-      const t = e.results?.[0]?.[0]?.transcript?.trim()
-      if (!t) {
-        isListeningRef.current = true
-        setState('listening')
-        return
+  const processUserTurn = useCallback(
+    async (userTextRaw: string) => {
+      const userText = userTextRaw.trim()
+      if (!userText) return
+      if (processingUserTurnRef.current) return
+
+      processingUserTurnRef.current = true
+      turnAbortRef.current = false
+      const rec = recognitionRef.current
+      recShouldRunRef.current = false
+      isThinkingRef.current = true
+      try {
+        rec?.stop?.()
+      } catch {
+        /* noop */
       }
-      isListeningRef.current = false
-      setLastText(t)
+
+      setLastText(userText)
       setState('thinking')
       setGeneratedImageUrl(null)
-      const wantsImage = IMAGE_TRIGGER.test(t)
+
+      const wantsImage = IMAGE_TRIGGER.test(userText)
       let reply: string | null = null
       if (wantsImage) {
         const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
@@ -118,41 +238,175 @@ export default function TotemChatPage() {
           const imgRes = await fetch(`${apiBase}${IMAGE_API}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: t, aspectRatio: '1:1' })
+            body: JSON.stringify({ prompt: userText, aspectRatio: '1:1' })
           })
           const imgData = await imgRes.json().catch(() => ({}))
           if (imgData?.dataUrl) {
             setGeneratedImageUrl(imgData.dataUrl)
-            reply = 'Acá está la imagen.'
+            reply = 'Acá está la imagen'
           } else {
-            reply = (imgData?.error as string) || 'No pude generar la imagen. Probá de nuevo.'
+            reply = (imgData?.error as string) || 'No pude generar la imagen probá de nuevo'
           }
         } catch {
-          reply = 'No pude generar la imagen en este momento.'
+          reply = 'No pude generar la imagen en este momento'
         }
       } else {
-        reply = await sendToChat(t)
+        reply = await sendToChat(userText)
       }
+
+      isThinkingRef.current = false
+
+      if (turnAbortRef.current) {
+        processingUserTurnRef.current = false
+        turnAbortRef.current = false
+        recShouldRunRef.current = true
+        setState('listening')
+        safeRecStart()
+        return
+      }
+
+      const replyStr = reply && String(reply).trim() ? String(reply).trim() : null
+      if (!replyStr) {
+        processingUserTurnRef.current = false
+        setState('listening')
+        recShouldRunRef.current = true
+        safeRecStart()
+        return
+      }
+
       setState('speaking')
-      if (reply) {
-        await speak(reply)
-        setLastText(reply)
+      recShouldRunRef.current = true
+      safeRecStart()
+
+      await speak(replyStr)
+      if (turnAbortRef.current) {
+        turnAbortRef.current = false
+        processingUserTurnRef.current = false
+        setState('listening')
+        safeRecStart()
+        return
       }
-      isListeningRef.current = true
+      setLastText(replyStr)
+
+      processingUserTurnRef.current = false
       setState('listening')
-      setTimeout(() => recognitionRef.current?.start?.(), 100)
+      safeRecStart()
+    },
+    [sendToChat, speak, safeRecStart]
+  )
+
+  useEffect(() => {
+    processUserTurnRef.current = processUserTurn
+  }, [processUserTurn])
+
+  const startListening = useCallback(() => {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) {
+      setError('Tu navegador no soporta reconocimiento de voz. Usá Chrome o Edge.')
+      return
     }
+    if (recognitionRef.current) {
+      recShouldRunRef.current = true
+      setState('listening')
+      safeRecStart()
+      return
+    }
+
+    const rec = new SpeechRecognitionAPI()
+    rec.continuous = true
+    rec.interimResults = true
+    rec.lang = 'es-AR'
+
+    rec.onresult = async (e: Event & { resultIndex: number; results: SpeechRecognitionResultList }) => {
+      let interim = ''
+      let finalChunk = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const row = e.results[i]
+        const piece = row[0]?.transcript ?? ''
+        if (row.isFinal) finalChunk += piece
+        else interim += piece
+      }
+      const combo = (finalChunk + interim).trim()
+      const st = stateRef.current
+
+      if (isThinkingRef.current) return
+
+      if (st === 'speaking' && isAssistantSpeakingRef.current) {
+        if (combo.length >= BARGE_IN_MIN_CHARS) {
+          processingUserTurnRef.current = false
+          turnAbortRef.current = true
+          cancelSpeak()
+          setState('listening')
+        }
+        const ft = finalChunk.trim()
+        if (ft) {
+          setTimeout(() => void processUserTurnRef.current(ft), 0)
+        }
+        return
+      }
+
+      if (st === 'listening' && finalChunk.trim()) {
+        void processUserTurnRef.current(finalChunk.trim())
+      }
+    }
+
     rec.onerror = () => {
-      isListeningRef.current = true
-      setState('listening')
+      if (recShouldRunRef.current && !isThinkingRef.current) {
+        setState((s) => (s === 'speaking' || s === 'listening' ? s : 'listening'))
+      }
     }
+
     rec.onend = () => {
-      if (isListeningRef.current && recognitionRef.current) (recognitionRef.current as any).start?.()
+      if (recShouldRunRef.current && !isThinkingRef.current) {
+        setTimeout(() => safeRecStart(), 120)
+      }
     }
+
     recognitionRef.current = rec
-    isListeningRef.current = true
+    recShouldRunRef.current = true
+    setState('listening')
     rec.start()
-  }, [sendToChat, speak])
+  }, [cancelSpeak, safeRecStart])
+
+  useEffect(() => {
+    return () => {
+      recShouldRunRef.current = false
+      try {
+        recognitionRef.current?.stop?.()
+      } catch {
+        /* noop */
+      }
+      recognitionRef.current = null
+      cancelSpeak()
+    }
+  }, [cancelSpeak])
+
+  /** Widget ElevenLabs ConvAI (voz/agente); script oficial + custom element. */
+  useEffect(() => {
+    const agentId = (import.meta.env.VITE_ELEVENLABS_CONVAI_AGENT_ID || DEFAULT_CONVAI_AGENT_ID).trim()
+    if (!agentId) return
+
+    let script = document.querySelector(
+      'script[data-plotrello-convai]'
+    ) as HTMLScriptElement | null
+    if (!script) {
+      script = document.createElement('script')
+      script.src = ELEVENLABS_CONVAI_SCRIPT
+      script.async = true
+      script.type = 'text/javascript'
+      script.dataset.plotrelloConvai = '1'
+      document.body.appendChild(script)
+    }
+
+    const widget = document.createElement('elevenlabs-convai')
+    widget.setAttribute('agent-id', agentId)
+    widget.dataset.plotrelloTotem = '1'
+    document.body.appendChild(widget)
+
+    return () => {
+      widget.remove()
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -304,6 +558,9 @@ export default function TotemChatPage() {
             {state === 'thinking' && 'PROCESANDO...'}
             {state === 'speaking' && 'HABLANDO...'}
           </p>
+          {state === 'speaking' && (
+            <p className="totem-barge-hint">Podés interrumpirme hablando.</p>
+          )}
           {lastText && <p className="totem-subtitle">{lastText}</p>}
         </div>
         {generatedImageUrl && (
