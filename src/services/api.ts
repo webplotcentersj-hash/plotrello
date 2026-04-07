@@ -598,10 +598,11 @@ class ApiService {
       // Capturar supabase en variable local para TypeScript
       const supabaseClient = supabase
 
-      // Ficha No OP con placeholder "FICHA-" / "FICHA": asignar correlativo real (MAX+1) para no violar ux_ordenes_op_sector
+      // Ficha No OP: correlativo FICHA-<n> salvo que ya venga un número explícito FICHA-<solo dígitos>
       if (orden.es_ficha_no_op) {
         const raw = (orden.numero_op || '').trim()
-        if (raw === '' || /^FICHA-?$/i.test(raw)) {
+        const tieneCorrelativoExplicito = /^FICHA-[0-9]+$/i.test(raw)
+        if (!tieneCorrelativoExplicito) {
           const { data: nextOp, error: nextErr } = await supabaseClient.rpc('next_numero_ficha_no_op')
           if (!nextErr && nextOp != null && String(nextOp).trim() !== '') {
             orden.numero_op = String(nextOp).trim()
@@ -672,27 +673,72 @@ class ApiService {
             p_deadline_brief: orden.deadline_brief || null
           }
           
-          console.log('🔍 Llamando función SQL con parámetros:', JSON.stringify(rpcParams, null, 2))
-          console.log('🔍 Tipos de parámetros:', Object.entries(rpcParams).map(([k, v]) => `${k}: ${typeof v}${Array.isArray(v) ? ' (array)' : ''}`).join(', '))
-          console.log('🏷️ p_etiquetas específicamente:', rpcParams.p_etiquetas, 'tipo:', typeof rpcParams.p_etiquetas, 'es array:', Array.isArray(rpcParams.p_etiquetas))
-          
-          const { data, error } = await supabaseClient.rpc('create_orden_with_contact', rpcParams)
-          
+          const refreshFichaNumeroParaRpc = async (): Promise<boolean> => {
+            if (!orden.es_ficha_no_op) return true
+            const { data: nextOp, error: nextErr } = await supabaseClient.rpc('next_numero_ficha_no_op')
+            if (nextErr || nextOp == null || String(nextOp).trim() === '') {
+              console.warn('next_numero_ficha_no_op (antes de RPC):', nextErr?.message)
+              return false
+            }
+            const n = String(nextOp).trim()
+            orden.numero_op = n
+            rpcParams.p_numero_op = n
+            return true
+          }
+
+          const maxRpcAttempts = orden.es_ficha_no_op ? 5 : 1
+          let data: unknown = null
+          let error: { message?: string; hint?: string; details?: string; code?: string; name?: string } | null =
+            null
+
+          for (let attempt = 0; attempt < maxRpcAttempts; attempt++) {
+            if (orden.es_ficha_no_op) {
+              const okN = await refreshFichaNumeroParaRpc()
+              if (!okN) {
+                return {
+                  success: false,
+                  error:
+                    'No se pudo obtener el número de ficha. En Supabase debe existir la función next_numero_ficha_no_op (ver parche en supabase/patches).'
+                }
+              }
+            }
+
+            console.log('🔍 Llamando función SQL con parámetros:', JSON.stringify(rpcParams, null, 2))
+            console.log('🔍 Tipos de parámetros:', Object.entries(rpcParams).map(([k, v]) => `${k}: ${typeof v}${Array.isArray(v) ? ' (array)' : ''}`).join(', '))
+            console.log('🏷️ p_etiquetas específicamente:', rpcParams.p_etiquetas, 'tipo:', typeof rpcParams.p_etiquetas, 'es array:', Array.isArray(rpcParams.p_etiquetas))
+
+            const res = await supabaseClient.rpc('create_orden_with_contact', rpcParams)
+            data = res.data
+            error = res.error
+
+            if (!error) break
+
+            const msg = (error.message || '').toLowerCase()
+            const dup = msg.includes('duplicate key') || msg.includes('ux_ordenes_op_sector')
+            if (orden.es_ficha_no_op && dup && attempt < maxRpcAttempts - 1) {
+              console.warn(
+                `create_orden_with_contact: duplicado ux_ordenes_op_sector (intento ${attempt + 1}/${maxRpcAttempts}), nuevo correlativo…`
+              )
+              continue
+            }
+            break
+          }
+
           if (error) {
             console.error('❌ Error en RPC create_orden_with_contact:', error)
             console.error('❌ Parámetros enviados:', JSON.stringify(rpcParams, null, 2))
             console.error('❌ Etiquetas específicamente:', rpcParams.p_etiquetas)
           }
-          
-          console.log('📊 Respuesta RPC:', { 
-            hasData: data !== null && data !== undefined, 
-            dataType: typeof data, 
+
+          console.log('📊 Respuesta RPC:', {
+            hasData: data !== null && data !== undefined,
+            dataType: typeof data,
             isArray: Array.isArray(data),
             dataValue: data,
             hasError: error !== null,
             errorType: error ? typeof error : null
           })
-          
+
           if (error) {
             console.error('❌ Error en función SQL:', error)
             console.error('❌ Detalles completos del error:', JSON.stringify(error, null, 2))

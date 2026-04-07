@@ -344,8 +344,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         const err = response.error || 'Error al crear la ficha'
         if (err.includes('ux_ordenes_op_sector') || err.includes('duplicate key')) {
           alert(
-            `${err}\n\nSi ya tenés esa ficha (aunque esté finalizada), no podés crear otra con el mismo número. ` +
-              'Ejecutá en Supabase el parche next_numero_ficha_no_op (correlativo MAX+1) o buscá la ficha en Historial / Finalizado para editarla.'
+            'No se pudo crear la ficha: ya existe en la base el mismo número y sector (p. ej. Asesor Técnico).\n\n' +
+              'Buscá la ficha en Historial / finalizadas para editarla, o avisá a sistemas si el problema sigue tras reintentar.'
           )
         } else {
           alert(err)

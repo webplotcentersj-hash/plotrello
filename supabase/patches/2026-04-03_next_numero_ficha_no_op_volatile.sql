@@ -1,5 +1,6 @@
--- Siguiente numero_op para fichas No OP: MAX(número en FICHA-*) + 1 (evita duplicar ux_ordenes_op_sector
--- cuando la secuencia/trigger queda desfasada respecto a filas ya existentes).
+-- next_numero_ficha_no_op debe ser VOLATILE: lee ordenes_trabajo en cada llamada.
+-- Con STABLE el planificador puede asumir resultado “fijo” dentro de la consulta/transacción
+-- y devolver el mismo FICHA-n dos veces → ux_ordenes_op_sector duplicate key.
 
 CREATE OR REPLACE FUNCTION public.next_numero_ficha_no_op()
 RETURNS text
@@ -24,7 +25,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.next_numero_ficha_no_op() IS
-  'Siguiente FICHA-<n>: MAX solo filas es_ficha_no_op no false; VOLATILE.';
+  'Siguiente FICHA-<n> (MAX correlativo numérico + 1). VOLATILE: no cachear entre llamadas.';
 
 GRANT EXECUTE ON FUNCTION public.next_numero_ficha_no_op() TO anon;
 GRANT EXECUTE ON FUNCTION public.next_numero_ficha_no_op() TO authenticated;

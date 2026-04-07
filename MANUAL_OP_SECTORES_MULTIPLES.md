@@ -1,103 +1,57 @@
-# Manual de procedimiento — OP con varios sectores (Plotrello)
+# Manual sencillo — Una OP con dos o más sectores (Plotrello)
 
-*Uso interno: crear, mover, fusionar y editar órdenes que recorren más de un sector.*
-
----
-
-## 1. Objetivo
-
-Definir **qué es una OP**, cómo se refleja en el **tablero** cuando intervienen **varios sectores**, qué pasa cuando **dos fichas de la misma OP coinciden en una columna**, cómo se **unifica** al cerrar taller, y cómo **agregar sectores después** editando la OP.
+*Qué ves en el tablero y qué hacer en el día a día.*
 
 ---
 
-## 2. Conceptos clave
+## De qué se trata
 
-- **OP (orden de trabajo):** un trabajo identificado por su **N° OP** (`numero_op`). Es **una sola orden de negocio**, aunque en el Kanban veas más de una tarjeta.
-- **Ficha (en el tablero):** cada **tarjeta** visible en una columna. Con varios sectores puede haber **varias fichas con el mismo N° OP**, una por sector (o una absorbida/oculta).
-- **Lista de sectores de la OP (`sectores`):** arreglo en base de datos con **todos los sectores** por los que debe pasar el trabajo. El **primer sector** de la lista define, al crear, en qué columna **arranca** la ficha principal.
+Una **OP** es un solo trabajo (un solo **número de OP**). Si ese trabajo debe pasar por **varios sectores** (por ejemplo Diseño y Taller), en el Kanban pueden aparecer **varias tarjetas con el mismo número de OP**: una por cada sector. Es normal: es **la misma orden**, repartida en columnas según cada sector.
 
 ---
 
-## 3. Procedimiento: crear una OP con dos o más sectores
+## Al crear la ficha
 
-1. En el tablero principal, usar **+ Agregar Ficha** (o equivalente).
-2. Completar **N° OP**, **Cliente** y demás datos obligatorios.
-3. En **Sectores de la OP**, seleccionar **todos los sectores** que aplican (orden importa: el **primero** es el arranque en columna).
-4. Confirmar en pantalla que es **una sola OP** con N fichas en tablero (una por sector), mismo número de OP.
-5. **Guardar / crear.** El sistema crea el registro principal y, en base de datos, el **trigger** genera las **fichas duplicadas** para los sectores 2, 3, etc. (misma OP, `es_duplicado` y vínculo a la ficha raíz).
+1. Cargá el **número de OP**, **cliente** y el resto de datos.
+2. En **sectores**, marcá **todos** los sectores que correspondan.
+3. El **primer sector** de la lista es por donde **empieza** la ficha principal; el sistema genera las demás tarjetas para los otros sectores.
 
-**Nota:** Si falta el trigger o hay error al crear, informar a sistemas y revisar parches de Supabase (`crear_fichas_por_sector`).
+Al guardar, puede tardar un instante en verse todas las tarjetas: el sistema las sincroniza con la base de datos.
 
 ---
 
-## 4. Trabajo cotidiano: varias fichas, misma OP
+## Uso diario
 
-- Cada sector puede **mover su ficha** por el tablero de forma independiente.
-- Todas las fichas del grupo comparten **mismo N° OP** y la lista `sectores` actualizada.
-- **Checklist / subtareas** y otros datos se gestionan según la ficha que estés editando; criterio operativo lo define la empresa (quién carga qué en cada sector).
-
----
-
-## 5. Procedimiento: dos fichas de la misma OP en la misma columna (absorción)
-
-Cuando **dos instancias** de la misma OP **llegan a la misma columna** (mismo sector/estado visual):
-
-1. El sistema **fusiona a la vista del tablero**: queda **una ficha visible**.
-2. La otra fila **no se borra**: queda **oculta del tablero** (`visible_en_tablero`), con trazabilidad en base.
-3. Se **reubican** a la ficha visible, entre otros: **historial de movimientos**, **comentarios**, **subtareas**, **adjuntos** y **enlaces**, para no perder auditoría.
-
-**Acción del usuario:** mover con normalidad; si el sistema muestra mensaje de unificación, es esperado. Ante duplicados raros o datos que no se ven, escalar a sistemas con **N° OP** y columna.
+- Cada tarjeta se puede **mover** por el tablero como siempre.
+- Todas las tarjetas del mismo número de OP comparten la misma **lista de sectores** de la orden.
 
 ---
 
-## 6. Procedimiento: cierre en “Finalizado en Taller” (unificación grupal)
+## Cuando dos tarjetas de la misma OP caen en la misma columna
 
-Cuando la OP tenía **más de un sector** y **todas** las fichas del grupo están en **Finalizado en Taller**:
+Si movés una tarjeta a una columna donde **ya había otra** de la **misma OP** (mismo número):
 
-1. El trigger de **unificación** consolida el grupo (según versión desplegada en Supabase): suele dejar **una ficha visible** y **ocultar** las demás **sin DELETE**, manteniendo trazabilidad.
-2. No se debe asumir borrado físico: la política del sistema es **preservar filas** para auditoría.
+- Las dos se **unifican en una sola** tarjeta en esa columna (la que vos movés es la que queda a la vista).
+- La otra **no se borra** de la base de datos: queda oculta del tablero para no perder historial ni datos adjuntos.
+- La tarjeta que queda puede mostrar la etiqueta **NEW** un rato, para indicar que hubo un movimiento o fusión reciente.
 
-**Acción del usuario:** llevar cada ficha de sector a **Finalizado en Taller** según el flujo real del trabajo; verificar en tablero que quede un solo resultado coherente para esa OP.
-
----
-
-## 7. Procedimiento: agregar sectores editando la OP
-
-1. Abrir la ficha → **Editar** (modal de edición).
-2. En **Sectores de la OP**, **agregar** los sectores nuevos (búsqueda y selección).
-3. **Guardar.**
-
-Qué hace el sistema al guardar (con backend actualizado):
-
-1. Se actualiza la fila editada y el payload incluye la nueva lista `sectores`.
-2. Si la lista de sectores **cambió**, la aplicación llama al RPC **`sync_op_grupo_sectores_y_fichas`** con el id de la orden editada.
-3. Ese RPC **propaga** el mismo array `sectores` a **todas las filas del grupo** (raíz y duplicadas).
-4. Para los sectores en posición 2 en adelante, **crea** las fichas duplicadas que **aún no existan** (misma lógica conceptual que al crear la OP).
-
-**Importante para TI:** el RPC debe existir en Supabase (parche SQL `2026-04-01_sync_op_grupo_sectores_y_fichas.sql`). Sin él, el guardado puede funcionar pero **no se crearán** automáticamente las fichas nuevas en tablero hasta aplicar el parche y recargar datos.
-
-**Quitar un sector del listado** en el modal **no elimina** automáticamente una ficha ya creada en base; criterio de limpieza lo define la empresa o sistemas.
+Esto puede repetirse si tenías tres o más sectores: seguí moviendo duplicados a la misma columna y se van uniendo de a una.
 
 ---
 
-## 8. Supabase — referencia técnica (sistemas)
+## Agregar sectores después
 
-| Elemento | Rol |
-|----------|-----|
-| Trigger `crear_fichas_por_sector` (tras INSERT) | Crea duplicadas al **alta** de OP con `sectores` de longitud mayor a 1. |
-| Función `unificar_fichas_completadas` + trigger | Unificación cuando **todas** las del grupo están en **Finalizado en Taller** (según patch vigente). |
-| RPC `sync_op_grupo_sectores_y_fichas(p_orden_id)` | Tras **editar** sectores: propaga array y crea duplicadas faltantes. No crea fichas nuevas si la OP está ya en **Finalizado en Taller**. |
-| Fusión al mover (`moveOrden` / `fusionarOrdenesDuplicadas` en app) | Misma columna: oculta duplicado y **une** trazabilidad en la ficha visible. |
+1. Abrí la ficha y **Editar**.
+2. Sumá sectores en la lista y **Guardar**.
 
-Diagnóstico sugerido: script `supabase/patches/2026-01-30_diagnostico_supabase_ordenes.sql` (incluye chequeo del RPC de sync).
+El sistema actualiza el grupo y crea las tarjetas que falten para los sectores nuevos (si el servidor tiene aplicados los parches correspondientes).
 
 ---
 
-## 9. Responsables
+## Si algo no se ve bien
 
-- **Operativo:** uso correcto de sectores al crear y al mover; avisar anomalías con N° OP y captura si hace falta.
-- **Sistemas / DBA:** aplicar parches SQL en el orden acordado, verificar triggers y RPC tras deploys, revisar logs de Supabase ante errores de creación o sync.
+Anotá el **número de OP** y la **columna** donde pasó y avisá a sistemas. No hace falta recordar detalles técnicos de la base de datos.
 
 ---
 
-*Documento generado para acompañar el procedimiento de OP multi-sector en Plotrello. Actualizar si cambian triggers o RPCs en producción.*
+*Plotrello — manual corto OP multi-sector.*
