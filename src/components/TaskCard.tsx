@@ -161,6 +161,7 @@ const TaskCardInner = ({
   const [showEtapasImpresionDigitalModal, setShowEtapasImpresionDigitalModal] = useState(false)
   const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
+  const [marcandoReclamo, setMarcandoReclamo] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
   const boardDragJustEndedAt = useRef(0)
   useEffect(() => {
@@ -467,6 +468,7 @@ const TaskCardInner = ({
             'presupuesto-enviado': task.presupuestoEnviadoCliente,
             'presupuesto-armado': task.presupuestoArmado,
             'presupuesto-en-espera': task.presupuestoEnEspera,
+            'en-reclamo': task.enReclamo,
             'is-collapsed': !isExpanded,
             'is-minimized': isMinimized,
             'is-new-move': isNewMove,
@@ -554,6 +556,11 @@ const TaskCardInner = ({
           {!isDragLightMode && task.opBloqueada && (
             <div className="op-bloqueada-indicator" title="OP trabada: solo el operario asignado puede destablar (admin/gerencia puede editar)">
               🔒
+            </div>
+          )}
+          {!isDragLightMode && task.enReclamo && (
+            <div className="reclamo-indicator" title="Reclamo: trabajo a rehacer">
+              ⚠️
             </div>
           )}
           {!isDragLightMode && onMoveTask && columns.length > 0 && !moveBlocked && (() => {
@@ -644,6 +651,67 @@ const TaskCardInner = ({
             >
               📜
             </button>
+            {hasOrdenId && !task.enReclamo && (
+              <button
+                type="button"
+                className="task-action-btn task-reclamo-btn"
+                disabled={(moveBlocked && !isAdmin) || marcandoReclamo}
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  if (moveBlocked && !isAdmin) return
+                  if (
+                    !window.confirm(
+                      '¿Marcar RECLAMO? Quedará indicado que el trabajo debe rehacerse. Se guarda comentario e historial.'
+                    )
+                  ) {
+                    return
+                  }
+                  const detalle = window.prompt('Motivo o detalle (opcional):', '')
+                  if (detalle === null) return
+                  setMarcandoReclamo(true)
+                  try {
+                    const nombre = usuario?.nombre?.trim() || 'Usuario'
+                    const r = await apiService.marcarReclamoOrden(
+                      ordenId,
+                      detalle.trim() || undefined,
+                      nombre
+                    )
+                    if (!r.success) {
+                      window.alert(r.error || 'No se pudo registrar el reclamo.')
+                    }
+                  } finally {
+                    setMarcandoReclamo(false)
+                  }
+                }}
+                title="Reclamo: debe rehacerse el trabajo"
+              >
+                {marcandoReclamo ? '…' : 'Reclamo'}
+              </button>
+            )}
+            {hasOrdenId && task.enReclamo && isAdmin && (
+              <button
+                type="button"
+                className="task-action-btn task-reclamo-quitar-btn"
+                disabled={marcandoReclamo}
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  if (!window.confirm('¿Quitar la marca de reclamo de esta ficha?')) return
+                  setMarcandoReclamo(true)
+                  try {
+                    const nombre = usuario?.nombre?.trim() || 'Usuario'
+                    const r = await apiService.desmarcarReclamoOrden(ordenId, nombre)
+                    if (!r.success) {
+                      window.alert(r.error || 'No se pudo quitar el reclamo.')
+                    }
+                  } finally {
+                    setMarcandoReclamo(false)
+                  }
+                }}
+                title="Quitar marca de reclamo (admin/gerencia)"
+              >
+                {marcandoReclamo ? '…' : 'OK reclamo'}
+              </button>
+            )}
             {task.opNumber && (
               <button
                 type="button"
@@ -1958,7 +2026,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       'assignedSector',
       'uiMovedAt',
       'summary',
-      'opBloqueada'
+      'opBloqueada',
+      'enReclamo'
     ] as const
     for (const k of keys) {
       if (prev.task[k] !== next.task[k]) return false

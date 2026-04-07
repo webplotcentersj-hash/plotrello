@@ -3,6 +3,7 @@ import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
 import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
 
@@ -83,26 +84,21 @@ const TotemConsultaClientePage = () => {
 
         setOrdenes(ordenesFiltradas)
 
-        const historialPromises = ordenesFiltradas.map(async (orden) => {
-          if (!orden.id) return [orden.id, []]
-          const histResponse = await apiService.getHistorialMovimientos({ ordenId: orden.id })
-          return [
-            orden.id,
+        const ids = ordenesFiltradas
+          .map((o) => o.id)
+          .filter((id): id is number => typeof id === 'number' && id > 0)
+
+        if (ids.length === 0) {
+          setHistorial({})
+        } else {
+          const histResponse = await apiService.getHistorialMovimientos({
+            ordenIds: ids,
+            limit: 800
+          })
+          const movimientos =
             histResponse.success && histResponse.data ? histResponse.data : []
-          ]
-        })
-
-        const historialResults = await Promise.all(historialPromises)
-        const historialMap: Record<number, HistorialMovimiento[]> = {}
-
-        historialResults.forEach((result) => {
-          const [id, movimientos] = result
-          if (id && typeof id === 'number') {
-            historialMap[id] = movimientos as HistorialMovimiento[]
-          }
-        })
-
-        setHistorial(historialMap)
+          setHistorial(historialPorOrdenId(movimientos, ids))
+        }
       } else {
         setError('Error al buscar pedidos. Por favor intenta nuevamente.')
       }
@@ -270,6 +266,56 @@ const TotemConsultaClientePage = () => {
     () => ordenes.filter((o) => isReadyForPickup(o.estado)),
     [ordenes]
   )
+
+  const historialUnificadoLista = useMemo(() => {
+    if (ordenes.length < 2) return null
+    const all: HistorialMovimiento[] = []
+    for (const o of ordenes) {
+      if (o.id) all.push(...(historial[o.id] ?? []))
+    }
+    return historialUnificadoMismoNumeroOp(all, ordenes)
+  }, [ordenes, historial])
+
+  const etiquetaSectorFicha = (idOrden: number) =>
+    ordenes.find((o) => o.id === idOrden)?.sector?.trim() || `Ficha #${idOrden}`
+
+  const mostrarTimelineUnificado =
+    historialUnificadoLista !== null && historialUnificadoLista.length > 0
+
+  const renderTotemTimeline = (historialOrdenado: HistorialMovimiento[]) => {
+    if (historialOrdenado.length === 0) return null
+    return (
+      <div className="timeline-section">
+        <h4 className="timeline-title">Historial del trabajo</h4>
+        <div className="timeline">
+          {historialOrdenado.map((movimiento, index) => {
+            const isLast = index === historialOrdenado.length - 1
+            const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
+            const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
+
+            return (
+              <div key={movimiento.id} className="timeline-item">
+                <div
+                  className="timeline-marker"
+                  style={{ backgroundColor: colorNuevo }}
+                >
+                  {isLast ? '✓' : '○'}
+                </div>
+                <div className="timeline-content">
+                  <div className="timeline-header">
+                    <span className="timeline-estado" style={{ color: colorNuevo }}>
+                      {estadoNuevo}
+                    </span>
+                    <span className="timeline-date">{formatDate(movimiento.timestamp)}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -539,6 +585,48 @@ const TotemConsultaClientePage = () => {
               {ordenes.length === 1 ? 'Tu trabajo' : `Tus trabajos (${ordenes.length})`}
             </h2>
 
+            {mostrarTimelineUnificado && historialUnificadoLista && (
+              <div className="timeline-section timeline-section-unified totem-unified-timeline">
+                <h3 className="timeline-unified-title">Recorrido completo de la orden</h3>
+                <p className="timeline-unified-subtitle">
+                  Hay {ordenes.length} fichas con el mismo número de OP. El historial unificado abajo
+                  muestra todos los pasos en orden de fecha y en qué sector quedó cada registro.
+                </p>
+                <h4 className="timeline-title">Historial unificado</h4>
+                <div className="timeline">
+                  {historialUnificadoLista.map((movimiento, index) => {
+                    const isLast = index === historialUnificadoLista.length - 1
+                    const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
+                    const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
+
+                    return (
+                      <div key={movimiento.id} className="timeline-item">
+                        <div
+                          className="timeline-marker"
+                          style={{ backgroundColor: colorNuevo }}
+                        >
+                          {isLast ? '✓' : '○'}
+                        </div>
+                        <div className="timeline-content">
+                          <div className="timeline-header">
+                            <span className="timeline-estado" style={{ color: colorNuevo }}>
+                              {estadoNuevo}
+                            </span>
+                            <span className="timeline-date">
+                              {formatDate(movimiento.timestamp)}
+                            </span>
+                          </div>
+                          <div className="timeline-meta-sector">
+                            {etiquetaSectorFicha(movimiento.id_orden)}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="totem-actions-row">
               <div className="totem-sectors-row">
                 <span className="totem-sectors-label">¿Para qué sector venís?</span>
@@ -611,41 +699,16 @@ const TotemConsultaClientePage = () => {
                         </div>
                       </div>
 
-                      {historialOrdenado.length > 0 && (
-                        <div className="timeline-section">
-                          <h4 className="timeline-title">Historial del trabajo</h4>
-                          <div className="timeline">
-                            {historialOrdenado.map((movimiento, index) => {
-                              const isLast = index === historialOrdenado.length - 1
-                              const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
-                              const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
-
-                              return (
-                                <div key={movimiento.id} className="timeline-item">
-                                  <div
-                                    className="timeline-marker"
-                                    style={{ backgroundColor: colorNuevo }}
-                                  >
-                                    {isLast ? '✓' : '○'}
-                                  </div>
-                                  <div className="timeline-content">
-                                    <div className="timeline-header">
-                                      <span
-                                        className="timeline-estado"
-                                        style={{ color: colorNuevo }}
-                                      >
-                                        {estadoNuevo}
-                                      </span>
-                                      <span className="timeline-date">
-                                        {formatDate(movimiento.timestamp)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
+                      {mostrarTimelineUnificado ? (
+                        <div className="orden-historial-delegado">
+                          <p>
+                            Parte del pedido en{' '}
+                            <strong>{orden.sector?.trim() || 'este sector'}</strong>. Ver historial
+                            arriba.
+                          </p>
                         </div>
+                      ) : (
+                        renderTotemTimeline(historialOrdenado)
                       )}
                     </div>
                   )
@@ -687,41 +750,16 @@ const TotemConsultaClientePage = () => {
                         </div>
                       </div>
 
-                      {historialOrdenado.length > 0 && (
-                        <div className="timeline-section">
-                          <h4 className="timeline-title">Historial del trabajo</h4>
-                          <div className="timeline">
-                            {historialOrdenado.map((movimiento, index) => {
-                              const isLast = index === historialOrdenado.length - 1
-                              const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
-                              const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
-
-                              return (
-                                <div key={movimiento.id} className="timeline-item">
-                                  <div
-                                    className="timeline-marker"
-                                    style={{ backgroundColor: colorNuevo }}
-                                  >
-                                    {isLast ? '✓' : '○'}
-                                  </div>
-                                  <div className="timeline-content">
-                                    <div className="timeline-header">
-                                      <span
-                                        className="timeline-estado"
-                                        style={{ color: colorNuevo }}
-                                      >
-                                        {estadoNuevo}
-                                      </span>
-                                      <span className="timeline-date">
-                                        {formatDate(movimiento.timestamp)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
+                      {mostrarTimelineUnificado ? (
+                        <div className="orden-historial-delegado">
+                          <p>
+                            Parte del pedido en{' '}
+                            <strong>{orden.sector?.trim() || 'este sector'}</strong>. Ver historial
+                            arriba.
+                          </p>
                         </div>
+                      ) : (
+                        renderTotemTimeline(historialOrdenado)
                       )}
                     </div>
                   )

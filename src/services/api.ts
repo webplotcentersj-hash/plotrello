@@ -2252,6 +2252,8 @@ class ApiService {
   // ========== HISTORIAL DE MOVIMIENTOS ==========
   async getHistorialMovimientos(filters?: {
     ordenId?: number
+    /** Varias fichas (mismo u otros números OP): una sola query; repartir por id_orden en el cliente. */
+    ordenIds?: number[]
     usuarioId?: number
     limit?: number
   }): Promise<ApiResponse<HistorialMovimiento[]>> {
@@ -2260,7 +2262,12 @@ class ApiService {
         ascending: false
       })
 
-      if (filters?.ordenId) query = query.eq('id_orden', filters.ordenId)
+      const ids = filters?.ordenIds?.filter((n) => Number.isInteger(n) && n > 0) ?? []
+      if (ids.length > 0) {
+        query = query.in('id_orden', ids)
+      } else if (filters?.ordenId) {
+        query = query.eq('id_orden', filters.ordenId)
+      }
       if (filters?.usuarioId) query = query.eq('id_usuario', filters.usuarioId)
       if (filters?.limit) query = query.limit(filters.limit)
 
@@ -2270,6 +2277,34 @@ class ApiService {
     }
 
     if (hasLegacyBackend) {
+      const ids = filters?.ordenIds?.filter((n) => Number.isInteger(n) && n > 0) ?? []
+      if (ids.length > 0) {
+        const limitPer = filters?.limit
+          ? Math.max(1, Math.ceil(filters.limit / ids.length))
+          : undefined
+        const results = await Promise.all(
+          ids.map((ordenId) => {
+            const params = new URLSearchParams()
+            params.append('orden_id', ordenId.toString())
+            if (filters?.usuarioId) params.append('usuario_id', filters.usuarioId.toString())
+            if (limitPer) params.append('limit', limitPer.toString())
+            return this.legacyRequest(`/historial.php?${params.toString()}`)
+          })
+        )
+        const merged: HistorialMovimiento[] = []
+        for (const r of results) {
+          if (r.success && Array.isArray(r.data)) {
+            merged.push(...(r.data as HistorialMovimiento[]))
+          }
+        }
+        merged.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )
+        if (filters?.limit && merged.length > filters.limit) {
+          return { success: true, data: merged.slice(0, filters.limit) }
+        }
+        return { success: true, data: merged }
+      }
       const params = new URLSearchParams()
       if (filters?.ordenId) params.append('orden_id', filters.ordenId.toString())
       if (filters?.usuarioId) params.append('usuario_id', filters.usuarioId.toString())
@@ -4192,6 +4227,135 @@ class ApiService {
     }
 
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /**
+   * Marca la ficha en reclamo (trabajo a rehacer): comentario, historial y `en_reclamo` en BD.
+   */
+  async marcarReclamoOrden(
+    ordenId: number,
+    detalleOpcional: string | undefined,
+    usuarioNombre: string
+  ): Promise<ApiResponse<OrdenTrabajo>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('ordenes_trabajo')
+      .select('id, estado, en_reclamo')
+      .eq('id', ordenId)
+      .maybeSingle()
+
+    if (fetchErr) {
+      if (/en_reclamo|column|schema/i.test(String(fetchErr.message))) {
+        return {
+          success: false,
+          error:
+            'Falta la columna en_reclamo en la base. Ejecutá el parche SQL 2026-04-07_ordenes_en_reclamo.sql en Supabase.'
+        }
+      }
+      return { success: false, error: fetchErr.message }
+    }
+    if (!row) return { success: false, error: 'Orden no encontrada' }
+
+    const ya = (row as { en_reclamo?: boolean | null }).en_reclamo === true
+    if (ya) return { success: false, error: 'Esta ficha ya está marcada con reclamo.' }
+
+    const estado = (row as { estado?: string | null }).estado ?? null
+    const detalle = (detalleOpcional ?? '').trim()
+    const textoComentario = `[RECLAMO] El trabajo debe rehacerse.${detalle ? ` Motivo: ${detalle}` : ''}`
+
+    const { error: upErr } = await supabase
+      .from('ordenes_trabajo')
+      .update({ en_reclamo: true })
+      .eq('id', ordenId)
+
+    if (upErr) {
+      if (/en_reclamo|column|schema/i.test(String(upErr.message))) {
+        return {
+          success: false,
+          error:
+            'Falta la columna en_reclamo en la base. Ejecutá el parche SQL 2026-04-07_ordenes_en_reclamo.sql en Supabase.'
+        }
+      }
+      return { success: false, error: upErr.message }
+    }
+
+    const com = await this.addComentarioOrden(ordenId, textoComentario, usuarioNombre)
+    if (!com.success) {
+      console.warn('Reclamo: no se pudo guardar comentario:', com.error)
+    }
+
+    await this.registrarCambioHistorial(
+      ordenId,
+      estado,
+      estado,
+      textoComentario,
+      'reclamo',
+      { en_reclamo: { anterior: false, nuevo: true } }
+    )
+
+    const { data: full, error: fullErr } = await supabase
+      .from('ordenes_trabajo')
+      .select('*')
+      .eq('id', ordenId)
+      .single()
+
+    if (fullErr || !full) {
+      return { success: true, data: { ...(row as OrdenTrabajo), en_reclamo: true } as OrdenTrabajo }
+    }
+    return { success: true, data: full as OrdenTrabajo }
+  }
+
+  /** Quita la marca de reclamo (p. ej. admin luego de rehacer). */
+  async desmarcarReclamoOrden(
+    ordenId: number,
+    usuarioNombre: string
+  ): Promise<ApiResponse<OrdenTrabajo>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    const { data: row, error: fetchErr } = await supabase
+      .from('ordenes_trabajo')
+      .select('id, estado, en_reclamo')
+      .eq('id', ordenId)
+      .maybeSingle()
+
+    if (fetchErr) return { success: false, error: fetchErr.message }
+    if (!row) return { success: false, error: 'Orden no encontrada' }
+
+    if ((row as { en_reclamo?: boolean | null }).en_reclamo !== true) {
+      return { success: false, error: 'La ficha no tiene reclamo activo.' }
+    }
+
+    const estado = (row as { estado?: string | null }).estado ?? null
+    const textoComentario = `[RECLAMO] Marca de reclamo quitada por ${usuarioNombre}.`
+
+    const { error: upErr } = await supabase
+      .from('ordenes_trabajo')
+      .update({ en_reclamo: false })
+      .eq('id', ordenId)
+
+    if (upErr) return { success: false, error: upErr.message }
+
+    await this.addComentarioOrden(ordenId, textoComentario, usuarioNombre)
+    await this.registrarCambioHistorial(
+      ordenId,
+      estado,
+      estado,
+      textoComentario,
+      'reclamo_resuelto',
+      { en_reclamo: { anterior: true, nuevo: false } }
+    )
+
+    const { data: full, error: fullErr } = await supabase
+      .from('ordenes_trabajo')
+      .select('*')
+      .eq('id', ordenId)
+      .single()
+
+    if (fullErr || !full) {
+      return { success: true, data: { ...(row as OrdenTrabajo), en_reclamo: false } as OrdenTrabajo }
+    }
+    return { success: true, data: full as OrdenTrabajo }
   }
 
   // ========== IMPRESORAS ==========

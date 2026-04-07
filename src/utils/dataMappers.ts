@@ -261,7 +261,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     tieneReferencias: orden.tiene_referencias ?? undefined,
     referenciasLinks: orden.referencias_links ?? undefined,
     fechaLimiteBrief: orden.fecha_limite_brief ?? undefined,
-    esUrgencia: orden.es_urgencia ?? undefined
+    esUrgencia: orden.es_urgencia ?? undefined,
+    enReclamo: orden.en_reclamo === true
   }
 }
 
@@ -379,7 +380,8 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     presupuesto_enviado_cliente: task.presupuestoEnviadoCliente ?? false,
     presupuesto_armado: task.presupuestoArmado ?? false,
     presupuesto_en_espera: task.presupuestoEnEspera ?? false,
-    ...(task.opBloqueada !== undefined ? { op_bloqueada: task.opBloqueada } : {})
+    ...(task.opBloqueada !== undefined ? { op_bloqueada: task.opBloqueada } : {}),
+    ...(task.enReclamo !== undefined ? { en_reclamo: task.enReclamo } : {})
   }
   
   console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)

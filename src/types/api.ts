@@ -82,6 +82,8 @@ export interface OrdenTrabajo {
   visible_en_tablero?: boolean | null
   /** Número FICHA-* antes de convertir a OP (historial) */
   numero_ficha_original?: string | null
+  /** Reclamo: el trabajo debe rehacerse (marca visual en tablero + comentario/historial) */
+  en_reclamo?: boolean | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */

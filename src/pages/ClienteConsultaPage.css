@@ -433,6 +433,57 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.timeline-section-unified {
+  margin-top: 0;
+  margin-bottom: 28px;
+  padding: 20px 20px 8px;
+  border-top: none;
+  border-radius: 16px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+}
+
+.timeline-unified-title {
+  margin: 0 0 8px 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.timeline-unified-subtitle {
+  margin: 0 0 16px 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.timeline-section-unified .timeline-title {
+  margin-bottom: 16px;
+  font-size: 1.05rem;
+}
+
+.timeline-meta-sector {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(147, 197, 253, 0.95);
+}
+
+.orden-historial-delegado {
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.orden-historial-delegado p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+}
+
 .timeline-title {
   margin: 0 0 24px 0;
   font-size: 1.25rem;

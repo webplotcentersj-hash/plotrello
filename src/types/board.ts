@@ -113,6 +113,8 @@ export interface Task {
   presupuestoEnEspera?: boolean | null // Presupuestos: checklist "En espera"
   /** UI only: marca cuando se movió entre columnas para mostrar "NEW" */
   uiMovedAt?: number
+  /** Reclamo registrado: trabajo a rehacer (bordes destacados en ficha) */
+  enReclamo?: boolean
 }
 
 export interface Subtask {

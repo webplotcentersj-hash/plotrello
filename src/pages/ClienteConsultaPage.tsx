@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
 import './ClienteConsultaPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
@@ -35,26 +36,21 @@ const ClienteConsultaPage = () => {
 
         setOrdenes(ordenesFiltradas)
 
-        const historialPromises = ordenesFiltradas.map(async (orden) => {
-          if (!orden.id) return [orden.id, []]
-          const histResponse = await apiService.getHistorialMovimientos({ ordenId: orden.id })
-          return [
-            orden.id,
+        const ids = ordenesFiltradas
+          .map((o) => o.id)
+          .filter((id): id is number => typeof id === 'number' && id > 0)
+
+        if (ids.length === 0) {
+          setHistorial({})
+        } else {
+          const histResponse = await apiService.getHistorialMovimientos({
+            ordenIds: ids,
+            limit: 800
+          })
+          const movimientos =
             histResponse.success && histResponse.data ? histResponse.data : []
-          ]
-        })
-
-        const historialResults = await Promise.all(historialPromises)
-        const historialMap: Record<number, HistorialMovimiento[]> = {}
-        
-        historialResults.forEach((result) => {
-          const [id, movimientos] = result
-          if (id && typeof id === 'number') {
-            historialMap[id] = movimientos as HistorialMovimiento[]
-          }
-        })
-
-        setHistorial(historialMap)
+          setHistorial(historialPorOrdenId(movimientos, ids))
+        }
       } else {
         setError('Error al buscar pedidos. Por favor intenta nuevamente.')
       }
@@ -132,6 +128,21 @@ const ClienteConsultaPage = () => {
       return dateString
     }
   }
+
+  const historialUnificadoLista = useMemo(() => {
+    if (ordenes.length < 2) return null
+    const all: HistorialMovimiento[] = []
+    for (const o of ordenes) {
+      if (o.id) all.push(...(historial[o.id] ?? []))
+    }
+    return historialUnificadoMismoNumeroOp(all, ordenes)
+  }, [ordenes, historial])
+
+  const etiquetaSectorFicha = (idOrden: number) =>
+    ordenes.find((o) => o.id === idOrden)?.sector?.trim() || `Ficha #${idOrden}`
+
+  const mostrarTimelineUnificado =
+    historialUnificadoLista !== null && historialUnificadoLista.length > 0
 
   return (
     <div className="cliente-consulta-page">
@@ -235,6 +246,56 @@ const ClienteConsultaPage = () => {
               {ordenes.length === 1 ? 'Tu Pedido' : `Tus Pedidos (${ordenes.length})`}
             </h2>
 
+            {mostrarTimelineUnificado && historialUnificadoLista && (
+              <div className="timeline-section timeline-section-unified">
+                <h3 className="timeline-unified-title">Recorrido completo de la orden</h3>
+                <p className="timeline-unified-subtitle">
+                  Hay {ordenes.length} fichas con el mismo número de OP en distintos sectores. Acá ves
+                  todos los movimientos en orden cronológico; en cada paso indicamos en qué ficha
+                  quedó registrado.
+                </p>
+                <h4 className="timeline-title">Historial unificado</h4>
+                <div className="timeline">
+                  {historialUnificadoLista.map((movimiento, index) => {
+                    const isLast = index === historialUnificadoLista.length - 1
+                    const estadoAnterior = getEstadoLabel(movimiento.estado_anterior || '')
+                    const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
+                    const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
+
+                    return (
+                      <div key={movimiento.id} className="timeline-item">
+                        <div className="timeline-marker" style={{ backgroundColor: colorNuevo }}>
+                          {isLast ? '✓' : '○'}
+                        </div>
+                        <div className="timeline-content">
+                          <div className="timeline-header">
+                            <span className="timeline-estado" style={{ color: colorNuevo }}>
+                              {estadoNuevo}
+                            </span>
+                            <span className="timeline-date">{formatDate(movimiento.timestamp)}</span>
+                          </div>
+                          <div className="timeline-meta-sector">
+                            {etiquetaSectorFicha(movimiento.id_orden)}
+                          </div>
+                          {index > 0 && (
+                            <div className="timeline-transition">
+                              <span className="transition-arrow">→</span>
+                              <span className="transition-text">
+                                Movido desde: {estadoAnterior}
+                              </span>
+                            </div>
+                          )}
+                          {movimiento.comentario && (
+                            <div className="timeline-comment">💬 {movimiento.comentario}</div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {ordenes.map((orden) => {
             const ordenHistorial = historial[orden.id] || []
             const historialOrdenado = [...ordenHistorial].sort(
@@ -317,7 +378,17 @@ const ClienteConsultaPage = () => {
                     )}
                   </div>
 
-                  {historialOrdenado.length > 0 && (
+                  {mostrarTimelineUnificado && (
+                    <div className="orden-historial-delegado">
+                      <p>
+                        Esta tarjeta es la parte del pedido en{' '}
+                        <strong>{orden.sector?.trim() || 'este sector'}</strong>. El historial paso a
+                        paso está arriba, en <strong>Recorrido completo de la orden</strong>.
+                      </p>
+                    </div>
+                  )}
+
+                  {!mostrarTimelineUnificado && historialOrdenado.length > 0 && (
                     <div className="timeline-section">
                       <h4 className="timeline-title">Historial del Pedido</h4>
                       <div className="timeline">
@@ -360,7 +431,7 @@ const ClienteConsultaPage = () => {
                     </div>
                   )}
 
-                  {historialOrdenado.length === 0 && (
+                  {!mostrarTimelineUnificado && historialOrdenado.length === 0 && (
                     <div className="no-timeline">
                       <p>No hay historial disponible para este pedido.</p>
                     </div>
