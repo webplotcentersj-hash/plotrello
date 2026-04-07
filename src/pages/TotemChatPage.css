@@ -462,6 +462,14 @@
   text-shadow: 0 0 18px rgba(var(--totem-accent-rgb), 0.35);
 }
 
+.totem-idle-camera-hint {
+  margin: 0.35rem 0 0;
+  font-size: clamp(0.7rem, 1.5vw, 0.88rem);
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
 .totem-subtitle {
   font-size: clamp(0.85rem, 1.9vw, 1.05rem);
   color: rgba(255, 255, 255, 0.85);

@@ -12,6 +12,8 @@ const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
+/** Tras este tiempo en escucha sin nuevo turno, vuelve a idle para reactivar detección por cámara. */
+const IDLE_RESET_MS = 90_000
 
 /** Quita emojis y símbolos para que el TTS no los lea. */
 function stripEmojisForTTS(text: string): string {
@@ -60,6 +62,7 @@ export default function TotemChatPage() {
   const processUserTurnRef = useRef<(text: string) => Promise<void>>(async () => {})
   /** Un solo aviso si ElevenLabs no está configurado y caemos a voz del navegador. */
   const ttsElevenLabsFallbackWarnedRef = useRef(false)
+  const idleResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   historyRef.current = history
   conversationIdRef.current = conversationId
@@ -99,6 +102,36 @@ export default function TotemChatPage() {
     speakDoneRef.current = null
     done?.()
   }, [revokeTtsObjectUrl])
+
+  const clearIdleReset = useCallback(() => {
+    if (idleResetTimerRef.current != null) {
+      clearTimeout(idleResetTimerRef.current)
+      idleResetTimerRef.current = null
+    }
+  }, [])
+
+  /** Tras inactividad vuelve a idle: la detección por movimiento en cámara vuelve a disparar el saludo. */
+  const armIdleReset = useCallback(() => {
+    clearIdleReset()
+    idleResetTimerRef.current = setTimeout(() => {
+      idleResetTimerRef.current = null
+      recShouldRunRef.current = false
+      try {
+        recognitionRef.current?.stop?.()
+      } catch {
+        /* noop */
+      }
+      recognitionRef.current = null
+      cancelSpeak()
+      setConversationId(null)
+      conversationIdRef.current = null
+      historyRef.current = []
+      setHistory([])
+      setLastText('')
+      setGeneratedImageUrl(null)
+      setState('idle')
+    }, IDLE_RESET_MS)
+  }, [cancelSpeak, clearIdleReset])
 
   const speak = useCallback(
     (text: string) => {
@@ -273,6 +306,7 @@ export default function TotemChatPage() {
       if (!userText) return
       if (processingUserTurnRef.current) return
 
+      clearIdleReset()
       processingUserTurnRef.current = true
       const rec = recognitionRef.current
       recShouldRunRef.current = false
@@ -319,6 +353,7 @@ export default function TotemChatPage() {
         setState('listening')
         recShouldRunRef.current = true
         safeRecStart()
+        armIdleReset()
         return
       }
 
@@ -338,8 +373,9 @@ export default function TotemChatPage() {
       setState('listening')
       recShouldRunRef.current = true
       safeRecStart()
+      armIdleReset()
     },
-    [sendToChat, speak, safeRecStart]
+    [sendToChat, speak, safeRecStart, clearIdleReset, armIdleReset]
   )
 
   useEffect(() => {
@@ -401,6 +437,10 @@ export default function TotemChatPage() {
 
   useEffect(() => {
     return () => {
+      if (idleResetTimerRef.current != null) {
+        clearTimeout(idleResetTimerRef.current)
+        idleResetTimerRef.current = null
+      }
       recShouldRunRef.current = false
       try {
         recognitionRef.current?.stop?.()
@@ -462,6 +502,7 @@ export default function TotemChatPage() {
       speak(GREETING_SPEECH).then(() => {
         setState('listening')
         startListening()
+        armIdleReset()
       })
     }
 
@@ -496,7 +537,7 @@ export default function TotemChatPage() {
 
     timeoutId = setTimeout(check, 1500)
     return () => clearTimeout(timeoutId)
-  }, [state, cameraReady, speak, startListening])
+  }, [state, cameraReady, speak, startListening, armIdleReset])
 
   const handleTapStart = () => {
     if (state !== 'idle') return
@@ -505,6 +546,7 @@ export default function TotemChatPage() {
     speak(GREETING_SPEECH).then(() => {
       setState('listening')
       startListening()
+      armIdleReset()
     })
   }
 
@@ -562,6 +604,9 @@ export default function TotemChatPage() {
             {state === 'thinking' && 'PROCESANDO...'}
             {state === 'speaking' && 'HABLANDO...'}
           </p>
+          {state === 'idle' && cameraReady && (
+            <p className="totem-idle-camera-hint">Cámara activa: te detectamos al acercarte.</p>
+          )}
           {state === 'speaking' && (
             <p className="totem-barge-hint">Esperá un momento… cuando termine podés hablar de nuevo.</p>
           )}
