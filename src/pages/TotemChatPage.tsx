@@ -12,8 +12,6 @@ const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
-/** Mínimo de caracteres (interim o final) para cortar al asistente y escuchar al usuario. */
-const BARGE_IN_MIN_CHARS = 2
 
 /** Quita emojis y símbolos para que el TTS no los lea. */
 function stripEmojisForTTS(text: string): string {
@@ -50,12 +48,11 @@ export default function TotemChatPage() {
   const synthRef = useRef<SpeechSynthesis | null>(null)
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
   const ttsObjectUrlRef = useRef<string | null>(null)
-  /** Mantener el micrófono activo también mientras el asistente habla (interrupción / barge-in). */
+  /** Si true, al cortar el reconocimiento se vuelve a iniciar (solo en escucha, no durante el TTS). */
   const recShouldRunRef = useRef(false)
   const isThinkingRef = useRef(false)
   const isAssistantSpeakingRef = useRef(false)
   const speakDoneRef = useRef<(() => void) | null>(null)
-  const turnAbortRef = useRef(false)
   const processingUserTurnRef = useRef(false)
   const stateRef = useRef<TotemState>('idle')
   const historyRef = useRef(history)
@@ -120,7 +117,12 @@ export default function TotemChatPage() {
         speakDoneRef.current = finish
         isAssistantSpeakingRef.current = true
 
-        const speakBrowser = () => {
+        const speakBrowser = (reason: string) => {
+          console.warn(
+            `[Plotrello /totem TTS] Usando voz del NAVEGADOR (no ElevenLabs). Motivo: ${reason}. ` +
+              `Si querés ElevenLabs: Vercel → ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID o ELEVENLABS_VOICE_NAME. ` +
+              `En Red (F12) buscá POST ${ELEVENLABS_TTS_API}`
+          )
           if (!('speechSynthesis' in window)) {
             finish()
             return
@@ -136,9 +138,13 @@ export default function TotemChatPage() {
         }
 
         const tryElevenLabs = async (): Promise<boolean> => {
+          const urlTts = `${apiBase}${ELEVENLABS_TTS_API}`
           for (let attempt = 0; attempt < 2; attempt++) {
             try {
-              const res = await fetch(`${apiBase}${ELEVENLABS_TTS_API}`, {
+              if (attempt === 0) {
+                console.info(`[Plotrello /totem TTS] Llamando ElevenLabs vía ${ELEVENLABS_TTS_API} (${clean.length} caracteres)`)
+              }
+              const res = await fetch(urlTts, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: clean })
@@ -147,6 +153,10 @@ export default function TotemChatPage() {
 
               if (res.ok && ct.includes('application/json')) {
                 const j = (await res.json().catch(() => null)) as { fallback?: boolean; error?: string } | null
+                console.warn(
+                  '[Plotrello /totem TTS] El servidor respondió JSON (no audio). ElevenLabs no se usó.',
+                  j?.error || j
+                )
                 if (j?.fallback && !ttsElevenLabsFallbackWarnedRef.current) {
                   ttsElevenLabsFallbackWarnedRef.current = true
                   setError(
@@ -156,11 +166,21 @@ export default function TotemChatPage() {
                 return false
               }
 
-              if (!res.ok) continue
+              if (!res.ok) {
+                const errTxt = await res.text().catch(() => '')
+                console.warn(`[Plotrello /totem TTS] HTTP ${res.status} desde API propia`, errTxt.slice(0, 200))
+                continue
+              }
 
               const blob = await res.blob()
-              if (blob.size < 80) continue
-              if ((blob.type || '').toLowerCase().includes('json')) continue
+              if (blob.size < 80) {
+                console.warn('[Plotrello /totem TTS] Respuesta muy chica, no parece MP3', blob.size)
+                continue
+              }
+              if ((blob.type || '').toLowerCase().includes('json')) {
+                console.warn('[Plotrello /totem TTS] Blob parece JSON, ignorado')
+                continue
+              }
 
               const looksAudio =
                 ct.includes('audio/') ||
@@ -168,7 +188,10 @@ export default function TotemChatPage() {
                 (blob.type || '').toLowerCase().includes('audio') ||
                 (blob.type === '' && blob.size > 500)
 
-              if (!looksAudio) continue
+              if (!looksAudio) {
+                console.warn('[Plotrello /totem TTS] Content-Type/blob no reconocido como audio', ct, blob.type, blob.size)
+                continue
+              }
 
               revokeTtsObjectUrl()
               const url = URL.createObjectURL(blob)
@@ -183,20 +206,22 @@ export default function TotemChatPage() {
               audio.onerror = () => {
                 ttsAudioRef.current = null
                 revokeTtsObjectUrl()
-                speakBrowser()
+                speakBrowser('error al reproducir el audio MP3')
               }
               try {
                 await audio.play()
+                console.info('[Plotrello /totem TTS] ElevenLabs OK (audio reproduciéndose)')
                 setError((prev) =>
                   prev && prev.includes('ElevenLabs') ? null : prev
                 )
                 return true
-              } catch {
+              } catch (e) {
+                console.warn('[Plotrello /totem TTS] audio.play() bloqueado o falló', e)
                 ttsAudioRef.current = null
                 revokeTtsObjectUrl()
               }
-            } catch {
-              /* red */
+            } catch (e) {
+              console.warn('[Plotrello /totem TTS] Error de red al llamar a la API', e)
             }
             if (attempt === 0) await new Promise((r) => setTimeout(r, 350))
           }
@@ -205,7 +230,7 @@ export default function TotemChatPage() {
 
         void (async () => {
           const ok = await tryElevenLabs()
-          if (!ok) speakBrowser()
+          if (!ok) speakBrowser('sin audio válido de ElevenLabs tras reintentos')
         })()
       })
     },
@@ -249,7 +274,6 @@ export default function TotemChatPage() {
       if (processingUserTurnRef.current) return
 
       processingUserTurnRef.current = true
-      turnAbortRef.current = false
       const rec = recognitionRef.current
       recShouldRunRef.current = false
       isThinkingRef.current = true
@@ -289,15 +313,6 @@ export default function TotemChatPage() {
 
       isThinkingRef.current = false
 
-      if (turnAbortRef.current) {
-        processingUserTurnRef.current = false
-        turnAbortRef.current = false
-        recShouldRunRef.current = true
-        setState('listening')
-        safeRecStart()
-        return
-      }
-
       const replyStr = reply && String(reply).trim() ? String(reply).trim() : null
       if (!replyStr) {
         processingUserTurnRef.current = false
@@ -308,21 +323,20 @@ export default function TotemChatPage() {
       }
 
       setState('speaking')
-      recShouldRunRef.current = true
-      safeRecStart()
+      /* Micrófono apagado mientras suena la voz: si no, el parlante mete eco y el SR “interrumpe” solo. */
+      recShouldRunRef.current = false
+      try {
+        recognitionRef.current?.stop?.()
+      } catch {
+        /* noop */
+      }
 
       await speak(replyStr)
-      if (turnAbortRef.current) {
-        turnAbortRef.current = false
-        processingUserTurnRef.current = false
-        setState('listening')
-        safeRecStart()
-        return
-      }
-      setLastText(replyStr)
 
+      setLastText(replyStr)
       processingUserTurnRef.current = false
       setState('listening')
+      recShouldRunRef.current = true
       safeRecStart()
     },
     [sendToChat, speak, safeRecStart]
@@ -347,40 +361,24 @@ export default function TotemChatPage() {
 
     const rec = new SpeechRecognitionAPI()
     rec.continuous = true
-    rec.interimResults = true
+    rec.interimResults = false
     rec.lang = 'es-AR'
 
     rec.onresult = async (e: Event & { resultIndex: number; results: SpeechRecognitionResultList }) => {
-      let interim = ''
       let finalChunk = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const row = e.results[i]
         const piece = row[0]?.transcript ?? ''
         if (row.isFinal) finalChunk += piece
-        else interim += piece
       }
-      const combo = (finalChunk + interim).trim()
       const st = stateRef.current
 
       if (isThinkingRef.current) return
+      /* Durante speaking el mic está detenido; por si llega un evento rezagado, ignorar. */
+      if (st !== 'listening') return
 
-      if (st === 'speaking' && isAssistantSpeakingRef.current) {
-        if (combo.length >= BARGE_IN_MIN_CHARS) {
-          processingUserTurnRef.current = false
-          turnAbortRef.current = true
-          cancelSpeak()
-          setState('listening')
-        }
-        const ft = finalChunk.trim()
-        if (ft) {
-          setTimeout(() => void processUserTurnRef.current(ft), 0)
-        }
-        return
-      }
-
-      if (st === 'listening' && finalChunk.trim()) {
-        void processUserTurnRef.current(finalChunk.trim())
-      }
+      const ft = finalChunk.trim()
+      if (ft) void processUserTurnRef.current(ft)
     }
 
     rec.onerror = () => {
@@ -399,7 +397,7 @@ export default function TotemChatPage() {
     recShouldRunRef.current = true
     setState('listening')
     rec.start()
-  }, [cancelSpeak, safeRecStart])
+  }, [safeRecStart])
 
   useEffect(() => {
     return () => {
@@ -565,7 +563,7 @@ export default function TotemChatPage() {
             {state === 'speaking' && 'HABLANDO...'}
           </p>
           {state === 'speaking' && (
-            <p className="totem-barge-hint">Podés interrumpirme hablando.</p>
+            <p className="totem-barge-hint">Esperá un momento… cuando termine podés hablar de nuevo.</p>
           )}
           {lastText && <p className="totem-subtitle">{lastText}</p>}
         </div>

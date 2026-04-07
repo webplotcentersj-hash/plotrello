@@ -91,6 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKey = (process.env.ELEVENLABS_API_KEY || '').trim()
   if (!apiKey) {
+    console.warn('[elevenlabs-tts] Sin ELEVENLABS_API_KEY: no se llama a api.elevenlabs.io')
     res.status(503).json({
       error: 'Falta ELEVENLABS_API_KEY en el servidor (Vercel → Environment Variables).',
       fallback: true
@@ -100,6 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { voiceId, error: voiceErr } = await resolveVoiceId(apiKey)
   if (!voiceId) {
+    console.warn('[elevenlabs-tts] Voz no resuelta:', voiceErr)
     res.status(503).json({
       error: voiceErr || 'No se pudo resolver la voz (ELEVENLABS_VOICE_ID o ELEVENLABS_VOICE_NAME).',
       fallback: true
@@ -154,6 +156,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const arrayBuf = await upstream.arrayBuffer()
     const buf = Buffer.from(arrayBuf)
+    console.info(
+      '[elevenlabs-tts] Llamada OK a api.elevenlabs.io',
+      JSON.stringify({
+        bytes: buf.length,
+        textChars: text.length,
+        voiceIdPrefix: `${voiceId.slice(0, 8)}…`
+      })
+    )
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'no-store')
     res.status(200).send(buf)
