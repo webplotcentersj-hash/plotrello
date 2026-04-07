@@ -84,6 +84,8 @@ export interface OrdenTrabajo {
   numero_ficha_original?: string | null
   /** Reclamo: el trabajo debe rehacerse (marca visual en tablero + comentario/historial) */
   en_reclamo?: boolean | null
+  /** Motivo del reclamo (texto libre; ver también comentarios_orden) */
+  reclamo_motivo?: string | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */

@@ -4264,10 +4264,16 @@ class ApiService {
     const detalle = (detalleOpcional ?? '').trim()
     const textoComentario = `[RECLAMO] El trabajo debe rehacerse.${detalle ? ` Motivo: ${detalle}` : ''}`
 
-    const { error: upErr } = await supabase
+    const motivoDb = detalle || null
+    let { error: upErr } = await supabase
       .from('ordenes_trabajo')
-      .update({ en_reclamo: true })
+      .update({ en_reclamo: true, reclamo_motivo: motivoDb })
       .eq('id', ordenId)
+
+    if (upErr && /reclamo_motivo/i.test(String(upErr.message))) {
+      const r2 = await supabase.from('ordenes_trabajo').update({ en_reclamo: true }).eq('id', ordenId)
+      upErr = r2.error
+    }
 
     if (upErr) {
       if (/en_reclamo|column|schema/i.test(String(upErr.message))) {
@@ -4301,7 +4307,14 @@ class ApiService {
       .single()
 
     if (fullErr || !full) {
-      return { success: true, data: { ...(row as OrdenTrabajo), en_reclamo: true } as OrdenTrabajo }
+      return {
+        success: true,
+        data: {
+          ...(row as OrdenTrabajo),
+          en_reclamo: true,
+          reclamo_motivo: motivoDb
+        } as OrdenTrabajo
+      }
     }
     return { success: true, data: full as OrdenTrabajo }
   }
@@ -4331,10 +4344,18 @@ class ApiService {
 
     const { error: upErr } = await supabase
       .from('ordenes_trabajo')
-      .update({ en_reclamo: false })
+      .update({ en_reclamo: false, reclamo_motivo: null })
       .eq('id', ordenId)
 
-    if (upErr) return { success: false, error: upErr.message }
+    if (upErr && /reclamo_motivo/i.test(String(upErr.message))) {
+      const { error: up2 } = await supabase
+        .from('ordenes_trabajo')
+        .update({ en_reclamo: false })
+        .eq('id', ordenId)
+      if (up2) return { success: false, error: up2.message }
+    } else if (upErr) {
+      return { success: false, error: upErr.message }
+    }
 
     await this.addComentarioOrden(ordenId, textoComentario, usuarioNombre)
     await this.registrarCambioHistorial(

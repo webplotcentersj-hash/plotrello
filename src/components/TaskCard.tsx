@@ -20,6 +20,7 @@ import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
 import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
+import ReclamoTriangleIcon from './ReclamoTriangleIcon'
 const CONTEXT_MENU_MIN_WIDTH = 200
 const CONTEXT_MENU_TITLE_H = 40
 const CONTEXT_MENU_ITEM_H = 44
@@ -514,6 +515,18 @@ const TaskCardInner = ({
               <span className="task-min-op">#{task.opNumber}</span>
               <span className="task-min-sep">·</span>
               <span className="task-min-client">{task.title}</span>
+              {task.enReclamo && (
+                <span
+                  className="task-min-reclamo-wrap"
+                  title={
+                    task.reclamoMotivo?.trim()
+                      ? `Reclamo — ${task.reclamoMotivo.trim()}`
+                      : 'Reclamo: el trabajo debe rehacerse'
+                  }
+                >
+                  <ReclamoTriangleIcon className="task-min-reclamo-icon" size={16} />
+                </span>
+              )}
               {isNewMove && <span className="task-new-pill">NEW</span>}
             </div>
           )}
@@ -558,9 +571,16 @@ const TaskCardInner = ({
               🔒
             </div>
           )}
-          {!isDragLightMode && task.enReclamo && (
-            <div className="reclamo-indicator" title="Reclamo: trabajo a rehacer">
-              ⚠️
+          {!isDragLightMode && !isMinimized && task.enReclamo && (
+            <div
+              className="reclamo-indicator"
+              title={
+                task.reclamoMotivo?.trim()
+                  ? `Reclamo — ${task.reclamoMotivo.trim()}`
+                  : 'Reclamo: el trabajo debe rehacerse'
+              }
+            >
+              <ReclamoTriangleIcon className="reclamo-indicator-svg" size={17} />
             </div>
           )}
           {!isDragLightMode && onMoveTask && columns.length > 0 && !moveBlocked && (() => {
@@ -598,22 +618,9 @@ const TaskCardInner = ({
               </div>
             ) : null
           })()}
-          {!isMinimized && !isDragLightMode && <div className="task-actions">
-            {onEdit && (
-              <button
-                type="button"
-                className="task-action-btn task-edit"
-                disabled={moveBlocked}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (moveBlocked) return
-                  onEdit(task)
-                }}
-                title="Editar"
-              >
-                ✏️
-              </button>
-            )}
+          {!isMinimized && !isDragLightMode && (
+            <div className={clsx('task-toolbar', !onEdit && 'task-toolbar--no-edit')}>
+              <div className="task-actions-extra" aria-label="Acciones secundarias">
             {task.status === 'presupuestos' && task.fichaTecnicaPdfUrl && (
               <button
                 type="button"
@@ -656,6 +663,7 @@ const TaskCardInner = ({
                 type="button"
                 className="task-action-btn task-reclamo-btn"
                 disabled={(moveBlocked && !isAdmin) || marcandoReclamo}
+                aria-label="Marcar reclamo"
                 onClick={async (e) => {
                   e.stopPropagation()
                   if (moveBlocked && !isAdmin) return
@@ -683,9 +691,13 @@ const TaskCardInner = ({
                     setMarcandoReclamo(false)
                   }
                 }}
-                title="Reclamo: debe rehacerse el trabajo"
+                title="Marcar reclamo (debe rehacerse el trabajo)"
               >
-                {marcandoReclamo ? '…' : 'Reclamo'}
+                {marcandoReclamo ? (
+                  <span className="task-reclamo-spinner task-reclamo-spinner--compact" aria-hidden />
+                ) : (
+                  <ReclamoTriangleIcon size={14} />
+                )}
               </button>
             )}
             {hasOrdenId && task.enReclamo && isAdmin && (
@@ -693,6 +705,7 @@ const TaskCardInner = ({
                 type="button"
                 className="task-action-btn task-reclamo-quitar-btn"
                 disabled={marcandoReclamo}
+                aria-label="Quitar marca de reclamo"
                 onClick={async (e) => {
                   e.stopPropagation()
                   if (!window.confirm('¿Quitar la marca de reclamo de esta ficha?')) return
@@ -709,7 +722,13 @@ const TaskCardInner = ({
                 }}
                 title="Quitar marca de reclamo (admin/gerencia)"
               >
-                {marcandoReclamo ? '…' : 'OK reclamo'}
+                {marcandoReclamo ? (
+                  <span className="task-reclamo-spinner task-reclamo-spinner--light task-reclamo-spinner--compact" aria-hidden />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                    <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
               </button>
             )}
             {task.opNumber && (
@@ -751,7 +770,24 @@ const TaskCardInner = ({
                 🖨️
               </button>
             )}
-          </div>}
+              </div>
+              {onEdit && (
+                <button
+                  type="button"
+                  className="task-action-btn task-edit task-edit--always"
+                  disabled={moveBlocked}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (moveBlocked) return
+                    onEdit(task)
+                  }}
+                  title="Editar ficha"
+                >
+                  ✏️
+                </button>
+              )}
+            </div>
+          )}
           {!isMinimized && !isDragLightMode && task.photoUrl && (
             <div className="task-photo">
               <img src={task.photoUrl} alt={`Trabajo ${task.title}`} loading="lazy" />
@@ -2027,7 +2063,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       'uiMovedAt',
       'summary',
       'opBloqueada',
-      'enReclamo'
+      'enReclamo',
+      'reclamoMotivo'
     ] as const
     for (const k of keys) {
       if (prev.task[k] !== next.task[k]) return false

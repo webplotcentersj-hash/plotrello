@@ -115,6 +115,8 @@ export interface Task {
   uiMovedAt?: number
   /** Reclamo registrado: trabajo a rehacer (bordes destacados en ficha) */
   enReclamo?: boolean
+  /** Motivo del reclamo (si se cargó al marcar) */
+  reclamoMotivo?: string | null
 }
 
 export interface Subtask {

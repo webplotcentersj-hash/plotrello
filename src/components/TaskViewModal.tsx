@@ -3,6 +3,7 @@ import type { Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useTagColors } from '../hooks/useTagColors'
+import ReclamoTriangleIcon from './ReclamoTriangleIcon'
 import './TaskEditModal.css'
 import './TaskViewModal.css'
 
@@ -89,7 +90,7 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
   return (
     <div className="modal-overlay task-view-overlay" role="presentation" onClick={() => onClose()}>
       <div
-        className="modal-content task-view-modal"
+        className={`modal-content task-view-modal${task.enReclamo ? ' task-view-modal--reclamo' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-view-heading"
@@ -118,6 +119,21 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
         </header>
 
         <div className="modal-body task-view-body">
+          {task.enReclamo && (
+            <div className="task-view-reclamo-banner" role="status">
+              <span className="task-view-reclamo-banner-icon" aria-hidden>
+                <ReclamoTriangleIcon size={28} />
+              </span>
+              <div className="task-view-reclamo-banner-text">
+                <strong>Reclamo — el trabajo debe rehacerse</strong>
+                {task.reclamoMotivo?.trim() ? (
+                  <p className="task-view-reclamo-motivo">{task.reclamoMotivo.trim()}</p>
+                ) : (
+                  <p className="task-view-reclamo-sin-motivo">No se cargó un motivo detallado al marcar el reclamo.</p>
+                )}
+              </div>
+            </div>
+          )}
           <div className="task-view-banner">
             <span className="task-view-banner-icon" aria-hidden="true">
               👁
@@ -190,6 +206,11 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                 {task.esSubTarea && <span className="task-view-chip">Subtarea</span>}
                 {task.origenPedidoWeb && <span className="task-view-chip task-view-chip--web">Pedido web</span>}
                 {task.esUrgencia && <span className="task-view-chip task-view-chip--urgent">Urgencia</span>}
+                {task.enReclamo && (
+                  <span className="task-view-chip task-view-chip--reclamo">
+                    <ReclamoTriangleIcon size={14} /> Reclamo
+                  </span>
+                )}
               </div>
 
               <div className="task-view-progress-wrap">
