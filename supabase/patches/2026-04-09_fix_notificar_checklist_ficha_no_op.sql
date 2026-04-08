@@ -1,21 +1,6 @@
--- DT (Asesor Técnico / Presupuestos)
--- Checklist extra en Presupuestos: Armado + En espera
--- + registrar en historial_movimientos (trazabilidad) al tildar.
-
+-- Corrige notificar_checklist_ficha_no_op: columnas user_notifications (is_read, orden_id) y type válido para el CHECK.
 BEGIN;
 
--- 1) Campos nuevos en ordenes_trabajo
-ALTER TABLE public.ordenes_trabajo
-  ADD COLUMN IF NOT EXISTS presupuesto_armado boolean DEFAULT false;
-
-ALTER TABLE public.ordenes_trabajo
-  ADD COLUMN IF NOT EXISTS presupuesto_en_espera boolean DEFAULT false;
-
-COMMENT ON COLUMN public.ordenes_trabajo.presupuesto_armado IS 'DT: Presupuestos checklist - armado';
-COMMENT ON COLUMN public.ordenes_trabajo.presupuesto_en_espera IS 'DT: Presupuestos checklist - en espera';
-
--- 2) Extender RPC de notificación/checklist para incluir trazabilidad.
--- Nota: la app llama a `notificar_checklist_ficha_no_op(p_id_orden, p_tipo_checklist, p_numero_op)`.
 CREATE OR REPLACE FUNCTION public.notificar_checklist_ficha_no_op(
   p_id_orden integer,
   p_tipo_checklist text,
@@ -24,6 +9,7 @@ CREATE OR REPLACE FUNCTION public.notificar_checklist_ficha_no_op(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_title text;
@@ -32,7 +18,6 @@ DECLARE
   v_dest_rol text;
   u record;
 BEGIN
-  -- Mensaje + destino por tipo
   IF p_tipo_checklist = 'ficha_tecnica_cargada' THEN
     v_title := 'DT · Ficha técnica cargada';
     v_desc := format('La ficha técnica de %s fue cargada.', coalesce(p_numero_op, 'Sin ficha'));
@@ -55,8 +40,6 @@ BEGIN
     v_dest_rol := NULL;
   END IF;
 
-  -- 2.a) Registrar trazabilidad (historial_movimientos)
-  -- Usa la función robusta si existe, sino inserta directo.
   BEGIN
     PERFORM public.registrar_cambio_manual_v2(
       p_id_orden,
@@ -92,7 +75,6 @@ BEGIN
     );
   END;
 
-  -- 2.b) Crear notificación interna (best-effort)
   IF v_dest_rol IS NOT NULL THEN
     FOR u IN
       SELECT id
@@ -116,9 +98,9 @@ BEGIN
           false
         );
       EXCEPTION WHEN undefined_table THEN
-        -- Si no existe la tabla en este proyecto, no romper la operación.
         NULL;
       WHEN OTHERS THEN
+        -- Columnas distintas en otros entornos: no romper checklist
         NULL;
       END;
     END LOOP;
@@ -127,4 +109,3 @@ END;
 $$;
 
 COMMIT;
-

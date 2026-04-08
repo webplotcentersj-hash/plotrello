@@ -1732,6 +1732,19 @@ class ApiService {
     }
   }
 
+  /** Mensaje legible si el CHECK de sector en BD no incluye el flujo Asesor (falta migración SQL). */
+  private explainOrdenSectorCheckError(message: string): string {
+    const m = String(message || '')
+    if (/ordenes_trabajo_sector_check|check constraint.*sector/i.test(m)) {
+      return (
+        'La base de datos no tiene actualizado el listado de sectores del flujo Asesor/Presupuestos ' +
+        '(Armados/Enviados, No Aprobados, etc.). En Supabase → SQL Editor ejecutá el archivo del repo: ' +
+        'supabase/patches/2026-04-01_fix_asesor_kanban_sector_check.sql'
+      )
+    }
+    return message
+  }
+
   async moveOrden(id: number, nuevoEstado: string, usuarioId: number): Promise<ApiResponse<any>> {
     if (supabase) {
       const { data: current, error: fetchError } = await supabase
@@ -1836,7 +1849,7 @@ class ApiService {
           .eq('id', id)
 
         if (alignAfterFusionError) {
-          return { success: false, error: alignAfterFusionError.message }
+          return { success: false, error: this.explainOrdenSectorCheckError(alignAfterFusionError.message || '') }
         }
 
         await this.registrarCambioHistorial(
@@ -1901,7 +1914,10 @@ class ApiService {
               .eq('id', id)
 
             if (alignAfterCollisionFusionError) {
-              return { success: false, error: alignAfterCollisionFusionError.message }
+              return {
+                success: false,
+                error: this.explainOrdenSectorCheckError(alignAfterCollisionFusionError.message || '')
+              }
             }
 
             await this.registrarCambioHistorial(
@@ -1927,7 +1943,7 @@ class ApiService {
           }
         }
 
-        return { success: false, error: updateErrorMessage }
+        return { success: false, error: this.explainOrdenSectorCheckError(updateErrorMessage) }
       }
 
       // Registrar movimiento con auditoría profesional
@@ -9877,12 +9893,14 @@ class ApiService {
         })
 
         if (error) {
-          console.error('Error notificando checklist:', error)
-          return { success: false, error: error.message }
+          // No bloquear guardado de ficha: la RPC es best-effort (p. ej. columnas notifications en BD)
+          console.warn('Checklist: notificación no enviada (revisá RPC notificar_checklist_ficha_no_op):', error.message)
+          return { success: true }
         }
         return { success: true }
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+        console.warn('Checklist: notificación no enviada:', error)
+        return { success: true }
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
