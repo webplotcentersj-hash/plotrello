@@ -15,6 +15,7 @@ const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   'almacen-entrega': 'Almacén de Entrega',
   'asesor-tecnico': 'Asesor Técnico',
   presupuestos: 'Presupuestos',
+  'armados-enviados-asesor-presupuestos': 'Armados/Enviados',
   'no-aprobados-asesor-presupuestos': 'No Aprobados',
   'finalizado-asesor-presupuestos': 'Finalizado'
 }
@@ -69,6 +70,7 @@ const STATUS_TO_PROGRESS: Record<TaskStatus, number> = {
   'almacen-entrega': 90,
   'asesor-tecnico': 15,
   presupuestos: 25,
+  'armados-enviados-asesor-presupuestos': 45,
   'no-aprobados-asesor-presupuestos': 95,
   'finalizado-asesor-presupuestos': 100
 }
@@ -426,6 +428,7 @@ export const tareaToTask = (tarea: TareaRecord, orden: OrdenTrabajo): Task => {
       'Almacén de Entrega': 'almacen-entrega',
       'Asesor Técnico': 'asesor-tecnico',
       'Presupuestos': 'presupuestos',
+      'Armados/Enviados': 'armados-enviados-asesor-presupuestos',
       'Finalizado': 'finalizado-asesor-presupuestos',
       'Mostrador': 'diseno-grafico',
       'Caja': 'diseno-grafico'

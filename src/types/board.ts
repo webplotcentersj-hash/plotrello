@@ -12,6 +12,7 @@ export type TaskStatus =
   | 'asesor-tecnico'
   | 'presupuestos'
   | 'no-aprobados-asesor-presupuestos'
+  | 'armados-enviados-asesor-presupuestos'
   | 'finalizado-asesor-presupuestos'
 export type Priority = 'alta' | 'media' | 'baja'
 

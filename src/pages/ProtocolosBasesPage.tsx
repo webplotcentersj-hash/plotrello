@@ -49,13 +49,8 @@ export default function ProtocolosBasesPage() {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
 
-  // Misma regla que la RPC en BD: administración, RRHH o gerencia
-  const canUpload =
-    !!usuario &&
-    (usuario.rol === 'administracion' ||
-      usuario.rol === 'recursos-humanos' ||
-      usuario.rol === 'gerencia' ||
-      canManageRecursosHumanos)
+  // Solo pueden subir: Administracion y Recursos Humanos
+  const canUpload = !!usuario && (usuario.rol === 'administracion' || usuario.rol === 'recursos-humanos' || canManageRecursosHumanos)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -312,10 +307,9 @@ export default function ProtocolosBasesPage() {
   if (authLoading || loading && items.length === 0) {
     return (
       <div className="protocolos-bases-page">
-        <div className="protocolos-bases-ambient" aria-hidden />
-        <div className="protocolos-bases-loading">
-          <div className="protocolos-bases-loading-orbit" />
-          <p>Sincronizando biblioteca…</p>
+        <div className="loading-container">
+          <div className="spinner" />
+          <p>Cargando protocolos y bases...</p>
         </div>
       </div>
     )
@@ -323,85 +317,50 @@ export default function ProtocolosBasesPage() {
 
   return (
     <div className="protocolos-bases-page">
-      <div className="protocolos-bases-ambient" aria-hidden />
-
-      <div className="protocolos-bases-inner">
-        <header className="protocolos-bases-hero">
-          <button type="button" className="protocolos-bases-back" onClick={() => navigate('/')}>
-            <span className="protocolos-bases-back-icon" aria-hidden>
-              ←
-            </span>
-            Tablero
+      <header className="protocolos-bases-header">
+        <div className="protocolos-bases-header-content">
+          <button type="button" className="back-button" onClick={() => navigate('/')}>
+            ← Volver al Tablero
           </button>
-
-          <div className="protocolos-bases-hero-main">
-            <div className="protocolos-bases-hero-badge">Biblioteca interna</div>
-            <div className="protocolos-bases-hero-row">
-              <div className="protocolos-bases-logo-wrap">
-                <img
-                  className="protocolos-bases-logo"
-                  src="https://trello.plotcenter.com.ar/Group%20187.png"
-                  alt=""
-                />
-              </div>
-              <div className="protocolos-bases-title-block">
-                <h1>Protocolos y bases</h1>
-                <p className="protocolos-bases-lead">
-                  Un solo lugar para lineamientos, procedimientos y documentos de referencia del equipo.
-                </p>
-              </div>
-            </div>
-            <div className="protocolos-bases-hero-stats">
-              <div className="protocolos-bases-stat">
-                <span className="protocolos-bases-stat-value">{items.length}</span>
-                <span className="protocolos-bases-stat-label">Documentos</span>
-              </div>
-              <div className="protocolos-bases-stat">
-                <span className="protocolos-bases-stat-value">{filtered.length}</span>
-                <span className="protocolos-bases-stat-label">Resultado actual</span>
-              </div>
+          <div className="protocolos-bases-title">
+            <img
+              className="protocolos-bases-logo"
+              src="https://trello.plotcenter.com.ar/Group%20187.png"
+              alt="Plot Center Logo"
+            />
+            <div className="protocolos-bases-title-text">
+              <h1>Protocolos y Bases</h1>
+              <p className="subtitle">Documentos para que el equipo trabaje con el mismo criterio.</p>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {error && (
-          <div className="protocolos-bases-alert" role="alert">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="error-message protocolos-error" role="alert">
+          {error}
+        </div>
+      )}
 
-        <main className="protocolos-bases-main">
+      <main className="protocolos-bases-main">
         {canUpload && (
           <section className="protocolos-bases-upload">
-            <div className="protocolos-bases-section-head">
-              <div>
-                <h2 className="protocolos-bases-h2">Agregar contenido</h2>
-                <p className="protocolos-bases-section-desc">Subí un archivo o generá un borrador con PlotAI.</p>
-              </div>
-              <div className="protocolos-bases-segment" role="tablist" aria-label="Modo de carga">
+            <div className="protocolos-bases-upload-header">
+              <h2>Subir o generar</h2>
+              <div className="upload-mode-toggle">
                 <button
                   type="button"
-                  role="tab"
-                  aria-selected={uploadMode === 'file'}
-                  className={`protocolos-bases-segment-btn ${uploadMode === 'file' ? 'is-active' : ''}`}
+                  className={`brand-button ${uploadMode === 'file' ? 'active' : ''}`}
                   onClick={() => setUploadMode('file')}
                 >
-                  <span className="protocolos-bases-segment-ico" aria-hidden>
-                    📎
-                  </span>
-                  Archivo
+                  Subir archivo
                 </button>
                 <button
                   type="button"
-                  role="tab"
-                  aria-selected={uploadMode === 'plotai'}
-                  className={`protocolos-bases-segment-btn ${uploadMode === 'plotai' ? 'is-active' : ''}`}
+                  className={`brand-button ${uploadMode === 'plotai' ? 'active' : ''}`}
                   onClick={() => setUploadMode('plotai')}
                 >
-                  <span className="protocolos-bases-segment-ico" aria-hidden>
-                    ✨
-                  </span>
-                  PlotAI
+                  Generar con PlotAI
                 </button>
               </div>
             </div>
@@ -444,11 +403,11 @@ export default function ProtocolosBasesPage() {
                     />
                   </div>
 
-                  <div className="protocolos-bases-actions">
-                    <button type="button" className="pb-btn pb-btn-primary" onClick={handleUploadFile} disabled={!archivo || !titulo.trim()}>
+                  <div className="upload-actions">
+                    <button type="button" className="brand-button primary" onClick={handleUploadFile} disabled={!archivo || !titulo.trim()}>
                       Guardar documento
                     </button>
-                    <button type="button" className="pb-btn pb-btn-ghost" onClick={resetUploadForm}>
+                    <button type="button" className="brand-button" onClick={resetUploadForm}>
                       Limpiar
                     </button>
                   </div>
@@ -468,13 +427,13 @@ export default function ProtocolosBasesPage() {
                     />
                   </div>
 
-                  <div className="protocolos-bases-actions">
-                    <button type="button" className="pb-btn pb-btn-primary" onClick={handleGenerateWithPlotAI} disabled={plotGenerating}>
-                      {plotGenerating ? 'Generando…' : 'Generar con PlotAI'}
+                  <div className="upload-actions">
+                    <button type="button" className="brand-button primary" onClick={handleGenerateWithPlotAI} disabled={plotGenerating}>
+                      {plotGenerating ? 'Generando...' : 'Generar con PlotAI'}
                     </button>
                     <button
                       type="button"
-                      className="pb-btn pb-btn-ghost"
+                      className="brand-button"
                       onClick={() => {
                         setPlotError(null)
                         setContenidoGenerado('')
@@ -486,7 +445,7 @@ export default function ProtocolosBasesPage() {
                   </div>
 
                   {plotError && (
-                    <div className="protocolos-bases-alert protocolos-bases-alert--soft" role="alert">
+                    <div className="error-message" role="alert">
                       {plotError}
                     </div>
                   )}
@@ -502,8 +461,8 @@ export default function ProtocolosBasesPage() {
                     />
                   </div>
 
-                  <div className="protocolos-bases-actions">
-                    <button type="button" className="pb-btn pb-btn-primary" onClick={handleSaveGenerated} disabled={!contenidoGenerado.trim()}>
+                  <div className="upload-actions">
+                    <button type="button" className="brand-button primary" onClick={handleSaveGenerated} disabled={!contenidoGenerado.trim()}>
                       Guardar documento generado
                     </button>
                   </div>
@@ -514,66 +473,46 @@ export default function ProtocolosBasesPage() {
         )}
 
         <section className="protocolos-bases-library">
-          <div className="protocolos-bases-section-head protocolos-bases-section-head--library">
-            <div>
-              <h2 className="protocolos-bases-h2">Biblioteca</h2>
-              <p className="protocolos-bases-section-desc">Filtrá por tipo y buscá por título, categoría o etiquetas.</p>
+          <div className="protocolos-bases-library-toolbar">
+            <div className="search-row">
+              <div className="protocolos-bases-search-title">Buscar</div>
+              <input
+                className="form-input"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por título, categoría o tag..."
+              />
+              <select className="form-input" value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value as any)}>
+                <option value="todos">Todos</option>
+                <option value="protocolo">Protocolos</option>
+                <option value="base">Bases</option>
+                <option value="otro">Otros</option>
+              </select>
             </div>
           </div>
 
-          <div className="protocolos-bases-toolbar">
-            <label className="protocolos-bases-search">
-              <span className="protocolos-bases-search-icon" aria-hidden>
-                ⌕
-              </span>
-              <input
-                className="protocolos-bases-search-input"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar documentos…"
-                aria-label="Buscar documentos"
-              />
-            </label>
-            <select
-              className="protocolos-bases-filter"
-              value={tipoFilter}
-              onChange={(e) => setTipoFilter(e.target.value as TipoDocumento | 'todos')}
-              aria-label="Filtrar por tipo"
-            >
-              <option value="todos">Todos los tipos</option>
-              <option value="protocolo">Protocolos</option>
-              <option value="base">Bases</option>
-              <option value="otro">Otros</option>
-            </select>
-          </div>
-
           {filtered.length === 0 ? (
-            <div className="protocolos-bases-empty">
-              <div className="protocolos-bases-empty-icon" aria-hidden>
-                📚
-              </div>
-              <p className="protocolos-bases-empty-title">No hay resultados</p>
-              <p className="protocolos-bases-empty-text">Probá otra búsqueda o cambiá el filtro de tipo.</p>
+            <div className="empty-state">
+              <p>No se encontraron documentos.</p>
             </div>
           ) : (
             <div className="protocolos-bases-list">
               {filtered.map((doc) => (
-                <article key={doc.id} className="protocolos-bases-card" data-tipo={doc.tipo}>
-                  <div className="protocolos-bases-card-glow" aria-hidden />
-                  <div className="protocolos-bases-card-inner">
+                <div key={doc.id} className="protocolos-bases-card">
+                  <div className="protocolos-bases-card-header">
                     <div className="protocolos-bases-card-main">
-                      <div className="protocolos-bases-card-top">
-                        <span className={`protocolos-bases-type protocolos-bases-type--${doc.tipo}`}>{doc.tipo}</span>
-                        <time className="protocolos-bases-date" dateTime={doc.created_at || undefined}>
-                          {doc.created_at ? new Date(doc.created_at).toLocaleString('es-AR') : ''}
-                        </time>
-                      </div>
                       <h3 className="protocolos-bases-card-title">{doc.titulo}</h3>
-                      {doc.categoria && <p className="protocolos-bases-card-cat">{doc.categoria}</p>}
+                      <div className="protocolos-bases-meta">
+                        <span className="pill">{doc.tipo}</span>
+                        {doc.categoria && <span className="pill pill-secondary">{doc.categoria}</span>}
+                        <span className="protocolos-bases-date">
+                          {doc.created_at ? new Date(doc.created_at).toLocaleString('es-AR') : ''}
+                        </span>
+                      </div>
                       {!!doc.tags?.length && (
                         <div className="protocolos-bases-tags">
                           {doc.tags.map((t) => (
-                            <span key={t} className="protocolos-bases-tag">
+                            <span key={t} className="tag">
                               {t}
                             </span>
                           ))}
@@ -584,11 +523,11 @@ export default function ProtocolosBasesPage() {
                     <div className="protocolos-bases-card-actions">
                       {doc.archivo_url ? (
                         <>
-                          <a className="pb-btn pb-btn-ghost" href={doc.archivo_url} target="_blank" rel="noreferrer">
+                          <a className="brand-button" href={doc.archivo_url} target="_blank" rel="noreferrer">
                             Abrir
                           </a>
                           <a
-                            className="pb-btn pb-btn-primary"
+                            className="brand-button primary"
                             href={doc.archivo_url}
                             download={doc.archivo_nombre || `${doc.titulo}`}
                           >
@@ -597,26 +536,34 @@ export default function ProtocolosBasesPage() {
                         </>
                       ) : (
                         <>
-                          <button type="button" className="pb-btn pb-btn-ghost" onClick={() => setSelected(doc)}>
-                            Ver contenido
+                          <button type="button" className="brand-button" onClick={() => setSelected(doc)}>
+                            Ver
                           </button>
-                          <button type="button" className="pb-btn pb-btn-primary" onClick={() => downloadContent(doc, 'txt')}>
-                            .txt
+                          <button
+                            type="button"
+                            className="brand-button primary"
+                            onClick={() => downloadContent(doc, 'txt')}
+                          >
+                            Descargar .txt
                           </button>
-                          <button type="button" className="pb-btn pb-btn-ghost" onClick={() => downloadContent(doc, 'doc')}>
-                            .doc
+                          <button
+                            type="button"
+                            className="brand-button"
+                            onClick={() => downloadContent(doc, 'doc')}
+                          >
+                            Descargar .doc
                           </button>
                         </>
                       )}
 
                       {canUpload && (
-                        <button type="button" className="pb-btn pb-btn-danger" onClick={() => handleDelete(doc.id)}>
+                        <button type="button" className="btn-danger" onClick={() => handleDelete(doc.id)}>
                           Eliminar
                         </button>
                       )}
                     </div>
                   </div>
-                </article>
+                </div>
               ))}
             </div>
           )}
@@ -625,37 +572,30 @@ export default function ProtocolosBasesPage() {
 
       {selected && (
         <div className="protocolos-bases-modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setSelected(null)}>
-          <div
-            className="protocolos-bases-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="pb-modal-title"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+          <div className="protocolos-bases-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="protocolos-bases-modal-header">
-              <h3 id="pb-modal-title">{selected.titulo}</h3>
+              <h3>{selected.titulo}</h3>
               <button type="button" className="protocolos-bases-modal-close" onClick={() => setSelected(null)} aria-label="Cerrar">
-                ×
+                ✕
               </button>
             </div>
             <div className="protocolos-bases-modal-body">
               <pre className="protocolos-bases-content-pre">{selected.contenido_texto || ''}</pre>
             </div>
             <div className="protocolos-bases-modal-footer">
-              <button type="button" className="pb-btn pb-btn-ghost" onClick={() => downloadContent(selected, 'txt')}>
+              <button type="button" className="brand-button" onClick={() => downloadContent(selected, 'txt')}>
                 Descargar .txt
               </button>
-              <button type="button" className="pb-btn pb-btn-primary" onClick={() => downloadContent(selected, 'doc')}>
+              <button type="button" className="brand-button primary" onClick={() => downloadContent(selected, 'doc')}>
                 Descargar .doc
               </button>
-              <button type="button" className="pb-btn pb-btn-ghost" onClick={() => setSelected(null)}>
+              <button type="button" className="brand-button" onClick={() => setSelected(null)}>
                 Cerrar
               </button>
             </div>
           </div>
         </div>
       )}
-      </div>
     </div>
   )
 }

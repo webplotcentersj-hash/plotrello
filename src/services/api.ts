@@ -14567,7 +14567,8 @@ class ApiService {
     direccion?: string,
     ubicacionLink?: string,
     estado?: string,
-    notas?: string
+    notas?: string,
+    telefonoContacto?: string | null
   ): Promise<ApiResponse<CitaAsesorTecnico>> {
     if (supabase) {
       try {
@@ -14586,6 +14587,7 @@ class ApiService {
           p_ubicacion_link: ubicacionLink || null,
           p_estado: estado || 'programada',
           p_notas: notas || null,
+          p_telefono_contacto: telefonoContacto != null ? telefonoContacto : null,
           p_created_by: createdBy
         })
 
@@ -14617,7 +14619,8 @@ class ApiService {
     direccion?: string,
     ubicacionLink?: string,
     estado?: string,
-    notas?: string
+    notas?: string,
+    telefonoContacto?: string | null
   ): Promise<ApiResponse<boolean>> {
     if (supabase) {
       try {
@@ -14630,7 +14633,9 @@ class ApiService {
           p_direccion: direccion || null,
           p_ubicacion_link: ubicacionLink || null,
           p_estado: estado || null,
-          p_notas: notas || null
+          p_notas: notas || null,
+          p_telefono_contacto:
+            telefonoContacto === undefined ? null : telefonoContacto
         })
 
         if (error) return { success: false, error: error.message }

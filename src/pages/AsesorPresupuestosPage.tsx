@@ -28,6 +28,7 @@ import './AsesorPresupuestosPage.css'
 const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
   'asesor-tecnico',
   'presupuestos',
+  'armados-enviados-asesor-presupuestos',
   'no-aprobados-asesor-presupuestos',
   'finalizado-asesor-presupuestos'
 ]
@@ -47,6 +48,9 @@ function normalizeTaskForAsesorKanban(task: Task): Task {
   if (sector === 'Presupuestos') {
     return { ...task, status: 'presupuestos' }
   }
+  if (sector === 'Armados/Enviados') {
+    return { ...task, status: 'armados-enviados-asesor-presupuestos' }
+  }
   if (sector === 'No Aprobados') {
     return { ...task, status: 'no-aprobados-asesor-presupuestos' }
   }
@@ -62,6 +66,9 @@ function normalizeTaskForAsesorKanban(task: Task): Task {
     return task.assignedSector === 'Presupuestos'
       ? { ...task, status: 'presupuestos' }
       : { ...task, status: 'asesor-tecnico' }
+  }
+  if (task.sectores?.includes('Armados/Enviados')) {
+    return { ...task, status: 'armados-enviados-asesor-presupuestos' }
   }
   return { ...task, status: 'asesor-tecnico' }
 }
@@ -126,12 +133,15 @@ const AsesorPresupuestosPage = ({
       return (
         sector === 'Asesor Técnico' ||
         sector === 'Presupuestos' ||
+        sector === 'Armados/Enviados' ||
         task.status === 'asesor-tecnico' ||
         task.status === 'presupuestos' ||
+        task.status === 'armados-enviados-asesor-presupuestos' ||
         task.status === 'finalizado-asesor-presupuestos' ||
         (task.sectores && (
           task.sectores.includes('Asesor Técnico') ||
-          task.sectores.includes('Presupuestos')
+          task.sectores.includes('Presupuestos') ||
+          task.sectores.includes('Armados/Enviados')
         ))
       )
     })
@@ -249,9 +259,12 @@ const AsesorPresupuestosPage = ({
       if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
         const effectiveSource =
           sourceColumn ?? normalizeTaskForAsesorKanban(taskToUpdate).status
-        if (effectiveSource !== 'presupuestos') {
+        if (
+          effectiveSource !== 'presupuestos' &&
+          effectiveSource !== 'armados-enviados-asesor-presupuestos'
+        ) {
           setActionError(
-            'Flujo: Asesor → Presupuestos → Finalizado. Desde Presupuestos, al finalizar, la ficha pasa a OP en el tablero general.'
+            'Flujo: Asesor → Presupuestos → Finalizado. Desde Presupuestos o Armados/Enviados, al finalizar, la ficha pasa a OP en el tablero general.'
           )
           return
         }
@@ -285,7 +298,11 @@ const AsesorPresupuestosPage = ({
         setActionSuccess(
           `Ficha convertida en OP: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ya está en el tablero general.`
         )
-      } else if (destination === 'asesor-tecnico' || destination === 'presupuestos') {
+      } else if (
+        destination === 'asesor-tecnico' ||
+        destination === 'presupuestos' ||
+        destination === 'armados-enviados-asesor-presupuestos'
+      ) {
         // Fusión si la misma ficha (mismo código FICHA-*) ya tenía instancia en el otro sector
         const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
         const nuevoEstado = mapStatusToEstado(destination)

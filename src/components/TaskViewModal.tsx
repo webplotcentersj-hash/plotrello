@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { mapStatusToEstado } from '../utils/dataMappers'
 import { useTagColors } from '../hooks/useTagColors'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
 import './TaskEditModal.css'
@@ -105,12 +106,11 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                 <span className="task-view-op-num">#{task.opNumber}</span>
               </p>
               <h2 className="task-view-main-title">{task.title}</h2>
-              {columnCfg && (
-                <p className="task-view-column-line">
-                  Columna actual: <strong>{columnCfg.label}</strong>
-                  {columnCfg.description ? ` · ${columnCfg.description}` : ''}
-                </p>
-              )}
+              <p className="task-view-column-line">
+                Columna actual:{' '}
+                <strong>{columnCfg?.label ?? mapStatusToEstado(task.status)}</strong>
+                {columnCfg?.description ? ` · ${columnCfg.description}` : ''}
+              </p>
             </div>
             <button type="button" className="task-view-close" onClick={onClose} aria-label="Cerrar">
               Cerrar

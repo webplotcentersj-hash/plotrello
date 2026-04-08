@@ -27,6 +27,7 @@ const CitaModal = ({
   const [horaCita, setHoraCita] = useState('09:00')
   const [duracionMinutos, setDuracionMinutos] = useState(60)
   const [clienteNombre, setClienteNombre] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [direccion, setDireccion] = useState('')
   const [ubicacionLink, setUbicacionLink] = useState('')
   const [estado, setEstado] = useState<'programada' | 'confirmada' | 'en_curso' | 'completada' | 'cancelada'>('programada')
@@ -52,6 +53,7 @@ const CitaModal = ({
           stripVisitaPrefix(cita.titulo || '') ||
           ''
       )
+      setTelefono((cita.cliente_telefono || '').trim())
       setDireccion(cita.direccion || '')
       setUbicacionLink(cita.ubicacion_link || '')
       setEstado(cita.estado)
@@ -59,6 +61,7 @@ const CitaModal = ({
     } else if (fechaSeleccionada) {
       setFechaCita(formatArgentinaDateOnly(fechaSeleccionada))
       setClienteNombre('')
+      setTelefono('')
     }
   }, [cita, fechaSeleccionada])
 
@@ -85,7 +88,8 @@ const CitaModal = ({
           direccion || undefined,
           ubicacionLink || undefined,
           estado,
-          notas || undefined
+          notas || undefined,
+          telefono.trim()
         )
 
         if (!response.success) {
@@ -105,7 +109,8 @@ const CitaModal = ({
           direccion || undefined,
           ubicacionLink || undefined,
           estado,
-          notas || undefined
+          notas || undefined,
+          telefono.trim() || null
         )
 
         if (!response.success) {
@@ -209,6 +214,17 @@ const CitaModal = ({
               onChange={(e) => setClienteNombre(e.target.value)}
               placeholder="Escribí el nombre del cliente o la empresa"
               required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Teléfono</label>
+            <input
+              type="tel"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              placeholder="Teléfono de contacto"
+              autoComplete="tel"
             />
           </div>
 

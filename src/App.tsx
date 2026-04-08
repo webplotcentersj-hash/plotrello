@@ -665,7 +665,12 @@ function App() {
   )
 }
 
-const ASESOR_PRESUPUESTOS_STATUSES = ['asesor-tecnico', 'presupuestos', 'finalizado-asesor-presupuestos']
+const ASESOR_PRESUPUESTOS_STATUSES = [
+  'asesor-tecnico',
+  'presupuestos',
+  'armados-enviados-asesor-presupuestos',
+  'finalizado-asesor-presupuestos'
+]
 
 function AppRoutes({
   tasks,

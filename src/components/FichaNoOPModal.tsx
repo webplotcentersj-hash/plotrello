@@ -59,8 +59,10 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   const isPresupuestosStage =
     Boolean(editTask) &&
     (editTask?.status === 'presupuestos' ||
+      editTask?.status === 'armados-enviados-asesor-presupuestos' ||
       editTask?.status === 'no-aprobados-asesor-presupuestos' ||
       editTask?.assignedSector === 'Presupuestos' ||
+      editTask?.assignedSector === 'Armados/Enviados' ||
       editTask?.assignedSector === 'No Aprobados')
   const canShowMotivos = isEditMode && isPresupuestosStage
 

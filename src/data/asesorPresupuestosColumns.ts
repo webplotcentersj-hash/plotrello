@@ -15,6 +15,12 @@ export const ASESOR_PRESUPUESTOS_COLUMNS: ColumnConfig[] = [
     accent: '#f59e0b' // amber
   },
   {
+    id: 'armados-enviados-asesor-presupuestos',
+    label: 'Armados/Enviados',
+    description: 'Presupuesto armado y/o enviado al cliente',
+    accent: '#a855f7' // violeta
+  },
+  {
     id: 'no-aprobados-asesor-presupuestos',
     label: 'No Aprobados',
     description: 'Cliente no responde o no aprueba (queda en DT, no pasa a OP)',

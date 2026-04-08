@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale'
 import apiService from '../services/api'
 import type { CitaAsesorTecnico, ClienteRecord } from '../types/api'
 import { formatArgentinaDateOnly, getArgentinaDateString, isoToArgentinaDateKey, isoToArgentinaTime } from '../utils/dateUtils'
+import { exportAgendaVisitasHoyPdf } from '../utils/agendaVisitasPdf'
 import CitaModal from './CitaModal'
 import './AgendaAsesorTecnico.css'
 
@@ -199,7 +200,11 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                             e.stopPropagation()
                             handleCitaClick(cita)
                           }}
-                          title={cita.cliente_nombre || cita.titulo}
+                          title={
+                            [cita.cliente_nombre || cita.titulo, cita.cliente_telefono]
+                              .filter(Boolean)
+                              .join(' · ')
+                          }
                         >
                           {isoToArgentinaTime(cita.fecha_cita)} - {displayVisitaCliente(cita).substring(0, 15)}
                         </div>
@@ -217,7 +222,18 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
 
         <div className="agenda-sidebar">
           <div className="sidebar-section">
-            <h3>Visitas de Hoy</h3>
+            <div className="sidebar-section-header">
+              <h3>Visitas de Hoy</h3>
+              <button
+                type="button"
+                className="btn-sidebar-pdf"
+                onClick={() => exportAgendaVisitasHoyPdf(visitasDeHoy)}
+                disabled={loading}
+                title="Descargar PDF con las visitas de hoy"
+              >
+                PDF hoy
+              </button>
+            </div>
             {loading ? (
               <div className="loading">Cargando...</div>
             ) : visitasDeHoy.length === 0 ? (
@@ -235,6 +251,9 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                       <span className={`cita-estado estado-${cita.estado}`}>{cita.estado}</span>
                     </div>
                     <div className="cita-cliente">👤 {displayVisitaCliente(cita)}</div>
+                    {cita.cliente_telefono && (
+                      <div className="cita-telefono">📞 {cita.cliente_telefono}</div>
+                    )}
                     {cita.direccion && (
                       <div className="cita-direccion">📍 {cita.direccion}</div>
                     )}
