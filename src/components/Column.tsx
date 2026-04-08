@@ -28,6 +28,7 @@ type ColumnProps = {
   selectedTaskId?: string | null
   onSelectTask?: (taskId: string | null) => void
   onViewTask?: (task: Task) => void
+  hideReclamoUI?: boolean
 }
 
 const Column = ({
@@ -49,7 +50,8 @@ const Column = ({
   selectedTaskId,
   onSelectTask,
   onViewTask,
-  isBoardDragging = false
+  isBoardDragging = false,
+  hideReclamoUI
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
   const INITIAL_VISIBLE_TASKS = 5
@@ -120,6 +122,7 @@ const Column = ({
                 isBoardDragging={isBoardDragging}
                 isDraggable={false}
                 boardDnD={{ provided, snapshot }}
+                hideReclamoUI={hideReclamoUI}
               />
             )}
           </Draggable>

@@ -257,6 +257,11 @@ const AgendaAsesorTecnico = ({ idAsesor }: AgendaAsesorTecnicoProps) => {
                     {cita.direccion && (
                       <div className="cita-direccion">📍 {cita.direccion}</div>
                     )}
+                    {cita.ficha_numero && (
+                      <div className="cita-ref-orden">
+                        {cita.es_ficha_no_op === false ? 'OP' : 'Ficha'}: {cita.ficha_numero}
+                      </div>
+                    )}
                     {cita.duracion_minutos && (
                       <div className="cita-duracion">⏱️ {cita.duracion_minutos} min</div>
                     )}

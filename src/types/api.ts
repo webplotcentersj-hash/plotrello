@@ -1196,6 +1196,9 @@ export interface CitaAsesorTecnico {
   cliente_nombre?: string | null
   cliente_telefono?: string | null
   cliente_email?: string | null
+  /** Número en ordenes_trabajo (FICHA-n u OP-n); ver es_ficha_no_op */
   ficha_numero?: string | null
+  /** false = ya es OP real; true/NULL = ficha No OP o sin fila vinculada */
+  es_ficha_no_op?: boolean | null
 }
 

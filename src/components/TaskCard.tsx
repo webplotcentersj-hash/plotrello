@@ -75,6 +75,8 @@ type TaskCardProps = {
   isBoardDragging?: boolean
   /** Si viene definido, no se envuelve en Draggable (lo pone Column.tsx) */
   boardDnD?: TaskCardBoardDnD | null
+  /** Ocultar marca/indicadores y acciones de reclamo (ej. tablero asesor/presupuestos) */
+  hideReclamoUI?: boolean
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat('es-AR', {
@@ -137,7 +139,8 @@ const TaskCardInner = ({
   onSelect,
   onViewTask,
   isBoardDragging = false,
-  boardDnD = null
+  boardDnD = null,
+  hideReclamoUI = false
 }: TaskCardProps) => {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
@@ -469,7 +472,7 @@ const TaskCardInner = ({
             'presupuesto-enviado': task.presupuestoEnviadoCliente,
             'presupuesto-armado': task.presupuestoArmado,
             'presupuesto-en-espera': task.presupuestoEnEspera,
-            'en-reclamo': task.enReclamo,
+            'en-reclamo': task.enReclamo && !hideReclamoUI,
             'is-collapsed': !isExpanded,
             'is-minimized': isMinimized,
             'is-new-move': isNewMove,
@@ -515,7 +518,7 @@ const TaskCardInner = ({
               <span className="task-min-op">#{task.opNumber}</span>
               <span className="task-min-sep">·</span>
               <span className="task-min-client">{task.title}</span>
-              {task.enReclamo && (
+              {task.enReclamo && !hideReclamoUI && (
                 <span
                   className="task-min-reclamo-wrap"
                   title={
@@ -571,7 +574,7 @@ const TaskCardInner = ({
               🔒
             </div>
           )}
-          {!isDragLightMode && !isMinimized && task.enReclamo && (
+          {!isDragLightMode && !isMinimized && task.enReclamo && !hideReclamoUI && (
             <div
               className="reclamo-indicator"
               title={
@@ -658,7 +661,7 @@ const TaskCardInner = ({
             >
               📜
             </button>
-            {hasOrdenId && !task.enReclamo && (
+            {hasOrdenId && !task.enReclamo && !hideReclamoUI && (
               <button
                 type="button"
                 className="task-action-btn task-reclamo-btn"
@@ -700,7 +703,7 @@ const TaskCardInner = ({
                 )}
               </button>
             )}
-            {hasOrdenId && task.enReclamo && isAdmin && (
+            {hasOrdenId && task.enReclamo && isAdmin && !hideReclamoUI && (
               <button
                 type="button"
                 className="task-action-btn task-reclamo-quitar-btn"
@@ -2017,7 +2020,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       prev.isBoardDragging === next.isBoardDragging &&
       prev.isSelected === next.isSelected &&
       prev.onSelect === next.onSelect &&
-      prev.onViewTask === next.onViewTask
+      prev.onViewTask === next.onViewTask &&
+      prev.hideReclamoUI === next.hideReclamoUI
     )
   }
   if ((prev.boardDnD == null) !== (next.boardDnD == null)) return false
@@ -2084,6 +2088,7 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   if (prev.onMarkDelivered !== next.onMarkDelivered) return false
   if (prev.onSelect !== next.onSelect) return false
   if (prev.onViewTask !== next.onViewTask) return false
+  if (prev.hideReclamoUI !== next.hideReclamoUI) return false
   return true
 }
 

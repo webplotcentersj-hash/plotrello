@@ -12,6 +12,13 @@ function displayVisitaCliente(cita: CitaAsesorTecnico): string {
   return raw.toLowerCase().startsWith('visita - ') ? raw.slice(9).trim() : raw
 }
 
+/** Etiqueta: Ficha (No OP) vs OP ya emitida */
+function labelReferenciaOrden(cita: CitaAsesorTecnico): string {
+  if (!cita.ficha_numero?.trim()) return ''
+  if (cita.es_ficha_no_op === false) return 'OP'
+  return 'Ficha'
+}
+
 function splitLines(doc: jsPDF, text: string, maxWidth: number): string[] {
   return doc.splitTextToSize(text, maxWidth)
 }
@@ -83,7 +90,10 @@ export function exportAgendaVisitasHoyPdf(visitas: CitaAsesorTecnico[]): void {
     line('Dirección', cita.direccion)
     line('Duración', cita.duracion_minutos ? `${cita.duracion_minutos} min` : undefined)
     line('Estado', cita.estado)
-    line('Ficha / OP', cita.ficha_numero)
+    line(
+      labelReferenciaOrden(cita) || 'Referencia',
+      cita.ficha_numero || undefined
+    )
     line('Ubicación (enlace)', cita.ubicacion_link)
     if (cita.descripcion?.trim()) {
       nuevaPaginaSiHaceFalta(8)

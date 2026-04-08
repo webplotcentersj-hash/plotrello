@@ -879,7 +879,7 @@ class ApiService {
             'ubicacion_link',
             'drive_link'
           ]
-          const allOptionalColumns = ['foto_url', ...contactColumns]
+          const allOptionalColumns = ['foto_url', 'reclamo_motivo', ...contactColumns]
 
           // Detectar SOLO las columnas que específicamente están mencionadas en el error
           const missingColumns: string[] = []
@@ -1295,7 +1295,7 @@ class ApiService {
             'ubicacion_link',
             'drive_link'
           ]
-          const allOptionalColumns = ['foto_url', ...contactColumns]
+          const allOptionalColumns = ['foto_url', 'reclamo_motivo', ...contactColumns]
 
           // Detectar SOLO las columnas que específicamente están mencionadas en el error
           const missingColumns: string[] = []
@@ -1770,12 +1770,17 @@ class ApiService {
         'Imprenta (Área de Impresión)': 'Imprenta (Área de Impresión)',
         'Taller de Imprenta': 'Taller de Imprenta',
         'Taller Gráfico': 'Taller Gráfico',
-        'Instalaciones': 'Instalaciones',
-        'Metalúrgica': 'Metalúrgica',
+        Instalaciones: 'Instalaciones',
+        Metalúrgica: 'Metalúrgica',
         'Finalizado en Taller': 'Finalizado en Taller',
-        'Almacén de Entrega': 'Almacén de Entrega'
+        'Almacén de Entrega': 'Almacén de Entrega',
+        'Asesor Técnico': 'Asesor Técnico',
+        Presupuestos: 'Presupuestos',
+        'Armados/Enviados': 'Armados/Enviados',
+        'No Aprobados': 'No Aprobados',
+        Finalizado: 'Finalizado'
       }
-      
+
       const nuevoSector = estadoToSector[nuevoEstado] || nuevoEstado
 
       // Fusión por llegada (cadena de duplicadas/triplicadas):
@@ -5865,7 +5870,7 @@ class ApiService {
             title: `Stock Bajo: ${articulo.descripcion}`,
             description: `El artículo "${articulo.descripcion}" tiene stock bajo (${stockActual} unidades).`,
             related_id: articulo.id.toString(),
-            read: false
+            is_read: false
           })
         }
       }
@@ -5908,7 +5913,7 @@ class ApiService {
             title: `⚠️ Stock Agotado: ${articulo.descripcion}`,
             description: `El artículo "${articulo.descripcion}" se ha agotado. Se requiere reposición urgente.`,
             related_id: articulo.id.toString(),
-            read: false
+            is_read: false
           })
         }
       }

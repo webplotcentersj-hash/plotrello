@@ -20,6 +20,8 @@ type BoardProps = {
   selectedTaskId?: string | null
   onSelectTask?: (taskId: string | null) => void
   onViewTask?: (task: Task) => void
+  /** Ocultar UI de reclamo en tarjetas (tablero asesor/presupuestos) */
+  hideReclamoUI?: boolean
 }
 
 const Board = ({
@@ -35,7 +37,8 @@ const Board = ({
   activity,
   selectedTaskId,
   onSelectTask,
-  onViewTask
+  onViewTask,
+  hideReclamoUI
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
   const columnContainerRefCallbacks = useRef<
@@ -159,6 +162,7 @@ const Board = ({
                   selectedTaskId={selectedTaskId}
                   onSelectTask={onSelectTask}
                   onViewTask={onViewTask}
+                  hideReclamoUI={hideReclamoUI}
                 />
               )}
             </Droppable>

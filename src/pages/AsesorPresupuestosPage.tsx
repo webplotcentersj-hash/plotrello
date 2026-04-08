@@ -544,6 +544,7 @@ const AsesorPresupuestosPage = ({
                 activity={activity}
                 selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
+                hideReclamoUI
               />
             </div>
           </>
