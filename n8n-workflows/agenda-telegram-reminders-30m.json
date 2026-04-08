@@ -1,0 +1,268 @@
+{
+  "name": "Agenda asesor — Telegram recordatorio ~30m",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000001",
+      "name": "Cada 1 minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-420, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-url",
+              "name": "supabase_url",
+              "value": "https://bwdtrzcdzbzrtykjzber.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "cfg-key",
+              "name": "supabase_service_role_key",
+              "value": "PEGAR_AQUI_SERVICE_ROLE_KEY",
+              "type": "string"
+            },
+            {
+              "id": "cfg-map",
+              "name": "telegram_asesor_map",
+              "value": "TELEGRAM_CHAT_ID:ID_ASESOR",
+              "type": "string"
+            },
+            {
+              "id": "cfg-solo",
+              "name": "telegram_dt_un_solo_usuario",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000008",
+      "name": "Config Supabase (editar)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-200, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Supabase (editar)').first().json.supabase_url.replace(/\\/$/, '') + '/rest/v1/rpc/obtener_citas_recordatorio_telegram_15m' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase (editar)').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase (editar)').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000002",
+      "name": "RPC Supabase citas en ventana",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 0],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Config desde nodo Set. Soporta: [] vacío, array en 1 ítem, o n ítems (n8n partió el JSON).\n */\nconst cfg = $('Config Supabase (editar)').first().json;\nconst items = $input.all();\nlet rows = [];\nif (items.length === 0) {\n  rows = [];\n} else if (items.length === 1) {\n  const raw = items[0].json;\n  if (Array.isArray(raw)) rows = raw;\n  else if (Array.isArray(raw.body)) rows = raw.body;\n  else if (raw && typeof raw === 'object' && raw.data && Array.isArray(raw.data)) rows = raw.data;\n  else if (raw && raw.id != null && raw.fecha_cita != null) rows = [raw];\n} else {\n  rows = items.map((i) => i.json).filter((r) => r && r.id != null);\n}\n\nconst map = new Map();\nconst solo = (cfg.telegram_dt_un_solo_usuario || '').trim();\nif (solo) {\n  const [tg, aid] = solo.split(':').map((s) => s.trim());\n  const tgId = parseInt(tg, 10);\n  const asesorId = parseInt(aid, 10);\n  if (!isNaN(tgId) && !isNaN(asesorId)) {\n    map.set(asesorId, [tgId]);\n  }\n}\nconst rawMap = (cfg.telegram_asesor_map || '');\nfor (const part of rawMap.split(',')) {\n  const trimmed = part.trim();\n  if (!trimmed) continue;\n  const [tg, aid] = trimmed.split(':').map((s) => s.trim());\n  const tgId = parseInt(tg, 10);\n  const asesorId = parseInt(aid, 10);\n  if (isNaN(tgId) || isNaN(asesorId)) continue;\n  const list = map.get(asesorId) || [];\n  if (!list.includes(tgId)) list.push(tgId);\n  map.set(asesorId, list);\n}\n\nconst TZ = 'America/Argentina/Buenos_Aires';\nfunction buildText(c) {\n  const when = new Date(c.fecha_cita);\n  const fechaStr = when.toLocaleString('es-AR', {\n    timeZone: TZ,\n    weekday: 'long',\n    day: '2-digit',\n    month: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n  });\n  const cli = c.cliente_nombre ? `\\nCliente: ${c.cliente_nombre}` : '';\n  const ficha = c.ficha_numero ? `\\nFicha: ${c.ficha_numero}` : '';\n  const dur = c.duracion_minutos ? `\\nDuración: ${c.duracion_minutos} min` : '';\n  const dir = c.direccion ? `\\n📍 ${c.direccion}` : '';\n  const link = c.ubicacion_link ? `\\n🗺 ${c.ubicacion_link}` : '';\n  return (\n    `⏰ En 30 minutos tenés una cita (DT / Plotlab)\\n\\n` +\n    `📌 ${c.titulo || ''}\\n` +\n    `🕐 ${fechaStr}${cli}${ficha}${dur}${dir}${link}\\n\\n` +\n    `Recordatorio automático (Plotlab)`\n  );\n}\n\nconst out = [];\nfor (const c of rows) {\n  const chats = map.get(c.id_asesor) || [];\n  for (const chatId of chats) {\n    out.push({\n      json: {\n        ...c,\n        _cita_id: c.id,\n        _telegram_chat_id: chatId,\n        _texto: buildText(c),\n      },\n    });\n  }\n}\nreturn out;\n"
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000003",
+      "name": "Mapear chats + texto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 0]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json._telegram_chat_id }}",
+        "text": "={{ $json._texto }}",
+        "additionalFields": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000005",
+      "name": "Telegram enviar",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [520, 0],
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURAR_EN_N8N",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Telegram devuelve la respuesta de la API, NO trae id de la cita.\n// Recuperamos el ítem emparejado de \"Mapear chats + texto\".\nconst m = $('Mapear chats + texto').item.json;\nif (m == null || m._cita_id == null) {\n  throw new Error('Falta _cita_id: revisá Mapear chats + texto y el mapa telegram_asesor_map');\n}\nreturn [{ json: { cita_id: m._cita_id } }];\n"
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000009",
+      "name": "Preparar PATCH (id cita)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 0]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config Supabase (editar)').first().json.supabase_url.replace(/\\/$/, '') + '/rest/v1/citas_asesor_tecnico?id=eq.' + $json.cita_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Supabase (editar)').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Supabase (editar)').first().json.supabase_service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recordatorio_telegram_15m_at: $now.toISO() }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000006",
+      "name": "Marcar recordatorio enviado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "content": "## Nombres 15m vs aviso a 30 min\n\nEn Supabase el RPC se llama `obtener_citas_recordatorio_telegram_15m` y la columna `recordatorio_telegram_15m_at` (histórico). **La ventana SQL es ~30 min** (parche unificado). No renombres a `_30m` en n8n sin migrar la BD.\n\n## PATCH después de Telegram\n\n**No uses `$json.id` tras Telegram**: el nodo Telegram no devuelve la cita. Este flujo usa **Preparar PATCH** leyendo el ítem emparejado de **Mapear chats + texto**.\n\n## Config\n\n`telegram_asesor_map` = chatId:idAsesor. Service role + URL en Set.\n\n**SQL:** `supabase/patches/2026-04-12_agenda_citas_y_recordatorio_telegram_UNIFICADO.sql`",
+        "height": 420,
+        "width": 460
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000007",
+      "name": "Notas",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-460, -300]
+    }
+  ],
+  "connections": {
+    "Cada 1 minuto": {
+      "main": [
+        [
+          {
+            "node": "Config Supabase (editar)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Supabase (editar)": {
+      "main": [
+        [
+          {
+            "node": "RPC Supabase citas en ventana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RPC Supabase citas en ventana": {
+      "main": [
+        [
+          {
+            "node": "Mapear chats + texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapear chats + texto": {
+      "main": [
+        [
+          {
+            "node": "Telegram enviar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram enviar": {
+      "main": [
+        [
+          {
+            "node": "Preparar PATCH (id cita)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar PATCH (id cita)": {
+      "main": [
+        [
+          {
+            "node": "Marcar recordatorio enviado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

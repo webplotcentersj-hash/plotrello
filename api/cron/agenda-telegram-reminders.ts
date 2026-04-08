@@ -2,9 +2,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 
 /**
- * Cron: avisar por Telegram ~15 min antes de cada cita (agenda DT).
+ * Cron: avisar por Telegram ~30 min antes de cada cita (agenda DT).
  *
- * Vercel Cron → GET este endpoint cada minuto.
+ * **Reemplazado por n8n:** importar `n8n-workflows/agenda-telegram-reminders-30m.json` y
+ * ejecutar el flujo en n8n (cron cada 1 min). El cron de Vercel para este endpoint
+ * fue desactivado en `vercel.json` para no duplicar avisos.
+ *
+ * Si necesitás mantener este endpoint por compatibilidad, podés llamarlo manualmente
+ * o reactivar un cron en Vercel (no duplicar con n8n).
+ *
+ * Vercel Cron (legacy) → GET este endpoint cada minuto.
  * Variables:
  * - TELEGRAM_BOT_TOKEN
  * - SUPABASE_SERVICE_ROLE_KEY (requerido: actualiza citas y llama RPC)
@@ -111,7 +118,7 @@ function buildReminderText(c: CitaRow): string {
   const dir = c.direccion ? `\n📍 ${c.direccion}` : ''
   const link = c.ubicacion_link ? `\n🗺 ${c.ubicacion_link}` : ''
   return (
-    `⏰ En 15 minutos tenés una cita (DT / Plotlab)\n\n` +
+    `⏰ En 30 minutos tenés una cita (DT / Plotlab)\n\n` +
     `📌 ${c.titulo}\n` +
     `🕐 ${fechaStr}${cli}${ficha}${dur}${dir}${link}\n\n` +
     `Recordatorio automático (Plotlab)`

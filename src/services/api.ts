@@ -14596,7 +14596,9 @@ class ApiService {
     if (supabase) {
       try {
         const { data: userData } = await supabase.auth.getUser()
-        const createdBy = userData.user?.id ? parseInt(userData.user.id) : null
+        const uid = userData.user?.id
+        const createdBy =
+          uid && /^\d+$/.test(uid) ? parseInt(uid, 10) : null
 
         const { data, error } = await supabase.rpc('crear_cita_asesor', {
           p_id_asesor: idAsesor,
@@ -14615,16 +14617,27 @@ class ApiService {
         })
 
         if (error) return { success: false, error: error.message }
-        
-        // Obtener la cita completa
+
+        const raw = data as unknown
+        const createdRow = Array.isArray(raw) ? raw[0] : raw
+        const newId =
+          createdRow &&
+          typeof createdRow === 'object' &&
+          createdRow !== null &&
+          'id' in createdRow
+            ? Number((createdRow as { id: unknown }).id)
+            : NaN
+
         const citaResponse = await this.getCitasAsesor(idAsesor)
-        if (citaResponse.success && citaResponse.data) {
-          const nuevaCita = citaResponse.data.find(c => c.id === (data as any)[0]?.id)
+        if (citaResponse.success && citaResponse.data && Number.isFinite(newId)) {
+          const nuevaCita = citaResponse.data.find(
+            (c) => Number(c.id) === newId
+          )
           if (nuevaCita) {
             return { success: true, data: nuevaCita }
           }
         }
-        
+
         return { success: false, error: 'Error al obtener la cita creada' }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
