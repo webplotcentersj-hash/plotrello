@@ -167,7 +167,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ recordatorio_telegram_15m_at: $now.toISO() }) }}",
+        "jsonBody": "={{ JSON.stringify({ recordatorio_telegram_15m_at: new Date().toISOString() }) }}",
         "options": {}
       },
       "id": "a1b2c3d4-e5f6-7890-abcd-ef0000000006",
@@ -178,7 +178,7 @@
     },
     {
       "parameters": {
-        "content": "## Nombres 15m vs aviso a 30 min\n\nEn Supabase el RPC se llama `obtener_citas_recordatorio_telegram_15m` y la columna `recordatorio_telegram_15m_at` (histórico). **La ventana SQL es ~30 min** (parche unificado). No renombres a `_30m` en n8n sin migrar la BD.\n\n## PATCH después de Telegram\n\n**No uses `$json.id` tras Telegram**: el nodo Telegram no devuelve la cita. Este flujo usa **Preparar PATCH** leyendo el ítem emparejado de **Mapear chats + texto**.\n\n## Config\n\n`telegram_asesor_map` = chatId:idAsesor. Service role + URL en Set.\n\n**SQL:** `supabase/patches/2026-04-12_agenda_citas_y_recordatorio_telegram_UNIFICADO.sql`",
+        "content": "## Nombres 15m vs aviso a 30 min\n\nEn Supabase el RPC se llama `obtener_citas_recordatorio_telegram_15m` y la columna `recordatorio_telegram_15m_at` (histórico). **La ventana SQL es ~30 min** (parche unificado). No renombres a `_30m` en n8n sin migrar la BD.\n\n## PATCH después de Telegram\n\n**No uses `$json.id` tras Telegram**: el nodo Telegram no devuelve la cita. Este flujo usa **Preparar PATCH** leyendo el ítem emparejado de **Mapear chats + texto**.\n\nEl body del PATCH usa `new Date().toISOString()` (más compatible que `$now.toISO()` entre versiones de n8n).\n\n## Config\n\n`telegram_asesor_map` = chatId:idAsesor. Service role + URL en Set.\n\n**SQL:** `supabase/patches/2026-04-12_agenda_citas_y_recordatorio_telegram_UNIFICADO.sql`",
         "height": 420,
         "width": 460
       },
