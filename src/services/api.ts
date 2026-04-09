@@ -20,6 +20,8 @@ import type {
   MaterialRecord,
   Notification,
   OrdenTrabajo,
+  OrdenRelevamientoRecord,
+  RelevamientoSubitemRecord,
   SectorRecord,
   TareaSubitem,
   TareaRecord,
@@ -4185,7 +4187,7 @@ class ApiService {
     ordenId: number,
     nombreArchivo: string,
     urlArchivo: string,
-    options?: { esEvidenciaCampo?: boolean }
+    options?: { esEvidenciaCampo?: boolean; origenRelevamiento?: boolean }
   ): Promise<ApiResponse<any>> {
     if (supabase) {
       const row: Record<string, unknown> = {
@@ -4196,12 +4198,108 @@ class ApiService {
       if (options?.esEvidenciaCampo === true) {
         row.es_evidencia_campo = true
       }
+      if (options?.origenRelevamiento === true) {
+        row.origen_relevamiento = true
+      }
       const { data, error } = await supabase.from('enlaces_adjuntos').insert(row).select().single()
 
       if (error) return { success: false, error: error.message }
       return { success: true, data }
     }
 
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getOrdenRelevamiento(ordenId: number): Promise<ApiResponse<OrdenRelevamientoRecord>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('orden_relevamiento')
+        .select('*')
+        .eq('id_orden', ordenId)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message }
+      if (!data) {
+        return {
+          success: true,
+          data: { id_orden: ordenId, notas: '', actualizado_por: null }
+        }
+      }
+      return { success: true, data: data as OrdenRelevamientoRecord }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async upsertOrdenRelevamiento(
+    ordenId: number,
+    notas: string,
+    actualizadoPor: string
+  ): Promise<ApiResponse<OrdenRelevamientoRecord>> {
+    if (supabase) {
+      const now = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('orden_relevamiento')
+        .upsert(
+          {
+            id_orden: ordenId,
+            notas,
+            actualizado_en: now,
+            actualizado_por: actualizadoPor
+          },
+          { onConflict: 'id_orden' }
+        )
+        .select()
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as OrdenRelevamientoRecord }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getRelevamientoSubitems(ordenId: number): Promise<ApiResponse<RelevamientoSubitemRecord[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('relevamiento_subitems')
+        .select('*')
+        .eq('id_orden', ordenId)
+        .order('id', { ascending: true })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as RelevamientoSubitemRecord[]) ?? [] }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async createRelevamientoSubitem(
+    ordenId: number,
+    titulo: string
+  ): Promise<ApiResponse<RelevamientoSubitemRecord>> {
+    if (supabase) {
+      const now = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('relevamiento_subitems')
+        .insert({
+          id_orden: ordenId,
+          titulo: titulo.trim(),
+          done: false,
+          creado_en: now,
+          actualizado_en: now
+        })
+        .select()
+        .single()
+      if (error || !data) return { success: false, error: error?.message || 'No se pudo crear el ítem' }
+      return { success: true, data: data as RelevamientoSubitemRecord }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async setRelevamientoSubitemDone(id: number, done: boolean): Promise<ApiResponse<void>> {
+    if (supabase) {
+      const { error } = await supabase
+        .from('relevamiento_subitems')
+        .update({ done, actualizado_en: new Date().toISOString() })
+        .eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    }
     return { success: false, error: 'Supabase no configurado' }
   }
 

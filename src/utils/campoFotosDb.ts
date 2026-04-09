@@ -1,3 +1,13 @@
+/** Blob (p. ej. grabación de audio) a data URL para guardar en BD. */
+export function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result))
+    r.onerror = () => reject(r.error ?? new Error('No se pudo leer el audio'))
+    r.readAsDataURL(blob)
+  })
+}
+
 /** Convierte un archivo a data URL (guardado en BD en `enlaces_adjuntos.url`, sin Storage). */
 export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

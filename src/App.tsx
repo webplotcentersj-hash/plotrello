@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom'
 import type { TaskStatus } from './types/board'
 import BoardPage from './pages/BoardPage'
 import GlobalAlertScreen from './components/GlobalAlertScreen'
@@ -121,6 +121,13 @@ import apiService from './services/api'
 import { historialToActivity, ordenToTask } from './utils/dataMappers'
 import { supabase } from './services/supabaseClient'
 import { initializeManual } from './services/plotAIManualService'
+
+/** App campo: sin panel de debug fijo (debe vivir dentro de BrowserRouter). */
+function EnvDebugGate() {
+  const { pathname } = useLocation()
+  if (pathname === '/app-campo') return null
+  return <EnvDebug />
+}
 
 const DEFAULT_SECTORES: SectorRecord[] = [
   { id: 1, nombre: 'Diseño Gráfico', color: '#FF7F50' },
@@ -575,8 +582,8 @@ function App() {
   return (
     <>
       <GlobalAlertScreen />
-      <EnvDebug />
       <BrowserRouter>
+        <EnvDebugGate />
         <Routes>
           {/* Rutas públicas */}
           <Route path="/embed/chat" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando chat...</div>}><EmbedChatPage /></Suspense>} />
@@ -699,6 +706,8 @@ function AppRoutes({
   materiales: MaterialRecord[]
 }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const hideCampoFloaters = pathname === '/app-campo'
   const { isAdmin, isPresupuestos } = useAuth()
 
   // Los movimientos de asesor técnico/presupuestos solo los ven admin y presupuestos
@@ -713,44 +722,48 @@ function AppRoutes({
 
   return (
     <>
-      {/* Botón flotante para acceder a impresoras */}
-      <button
-        className="floating-button"
-        onClick={() => navigate('/impresoras')}
-        title="Ver ocupación de impresoras"
-        style={{
-          position: 'fixed',
-          bottom: '30px',
-          right: '30px',
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-          border: 'none',
-          color: '#fff',
-          fontSize: '28px',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'all 0.3s ease',
-          fontWeight: 'bold'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.1)'
-          e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.6)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)'
-          e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
-        }}
-      >
-        🖨️
-      </button>
-      {/* Botón flotante para solicitudes y permisos */}
-      <SolicitudesPermisosFloatingButton />
+      {!hideCampoFloaters && (
+        <>
+          {/* Botón flotante para acceder a impresoras */}
+          <button
+            className="floating-button"
+            onClick={() => navigate('/impresoras')}
+            title="Ver ocupación de impresoras"
+            style={{
+              position: 'fixed',
+              bottom: '30px',
+              right: '30px',
+              width: '60px',
+              height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              border: 'none',
+              color: '#fff',
+              fontSize: '28px',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease',
+              fontWeight: 'bold'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.1)'
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.6)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
+            }}
+          >
+            🖨️
+          </button>
+          {/* Botón flotante para solicitudes y permisos */}
+          <SolicitudesPermisosFloatingButton />
+        </>
+      )}
       <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
       <Routes>
       <Route

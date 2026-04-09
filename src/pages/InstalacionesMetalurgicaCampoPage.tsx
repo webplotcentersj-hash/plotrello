@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Task } from '../types/board'
-import type { TareaSubitem } from '../types/api'
+import type { RelevamientoSubitemRecord, TareaSubitem } from '../types/api'
 import apiService from '../services/api'
 import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import {
@@ -10,12 +10,37 @@ import {
   taskEstaEnColumnaInstalacionOMetalurgica,
   taskPhotoUrlCountAsSitePhoto
 } from '../utils/sectoresFotosLugar'
-import { compressImageFileToJpegDataUrl } from '../utils/campoFotosDb'
+import { blobToDataUrl, compressImageFileToJpegDataUrl } from '../utils/campoFotosDb'
 import { useAuth } from '../hooks/useAuth'
 import './InstalacionesMetalurgicaCampoPage.css'
 
+const ETAPA_KANBAN_FINALIZADO = 'Finalizado' as const
+
+/** Sector cuyo kanban de etapas debe recibir «Finalizado» al pulsar el botón en app campo. */
+function resolveCampoFinalizadoTarget(task: Task): 'instalaciones' | 'metalurgica' | null {
+  const inst =
+    task.status === 'instalaciones' ||
+    task.assignedSector === 'Instalaciones' ||
+    Boolean(task.sectores?.includes('Instalaciones'))
+  const met =
+    task.status === 'metalurgica' ||
+    task.assignedSector === 'Metalúrgica' ||
+    Boolean(task.sectores?.includes('Metalúrgica'))
+
+  if (met && !inst) return 'metalurgica'
+  if (inst && !met) return 'instalaciones'
+  if (inst && met) {
+    if (task.status === 'metalurgica' || task.assignedSector === 'Metalúrgica') return 'metalurgica'
+    if (task.status === 'instalaciones' || task.assignedSector === 'Instalaciones') return 'instalaciones'
+    return 'instalaciones'
+  }
+  return null
+}
+
 /** Ítem de checklist que se crea automáticamente si no existe (Instalaciones / Metalúrgica). */
 export const CHECKLIST_TRABAJO_INSTALADO = 'Trabajo instalado'
+/** Mismo texto que la etapa del kanban y el ítem de checklist precargado. */
+export const CHECKLIST_FINALIZADO = ETAPA_KANBAN_FINALIZADO
 
 const MIN_FOTOS_EVIDENCIA = 3
 
@@ -33,20 +58,42 @@ function sectorLabel(task: Task): string {
   return 'Instalaciones / Metalúrgica'
 }
 
+export type ArchivoCampoRow = {
+  id?: number
+  titulo?: string | null
+  url?: string | null
+  es_evidencia_campo?: boolean | null
+  origen_relevamiento?: boolean | null
+}
+
 function collectImageUrls(
   photoUrl: string | undefined,
-  archivos: Array<{ titulo?: string | null; url?: string | null }>
+  archivos: ArchivoCampoRow[],
+  opts?: { excludeRelevamiento?: boolean }
 ): string[] {
   const urls: string[] = []
   if (photoUrl?.trim() && taskPhotoUrlCountAsSitePhoto(photoUrl)) {
     urls.push(photoUrl.trim())
   }
   for (const row of archivos) {
+    if (opts?.excludeRelevamiento && row.origen_relevamiento) continue
     const u = row.url?.trim()
     if (!u || urls.includes(u)) continue
     if (isImageAdjuntoUrl(u, row.titulo)) urls.push(u)
   }
   return urls
+}
+
+function isAudioAdjuntoUrl(url: string | null | undefined): boolean {
+  const u = url?.trim()
+  return Boolean(u?.startsWith('data:audio/'))
+}
+
+function pickAudioMimeType(): string {
+  if (typeof MediaRecorder === 'undefined') return 'audio/webm'
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus'
+  if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm'
+  return ''
 }
 
 type Props = {
@@ -55,17 +102,19 @@ type Props = {
 }
 
 export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData }: Props) {
-  const navigate = useNavigate()
   const { isAdmin } = useAuth()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const campoTasks = useMemo(() => {
     const list = tasks.filter(isCampoRelevantTask)
+    // Más nueva → más antigua: primero por última actualización, luego por creación
     list.sort((a, b) => {
-      const da = a.dueDate ? new Date(a.dueDate).getTime() : 0
-      const db = b.dueDate ? new Date(b.dueDate).getTime() : 0
-      if (da !== db) return da - db
-      return (b.updatedAt || '').localeCompare(a.updatedAt || '')
+      const ua = new Date(a.updatedAt || a.createdAt || 0).getTime()
+      const ub = new Date(b.updatedAt || b.createdAt || 0).getTime()
+      if (ub !== ua) return ub - ua
+      const ca = new Date(a.createdAt || 0).getTime()
+      const cb = new Date(b.createdAt || 0).getTime()
+      return cb - ca
     })
     return list
   }, [tasks])
@@ -86,9 +135,6 @@ export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData 
   return (
     <div className="campo-app">
       <header className="campo-app-header">
-        <button type="button" className="campo-back" onClick={() => navigate('/')}>
-          ← Tablero
-        </button>
         <h1 className="campo-app-title">Instalaciones · Metalúrgica</h1>
         <p className="campo-app-sub">
           OPs en campo — datos, fotos del lugar, checklist y evidencia. Las fotos nuevas se guardan en la base (sin Storage).
@@ -125,12 +171,32 @@ function CampoDetail({
   canUpload: boolean
 }) {
   const navigate = useNavigate()
+  const { usuario } = useAuth()
   const ordenId = parseTaskIdToOrdenId(task.id)
-  const [archivos, setArchivos] = useState<Array<{ id?: number; titulo?: string | null; url?: string | null }>>([])
+  const [archivos, setArchivos] = useState<ArchivoCampoRow[]>([])
   const [subitems, setSubitems] = useState<TareaSubitem[]>([])
+  const [relevamientoNotas, setRelevamientoNotas] = useState('')
+  const [relevamientoSubitems, setRelevamientoSubitems] = useState<RelevamientoSubitemRecord[]>([])
+  const [nuevoItemRelevamiento, setNuevoItemRelevamiento] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadingRelFotos, setUploadingRelFotos] = useState(false)
+  const [savingNotasRel, setSavingNotasRel] = useState(false)
+  const [finalizando, setFinalizando] = useState(false)
+  const [recordingAudio, setRecordingAudio] = useState(false)
+  const [relAudioBusy, setRelAudioBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const notasRelevamientoDirtyRef = useRef(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioStreamRef = useRef<MediaStream | null>(null)
+  const audioChunksRef = useRef<BlobPart[]>([])
+
+  const finalTarget = useMemo(() => resolveCampoFinalizadoTarget(task), [task])
+  const yaFinalizadoEtapa = useMemo(() => {
+    if (finalTarget === 'metalurgica') return task.etapaMetalurgica?.trim() === ETAPA_KANBAN_FINALIZADO
+    if (finalTarget === 'instalaciones') return task.etapaInstalaciones?.trim() === ETAPA_KANBAN_FINALIZADO
+    return false
+  }, [task, finalTarget])
 
   const refreshArchivosYSubitems = useCallback(async () => {
     if (!ordenId) {
@@ -138,43 +204,92 @@ function CampoDetail({
       return
     }
     setError(null)
-    const [ar, sr] = await Promise.all([apiService.getArchivosOrden(ordenId), apiService.getSubitems(ordenId)])
+    const [ar, sr, relRow, relSubs] = await Promise.all([
+      apiService.getArchivosOrden(ordenId),
+      apiService.getSubitems(ordenId),
+      apiService.getOrdenRelevamiento(ordenId),
+      apiService.getRelevamientoSubitems(ordenId)
+    ])
     if (ar.success && ar.data) {
-      setArchivos(ar.data as Array<{ id?: number; titulo?: string | null; url?: string | null }>)
+      setArchivos(ar.data as ArchivoCampoRow[])
     } else if (!ar.success) {
       setError(ar.error || 'No se pudieron cargar los archivos')
     }
     if (sr.success && sr.data) {
       let list = sr.data
-      const hasTrabajoInstalado = list.some(
-        (s) => s.titulo.trim().toLowerCase() === CHECKLIST_TRABAJO_INSTALADO.toLowerCase()
-      )
-      if (!hasTrabajoInstalado) {
-        const cr = await apiService.createSubitem({
-          idOrden: ordenId,
-          titulo: CHECKLIST_TRABAJO_INSTALADO
-        })
-        if (cr.success) {
-          const again = await apiService.getSubitems(ordenId)
-          if (again.success && again.data) list = again.data
-        } else {
-          setError((prev) => prev || cr.error || 'No se pudo crear «Trabajo instalado» en el checklist')
+      const precargados = [CHECKLIST_TRABAJO_INSTALADO, CHECKLIST_FINALIZADO]
+      for (const titulo of precargados) {
+        const has = list.some((s) => s.titulo.trim().toLowerCase() === titulo.toLowerCase())
+        if (!has) {
+          const cr = await apiService.createSubitem({ idOrden: ordenId, titulo })
+          if (cr.success) {
+            const again = await apiService.getSubitems(ordenId)
+            if (again.success && again.data) list = again.data
+          } else {
+            setError((prev) => prev || cr.error || `No se pudo crear «${titulo}» en el checklist`)
+          }
         }
       }
       setSubitems(list)
     } else if (!sr.success) {
       setError((prev) => prev || sr.error || 'No se pudo cargar el checklist')
     }
+    if (relRow.success && relRow.data && !notasRelevamientoDirtyRef.current) {
+      setRelevamientoNotas(relRow.data.notas ?? '')
+    } else if (!relRow.success) {
+      setError((prev) => prev || relRow.error || 'No se pudieron cargar las notas de relevamiento')
+    }
+    if (relSubs.success && relSubs.data) {
+      setRelevamientoSubitems(relSubs.data)
+    } else if (!relSubs.success) {
+      setError((prev) => prev || relSubs.error || 'No se pudo cargar el checklist de relevamiento')
+    }
     setLoading(false)
+  }, [ordenId])
+
+  useEffect(() => {
+    notasRelevamientoDirtyRef.current = false
+    setRelevamientoNotas('')
+    setRelevamientoSubitems([])
   }, [ordenId])
 
   useEffect(() => {
     void refreshArchivosYSubitems()
   }, [refreshArchivosYSubitems])
 
+  useEffect(() => {
+    return () => {
+      audioStreamRef.current?.getTracks().forEach((t) => t.stop())
+      audioStreamRef.current = null
+      if (mediaRecorderRef.current?.state === 'recording') {
+        try {
+          mediaRecorderRef.current.stop()
+        } catch {
+          /* ignore */
+        }
+      }
+      mediaRecorderRef.current = null
+    }
+  }, [])
+
   const imageUrls = useMemo(
-    () => collectImageUrls(task.photoUrl, archivos),
+    () => collectImageUrls(task.photoUrl, archivos, { excludeRelevamiento: true }),
     [task.photoUrl, archivos]
+  )
+
+  const archivosRelevamiento = useMemo(
+    () => archivos.filter((a) => a.origen_relevamiento === true),
+    [archivos]
+  )
+
+  const relevamientoImageRows = useMemo(
+    () => archivosRelevamiento.filter((a) => isImageAdjuntoUrl(a.url, a.titulo)),
+    [archivosRelevamiento]
+  )
+
+  const relevamientoAudioRows = useMemo(
+    () => archivosRelevamiento.filter((a) => isAudioAdjuntoUrl(a.url)),
+    [archivosRelevamiento]
   )
 
   const imageCount = imageUrls.length
@@ -234,6 +349,167 @@ function CampoDetail({
     }
   }
 
+  const handleGuardarNotasRelevamiento = async () => {
+    if (!ordenId || !canUpload) return
+    setSavingNotasRel(true)
+    setError(null)
+    try {
+      const nombre = usuario?.nombre?.trim() || 'App campo'
+      const res = await apiService.upsertOrdenRelevamiento(ordenId, relevamientoNotas, nombre)
+      if (!res.success) {
+        setError(res.error || 'No se pudieron guardar las notas (¿parche SQL relevamiento?)')
+        return
+      }
+      notasRelevamientoDirtyRef.current = false
+      if (res.data?.notas !== undefined) setRelevamientoNotas(res.data.notas)
+    } finally {
+      setSavingNotasRel(false)
+    }
+  }
+
+  const handleAddRelevamientoSubitem = async () => {
+    const t = nuevoItemRelevamiento.trim()
+    if (!ordenId || !canUpload || !t) return
+    setError(null)
+    const res = await apiService.createRelevamientoSubitem(ordenId, t)
+    if (res.success && res.data) {
+      setRelevamientoSubitems((prev) => [...prev, res.data!])
+      setNuevoItemRelevamiento('')
+    } else {
+      setError(res.error || 'No se pudo agregar el ítem')
+    }
+  }
+
+  const handleToggleRelevamientoSubitem = async (item: RelevamientoSubitemRecord) => {
+    if (!canUpload) return
+    const next = !item.done
+    const res = await apiService.setRelevamientoSubitemDone(item.id, next)
+    if (res.success) {
+      setRelevamientoSubitems((prev) =>
+        prev.map((s) => (s.id === item.id ? { ...s, done: next } : s))
+      )
+    } else {
+      setError(res.error || 'No se pudo actualizar el checklist de relevamiento')
+    }
+  }
+
+  const handlePickRelevamientoFotos = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files?.length || !ordenId || !canUpload) return
+    setUploadingRelFotos(true)
+    setError(null)
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue
+        const dataUrl = await compressImageFileToJpegDataUrl(file)
+        const guard = await apiService.guardarArchivoOrden(
+          ordenId,
+          file.name || 'relevamiento-foto.jpg',
+          dataUrl,
+          { origenRelevamiento: true }
+        )
+        if (!guard.success) {
+          setError(guard.error || 'Error al guardar foto de relevamiento (¿columna origen_relevamiento?)')
+          break
+        }
+      }
+      await refreshArchivosYSubitems()
+      await onReloadData?.({ silent: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al subir')
+    } finally {
+      setUploadingRelFotos(false)
+      e.target.value = ''
+    }
+  }
+
+  const startAudioRecording = async () => {
+    if (!ordenId || !canUpload || recordingAudio || typeof navigator === 'undefined' || !navigator.mediaDevices) {
+      setError('No se puede grabar audio en este dispositivo o la OP está bloqueada.')
+      return
+    }
+    setError(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioStreamRef.current = stream
+      audioChunksRef.current = []
+      const mime = pickAudioMimeType()
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      mediaRecorderRef.current = mr
+      mr.ondataavailable = (ev) => {
+        if (ev.data.size > 0) audioChunksRef.current.push(ev.data)
+      }
+      mr.onstop = () => {
+        void (async () => {
+          setRelAudioBusy(true)
+          try {
+            const blob = new Blob(audioChunksRef.current, { type: mr.mimeType || 'audio/webm' })
+            audioChunksRef.current = []
+            stream.getTracks().forEach((t) => t.stop())
+            audioStreamRef.current = null
+            mediaRecorderRef.current = null
+            const dataUrl = await blobToDataUrl(blob)
+            const ext = blob.type.includes('webm') ? 'webm' : blob.type.includes('ogg') ? 'ogg' : 'webm'
+            const guard = await apiService.guardarArchivoOrden(
+              ordenId,
+              `relevamiento-audio-${Date.now()}.${ext}`,
+              dataUrl,
+              { origenRelevamiento: true }
+            )
+            if (!guard.success) {
+              setError(guard.error || 'No se pudo guardar el audio')
+            } else {
+              await refreshArchivosYSubitems()
+              await onReloadData?.({ silent: true })
+            }
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Error al procesar el audio')
+          } finally {
+            setRelAudioBusy(false)
+            setRecordingAudio(false)
+          }
+        })()
+      }
+      mr.start(200)
+      setRecordingAudio(true)
+    } catch {
+      setError('No se pudo acceder al micrófono. Revisá permisos del navegador.')
+    }
+  }
+
+  const stopAudioRecording = () => {
+    const mr = mediaRecorderRef.current
+    if (mr && mr.state === 'recording') {
+      mr.stop()
+    } else {
+      setRecordingAudio(false)
+      audioStreamRef.current?.getTracks().forEach((t) => t.stop())
+      audioStreamRef.current = null
+    }
+  }
+
+  const handleMarcarEtapaFinalizado = async () => {
+    if (!ordenId || !canUpload || !finalTarget || yaFinalizadoEtapa) return
+    setFinalizando(true)
+    setError(null)
+    try {
+      const nombre = usuario?.nombre?.trim() || 'App campo'
+      const res =
+        finalTarget === 'metalurgica'
+          ? await apiService.actualizarEtapaMetalurgica(ordenId, ETAPA_KANBAN_FINALIZADO, nombre)
+          : await apiService.actualizarEtapaInstalaciones(ordenId, ETAPA_KANBAN_FINALIZADO, nombre)
+      if (!res.success) {
+        setError(res.error || 'No se pudo marcar la etapa Finalizado')
+        return
+      }
+      await onReloadData?.({ silent: true })
+    } finally {
+      setFinalizando(false)
+    }
+  }
+
+  const sectorKanbanNombre = finalTarget === 'metalurgica' ? 'Metalúrgica' : 'Instalaciones'
+
   return (
     <div className="campo-app campo-detail">
       <header className="campo-app-header campo-detail-header">
@@ -255,6 +531,137 @@ function CampoDetail({
       )}
 
       {error && <div className="campo-banner-err">{error}</div>}
+
+      <section className="campo-card campo-relevamiento-card">
+        <h2 className="campo-card-title">Relevamiento</h2>
+        <p className="campo-hint">
+          Primera etapa en campo: anotaciones, grabaciones y fotos propias del relevamiento. Checklist aparte del de la OP.
+        </p>
+
+        <div className="campo-rel-field">
+          <span className="campo-k">Anotaciones</span>
+          <textarea
+            className="campo-relevamiento-textarea"
+            rows={5}
+            value={relevamientoNotas}
+            onChange={(e) => {
+              notasRelevamientoDirtyRef.current = true
+              setRelevamientoNotas(e.target.value)
+            }}
+            placeholder="Medidas, estado del lugar, accesos, observaciones…"
+            disabled={!canUpload}
+          />
+          {canUpload && (
+            <button
+              type="button"
+              className="campo-btn-guardar-notas"
+              disabled={savingNotasRel}
+              onClick={() => void handleGuardarNotasRelevamiento()}
+            >
+              {savingNotasRel ? 'Guardando…' : 'Guardar notas'}
+            </button>
+          )}
+        </div>
+
+        <h3 className="campo-subsection-title">Audio</h3>
+        {canUpload && (
+          <div className="campo-audio-actions">
+            {!recordingAudio ? (
+              <button
+                type="button"
+                className="campo-btn-grabar"
+                disabled={relAudioBusy}
+                onClick={() => void startAudioRecording()}
+              >
+                {relAudioBusy ? 'Procesando…' : '🎤 Grabar audio'}
+              </button>
+            ) : (
+              <button type="button" className="campo-btn-detener" onClick={stopAudioRecording}>
+                ⏹ Detener y guardar
+              </button>
+            )}
+          </div>
+        )}
+        {relevamientoAudioRows.length > 0 && (
+          <ul className="campo-rel-audio-list">
+            {relevamientoAudioRows.map((row, idx) => (
+              <li key={row.id != null ? String(row.id) : `${row.url}-${idx}`}>
+                <span className="campo-rel-audio-name">{row.titulo || 'Audio'}</span>
+                {row.url ? (
+                  <audio className="campo-rel-audio-player" src={row.url} controls preload="metadata" />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <h3 className="campo-subsection-title">Fotos del relevamiento</h3>
+        {canUpload && (
+          <label className="campo-upload-btn campo-upload-relev">
+            {uploadingRelFotos ? 'Subiendo…' : 'Elegir fotos'}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              disabled={uploadingRelFotos}
+              onChange={(ev) => void handlePickRelevamientoFotos(ev)}
+            />
+          </label>
+        )}
+        {relevamientoImageRows.length > 0 && (
+          <div className="campo-photo-grid campo-rel-photo-grid">
+            {relevamientoImageRows.map((row) =>
+              row.url ? (
+                <a key={row.id ?? row.url} href={row.url} target="_blank" rel="noreferrer" className="campo-photo-cell">
+                  <img src={row.url} alt="" />
+                </a>
+              ) : null
+            )}
+          </div>
+        )}
+
+        <h3 className="campo-subsection-title">Checklist de relevamiento</h3>
+        <div className="campo-rel-check-add">
+          <input
+            type="text"
+            className="campo-rel-check-input"
+            placeholder="Nuevo ítem…"
+            value={nuevoItemRelevamiento}
+            onChange={(e) => setNuevoItemRelevamiento(e.target.value)}
+            disabled={!canUpload}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                void handleAddRelevamientoSubitem()
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="campo-rel-check-add-btn"
+            disabled={!canUpload || !nuevoItemRelevamiento.trim()}
+            onClick={() => void handleAddRelevamientoSubitem()}
+          >
+            Agregar
+          </button>
+        </div>
+        <ul className="campo-checklist">
+          {relevamientoSubitems.map((s) => (
+            <li key={s.id}>
+              <label className="campo-check-row">
+                <input
+                  type="checkbox"
+                  checked={s.done}
+                  disabled={!canUpload}
+                  onChange={() => void handleToggleRelevamientoSubitem(s)}
+                />
+                <span className={s.done ? 'done' : ''}>{s.titulo}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="campo-card">
         <h2 className="campo-card-title">Contacto y ubicación</h2>
@@ -293,7 +700,9 @@ function CampoDetail({
 
       <section className="campo-card">
         <h2 className="campo-card-title">Fotos reales del lugar</h2>
-        <p className="campo-hint">Imágenes ya cargadas en la OP (portada y adjuntos).</p>
+        <p className="campo-hint">
+          Portada y adjuntos de la OP (no incluye fotos guardadas solo en Relevamiento).
+        </p>
         {loading ? (
           <p className="campo-muted">Cargando…</p>
         ) : imageUrls.length === 0 ? (
@@ -326,9 +735,33 @@ function CampoDetail({
         )}
       </section>
 
+      {finalTarget && (
+        <section className="campo-card campo-finalizado-card">
+          <h2 className="campo-card-title">Etapa en kanban</h2>
+          <p className="campo-hint">
+            Misma acción que llevar la ficha a la etapa <strong>{ETAPA_KANBAN_FINALIZADO}</strong> en el kanban de{' '}
+            <strong>{sectorKanbanNombre}</strong>.
+          </p>
+          <button
+            type="button"
+            className="campo-btn-finalizado"
+            disabled={!ordenId || !canUpload || finalizando || yaFinalizadoEtapa}
+            onClick={() => void handleMarcarEtapaFinalizado()}
+          >
+            {finalizando
+              ? 'Guardando…'
+              : yaFinalizadoEtapa
+                ? `Ya en etapa ${ETAPA_KANBAN_FINALIZADO}`
+                : ETAPA_KANBAN_FINALIZADO}
+          </button>
+        </section>
+      )}
+
       <section className="campo-card">
         <h2 className="campo-card-title">Checklist</h2>
-        <p className="campo-hint">Incluye el ítem precargado «{CHECKLIST_TRABAJO_INSTALADO}» y el resto de la OP.</p>
+        <p className="campo-hint">
+          Ítems precargados: «{CHECKLIST_TRABAJO_INSTALADO}» y «{CHECKLIST_FINALIZADO}»; el resto es el checklist de la OP.
+        </p>
         {loading ? (
           <p className="campo-muted">Cargando checklist…</p>
         ) : (

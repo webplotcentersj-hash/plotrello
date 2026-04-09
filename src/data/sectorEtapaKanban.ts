@@ -42,7 +42,8 @@ const INST_ETAPAS: SectorEtapaColumnDef[] = [
   { id: 'Coordinados para Instalaciones', label: 'Coordinados para Instalaciones', accent: '#3b82f6' },
   { id: 'Listos para instalar', label: 'Listos para instalar', accent: '#10b981' },
   { id: 'Pausados', label: 'Pausados', accent: '#f59e0b' },
-  { id: 'Rehacer', label: 'Rehacer', accent: '#ec4899' }
+  { id: 'Rehacer', label: 'Rehacer', accent: '#ec4899' },
+  { id: 'Finalizado', label: 'Finalizado', accent: '#6366f1' }
 ]
 
 const TIMP_ETAPAS: SectorEtapaColumnDef[] = [

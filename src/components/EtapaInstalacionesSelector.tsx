@@ -8,7 +8,8 @@ const ETAPAS_INSTALACIONES = [
   'Coordinados para Instalaciones',
   'Listos para instalar',
   'Pausados',
-  'Rehacer'
+  'Rehacer',
+  'Finalizado'
 ] as const
 
 const ETAPAS_ICONOS: Record<string, string> = {
@@ -16,7 +17,8 @@ const ETAPAS_ICONOS: Record<string, string> = {
   'Coordinados para Instalaciones': '📅',
   'Listos para instalar': '✅',
   'Pausados': '⏸️',
-  'Rehacer': '🔄'
+  'Rehacer': '🔄',
+  Finalizado: '🏁'
 }
 
 const ETAPAS_COLORES: Record<string, string> = {
@@ -24,7 +26,8 @@ const ETAPAS_COLORES: Record<string, string> = {
   'Coordinados para Instalaciones': '#3b82f6',
   'Listos para instalar': '#10b981',
   'Pausados': '#f59e0b',
-  'Rehacer': '#ec4899'
+  'Rehacer': '#ec4899',
+  Finalizado: '#6366f1'
 }
 
 type EtapaInstalaciones = typeof ETAPAS_INSTALACIONES[number]

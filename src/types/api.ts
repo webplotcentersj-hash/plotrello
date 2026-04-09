@@ -169,6 +169,24 @@ export interface TareaSubitem {
   actualizado_en?: string
 }
 
+/** Notas de relevamiento (app campo Instalaciones / Metalúrgica). */
+export interface OrdenRelevamientoRecord {
+  id_orden: number
+  notas: string
+  actualizado_en?: string
+  actualizado_por?: string | null
+}
+
+/** Checklist de relevamiento, aparte de tarea_subitems. */
+export interface RelevamientoSubitemRecord {
+  id: number
+  id_orden: number
+  titulo: string
+  done: boolean
+  creado_en?: string
+  actualizado_en?: string
+}
+
 export type UserRole =
   | 'administracion'
   | 'gerencia'
