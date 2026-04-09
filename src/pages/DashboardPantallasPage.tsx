@@ -88,11 +88,22 @@ const DashboardPantallasPage = () => {
   /** id de tarea → timestamp de llegada por INSERT realtime */
   const [llegadaEnVivo, setLlegadaEnVivo] = useState<Record<string, number>>({})
 
-  const boardScrollRef = useRef<HTMLDivElement | null>(null)
-  const columnScrollRefs = useRef<(HTMLDivElement | null)[]>([])
+  /** Contenedor que recorta el tablero (sin scroll nativo: en TV/WebKit falla bajo `transform: scale`) */
+  const boardViewportRef = useRef<HTMLDivElement | null>(null)
+  const columnsTrackRef = useRef<HTMLDivElement | null>(null)
+  /** Par viewport (clip) + track (cards) por columna */
+  const columnPanElsRef = useRef<{ v: HTMLDivElement | null; t: HTMLDivElement | null }[]>([])
+  const hPanRef = useRef(0)
+  const hDirRef = useRef(1)
+  const vPanRefs = useRef<number[]>([])
+  /** Solo lo actualiza el loop RAF; si deja de avanzar, el setInterval hace el pan (TV / WebViews) */
+  const lastRafAtRef = useRef(0)
 
-  const setColumnScrollRef = useCallback((index: number, el: HTMLDivElement | null) => {
-    columnScrollRefs.current[index] = el
+  const setColumnPanSlot = useCallback((index: number) => {
+    if (!columnPanElsRef.current[index]) {
+      columnPanElsRef.current[index] = { v: null, t: null }
+    }
+    return columnPanElsRef.current[index]
   }, [])
 
   // Cargar tareas iniciales
@@ -180,42 +191,94 @@ const DashboardPantallasPage = () => {
     return () => window.clearInterval(id)
   }, [])
 
-  // Auto-scroll: horizontal (vaivén) + vertical por columna; respeta prefers-reduced-motion
+  // Auto-pan con translate (compatible con TV / WebKit bajo transform: scale en un ancestro)
   useEffect(() => {
     if (loading) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-    let raf = 0
-    let hDir = 1
-    /** Vaivén horizontal del tablero (abajo): lento para lectura en pantalla */
-    const hSpeed = 0.12
-    const vSpeed = 0.35
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const likelyTvOrKiosk = window.matchMedia('(hover: none)').matches
+    const hBase = likelyTvOrKiosk ? 0.22 : 0.14
+    const vBase = likelyTvOrKiosk ? 0.55 : 0.38
+    const hSpeed = reducedMotion ? hBase * 0.35 : hBase
+    const vSpeed = reducedMotion ? vBase * 0.35 : vBase
 
-    const tick = () => {
-      const board = boardScrollRef.current
-      if (board) {
-        const maxH = board.scrollWidth - board.clientWidth
+    hPanRef.current = 0
+    hDirRef.current = 1
+    vPanRefs.current = []
+
+    const advancePan = () => {
+      const vp = boardViewportRef.current
+      const track = columnsTrackRef.current
+      if (vp && track) {
+        const vw = vp.clientWidth
+        const tw = track.offsetWidth
+        const maxH = Math.max(0, tw - vw)
         if (maxH > 2) {
-          board.scrollLeft += hSpeed * hDir
-          if (board.scrollLeft >= maxH - 1) hDir = -1
-          else if (board.scrollLeft <= 1) hDir = 1
+          hPanRef.current += hSpeed * hDirRef.current
+          if (hPanRef.current >= maxH - 0.5) {
+            hPanRef.current = maxH
+            hDirRef.current = -1
+          } else if (hPanRef.current <= 0.5) {
+            hPanRef.current = 0
+            hDirRef.current = 1
+          }
+          track.style.transform = `translate3d(${-hPanRef.current}px,0,0)`
+        } else {
+          hPanRef.current = 0
+          track.style.transform = ''
         }
+      } else if (track) {
+        track.style.transform = ''
       }
 
-      columnScrollRefs.current.forEach((col) => {
-        if (!col) return
-        const maxV = col.scrollHeight - col.clientHeight
-        if (maxV <= 2) return
-        col.scrollTop += vSpeed
-        if (col.scrollTop >= maxV - 1) col.scrollTop = 0
-      })
+      const nCols = BOARD_COLUMNS.length
+      while (vPanRefs.current.length < nCols) vPanRefs.current.push(0)
 
-      raf = requestAnimationFrame(tick)
+      for (let i = 0; i < nCols; i++) {
+        const slot = columnPanElsRef.current[i]
+        const colVp = slot?.v
+        const colTrack = slot?.t
+        if (!colVp || !colTrack) continue
+        const vh = colVp.clientHeight
+        const th = colTrack.offsetHeight
+        const maxV = Math.max(0, th - vh)
+        if (maxV > 2) {
+          let v = vPanRefs.current[i] ?? 0
+          v += vSpeed
+          if (v >= maxV - 0.5) v = 0
+          vPanRefs.current[i] = v
+          colTrack.style.transform = `translate3d(0,${-v}px,0)`
+        } else {
+          vPanRefs.current[i] = 0
+          colTrack.style.transform = ''
+        }
+      }
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [loading, tasks.length])
+    const rafRef = { id: 0 as number }
+    const tick = () => {
+      advancePan()
+      lastRafAtRef.current = Date.now()
+      rafRef.id = requestAnimationFrame(tick)
+    }
+    rafRef.id = requestAnimationFrame(tick)
+
+    // Si el RAF no corre (varias TV / WebViews), el pan sigue por intervalo
+    const stallMs = 450
+    const intervalMs = 80
+    const iv = window.setInterval(() => {
+      if (Date.now() - lastRafAtRef.current > stallMs) advancePan()
+    }, intervalMs)
+
+    return () => {
+      cancelAnimationFrame(rafRef.id)
+      window.clearInterval(iv)
+      columnsTrackRef.current && (columnsTrackRef.current.style.transform = '')
+      columnPanElsRef.current.forEach((slot) => {
+        if (slot?.t) slot.t.style.transform = ''
+      })
+    }
+  }, [loading, tasks.length, viewScale])
 
   // Suscripción a cambios en tiempo real
   useEffect(() => {
@@ -454,8 +517,8 @@ const DashboardPantallasPage = () => {
         </div>
       </header>
 
-      <div className="dashboard-content" ref={boardScrollRef}>
-        <div className="columns-container">
+      <div className="dashboard-content" ref={boardViewportRef}>
+        <div className="columns-container" ref={columnsTrackRef}>
           {BOARD_COLUMNS.map((column, colIndex) => {
             const columnTasks = tasksByColumn[column.id] || []
             const highPriorityInColumn = columnTasks.filter(
@@ -480,8 +543,16 @@ const DashboardPantallasPage = () => {
                 </div>
                 <div
                   className="column-content"
-                  ref={(el) => setColumnScrollRef(colIndex, el)}
+                  ref={(el) => {
+                    setColumnPanSlot(colIndex).v = el
+                  }}
                 >
+                  <div
+                    className="column-content-track"
+                    ref={(el) => {
+                      setColumnPanSlot(colIndex).t = el
+                    }}
+                  >
                   {columnTasks.length === 0 ? (
                     <div className="empty-column">
                       <span className="empty-icon">📭</span>
@@ -546,6 +617,7 @@ const DashboardPantallasPage = () => {
                       )
                     })
                   )}
+                  </div>
                 </div>
               </div>
             )
@@ -555,8 +627,7 @@ const DashboardPantallasPage = () => {
 
       <footer className="dashboard-footer">
         <p>
-          Actualización automática en tiempo real • Auto-scroll (desactivado si el sistema pide menos
-          movimiento) •{' '}
+          Actualización automática en tiempo real • Desplazamiento automático del tablero •{' '}
           {now.toLocaleString('es-AR')}
         </p>
       </footer>
