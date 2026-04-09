@@ -31,8 +31,19 @@ export function taskEstaEnColumnaInstalacionOMetalurgica(
 
 export function isLikelyImageFile(name: string, mime?: string | null): boolean {
   if (mime?.startsWith('image/')) return true
-  const base = name.split('/').pop()?.split('?')[0] || name
+  const n = name.trim()
+  if (n.startsWith('data:image/')) return true
+  const base = n.split('/').pop()?.split('?')[0] || n
   return /\.(jpe?g|png|gif|webp|heic|bmp|avif)$/i.test(base)
+}
+
+/** URL de adjunto (http(s), storage o data:image) + nombre opcional. */
+export function isImageAdjuntoUrl(url: string | null | undefined, titulo?: string | null): boolean {
+  const u = url?.trim()
+  if (!u) return false
+  if (u.startsWith('data:image/')) return true
+  const name = (titulo && String(titulo).trim()) || u.split('/').pop()?.split('?')[0] || ''
+  return isLikelyImageFile(name)
 }
 
 export type SitePhotoAttachmentLike = {
@@ -51,7 +62,9 @@ export function attachmentListHasReadySitePhoto(attachments: SitePhotoAttachment
 /** Portada / URL que parezca imagen. */
 export function taskPhotoUrlCountAsSitePhoto(url: string | null | undefined): boolean {
   if (!url?.trim()) return false
-  const last = url.split('/').pop() || ''
+  const u = url.trim()
+  if (u.startsWith('data:image/')) return true
+  const last = u.split('/').pop() || ''
   const base = last.split('?')[0] || ''
   return isLikelyImageFile(base)
 }
@@ -61,11 +74,7 @@ export function archivosRowsHaveImage(
   rows: Array<{ titulo?: string | null; url?: string | null }>
 ): boolean {
   for (const r of rows) {
-    const url = r.url?.trim()
-    if (!url) continue
-    const name =
-      (r.titulo && String(r.titulo).trim()) || url.split('/').pop()?.split('?')[0] || ''
-    if (isLikelyImageFile(name)) return true
+    if (isImageAdjuntoUrl(r.url, r.titulo)) return true
   }
   return false
 }

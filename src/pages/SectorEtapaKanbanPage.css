@@ -66,3 +66,48 @@
   font-size: 0.85rem;
   color: var(--text-secondary, #94a3b8);
 }
+
+/* Franja superior: fichas con evidencia foto desde app campo (Instalaciones / Metalúrgica) */
+.sector-etapa-campo-strip {
+  margin-bottom: 20px;
+  padding: 16px 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(15, 23, 42, 0.85));
+}
+
+.sector-etapa-campo-strip-head {
+  margin-bottom: 12px;
+}
+
+.sector-etapa-campo-strip-title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fef3c7;
+  letter-spacing: -0.02em;
+}
+
+.sector-etapa-campo-strip-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #94a3b8);
+  max-width: 900px;
+}
+
+.sector-etapa-campo-strip-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sector-etapa-campo-card {
+  flex: 0 0 min(320px, 85vw);
+  scroll-snap-align: start;
+  max-height: 70vh;
+  overflow-y: auto;
+}

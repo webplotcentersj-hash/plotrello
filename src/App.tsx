@@ -79,6 +79,7 @@ const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashb
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
 const OpEliminadasPage = lazy(() => import('./pages/OpEliminadasPage'))
 const SectorEtapaKanbanPage = lazy(() => import('./pages/SectorEtapaKanbanPage'))
+const InstalacionesMetalurgicaCampoPage = lazy(() => import('./pages/InstalacionesMetalurgicaCampoPage'))
 import ClienteLoginPage from './pages/ClienteLoginPage'
 import ClienteDashboardPage from './pages/ClienteDashboardPage'
 import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
@@ -797,6 +798,12 @@ function AppRoutes({
             activity={filteredActivity}
             sectores={sectores}
           />
+        }
+      />
+      <Route
+        path="/app-campo"
+        element={
+          <InstalacionesMetalurgicaCampoPage tasks={tasks} onReloadData={onReloadData} />
         }
       />
       <Route

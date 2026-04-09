@@ -4181,22 +4181,46 @@ class ApiService {
     return { success: true, data: [] }
   }
 
-  async guardarArchivoOrden(ordenId: number, nombreArchivo: string, urlArchivo: string): Promise<ApiResponse<any>> {
+  async guardarArchivoOrden(
+    ordenId: number,
+    nombreArchivo: string,
+    urlArchivo: string,
+    options?: { esEvidenciaCampo?: boolean }
+  ): Promise<ApiResponse<any>> {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('enlaces_adjuntos')
-        .insert({
-          id_orden: ordenId,
-          titulo: nombreArchivo,
-          url: urlArchivo
-        })
-        .select()
-        .single()
+      const row: Record<string, unknown> = {
+        id_orden: ordenId,
+        titulo: nombreArchivo,
+        url: urlArchivo
+      }
+      if (options?.esEvidenciaCampo === true) {
+        row.es_evidencia_campo = true
+      }
+      const { data, error } = await supabase.from('enlaces_adjuntos').insert(row).select().single()
 
       if (error) return { success: false, error: error.message }
       return { success: true, data }
     }
 
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /** Órdenes con al menos un adjunto marcado como evidencia de la app campo (kanban Instalaciones / Metalúrgica). */
+  async getOrdenIdsConEvidenciaCampo(): Promise<ApiResponse<number[]>> {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('enlaces_adjuntos')
+        .select('id_orden')
+        .eq('es_evidencia_campo', true)
+
+      if (error) return { success: false, error: error.message }
+      const ids = new Set<number>()
+      for (const r of data ?? []) {
+        const id = (r as { id_orden?: number }).id_orden
+        if (typeof id === 'number' && id > 0) ids.add(id)
+      }
+      return { success: true, data: [...ids] }
+    }
     return { success: false, error: 'Supabase no configurado' }
   }
 

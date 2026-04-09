@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Task } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import EtapaKanbanBoard from '../components/EtapaKanbanBoard'
+import TaskCard from '../components/TaskCard'
 import {
   SIN_ETAPA_COLUMN_ID,
   filterTasksForSectorEtapaKanban,
@@ -35,8 +36,26 @@ export default function SectorEtapaKanbanPage({
   const { usuario, isAdmin } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
+  const [campoOrdenIds, setCampoOrdenIds] = useState<Set<number>>(new Set())
 
   const config = slug ? getSectorEtapaKanbanBySlug(slug) : null
+
+  useEffect(() => {
+    if (config?.slug !== 'instalaciones' && config?.slug !== 'metalurgica') {
+      setCampoOrdenIds(new Set())
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const r = await apiService.getOrdenIdsConEvidenciaCampo()
+      if (cancelled) return
+      if (r.success && r.data) setCampoOrdenIds(new Set(r.data))
+      else setCampoOrdenIds(new Set())
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [config?.slug])
 
   const columns = useMemo(() => {
     if (!config) return []
@@ -76,6 +95,14 @@ export default function SectorEtapaKanbanPage({
     const ids = new Set(filtered.map((t) => t.id))
     return activity.filter((a) => ids.has(a.taskId))
   }, [filtered, activity])
+
+  const campoStripTasks = useMemo(() => {
+    if (!config || (config.slug !== 'instalaciones' && config.slug !== 'metalurgica')) return []
+    return filtered.filter((t) => {
+      const oid = parseTaskIdToOrdenId(t.id)
+      return oid != null && campoOrdenIds.has(oid)
+    })
+  }, [filtered, config, campoOrdenIds])
 
   const nombreUsuario = usuario?.nombre?.trim() || 'Usuario'
 
@@ -214,6 +241,32 @@ export default function SectorEtapaKanbanPage({
       )}
       {moving && (
         <div className="sector-etapa-banner sector-etapa-banner--info">Guardando etapa…</div>
+      )}
+      {campoStripTasks.length > 0 && (
+        <section className="sector-etapa-campo-strip" aria-label="Trabajos con evidencia desde app campo">
+          <div className="sector-etapa-campo-strip-head">
+            <h2 className="sector-etapa-campo-strip-title">Trabajos (app campo)</h2>
+            <p className="sector-etapa-campo-strip-desc">
+              OPs con fotos de evidencia subidas desde la app móvil (guardadas en base, sin Storage). Las mismas fichas siguen
+              en su etapa en el tablero de abajo.
+            </p>
+          </div>
+          <div className="sector-etapa-campo-strip-scroll">
+            {campoStripTasks.map((task, i) => (
+              <div key={task.id} className="sector-etapa-campo-card">
+                <TaskCard
+                  task={task}
+                  index={i}
+                  members={teamMembers}
+                  activity={activity.filter((a) => a.taskId === task.id)}
+                  sectores={sectores}
+                  isDraggable={false}
+                  columns={[]}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
       )}
       <EtapaKanbanBoard
         columns={columns}

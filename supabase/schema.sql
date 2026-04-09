@@ -146,7 +146,8 @@ CREATE TABLE IF NOT EXISTS public.enlaces_adjuntos (
   id_orden integer NOT NULL REFERENCES public.ordenes_trabajo(id) ON DELETE CASCADE,
   titulo varchar(255) NOT NULL,
   url text NOT NULL,
-  creado_en timestamptz NOT NULL DEFAULT now()
+  creado_en timestamptz NOT NULL DEFAULT now(),
+  es_evidencia_campo boolean NOT NULL DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_enlaces_orden ON public.enlaces_adjuntos(id_orden);

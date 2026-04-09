@@ -75,7 +75,9 @@ const Header = ({
     isAsesorTecnico,
     isPresupuestos,
     canAccessAtencionPublico,
-    isTallerGrafico
+    isTallerGrafico,
+    isInstalaciones,
+    isMetalurgica
   } = useAuth()
   const location = useLocation()
   const dmMensajeriaUnread = useDmMensajeriaUnread(usuario?.id)
@@ -147,6 +149,15 @@ const Header = ({
               <button className="brand-button" onClick={onNavigateToStats}>
                 📊 Estadísticas
               </button>
+            )}
+            {(isInstalaciones || isMetalurgica || isAdmin) && (
+              <Link
+                to="/app-campo"
+                className="brand-button"
+                onClick={() => setActionsOpen(false)}
+              >
+                📱 App campo (Inst. / Met.)
+              </Link>
             )}
             {onNavigateToCalendar && (
               <button className="brand-button" onClick={onNavigateToCalendar}>
