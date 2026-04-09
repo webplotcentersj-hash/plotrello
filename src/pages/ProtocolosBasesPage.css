@@ -806,6 +806,154 @@
   background: rgba(2, 6, 23, 0.35);
 }
 
+/* Chat sobre protocolos */
+.protocolos-bases-chat {
+  border-radius: 20px;
+  background: var(--pb-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.06) inset,
+    0 12px 40px rgba(0, 0, 0, 0.28);
+  padding: 22px 22px 24px;
+}
+
+.protocolos-bases-chat-status {
+  align-self: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--pb-warn);
+  white-space: nowrap;
+}
+
+.protocolos-bases-chat-status--ready {
+  color: #86efac;
+}
+
+.protocolos-bases-chat-warnings {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid var(--pb-border);
+  font-size: 0.82rem;
+  color: var(--pb-muted);
+}
+
+.protocolos-bases-chat-warnings summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #fde68a;
+}
+
+.protocolos-bases-chat-warnings ul {
+  margin: 10px 0 0;
+  padding-left: 1.1rem;
+}
+
+.protocolos-bases-chat-messages {
+  min-height: 160px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.4);
+  border: 1px solid var(--pb-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.protocolos-bases-chat-empty {
+  margin: 0;
+  padding: 20px 8px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--pb-muted);
+  line-height: 1.5;
+}
+
+.protocolos-bases-chat-bubble {
+  max-width: 92%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--pb-border);
+}
+
+.protocolos-bases-chat-bubble--user {
+  align-self: flex-end;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+.protocolos-bases-chat-bubble--assistant {
+  align-self: flex-start;
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.22);
+}
+
+.protocolos-bases-chat-bubble--typing .protocolos-bases-chat-bubble-text {
+  color: var(--pb-muted);
+  font-style: italic;
+}
+
+.protocolos-bases-chat-bubble-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pb-muted);
+  margin-bottom: 6px;
+}
+
+.protocolos-bases-chat-bubble-text {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.protocolos-bases-chat-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.protocolos-bases-chat-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--pb-border);
+  background: var(--pb-input);
+  color: var(--pb-text);
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 52px;
+}
+
+.protocolos-bases-chat-input:focus {
+  outline: none;
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
+}
+
+.protocolos-bases-chat-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.protocolos-bases-chat-compose-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 @media (max-width: 720px) {
   .protocolos-bases-page .form-row {
     grid-template-columns: 1fr;

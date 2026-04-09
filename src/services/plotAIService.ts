@@ -119,6 +119,8 @@ export function getSystemContext(
 export interface GenerateContentOptions {
   model?: string
   contents: string
+  /** Texto que se antepone al mensaje del usuario (p. ej. corpus RAG). No modificar `contents` evita romper detección de saludos/memoria. */
+  extraContextPrefix?: string
   systemContext?: SystemContext
   conversationHistory?: string
   attachments?: Array<{ name: string; type: string; content: string }>
@@ -126,6 +128,8 @@ export interface GenerateContentOptions {
   useCompleteContext?: boolean // Usar contexto completo de todas las tablas
   useMemory?: boolean // Usar sistema de memoria/aprendizaje
   learnFromResponse?: boolean // Aprender de esta interacción
+  /** Si false, no se inyecta el manual de usuario de Plotlab (p. ej. chat RAG acotado a otro corpus). Default true. */
+  includeAppManual?: boolean
   tasks?: Task[] // Tareas para contexto completo
   activity?: ActivityEvent[] // Actividad para contexto completo
   teamMembers?: TeamMember[] // Miembros del equipo para contexto completo
@@ -140,6 +144,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
   const {
     model = 'gemini-2.5-flash',
     contents,
+    extraContextPrefix,
     systemContext,
     conversationHistory,
     attachments,
@@ -147,6 +152,7 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     useCompleteContext = true,
     useMemory = true,
     learnFromResponse = true,
+    includeAppManual = true,
     tasks = [],
     activity = [],
     teamMembers = [],
@@ -192,6 +198,9 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 
     // Construir el prompt completo
     let prompt = contents
+    if (extraContextPrefix?.trim()) {
+      prompt = `${extraContextPrefix.trim()}\n\n${prompt}`
+    }
 
     // Detectar saludos y responder de manera conversacional
     const saludos = ['hola', 'hi', 'hey', 'buenos días', 'buenas tardes', 'buenas noches', 'saludos']
@@ -359,7 +368,7 @@ INSTRUCCIONES AGÉNTICAS:
     
     // Agregar manual del usuario si es relevante (más contexto = respuestas más precisas)
     let manualTexto = ''
-    if (esPreguntaManual || useCompleteContext) {
+    if (includeAppManual && (esPreguntaManual || useCompleteContext)) {
       try {
         manualTexto = await formatManualForPrompt(contents)
         if (manualTexto) {

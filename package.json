@@ -48,6 +48,7 @@
     "jspdf": "^3.0.4",
     "leaflet": "^1.9.4",
     "marked": "^17.0.0",
+    "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

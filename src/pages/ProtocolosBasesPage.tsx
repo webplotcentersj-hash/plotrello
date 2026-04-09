@@ -5,7 +5,49 @@ import apiService from '../services/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { generateContent } from '../services/plotAIService'
 import type { ProtocoloBaseRecord } from '../types/api'
+import { buildProtocolosCorpus } from '../utils/protocolosCorpus'
 import './ProtocolosBasesPage.css'
+
+type ChatMessage = { role: 'user' | 'assistant'; content: string }
+
+const CHAT_HISTORY_MAX = 12_000
+
+function formatProtocolosChatHistory(messages: ChatMessage[]): string {
+  let s = messages
+    .map((m) => (m.role === 'user' ? `Usuario: ${m.content}` : `Asistente: ${m.content}`))
+    .join('\n\n')
+  if (s.length > CHAT_HISTORY_MAX) {
+    s = '...(historial truncado)\n\n' + s.slice(-CHAT_HISTORY_MAX)
+  }
+  return s
+}
+
+function buildProtocolosChatPrefix(
+  corpusText: string,
+  history: string,
+  warnings: string[]
+): string {
+  const warnBlock =
+    warnings.length > 0
+      ? `\nNotas de indexación (avisos, no son parte del contenido normativo):\n- ${warnings.slice(0, 10).join('\n- ')}\n`
+      : ''
+  const corpusBlock =
+    corpusText.trim().length > 0
+      ? corpusText
+      : '(No hay texto indexado todavía: subí PDF con texto seleccionable, TXT, o guardá contenido con PlotAI.)'
+  return [
+    'Sos el asistente de la biblioteca interna "Protocolos y bases".',
+    'Respondé usando principalmente el CORPUS debajo. Si algo no está en el corpus, decilo sin inventar.',
+    'Citá el título del documento cuando ayude. Español, tono profesional y conciso.',
+    warnBlock,
+    '--- CORPUS (documentos internos) ---',
+    corpusBlock,
+    '--- FIN CORPUS ---',
+    '',
+    'CONVERSACIÓN PREVIA:',
+    history || '(primera consulta)',
+  ].join('\n')
+}
 
 type UploadMode = 'file' | 'plotai'
 type TipoDocumento = 'protocolo' | 'base' | 'otro'
@@ -81,6 +123,13 @@ export default function ProtocolosBasesPage() {
 
   const [selected, setSelected] = useState<ProtocoloBaseRecord | null>(null)
 
+  const [corpus, setCorpus] = useState<{ text: string; warnings: string[] } | null>(null)
+  const [corpusBuilding, setCorpusBuilding] = useState(false)
+  const [corpusError, setCorpusError] = useState<string | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+
   useEffect(() => {
     if (authLoading) return
     if (!usuario) {
@@ -113,6 +162,30 @@ export default function ProtocolosBasesPage() {
       cancelled = true
     }
   }, [authLoading, usuario, navigate])
+
+  useEffect(() => {
+    if (!usuario || authLoading) return
+    let cancelled = false
+    setCorpusBuilding(true)
+    setCorpusError(null)
+    void buildProtocolosCorpus(items)
+      .then((result) => {
+        if (!cancelled) {
+          setCorpus({ text: result.text, warnings: result.warnings })
+          setCorpusBuilding(false)
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setCorpusError(e instanceof Error ? e.message : 'Error al indexar documentos.')
+          setCorpus(null)
+          setCorpusBuilding(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [items, usuario, authLoading])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -295,6 +368,42 @@ export default function ProtocolosBasesPage() {
     }
   }
 
+  const handleProtocolosChatSend = async () => {
+    const text = chatInput.trim()
+    if (!text || chatSending) return
+    if (corpusBuilding || corpusError) return
+
+    const prior = chatMessages
+    setChatInput('')
+    setChatMessages([...prior, { role: 'user', content: text }])
+    setChatSending(true)
+
+    const history = formatProtocolosChatHistory(prior)
+    const prefix = buildProtocolosChatPrefix(corpus?.text ?? '', history, corpus?.warnings ?? [])
+
+    try {
+      const reply = await generateContent({
+        contents: text,
+        extraContextPrefix: prefix,
+        useCompleteContext: false,
+        useMemory: false,
+        learnFromResponse: false,
+        includeAppManual: false,
+        userName: usuario?.nombre,
+      })
+      setChatMessages([...prior, { role: 'user', content: text }, { role: 'assistant', content: reply.trim() }])
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo obtener respuesta.'
+      setChatMessages([
+        ...prior,
+        { role: 'user', content: text },
+        { role: 'assistant', content: `No pude responder: ${msg}` },
+      ])
+    } finally {
+      setChatSending(false)
+    }
+  }
+
   const downloadContent = (doc: ProtocoloBaseRecord, format: 'txt' | 'doc') => {
     const content = doc.contenido_texto || ''
     if (!content.trim()) return
@@ -357,6 +466,106 @@ export default function ProtocolosBasesPage() {
         )}
 
         <main className="protocolos-bases-main">
+        <section className="protocolos-bases-chat" aria-label="Chat sobre protocolos y bases">
+          <div className="protocolos-bases-section-head">
+            <div>
+              <h2 className="protocolos-bases-h2">Consultá los documentos</h2>
+              <p className="protocolos-bases-section-desc">
+                Preguntá en lenguaje natural: PlotAI usa el texto de toda la biblioteca (PDF con texto, TXT y documentos guardados con contenido).
+              </p>
+            </div>
+            {corpusBuilding && (
+              <span className="protocolos-bases-chat-status" role="status">
+                Indexando documentos…
+              </span>
+            )}
+            {!corpusBuilding && corpus && !corpusError && (
+              <span className="protocolos-bases-chat-status protocolos-bases-chat-status--ready" role="status">
+                Listo para consultar
+              </span>
+            )}
+          </div>
+
+          {corpusError && (
+            <div className="protocolos-bases-alert protocolos-bases-alert--soft" role="alert">
+              {corpusError}
+            </div>
+          )}
+
+          {!!corpus?.warnings.length && (
+            <details className="protocolos-bases-chat-warnings">
+              <summary>Avisos de indexación ({corpus.warnings.length})</summary>
+              <ul>
+                {corpus.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          <div className="protocolos-bases-chat-messages" aria-live="polite">
+            {chatMessages.length === 0 ? (
+              <p className="protocolos-bases-chat-empty">
+                Escribí una pregunta sobre procedimientos, bases o cualquier tema cubierto por los documentos cargados.
+              </p>
+            ) : (
+              chatMessages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={`protocolos-bases-chat-bubble protocolos-bases-chat-bubble--${m.role}`}
+                >
+                  <span className="protocolos-bases-chat-bubble-label">
+                    {m.role === 'user' ? 'Vos' : 'PlotAI'}
+                  </span>
+                  <div className="protocolos-bases-chat-bubble-text">{m.content}</div>
+                </div>
+              ))
+            )}
+            {chatSending && (
+              <div className="protocolos-bases-chat-bubble protocolos-bases-chat-bubble--assistant protocolos-bases-chat-bubble--typing">
+                <span className="protocolos-bases-chat-bubble-label">PlotAI</span>
+                <div className="protocolos-bases-chat-bubble-text">Pensando…</div>
+              </div>
+            )}
+          </div>
+
+          <div className="protocolos-bases-chat-compose">
+            <textarea
+              className="protocolos-bases-chat-input"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleProtocolosChatSend()
+                }
+              }}
+              placeholder="Ej: ¿Qué dice el protocolo sobre…?"
+              rows={2}
+              disabled={chatSending || corpusBuilding || !!corpusError}
+              aria-label="Pregunta sobre protocolos y bases"
+            />
+            <div className="protocolos-bases-chat-compose-actions">
+              <button
+                type="button"
+                className="pb-btn pb-btn-primary"
+                onClick={() => void handleProtocolosChatSend()}
+                disabled={chatSending || corpusBuilding || !!corpusError || !chatInput.trim()}
+              >
+                {chatSending ? 'Enviando…' : 'Preguntar'}
+              </button>
+              <button
+                type="button"
+                className="pb-btn pb-btn-ghost"
+                onClick={() => setChatMessages([])}
+                disabled={chatSending || chatMessages.length === 0}
+              >
+                Limpiar chat
+              </button>
+            </div>
+          </div>
+        </section>
+
         {canUpload && (
           <section className="protocolos-bases-upload">
             <div className="protocolos-bases-section-head">
