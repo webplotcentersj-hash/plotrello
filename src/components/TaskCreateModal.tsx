@@ -5,6 +5,7 @@ import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { useAuth } from '../hooks/useAuth'
 import { filterOperariosBySector } from '../utils/dataMappers'
 import apiService from '../services/api'
+import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -86,6 +87,7 @@ const TaskCreateModal = ({
   const [complejidad, setComplejidad] = useState<string>('Media')
   const [prioridad, setPrioridad] = useState<string>('Normal')
   const [descripcion, setDescripcion] = useState('')
+  const [plotAiImprovingDesc, setPlotAiImprovingDesc] = useState(false)
   const [briefPublico, setBriefPublico] = useState('')
   const [objetivoProyecto, setObjetivoProyecto] = useState('')
   const [publicoObjetivo, setPublicoObjetivo] = useState('')
@@ -360,6 +362,39 @@ const TaskCreateModal = ({
   }
 
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
+
+  const handleImproveDescriptionPlotAI = async () => {
+    const hasAny =
+      descripcion.trim() ||
+      cliente.trim() ||
+      opNumber.trim() ||
+      selectedSectores.length > 0 ||
+      briefPublico.trim()
+    if (!hasAny) {
+      alert('Completá al menos cliente, OP, sectores, descripción o brief para dar contexto a PlotAI.')
+      return
+    }
+
+    setPlotAiImprovingDesc(true)
+    try {
+      const improved = await improveOpDescriptionWithPlotAI({
+        currentDescription: descripcion,
+        clientOrTitle: cliente.trim() || undefined,
+        opNumber: opNumber.trim() || undefined,
+        sector: selectedSectores.length ? selectedSectores.join(', ') : undefined,
+        briefExcerpt: briefPublico.trim() || undefined,
+      })
+      if (!improved) {
+        alert('PlotAI no devolvió texto. Intentá de nuevo.')
+        return
+      }
+      setDescripcion(improved)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al mejorar con PlotAI.')
+    } finally {
+      setPlotAiImprovingDesc(false)
+    }
+  }
 
   const handleCreate = async (openChecklist = false) => {
     if (!opNumber || !cliente) {
@@ -1549,8 +1584,20 @@ const TaskCreateModal = ({
           </div>
 
           <div className="form-group">
-            <label>Descripción</label>
+            <div className="task-desc-toolbar">
+              <label htmlFor="task-create-summary">Descripción</label>
+              <button
+                type="button"
+                className="task-desc-plotai-btn"
+                onClick={() => void handleImproveDescriptionPlotAI()}
+                disabled={plotAiImprovingDesc}
+                title="Reescribe la descripción con PlotAI (conserva datos; revisá antes de crear la OP)"
+              >
+                {plotAiImprovingDesc ? 'Mejorando…' : '✨ Mejorar con PlotAI'}
+              </button>
+            </div>
             <textarea
+              id="task-create-summary"
               rows={4}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}

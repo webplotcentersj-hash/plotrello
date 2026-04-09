@@ -1288,3 +1288,43 @@
   opacity: 0.88;
 }
 
+.task-desc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.task-desc-toolbar label {
+  margin-bottom: 0;
+}
+
+.task-desc-plotai-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.25), rgba(56, 189, 248, 0.2));
+  color: #e0e7ff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    opacity 0.15s;
+}
+
+.task-desc-plotai-btn:hover:not(:disabled) {
+  border-color: rgba(167, 139, 250, 0.75);
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.38), rgba(56, 189, 248, 0.28));
+  color: #f8fafc;
+}
+
+.task-desc-plotai-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+

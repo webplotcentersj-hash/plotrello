@@ -10,6 +10,7 @@ import type {
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
 import { parseTaskIdToOrdenId, filterOperariosBySector, ordenToTask } from '../utils/dataMappers'
+import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
@@ -97,6 +98,7 @@ const TaskEditModal = ({
   const [presupuestoEnEspera, setPresupuestoEnEspera] = useState(false)
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
   const [fichaRelacionadaTienePlanillaPreliminar, setFichaRelacionadaTienePlanillaPreliminar] = useState(false)
+  const [plotAiImprovingDescription, setPlotAiImprovingDescription] = useState(false)
 
   const taskHistory = useMemo(() => {
     if (!task) return []
@@ -325,6 +327,42 @@ const TaskEditModal = ({
     } catch (error) {
       console.error('Error verificando ficha relacionada:', error)
       setFichaRelacionadaTienePlanillaPreliminar(false)
+    }
+  }
+
+  const handleImproveDescriptionPlotAI = async () => {
+    const desc = (formData.summary || '').trim()
+    const title = (formData.title || task?.title || '').trim()
+    const op = String(formData.opNumber || task?.opNumber || '').trim()
+    const sector =
+      selectedSectors.length > 0
+        ? selectedSectors.join(', ')
+        : task?.assignedSector || (task?.sectores?.length ? task.sectores.join(', ') : '')
+    const brief = briefPublico.trim()
+
+    if (!desc && !title && !op && !sector && !brief) {
+      alert('Completá al menos cliente, OP, descripción o brief público para dar contexto a PlotAI.')
+      return
+    }
+
+    setPlotAiImprovingDescription(true)
+    try {
+      const improved = await improveOpDescriptionWithPlotAI({
+        currentDescription: formData.summary || '',
+        clientOrTitle: title || undefined,
+        opNumber: op || undefined,
+        sector: sector || undefined,
+        briefExcerpt: brief || undefined,
+      })
+      if (!improved) {
+        alert('PlotAI no devolvió texto. Intentá de nuevo.')
+        return
+      }
+      setFormData((prev) => ({ ...prev, summary: improved }))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al mejorar con PlotAI.')
+    } finally {
+      setPlotAiImprovingDescription(false)
     }
   }
 
@@ -1030,8 +1068,20 @@ const TaskEditModal = ({
           </div>
 
           <div className="form-group">
-            <label>Descripción</label>
+            <div className="task-desc-toolbar">
+              <label htmlFor="task-edit-summary">Descripción</label>
+              <button
+                type="button"
+                className="task-desc-plotai-btn"
+                onClick={() => void handleImproveDescriptionPlotAI()}
+                disabled={plotAiImprovingDescription}
+                title="Reescribe la descripción con PlotAI (conserva datos; revisá antes de guardar)"
+              >
+                {plotAiImprovingDescription ? 'Mejorando…' : '✨ Mejorar con PlotAI'}
+              </button>
+            </div>
             <textarea
+              id="task-edit-summary"
               rows={4}
               value={formData.summary || ''}
               onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
