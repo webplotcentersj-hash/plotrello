@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { marked } from 'marked'
 import type { Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { mapStatusToEstado } from '../utils/dataMappers'
 import { useTagColors } from '../hooks/useTagColors'
+import { fetchPlotAIRecommendationsForTask } from '../utils/taskPlotAIRecommendations'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
 import './TaskEditModal.css'
 import './TaskViewModal.css'
@@ -65,9 +67,15 @@ function KvBlock({ label, value }: { label: string; value: string | null | undef
 export default function TaskViewModal({ task, teamMembers, sectores, onClose }: TaskViewModalProps) {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(() => new Map())
+  const [plotAIRecoOpen, setPlotAIRecoOpen] = useState(false)
+  const [plotAIRecoLoading, setPlotAIRecoLoading] = useState(false)
+  const [plotAIRecoText, setPlotAIRecoText] = useState('')
+  const [plotAIRecoError, setPlotAIRecoError] = useState<string | null>(null)
+
   const owner = teamMembers.find((m) => m.id === task.ownerId)
   const createdByMember = teamMembers.find((m) => m.id === task.createdBy)
   const columnCfg = BOARD_COLUMNS.find((c) => c.id === task.status)
+  const columnLabel = columnCfg?.label ?? mapStatusToEstado(task.status)
   const sectorColor = sectores.find((s) => s.nombre === task.assignedSector)?.color ?? '#eb671b'
 
   const impactLabel = useMemo(() => {
@@ -79,11 +87,33 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      if (plotAIRecoOpen) {
+        setPlotAIRecoOpen(false)
+        return
+      }
+      onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, plotAIRecoOpen])
+
+  const openPlotAIRecommendations = () => {
+    setPlotAIRecoOpen(true)
+    setPlotAIRecoError(null)
+    setPlotAIRecoText('')
+    setPlotAIRecoLoading(true)
+    void fetchPlotAIRecommendationsForTask(task, columnLabel)
+      .then((text) => {
+        setPlotAIRecoText(text.trim())
+      })
+      .catch((err) => {
+        setPlotAIRecoError(err instanceof Error ? err.message : 'No se pudo obtener la recomendación.')
+      })
+      .finally(() => {
+        setPlotAIRecoLoading(false)
+      })
+  }
 
   const opLabel = task.esFichaNoOP ? 'Ficha' : 'OP'
   const progress = Math.min(100, Math.max(0, task.progress))
@@ -134,14 +164,22 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
               </div>
             </div>
           )}
-          <div className="task-view-banner">
+          <div className="task-view-banner task-view-banner--with-action">
             <span className="task-view-banner-icon" aria-hidden="true">
               👁
             </span>
-            <div>
+            <div className="task-view-banner-copy">
               <strong>Vista expandida · solo lectura</strong>
               <p>Para editar usá el botón ✏️ en la tarjeta del tablero.</p>
             </div>
+            <button
+              type="button"
+              className="task-view-plotai-reco-btn"
+              onClick={openPlotAIRecommendations}
+              disabled={plotAIRecoLoading}
+            >
+              {plotAIRecoLoading ? 'Generando…' : 'Recomendación de PlotAI'}
+            </button>
           </div>
 
           <section className="task-view-hero-card">
@@ -459,6 +497,55 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
           </footer>
         </div>
       </div>
+
+      {plotAIRecoOpen && (
+        <div
+          className="task-view-reco-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            e.stopPropagation()
+            setPlotAIRecoOpen(false)
+          }}
+        >
+          <div
+            className="task-view-reco-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="task-view-reco-heading"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="task-view-reco-header">
+              <h2 id="task-view-reco-heading">Recomendación de PlotAI</h2>
+              <button
+                type="button"
+                className="task-view-reco-close"
+                onClick={() => setPlotAIRecoOpen(false)}
+                aria-label="Cerrar recomendaciones"
+              >
+                Cerrar
+              </button>
+            </header>
+            <div className="task-view-reco-body">
+              {plotAIRecoLoading && (
+                <p className="task-view-reco-status" role="status">
+                  Analizando la ficha y generando recomendaciones, ideas y buenas prácticas…
+                </p>
+              )}
+              {plotAIRecoError && (
+                <p className="task-view-reco-error" role="alert">
+                  {plotAIRecoError}
+                </p>
+              )}
+              {!plotAIRecoLoading && plotAIRecoText && (
+                <div
+                  className="task-view-reco-content markdown-body"
+                  dangerouslySetInnerHTML={{ __html: marked.parse(plotAIRecoText, { async: false }) as string }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
