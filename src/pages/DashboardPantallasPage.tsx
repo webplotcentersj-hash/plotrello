@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { Component, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react'
 import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
 import { ordenToTask } from '../utils/dataMappers'
@@ -34,6 +34,56 @@ function isOrdenNuevaPorFecha(createdAt: string): boolean {
   const t = new Date(createdAt).getTime()
   if (Number.isNaN(t)) return false
   return Date.now() - t < NUEVA_OP_MAX_MS
+}
+
+function safeLocaleTimeEsAR(d: Date): string {
+  try {
+    return d.toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
+  } catch {
+    try {
+      return d.toLocaleTimeString()
+    } catch {
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    }
+  }
+}
+
+function safeLocaleDateShortEsAR(d: Date): string {
+  try {
+    return d.toLocaleDateString('es-AR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short'
+    })
+  } catch {
+    try {
+      return d.toLocaleDateString()
+    } catch {
+      return `${d.getDate()}/${d.getMonth() + 1}`
+    }
+  }
+}
+
+function safeLocaleDateTimeEsAR(d: Date): string {
+  try {
+    return d.toLocaleString('es-AR')
+  } catch {
+    return `${safeLocaleDateShortEsAR(d)} ${safeLocaleTimeEsAR(d)}`
+  }
+}
+
+function safeToIsoAttribute(d: Date): string {
+  try {
+    return d.toISOString()
+  } catch {
+    return ''
+  }
 }
 
 /** Jornada visible en la barra (hora local del dispositivo / pantalla) */
@@ -142,16 +192,11 @@ function getJornadaLaboral(now: Date): {
   return {
     pct,
     phase: 'durante',
-    labelCorta: now.toLocaleTimeString('es-AR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    })
+    labelCorta: safeLocaleTimeEsAR(now)
   }
 }
 
-const DashboardPantallasPage = () => {
+function DashboardPantallasPageInner() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -194,7 +239,14 @@ const DashboardPantallasPage = () => {
         const response = await apiService.getOrdenes()
         
         if (response.success && response.data) {
-          const mappedTasks = response.data.map(ordenToTask)
+          const mappedTasks: Task[] = []
+          for (const o of response.data) {
+            try {
+              mappedTasks.push(ordenToTask(o))
+            } catch (mapErr) {
+              console.warn('Dashboard pantallas: orden omitida', (o as OrdenTrabajo)?.id, mapErr)
+            }
+          }
           setTasks(mappedTasks)
           setLastUpdate(new Date())
         } else {
@@ -425,28 +477,30 @@ const DashboardPantallasPage = () => {
           table: 'ordenes_trabajo' 
         },
         (payload) => {
-          console.log('🔄 Cambio en tiempo real:', payload.eventType)
-          
-          if (payload.eventType === 'DELETE') {
-            setTasks((prev) => 
-              prev.filter((t) => t.id !== payload.old.id?.toString())
-            )
-          } else if (payload.new) {
-            const newTask = ordenToTask(payload.new as OrdenTrabajo)
-            if (payload.eventType === 'INSERT') {
-              setLlegadaEnVivo((prev) => ({ ...prev, [newTask.id]: Date.now() }))
-            }
-            setTasks((prev) => {
-              const existingIndex = prev.findIndex((t) => t.id === newTask.id)
-              if (existingIndex >= 0) {
-                const updated = [...prev]
-                updated[existingIndex] = newTask
-                return updated
+          try {
+            console.log('🔄 Cambio en tiempo real:', payload.eventType)
+
+            if (payload.eventType === 'DELETE') {
+              setTasks((prev) => prev.filter((t) => t.id !== payload.old.id?.toString()))
+            } else if (payload.new) {
+              const newTask = ordenToTask(payload.new as OrdenTrabajo)
+              if (payload.eventType === 'INSERT') {
+                setLlegadaEnVivo((prev) => ({ ...prev, [newTask.id]: Date.now() }))
               }
-              return [...prev, newTask]
-            })
+              setTasks((prev) => {
+                const existingIndex = prev.findIndex((t) => t.id === newTask.id)
+                if (existingIndex >= 0) {
+                  const updated = [...prev]
+                  updated[existingIndex] = newTask
+                  return updated
+                }
+                return [...prev, newTask]
+              })
+            }
+            setLastUpdate(new Date())
+          } catch (rtErr) {
+            console.warn('Dashboard pantallas: error en realtime', rtErr)
           }
-          setLastUpdate(new Date())
         }
       )
       .subscribe((status) => {
@@ -462,30 +516,36 @@ const DashboardPantallasPage = () => {
 
   // Organizar tareas por columna
   const tasksByColumn = useMemo(() => {
-    const grouped: Record<string, Task[]> = {}
-    
-    BOARD_COLUMNS.forEach((col) => {
-      grouped[col.id] = []
-    })
+    try {
+      const grouped: Record<string, Task[]> = {}
 
-    tasks.forEach((task) => {
-      if (grouped[task.status]) {
-        grouped[task.status].push(task)
-      }
-    })
-
-    // Ordenar por prioridad (alta primero) y luego por fecha
-    Object.keys(grouped).forEach((colId) => {
-      grouped[colId].sort((a, b) => {
-        if (a.priority === 'alta' && b.priority !== 'alta') return -1
-        if (a.priority !== 'alta' && b.priority === 'alta') return 1
-        const dateA = new Date(a.updatedAt || a.createdAt).getTime()
-        const dateB = new Date(b.updatedAt || b.createdAt).getTime()
-        return dateB - dateA
+      BOARD_COLUMNS.forEach((col) => {
+        grouped[col.id] = []
       })
-    })
 
-    return grouped
+      tasks.forEach((task) => {
+        if (grouped[task.status]) {
+          grouped[task.status].push(task)
+        }
+      })
+
+      Object.keys(grouped).forEach((colId) => {
+        grouped[colId].sort((a, b) => {
+          if (a.priority === 'alta' && b.priority !== 'alta') return -1
+          if (a.priority !== 'alta' && b.priority === 'alta') return 1
+          const dateA = new Date(a.updatedAt || a.createdAt).getTime()
+          const dateB = new Date(b.updatedAt || b.createdAt).getTime()
+          return (Number.isNaN(dateB) ? 0 : dateB) - (Number.isNaN(dateA) ? 0 : dateA)
+        })
+      })
+
+      return grouped
+    } catch {
+      return BOARD_COLUMNS.reduce<Record<string, Task[]>>((acc, col) => {
+        acc[col.id] = []
+        return acc
+      }, {})
+    }
   }, [tasks])
 
   // Contar tareas de prioridad alta
@@ -577,22 +637,9 @@ const DashboardPantallasPage = () => {
           </h1>
           <div className="header-pantalla-controls">
             <div className="dashboard-reloj" aria-live="polite">
-              <time dateTime={now.toISOString()}>
-                <span className="dashboard-reloj-hora">
-                  {now.toLocaleTimeString('es-AR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false
-                  })}
-                </span>
-                <span className="dashboard-reloj-fecha">
-                  {now.toLocaleDateString('es-AR', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short'
-                  })}
-                </span>
+              <time dateTime={safeToIsoAttribute(now)}>
+                <span className="dashboard-reloj-hora">{safeLocaleTimeEsAR(now)}</span>
+                <span className="dashboard-reloj-fecha">{safeLocaleDateShortEsAR(now)}</span>
               </time>
             </div>
             <button
@@ -620,9 +667,7 @@ const DashboardPantallasPage = () => {
             )}
             <div className="stat-item">
               <span className="stat-label">Última actualización:</span>
-              <span className="stat-value">
-                {lastUpdate.toLocaleTimeString('es-AR')}
-              </span>
+              <span className="stat-value">{safeLocaleTimeEsAR(lastUpdate)}</span>
             </div>
           </div>
         </div>
@@ -748,7 +793,7 @@ const DashboardPantallasPage = () => {
                           )}
                           {task.dueDate && (
                             <span className="task-date">
-                              📅 {new Date(task.dueDate).toLocaleDateString('es-AR')}
+                              📅 {safeLocaleDateShortEsAR(new Date(task.dueDate))}
                             </span>
                           )}
                         </div>
@@ -767,7 +812,7 @@ const DashboardPantallasPage = () => {
       <footer className="dashboard-footer">
         <p>
           Actualización automática en tiempo real • Desplazamiento automático del tablero •{' '}
-          {now.toLocaleString('es-AR')}
+          {safeLocaleDateTimeEsAR(now)}
         </p>
       </footer>
       </div>
@@ -775,5 +820,51 @@ const DashboardPantallasPage = () => {
   )
 }
 
-export default DashboardPantallasPage
+type DashboardPantallasBoundaryState = { hasError: boolean }
+
+class DashboardPantallasBoundary extends Component<
+  { children: ReactNode },
+  DashboardPantallasBoundaryState
+> {
+  state: DashboardPantallasBoundaryState = { hasError: false }
+
+  static getDerivedStateFromError(): DashboardPantallasBoundaryState {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error): void {
+    console.warn('DashboardPantallasBoundary:', error)
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div className="dashboard-pantallas-error">
+          <h2>Error en vista pantallas</h2>
+          <p>
+            El navegador de la TV no pudo renderizar esta pantalla. Probá recargar o abrir la misma URL en
+            Chrome en la computadora.
+          </p>
+          <button
+            type="button"
+            className="btn-pantalla-completa"
+            style={{ marginTop: 16 }}
+            onClick={() => window.location.reload()}
+          >
+            Recargar página
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+export default function DashboardPantallasPage(): ReactNode {
+  return (
+    <DashboardPantallasBoundary>
+      <DashboardPantallasPageInner />
+    </DashboardPantallasBoundary>
+  )
+}
 

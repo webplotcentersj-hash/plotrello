@@ -122,33 +122,60 @@ export const mapComplejidadToImpact = (
   complejidad: string | null | undefined
 ): Task['impact'] => COMPLEJIDAD_TO_IMPACT[complejidad?.toLowerCase() ?? 'media'] ?? 'media'
 
+/** Muchos navegadores de TV / WebViews no tienen crypto.randomUUID. */
+function safeRandomTaskId(): string {
+  try {
+    const c = globalThis.crypto
+    if (c && typeof c.randomUUID === 'function') {
+      return c.randomUUID()
+    }
+  } catch {
+    /* empty */
+  }
+  return `t-${Date.now()}-${Math.floor(Math.random() * 1e9)}`
+}
+
+/** Intl con timeZone falla en algunos TVs; toISOString lanza con Date inválido. */
+function dateInArgentinaWallClock(source: Date): Date {
+  try {
+    const wall = source.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
+    const d = new Date(wall)
+    if (!Number.isNaN(d.getTime())) return d
+  } catch {
+    /* ignore */
+  }
+  return source
+}
+
+function safeToIso(d: Date): string {
+  try {
+    const t = d.getTime()
+    if (Number.isNaN(t)) return new Date().toISOString()
+    return d.toISOString()
+  } catch {
+    return new Date().toISOString()
+  }
+}
+
 export const ordenToTask = (orden: OrdenTrabajo): Task => {
   // Normalizar fechas a zona horaria de Argentina para evitar "día anterior"
   const baseArgentinaDate = getArgentinaDate()
-  const nowArgentinaIso = baseArgentinaDate.toISOString()
+  const nowArgentinaIso = safeToIso(baseArgentinaDate)
   const createdDate =
     orden.fecha_creacion != null ? new Date(orden.fecha_creacion) : baseArgentinaDate
-  const createdArgentina = new Date(
-    createdDate.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
-  )
-  const createdArgentinaIso = createdArgentina.toISOString()
+  const createdArgentina = dateInArgentinaWallClock(createdDate)
+  const createdArgentinaIso = safeToIso(createdArgentina)
   const dueDateSource = orden.fecha_entrega ?? orden.fecha_creacion ?? nowArgentinaIso
   // Si viene como DATE (YYYY-MM-DD), NO usar new Date('YYYY-MM-DD') directo (interpreta UTC y se corre de día).
   const dueDateParsed =
     typeof dueDateSource === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dueDateSource)
       ? new Date(`${dueDateSource}T12:00:00Z`) // mediodía UTC evita corrimiento
       : new Date(dueDateSource)
-  const dueDateArgentina = new Date(
-    dueDateParsed.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })
-  )
-  const dueDateArgentinaIso = dueDateArgentina.toISOString()
+  const dueDateArgentina = dateInArgentinaWallClock(dueDateParsed)
+  const dueDateArgentinaIso = safeToIso(dueDateArgentina)
   const updatedSource = orden.fecha_ingreso ?? orden.fecha_creacion ?? nowArgentinaIso
-  const updatedArgentina = new Date(
-    new Date(updatedSource).toLocaleString('en-US', {
-      timeZone: 'America/Argentina/Buenos_Aires'
-    })
-  )
-  const updatedArgentinaIso = updatedArgentina.toISOString()
+  const updatedArgentina = dateInArgentinaWallClock(new Date(updatedSource))
+  const updatedArgentinaIso = safeToIso(updatedArgentina)
   const clientPhone = orden.telefono_cliente?.trim() || undefined
   const whatsappUrl = orden.whatsapp_link?.trim() || buildWhatsappLinkFromPhone(clientPhone)
   const clientEmail = orden.email_cliente?.trim() || undefined
@@ -181,8 +208,8 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
       : mapEstadoToStatus(orden.sector)  // Fallback al sector si el estado es inválido
 
   return {
-    id: orden.id?.toString() ?? crypto.randomUUID(),
-    opNumber: orden.numero_op,
+    id: orden.id?.toString() ?? safeRandomTaskId(),
+    opNumber: String(orden.numero_op ?? ''),
     title: orden.cliente,
     dniCuit: orden.dni_cuit ?? undefined,
     summary: orden.descripcion ?? 'Sin descripción',
