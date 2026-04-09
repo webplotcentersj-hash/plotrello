@@ -11,6 +11,12 @@ import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
 import { parseTaskIdToOrdenId, filterOperariosBySector, ordenToTask } from '../utils/dataMappers'
 import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
+import {
+  attachmentListHasReadySitePhoto,
+  opSectoresRequierenFotosLugar,
+  taskEstaEnColumnaInstalacionOMetalurgica,
+  taskPhotoUrlCountAsSitePhoto
+} from '../utils/sectoresFotosLugar'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
@@ -274,6 +280,33 @@ const TaskEditModal = ({
     return matchesOperarioAsignado(usuario, formData.ownerId ?? task.ownerId)
   }, [usuario, formData.ownerId, task])
 
+  const requiereFotosLugarEdit = useMemo(() => {
+    if (!task) return false
+    const list =
+      selectedSectors.length > 0
+        ? selectedSectors
+        : task.sectores && task.sectores.length > 0
+          ? task.sectores
+          : task.assignedSector
+            ? [task.assignedSector]
+            : []
+    return (
+      opSectoresRequierenFotosLugar(list) ||
+      taskEstaEnColumnaInstalacionOMetalurgica({
+        status: task.status,
+        assignedSector: task.assignedSector
+      })
+    )
+  }, [task, selectedSectors])
+
+  const tieneFotosLugarListasEdit = useMemo(() => {
+    if (!task) return true
+    const cover = (formData.photoUrl ?? task.photoUrl) || ''
+    return taskPhotoUrlCountAsSitePhoto(cover) || attachmentListHasReadySitePhoto(attachments)
+  }, [task, formData.photoUrl, attachments])
+
+  const saveBlockedPorFotosLugar = requiereFotosLugarEdit && !tieneFotosLugarListasEdit
+
   if (!task) return null
 
   const opLocked = Boolean(formData.opBloqueada ?? task.opBloqueada) && !isAdmin
@@ -374,6 +407,13 @@ const TaskEditModal = ({
     if (opLocked) {
       alert(
         'Esta OP está trabada. Destabála para guardar cambios (solo el operario asignado o administración/gerencia).'
+      )
+      return
+    }
+
+    if (saveBlockedPorFotosLugar) {
+      alert(
+        'Instalaciones / Metalúrgica: falta la FOTO REAL DEL LUGAR (sitio físico). Subí al menos una imagen en adjuntos o como portada si muestra el lugar; un PDF o render no reemplaza eso.'
       )
       return
     }
@@ -1065,6 +1105,40 @@ const TaskEditModal = ({
                 queda en la ficha visible.
               </small>
             </div>
+            {requiereFotosLugarEdit && (
+              <div
+                className="fotos-lugar-requerido-box"
+                role="region"
+                aria-label="Requisito: foto real del lugar de instalación o montaje"
+                style={{ marginTop: '10px' }}
+              >
+                <p className="fotos-lugar-eyebrow">Instalaciones · Metalúrgica — obligatorio</p>
+                <h3 className="fotos-lugar-title">Foto real del lugar (sitio físico)</h3>
+                <p className="fotos-lugar-sub">
+                  No es un adjunto genérico: tiene que verse el <strong>espacio real</strong> donde se instala o monta (calle,
+                  fachada, interior, taller del cliente, acceso, etc.).
+                </p>
+                <div className="fotos-lugar-lista-no">
+                  <strong>Esto no cuenta como foto del lugar:</strong> solo PDF, render 3D, mockup en pantalla, flyer, logo
+                  suelto o captura sin el sitio físico.
+                </div>
+                <ul className="fotos-lugar-lista-si">
+                  <li>
+                    Subí <strong>al menos una imagen</strong> en <strong>Archivos adjuntos</strong> más abajo, o usá la{' '}
+                    <strong>portada</strong> (arriba) si ya es foto del sitio.
+                  </li>
+                  <li>
+                    Para mover la ficha a esas columnas desde el tablero también se valida que exista esta evidencia (adjunto
+                    imagen o portada con foto del lugar).
+                  </li>
+                </ul>
+                {!tieneFotosLugarListasEdit && (
+                  <p className="fotos-lugar-falta" role="status">
+                    Pendiente: falta una imagen lista del lugar — portada o adjuntos.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -1987,7 +2061,11 @@ const TaskEditModal = ({
           </div>
 
           <div className="form-group">
-            <label>Archivos Adjuntos</label>
+            <label>
+              {requiereFotosLugarEdit
+                ? 'Archivos adjuntos — acá va la foto REAL del lugar (obligatoria) y, si querés, PDF u otras imágenes de apoyo'
+                : 'Archivos Adjuntos'}
+            </label>
             {attachments.length > 0 && (
               <div className="attached-files">
                 {attachments.map((file) => {
@@ -2072,9 +2150,11 @@ const TaskEditModal = ({
               <span className="upload-hint">
                 {hasPendingUploads
                   ? 'Subiendo archivo...'
-                  : attachments.length === 0
-                    ? 'Ningún archivo seleccionado'
-                    : `${attachments.length} archivo(s) listo(s)`}
+                  : requiereFotosLugarEdit && !tieneFotosLugarListasEdit
+                    ? 'Elegí una imagen del lugar real y esperá a que termine de subir (no alcanza solo PDF).'
+                    : attachments.length === 0
+                      ? 'Ningún archivo seleccionado'
+                      : `${attachments.length} archivo(s) listo(s)`}
               </span>
             </div>
           </div>
@@ -2099,7 +2179,12 @@ const TaskEditModal = ({
             type="button"
             className="btn-save"
             onClick={handleSave}
-            disabled={opLocked || hasPendingUploads}
+            disabled={opLocked || hasPendingUploads || saveBlockedPorFotosLugar}
+            title={
+              saveBlockedPorFotosLugar
+                ? 'Falta la foto real del lugar físico (Instalaciones / Metalúrgica)'
+                : undefined
+            }
           >
             Guardar Cambios
           </button>

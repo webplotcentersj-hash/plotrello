@@ -32,6 +32,11 @@ import {
   getSectorEtapaKanbanBySectorName,
   sectorNameSupportsEtapaKanban
 } from '../data/sectorEtapaKanban'
+import {
+  archivosRowsHaveImage,
+  taskPhotoUrlCountAsSitePhoto,
+  taskStatusDestinoRequiereFotosLugar
+} from '../utils/sectoresFotosLugar'
 
 /** Igual que en fichas: quitar email y normalizar para comparar operario asignado vs nombre de sesión */
 function normalizePersonNameKey(value: string | null | undefined): string {
@@ -370,6 +375,33 @@ const BoardPage = ({
       return
     }
 
+    const ordenId = parseTaskIdToOrdenId(taskId)
+
+    if (taskStatusDestinoRequiereFotosLugar(destination)) {
+      if (!ordenId) {
+        setActionError('No se pudo validar la orden para mover a Instalaciones o Metalúrgica (foto real del lugar).')
+        return
+      }
+      try {
+        const archResp = await apiService.getArchivosOrden(ordenId)
+        const rows =
+          archResp.success && archResp.data
+            ? (archResp.data as Array<{ titulo?: string; url?: string }>)
+            : []
+        const tieneFoto =
+          taskPhotoUrlCountAsSitePhoto(taskBeforeMove.photoUrl) || archivosRowsHaveImage(rows)
+        if (!tieneFoto) {
+          setActionError(
+            'Instalaciones / Metalúrgica: hace falta una FOTO REAL DEL LUGAR (sitio físico), no solo PDF u otro archivo. Abrí la ficha con ✏️ y subí una imagen en adjuntos o en la portada.'
+          )
+          return
+        }
+      } catch {
+        setActionError('No se pudieron verificar los adjuntos. Intentá de nuevo.')
+        return
+      }
+    }
+
     const movedAt = Date.now()
     try {
       localStorage.setItem(`taskcard:new-move:${taskId}`, String(movedAt))
@@ -408,7 +440,6 @@ const BoardPage = ({
       ])
     })
 
-    const ordenId = parseTaskIdToOrdenId(taskId)
     if (ordenId) {
       const nuevoEstado = mapStatusToEstado(destination)
 

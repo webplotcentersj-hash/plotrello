@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { filterOperariosBySector } from '../utils/dataMappers'
 import apiService from '../services/api'
 import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
+import { attachmentListHasReadySitePhoto, opSectoresRequierenFotosLugar } from '../utils/sectoresFotosLugar'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -363,6 +364,15 @@ const TaskCreateModal = ({
 
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
 
+  const requiereFotosLugar = useMemo(() => opSectoresRequierenFotosLugar(selectedSectores), [selectedSectores])
+
+  const tieneFotosLugarListas = useMemo(
+    () => attachmentListHasReadySitePhoto(attachments),
+    [attachments]
+  )
+
+  const createBlockedPorFotos = requiereFotosLugar && !tieneFotosLugarListas
+
   const handleImproveDescriptionPlotAI = async () => {
     const hasAny =
       descripcion.trim() ||
@@ -464,6 +474,13 @@ const TaskCreateModal = ({
         alert('Para Taller Gráfico es obligatorio cargar los metros cuadrados (m²).')
         return
       }
+    }
+
+    if (requiereFotosLugar && !tieneFotosLugarListas) {
+      alert(
+        'Instalaciones / Metalúrgica: falta la FOTO REAL DEL LUGAR (el sitio físico donde se instala o monta). Subí al menos una imagen sacada ahí; un PDF o render no reemplaza eso.'
+      )
+      return
     }
 
     console.log('🏷️ [TaskCreateModal] Tags antes de crear orden:', tags)
@@ -1445,6 +1462,41 @@ const TaskCreateModal = ({
             </div>
           )}
 
+          {requiereFotosLugar && (
+            <div className="form-group">
+              <div
+                className="fotos-lugar-requerido-box"
+                role="region"
+                aria-label="Requisito: foto real del lugar de instalación o montaje"
+              >
+                <p className="fotos-lugar-eyebrow">Instalaciones · Metalúrgica — obligatorio</p>
+                <h3 className="fotos-lugar-title">Foto real del lugar (sitio físico)</h3>
+                <p className="fotos-lugar-sub">
+                  No es &quot;cualquier archivo&quot;: tiene que mostrar el <strong>lugar real</strong> donde se trabaja — calle y
+                  fachada, interior, pared o vidriera donde va el rótulo, acceso, obra, taller del cliente, etc.
+                </p>
+                <div className="fotos-lugar-lista-no">
+                  <strong>Esto no cuenta como foto del lugar:</strong> solo PDF, render 3D, mockup en pantalla, flyer, logo
+                  suelto o captura sin ver el espacio físico.
+                </div>
+                <ul className="fotos-lugar-lista-si">
+                  <li>
+                    Subí <strong>al menos una imagen</strong> sacada en el sitio (podés sumar más tomas).
+                  </li>
+                  <li>
+                    Subila en <strong>Archivos de la orden</strong> (más abajo); cuando termine de subir, se habilita crear.
+                  </li>
+                  <li>Si más adelante la ficha entra a esas columnas por el tablero, también se exige tener esta evidencia.</li>
+                </ul>
+                {!tieneFotosLugarListas && (
+                  <p className="fotos-lugar-falta" role="status">
+                    Pendiente: subí y esperá que termine de subir al menos una foto real del lugar.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="form-group">
             <label>Etiquetas (colores automáticos)</label>
             <div className="tag-input-row">
@@ -1767,7 +1819,11 @@ const TaskCreateModal = ({
           </div>
 
           <div className="form-group">
-            <label>Archivos (imágenes o PDF)</label>
+            <label>
+              {requiereFotosLugar
+                ? 'Archivos de la orden — acá va la foto REAL del lugar (obligatoria) y, si querés, PDFs u otras imágenes de apoyo'
+                : 'Archivos (imágenes o PDF)'}
+            </label>
             {attachments.length > 0 && (
               <div className="attached-files">
                 {attachments.map((file) => {
@@ -1852,9 +1908,11 @@ const TaskCreateModal = ({
               <span className="upload-hint">
                 {hasPendingUploads
                   ? 'Subiendo archivo...'
-                  : attachments.length === 0
-                    ? 'Ningún archivo seleccionado'
-                    : `${attachments.length} archivo(s) listo(s)`}
+                  : requiereFotosLugar && !tieneFotosLugarListas
+                    ? 'Elegí una imagen del lugar real y esperá a que termine de subir (no alcanza solo PDF).'
+                    : attachments.length === 0
+                      ? 'Ningún archivo seleccionado'
+                      : `${attachments.length} archivo(s) listo(s)`}
               </span>
             </div>
           </div>
@@ -1869,7 +1927,12 @@ const TaskCreateModal = ({
               type="button"
               className="btn-secondary"
               onClick={() => void handleCreate(true)}
-              disabled={hasPendingUploads}
+              disabled={hasPendingUploads || createBlockedPorFotos}
+              title={
+                createBlockedPorFotos
+                  ? 'Falta la foto real del lugar físico (Instalaciones / Metalúrgica)'
+                  : undefined
+              }
             >
               Crear y abrir checklist
             </button>
@@ -1877,7 +1940,12 @@ const TaskCreateModal = ({
               type="button"
               className="btn-create"
               onClick={() => void handleCreate(false)}
-              disabled={hasPendingUploads}
+              disabled={hasPendingUploads || createBlockedPorFotos}
+              title={
+                createBlockedPorFotos
+                  ? 'Falta la foto real del lugar físico (Instalaciones / Metalúrgica)'
+                  : undefined
+              }
             >
               Agregar Orden
             </button>
