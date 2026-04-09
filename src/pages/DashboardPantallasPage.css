@@ -6,7 +6,85 @@
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   overflow-x: auto;
+  overflow-y: auto;
   position: relative;
+}
+
+/* Contenido escalado (zoom); la barra de zoom queda fuera y en tamaño fijo */
+.dashboard-pantallas-scale-root {
+  will-change: transform;
+}
+
+.dashboard-pantallas-zoom-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid rgba(235, 103, 27, 0.55);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-zoom-btn {
+  cursor: pointer;
+  border: 1px solid rgba(235, 103, 27, 0.5);
+  background: rgba(235, 103, 27, 0.25);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.dashboard-zoom-btn:hover:not(:disabled) {
+  background: rgba(235, 103, 27, 0.45);
+  border-color: #eb671b;
+}
+
+.dashboard-zoom-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dashboard-zoom-btn.dashboard-zoom-reset {
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: auto;
+  padding: 0 12px;
+}
+
+.dashboard-zoom-label {
+  min-width: 3.25rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+@media (max-width: 768px) {
+  .dashboard-pantallas-zoom-fab {
+    bottom: 16px;
+    right: 12px;
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .dashboard-zoom-btn {
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 1rem;
+  }
 }
 
 .dashboard-pantallas--fullscreen .dashboard-title {

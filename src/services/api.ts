@@ -2169,12 +2169,16 @@ class ApiService {
     duracionEstimadaMin?: number | null
   }): Promise<ApiResponse<TareaSubitem>> {
     if (supabase) {
+      const duracion =
+        typeof payload.duracionEstimadaMin === 'number' && Number.isFinite(payload.duracionEstimadaMin)
+          ? Math.max(0, Math.round(payload.duracionEstimadaMin))
+          : 15
       const { data, error } = await supabase
         .from('tarea_subitems')
         .insert({
           id_orden: payload.idOrden,
           titulo: payload.titulo,
-          duracion_estimada_min: payload.duracionEstimadaMin ?? null
+          duracion_estimada_min: duracion
         })
         .select()
         .single()

@@ -12,6 +12,24 @@ const NUEVA_OP_MAX_MS = 12 * 60 * 60 * 1000
 /** Refuerzo visual si entró por tiempo real hace poco */
 const NUEVA_EN_VIVO_MS = 6 * 60 * 1000
 
+const VIEW_SCALE_STORAGE_KEY = 'dashboard-pantallas-view-scale'
+const VIEW_SCALE_MIN = 0.5
+const VIEW_SCALE_MAX = 1.5
+const VIEW_SCALE_STEP = 0.1
+
+function readStoredViewScale(): number {
+  try {
+    const raw = localStorage.getItem(VIEW_SCALE_STORAGE_KEY)
+    if (raw == null) return 1
+    const n = parseFloat(raw)
+    if (!Number.isFinite(n)) return 1
+    const rounded = Math.round(n * 100) / 100
+    return Math.min(VIEW_SCALE_MAX, Math.max(VIEW_SCALE_MIN, rounded))
+  } catch {
+    return 1
+  }
+}
+
 function isOrdenNuevaPorFecha(createdAt: string): boolean {
   const t = new Date(createdAt).getTime()
   if (Number.isNaN(t)) return false
@@ -66,6 +84,7 @@ const DashboardPantallasPage = () => {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [now, setNow] = useState(() => new Date())
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [viewScale, setViewScale] = useState(readStoredViewScale)
   /** id de tarea → timestamp de llegada por INSERT realtime */
   const [llegadaEnVivo, setLlegadaEnVivo] = useState<Record<string, number>>({})
 
@@ -125,6 +144,21 @@ const DashboardPantallasPage = () => {
     } catch (err) {
       console.warn('Pantalla completa no disponible:', err)
     }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_SCALE_STORAGE_KEY, String(viewScale))
+    } catch {
+      /* ignore */
+    }
+  }, [viewScale])
+
+  const bumpViewScale = useCallback((delta: number) => {
+    setViewScale((prev) => {
+      const next = Math.round((prev + delta) * 100) / 100
+      return Math.min(VIEW_SCALE_MAX, Math.max(VIEW_SCALE_MIN, next))
+    })
   }, [])
 
   // Limpieza de marcas "recién llegó" (evita crecer el objeto sin límite)
@@ -288,8 +322,53 @@ const DashboardPantallasPage = () => {
     )
   }
 
+  const scaleRootStyle = {
+    width: `${(100 / viewScale).toFixed(4)}%`,
+    transform: `scale(${viewScale})`,
+    transformOrigin: 'top left' as const
+  }
+
   return (
     <div className={`dashboard-pantallas ${isFullscreen ? 'dashboard-pantallas--fullscreen' : ''}`}>
+      <div
+        className="dashboard-pantallas-zoom-fab"
+        role="group"
+        aria-label="Escala de la pantalla"
+      >
+        <button
+          type="button"
+          className="dashboard-zoom-btn"
+          onClick={() => bumpViewScale(-VIEW_SCALE_STEP)}
+          disabled={viewScale <= VIEW_SCALE_MIN}
+          title="Achicar contenido"
+          aria-label="Reducir escala"
+        >
+          −
+        </button>
+        <span className="dashboard-zoom-label" title="Escala actual">
+          {Math.round(viewScale * 100)}%
+        </span>
+        <button
+          type="button"
+          className="dashboard-zoom-btn"
+          onClick={() => bumpViewScale(VIEW_SCALE_STEP)}
+          disabled={viewScale >= VIEW_SCALE_MAX}
+          title="Agrandar contenido"
+          aria-label="Aumentar escala"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="dashboard-zoom-btn dashboard-zoom-reset"
+          onClick={() => setViewScale(1)}
+          title="Volver a 100%"
+        >
+          100%
+        </button>
+      </div>
+
+      <div className="dashboard-pantallas-scale-root" style={scaleRootStyle}>
       <header className="dashboard-header">
         <div className="header-content">
           <h1 className="dashboard-title">
@@ -481,6 +560,7 @@ const DashboardPantallasPage = () => {
           {now.toLocaleString('es-AR')}
         </p>
       </footer>
+      </div>
     </div>
   )
 }
