@@ -40,6 +40,24 @@
     env(safe-area-inset-left, 0);
 }
 
+/* TV sin API fullscreen: mismo uso de pantalla sin lanzar script error */
+.dashboard-pantallas.dashboard-pantallas--immersive-layout {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  z-index: 2147483645;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0)
+    env(safe-area-inset-left, 0);
+}
+
 /* Ocultar cualquier scrollbar dentro del dashboard (pan por JS / translate) */
 .dashboard-pantallas,
 .dashboard-pantallas * {

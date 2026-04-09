@@ -41,45 +41,76 @@ const JORNADA_INICIO_H = 8
 const JORNADA_FIN_H = 19
 
 function getFullscreenElement(): Element | null {
-  const d = document as Document & { webkitFullscreenElement?: Element | null }
-  return document.fullscreenElement ?? d.webkitFullscreenElement ?? null
+  try {
+    const d = document as Document & { webkitFullscreenElement?: Element | null }
+    return document.fullscreenElement ?? d.webkitFullscreenElement ?? null
+  } catch {
+    return null
+  }
 }
 
-async function requestElementFullscreen(el: HTMLElement): Promise<void> {
+/** Varios navegadores de TV no implementan matchMedia o lanzan al evaluar. */
+function safeMediaMatches(query: string, fallback = false): boolean {
+  try {
+    if (typeof window.matchMedia !== 'function') return fallback
+    const m = window.matchMedia(query)
+    return Boolean(m && m.matches)
+  } catch {
+    return fallback
+  }
+}
+
+function awaitMaybePromise(p: unknown): Promise<void> {
+  if (p != null && typeof (p as PromiseLike<void>).then === 'function') {
+    return Promise.resolve(p as Promise<void>)
+  }
+  return Promise.resolve()
+}
+
+/** true si entró en fullscreen nativo; false si no hay API o falló (sin lanzar). */
+async function requestElementFullscreen(el: HTMLElement): Promise<boolean> {
   const anyEl = el as HTMLElement & {
     webkitRequestFullscreen?: () => void
     msRequestFullscreen?: () => void
   }
-  if (typeof el.requestFullscreen === 'function') {
-    await el.requestFullscreen()
-    return
+  try {
+    if (typeof el.requestFullscreen === 'function') {
+      await awaitMaybePromise(el.requestFullscreen())
+      return true
+    }
+    if (typeof anyEl.webkitRequestFullscreen === 'function') {
+      anyEl.webkitRequestFullscreen()
+      return true
+    }
+    if (typeof anyEl.msRequestFullscreen === 'function') {
+      anyEl.msRequestFullscreen()
+      return true
+    }
+  } catch {
+    return false
   }
-  if (typeof anyEl.webkitRequestFullscreen === 'function') {
-    anyEl.webkitRequestFullscreen()
-    return
-  }
-  if (typeof anyEl.msRequestFullscreen === 'function') {
-    anyEl.msRequestFullscreen()
-    return
-  }
-  throw new Error('Fullscreen no soportado')
+  return false
 }
 
-async function exitFullscreenDoc(): Promise<void> {
-  const d = document as Document & {
-    webkitExitFullscreen?: () => void
-    msExitFullscreen?: () => void
-  }
-  if (typeof document.exitFullscreen === 'function') {
-    await document.exitFullscreen()
-    return
-  }
-  if (typeof d.webkitExitFullscreen === 'function') {
-    d.webkitExitFullscreen()
-    return
-  }
-  if (typeof d.msExitFullscreen === 'function') {
-    d.msExitFullscreen()
+async function exitDocumentFullscreen(): Promise<void> {
+  try {
+    const d = document as Document & {
+      webkitExitFullscreen?: () => void
+      msExitFullscreen?: () => void
+    }
+    if (typeof document.exitFullscreen === 'function') {
+      await awaitMaybePromise(document.exitFullscreen())
+      return
+    }
+    if (typeof d.webkitExitFullscreen === 'function') {
+      d.webkitExitFullscreen()
+      return
+    }
+    if (typeof d.msExitFullscreen === 'function') {
+      d.msExitFullscreen()
+    }
+  } catch {
+    /* TV / WebViews a veces lanzan aunque no haya fullscreen */
   }
 }
 
@@ -127,6 +158,8 @@ const DashboardPantallasPage = () => {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [now, setNow] = useState(() => new Date())
   const [isFullscreen, setIsFullscreen] = useState(false)
+  /** Si el API fullscreen no existe en la TV, mismo efecto visual con position:fixed */
+  const [immersiveLayout, setImmersiveLayout] = useState(false)
   const [viewScale, setViewScale] = useState(readStoredViewScale)
   /** id de tarea → timestamp de llegada por INSERT realtime */
   const [llegadaEnVivo, setLlegadaEnVivo] = useState<Record<string, number>>({})
@@ -143,6 +176,7 @@ const DashboardPantallasPage = () => {
   const lastRafAtRef = useRef(0)
   /** Contenedor de pantalla completa (no usar documentElement: rompe altura flex/#app) */
   const shellRef = useRef<HTMLDivElement | null>(null)
+  const prevNativeFsRef = useRef(false)
 
   const setColumnPanSlot = useCallback((index: number) => {
     if (!columnPanElsRef.current[index]) {
@@ -186,7 +220,18 @@ const DashboardPantallasPage = () => {
   // Pantalla completa sobre el propio dashboard (evita html/body sin altura definida)
   useEffect(() => {
     const syncFs = () => {
-      setIsFullscreen(getFullscreenElement() === shellRef.current)
+      try {
+        const el = shellRef.current
+        const fs = getFullscreenElement()
+        const native = Boolean(el && fs === el)
+        if (prevNativeFsRef.current && !native) {
+          setImmersiveLayout(false)
+        }
+        prevNativeFsRef.current = native
+        setIsFullscreen(native)
+      } catch {
+        /* ignore */
+      }
     }
     document.addEventListener('fullscreenchange', syncFs)
     document.addEventListener('webkitfullscreenchange', syncFs)
@@ -196,19 +241,27 @@ const DashboardPantallasPage = () => {
     }
   }, [])
 
+  const pantallaGrandeActiva = isFullscreen || immersiveLayout
+
   const toggleFullscreen = useCallback(async () => {
     const el = shellRef.current
     if (!el) return
     try {
-      if (!getFullscreenElement()) {
-        await requestElementFullscreen(el)
-      } else {
-        await exitFullscreenDoc()
+      if (getFullscreenElement()) {
+        await exitDocumentFullscreen()
+        setImmersiveLayout(false)
+        return
       }
-    } catch (err) {
-      console.warn('Pantalla completa no disponible:', err)
+      if (immersiveLayout) {
+        setImmersiveLayout(false)
+        return
+      }
+      const ok = await requestElementFullscreen(el)
+      if (!ok) setImmersiveLayout(true)
+    } catch {
+      setImmersiveLayout((v) => !v)
     }
-  }, [])
+  }, [immersiveLayout])
 
   useEffect(() => {
     try {
@@ -248,8 +301,8 @@ const DashboardPantallasPage = () => {
   useEffect(() => {
     if (loading) return
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const likelyTvOrKiosk = window.matchMedia('(hover: none)').matches
+    const reducedMotion = safeMediaMatches('(prefers-reduced-motion: reduce)', false)
+    const likelyTvOrKiosk = safeMediaMatches('(hover: none)', true)
     const hBase = likelyTvOrKiosk ? 0.22 : 0.14
     const vBase = likelyTvOrKiosk ? 0.55 : 0.38
     const hSpeed = reducedMotion ? hBase * 0.35 : hBase
@@ -259,52 +312,74 @@ const DashboardPantallasPage = () => {
     hDirRef.current = 1
     vPanRefs.current = []
 
+    const scheduleFrame =
+      typeof requestAnimationFrame === 'function'
+        ? (cb: FrameRequestCallback) => requestAnimationFrame(cb)
+        : (cb: FrameRequestCallback) =>
+            window.setTimeout(() => {
+              try {
+                const t = typeof performance !== 'undefined' ? performance.now() : Date.now()
+                cb(t)
+              } catch {
+                /* ignore */
+              }
+            }, 32) as unknown as number
+
+    const cancelFrame =
+      typeof cancelAnimationFrame === 'function'
+        ? (id: number) => cancelAnimationFrame(id)
+        : (id: number) => window.clearTimeout(id as unknown as number)
+
     const advancePan = () => {
-      const vp = boardViewportRef.current
-      const track = columnsTrackRef.current
-      if (vp && track) {
-        const vw = vp.clientWidth
-        const tw = track.offsetWidth
-        const maxH = Math.max(0, tw - vw)
-        if (maxH > 2) {
-          hPanRef.current += hSpeed * hDirRef.current
-          if (hPanRef.current >= maxH - 0.5) {
-            hPanRef.current = maxH
-            hDirRef.current = -1
-          } else if (hPanRef.current <= 0.5) {
+      try {
+        const vp = boardViewportRef.current
+        const track = columnsTrackRef.current
+        if (vp && track) {
+          const vw = vp.clientWidth
+          const tw = track.offsetWidth
+          const maxH = Math.max(0, tw - vw)
+          if (maxH > 2) {
+            hPanRef.current += hSpeed * hDirRef.current
+            if (hPanRef.current >= maxH - 0.5) {
+              hPanRef.current = maxH
+              hDirRef.current = -1
+            } else if (hPanRef.current <= 0.5) {
+              hPanRef.current = 0
+              hDirRef.current = 1
+            }
+            track.style.transform = `translate3d(${-hPanRef.current}px,0,0)`
+          } else {
             hPanRef.current = 0
-            hDirRef.current = 1
+            track.style.transform = ''
           }
-          track.style.transform = `translate3d(${-hPanRef.current}px,0,0)`
-        } else {
-          hPanRef.current = 0
+        } else if (track) {
           track.style.transform = ''
         }
-      } else if (track) {
-        track.style.transform = ''
-      }
 
-      const nCols = BOARD_COLUMNS.length
-      while (vPanRefs.current.length < nCols) vPanRefs.current.push(0)
+        const nCols = BOARD_COLUMNS.length
+        while (vPanRefs.current.length < nCols) vPanRefs.current.push(0)
 
-      for (let i = 0; i < nCols; i++) {
-        const slot = columnPanElsRef.current[i]
-        const colVp = slot?.v
-        const colTrack = slot?.t
-        if (!colVp || !colTrack) continue
-        const vh = colVp.clientHeight
-        const th = colTrack.offsetHeight
-        const maxV = Math.max(0, th - vh)
-        if (maxV > 2) {
-          let v = vPanRefs.current[i] ?? 0
-          v += vSpeed
-          if (v >= maxV - 0.5) v = 0
-          vPanRefs.current[i] = v
-          colTrack.style.transform = `translate3d(0,${-v}px,0)`
-        } else {
-          vPanRefs.current[i] = 0
-          colTrack.style.transform = ''
+        for (let i = 0; i < nCols; i++) {
+          const slot = columnPanElsRef.current[i]
+          const colVp = slot?.v
+          const colTrack = slot?.t
+          if (!colVp || !colTrack) continue
+          const vh = colVp.clientHeight
+          const th = colTrack.offsetHeight
+          const maxV = Math.max(0, th - vh)
+          if (maxV > 2) {
+            let v = vPanRefs.current[i] ?? 0
+            v += vSpeed
+            if (v >= maxV - 0.5) v = 0
+            vPanRefs.current[i] = v
+            colTrack.style.transform = `translate3d(0,${-v}px,0)`
+          } else {
+            vPanRefs.current[i] = 0
+            colTrack.style.transform = ''
+          }
         }
+      } catch {
+        /* TV: lecturas DOM / style a veces fallan durante transiciones */
       }
     }
 
@@ -312,9 +387,9 @@ const DashboardPantallasPage = () => {
     const tick = () => {
       advancePan()
       lastRafAtRef.current = Date.now()
-      rafRef.id = requestAnimationFrame(tick)
+      rafRef.id = scheduleFrame(tick)
     }
-    rafRef.id = requestAnimationFrame(tick)
+    rafRef.id = scheduleFrame(tick)
 
     // Si el RAF no corre (varias TV / WebViews), el pan sigue por intervalo
     const stallMs = 450
@@ -324,7 +399,7 @@ const DashboardPantallasPage = () => {
     }, intervalMs)
 
     return () => {
-      cancelAnimationFrame(rafRef.id)
+      cancelFrame(rafRef.id)
       window.clearInterval(iv)
       columnsTrackRef.current && (columnsTrackRef.current.style.transform = '')
       columnPanElsRef.current.forEach((slot) => {
@@ -447,7 +522,13 @@ const DashboardPantallasPage = () => {
   return (
     <div
       ref={shellRef}
-      className={`dashboard-pantallas ${isFullscreen ? 'dashboard-pantallas--fullscreen' : ''}`}
+      className={[
+        'dashboard-pantallas',
+        pantallaGrandeActiva ? 'dashboard-pantallas--fullscreen' : '',
+        immersiveLayout ? 'dashboard-pantallas--immersive-layout' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <div
         className="dashboard-pantallas-zoom-fab"
@@ -518,9 +599,11 @@ const DashboardPantallasPage = () => {
               type="button"
               className="btn-pantalla-completa"
               onClick={() => void toggleFullscreen()}
-              title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}
+              title={
+                pantallaGrandeActiva ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'
+              }
             >
-              {isFullscreen ? '✕ Salir' : '⛶ Pantalla grande'}
+              {pantallaGrandeActiva ? '✕ Salir' : '⛶ Pantalla grande'}
             </button>
           </div>
           <div className="header-stats">
