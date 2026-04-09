@@ -40,6 +40,49 @@ function isOrdenNuevaPorFecha(createdAt: string): boolean {
 const JORNADA_INICIO_H = 8
 const JORNADA_FIN_H = 19
 
+function getFullscreenElement(): Element | null {
+  const d = document as Document & { webkitFullscreenElement?: Element | null }
+  return document.fullscreenElement ?? d.webkitFullscreenElement ?? null
+}
+
+async function requestElementFullscreen(el: HTMLElement): Promise<void> {
+  const anyEl = el as HTMLElement & {
+    webkitRequestFullscreen?: () => void
+    msRequestFullscreen?: () => void
+  }
+  if (typeof el.requestFullscreen === 'function') {
+    await el.requestFullscreen()
+    return
+  }
+  if (typeof anyEl.webkitRequestFullscreen === 'function') {
+    anyEl.webkitRequestFullscreen()
+    return
+  }
+  if (typeof anyEl.msRequestFullscreen === 'function') {
+    anyEl.msRequestFullscreen()
+    return
+  }
+  throw new Error('Fullscreen no soportado')
+}
+
+async function exitFullscreenDoc(): Promise<void> {
+  const d = document as Document & {
+    webkitExitFullscreen?: () => void
+    msExitFullscreen?: () => void
+  }
+  if (typeof document.exitFullscreen === 'function') {
+    await document.exitFullscreen()
+    return
+  }
+  if (typeof d.webkitExitFullscreen === 'function') {
+    d.webkitExitFullscreen()
+    return
+  }
+  if (typeof d.msExitFullscreen === 'function') {
+    d.msExitFullscreen()
+  }
+}
+
 function getJornadaLaboral(now: Date): {
   pct: number
   phase: 'antes' | 'durante' | 'despues'
@@ -98,6 +141,8 @@ const DashboardPantallasPage = () => {
   const vPanRefs = useRef<number[]>([])
   /** Solo lo actualiza el loop RAF; si deja de avanzar, el setInterval hace el pan (TV / WebViews) */
   const lastRafAtRef = useRef(0)
+  /** Contenedor de pantalla completa (no usar documentElement: rompe altura flex/#app) */
+  const shellRef = useRef<HTMLDivElement | null>(null)
 
   const setColumnPanSlot = useCallback((index: number) => {
     if (!columnPanElsRef.current[index]) {
@@ -138,19 +183,27 @@ const DashboardPantallasPage = () => {
     return () => window.clearInterval(id)
   }, [])
 
-  // Pantalla completa
+  // Pantalla completa sobre el propio dashboard (evita html/body sin altura definida)
   useEffect(() => {
-    const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement))
-    document.addEventListener('fullscreenchange', onFs)
-    return () => document.removeEventListener('fullscreenchange', onFs)
+    const syncFs = () => {
+      setIsFullscreen(getFullscreenElement() === shellRef.current)
+    }
+    document.addEventListener('fullscreenchange', syncFs)
+    document.addEventListener('webkitfullscreenchange', syncFs)
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFs)
+      document.removeEventListener('webkitfullscreenchange', syncFs)
+    }
   }, [])
 
   const toggleFullscreen = useCallback(async () => {
+    const el = shellRef.current
+    if (!el) return
     try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen()
+      if (!getFullscreenElement()) {
+        await requestElementFullscreen(el)
       } else {
-        await document.exitFullscreen()
+        await exitFullscreenDoc()
       }
     } catch (err) {
       console.warn('Pantalla completa no disponible:', err)
@@ -392,7 +445,10 @@ const DashboardPantallasPage = () => {
   }
 
   return (
-    <div className={`dashboard-pantallas ${isFullscreen ? 'dashboard-pantallas--fullscreen' : ''}`}>
+    <div
+      ref={shellRef}
+      className={`dashboard-pantallas ${isFullscreen ? 'dashboard-pantallas--fullscreen' : ''}`}
+    >
       <div
         className="dashboard-pantallas-zoom-fab"
         role="group"

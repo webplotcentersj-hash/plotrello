@@ -19,6 +19,27 @@
   text-rendering: optimizeLegibility;
 }
 
+/* Pantalla completa sobre este nodo: ocupar el viewport real (requestFullscreen en <html> dejaba el flex en 0) */
+.dashboard-pantallas:fullscreen {
+  width: 100%;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0)
+    env(safe-area-inset-left, 0);
+}
+
+.dashboard-pantallas:-webkit-full-screen {
+  width: 100%;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0)
+    env(safe-area-inset-left, 0);
+}
+
 /* Ocultar cualquier scrollbar dentro del dashboard (pan por JS / translate) */
 .dashboard-pantallas,
 .dashboard-pantallas * {
