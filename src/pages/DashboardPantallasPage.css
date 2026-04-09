@@ -11,7 +11,8 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: auto;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -26,6 +27,7 @@
   height: 100dvh;
   max-height: 100dvh;
   box-sizing: border-box;
+  overflow: hidden;
   padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0)
     env(safe-area-inset-left, 0);
 }
@@ -36,6 +38,7 @@
   height: 100dvh;
   max-height: 100dvh;
   box-sizing: border-box;
+  overflow: hidden;
   padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0)
     env(safe-area-inset-left, 0);
 }
@@ -58,7 +61,7 @@
     env(safe-area-inset-left, 0);
 }
 
-/* Ocultar cualquier scrollbar dentro del dashboard (pan por JS / translate) */
+/* Scrollbars ocultos; el tablero se mueve solo por translate (pan); en ventana normal el shell permite overflow si hace falta */
 .dashboard-pantallas,
 .dashboard-pantallas * {
   scrollbar-width: none;
@@ -80,6 +83,7 @@
   flex: 1;
   min-height: 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .dashboard-pantallas-zoom-fab {
@@ -453,7 +457,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Tablero: clip + pan horizontal vía translate (scroll nativo falla bajo transform: scale en TV/WebKit) */
+/* Tablero: clip + pan horizontal vía translate (igual en ventana o fullscreen) */
 .dashboard-content {
   padding: 10px 14px 8px;
   max-width: 100%;

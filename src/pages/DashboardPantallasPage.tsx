@@ -99,7 +99,7 @@ function getFullscreenElement(): Element | null {
   }
 }
 
-/** Varios navegadores de TV no implementan matchMedia o lanzan al evaluar. */
+/** TVs: matchMedia puede faltar o lanzar. */
 function safeMediaMatches(query: string, fallback = false): boolean {
   try {
     if (typeof window.matchMedia !== 'function') return fallback
@@ -209,19 +209,18 @@ function DashboardPantallasPageInner() {
   /** id de tarea → timestamp de llegada por INSERT realtime */
   const [llegadaEnVivo, setLlegadaEnVivo] = useState<Record<string, number>>({})
 
-  /** Contenedor que recorta el tablero (sin scroll nativo: en TV/WebKit falla bajo `transform: scale`) */
+  /** Contenedor de pantalla completa (no usar documentElement: rompe altura flex/#app) */
+  const shellRef = useRef<HTMLDivElement | null>(null)
+  const prevNativeFsRef = useRef(false)
+
+  /** Auto-pan: viewport del tablero + tracks (mismo comportamiento en ventana o pantalla completa) */
   const boardViewportRef = useRef<HTMLDivElement | null>(null)
   const columnsTrackRef = useRef<HTMLDivElement | null>(null)
-  /** Par viewport (clip) + track (cards) por columna */
   const columnPanElsRef = useRef<{ v: HTMLDivElement | null; t: HTMLDivElement | null }[]>([])
   const hPanRef = useRef(0)
   const hDirRef = useRef(1)
   const vPanRefs = useRef<number[]>([])
-  /** Solo lo actualiza el loop RAF; si deja de avanzar, el setInterval hace el pan (TV / WebViews) */
   const lastRafAtRef = useRef(0)
-  /** Contenedor de pantalla completa (no usar documentElement: rompe altura flex/#app) */
-  const shellRef = useRef<HTMLDivElement | null>(null)
-  const prevNativeFsRef = useRef(false)
 
   const setColumnPanSlot = useCallback((index: number) => {
     if (!columnPanElsRef.current[index]) {
@@ -349,7 +348,7 @@ function DashboardPantallasPageInner() {
     return () => window.clearInterval(id)
   }, [])
 
-  // Auto-pan con translate (compatible con TV / WebKit bajo transform: scale en un ancestro)
+  // Auto-pan con translate (horizontal vaivén + vertical por columna); no depende de pantalla completa
   useEffect(() => {
     if (loading) return
 
@@ -431,7 +430,7 @@ function DashboardPantallasPageInner() {
           }
         }
       } catch {
-        /* TV: lecturas DOM / style a veces fallan durante transiciones */
+        /* TV */
       }
     }
 
@@ -443,7 +442,6 @@ function DashboardPantallasPageInner() {
     }
     rafRef.id = scheduleFrame(tick)
 
-    // Si el RAF no corre (varias TV / WebViews), el pan sigue por intervalo
     const stallMs = 450
     const intervalMs = 80
     const iv = window.setInterval(() => {
@@ -453,7 +451,7 @@ function DashboardPantallasPageInner() {
     return () => {
       cancelFrame(rafRef.id)
       window.clearInterval(iv)
-      columnsTrackRef.current && (columnsTrackRef.current.style.transform = '')
+      if (columnsTrackRef.current) columnsTrackRef.current.style.transform = ''
       columnPanElsRef.current.forEach((slot) => {
         if (slot?.t) slot.t.style.transform = ''
       })
@@ -811,7 +809,7 @@ function DashboardPantallasPageInner() {
 
       <footer className="dashboard-footer">
         <p>
-          Actualización automática en tiempo real • Desplazamiento automático del tablero •{' '}
+          Actualización en tiempo real • Desplazamiento automático del tablero (en ventana o pantalla completa) •{' '}
           {safeLocaleDateTimeEsAR(now)}
         </p>
       </footer>
