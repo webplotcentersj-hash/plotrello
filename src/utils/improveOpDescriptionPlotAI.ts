@@ -3,6 +3,10 @@ import { generateContent } from '../services/plotAIService'
 const EXTRA_PREFIX = `Sos un redactor técnico para una empresa de producción gráfica (diseño, impresión, taller, instalaciones).
 Vas a recibir la descripción actual de una orden de producción (OP) y, si existe, contexto (cliente, número OP, sectores, fragmento de brief).
 
+FECHA DE REFERENCIA:
+- Considerá que HOY es 9 de abril de 2026 (09/04/2026).
+- Si mencionás fechas o plazos relativos, que sea coherente con esa fecha.
+
 Devolvé ÚNICAMENTE el texto mejorado de la descripción, en español (Argentina), claro para operarios y coordinación.
 
 Reglas:
