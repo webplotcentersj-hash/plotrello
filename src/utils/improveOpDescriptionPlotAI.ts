@@ -1,11 +1,11 @@
 import { generateContent } from '../services/plotAIService'
+import { formatPlotAITodayReferenceParagraph } from './plotAIPromptToday'
 
-const EXTRA_PREFIX = `Sos un redactor técnico para una empresa de producción gráfica (diseño, impresión, taller, instalaciones).
+function buildImproveDescriptionPrefix(): string {
+  return `${formatPlotAITodayReferenceParagraph()}
+
+Sos un redactor técnico para una empresa de producción gráfica (diseño, impresión, taller, instalaciones).
 Vas a recibir la descripción actual de una orden de producción (OP) y, si existe, contexto (cliente, número OP, sectores, fragmento de brief).
-
-FECHA DE REFERENCIA:
-- Considerá que HOY es 9 de abril de 2026 (09/04/2026).
-- Si mencionás fechas o plazos relativos, que sea coherente con esa fecha.
 
 Devolvé ÚNICAMENTE el texto mejorado de la descripción, en español (Argentina), claro para operarios y coordinación.
 
@@ -14,6 +14,7 @@ Reglas:
 - Mejorá redacción, orden y claridad; podés usar viñetas con guiones o párrafos cortos.
 - Si no hay descripción pero sí contexto, redactá un borrador profesional con lo disponible.
 - Sin saludos, sin título tipo "Descripción mejorada", sin comillas que envuelvan todo el texto.`
+}
 
 function sanitizeImprovedDescription(s: string): string {
   let t = s.trim()
@@ -51,7 +52,7 @@ export async function improveOpDescriptionWithPlotAI(input: ImproveOpDescription
 
   const raw = await generateContent({
     contents,
-    extraContextPrefix: EXTRA_PREFIX,
+    extraContextPrefix: buildImproveDescriptionPrefix(),
     useCompleteContext: false,
     useMemory: false,
     learnFromResponse: false,
