@@ -89,7 +89,7 @@
 
 .rrhh-stats-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -139,6 +139,137 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.rrhh-chart-subtitle {
+  margin: -12px 0 16px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.rrhh-estadisticas-context {
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.rrhh-estadisticas-context-title {
+  margin: 0 0 8px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.rrhh-estadisticas-context-text {
+  margin: 0 0 10px 0;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.rrhh-estadisticas-context-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.rrhh-estadisticas-warn {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.rrhh-estadisticas-user-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.rrhh-estadisticas-user-meta-sep {
+  opacity: 0.5;
+}
+
+.rrhh-estadisticas-tabla-section {
+  margin-bottom: 30px;
+  width: 100%;
+  min-width: 0;
+}
+
+.rrhh-estadisticas-tabla-title {
+  margin: 0 0 6px 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rrhh-estadisticas-tabla-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rrhh-estadisticas-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.rrhh-estadisticas-tabla th,
+.rrhh-estadisticas-tabla td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.rrhh-estadisticas-tabla th {
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+  color: var(--text-primary);
+  vertical-align: bottom;
+}
+
+.rrhh-estadisticas-tabla td {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rrhh-estadisticas-tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rrhh-th-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rrhh-th-btn:hover {
+  color: #3b82f6;
 }
 
 @media (max-width: 768px) {

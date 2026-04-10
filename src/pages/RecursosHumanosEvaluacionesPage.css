@@ -211,42 +211,47 @@
 }
 
 /*
- * Solo modal "Nueva Evaluación" (no afecta "Editar" ni otras pantallas):
- * títulos del modal, etiquetas, valores y placeholders en blanco.
+ * Solo modal "Nueva Evaluación" en /rrhh/evaluaciones (no Editar, ni otros módulos RRHH):
+ * encabezado, etiquetas de formulario y campos en blanco.
+ * Selector largo + !important en color para ganar a .form-group label global y a --text-primary.
  */
-.rrhh-evaluacion-modal--nueva {
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva {
   color-scheme: dark;
 }
 
-.rrhh-evaluacion-modal--nueva .rrhh-modal-header h2 {
-  color: #ffffff;
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-modal-header h2 {
+  color: #ffffff !important;
 }
 
-.rrhh-evaluacion-modal--nueva .rrhh-modal-close {
-  color: rgba(255, 255, 255, 0.85);
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-modal-close {
+  color: rgba(255, 255, 255, 0.85) !important;
 }
 
-.rrhh-evaluacion-modal--nueva .rrhh-modal-close:hover {
-  color: #ffffff;
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-modal-close:hover {
+  color: #ffffff !important;
 }
 
-.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group label {
-  color: #ffffff;
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form label {
+  color: #ffffff !important;
 }
 
-.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group input,
-.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group select,
-.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group textarea {
-  color: #ffffff;
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group label {
+  color: #ffffff !important;
 }
 
-.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group input::placeholder,
-.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group textarea::placeholder {
-  color: #ffffff;
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group input,
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group select,
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group textarea {
+  color: #ffffff !important;
+}
+
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group input::placeholder,
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group textarea::placeholder {
+  color: #ffffff !important;
   opacity: 0.9;
 }
 
-.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group select option {
+.rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group select option {
   background-color: #1e293b;
   color: #ffffff;
 }

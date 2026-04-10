@@ -161,11 +161,19 @@ function roomIdFromCanal(canal: string): number {
 class ApiService {
   // Helper para obtener usuario actual desde localStorage
   private getCurrentUser(): { id: number; nombre: string } {
-    const usuarioData = localStorage.getItem('usuario')
     const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-    const nombreUsuario = usuarioData
-      ? JSON.parse(usuarioData).nombre || 'Usuario'
-      : 'Usuario'
+    let nombreUsuario = 'Usuario'
+    try {
+      const raw = localStorage.getItem('usuario')
+      if (raw) {
+        const p = JSON.parse(raw) as { nombre?: unknown }
+        if (typeof p?.nombre === 'string' && p.nombre.trim()) {
+          nombreUsuario = p.nombre.trim()
+        }
+      }
+    } catch {
+      /* JSON corrupto o storage raro: no romper crear/mover ficha ni historial */
+    }
     // Nunca devolver 0 para evitar FK en historial_movimientos
     return { id: usuarioId || 1, nombre: nombreUsuario }
   }
@@ -262,6 +270,18 @@ class ApiService {
   }
 
   // Helper para registrar cambios en historial_movimientos (AUDITORÍA PROFESIONAL)
+  /** Objeto seguro para jsonb (evita fallos RPC por referencias circulares). */
+  private sanitizeHistorialDetalles(
+    cambiosDetallados?: Record<string, any>
+  ): Record<string, unknown> {
+    if (!cambiosDetallados || typeof cambiosDetallados !== 'object') return {}
+    try {
+      return JSON.parse(JSON.stringify(cambiosDetallados)) as Record<string, unknown>
+    } catch {
+      return { _note: 'cambios_detallados no serializables' }
+    }
+  }
+
   private async registrarCambioHistorial(
     idOrden: number,
     estadoAnterior: string | null,
@@ -273,6 +293,7 @@ class ApiService {
     if (!supabase) return
 
     const { id: usuarioId, nombre: nombreUsuario } = this.getCurrentUser()
+    const detalles = this.sanitizeHistorialDetalles(cambiosDetallados)
 
     // Intentar usar la función SQL que es más robusta
     try {
@@ -284,7 +305,7 @@ class ApiService {
         p_estado_nuevo: estadoNuevo,
         p_comentario: comentario || null,
         p_accion_tipo: accionTipo,
-        p_cambios_detallados: cambiosDetallados ? (cambiosDetallados as any) : {},
+        p_cambios_detallados: detalles as any,
         p_ip_address: null, // Se puede obtener desde el cliente si es necesario
         p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
       })
@@ -292,7 +313,7 @@ class ApiService {
       if (error) {
         // Si falla la función RPC, intentar insert directo como fallback
         console.warn('Error en registrar_cambio_manual, usando fallback:', error)
-        await supabase.from('historial_movimientos').insert({
+        const { error: insErr } = await supabase.from('historial_movimientos').insert({
           id_orden: idOrden,
           estado_anterior: estadoAnterior,
           estado_nuevo: estadoNuevo,
@@ -301,19 +322,22 @@ class ApiService {
           timestamp: new Date().toISOString(),
           comentario: comentario || null,
           accion_tipo: accionTipo,
-          cambios_detallados: cambiosDetallados ? (cambiosDetallados as any) : {},
+          cambios_detallados: detalles as any,
           metadata: {
             registrado_manual: true,
             timestamp_preciso: Date.now() / 1000,
             version_sistema: '2.0'
           }
         })
+        if (insErr) {
+          console.warn('historial_movimientos insert fallback:', insErr.message)
+        }
       }
     } catch (error) {
       // Fallback final: insert directo
       console.error('Error crítico registrando cambio en historial:', error)
       try {
-        await supabase.from('historial_movimientos').insert({
+        const { error: insErr2 } = await supabase.from('historial_movimientos').insert({
           id_orden: idOrden,
           estado_anterior: estadoAnterior,
           estado_nuevo: estadoNuevo,
@@ -323,6 +347,9 @@ class ApiService {
           comentario: comentario || null,
           accion_tipo: accionTipo
         })
+        if (insErr2) {
+          console.warn('historial_movimientos insert mínimo:', insErr2.message)
+        }
       } catch (fallbackError) {
         console.error('Error crítico en fallback de historial:', fallbackError)
         // En este punto, el trigger SQL debería capturar el cambio automáticamente
@@ -687,7 +714,7 @@ class ApiService {
             p_deadline_brief: orden.deadline_brief || null
           }
           
-          const maxRpcAttempts = usaCorrelativoFichaNoOP ? 3 : 1
+          const maxRpcAttempts = usaCorrelativoFichaNoOP ? 6 : 1
           let data: unknown = null
           let error: { message?: string; hint?: string; details?: string; code?: string; name?: string } | null =
             null
@@ -5900,8 +5927,16 @@ class ApiService {
       }
 
       const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-      const usuarioData = localStorage.getItem('usuario')
-      const nombreUsuario = usuarioData ? JSON.parse(usuarioData).nombre || 'Sistema' : 'Sistema'
+      let nombreUsuario = 'Sistema'
+      try {
+        const usuarioData = localStorage.getItem('usuario')
+        if (usuarioData) {
+          const p = JSON.parse(usuarioData) as { nombre?: unknown }
+          if (typeof p?.nombre === 'string' && p.nombre.trim()) nombreUsuario = p.nombre.trim()
+        }
+      } catch {
+        /* ignore */
+      }
 
       // Para cada material, buscar en stock y descontar
       for (const ordenMaterial of ordenMateriales) {
@@ -12385,8 +12420,16 @@ class ApiService {
 
       // Obtener información del usuario
       const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-      const usuarioData = localStorage.getItem('usuario')
-      const nombreUsuario = usuarioData ? JSON.parse(usuarioData).nombre || 'Sistema' : 'Sistema'
+      let nombreUsuario = 'Sistema'
+      try {
+        const usuarioData = localStorage.getItem('usuario')
+        if (usuarioData) {
+          const p = JSON.parse(usuarioData) as { nombre?: unknown }
+          if (typeof p?.nombre === 'string' && p.nombre.trim()) nombreUsuario = p.nombre.trim()
+        }
+      } catch {
+        /* ignore */
+      }
 
       // Registrar movimiento de stock
       await supabase.from('stock_movimientos').insert({

@@ -450,17 +450,17 @@ const BoardPage = ({
       )
 
       const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-      const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
-      if (!response.success) {
-        setActionError(response.error || 'No se pudo actualizar la orden en Supabase.')
-        setTasks((prev) =>
-          prev.map((task) => {
-            if (task.id !== taskId) return task
-            return taskSnapshot
-          })
-        )
-      } else {
-        if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
+      try {
+        const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
+        if (!response.success) {
+          setActionError(response.error || 'No se pudo actualizar la orden en Supabase.')
+          setTasks((prev) =>
+            prev.map((task) => {
+              if (task.id !== taskId) return task
+              return taskSnapshot
+            })
+          )
+        } else if ((response.data as any)?.fusionada && (response.data as any)?.fusionadaId) {
           const fusionadaId = String((response.data as any).fusionadaId)
           const conservadaId = String((response.data as any).id ?? '')
           // Defer hasta después del frame de soltar DnD (@hello-pangea) para evitar rebote visual al quitar un draggable.
@@ -512,7 +512,30 @@ const BoardPage = ({
             setActionSuccess('Orden actualizada en Supabase.')
           })
         }
+      } catch (err) {
+        console.error('moveOrden inesperado:', err)
+        setActionError(
+          err instanceof Error
+            ? `Error al mover la ficha: ${err.message}`
+            : 'Error inesperado al mover la ficha. Reintentá o recargá la página.'
+        )
+        setTasks((prev) =>
+          prev.map((task) => {
+            if (task.id !== taskId) return task
+            return taskSnapshot
+          })
+        )
       }
+    } else {
+      setActionError(
+        'No se pudo sincronizar el movimiento: ID de orden inválido. Recargá el tablero o abrí la ficha desde el listado.'
+      )
+      setTasks((prev) =>
+        prev.map((task) => {
+          if (task.id !== taskId) return task
+          return taskSnapshot
+        })
+      )
     }
   }, [setTasks, setActivity, setActionError, setActionSuccess, isAdmin])
 
