@@ -6441,6 +6441,137 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  /** Tótem: solicitud de impresión + venta CRM (pendiente); notifica imprenta, mostrador y caja */
+  async crearSolicitudImpresionTotem(data: {
+    cliente_nombre: string
+    cliente_dni: string
+    cliente_telefono: string
+    cantidad_hojas: number
+    tipo_impresion: string
+    origen_archivo: string
+    archivo_url: string
+    archivo_nombre: string
+    orden_id?: number | null
+    numero_op?: string | null
+    /** Importe a cobrar; si omitís o es 0, la BD usa mínimo simbólico (0,01) hasta que caja ajuste en CRM */
+    valor_total?: number | null
+    id_vendedor?: number
+    nombre_vendedor?: string
+  }): Promise<
+    ApiResponse<{
+      solicitud_id: number
+      venta_id: number
+      numero_venta: string
+      valor_total: number
+    }>
+  > {
+    if (supabase) {
+      try {
+        const { data: raw, error } = await supabase.rpc('crear_solicitud_impresion_totem', {
+          p_cliente_nombre: data.cliente_nombre,
+          p_cliente_dni: data.cliente_dni,
+          p_cliente_telefono: data.cliente_telefono,
+          p_cantidad_hojas: data.cantidad_hojas,
+          p_tipo_impresion: data.tipo_impresion,
+          p_origen_archivo: data.origen_archivo,
+          p_archivo_url: data.archivo_url,
+          p_archivo_nombre: data.archivo_nombre,
+          p_orden_id: data.orden_id ?? null,
+          p_numero_op: data.numero_op ?? null,
+          p_valor_total: data.valor_total ?? null,
+          p_id_vendedor: data.id_vendedor ?? 1,
+          p_nombre_vendedor: data.nombre_vendedor ?? 'Totem autoservicio'
+        })
+        if (error) return { success: false, error: error.message }
+
+        if (raw != null && typeof raw === 'object' && !Array.isArray(raw) && 'solicitud_id' in raw) {
+          const o = raw as Record<string, unknown>
+          return {
+            success: true,
+            data: {
+              solicitud_id: Number(o.solicitud_id),
+              venta_id: Number(o.venta_id),
+              numero_venta: String(o.numero_venta ?? ''),
+              valor_total: Number(o.valor_total)
+            }
+          }
+        }
+        if (typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(String(raw)))) {
+          const sid = Number(raw)
+          return {
+            success: true,
+            data: { solicitud_id: sid, venta_id: 0, numero_venta: '', valor_total: 0 }
+          }
+        }
+
+        return { success: false, error: 'Respuesta inesperada del servidor (actualizá el SQL del tótem + ventas)' }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async listarSolicitudesImpresionTotem(
+    usuarioId: number,
+    limite = 80
+  ): Promise<
+    ApiResponse<
+      Array<{
+        id: number
+        cliente_nombre: string
+        cliente_dni: string
+        cliente_telefono: string
+        cantidad_hojas: number
+        tipo_impresion: string
+        origen_archivo: string
+        archivo_url: string
+        archivo_nombre: string
+        numero_op: string | null
+        estado_pago: string
+        created_at: string
+        pagado_at: string | null
+        id_venta?: number | null
+        numero_venta_crm?: string | null
+        valor_venta?: number | null
+        estado_pago_venta?: string | null
+      }>
+    >
+  > {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_solicitudes_impresion_totem', {
+          p_usuario_id: usuarioId,
+          p_limite: limite
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []) as any[] }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async marcarPagoSolicitudImpresionTotem(
+    solicitudId: number,
+    usuarioId: number
+  ): Promise<ApiResponse<boolean>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('marcar_pago_solicitud_impresion_totem', {
+          p_solicitud_id: solicitudId,
+          p_usuario_id: usuarioId
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: Boolean(data) }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async obtenerAtencionesMostrador(fechaInicio?: string, fechaFin?: string): Promise<ApiResponse<Array<{
     id: number
     cliente_id: number | null

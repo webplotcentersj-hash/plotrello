@@ -463,6 +463,304 @@
   font-size: 1rem;
 }
 
+.totem-welcome-button--secondary {
+  margin-top: 14px;
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.45);
+}
+
+.totem-welcome-button--secondary:hover {
+  filter: brightness(1.08);
+}
+
+.totem-welcome-hint--tight {
+  margin-top: 6px;
+}
+
+.totem-print-section {
+  margin-top: 28px;
+  padding: 22px 20px;
+  border-radius: 16px;
+  border: 2px dashed rgba(235, 103, 27, 0.45);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.totem-print-title {
+  margin: 0 0 10px 0;
+  font-size: 1.25rem;
+  color: #f9fafb;
+}
+
+.totem-print-desc {
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+.totem-print-sectors {
+  margin-bottom: 16px;
+}
+
+.totem-print-sectors-label {
+  display: block;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.totem-print-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.totem-print-chip {
+  font-size: 0.95rem;
+}
+
+.totem-print-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.totem-print-input {
+  flex: 1;
+  min-width: 200px;
+  font-size: 1rem;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.35);
+  color: #e2e8f0;
+}
+
+.totem-print-submit {
+  flex-shrink: 0;
+  min-height: 52px;
+}
+
+.totem-print-filename {
+  margin: 12px 0 0 0;
+  font-size: 0.95rem;
+  color: #94a3b8;
+}
+
+.totem-print-feedback {
+  margin-top: 14px;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.totem-print-section--cta {
+  text-align: center;
+}
+
+.totem-print-section--cta .totem-cta-button {
+  margin-top: 8px;
+}
+
+.totem-impresion-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: totem-modal-fadeIn 0.2s ease-out;
+}
+
+.totem-impresion-modal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(92vh, 900px);
+  overflow-y: auto;
+  background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.totem-impresion-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.totem-impresion-modal-close:hover {
+  background: rgba(239, 68, 68, 0.35);
+}
+
+.totem-impresion-modal-title {
+  margin: 0 0 12px 0;
+  font-size: 1.5rem;
+  color: #f8fafc;
+  padding-right: 40px;
+}
+
+.totem-impresion-modal-intro {
+  margin: 0 0 18px 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.totem-impresion-field {
+  margin-bottom: 14px;
+}
+
+.totem-impresion-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.totem-impresion-input,
+.totem-impresion-select,
+.totem-impresion-file {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 14px;
+  font-size: 1.05rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f1f5f9;
+}
+
+.totem-impresion-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .totem-impresion-row2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.totem-impresion-origen {
+  margin: 16px 0 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.totem-impresion-origen legend {
+  padding: 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.totem-impresion-radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.totem-impresion-file-hint {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.totem-impresion-op-link {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #7dd3fc;
+}
+
+.totem-impresion-modal-error {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.totem-impresion-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.totem-impresion-success-lead {
+  font-size: 1.1rem;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.totem-impresion-solicitud-id {
+  font-size: 1.35rem;
+  color: #4ade80;
+}
+
+.totem-impresion-success-text {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  line-height: 1.45;
+  margin: 12px 0 18px;
+}
+
+.totem-impresion-mp-block {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+}
+
+.totem-impresion-mp-label {
+  margin: 0 0 10px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.totem-impresion-mp-qr {
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.totem-impresion-mp-fallback {
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+  margin-bottom: 18px;
+}
+
+.totem-impresion-importe-hint {
+  margin: -6px 0 14px 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
 /* Forzar número de OP bien oscuro en modo tótem */
 .totem-consulta-page .orden-op-numero {
   color: #000000 !important;
@@ -497,6 +795,15 @@
 
   .totem-direccion-strip-arrows {
     font-size: 1.2rem;
+  }
+
+  .totem-print-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .totem-print-submit {
+    width: 100%;
   }
 }
 

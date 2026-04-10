@@ -7,11 +7,33 @@ import { formatArgentinaDate } from '../utils/dateUtils'
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './CajaDashboardPage.css'
 
+type TotemImpresionRow = {
+  id: number
+  cliente_nombre: string
+  cliente_dni: string
+  cliente_telefono: string
+  cantidad_hojas: number
+  tipo_impresion: string
+  archivo_url: string
+  archivo_nombre: string
+  numero_op: string | null
+  estado_pago: string
+  created_at: string
+  pagado_at: string | null
+  id_venta?: number | null
+  numero_venta_crm?: string | null
+  valor_venta?: number | null
+  estado_pago_venta?: string | null
+}
+
 const CajaDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja } = useAuth()
+  const { isAdmin, isCaja, usuario } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [totemImpresion, setTotemImpresion] = useState<TotemImpresionRow[]>([])
+  const [totemImpresionLoading, setTotemImpresionLoading] = useState(false)
+  const [totemImpresionErr, setTotemImpresionErr] = useState<string | null>(null)
   
   // Estados principales
   const [ventasHoy, setVentasHoy] = useState<Venta[]>([])
@@ -162,6 +184,21 @@ const CajaDashboardPage = () => {
     }
   }, [fechaDesde, fechaHasta])
 
+  const loadTotemImpresion = useCallback(async () => {
+    if (!usuario?.id) return
+    setTotemImpresionLoading(true)
+    setTotemImpresionErr(null)
+    try {
+      const res = await apiService.listarSolicitudesImpresionTotem(usuario.id, 80)
+      if (res.success && res.data) setTotemImpresion(res.data as TotemImpresionRow[])
+      else setTotemImpresionErr(res.error || 'No se pudieron cargar las solicitudes del tótem')
+    } catch (e) {
+      setTotemImpresionErr(e instanceof Error ? e.message : 'Error al cargar solicitudes del tótem')
+    } finally {
+      setTotemImpresionLoading(false)
+    }
+  }, [usuario?.id])
+
   // Cargar todos los datos
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
@@ -172,7 +209,8 @@ const CajaDashboardPage = () => {
         loadOrdenesPendientesFacturacion(),
         loadCuentasPorCobrar(),
         loadCuentasPorPagar(),
-        loadFlujoCaja()
+        loadFlujoCaja(),
+        loadTotemImpresion()
       ])
     } catch (error) {
       console.error('Error cargando datos del dashboard:', error)
@@ -180,7 +218,7 @@ const CajaDashboardPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [loadVentasHoy, loadOrdenesPendientesFacturacion, loadCuentasPorCobrar, loadCuentasPorPagar, loadFlujoCaja])
+  }, [loadVentasHoy, loadOrdenesPendientesFacturacion, loadCuentasPorCobrar, loadCuentasPorPagar, loadFlujoCaja, loadTotemImpresion])
 
   useEffect(() => {
     console.log('CajaDashboardPage - Montado')
@@ -203,6 +241,10 @@ const CajaDashboardPage = () => {
 
     return () => clearTimeout(timer)
   }, [isAdmin, isCaja, navigate, loadDashboardData])
+
+  useEffect(() => {
+    if (usuario?.id && (isCaja || isAdmin)) void loadTotemImpresion()
+  }, [usuario?.id, isCaja, isAdmin, loadTotemImpresion])
 
   // Preparar datos para gráficos
   const datosFlujoCaja = flujoCaja.map(m => ({
@@ -283,6 +325,107 @@ const CajaDashboardPage = () => {
           </div>
         </div>
       </header>
+
+      <section className="caja-totem-impresion" aria-label="Impresión tótem">
+        <div className="caja-totem-impresion-header">
+          <h2>🖨️ Solicitudes de impresión (tótem)</h2>
+          <button type="button" className="btn-secondary btn-small" onClick={() => loadTotemImpresion()} disabled={totemImpresionLoading}>
+            {totemImpresionLoading ? 'Actualizando…' : 'Actualizar'}
+          </button>
+        </div>
+        {totemImpresionErr && <p className="caja-totem-impresion-err">{totemImpresionErr}</p>}
+        {!totemImpresionErr && totemImpresion.length === 0 && !totemImpresionLoading && (
+          <p className="caja-totem-impresion-empty">No hay solicitudes recientes.</p>
+        )}
+        {totemImpresion.length > 0 && (
+          <div className="caja-totem-impresion-table-wrap">
+            <table className="caja-totem-impresion-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Cliente</th>
+                  <th>Venta CRM</th>
+                  <th>Hojas</th>
+                  <th>Tipo</th>
+                  <th>Pago tótem</th>
+                  <th>Archivo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {totemImpresion.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.id}</td>
+                    <td>
+                      {row.cliente_nombre}
+                      <br />
+                      <small>
+                        DNI {row.cliente_dni} · {row.cliente_telefono}
+                      </small>
+                    </td>
+                    <td>
+                      {row.numero_venta_crm ? (
+                        <>
+                          <button
+                            type="button"
+                            className="caja-totem-link-venta"
+                            onClick={() => navigate('/crm-ventas')}
+                          >
+                            {row.numero_venta_crm}
+                          </button>
+                          {row.valor_venta != null ? (
+                            <div>
+                              <small>
+                                ${Number(row.valor_venta).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ·{' '}
+                                {row.estado_pago_venta ?? '—'}
+                              </small>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="caja-totem-sin-venta">—</span>
+                      )}
+                    </td>
+                    <td>{row.cantidad_hojas}</td>
+                    <td>{row.tipo_impresion}</td>
+                    <td>
+                      {row.estado_pago === 'pagado' ? (
+                        <span className="caja-totem-pagado">Pagado</span>
+                      ) : (
+                        <span className="caja-totem-pendiente">Pendiente</span>
+                      )}
+                    </td>
+                    <td>
+                      <a href={row.archivo_url} target="_blank" rel="noopener noreferrer">
+                        {row.archivo_nombre}
+                      </a>
+                    </td>
+                    <td>
+                      {row.estado_pago === 'pendiente' && usuario?.id ? (
+                        <button
+                          type="button"
+                          className="btn-primary btn-small"
+                          onClick={async () => {
+                            const r = await apiService.marcarPagoSolicitudImpresionTotem(row.id, usuario.id)
+                            if (r.success) await loadTotemImpresion()
+                            else alert(r.error || 'No se pudo marcar el pago')
+                          }}
+                        >
+                          Marcar pagado (MP)
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="caja-totem-impresion-hint">
+          Al marcar pagado se notifica de nuevo a imprenta, mostrador y caja. Configurá el QR del tótem con{' '}
+          <code>VITE_TOTEM_MP_QR_URL</code> en el build del front.
+        </p>
+      </section>
 
       {/* Tarjetas de estadísticas */}
       <div className="caja-stats-grid">
