@@ -326,16 +326,19 @@ const CajaDashboardPage = () => {
         </div>
       </header>
 
-      <section className="caja-totem-impresion" aria-label="Impresión tótem">
+      <section className="caja-totem-impresion" aria-label="Pedidos de impresión tótem">
         <div className="caja-totem-impresion-header">
-          <h2>🖨️ Solicitudes de impresión (tótem)</h2>
+          <h2>🖨️ Pedidos de impresión (tótem)</h2>
           <button type="button" className="btn-secondary btn-small" onClick={() => loadTotemImpresion()} disabled={totemImpresionLoading}>
             {totemImpresionLoading ? 'Actualizando…' : 'Actualizar'}
           </button>
         </div>
+        <p className="caja-totem-impresion-lead">
+          El cliente dejó el pedido en el tótem; usá la venta CRM y el archivo para cobrar y cerrar la venta.
+        </p>
         {totemImpresionErr && <p className="caja-totem-impresion-err">{totemImpresionErr}</p>}
         {!totemImpresionErr && totemImpresion.length === 0 && !totemImpresionLoading && (
-          <p className="caja-totem-impresion-empty">No hay solicitudes recientes.</p>
+          <p className="caja-totem-impresion-empty">No hay pedidos recientes del tótem.</p>
         )}
         {totemImpresion.length > 0 && (
           <div className="caja-totem-impresion-table-wrap">

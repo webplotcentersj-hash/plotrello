@@ -6572,6 +6572,88 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  /** Tótem: crea sesión UUID para subir archivo desde el celular (QR) */
+  async crearSesionQrUploadTotem(): Promise<ApiResponse<{ session_id: string; expires_at: string }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_sesion_qr_upload_totem')
+        if (error) return { success: false, error: error.message }
+        const o = data as Record<string, unknown> | null
+        if (!o?.session_id) return { success: false, error: 'Respuesta inválida al crear sesión QR' }
+        return {
+          success: true,
+          data: {
+            session_id: String(o.session_id),
+            expires_at: String(o.expires_at ?? '')
+          }
+        }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async obtenerSesionQrUploadTotem(sessionId: string): Promise<
+    ApiResponse<{
+      ok: boolean
+      error?: string
+      archivo_url?: string | null
+      archivo_nombre?: string | null
+      archivo_bytes?: number | null
+      estado?: string
+    }>
+  > {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('obtener_sesion_qr_upload_totem', {
+          p_session_id: sessionId
+        })
+        if (error) return { success: false, error: error.message }
+        const o = (data || {}) as Record<string, unknown>
+        return {
+          success: true,
+          data: {
+            ok: Boolean(o.ok),
+            error: o.error != null ? String(o.error) : undefined,
+            archivo_url: o.archivo_url != null ? String(o.archivo_url) : null,
+            archivo_nombre: o.archivo_nombre != null ? String(o.archivo_nombre) : null,
+            archivo_bytes: o.archivo_bytes != null ? Number(o.archivo_bytes) : null,
+            estado: o.estado != null ? String(o.estado) : undefined
+          }
+        }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async registrarArchivoSesionQrTotem(params: {
+    sessionId: string
+    archivo_url: string
+    archivo_nombre: string
+    archivo_bytes?: number | null
+  }): Promise<ApiResponse<boolean>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('registrar_archivo_sesion_qr_totem', {
+          p_session_id: params.sessionId,
+          p_archivo_url: params.archivo_url,
+          p_archivo_nombre: params.archivo_nombre,
+          p_archivo_bytes: params.archivo_bytes ?? null
+        })
+        if (error) return { success: false, error: error.message }
+        const o = (data || {}) as Record<string, unknown>
+        if (!o.ok) return { success: false, error: String(o.error ?? 'No se pudo registrar el archivo') }
+        return { success: true, data: true }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async obtenerAtencionesMostrador(fechaInicio?: string, fechaFin?: string): Promise<ApiResponse<Array<{
     id: number
     cliente_id: number | null

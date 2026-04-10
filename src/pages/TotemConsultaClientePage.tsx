@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import QRCode from 'qrcode'
 import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
@@ -29,6 +30,24 @@ function validarArchivoImpresion(file: File): string | null {
     return 'Solo se admiten PDF o imágenes (JPG, PNG, WEBP).'
   }
   return null
+}
+
+function validarNombreArchivoImpresion(name: string, sizeBytes?: number | null): string | null {
+  if (sizeBytes != null && sizeBytes > MAX_IMPRESION_BYTES) {
+    return 'El archivo supera el máximo permitido (15 MB).'
+  }
+  const ext = (name.split('.').pop() || '').toLowerCase()
+  if (!['pdf', 'png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+    return 'Solo se admiten PDF o imágenes (JPG, PNG, WEBP).'
+  }
+  return null
+}
+
+function getTotemPublicAppBase(): string {
+  const fromEnv = typeof import.meta.env.VITE_PUBLIC_APP_URL === 'string' ? import.meta.env.VITE_PUBLIC_APP_URL.trim() : ''
+  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  if (typeof window !== 'undefined') return window.location.origin.replace(/\/$/, '')
+  return ''
 }
 
 const TIPOS_IMPRESION_TOTEM = [
@@ -84,8 +103,13 @@ const TotemConsultaClientePage = () => {
   const [impTelefono, setImpTelefono] = useState('')
   const [impHojas, setImpHojas] = useState('')
   const [impTipo, setImpTipo] = useState<string>(TIPOS_IMPRESION_TOTEM[0].value)
-  const [impOrigen, setImpOrigen] = useState<'pendrive' | 'subida'>('subida')
+  const [impOrigen, setImpOrigen] = useState<'equipo' | 'qr'>('equipo')
   const [impModalError, setImpModalError] = useState<string | null>(null)
+  const [qrSessionId, setQrSessionId] = useState<string | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [qrSesionCargando, setQrSesionCargando] = useState(false)
+  const [qrSesionInvalida, setQrSesionInvalida] = useState(false)
+  const [archivoDesdeQr, setArchivoDesdeQr] = useState<{ url: string; name: string; bytes: number | null } | null>(null)
   const impresionInputRef = useRef<HTMLInputElement>(null)
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
@@ -112,8 +136,13 @@ const TotemConsultaClientePage = () => {
         setImpTelefono('')
         setImpHojas('')
         setImpTipo(TIPOS_IMPRESION_TOTEM[0].value)
-        setImpOrigen('subida')
+        setImpOrigen('equipo')
         setImpModalError(null)
+        setQrSessionId(null)
+        setQrDataUrl(null)
+        setQrSesionCargando(false)
+        setQrSesionInvalida(false)
+        setArchivoDesdeQr(null)
         if (impresionInputRef.current) impresionInputRef.current.value = ''
         setStep('idle')
       }
@@ -303,9 +332,85 @@ const TotemConsultaClientePage = () => {
     setImpTelefono('')
     setImpHojas('')
     setImpTipo(TIPOS_IMPRESION_TOTEM[0].value)
-    setImpOrigen('subida')
+    setImpOrigen('equipo')
+    setQrSessionId(null)
+    setQrDataUrl(null)
+    setQrSesionCargando(false)
+    setQrSesionInvalida(false)
+    setArchivoDesdeQr(null)
     if (impresionInputRef.current) impresionInputRef.current.value = ''
   }
+
+  const iniciarSesionQr = useCallback(async () => {
+    setQrSesionInvalida(false)
+    setImpModalError(null)
+    setArchivoDesdeQr(null)
+    setQrSessionId(null)
+    setQrDataUrl(null)
+    setQrSesionCargando(true)
+    try {
+      const res = await apiService.crearSesionQrUploadTotem()
+      if (!res.success || !res.data) {
+        setImpModalError(res.error || 'No se pudo preparar el código QR.')
+        return
+      }
+      const id = res.data.session_id
+      setQrSessionId(id)
+      const uploadUrl = `${getTotemPublicAppBase()}/totem/subir-archivo?sesion=${encodeURIComponent(id)}`
+      const dataUrl = await QRCode.toDataURL(uploadUrl, {
+        width: 280,
+        margin: 2,
+        color: { dark: '#0f172a', light: '#ffffff' }
+      })
+      setQrDataUrl(dataUrl)
+    } catch (e) {
+      setImpModalError(e instanceof Error ? e.message : 'Error al generar el QR.')
+    } finally {
+      setQrSesionCargando(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!impresionModalOpen || impresionModalStep !== 'form' || impOrigen !== 'qr') return
+    if (qrSesionInvalida || archivoDesdeQr || qrSesionCargando || qrSessionId) return
+    void iniciarSesionQr()
+  }, [
+    impresionModalOpen,
+    impresionModalStep,
+    impOrigen,
+    qrSesionInvalida,
+    archivoDesdeQr,
+    qrSesionCargando,
+    qrSessionId,
+    iniciarSesionQr
+  ])
+
+  useEffect(() => {
+    if (!impresionModalOpen || impOrigen !== 'qr' || !qrSessionId || archivoDesdeQr || qrSesionInvalida) return
+
+    const id = window.setInterval(() => {
+      void (async () => {
+        const res = await apiService.obtenerSesionQrUploadTotem(qrSessionId)
+        if (!res.success || !res.data) return
+        const d = res.data
+        if (!d.ok) {
+          setQrSesionInvalida(true)
+          setImpModalError(d.error || 'La sesión del QR venció o no es válida. Tocá «Nuevo código QR».')
+          return
+        }
+        if (d.archivo_url && d.archivo_nombre) {
+          registrarInteraccion()
+          setArchivoDesdeQr({
+            url: d.archivo_url,
+            name: d.archivo_nombre,
+            bytes: d.archivo_bytes ?? null
+          })
+        }
+      })()
+    }, 2000)
+
+    return () => clearInterval(id)
+  }, [impresionModalOpen, impOrigen, qrSessionId, archivoDesdeQr, qrSesionInvalida])
 
   const cerrarModalImpresion = () => {
     registrarInteraccion()
@@ -343,28 +448,51 @@ const TotemConsultaClientePage = () => {
       setImpModalError('El importe debe ser un número válido (ej: 1500 o 1500,50).')
       return
     }
-    if (!archivoImpresion) {
-      setImpModalError('Elegí el archivo: podés traerlo en pendrive y seleccionarlo acá.')
-      return
-    }
-    const vFile = validarArchivoImpresion(archivoImpresion)
-    if (vFile) {
-      setImpModalError(vFile)
-      return
-    }
-
     setEnviandoImpresion(true)
     try {
-      const url = await uploadAttachmentAndGetUrl(archivoImpresion, 'totem_impresion')
+      let archivoUrl: string
+      let archivoNombre: string
+      let origenArchivo: string
+
+      if (impOrigen === 'qr') {
+        if (!archivoDesdeQr) {
+          setImpModalError(
+            'Escaneá el QR con el celular, enviá el archivo y esperá a que aparezca acá, o tocá «Nuevo código QR».'
+          )
+          return
+        }
+        const vQr = validarNombreArchivoImpresion(archivoDesdeQr.name, archivoDesdeQr.bytes)
+        if (vQr) {
+          setImpModalError(vQr)
+          return
+        }
+        archivoUrl = archivoDesdeQr.url
+        archivoNombre = archivoDesdeQr.name
+        origenArchivo = 'celular_qr'
+      } else {
+        if (!archivoImpresion) {
+          setImpModalError('Elegí el archivo en el tótem o enviálo con el código QR desde el celular.')
+          return
+        }
+        const vFile = validarArchivoImpresion(archivoImpresion)
+        if (vFile) {
+          setImpModalError(vFile)
+          return
+        }
+        archivoUrl = await uploadAttachmentAndGetUrl(archivoImpresion, 'totem_impresion')
+        archivoNombre = archivoImpresion.name
+        origenArchivo = 'subida_totem'
+      }
+
       const res = await apiService.crearSolicitudImpresionTotem({
         cliente_nombre: nombre,
         cliente_dni: dni,
         cliente_telefono: tel,
         cantidad_hojas: hojasN,
         tipo_impresion: impTipo,
-        origen_archivo: impOrigen === 'pendrive' ? 'pendrive' : 'subida_totem',
-        archivo_url: url,
-        archivo_nombre: archivoImpresion.name,
+        origen_archivo: origenArchivo,
+        archivo_url: archivoUrl,
+        archivo_nombre: archivoNombre,
         orden_id: primerOrden?.id ?? null,
         numero_op: primerOrden?.numero_op ?? null,
         valor_total: importeNorm === '' ? null : importeN
@@ -381,6 +509,7 @@ const TotemConsultaClientePage = () => {
       })
       setImpresionModalStep('success')
       setArchivoImpresion(null)
+      setArchivoDesdeQr(null)
       if (impresionInputRef.current) impresionInputRef.current.value = ''
     } catch (err) {
       console.error('Error solicitud impresión tótem:', err)
@@ -548,7 +677,8 @@ const TotemConsultaClientePage = () => {
                 🖨️ Imprimir un archivo
               </button>
               <p className="totem-welcome-hint totem-welcome-hint--tight">
-                Completá tus datos, subí el archivo (o el de tu pendrive) y pagá en caja con Mercado Pago.
+                Hacés un <strong>pedido</strong> con tus datos y el archivo; en <strong>caja</strong> cierran la{' '}
+                <strong>venta</strong> y el cobro (Mercado Pago) tomando ese pedido.
               </p>
 
               <div className="totem-senaletica-block">
@@ -750,9 +880,9 @@ const TotemConsultaClientePage = () => {
               >
                 <h3 className="totem-print-title">¿Necesitás imprimir un archivo?</h3>
                 <p className="totem-print-desc">
-                  Te pedimos nombre, DNI, teléfono, cantidad de hojas y tipo de impresión. Si venís con pendrive,
-                  conectalo y elegí el archivo acá. Avisamos a <strong>imprenta</strong>, <strong>mostrador</strong> y{' '}
-                  <strong>caja</strong> (pago con Mercado Pago en caja).
+                  Cargás un <strong>pedido</strong> con nombre, DNI, teléfono, hojas, tipo e archivo (equipo o QR). Eso
+                  queda listo para que <strong>caja</strong> haga la <strong>venta</strong> y el cobro. Avisamos a{' '}
+                  <strong>imprenta</strong> y <strong>mostrador</strong> con el mismo pedido.
                 </p>
                 <button
                   type="button"
@@ -992,8 +1122,9 @@ const TotemConsultaClientePage = () => {
                     Pedido de impresión
                   </h2>
                   <p className="totem-impresion-modal-intro">
-                    Si traés el archivo en <strong>pendrive</strong>, conectalo al tótem y elegilo abajo. También podés
-                    subir desde el teléfono por cable o el mismo equipo.
+                    Esto registra tu <strong>pedido</strong> (archivo + datos). La <strong>venta</strong> y el pago se
+                    confirman en <strong>caja</strong> con Mercado Pago; el cajero usa este pedido (número de solicitud y
+                    venta). Elegí el archivo acá o por QR desde el celular.
                   </p>
                   <div className="totem-impresion-field">
                     <label htmlFor="totem-imp-nombre">Nombre y apellido</label>
@@ -1090,8 +1221,8 @@ const TotemConsultaClientePage = () => {
                     </select>
                   </div>
                   <p className="totem-impresion-importe-hint">
-                    Si no sabés el monto, dejalo vacío: se registra un valor mínimo y <strong>caja</strong> lo corrige en
-                    el CRM de ventas.
+                    Si no sabés el monto, dejalo vacío: el pedido entra con un valor base y <strong>caja</strong> lo ajusta
+                    al cerrar la venta en el CRM.
                   </p>
                   <fieldset className="totem-impresion-origen">
                     <legend>Origen del archivo</legend>
@@ -1099,27 +1230,71 @@ const TotemConsultaClientePage = () => {
                       <input
                         type="radio"
                         name="origen-imp"
-                        checked={impOrigen === 'subida'}
+                        checked={impOrigen === 'equipo'}
                         onChange={() => {
                           registrarInteraccion()
-                          setImpOrigen('subida')
+                          setImpOrigen('equipo')
+                          setQrSessionId(null)
+                          setQrDataUrl(null)
+                          setQrSesionInvalida(false)
+                          setArchivoDesdeQr(null)
                         }}
                       />
-                      Lo subo desde acá (PC / pendrive conectado)
+                      En este equipo (PC, pendrive conectado, etc.)
                     </label>
                     <label className="totem-impresion-radio">
                       <input
                         type="radio"
                         name="origen-imp"
-                        checked={impOrigen === 'pendrive'}
+                        checked={impOrigen === 'qr'}
                         onChange={() => {
                           registrarInteraccion()
-                          setImpOrigen('pendrive')
+                          setImpOrigen('qr')
+                          setArchivoImpresion(null)
+                          if (impresionInputRef.current) impresionInputRef.current.value = ''
+                          setQrSessionId(null)
+                          setQrDataUrl(null)
+                          setQrSesionInvalida(false)
+                          setArchivoDesdeQr(null)
                         }}
                       />
-                      Vengo con archivo en pendrive (elegilo abajo)
+                      Lo envío desde mi celular (escaneá el QR)
                     </label>
                   </fieldset>
+                  {impOrigen === 'qr' ? (
+                    <div className="totem-impresion-qr-block">
+                      <p className="totem-impresion-qr-hint">
+                        Abrí la cámara o un lector QR, escaneá el código y subí el archivo desde el teléfono. Cuando llegue,
+                        verás el nombre del archivo acá abajo.
+                      </p>
+                      {qrSesionCargando ? (
+                        <p className="totem-impresion-qr-loading">Generando código…</p>
+                      ) : qrDataUrl ? (
+                        <div className="totem-impresion-qr-wrap">
+                          <img src={qrDataUrl} alt="" className="totem-impresion-qr-img" width={280} height={280} />
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="totem-impresion-qr-refresh"
+                        disabled={enviandoImpresion || qrSesionCargando}
+                        onClick={() => {
+                          registrarInteraccion()
+                          void iniciarSesionQr()
+                        }}
+                      >
+                        Nuevo código QR
+                      </button>
+                      {archivoDesdeQr ? (
+                        <p className="totem-impresion-file-hint totem-impresion-file-hint--qr">
+                          <strong>Recibido:</strong> {archivoDesdeQr.name}
+                          {archivoDesdeQr.bytes != null
+                            ? ` — ${(archivoDesdeQr.bytes / 1024).toFixed(0)} KB`
+                            : null}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="totem-impresion-field">
                     <label htmlFor="totem-imp-file">Archivo (PDF o imagen, máx. 15 MB)</label>
                     <input
@@ -1128,18 +1303,18 @@ const TotemConsultaClientePage = () => {
                       type="file"
                       accept={ACCEPT_IMPRESION}
                       className="totem-impresion-file"
-                      disabled={enviandoImpresion}
+                      disabled={enviandoImpresion || impOrigen === 'qr'}
                       onChange={(e) => {
                         registrarInteraccion()
                         setImpModalError(null)
                         setArchivoImpresion(e.target.files?.[0] ?? null)
                       }}
                     />
-                    {archivoImpresion && (
+                    {impOrigen !== 'qr' && archivoImpresion ? (
                       <p className="totem-impresion-file-hint">
                         {archivoImpresion.name} — {(archivoImpresion.size / 1024).toFixed(0)} KB
                       </p>
-                    )}
+                    ) : null}
                   </div>
                   {primerOrden && (
                     <p className="totem-impresion-op-link">
@@ -1165,12 +1340,12 @@ const TotemConsultaClientePage = () => {
                 <>
                   <h2 className="totem-impresion-modal-title">Pedido registrado</h2>
                   <p className="totem-impresion-success-lead">
-                    Solicitud tótem{' '}
+                    Tu pedido: solicitud tótem{' '}
                     <strong className="totem-impresion-solicitud-id">#{impresionResult?.solicitudId}</strong>
                     {impresionResult?.numeroVenta ? (
                       <>
                         {' '}
-                        · Venta CRM <strong>{impresionResult.numeroVenta}</strong>
+                        · borrador de venta CRM <strong>{impresionResult.numeroVenta}</strong>
                         {impresionResult.valor > 0 ? (
                           <>
                             {' '}
@@ -1179,22 +1354,22 @@ const TotemConsultaClientePage = () => {
                         ) : null}
                       </>
                     ) : null}
-                    . Decilo en <strong>caja</strong> al pagar.
+                    . Decí ambos números en <strong>caja</strong>: ahí se confirma la venta y el pago.
                   </p>
                   <p className="totem-impresion-success-text">
-                    Quedó cargado en <strong>ventas</strong> como pendiente de cobro. Imprenta y mostrador ya tienen el
-                    archivo. Cuando caja confirma el pago (Mercado Pago u otro), se actualiza la venta y les avisamos de
-                    nuevo.
+                    Los datos del pedido ya están en <strong>ventas</strong> para que caja los tome al cobrar. Imprenta y
+                    mostrador tienen el archivo. Cuando caja marca el pago (Mercado Pago u otro), la venta queda cerrada y
+                    se notifica de nuevo.
                   </p>
                   {MP_QR_URL ? (
                     <div className="totem-impresion-mp-block">
-                      <p className="totem-impresion-mp-label">Mercado Pago — escaneá en caja</p>
+                      <p className="totem-impresion-mp-label">Mercado Pago en caja — confirman la venta de tu pedido</p>
                       <img src={MP_QR_URL} alt="Código QR Mercado Pago" className="totem-impresion-mp-qr" />
                     </div>
                   ) : (
                     <p className="totem-impresion-mp-fallback">
-                      Pagá en caja con <strong>Mercado Pago</strong> (QR del mostrador). Tu cajero puede marcar el pago
-                      con el número de solicitud.
+                      Pagá en caja con <strong>Mercado Pago</strong> (QR del mostrador). El cajero usa tu pedido (solicitud
+                      y venta CRM) para cobrar y cerrar la venta.
                     </p>
                   )}
                   <button type="button" className="totem-cta-button" onClick={cerrarModalImpresion}>

@@ -665,6 +665,13 @@
   color: #1e293b;
 }
 
+.caja-totem-impresion-lead {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
 .caja-totem-impresion-err {
   color: #b91c1c;
   font-size: 0.9rem;
