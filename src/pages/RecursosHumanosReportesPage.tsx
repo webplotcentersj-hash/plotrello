@@ -6,6 +6,11 @@ import type { UsuarioRecord } from '../types/api'
 import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
 import './RecursosHumanosReportesPage.css'
+import {
+  ReportePieTorta,
+  pieOrdenesPorEstado,
+  agregarPieOrdenesUsuarios,
+} from '../components/ReportePieTorta'
 
 const SECTORES_DISPONIBLES = [
   'Taller Gráfico',
@@ -461,8 +466,9 @@ const RecursosHumanosReportesPage = () => {
                 <>
                   {reporteData.usuario ? (
                     <div className="rrhh-stats-grid">
-                      <div className="rrhh-stat-card">
+                      <div className="rrhh-stat-card rrhh-stat-card--with-pie">
                         <h3>{reporteData.usuario.nombre_usuario || 'Usuario'}</h3>
+                        <div className="rrhh-stat-rows">
                         <div className="rrhh-stat-item">
                           <span className="rrhh-stat-label">Total de órdenes:</span>
                           <span className="rrhh-stat-value">{reporteData.usuario.total_ordenes || 0}</span>
@@ -501,15 +507,32 @@ const RecursosHumanosReportesPage = () => {
                             <span className="rrhh-stat-value">{new Date(reporteData.usuario.ultima_actividad).toLocaleDateString('es-AR')}</span>
                           </div>
                         )}
+                        </div>
+                        <ReportePieTorta
+                          title="Órdenes por estado"
+                          data={pieOrdenesPorEstado(reporteData.usuario)}
+                          height={260}
+                          outerRadius={92}
+                        />
                       </div>
                     </div>
                   ) : reporteData.usuarios && reporteData.usuarios.length > 0 ? (
                     <div className="rrhh-usuarios-list">
                       <h3>Estadísticas por Usuario</h3>
+                      {reporteData.usuarios.length > 1 && (
+                        <ReportePieTorta
+                          className="rrhh-reporte-pie-global"
+                          title="Distribución global (todos los usuarios)"
+                          data={agregarPieOrdenesUsuarios(reporteData.usuarios)}
+                          height={280}
+                          outerRadius={100}
+                        />
+                      )}
                       <div className="rrhh-stats-grid">
                         {reporteData.usuarios.map((usuario: any, index: number) => (
-                          <div key={index} className="rrhh-stat-card">
+                          <div key={index} className="rrhh-stat-card rrhh-stat-card--with-pie">
                             <h4>{usuario.nombre_usuario || 'Usuario'}</h4>
+                            <div className="rrhh-stat-rows">
                             <div className="rrhh-stat-item">
                               <span className="rrhh-stat-label">Total:</span>
                               <span className="rrhh-stat-value">{usuario.total_ordenes || 0}</span>
@@ -526,6 +549,13 @@ const RecursosHumanosReportesPage = () => {
                               <span className="rrhh-stat-label">Movimientos:</span>
                               <span className="rrhh-stat-value">{usuario.movimientos_realizados || 0}</span>
                             </div>
+                            </div>
+                            <ReportePieTorta
+                              compact
+                              data={pieOrdenesPorEstado(usuario)}
+                              height={200}
+                              outerRadius={64}
+                            />
                           </div>
                         ))}
                       </div>
@@ -538,8 +568,9 @@ const RecursosHumanosReportesPage = () => {
 
               {reporteData.tipo === 'sector' && reporteData.sector && (
                 <div className="rrhh-stats-grid">
-                  <div className="rrhh-stat-card">
+                  <div className="rrhh-stat-card rrhh-stat-card--with-pie">
                     <h3>{reporteData.sector.sector || 'Sector'}</h3>
+                    <div className="rrhh-stat-rows">
                     <div className="rrhh-stat-item">
                       <span className="rrhh-stat-label">Total de órdenes:</span>
                       <span className="rrhh-stat-value">{reporteData.sector.total_ordenes || 0}</span>
@@ -568,14 +599,22 @@ const RecursosHumanosReportesPage = () => {
                         <span className="rrhh-stat-value success">{reporteData.sector.tasa_completitud.toFixed(1)}%</span>
                       </div>
                     )}
+                    </div>
+                    <ReportePieTorta
+                      title="Órdenes por estado"
+                      data={pieOrdenesPorEstado(reporteData.sector)}
+                      height={260}
+                      outerRadius={92}
+                    />
                   </div>
                 </div>
               )}
 
               {reporteData.tipo === 'periodo' && reporteData.estadisticas && (
                 <div className="rrhh-stats-grid">
-                  <div className="rrhh-stat-card">
+                  <div className="rrhh-stat-card rrhh-stat-card--with-pie">
                     <h3>Estadísticas Generales</h3>
+                    <div className="rrhh-stat-rows">
                     <div className="rrhh-stat-item">
                       <span className="rrhh-stat-label">Total de órdenes:</span>
                       <span className="rrhh-stat-value">{reporteData.estadisticas.total_ordenes || 0}</span>
@@ -608,6 +647,13 @@ const RecursosHumanosReportesPage = () => {
                         <span className="rrhh-stat-value">{reporteData.estadisticas.ordenes_por_dia.toFixed(2)}</span>
                       </div>
                     )}
+                    </div>
+                    <ReportePieTorta
+                      title="Órdenes por estado"
+                      data={pieOrdenesPorEstado(reporteData.estadisticas)}
+                      height={260}
+                      outerRadius={92}
+                    />
                   </div>
                 </div>
               )}

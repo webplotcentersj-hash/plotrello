@@ -3,6 +3,10 @@
   background: var(--bg-primary);
   color: var(--text-primary);
   padding: 20px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .rrhh-reportes-loading {
@@ -21,6 +25,8 @@
 .rrhh-reportes-content {
   max-width: 1400px;
   margin: 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .rrhh-reporte-filters {
@@ -75,6 +81,9 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 24px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .rrhh-reporte-header {
@@ -116,6 +125,13 @@
 
 .rrhh-reporte-content {
   color: var(--text-muted);
+  width: 100%;
+  min-width: 0;
+}
+
+.rrhh-usuarios-list {
+  width: 100%;
+  min-width: 0;
 }
 
 .rrhh-error-message {
@@ -134,39 +150,49 @@
 
 .rrhh-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  /* Evita columnas más anchas que el contenedor (sin scroll horizontal fantasma) */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
   margin-top: 20px;
+  width: 100%;
+  min-width: 0;
 }
 
 .rrhh-stat-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px 18px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .rrhh-stat-card h3,
 .rrhh-stat-card h4 {
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-primary);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 12px;
+  padding-bottom: 10px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .rrhh-stat-card h4 {
-  font-size: 1rem;
-  margin-bottom: 12px;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
   padding-bottom: 8px;
 }
 
 .rrhh-stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: baseline;
+  padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -177,12 +203,16 @@
 .rrhh-stat-label {
   color: var(--text-muted);
   font-size: 0.9rem;
+  min-width: 0;
 }
 
 .rrhh-stat-value {
   font-weight: 600;
   font-size: 1rem;
   color: var(--text-primary);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .rrhh-stat-value.success {
@@ -200,6 +230,69 @@
   color: var(--text-primary);
 }
 
+.rrhh-stat-rows {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.rrhh-stat-card--with-pie {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Gráficos de torta (recharts) — solo reportes RRHH */
+.rrhh-reporte-pie {
+  width: 100%;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.rrhh-reporte-pie--compact {
+  margin-top: 8px;
+}
+
+.rrhh-reporte-pie-global {
+  margin-bottom: 8px;
+}
+
+.rrhh-reporte-pie-title {
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rrhh-reporte-pie--empty {
+  padding: 16px 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.rrhh-reporte-pie-empty-msg {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.rrhh-reporte-pie .recharts-legend-item-text {
+  color: var(--text-primary) !important;
+}
+
+.rrhh-reporte-pie .recharts-pie-label-text {
+  fill: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.rrhh-reporte-pie--compact .recharts-pie-label-text {
+  font-size: 10px;
+}
+
 @media (max-width: 768px) {
   .rrhh-reporte-filters {
     grid-template-columns: 1fr;
@@ -212,6 +305,16 @@
 
   .rrhh-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .rrhh-stat-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .rrhh-stat-value {
+    text-align: left;
+    white-space: normal;
   }
 }
 

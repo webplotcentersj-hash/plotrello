@@ -426,7 +426,10 @@ const RecursosHumanosEvaluacionesPage = () => {
             if (e.target === e.currentTarget) setShowModal(false)
           }}
         >
-          <div className="rrhh-modal rrhh-modal-large" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`rrhh-modal rrhh-modal-large${evaluacionSeleccionada ? '' : ' rrhh-evaluacion-modal--nueva'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="rrhh-modal-header">
               <h2>{evaluacionSeleccionada ? 'Editar Evaluación' : 'Nueva Evaluación'}</h2>
               <button className="rrhh-modal-close" onClick={() => setShowModal(false)}>✕</button>

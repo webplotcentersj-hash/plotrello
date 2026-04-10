@@ -210,6 +210,47 @@
   max-width: 900px;
 }
 
+/*
+ * Solo modal "Nueva Evaluación" (no afecta "Editar" ni otras pantallas):
+ * títulos del modal, etiquetas, valores y placeholders en blanco.
+ */
+.rrhh-evaluacion-modal--nueva {
+  color-scheme: dark;
+}
+
+.rrhh-evaluacion-modal--nueva .rrhh-modal-header h2 {
+  color: #ffffff;
+}
+
+.rrhh-evaluacion-modal--nueva .rrhh-modal-close {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.rrhh-evaluacion-modal--nueva .rrhh-modal-close:hover {
+  color: #ffffff;
+}
+
+.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group label {
+  color: #ffffff;
+}
+
+.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group input,
+.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group select,
+.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group textarea {
+  color: #ffffff;
+}
+
+.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group input::placeholder,
+.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group textarea::placeholder {
+  color: #ffffff;
+  opacity: 0.9;
+}
+
+.rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group select option {
+  background-color: #1e293b;
+  color: #ffffff;
+}
+
 .rrhh-modal-header {
   display: flex;
   justify-content: space-between;
