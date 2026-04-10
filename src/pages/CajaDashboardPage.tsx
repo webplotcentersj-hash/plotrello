@@ -425,8 +425,7 @@ const CajaDashboardPage = () => {
           </div>
         )}
         <p className="caja-totem-impresion-hint">
-          Al marcar pagado se notifica de nuevo a imprenta, mostrador y caja. Configurá el QR del tótem con{' '}
-          <code>VITE_TOTEM_MP_QR_URL</code> en el build del front.
+          Al marcar pagado se notifica de nuevo a imprenta, mostrador y caja.
         </p>
       </section>
 
