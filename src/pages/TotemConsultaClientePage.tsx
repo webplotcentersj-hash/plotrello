@@ -109,8 +109,13 @@ const TotemConsultaClientePage = () => {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [qrSesionCargando, setQrSesionCargando] = useState(false)
   const [qrSesionInvalida, setQrSesionInvalida] = useState(false)
+  const [qrCrearFallido, setQrCrearFallido] = useState(false)
+  const [qrPollBloqueado, setQrPollBloqueado] = useState(false)
   const [archivoDesdeQr, setArchivoDesdeQr] = useState<{ url: string; name: string; bytes: number | null } | null>(null)
   const impresionInputRef = useRef<HTMLInputElement>(null)
+  const qrIniciarLockRef = useRef(false)
+  const qrPollFailsRef = useRef(0)
+  const qrPollFlightRef = useRef(false)
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
 
@@ -142,6 +147,9 @@ const TotemConsultaClientePage = () => {
         setQrDataUrl(null)
         setQrSesionCargando(false)
         setQrSesionInvalida(false)
+        setQrCrearFallido(false)
+        setQrPollBloqueado(false)
+        qrPollFailsRef.current = 0
         setArchivoDesdeQr(null)
         if (impresionInputRef.current) impresionInputRef.current.value = ''
         setStep('idle')
@@ -337,12 +345,20 @@ const TotemConsultaClientePage = () => {
     setQrDataUrl(null)
     setQrSesionCargando(false)
     setQrSesionInvalida(false)
+    setQrCrearFallido(false)
+    setQrPollBloqueado(false)
+    qrPollFailsRef.current = 0
     setArchivoDesdeQr(null)
     if (impresionInputRef.current) impresionInputRef.current.value = ''
   }
 
   const iniciarSesionQr = useCallback(async () => {
+    if (qrIniciarLockRef.current) return
+    qrIniciarLockRef.current = true
     setQrSesionInvalida(false)
+    setQrCrearFallido(false)
+    setQrPollBloqueado(false)
+    qrPollFailsRef.current = 0
     setImpModalError(null)
     setArchivoDesdeQr(null)
     setQrSessionId(null)
@@ -351,28 +367,33 @@ const TotemConsultaClientePage = () => {
     try {
       const res = await apiService.crearSesionQrUploadTotem()
       if (!res.success || !res.data) {
+        setQrCrearFallido(true)
         setImpModalError(res.error || 'No se pudo preparar el código QR.')
         return
       }
       const id = res.data.session_id
       setQrSessionId(id)
       const uploadUrl = `${getTotemPublicAppBase()}/totem/subir-archivo?sesion=${encodeURIComponent(id)}`
+      // Ceder el hilo para que pinte "Generando código…" antes del trabajo síncrono del QR
+      await new Promise<void>((r) => window.setTimeout(r, 0))
       const dataUrl = await QRCode.toDataURL(uploadUrl, {
-        width: 280,
+        width: 240,
         margin: 2,
         color: { dark: '#0f172a', light: '#ffffff' }
       })
       setQrDataUrl(dataUrl)
     } catch (e) {
+      setQrCrearFallido(true)
       setImpModalError(e instanceof Error ? e.message : 'Error al generar el QR.')
     } finally {
       setQrSesionCargando(false)
+      qrIniciarLockRef.current = false
     }
   }, [])
 
   useEffect(() => {
     if (!impresionModalOpen || impresionModalStep !== 'form' || impOrigen !== 'qr') return
-    if (qrSesionInvalida || archivoDesdeQr || qrSesionCargando || qrSessionId) return
+    if (qrSesionInvalida || archivoDesdeQr || qrSesionCargando || qrSessionId || qrCrearFallido) return
     void iniciarSesionQr()
   }, [
     impresionModalOpen,
@@ -382,35 +403,59 @@ const TotemConsultaClientePage = () => {
     archivoDesdeQr,
     qrSesionCargando,
     qrSessionId,
+    qrCrearFallido,
     iniciarSesionQr
   ])
 
   useEffect(() => {
-    if (!impresionModalOpen || impOrigen !== 'qr' || !qrSessionId || archivoDesdeQr || qrSesionInvalida) return
+    if (!impresionModalOpen || impOrigen !== 'qr' || !qrSessionId || archivoDesdeQr || qrSesionInvalida || qrPollBloqueado)
+      return
 
-    const id = window.setInterval(() => {
+    const sessionId = qrSessionId
+    const pollMs = 2500
+    const maxFails = 8
+
+    const tick = () => {
+      if (qrPollFlightRef.current) return
+      qrPollFlightRef.current = true
       void (async () => {
-        const res = await apiService.obtenerSesionQrUploadTotem(qrSessionId)
-        if (!res.success || !res.data) return
-        const d = res.data
-        if (!d.ok) {
-          setQrSesionInvalida(true)
-          setImpModalError(d.error || 'La sesión del QR venció o no es válida. Tocá «Nuevo código QR».')
-          return
-        }
-        if (d.archivo_url && d.archivo_nombre) {
-          registrarInteraccion()
-          setArchivoDesdeQr({
-            url: d.archivo_url,
-            name: d.archivo_nombre,
-            bytes: d.archivo_bytes ?? null
-          })
+        try {
+          const res = await apiService.obtenerSesionQrUploadTotem(sessionId)
+          if (!res.success || !res.data) {
+            qrPollFailsRef.current += 1
+            if (qrPollFailsRef.current >= maxFails) {
+              setQrPollBloqueado(true)
+              setImpModalError(
+                'No pudimos consultar el estado del archivo (sin respuesta del servidor). Tocá «Nuevo código QR» e intentá de nuevo.'
+              )
+            }
+            return
+          }
+          qrPollFailsRef.current = 0
+          const d = res.data
+          if (!d.ok) {
+            setQrSesionInvalida(true)
+            setImpModalError(d.error || 'La sesión del QR venció o no es válida. Tocá «Nuevo código QR».')
+            return
+          }
+          if (d.archivo_url && d.archivo_nombre) {
+            registrarInteraccion()
+            setArchivoDesdeQr({
+              url: d.archivo_url,
+              name: d.archivo_nombre,
+              bytes: d.archivo_bytes ?? null
+            })
+          }
+        } finally {
+          qrPollFlightRef.current = false
         }
       })()
-    }, 2000)
+    }
 
+    tick()
+    const id = window.setInterval(tick, pollMs)
     return () => clearInterval(id)
-  }, [impresionModalOpen, impOrigen, qrSessionId, archivoDesdeQr, qrSesionInvalida])
+  }, [impresionModalOpen, impOrigen, qrSessionId, archivoDesdeQr, qrSesionInvalida, qrPollBloqueado])
 
   const cerrarModalImpresion = () => {
     registrarInteraccion()
@@ -1237,6 +1282,9 @@ const TotemConsultaClientePage = () => {
                           setQrSessionId(null)
                           setQrDataUrl(null)
                           setQrSesionInvalida(false)
+                          setQrCrearFallido(false)
+                          setQrPollBloqueado(false)
+                          qrPollFailsRef.current = 0
                           setArchivoDesdeQr(null)
                         }}
                       />
@@ -1255,6 +1303,9 @@ const TotemConsultaClientePage = () => {
                           setQrSessionId(null)
                           setQrDataUrl(null)
                           setQrSesionInvalida(false)
+                          setQrCrearFallido(false)
+                          setQrPollBloqueado(false)
+                          qrPollFailsRef.current = 0
                           setArchivoDesdeQr(null)
                         }}
                       />
@@ -1271,7 +1322,7 @@ const TotemConsultaClientePage = () => {
                         <p className="totem-impresion-qr-loading">Generando código…</p>
                       ) : qrDataUrl ? (
                         <div className="totem-impresion-qr-wrap">
-                          <img src={qrDataUrl} alt="" className="totem-impresion-qr-img" width={280} height={280} />
+                          <img src={qrDataUrl} alt="" className="totem-impresion-qr-img" width={240} height={240} />
                         </div>
                       ) : null}
                       <button
