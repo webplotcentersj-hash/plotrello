@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo, useRef, type MouseEvent } from 'react'
+import { memo, useState, useEffect, useMemo, useRef, type CSSProperties, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Draggable } from '@hello-pangea/dnd'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
@@ -2020,6 +2020,41 @@ const TaskCardInner = ({
   )
 }
 
+/** Estilos inline que suele inyectar hello-pangea/dnd; comparar sin JSON.stringify (más barato con muchas fichas). */
+const RBD_DRAG_STYLE_KEYS: (keyof CSSProperties)[] = [
+  'transform',
+  'transition',
+  'opacity',
+  'pointerEvents',
+  'left',
+  'top',
+  'right',
+  'bottom',
+  'width',
+  'height',
+  'position',
+  'zIndex',
+  'userSelect',
+  'margin',
+  'marginTop',
+  'marginRight',
+  'marginBottom',
+  'marginLeft'
+]
+
+function draggableInlineStylesEqual(
+  a: CSSProperties | null | undefined,
+  b: CSSProperties | null | undefined
+): boolean {
+  if (a === b) return true
+  if (!a && !b) return true
+  if (!a || !b) return false
+  for (const k of RBD_DRAG_STYLE_KEYS) {
+    if (a[k] !== b[k]) return false
+  }
+  return true
+}
+
 function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolean {
   if (prev.boardDnD == null && next.boardDnD == null) {
     if (prev.isDraggable || next.isDraggable) return false
@@ -2044,9 +2079,10 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   const nb = next.boardDnD!
   if (pb.snapshot.isDragging || nb.snapshot.isDragging) return false
 
+  // No comparamos draggingOver: en tableros sin «combine» no afecta al render y cambia muy seguido al cruzar columnas,
+  // forzando re-render de cientos de TaskCard por movimiento del puntero.
   if (
     pb.snapshot.isDropAnimating !== nb.snapshot.isDropAnimating ||
-    pb.snapshot.draggingOver !== nb.snapshot.draggingOver ||
     pb.snapshot.combineWith !== nb.snapshot.combineWith ||
     pb.snapshot.combineTargetFor !== nb.snapshot.combineTargetFor ||
     pb.snapshot.mode !== nb.snapshot.mode ||
@@ -2057,14 +2093,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
 
   const ps = pb.provided.draggableProps.style
   const ns = nb.provided.draggableProps.style
-  if (ps !== ns) {
-    if (ps == null && ns == null) {
-      // ok
-    } else if (!ps || !ns) {
-      return false
-    } else if (JSON.stringify(ps) !== JSON.stringify(ns)) {
-      return false
-    }
+  if (!draggableInlineStylesEqual(ps, ns)) {
+    return false
   }
 
   if (prev.task !== next.task) {

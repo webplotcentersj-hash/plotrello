@@ -54,6 +54,11 @@
   box-shadow: none !important;
 }
 
+/* Aísla layout/pintura de fichas que no se arrastran (menos invalidación cruzada) */
+.board-wrapper.is-dragging .task-card:not(.is-dragging) {
+  contain: layout style;
+}
+
 .board-nav {
   display: flex;
   gap: 8px;
