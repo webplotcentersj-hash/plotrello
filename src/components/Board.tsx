@@ -150,6 +150,7 @@ const Board = ({
                   maxTasksInColumn={maxTasksInColumn}
                   droppableProvided={provided}
                   isActive={snapshot.isDraggingOver}
+                  isBoardDragging={isDragging}
                   containerRef={getColumnContainerRef(column.id as TaskStatus)}
                   onEditTask={onEditTask}
                   onDeleteTask={onDeleteTask}

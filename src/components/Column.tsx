@@ -3,7 +3,7 @@ import { Draggable, type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
-import TaskCard from './TaskCard'
+import BoardTaskCardRow from './BoardTaskCardRow'
 
 /** Referencia estable para memo(TaskCard); `?? []` en cada render rompe la igualdad superficial */
 const EMPTY_ACTIVITY: ActivityEvent[] = []
@@ -28,6 +28,8 @@ type ColumnProps = {
   onSelectTask?: (taskId: string | null) => void
   onViewTask?: (task: Task) => void
   hideReclamoUI?: boolean
+  /** True mientras se arrastra en el tablero: filas no arrastradas usan shell ligero (sin TaskCard completo). */
+  isBoardDragging?: boolean
 }
 
 const Column = ({
@@ -49,7 +51,8 @@ const Column = ({
   selectedTaskId,
   onSelectTask,
   onViewTask,
-  hideReclamoUI
+  hideReclamoUI,
+  isBoardDragging = false
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
   const INITIAL_VISIBLE_TASKS = 5
@@ -102,7 +105,10 @@ const Column = ({
             isDragDisabled={Boolean(task.opBloqueada) && !isAdmin}
           >
             {(provided, snapshot) => (
-              <TaskCard
+              <BoardTaskCardRow
+                isBoardDragging={isBoardDragging}
+                provided={provided}
+                snapshot={snapshot}
                 task={task}
                 index={index}
                 owner={membersById.get(task.ownerId)}
@@ -117,8 +123,6 @@ const Column = ({
                 isSelected={selectedTaskId === task.id}
                 onSelect={onSelectTask}
                 onViewTask={onViewTask}
-                isDraggable={false}
-                boardDnD={{ provided, snapshot }}
                 hideReclamoUI={hideReclamoUI}
               />
             )}

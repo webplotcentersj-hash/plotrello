@@ -70,11 +70,16 @@ function taskTouchesMetalurgica(t: Task): boolean {
 
 type CampoListSectorMode = 'instalaciones' | 'metalurgica' | 'both'
 
+/**
+ * Una sola fila por número de OP visible: a veces hay dos `Task` (mismo opNumber) con `id` distinto
+ * (ej. tarjeta en columna Metalúrgica vs otra que solo lista el sector en `sectores` → «en OP»).
+ * Si primero usáramos id numérico, una quedaba `orden:95650` y otra `op:95650` y se duplicaba el listado.
+ */
 function dedupeKeyForCampoTask(t: Task): string {
+  const op = (t.opNumber || '').trim().toLowerCase().replace(/\s+/g, '')
+  if (op) return `op:${op}`
   const oid = parseTaskIdToOrdenId(t.id)
   if (oid != null && !Number.isNaN(oid)) return `orden:${oid}`
-  const op = (t.opNumber || '').trim().toLowerCase()
-  if (op) return `op:${op}`
   return `id:${t.id}`
 }
 
