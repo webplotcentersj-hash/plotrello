@@ -50,6 +50,59 @@ function isCampoRelevantTask(t: Task): boolean {
   return opSectoresRequierenFotosLugar(t.sectores)
 }
 
+/** OP relacionada con Instalaciones (columna, sector asignado o sector requerido). */
+function taskTouchesInstalaciones(t: Task): boolean {
+  return (
+    t.status === 'instalaciones' ||
+    t.assignedSector === 'Instalaciones' ||
+    Boolean(t.sectores?.includes('Instalaciones'))
+  )
+}
+
+/** OP relacionada con Metalúrgica (columna, sector asignado o sector requerido). */
+function taskTouchesMetalurgica(t: Task): boolean {
+  return (
+    t.status === 'metalurgica' ||
+    t.assignedSector === 'Metalúrgica' ||
+    Boolean(t.sectores?.includes('Metalúrgica'))
+  )
+}
+
+type CampoListSectorMode = 'instalaciones' | 'metalurgica' | 'both'
+
+function dedupeKeyForCampoTask(t: Task): string {
+  const oid = parseTaskIdToOrdenId(t.id)
+  if (oid != null && !Number.isNaN(oid)) return `orden:${oid}`
+  const op = (t.opNumber || '').trim().toLowerCase()
+  if (op) return `op:${op}`
+  return `id:${t.id}`
+}
+
+/** Una sola fila por OP: evita duplicados (misma orden en varias tarjetas). */
+function dedupeCampoTasksByOrden(tasks: Task[], prefer: CampoListSectorMode): Task[] {
+  const map = new Map<string, Task>()
+  const score = (t: Task): number => {
+    let s = new Date(t.updatedAt || t.createdAt || 0).getTime()
+    if (prefer === 'instalaciones') {
+      if (t.status === 'instalaciones') s += 1e15
+      else if (t.assignedSector === 'Instalaciones') s += 1e14
+    } else if (prefer === 'metalurgica') {
+      if (t.status === 'metalurgica') s += 1e15
+      else if (t.assignedSector === 'Metalúrgica') s += 1e14
+    } else {
+      if (taskEstaEnColumnaInstalacionOMetalurgica(t)) s += 1e13
+    }
+    return s
+  }
+  const better = (a: Task, b: Task): Task => (score(b) > score(a) ? b : a)
+  for (const t of tasks) {
+    const k = dedupeKeyForCampoTask(t)
+    const prev = map.get(k)
+    map.set(k, prev ? better(prev, t) : t)
+  }
+  return [...map.values()]
+}
+
 function sectorLabel(task: Task): string {
   if (task.status === 'instalaciones' || task.assignedSector === 'Instalaciones') return 'Instalaciones'
   if (task.status === 'metalurgica' || task.assignedSector === 'Metalúrgica') return 'Metalúrgica'
@@ -102,11 +155,23 @@ type Props = {
 }
 
 export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData }: Props) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isInstalaciones, isMetalurgica } = useAuth()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  const listSectorMode: CampoListSectorMode = useMemo(() => {
+    if (isAdmin) return 'both'
+    if (isMetalurgica) return 'metalurgica'
+    if (isInstalaciones) return 'instalaciones'
+    return 'both'
+  }, [isAdmin, isInstalaciones, isMetalurgica])
+
   const campoTasks = useMemo(() => {
-    const list = tasks.filter(isCampoRelevantTask)
+    let list = tasks.filter(isCampoRelevantTask)
+    if (listSectorMode === 'instalaciones') list = list.filter(taskTouchesInstalaciones)
+    else if (listSectorMode === 'metalurgica') list = list.filter(taskTouchesMetalurgica)
+
+    list = dedupeCampoTasksByOrden(list, listSectorMode)
+
     // Más nueva → más antigua: primero por última actualización, luego por creación
     list.sort((a, b) => {
       const ua = new Date(a.updatedAt || a.createdAt || 0).getTime()
@@ -117,7 +182,7 @@ export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData 
       return cb - ca
     })
     return list
-  }, [tasks])
+  }, [tasks, listSectorMode])
 
   const selected = selectedId ? campoTasks.find((t) => t.id === selectedId) : null
 
@@ -132,19 +197,34 @@ export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData 
     )
   }
 
+  const titleMain =
+    listSectorMode === 'instalaciones'
+      ? 'Instalaciones'
+      : listSectorMode === 'metalurgica'
+        ? 'Metalúrgica'
+        : 'Instalaciones · Metalúrgica'
+  const subMain =
+    listSectorMode === 'instalaciones'
+      ? 'Solo OPs vinculadas a Instalaciones (una entrada por orden). Fotos, checklist y evidencia en campo.'
+      : listSectorMode === 'metalurgica'
+        ? 'Solo OPs vinculadas a Metalúrgica (una entrada por orden). Fotos, checklist y evidencia en campo.'
+        : 'OPs en campo — datos, fotos del lugar, checklist y evidencia. Listado sin duplicar la misma orden. Las fotos nuevas se guardan en la base (sin Storage).'
+  const emptyMsg =
+    listSectorMode === 'instalaciones'
+      ? 'No hay OPs de Instalaciones pendientes en este listado.'
+      : listSectorMode === 'metalurgica'
+        ? 'No hay OPs de Metalúrgica pendientes en este listado.'
+        : 'No hay OPs con Instalaciones o Metalúrgica pendientes en este listado.'
+
   return (
     <div className="campo-app">
       <header className="campo-app-header">
-        <h1 className="campo-app-title">Instalaciones · Metalúrgica</h1>
-        <p className="campo-app-sub">
-          OPs en campo — datos, fotos del lugar, checklist y evidencia. Las fotos nuevas se guardan en la base (sin Storage).
-        </p>
+        <h1 className="campo-app-title">{titleMain}</h1>
+        <p className="campo-app-sub">{subMain}</p>
       </header>
 
       <ul className="campo-list">
-        {campoTasks.length === 0 && (
-          <li className="campo-empty">No hay OPs con Instalaciones o Metalúrgica pendientes en este listado.</li>
-        )}
+        {campoTasks.length === 0 && <li className="campo-empty">{emptyMsg}</li>}
         {campoTasks.map((t) => (
           <li key={t.id}>
             <button type="button" className="campo-list-item" onClick={() => setSelectedId(t.id)}>

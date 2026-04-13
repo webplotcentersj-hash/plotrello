@@ -156,7 +156,12 @@ const Header = ({
                 className="brand-button"
                 onClick={() => setActionsOpen(false)}
               >
-                📱 App campo (Inst. / Met.)
+                📱 App campo
+                {isAdmin
+                  ? ' (Inst. / Met.)'
+                  : isMetalurgica
+                    ? ' (Metalúrgica)'
+                    : ' (Instalaciones)'}
               </Link>
             )}
             {onNavigateToCalendar && (
