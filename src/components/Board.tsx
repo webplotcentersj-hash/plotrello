@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -41,6 +41,8 @@ const Board = ({
   hideReclamoUI
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
+  /** Evita que un endDragUi diferido pise un drag nuevo (setTimeout tras soltar). */
+  const dragSessionRef = useRef(0)
   const columnContainerRefCallbacks = useRef<
     Partial<Record<TaskStatus, (node: HTMLDivElement | null) => void>>
   >({})
@@ -98,21 +100,44 @@ const Board = ({
 
   const handleDragEnd = useCallback(
     (result: DropResult) => {
-      setIsDragging(false)
-      window.dispatchEvent(new CustomEvent('board-dragging-changed', { detail: { dragging: false } }))
       const { destination, source, draggableId } = result
-      if (!destination) return
-      if (
-        destination.droppableId === source.droppableId &&
-        destination.index === source.index
-      ) {
+
+      const endDragUi = () => {
+        startTransition(() => {
+          setIsDragging(false)
+          window.dispatchEvent(new CustomEvent('board-dragging-changed', { detail: { dragging: false } }))
+        })
+      }
+
+      // Canceló fuera del tablero o no hubo destino: solo quitar modo drag.
+      if (!destination) {
+        endDragUi()
         return
       }
+      // Soltó en el mismo lugar: sin onMoveTask.
+      if (destination.droppableId === source.droppableId && destination.index === source.index) {
+        endDragUi()
+        return
+      }
+
       const dest = destination.droppableId as TaskStatus
       const src = source.droppableId as TaskStatus
-      // Deja terminar el frame del DnD antes de actualizar estado React (menos tirón al soltar)
+      const sessionAtDrop = dragSessionRef.current
+
+      /*
+       * Evitar dos renders pesados seguidos al soltar:
+       * antes: setIsDragging(false) → remontaba todas las TaskCard; al frame siguiente setTasks en onMoveTask.
+       * Ahora: dos rAF dejan cerrar el drop en hello-pangea; luego onMoveTask y, en el siguiente macrotask,
+       * endDragUi (startTransition) para alinear con el update optimista. sessionAtDrop evita pisar un drag nuevo.
+       */
       requestAnimationFrame(() => {
-        onMoveTask(draggableId, dest, src)
+        requestAnimationFrame(() => {
+          void onMoveTask(draggableId, dest, src)
+          setTimeout(() => {
+            if (dragSessionRef.current !== sessionAtDrop) return
+            endDragUi()
+          }, 0)
+        })
       })
     },
     [onMoveTask]
@@ -133,6 +158,7 @@ const Board = ({
     <div className={`board-wrapper ${isDragging ? 'is-dragging' : ''}`}>
       <DragDropContext
         onDragStart={() => {
+          dragSessionRef.current += 1
           setIsDragging(true)
           window.dispatchEvent(new CustomEvent('board-dragging-changed', { detail: { dragging: true } }))
         }}
