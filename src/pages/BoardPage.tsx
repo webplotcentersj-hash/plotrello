@@ -27,6 +27,7 @@ import {
   mapStatusToEstado,
   mapEstadoToStatus
 } from '../utils/dataMappers'
+import { recordTiposImpresionUsados } from '../utils/opImpresionRecientes'
 import Subtasks from '../components/Subtasks'
 import {
   getSectorEtapaKanbanBySectorName,
@@ -725,6 +726,7 @@ const BoardPage = ({
         if (!lineasRes.success) {
           console.warn('No se pudieron guardar las líneas m²:', lineasRes.error)
         }
+        recordTiposImpresionUsados(updatedTask.tipoImpresion, updatedTask.lineasMetrosM2)
 
         // IMPORTANTE: Actualizar el estado local con los datos que vienen de Supabase
         const ordenActualizada = response.data
@@ -905,8 +907,25 @@ const BoardPage = ({
       const response = await apiService.createOrden(payload)
       console.log('📥 Respuesta de createOrden:', response)
       if (response.success && response.data) {
-        const createdTask = ordenToTask(response.data)
+        let createdTask = ordenToTask(response.data)
         const ordenId = parseTaskIdToOrdenId(createdTask.id)
+
+        if (ordenId) {
+          const lineasRes = await apiService.replaceOrdenLineasM2(
+            ordenId,
+            newTaskData.lineasMetrosM2 ?? []
+          )
+          if (!lineasRes.success) {
+            console.warn('Líneas m² al crear OP:', lineasRes.error)
+          }
+          recordTiposImpresionUsados(newTaskData.tipoImpresion, newTaskData.lineasMetrosM2)
+        }
+
+        createdTask = {
+          ...createdTask,
+          tipoImpresion: newTaskData.tipoImpresion,
+          lineasMetrosM2: newTaskData.lineasMetrosM2
+        }
         
         // Si la OP viene con metros, guardarlos en la ficha (corrección/consistencia para TG)
         if (ordenId && newTaskData.metrosCuadrados !== undefined && newTaskData.metrosCuadrados !== null) {

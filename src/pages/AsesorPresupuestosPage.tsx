@@ -372,14 +372,6 @@ const AsesorPresupuestosPage = ({
         return
       }
 
-      const lineasRes = await apiService.replaceOrdenLineasM2(
-        ordenId,
-        updatedTask.lineasMetrosM2 ?? []
-      )
-      if (!lineasRes.success) {
-        console.warn('Líneas m²:', lineasRes.error)
-      }
-
       const sectoresAnt = JSON.stringify(taskOriginal?.sectores ?? [])
       const sectoresNue = JSON.stringify(updatedTask.sectores ?? [])
       if (sectoresAnt !== sectoresNue) {
@@ -594,6 +586,7 @@ const AsesorPresupuestosPage = ({
             sectores={sectores}
             materiales={materialesCatalog}
             activity={activity}
+            showImpresionOpFields={false}
           />
         )}
 

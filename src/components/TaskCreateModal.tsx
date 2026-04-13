@@ -7,6 +7,7 @@ import { filterOperariosBySector } from '../utils/dataMappers'
 import apiService from '../services/api'
 import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
 import { attachmentListHasReadySitePhoto, opSectoresRequierenFotosLugar } from '../utils/sectoresFotosLugar'
+import { getRecentTiposImpresionOp, getRecentTiposLineaM2 } from '../utils/opImpresionRecientes'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -101,6 +102,10 @@ const TaskCreateModal = ({
   const [photoUrl, setPhotoUrl] = useState('')
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [metrosCuadrados, setMetrosCuadrados] = useState<string>('')
+  const [tipoImpresion, setTipoImpresion] = useState('')
+  const [lineasMetrosM2, setLineasMetrosM2] = useState<Array<{ tipo: string; metrosCuadrados: number }>>([])
+  const [recentTiposOp, setRecentTiposOp] = useState<string[]>(() => getRecentTiposImpresionOp())
+  const [recentTiposLinea, setRecentTiposLinea] = useState<string[]>(() => getRecentTiposLineaM2())
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [etiquetasDisponibles, setEtiquetasDisponibles] = useState<Array<{ nombre: string; veces_usada: number; color: string }>>([])
@@ -128,6 +133,17 @@ const TaskCreateModal = ({
       setOperario(filteredOperarios[0].id)
     }
   }, [filteredOperarios, operario])
+
+  useEffect(() => {
+    setRecentTiposOp(getRecentTiposImpresionOp())
+    setRecentTiposLinea(getRecentTiposLineaM2())
+  }, [])
+
+  useEffect(() => {
+    if (lineasMetrosM2.length === 0) return
+    const sum = lineasMetrosM2.reduce((s, r) => s + (Number(r.metrosCuadrados) || 0), 0)
+    setMetrosCuadrados(sum > 0 ? String(sum) : '')
+  }, [lineasMetrosM2])
 
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
@@ -468,12 +484,15 @@ const TaskCreateModal = ({
     const primerSector = selectedSectores[0]
     const requiereMetrosTG = selectedSectores.includes('Taller Gráfico')
     const metrosValParseado = parseFloat((metrosCuadrados || '').replace(',', '.'))
-    const metrosIngresadosValidos =
+    const sumLineasM2 = lineasMetrosM2.reduce((s, r) => s + (Number(r.metrosCuadrados) || 0), 0)
+    const hayLineasConM2 = lineasMetrosM2.some((r) => (Number(r.metrosCuadrados) || 0) > 0)
+    const metrosManualValidos =
       metrosCuadrados.trim() && !Number.isNaN(metrosValParseado) && metrosValParseado > 0
+    const metrosIngresadosValidos = hayLineasConM2 || metrosManualValidos
 
     if (requiereMetrosTG) {
       if (!metrosIngresadosValidos) {
-        alert('Si la OP incluye Taller Gráfico, los metros cuadrados (m²) son obligatorios.')
+        alert('Si la OP incluye Taller Gráfico, los metros cuadrados (m²) son obligatorios (manual o sumando ítems).')
         return
       }
     }
@@ -522,11 +541,17 @@ const TaskCreateModal = ({
       publicoObjetivo: publicoObjetivo.trim() || undefined,
       estiloDiseno: estiloDiseno.trim() || undefined,
       referencias: referencias.trim() || undefined,
-      deadlineBrief: deadlineBrief || undefined
+      deadlineBrief: deadlineBrief || undefined,
+      tipoImpresion: tipoImpresion.trim() || undefined,
+      lineasMetrosM2: lineasMetrosM2
+        .filter((r) => (Number(r.metrosCuadrados) || 0) > 0)
+        .map(({ tipo, metrosCuadrados: m2 }) => ({ tipo: tipo.trim(), metrosCuadrados: m2 }))
     }
 
-    if (metrosIngresadosValidos) {
-      ;(newTask as any).metrosCuadrados = metrosValParseado
+    if (hayLineasConM2) {
+      newTask.metrosCuadrados = sumLineasM2
+    } else if (metrosManualValidos) {
+      newTask.metrosCuadrados = metrosValParseado
     }
 
     console.log('🏷️ [TaskCreateModal] newTask.tags:', newTask.tags)
@@ -929,6 +954,16 @@ const TaskCreateModal = ({
         </header>
 
         <div className="modal-body">
+          <datalist id="plotrello-datalist-tipo-op-create">
+            {recentTiposOp.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+          <datalist id="plotrello-datalist-tipo-linea-create">
+            {recentTiposLinea.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
           <div className="form-row">
             <div className="form-group">
               <label>N° OP</label>
@@ -1727,8 +1762,77 @@ const TaskCreateModal = ({
           </div>
 
           <div className="form-group">
+            <label>Tipo de impresión (OP)</label>
+            <input
+              type="text"
+              value={tipoImpresion}
+              onChange={(e) => setTipoImpresion(e.target.value)}
+              list="plotrello-datalist-tipo-op-create"
+              placeholder="Ej: Lona, vinilo, papel… (sugerencias de OPs recientes)"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Ítems con metros (opcional)</label>
+            <p style={{ color: '#9ca3af', fontSize: '12px', marginTop: 0 }}>
+              Varias piezas con tipo y m². Si cargás ítems, el total se usa como m² de la OP. Las sugerencias salen de
+              tipos usados antes en esta computadora.
+            </p>
+            {lineasMetrosM2.map((row, idx) => (
+              <div
+                key={idx}
+                style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}
+              >
+                <input
+                  type="text"
+                  placeholder="Tipo / pieza"
+                  value={row.tipo}
+                  list="plotrello-datalist-tipo-linea-create"
+                  onChange={(e) => {
+                    const next = [...lineasMetrosM2]
+                    next[idx] = { ...next[idx], tipo: e.target.value }
+                    setLineasMetrosM2(next)
+                  }}
+                  style={{ flex: '1 1 140px', minWidth: 120 }}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="m²"
+                  value={row.metrosCuadrados || ''}
+                  onChange={(e) => {
+                    const next = [...lineasMetrosM2]
+                    const v = e.target.value === '' ? 0 : parseFloat(e.target.value)
+                    next[idx] = { ...next[idx], metrosCuadrados: Number.isFinite(v) ? v : 0 }
+                    setLineasMetrosM2(next)
+                  }}
+                  style={{ width: 96 }}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setLineasMetrosM2(lineasMetrosM2.filter((_, i) => i !== idx))}
+                >
+                  Quitar
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() =>
+                setLineasMetrosM2([...lineasMetrosM2, { tipo: '', metrosCuadrados: 0 }])
+              }
+            >
+              + Agregar ítem
+            </button>
+          </div>
+
+          <div className="form-group">
             <label>
               Metros cuadrados (m²)
+              {lineasMetrosM2.length > 0 ? ' — total calculado' : null}
               {selectedSectores.includes('Taller Gráfico') ? (
                 <span style={{ color: '#fbbf24' }}> *</span>
               ) : null}
@@ -1744,13 +1848,13 @@ const TaskCreateModal = ({
                   ? 'Obligatorio si hay Taller Gráfico (ej: 6.24)'
                   : 'Opcional en cualquier sector (ej: 6.24)'
               }
+              disabled={lineasMetrosM2.length > 0}
             />
             <small style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px', display: 'block' }}>
               Podés cargar m² aunque el sector no sea Taller Gráfico. Si marcás Taller Gráfico entre los sectores, el
-              valor es obligatorio.
+              valor es obligatorio (manual o sumando ítems). Sin ítems, podés editar el total a mano.
             </small>
           </div>
-
 
           <div className="form-group">
             <label>Materiales</label>
