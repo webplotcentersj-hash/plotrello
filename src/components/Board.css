@@ -27,9 +27,19 @@
   transform: none !important;
 }
 
-/* Turbo mode: during drag disable costly paints/animations globally in board */
+/*
+ * Durante el arrastre: sin animaciones en contenedores conocidos.
+ * Evitar `.columns-grid *` — el selector universal fuerza recálculo de estilos en cada nodo y tilda el tablero.
+ */
 .board-wrapper.is-dragging .columns-grid,
-.board-wrapper.is-dragging .columns-grid * {
+.board-wrapper.is-dragging .board-column,
+.board-wrapper.is-dragging .column-body,
+.board-wrapper.is-dragging .column-header,
+.board-wrapper.is-dragging .column-pill,
+.board-wrapper.is-dragging .column-load-indicator,
+.board-wrapper.is-dragging .column-show-more-btn,
+.board-wrapper.is-dragging .column-empty,
+.board-wrapper.is-dragging .task-card {
   animation: none !important;
   transition: none !important;
 }

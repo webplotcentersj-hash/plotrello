@@ -35,7 +35,6 @@ const EtapaColumn = memo(function EtapaColumn({
   isActive,
   activityByTaskId,
   membersById,
-  isBoardDragging,
   sectores,
   onViewTask
 }: {
@@ -47,7 +46,6 @@ const EtapaColumn = memo(function EtapaColumn({
   isActive: boolean
   activityByTaskId: Map<string, ActivityEvent[]>
   membersById: Map<string, TeamMember>
-  isBoardDragging: boolean
   sectores?: SectorRecord[]
   onViewTask?: (task: Task) => void
 }) {
@@ -85,7 +83,6 @@ const EtapaColumn = memo(function EtapaColumn({
             activity={activityByTaskId.get(task.id) ?? EMPTY_ACTIVITY}
             members={members}
             columns={[]}
-            isBoardDragging={isBoardDragging}
             onViewTask={onViewTask}
           />
         ))}
@@ -171,7 +168,6 @@ const EtapaKanbanBoard = ({
                   maxInBoard={maxInColumn}
                   droppableProvided={provided}
                   isActive={snapshot.isDraggingOver}
-                  isBoardDragging={isDragging}
                   activityByTaskId={activityByTaskId}
                   membersById={membersById}
                   sectores={sectores}

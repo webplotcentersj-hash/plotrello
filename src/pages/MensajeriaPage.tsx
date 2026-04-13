@@ -26,7 +26,11 @@ const parseDmPeerId = (roomNombre: string, currentUserId: number): number | null
   return a === currentUserId ? b : b === currentUserId ? a : null
 }
 
-export default function MensajeriaPage() {
+type MensajeriaPageProps = {
+  onLogout: () => void
+}
+
+export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos } = useAuth()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
@@ -203,11 +207,7 @@ export default function MensajeriaPage() {
         onNavigateToStats={() => navigate('/statistics')}
         onNavigateToUsuarios={() => navigate('/usuarios')}
         onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
-        onLogout={() => {
-          localStorage.removeItem('usuario')
-          localStorage.removeItem('auth_token')
-          navigate('/')
-        }}
+        onLogout={onLogout}
       />
 
       <div className="mensajeria-wrap">

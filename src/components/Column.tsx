@@ -16,7 +16,6 @@ type ColumnProps = {
   maxTasksInColumn: number
   droppableProvided: DroppableProvided
   isActive: boolean
-  isBoardDragging?: boolean
   containerRef: Ref<HTMLDivElement>
   onEditTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
@@ -50,7 +49,6 @@ const Column = ({
   selectedTaskId,
   onSelectTask,
   onViewTask,
-  isBoardDragging = false,
   hideReclamoUI
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
@@ -119,7 +117,6 @@ const Column = ({
                 isSelected={selectedTaskId === task.id}
                 onSelect={onSelectTask}
                 onViewTask={onViewTask}
-                isBoardDragging={isBoardDragging}
                 isDraggable={false}
                 boardDnD={{ provided, snapshot }}
                 hideReclamoUI={hideReclamoUI}

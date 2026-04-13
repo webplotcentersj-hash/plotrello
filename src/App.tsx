@@ -203,6 +203,7 @@ function App() {
   }
 
   const handleLogout = () => {
+    void apiService.logout().catch(() => {})
     localStorage.removeItem('usuario')
     localStorage.removeItem('auth_token')
     localStorage.removeItem('usuario_id')
@@ -855,7 +856,7 @@ function AppRoutes({
       />
       <Route
         path="/mensajeria"
-        element={<MensajeriaPage />}
+        element={<MensajeriaPage onLogout={onLogout} />}
       />
       <Route
         path="/consulta-cliente"

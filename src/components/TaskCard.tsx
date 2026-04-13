@@ -72,7 +72,6 @@ type TaskCardProps = {
   onSelect?: (taskId: string | null) => void
   /** Clic en la ficha (vista solo lectura); no usar en menú contextual */
   onViewTask?: (task: Task) => void
-  isBoardDragging?: boolean
   /** Si viene definido, no se envuelve en Draggable (lo pone Column.tsx) */
   boardDnD?: TaskCardBoardDnD | null
   /** Ocultar marca/indicadores y acciones de reclamo (ej. tablero asesor/presupuestos) */
@@ -138,7 +137,6 @@ const TaskCardInner = ({
   isSelected = false,
   onSelect,
   onViewTask,
-  isBoardDragging = false,
   boardDnD = null,
   hideReclamoUI = false
 }: TaskCardProps) => {
@@ -459,9 +457,16 @@ const TaskCardInner = ({
 
   const auditEvents = activity
 
-  const renderCardContent = (draggableProps?: { ref?: any; className?: string; [key: string]: any }) => {
+  const renderCardContent = (
+    draggableProps?: { ref?: any; className?: string; [key: string]: any },
+    snapshotIsDragging = false
+  ) => {
     const { ref, className: extraClassName, onClick: dndOnClick, ...restProps } = draggableProps || {}
-    const isDragLightMode = Boolean(isBoardDragging || (extraClassName && String(extraClassName).includes('is-dragging')))
+    // Usar snapshot explícito: si ...draggableProps pisa `className`, antes perdíamos `is-dragging` y la OP
+    // expandida seguía pintando toolbar/foto/meta en cada frame (muy pesado; las fichas suelen ir minimizadas).
+    const isDragLightMode = Boolean(
+      snapshotIsDragging || (extraClassName && String(extraClassName).includes('is-dragging'))
+    )
     return (
       <>
         <article
@@ -1625,25 +1630,35 @@ const TaskCardInner = ({
 
   const cardContent =
     boardDnD != null ? (
-      renderCardContent({
-        ref: boardDnD.provided.innerRef,
-        className: clsx({
-          'is-dragging': boardDnD.snapshot.isDragging
-        }),
-        ...boardDnD.provided.draggableProps,
-        ...(boardDnD.provided.dragHandleProps ?? {})
-      })
+      renderCardContent(
+        {
+          ref: boardDnD.provided.innerRef,
+          ...boardDnD.provided.draggableProps,
+          ...(boardDnD.provided.dragHandleProps ?? {}),
+          className: clsx(
+            (boardDnD.provided.draggableProps as { className?: string }).className,
+            (boardDnD.provided.dragHandleProps as { className?: string } | undefined)?.className,
+            { 'is-dragging': boardDnD.snapshot.isDragging }
+          )
+        },
+        boardDnD.snapshot.isDragging
+      )
     ) : isDraggable ? (
       <Draggable draggableId={task.id} index={index} isDragDisabled={moveBlocked}>
         {(provided, snapshot) =>
-          renderCardContent({
-            ref: provided.innerRef,
-            className: clsx({
-              'is-dragging': snapshot.isDragging
-            }),
-            ...provided.draggableProps,
-            ...(provided.dragHandleProps ?? {})
-          })
+          renderCardContent(
+            {
+              ref: provided.innerRef,
+              ...provided.draggableProps,
+              ...(provided.dragHandleProps ?? {}),
+              className: clsx(
+                (provided.draggableProps as { className?: string }).className,
+                (provided.dragHandleProps as { className?: string } | undefined)?.className,
+                { 'is-dragging': snapshot.isDragging }
+              )
+            },
+            snapshot.isDragging
+          )
         }
       </Draggable>
     ) : (
@@ -2017,7 +2032,6 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       prev.sectores === next.sectores &&
       prev.onMarkDelivered === next.onMarkDelivered &&
       prev.members === next.members &&
-      prev.isBoardDragging === next.isBoardDragging &&
       prev.isSelected === next.isSelected &&
       prev.onSelect === next.onSelect &&
       prev.onViewTask === next.onViewTask &&
@@ -2075,7 +2089,6 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
     }
   }
   if (prev.index !== next.index) return false
-  if (prev.isBoardDragging !== next.isBoardDragging) return false
   if (prev.isSelected !== next.isSelected) return false
   if (prev.owner !== next.owner) return false
   if (prev.activity !== next.activity) return false
