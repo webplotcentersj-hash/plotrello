@@ -892,17 +892,34 @@ const TaskCardInner = ({
               (task.lineasMetrosM2 && task.lineasMetrosM2.length > 0)) && (
               <div
                 className="task-metros-pill"
-                style={{ marginTop: 4, fontSize: '0.85em', opacity: 0.95 }}
-                title="Tipo e ítems m² (detalle en edición de ficha)"
+                style={{ marginTop: 4, fontSize: '0.85em', opacity: 0.95, lineHeight: 1.35 }}
+                title={[
+                  task.tipoImpresion?.trim() ? `Tipo OP: ${task.tipoImpresion.trim()}` : null,
+                  task.lineasMetrosM2?.length
+                    ? task.lineasMetrosM2
+                        .map(
+                          (r) =>
+                            `${(r.tipo || '').trim() || 'Ítem'}: ${Number(r.metrosCuadrados || 0).toFixed(2)} m²`
+                        )
+                        .join(' | ')
+                    : null
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || 'Impresión / m²'}
               >
                 {task.tipoImpresion?.trim() ? (
                   <span>🖨 {task.tipoImpresion.trim()}</span>
                 ) : null}
                 {task.lineasMetrosM2 && task.lineasMetrosM2.length > 0 ? (
-                  <span>
-                    {task.tipoImpresion?.trim() ? ' · ' : ''}
-                    {task.lineasMetrosM2.length} ítem
-                    {task.lineasMetrosM2.length === 1 ? '' : 's'} m²
+                  <span style={{ display: 'block', marginTop: task.tipoImpresion?.trim() ? 2 : 0 }}>
+                    {task.lineasMetrosM2
+                      .filter((r) => (Number(r.metrosCuadrados) || 0) > 0)
+                      .map((r) => {
+                        const nombre = (r.tipo || '').trim() || 'Ítem'
+                        return `${nombre} · ${Number(r.metrosCuadrados).toFixed(2)} m²`
+                      })
+                      .join(' · ') ||
+                      `${task.lineasMetrosM2.length} ítem${task.lineasMetrosM2.length === 1 ? '' : 's'} (sin m² cargados)`}
                   </span>
                 ) : null}
               </div>
