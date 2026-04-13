@@ -248,6 +248,15 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     opBloqueada: orden.op_bloqueada === true,
     entregado: orden.entregado ?? false,
     metrosCuadrados: orden.metros_cuadrados ?? undefined,
+    tipoImpresion: orden.tipo_impresion?.trim() || undefined,
+    lineasMetrosM2:
+      Array.isArray(orden.orden_lineas_m2) && orden.orden_lineas_m2.length > 0
+        ? orden.orden_lineas_m2.map((r) => ({
+            id: r.id,
+            tipo: (r.tipo || '').trim(),
+            metrosCuadrados: Number(r.metros_cuadrados) || 0
+          }))
+        : undefined,
     esFichaNoOP: orden.es_ficha_no_op ?? false,
     numeroFichaOriginal: orden.numero_ficha_original ?? undefined,
     planillaPreliminar: orden.planilla_preliminar ?? false,
@@ -378,6 +387,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     drive_link: task.driveUrl?.trim() || null,
     etiquetas: task.tags && Array.isArray(task.tags) && task.tags.length > 0 ? task.tags : null,
     metros_cuadrados: task.metrosCuadrados || null,
+    tipo_impresion: task.tipoImpresion?.trim() || null,
     etapa_taller_grafico: task.etapaTallerGrafico?.trim() || null,
     etapa_taller_grafico_fecha_inicio: task.etapaTallerGraficoFechaInicio || null,
     etapa_instalaciones: task.etapaInstalaciones?.trim() || null,

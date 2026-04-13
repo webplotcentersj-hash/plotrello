@@ -424,6 +424,11 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       return
     }
 
+    const lineasRes = await apiService.replaceOrdenLineasM2(ordenId, merged.lineasMetrosM2 ?? [])
+    if (!lineasRes.success) {
+      console.warn('Líneas m²:', lineasRes.error)
+    }
+
     for (const a of adjuntosRef.current) {
       if (a.file && a.remoteUrl && !a.dbId) {
         await apiService.guardarArchivoOrden(ordenId, a.name, a.remoteUrl)

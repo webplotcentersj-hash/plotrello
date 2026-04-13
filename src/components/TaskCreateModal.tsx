@@ -467,11 +467,13 @@ const TaskCreateModal = ({
     // Primer sector = columna inicial de la OP; si hay más sectores, la BD crea fichas adicionales de la misma OP
     const primerSector = selectedSectores[0]
     const requiereMetrosTG = selectedSectores.includes('Taller Gráfico')
+    const metrosValParseado = parseFloat((metrosCuadrados || '').replace(',', '.'))
+    const metrosIngresadosValidos =
+      metrosCuadrados.trim() && !Number.isNaN(metrosValParseado) && metrosValParseado > 0
 
     if (requiereMetrosTG) {
-      const metrosVal = parseFloat((metrosCuadrados || '').replace(',', '.'))
-      if (!metrosCuadrados.trim() || Number.isNaN(metrosVal) || metrosVal <= 0) {
-        alert('Para Taller Gráfico es obligatorio cargar los metros cuadrados (m²).')
+      if (!metrosIngresadosValidos) {
+        alert('Si la OP incluye Taller Gráfico, los metros cuadrados (m²) son obligatorios.')
         return
       }
     }
@@ -523,9 +525,8 @@ const TaskCreateModal = ({
       deadlineBrief: deadlineBrief || undefined
     }
 
-    if (requiereMetrosTG) {
-      const metrosVal = parseFloat((metrosCuadrados || '').replace(',', '.'))
-      ;(newTask as any).metrosCuadrados = Number.isNaN(metrosVal) ? undefined : metrosVal
+    if (metrosIngresadosValidos) {
+      ;(newTask as any).metrosCuadrados = metrosValParseado
     }
 
     console.log('🏷️ [TaskCreateModal] newTask.tags:', newTask.tags)
@@ -1725,19 +1726,30 @@ const TaskCreateModal = ({
             />
           </div>
 
-          {selectedSectores.includes('Taller Gráfico') && (
-            <div className="form-group">
-              <label>Metros Cuadrados (m²) a imprimir *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={metrosCuadrados}
-                onChange={(e) => setMetrosCuadrados(e.target.value)}
-                placeholder="Ej: 6.24"
-              />
-            </div>
-          )}
+          <div className="form-group">
+            <label>
+              Metros cuadrados (m²)
+              {selectedSectores.includes('Taller Gráfico') ? (
+                <span style={{ color: '#fbbf24' }}> *</span>
+              ) : null}
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={metrosCuadrados}
+              onChange={(e) => setMetrosCuadrados(e.target.value)}
+              placeholder={
+                selectedSectores.includes('Taller Gráfico')
+                  ? 'Obligatorio si hay Taller Gráfico (ej: 6.24)'
+                  : 'Opcional en cualquier sector (ej: 6.24)'
+              }
+            />
+            <small style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+              Podés cargar m² aunque el sector no sea Taller Gráfico. Si marcás Taller Gráfico entre los sectores, el
+              valor es obligatorio.
+            </small>
+          </div>
 
 
           <div className="form-group">

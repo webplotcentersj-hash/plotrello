@@ -511,6 +511,43 @@
   }
 }
 
+.impresoras-reportes-pdf .impresoras-reportes-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin-top: 12px;
+}
+
+.impresoras-reportes-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.impresoras-reportes-field span {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.impresoras-reportes-field select,
+.impresoras-reportes-field input {
+  min-width: 180px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 17, 28, 0.9);
+  color: #f1f5f9;
+}
+
+.impresoras-reportes-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
 
 
 

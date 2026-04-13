@@ -718,6 +718,14 @@ const BoardPage = ({
       
       const response = await apiService.updateOrden(ordenId, payload)
       if (response.success && response.data) {
+        const lineasRes = await apiService.replaceOrdenLineasM2(
+          ordenId,
+          updatedTask.lineasMetrosM2 ?? []
+        )
+        if (!lineasRes.success) {
+          console.warn('No se pudieron guardar las líneas m²:', lineasRes.error)
+        }
+
         // IMPORTANTE: Actualizar el estado local con los datos que vienen de Supabase
         const ordenActualizada = response.data
         const taskActualizado = ordenToTask(ordenActualizada)
@@ -741,7 +749,9 @@ const BoardPage = ({
         const taskFinal: Task = {
           ...taskActualizado,
           status: statusFinal, // SIEMPRE usar el status preservado (columna actual)
-          id: updatedTask.id // Mantener el ID original
+          id: updatedTask.id, // Mantener el ID original
+          lineasMetrosM2: updatedTask.lineasMetrosM2,
+          tipoImpresion: updatedTask.tipoImpresion
         }
         
         setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? taskFinal : task)))

@@ -1,3 +1,30 @@
+export interface OrdenLineaM2 {
+  id: number
+  id_orden: number
+  tipo: string
+  metros_cuadrados: number
+  sort_order: number
+  created_at?: string | null
+}
+
+/** Fila para reporte PDF de uso de impresoras (metros y horas) */
+export interface ImpresoraUsoReportFila {
+  id: number
+  id_impresora: number
+  nombre_impresora: string
+  id_orden: number
+  fecha_inicio: string
+  fecha_fin: string | null
+  horas_usadas: number | null
+  metros_cuadrados: number | null
+  estado: string
+  operario: string | null
+  numero_op: string | null
+  cliente: string | null
+  descripcion: string | null
+  tipo_impresion_orden: string | null
+}
+
 export interface OrdenTrabajo {
   id: number
   numero_op: string
@@ -30,6 +57,10 @@ export interface OrdenTrabajo {
   entregado?: boolean | null // Indica si la ficha fue entregada y está archivada
   etiquetas?: string[] | null // Etiquetas de colores
   metros_cuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
+  /** Tipo o familia de impresión en la OP (texto libre) */
+  tipo_impresion?: string | null
+  /** Relleno en cliente tras getOrdenes/getOrden: líneas m² por ítem */
+  orden_lineas_m2?: OrdenLineaM2[] | null
   etapa_taller_grafico?: string | null // Etapa actual dentro de Taller Gráfico
   etapa_taller_grafico_fecha_inicio?: string | null // Fecha de inicio de la etapa actual
   etapa_instalaciones?: string | null // Etapa actual dentro de Instalaciones

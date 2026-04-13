@@ -20,6 +20,8 @@ import type {
   MaterialRecord,
   Notification,
   OrdenTrabajo,
+  OrdenLineaM2,
+  ImpresoraUsoReportFila,
   OrdenRelevamientoRecord,
   RelevamientoSubitemRecord,
   SectorRecord,
@@ -83,6 +85,32 @@ import type {
   EstadoPago
 } from '../types/pedidos'
 import { supabase, stockSupabase } from './supabaseClient'
+
+/** Anexa `orden_lineas_m2` a cada orden (si la tabla existe en Supabase). */
+async function attachLineasM2ToOrdenes(ordenes: any[]): Promise<void> {
+  if (!supabase || ordenes.length === 0) return
+  const ids = ordenes.map((o) => o.id).filter((id: unknown) => typeof id === 'number')
+  if (ids.length === 0) return
+  try {
+    const { data: allLineas, error } = await supabase
+      .from('orden_lineas_m2')
+      .select('id, id_orden, tipo, metros_cuadrados, sort_order, created_at')
+      .in('id_orden', ids)
+      .order('sort_order', { ascending: true })
+    if (error || !allLineas) return
+    const map = new Map<number, OrdenLineaM2[]>()
+    for (const row of allLineas as OrdenLineaM2[]) {
+      const list = map.get(row.id_orden) ?? []
+      list.push(row)
+      map.set(row.id_orden, list)
+    }
+    for (const o of ordenes) {
+      o.orden_lineas_m2 = map.get(o.id) ?? []
+    }
+  } catch (e) {
+    console.warn('[attachLineasM2ToOrdenes]', e)
+  }
+}
 
 const LEGACY_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const hasLegacyBackend = Boolean(LEGACY_API_BASE_URL)
@@ -575,6 +603,8 @@ class ApiService {
           drive_link: orden.drive_link || null
         }))
 
+        await attachLineasM2ToOrdenes(normalizedData)
+
         return { success: true, data: normalizedData as OrdenTrabajo[] }
       } catch (err: any) {
         // Capturar errores de red (Failed to fetch, CORS, etc.)
@@ -610,7 +640,9 @@ class ApiService {
 
       if (error) return { success: false, error: error.message }
       if (!data) return { success: false, error: 'Orden no encontrada' }
-      return { success: true, data: data as OrdenTrabajo }
+      const row = data as any
+      await attachLineasM2ToOrdenes([row])
+      return { success: true, data: row as OrdenTrabajo }
     }
 
     if (hasLegacyBackend) {
@@ -4895,6 +4927,115 @@ class ApiService {
     }
 
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /**
+   * Reemplaza todas las líneas m² de una OP. Debe llamarse tras guardar la orden (payload principal).
+   */
+  async replaceOrdenLineasM2(
+    ordenId: number,
+    lineas: Array<{ tipo: string; metrosCuadrados: number }>
+  ): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { error: delErr } = await supabase.from('orden_lineas_m2').delete().eq('id_orden', ordenId)
+      if (delErr) return { success: false, error: delErr.message }
+      const clean = lineas
+        .map((row, i) => ({
+          id_orden: ordenId,
+          tipo: (row.tipo || '').trim().slice(0, 200),
+          metros_cuadrados: Math.max(0, Number(row.metrosCuadrados) || 0),
+          sort_order: i
+        }))
+        .filter((r) => r.metros_cuadrados > 0)
+      if (clean.length > 0) {
+        const { error: insErr } = await supabase.from('orden_lineas_m2').insert(clean)
+        if (insErr) return { success: false, error: insErr.message }
+      }
+      return { success: true }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error guardando líneas m²'
+      return { success: false, error: msg }
+    }
+  }
+
+  /**
+   * Registros de `impresora_uso` cuyo inicio cae en [desdeISO, hastaISO) — para reportes diarios/mensuales.
+   */
+  async getImpresoraUsoEnRango(
+    desdeISO: string,
+    hastaISO: string,
+    impresoraId?: number | null
+  ): Promise<ApiResponse<ImpresoraUsoReportFila[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      let query = supabase
+        .from('impresora_uso')
+        .select(
+          `
+          id,
+          id_impresora,
+          id_orden,
+          fecha_inicio,
+          fecha_fin,
+          horas_usadas,
+          metros_cuadrados,
+          estado,
+          operario,
+          impresoras ( nombre ),
+          ordenes_trabajo ( numero_op, cliente, descripcion, tipo_impresion )
+        `
+        )
+        .gte('fecha_inicio', desdeISO)
+        .lt('fecha_inicio', hastaISO)
+        .order('fecha_inicio', { ascending: true })
+
+      if (impresoraId != null && Number.isFinite(impresoraId)) {
+        query = query.eq('id_impresora', impresoraId)
+      }
+
+      const { data, error } = await query
+      if (error) return { success: false, error: error.message }
+
+      const pickNombre = (imp: unknown): string | null => {
+        if (imp && typeof imp === 'object' && 'nombre' in imp) {
+          const n = (imp as { nombre?: string }).nombre
+          return typeof n === 'string' ? n : null
+        }
+        return null
+      }
+
+      const pickOrden = (ot: unknown): { numero_op?: string; cliente?: string; descripcion?: string; tipo_impresion?: string | null } | null => {
+        if (ot && typeof ot === 'object') return ot as any
+        return null
+      }
+
+      const filas: ImpresoraUsoReportFila[] = (data || []).map((row: any) => {
+        const ot = pickOrden(row.ordenes_trabajo)
+        return {
+          id: row.id,
+          id_impresora: row.id_impresora,
+          nombre_impresora:
+            pickNombre(row.impresoras) ?? `Impresora #${row.id_impresora}`,
+          id_orden: row.id_orden,
+          fecha_inicio: row.fecha_inicio,
+          fecha_fin: row.fecha_fin ?? null,
+          horas_usadas: row.horas_usadas != null ? Number(row.horas_usadas) : null,
+          metros_cuadrados: row.metros_cuadrados != null ? Number(row.metros_cuadrados) : null,
+          estado: row.estado,
+          operario: row.operario ?? null,
+          numero_op: ot?.numero_op ?? null,
+          cliente: ot?.cliente ?? null,
+          descripcion: ot?.descripcion ?? null,
+          tipo_impresion_orden: ot?.tipo_impresion ?? null
+        }
+      })
+
+      return { success: true, data: filas }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al cargar uso de impresoras'
+      return { success: false, error: msg }
+    }
   }
 
   async crearImpresora(

@@ -124,10 +124,12 @@ BEGIN
     ) THEN
       PERFORM public.notificar_usuarios_taller_grafico(
         format('🔴 Impresora %s muy ocupada', impresora_record.nombre),
-        format('La impresora %s (%s) tiene una ocupación del %.1f%% hoy. Considera redistribuir trabajos.', 
-          impresora_record.nombre, 
+        format(
+          'La impresora %s (%s) tiene una ocupación del %s%% hoy. Considera redistribuir trabajos.',
+          impresora_record.nombre,
           COALESCE(impresora_record.modelo, 'Sin modelo'),
-          impresora_record.porcentaje_ocupacion_hoy),
+          round(impresora_record.porcentaje_ocupacion_hoy::numeric, 1)::text
+        ),
         'error'
       );
     END IF;
@@ -173,9 +175,11 @@ BEGIN
     ) THEN
       PERFORM public.notificar_usuarios_taller_grafico(
         format('🔴 Impresora %s muy ocupada', (SELECT nombre FROM public.impresoras WHERE id = NEW.id_impresora)),
-        format('La impresora %s ha alcanzado una ocupación del %.1f%%.', 
+        format(
+          'La impresora %s ha alcanzado una ocupación del %s%%.',
           (SELECT nombre FROM public.impresoras WHERE id = NEW.id_impresora),
-          ocupacion_record.porcentaje_ocupacion_hoy),
+          round(ocupacion_record.porcentaje_ocupacion_hoy::numeric, 1)::text
+        ),
         'error'
       );
     END IF;

@@ -12,7 +12,26 @@ import {
 } from 'recharts'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { getArgentinaDateString } from '../utils/dateUtils'
+import { downloadImpresoraMetrosHorasPdf } from '../utils/impresoraMetrosReportPdf'
 import './ImpresorasPage.css'
+
+/** Inicio del día calendario en Argentina como rango UTC [desde, hasta) para filtrar `fecha_inicio`. */
+function argentinaDayUtcRange(dateYYYYMMDD: string): { desde: string; hasta: string } {
+  const [y, m, d] = dateYYYYMMDD.split('-').map(Number)
+  if (!y || !m || !d) return { desde: '', hasta: '' }
+  const startUtc = new Date(Date.UTC(y, m - 1, d, 3, 0, 0))
+  const endUtc = new Date(startUtc.getTime() + 86400000)
+  return { desde: startUtc.toISOString(), hasta: endUtc.toISOString() }
+}
+
+function argentinaMonthUtcRange(yyyyMm: string): { desde: string; hasta: string } {
+  const [y, m] = yyyyMm.split('-').map(Number)
+  if (!y || !m) return { desde: '', hasta: '' }
+  const startUtc = new Date(Date.UTC(y, m - 1, 1, 3, 0, 0))
+  const endUtc = new Date(Date.UTC(y, m, 1, 3, 0, 0))
+  return { desde: startUtc.toISOString(), hasta: endUtc.toISOString() }
+}
 
 type ImpresoraOcupacion = {
   id: number
@@ -97,6 +116,11 @@ const ImpresorasPage = () => {
   const [formNombre, setFormNombre] = useState('')
   const [formModelo, setFormModelo] = useState('')
   const [formCapacidad, setFormCapacidad] = useState('24')
+
+  const [reportDay, setReportDay] = useState(() => getArgentinaDateString())
+  const [reportMonth, setReportMonth] = useState(() => getArgentinaDateString().slice(0, 7))
+  const [reportImpresoraId, setReportImpresoraId] = useState<string>('')
+  const [reportPdfLoading, setReportPdfLoading] = useState(false)
 
   const loadData = async () => {
     setRefreshing(true)
@@ -377,6 +401,64 @@ const ImpresorasPage = () => {
     color: getColorByPorcentaje(imp.porcentaje_ocupacion_hoy)
   }))
 
+  const handlePdfDia = async () => {
+    setReportPdfLoading(true)
+    setError(null)
+    try {
+      const { desde, hasta } = argentinaDayUtcRange(reportDay)
+      if (!desde) {
+        setError('La fecha del reporte diario no es válida.')
+        return
+      }
+      const id = reportImpresoraId === '' ? null : Number(reportImpresoraId)
+      const res = await apiService.getImpresoraUsoEnRango(desde, hasta, id)
+      if (!res.success || res.data === undefined) {
+        setError(res.error || 'No se pudo generar el reporte.')
+        return
+      }
+      const nombreImp =
+        reportImpresoraId === ''
+          ? 'todas las impresoras'
+          : impresoras.find((i) => String(i.id) === reportImpresoraId)?.nombre ?? 'impresora'
+      downloadImpresoraMetrosHorasPdf({
+        titulo: 'Reporte diario — Metros² y horas usadas (por impresora)',
+        periodoLabel: `Día ${reportDay} · ${nombreImp}`,
+        filas: res.data
+      })
+    } finally {
+      setReportPdfLoading(false)
+    }
+  }
+
+  const handlePdfMes = async () => {
+    setReportPdfLoading(true)
+    setError(null)
+    try {
+      const { desde, hasta } = argentinaMonthUtcRange(reportMonth)
+      if (!desde) {
+        setError('El mes del reporte no es válido.')
+        return
+      }
+      const id = reportImpresoraId === '' ? null : Number(reportImpresoraId)
+      const res = await apiService.getImpresoraUsoEnRango(desde, hasta, id)
+      if (!res.success || res.data === undefined) {
+        setError(res.error || 'No se pudo generar el reporte.')
+        return
+      }
+      const nombreImp =
+        reportImpresoraId === ''
+          ? 'todas las impresoras'
+          : impresoras.find((i) => String(i.id) === reportImpresoraId)?.nombre ?? 'impresora'
+      downloadImpresoraMetrosHorasPdf({
+        titulo: 'Reporte mensual — Metros² y horas usadas (por impresora)',
+        periodoLabel: `Mes ${reportMonth} · ${nombreImp}`,
+        filas: res.data
+      })
+    } finally {
+      setReportPdfLoading(false)
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="impresoras-page">
@@ -449,6 +531,67 @@ const ImpresorasPage = () => {
       )}
 
       <div className="impresoras-container">
+        <div className="impresoras-card full-width impresoras-reportes-pdf">
+          <h3>Reportes PDF (impresión)</h3>
+          <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 0 }}>
+            Listado por impresora con metros² y horas usadas según cada registro de uso. La fecha del reporte es la de{' '}
+            <strong>inicio</strong> del trabajo en la impresora (zona Argentina).
+          </p>
+          <div className="impresoras-reportes-grid">
+            <label className="impresoras-reportes-field">
+              <span>Impresora</span>
+              <select
+                value={reportImpresoraId}
+                onChange={(e) => setReportImpresoraId(e.target.value)}
+                disabled={reportPdfLoading}
+              >
+                <option value="">Todas</option>
+                {impresoras.map((imp) => (
+                  <option key={imp.id} value={String(imp.id)}>
+                    {imp.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="impresoras-reportes-field">
+              <span>Día</span>
+              <input
+                type="date"
+                value={reportDay}
+                onChange={(e) => setReportDay(e.target.value)}
+                disabled={reportPdfLoading}
+              />
+            </label>
+            <label className="impresoras-reportes-field">
+              <span>Mes (reporte mensual)</span>
+              <input
+                type="month"
+                value={reportMonth}
+                onChange={(e) => setReportMonth(e.target.value)}
+                disabled={reportPdfLoading}
+              />
+            </label>
+            <div className="impresoras-reportes-actions">
+              <button
+                type="button"
+                className="refresh-button"
+                onClick={() => void handlePdfDia()}
+                disabled={reportPdfLoading}
+              >
+                {reportPdfLoading ? '⏳ …' : '📄 PDF del día'}
+              </button>
+              <button
+                type="button"
+                className="refresh-button"
+                onClick={() => void handlePdfMes()}
+                disabled={reportPdfLoading}
+              >
+                {reportPdfLoading ? '⏳ …' : '📄 PDF del mes'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Gráfico de barras comparativo */}
         <div className="impresoras-card full-width">
           <h3>Porcentaje de Ocupación</h3>

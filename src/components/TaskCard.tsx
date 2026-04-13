@@ -877,17 +877,34 @@ const TaskCardInner = ({
                 <span className="task-notification-bell" title="Hay modificaciones recientes">🔔</span>
               )}
             </div>
-            {(isTallerGrafico || task.metrosCuadrados !== undefined) && (
+            <div
+              className={`task-metros-pill ${
+                task.metrosCuadrados === undefined || task.metrosCuadrados === null ? 'is-empty' : ''
+              }`}
+              title="Metros cuadrados (cualquier sector; editar en ✏️)"
+            >
+              📏 m²:{' '}
+              {task.metrosCuadrados === undefined || task.metrosCuadrados === null
+                ? '—'
+                : `${task.metrosCuadrados.toFixed(2)}`}
+            </div>
+            {(task.tipoImpresion?.trim() ||
+              (task.lineasMetrosM2 && task.lineasMetrosM2.length > 0)) && (
               <div
-                className={`task-metros-pill ${
-                  task.metrosCuadrados === undefined || task.metrosCuadrados === null ? 'is-empty' : ''
-                }`}
-                title="Metros cuadrados"
+                className="task-metros-pill"
+                style={{ marginTop: 4, fontSize: '0.85em', opacity: 0.95 }}
+                title="Tipo e ítems m² (detalle en edición de ficha)"
               >
-                📏 m²:{' '}
-                {task.metrosCuadrados === undefined || task.metrosCuadrados === null
-                  ? '—'
-                  : `${task.metrosCuadrados.toFixed(2)}`}
+                {task.tipoImpresion?.trim() ? (
+                  <span>🖨 {task.tipoImpresion.trim()}</span>
+                ) : null}
+                {task.lineasMetrosM2 && task.lineasMetrosM2.length > 0 ? (
+                  <span>
+                    {task.tipoImpresion?.trim() ? ' · ' : ''}
+                    {task.lineasMetrosM2.length} ítem
+                    {task.lineasMetrosM2.length === 1 ? '' : 's'} m²
+                  </span>
+                ) : null}
               </div>
             )}
             <h4>{task.title}</h4>

@@ -105,6 +105,7 @@ const TaskEditModal = ({
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
   const [fichaRelacionadaTienePlanillaPreliminar, setFichaRelacionadaTienePlanillaPreliminar] = useState(false)
   const [plotAiImprovingDescription, setPlotAiImprovingDescription] = useState(false)
+  const [lineasMetrosM2, setLineasMetrosM2] = useState<Array<{ tipo: string; metrosCuadrados: number }>>([])
 
   const taskHistory = useMemo(() => {
     if (!task) return []
@@ -142,6 +143,7 @@ const TaskEditModal = ({
         locationUrl: task.locationUrl,
         driveUrl: task.driveUrl,
         metrosCuadrados: task.metrosCuadrados,
+        tipoImpresion: task.tipoImpresion,
         etapaTallerGrafico: task.etapaTallerGrafico,
         briefPublico: task.briefPublico,
         objetivoProyecto: task.objetivoProyecto,
@@ -181,7 +183,13 @@ const TaskEditModal = ({
       setPresupuestoArmado(task.presupuestoArmado ?? false)
       setPresupuestoEnEspera(task.presupuestoEnEspera ?? false)
       setPlanillaPreliminar(task.planillaPreliminar ?? false)
-      
+      setLineasMetrosM2(
+        (task.lineasMetrosM2 ?? []).map((r) => ({
+          tipo: r.tipo || '',
+          metrosCuadrados: Number(r.metrosCuadrados) || 0
+        }))
+      )
+
       // Verificar si la ficha relacionada tiene planilla preliminar
       if (task.esFichaNoOP && task.opNumber) {
         checkFichaRelacionadaPlanillaPreliminar(task.opNumber, task.assignedSector || '')
@@ -266,8 +274,17 @@ const TaskEditModal = ({
     } else {
       setFullHistory([])
       setComentarios([])
+      setLineasMetrosM2([])
     }
   }, [task])
+
+  useEffect(() => {
+    if (!task) return
+    const sum = lineasMetrosM2.reduce((s, r) => s + (Number(r.metrosCuadrados) || 0), 0)
+    if (lineasMetrosM2.length > 0) {
+      setFormData((prev) => ({ ...prev, metrosCuadrados: sum }))
+    }
+  }, [lineasMetrosM2, task])
 
   // Filtrar operarios según el sector de la ficha
   const filteredOperarios = useMemo(() => {
@@ -454,7 +471,14 @@ const TaskEditModal = ({
       planillaPreliminar: planillaPreliminar,
       // Asegurar que ownerId se preserve correctamente
       ownerId: formData.ownerId || task.ownerId || 'sin-asignar',
-      opBloqueada: formData.opBloqueada ?? task.opBloqueada
+      opBloqueada: formData.opBloqueada ?? task.opBloqueada,
+      tipoImpresion: formData.tipoImpresion?.trim() || undefined,
+      lineasMetrosM2: lineasMetrosM2
+        .filter((r) => (Number(r.metrosCuadrados) || 0) > 0)
+        .map(({ tipo, metrosCuadrados }) => ({
+          tipo: tipo.trim(),
+          metrosCuadrados
+        }))
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
@@ -1321,45 +1345,116 @@ const TaskEditModal = ({
             />
           </div>
 
-          {/* Campos específicos de Taller Gráfico */}
-          {task.assignedSector === 'Taller Gráfico' && (
-            <>
-              <div className="form-group">
-                <label>Metros Cuadrados (m²) - Para impresión</label>
+          <div className="form-group">
+            <label>Tipo de impresión (OP)</label>
+            <input
+              type="text"
+              value={formData.tipoImpresion ?? ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  tipoImpresion: e.target.value ? e.target.value : undefined
+                })
+              }
+              placeholder="Ej: Lona, vinilo, papel fine art, UV..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Ítems con metros (opcional)</label>
+            <p style={{ color: '#9ca3af', fontSize: '12px', marginTop: 0 }}>
+              Varias piezas con tipo y m². Si hay ítems, el total de m² de la OP se calcula como la suma.
+            </p>
+            {lineasMetrosM2.map((row, idx) => (
+              <div
+                key={idx}
+                style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}
+              >
+                <input
+                  type="text"
+                  placeholder="Tipo / pieza"
+                  value={row.tipo}
+                  onChange={(e) => {
+                    const next = [...lineasMetrosM2]
+                    next[idx] = { ...next[idx], tipo: e.target.value }
+                    setLineasMetrosM2(next)
+                  }}
+                  style={{ flex: '1 1 140px', minWidth: 120 }}
+                />
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.metrosCuadrados ?? ''}
+                  placeholder="m²"
+                  value={row.metrosCuadrados || ''}
                   onChange={(e) => {
-                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
-                    setFormData({ ...formData, metrosCuadrados: value ?? undefined })
+                    const next = [...lineasMetrosM2]
+                    const v = e.target.value === '' ? 0 : parseFloat(e.target.value)
+                    next[idx] = { ...next[idx], metrosCuadrados: Number.isFinite(v) ? v : 0 }
+                    setLineasMetrosM2(next)
                   }}
-                  placeholder="Ej: 6.24 (se calcula automáticamente desde dimensiones si está vacío)"
+                  style={{ width: 96 }}
                 />
-                <small style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  Si está vacío, se calculará automáticamente desde las dimensiones en la descripción (ej: "290CM X 215CM")
-                </small>
-              </div>
-              <div className="form-group">
-                <label>Etapa en Taller Gráfico</label>
-                <select
-                  value={formData.etapaTallerGrafico || ''}
-                  onChange={(e) => {
-                    setFormData({ ...formData, etapaTallerGrafico: e.target.value || undefined })
-                  }}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setLineasMetrosM2(lineasMetrosM2.filter((_, i) => i !== idx))}
                 >
-                  <option value="">Sin etapa asignada</option>
-                  <option value="Falta Material para Impresión o archivo">Falta Material para Impresión o archivo</option>
-                  <option value="En Proceso">En Proceso</option>
-                  <option value="Para Cortar o Pegar">Para Cortar o Pegar</option>
-                  <option value="Para Rotular">Para Rotular</option>
-                  <option value="Instalaciones/Ploteo">Instalaciones/Ploteo</option>
-                  <option value="Metalurgica Instalacion">Metalurgica Instalacion</option>
-                  <option value="laminas">laminas</option>
-                </select>
+                  Quitar
+                </button>
               </div>
-            </>
+            ))}
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() =>
+                setLineasMetrosM2([...lineasMetrosM2, { tipo: '', metrosCuadrados: 0 }])
+              }
+            >
+              + Agregar ítem
+            </button>
+          </div>
+
+          <div className="form-group">
+            <label>Metros cuadrados (m²){lineasMetrosM2.length > 0 ? ' — total calculado' : ''}</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.metrosCuadrados ?? ''}
+              onChange={(e) => {
+                const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
+                setFormData({ ...formData, metrosCuadrados: value ?? undefined })
+              }}
+              placeholder="Ej: 6.24 (opcional salvo reglas de Taller Gráfico al crear la OP)"
+              disabled={lineasMetrosM2.length > 0}
+            />
+            <small style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+              Disponible en cualquier sector. En Taller Gráfico, si lo dejás vacío, a veces se puede inferir desde
+              dimensiones en la descripción (ej. 290CM × 215CM).
+            </small>
+          </div>
+
+          {/* Campos específicos de Taller Gráfico */}
+          {task.assignedSector === 'Taller Gráfico' && (
+            <div className="form-group">
+              <label>Etapa en Taller Gráfico</label>
+              <select
+                value={formData.etapaTallerGrafico || ''}
+                onChange={(e) => {
+                  setFormData({ ...formData, etapaTallerGrafico: e.target.value || undefined })
+                }}
+              >
+                <option value="">Sin etapa asignada</option>
+                <option value="Falta Material para Impresión o archivo">Falta Material para Impresión o archivo</option>
+                <option value="En Proceso">En Proceso</option>
+                <option value="Para Cortar o Pegar">Para Cortar o Pegar</option>
+                <option value="Para Rotular">Para Rotular</option>
+                <option value="Instalaciones/Ploteo">Instalaciones/Ploteo</option>
+                <option value="Metalurgica Instalacion">Metalurgica Instalacion</option>
+                <option value="laminas">laminas</option>
+              </select>
+            </div>
           )}
 
           <div className="form-group">

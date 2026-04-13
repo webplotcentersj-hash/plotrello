@@ -66,7 +66,11 @@ export interface Task {
   subtasks?: Subtask[]
   subtaskProgress?: number // porcentaje completado
   subtaskTimeSpentSec?: number // tiempo total invertido en subtareas
-  metrosCuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
+  metrosCuadrados?: number | null // m² en la OP (cualquier sector; TG puede exigirlos al crear)
+  /** Tipo o familia de impresión en la OP (texto libre) */
+  tipoImpresion?: string | null
+  /** Detalle de m² por ítem/tipo (opcional; si hay filas, suele coincidir la suma con metrosCuadrados) */
+  lineasMetrosM2?: Array<{ id?: number; tipo: string; metrosCuadrados: number }>
   etapaTallerGrafico?: string | null // Etapa actual dentro de Taller Gráfico
   etapaTallerGraficoFechaInicio?: string | null // Fecha de inicio de la etapa actual
   etapaInstalaciones?: string | null // Etapa actual dentro de Instalaciones
