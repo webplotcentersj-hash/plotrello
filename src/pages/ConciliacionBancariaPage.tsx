@@ -11,6 +11,7 @@ import type {
 } from '../types/pedidos'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
+import { generateContent } from '../services/plotAIService'
 import { fetchConciliacionPlotAIRecommendations } from '../utils/conciliacionPlotAIRecommendations'
 import './ConciliacionBancariaPage.css'
 
@@ -19,7 +20,9 @@ type ExtractoRow = {
   tipoOperacion: string
   numeroMovimiento: string
   operacionRelacionada: string
-  importe: number // normalizado (>= 0)
+  importe: number // puede venir con signo (si el Excel lo trae)
+  debe?: number
+  haber?: number
 }
 
 type CuentaRow = {
@@ -27,7 +30,9 @@ type CuentaRow = {
   tipoOperacion: string
   numeroMovimiento: string
   operacionRelacionada: string
-  importe: number // normalizado (>= 0)
+  importe: number // puede venir con signo (si el Excel lo trae)
+  debe?: number
+  haber?: number
 }
 
 function safeParseDateToISO(value: unknown): string | null {
@@ -116,6 +121,18 @@ function formatRow(r: { fechaISO: string; tipoOperacion: string; numeroMovimient
   return `${fecha} · $${imp} · ${r.tipoOperacion} · mov ${r.numeroMovimiento}${r.operacionRelacionada ? ` · rel ${r.operacionRelacionada}` : ''}`
 }
 
+type PlotAIConciliacionResult = {
+  estado: 'saldado' | 'incongruencias'
+  resumen: {
+    totalExtracto: number
+    totalPlanilla: number
+    filasExtracto: number
+    filasPlanilla: number
+    filasMatcheadas?: number
+  }
+  incongruencias: string[]
+}
+
 async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
   const ab = await file.arrayBuffer()
   const wb = XLSX.read(ab, { type: 'array' })
@@ -139,8 +156,15 @@ async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
       pickFirstKey(r, ['operacion relacionada', 'operación relacionada', 'operacion_relacionada', 'operación_relacionada', 'relacionada']) ?? ''
     ).trim()
 
+    const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
+    const haber = toNumber(pickFirstKey(r, ['haber', 'crédito', 'credito', 'ingreso']))
     const importeRaw = pickFirstKey(r, ['importe', 'monto', 'importe_total', 'importe total', 'amount', 'total', 'importe ($)', 'importe $']) ?? undefined
-    const importe = toNumber(importeRaw)
+    let importe = toNumber(importeRaw)
+    if (importe == null) {
+      if (debe != null && haber == null) importe = -Math.abs(debe)
+      else if (haber != null && debe == null) importe = Math.abs(haber)
+      else if (debe != null && haber != null) importe = Math.abs(haber) - Math.abs(debe)
+    }
     if (importe == null || !Number.isFinite(importe) || importe === 0) continue
 
     out.push({
@@ -148,7 +172,9 @@ async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
       tipoOperacion,
       numeroMovimiento,
       operacionRelacionada,
-      importe: absMoney(importe)
+      importe,
+      debe: debe ?? undefined,
+      haber: haber ?? undefined
     })
   }
   return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
@@ -177,8 +203,15 @@ async function parseCuentaFile(file: File): Promise<CuentaRow[]> {
       pickFirstKey(r, ['operacion relacionada', 'operación relacionada', 'operacion_relacionada', 'operación_relacionada', 'relacionada']) ?? ''
     ).trim()
 
+    const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
+    const haber = toNumber(pickFirstKey(r, ['haber', 'crédito', 'credito', 'ingreso']))
     const importeRaw = pickFirstKey(r, ['importe', 'monto', 'importe_total', 'importe total', 'amount', 'total', 'importe ($)', 'importe $']) ?? undefined
-    const importe = toNumber(importeRaw)
+    let importe = toNumber(importeRaw)
+    if (importe == null) {
+      if (debe != null && haber == null) importe = -Math.abs(debe)
+      else if (haber != null && debe == null) importe = Math.abs(haber)
+      else if (debe != null && haber != null) importe = Math.abs(haber) - Math.abs(debe)
+    }
     if (importe == null || !Number.isFinite(importe) || importe === 0) continue
 
     out.push({
@@ -186,7 +219,9 @@ async function parseCuentaFile(file: File): Promise<CuentaRow[]> {
       tipoOperacion,
       numeroMovimiento,
       operacionRelacionada,
-      importe: absMoney(importe)
+      importe,
+      debe: debe ?? undefined,
+      haber: haber ?? undefined
     })
   }
   return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
@@ -206,6 +241,9 @@ const ConciliacionBancariaPage = () => {
   const [plotAiParsing, setPlotAiParsing] = useState(false)
   const [plotAiCuentaParsing, setPlotAiCuentaParsing] = useState(false)
   const [plotAiConciliacionGenerada, setPlotAiConciliacionGenerada] = useState(false)
+  const [plotAiConciliacionLoading, setPlotAiConciliacionLoading] = useState(false)
+  const [plotAiConciliacionError, setPlotAiConciliacionError] = useState<string | null>(null)
+  const [plotAiConciliacionResult, setPlotAiConciliacionResult] = useState<PlotAIConciliacionResult | null>(null)
   // parámetros removidos: se compara automático por columnas iguales en ambos Excel
   const [plotAiReports, setPlotAiReports] = useState<ConciliacionPlotAIReporte[]>([])
   const [plotAiRecoLoading, setPlotAiRecoLoading] = useState(false)
@@ -501,7 +539,7 @@ const ConciliacionBancariaPage = () => {
     if (!listo) {
       return {
         listo,
-        estado: 'incongruencias' as const,
+        estado: ('incongruencias' as const),
         fecha_desde,
         fecha_hasta,
         resumen: {
@@ -512,6 +550,23 @@ const ConciliacionBancariaPage = () => {
           pagosConsiderados: cuentaRows.length
         },
         incongruencias: []
+      }
+    }
+
+    if (plotAiConciliacionResult) {
+      return {
+        listo,
+        estado: plotAiConciliacionResult.estado,
+        fecha_desde,
+        fecha_hasta,
+        resumen: {
+          totalExtractoEgresos: plotAiConciliacionResult.resumen.totalExtracto,
+          totalExtractoIngresos: 0,
+          totalPagos: plotAiConciliacionResult.resumen.totalPlanilla,
+          movimientosExtracto: plotAiConciliacionResult.resumen.filasExtracto,
+          pagosConsiderados: plotAiConciliacionResult.resumen.filasPlanilla
+        },
+        incongruencias: plotAiConciliacionResult.incongruencias || []
       }
     }
 
@@ -590,6 +645,8 @@ const ConciliacionBancariaPage = () => {
       const parsed = await parseExtractoFile(f)
       setPlotAiExtracto(parsed)
       setPlotAiConciliacionGenerada(false)
+      setPlotAiConciliacionResult(null)
+      setPlotAiConciliacionError(null)
       if (parsed.length === 0) {
         alert('No se encontraron filas válidas en el EXTRACTO. Verificá encabezados y formato de fecha/importe.')
       }
@@ -610,6 +667,8 @@ const ConciliacionBancariaPage = () => {
       const parsed = await parseCuentaFile(f)
       setPlotAiCuentaRows(parsed)
       setPlotAiConciliacionGenerada(false)
+      setPlotAiConciliacionResult(null)
+      setPlotAiConciliacionError(null)
       if (parsed.length === 0) {
         alert('No se encontraron filas válidas en la PLANILLA. Verificá encabezados y formato de fecha/importe.')
       }
@@ -643,6 +702,85 @@ const ConciliacionBancariaPage = () => {
       alert('Reporte guardado en la BD.')
       await loadPlotAiReports()
     })()
+  }
+
+  const handleGenerarConciliacionConAI = async () => {
+    if (plotAiParsing || plotAiCuentaParsing) return
+    if (plotAiExtracto.length === 0 || plotAiCuentaRows.length === 0) {
+      alert('Subí y leé ambos archivos primero.')
+      return
+    }
+    setPlotAiConciliacionLoading(true)
+    setPlotAiConciliacionError(null)
+    setPlotAiConciliacionResult(null)
+    setPlotAiRecoText('')
+
+    try {
+      const MAX_ROWS = 350
+      const payload = {
+        columnas_esperadas: ['Fecha del pago', 'Tipo de Operación', 'Número de Movimiento', 'Operación Relacionada', 'Importe', 'Debe', 'Haber'],
+        nota: 'Los archivos pueden tener columnas distintas (p. ej. Debe/Haber en planilla, Importe con signo en extracto). Comparar y conciliar por movimiento/operación/importe/fecha con tolerancia de centavos.',
+        extracto: {
+          filas: plotAiExtracto.slice(0, MAX_ROWS),
+          total: plotAiExtracto.length,
+          suma_importe_abs: plotAiExtracto.reduce((s, r) => s + absMoney(r.importe), 0)
+        },
+        planilla: {
+          filas: plotAiCuentaRows.slice(0, MAX_ROWS),
+          total: plotAiCuentaRows.length,
+          suma_importe_abs: plotAiCuentaRows.reduce((s, r) => s + absMoney(r.importe), 0)
+        }
+      }
+
+      const prefix = `Sos PlotAI. Tenés que conciliar dos planillas bancarias.
+
+DEVOLVÉ EXCLUSIVAMENTE JSON VÁLIDO (sin markdown, sin texto alrededor) con este esquema:
+{
+  "estado": "saldado" | "incongruencias",
+  "resumen": {
+    "totalExtracto": number,
+    "totalPlanilla": number,
+    "filasExtracto": number,
+    "filasPlanilla": number,
+    "filasMatcheadas": number
+  },
+  "incongruencias": string[]
+}
+
+Reglas:
+- Si matchea todo, estado "saldado" e incongruencias [].
+- Si faltan coincidencias, estado "incongruencias" y enumerá strings claros: "Falta en planilla: ..." o "Falta en extracto: ...".
+- Usá tolerancia de $0,02 para importes.
+- Preferí matchear por (numeroMovimiento) y (importe) y cercanía de fecha; si falta numeroMovimiento, usá operacionRelacionada y tipoOperacion.
+- No inventes datos fuera de las filas recibidas.
+`
+
+      const text = await generateContent({
+        contents: `Datos de conciliación (JSON):\n${JSON.stringify(payload)}`,
+        extraContextPrefix: prefix,
+        useCompleteContext: false,
+        useMemory: false,
+        learnFromResponse: false,
+        includeAppManual: false
+      })
+
+      const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim()
+      const parsed = JSON.parse(cleaned) as PlotAIConciliacionResult
+      if (!parsed || (parsed.estado !== 'saldado' && parsed.estado !== 'incongruencias')) {
+        throw new Error('Respuesta PlotAI inválida (estado).')
+      }
+      if (!parsed.resumen) throw new Error('Respuesta PlotAI inválida (resumen).')
+      if (!Array.isArray(parsed.incongruencias)) throw new Error('Respuesta PlotAI inválida (incongruencias).')
+
+      setPlotAiConciliacionResult(parsed)
+      setPlotAiConciliacionGenerada(true)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo generar la conciliación con PlotAI.'
+      setPlotAiConciliacionError(msg)
+      setPlotAiConciliacionGenerada(false)
+    } finally {
+      setPlotAiConciliacionLoading(false)
+    }
   }
 
   const handleDownloadReporte = (rep: ConciliacionPlotAIReporte) => {
@@ -894,10 +1032,16 @@ const ConciliacionBancariaPage = () => {
             <div className="plotai-actions">
               <button
                 className="btn-primary"
-                onClick={() => setPlotAiConciliacionGenerada(true)}
-                disabled={plotAiParsing || plotAiCuentaParsing || plotAiExtracto.length === 0 || plotAiCuentaRows.length === 0}
+                onClick={handleGenerarConciliacionConAI}
+                disabled={
+                  plotAiConciliacionLoading ||
+                  plotAiParsing ||
+                  plotAiCuentaParsing ||
+                  plotAiExtracto.length === 0 ||
+                  plotAiCuentaRows.length === 0
+                }
               >
-                Generar conciliación
+                {plotAiConciliacionLoading ? 'Generando…' : 'Generar conciliación'}
               </button>
               <button className="btn-secondary" onClick={handleGenerarRecomendacion} disabled={plotAiRecoLoading}>
                 {plotAiRecoLoading ? 'Generando…' : 'Recomendación PlotAI'}
@@ -906,6 +1050,13 @@ const ConciliacionBancariaPage = () => {
                 Guardar reporte por fecha
               </button>
             </div>
+
+            {plotAiConciliacionError && (
+              <div className="plotai-issues" style={{ marginTop: 10 }}>
+                <h4>Error conciliando</h4>
+                <div>{plotAiConciliacionError}</div>
+              </div>
+            )}
 
             {plotAiRecoError && (
               <div className="plotai-issues" style={{ marginTop: 10 }}>
