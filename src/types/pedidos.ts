@@ -292,3 +292,18 @@ export interface ConciliacionBancaria {
   created_at: string
   movimientos?: MovimientoBancario[]
 }
+
+export interface ConciliacionPlotAIReporte {
+  id: string
+  created_at: string
+  created_by_user_id?: number | null
+  created_by_user_name?: string | null
+  fecha_desde: string
+  fecha_hasta: string
+  banco?: string | null
+  cuenta_bancaria?: string | null
+  estado: 'saldado' | 'incongruencias'
+  resumen: any
+  incongruencias: string[]
+  recomendaciones_md?: string | null
+}

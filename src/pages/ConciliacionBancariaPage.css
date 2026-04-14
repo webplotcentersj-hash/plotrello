@@ -94,6 +94,169 @@ section h2 {
   color: var(--text-primary);
 }
 
+/* PlotAI conciliación */
+.plotai-section .plotai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.plotai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.plotai-card {
+  background: var(--surface-base);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.plotai-card h3 {
+  margin: 0 0 10px 0;
+  color: var(--text-primary);
+}
+
+.plotai-card--wide {
+  grid-column: 1 / -1;
+}
+
+.plotai-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.plotai-help {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.plotai-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.plotai-badge.ok {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.plotai-badge.bad {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.plotai-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plotai-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.plotai-ok {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #a7f3d0;
+  font-weight: 700;
+}
+
+.plotai-issues {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: var(--text-secondary);
+}
+
+.plotai-issues h4 {
+  margin: 0 0 8px 0;
+  color: #fecaca;
+}
+
+.plotai-issues ol {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.plotai-issues li + li {
+  margin-top: 6px;
+}
+
+.plotai-reports {
+  margin-top: 18px;
+}
+
+.plotai-reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.plotai-report {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.plotai-report.ok {
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.plotai-report.bad {
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.plotai-report-title {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.plotai-report-sub {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.plotai-report-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* Resumen */
 .resumen-grid {
   display: grid;
@@ -580,6 +743,15 @@ section h2 {
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .plotai-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plotai-report {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

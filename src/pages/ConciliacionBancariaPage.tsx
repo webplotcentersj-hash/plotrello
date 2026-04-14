@@ -1,9 +1,122 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { Pago, MovimientoBancario, ConciliacionBancaria, PedidoCompra } from '../types/pedidos'
+import type {
+  Pago,
+  MovimientoBancario,
+  ConciliacionBancaria,
+  ConciliacionPlotAIReporte,
+  PedidoCompra
+} from '../types/pedidos'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import { fetchConciliacionPlotAIRecommendations } from '../utils/conciliacionPlotAIRecommendations'
 import './ConciliacionBancariaPage.css'
+
+type ExtractoRow = {
+  fechaISO: string
+  concepto: string
+  referencia?: string
+  monto: number // egreso negativo / ingreso positivo (normalizado)
+}
+
+function safeParseDateToISO(value: unknown): string | null {
+  if (value == null) return null
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString()
+  const s = String(value).trim()
+  if (!s) return null
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T00:00:00`).toISOString()
+  // DD/MM/YYYY or DD-MM-YYYY
+  const m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s)
+  if (m) {
+    const dd = Number(m[1])
+    const mm = Number(m[2])
+    const yyyy = Number(m[3])
+    const d = new Date(Date.UTC(yyyy, mm - 1, dd, 12, 0, 0))
+    return Number.isNaN(d.getTime()) ? null : d.toISOString()
+  }
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
+function pickFirstKey(obj: Record<string, any>, keys: string[]): any {
+  const lowerMap = new Map<string, string>()
+  for (const k of Object.keys(obj)) lowerMap.set(k.toLowerCase().trim(), k)
+  for (const key of keys) {
+    const real = lowerMap.get(key.toLowerCase())
+    if (real) return obj[real]
+  }
+  return undefined
+}
+
+function toNumber(value: unknown): number | null {
+  if (value == null) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  const s = String(value).trim()
+  if (!s) return null
+  // soporta "1.234,56" y "1234.56"
+  const normalized = s.replace(/\./g, '').replace(',', '.').replace(/[^0-9.\-]/g, '')
+  const n = Number(normalized)
+  return Number.isFinite(n) ? n : null
+}
+
+function pagoFechaISO(p: Pago): string | null {
+  return safeParseDateToISO(p.fecha_pago || p.created_at)
+}
+
+function absMoney(n: number): number {
+  return Math.round(Math.abs(n) * 100) / 100
+}
+
+function moneyEq(a: number, b: number, tol = 0.01): boolean {
+  return Math.abs(a - b) <= tol
+}
+
+async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
+  const ab = await file.arrayBuffer()
+  const wb = XLSX.read(ab, { type: 'array' })
+  const sheetName = wb.SheetNames[0]
+  const ws = wb.Sheets[sheetName]
+  const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' })
+
+  const out: ExtractoRow[] = []
+  for (const r of rows) {
+    const fechaRaw =
+      pickFirstKey(r, ['fecha', 'fecha_movimiento', 'date', 'día', 'dia', 'fecha operación', 'fecha operacion']) ??
+      pickFirstKey(r, ['fecha_valor', 'valor'])
+    const fechaISO = safeParseDateToISO(fechaRaw)
+    if (!fechaISO) continue
+
+    const concepto =
+      String(
+        pickFirstKey(r, ['concepto', 'descripcion', 'descripción', 'detalle', 'observacion', 'observación']) ?? ''
+      ).trim() || 'Movimiento'
+
+    const referencia = String(pickFirstKey(r, ['referencia', 'ref', 'comprobante', 'nro comprobante', 'numero_comprobante']) ?? '')
+      .trim() || undefined
+
+    const montoRaw =
+      pickFirstKey(r, ['monto', 'importe', 'importe total', 'importe_total', 'amount', 'valor']) ??
+      undefined
+
+    const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
+    const haber = toNumber(pickFirstKey(r, ['haber', 'crédito', 'credito', 'ingreso']))
+    let monto = toNumber(montoRaw)
+
+    if (monto == null) {
+      if (debe != null && haber == null) monto = -Math.abs(debe)
+      else if (haber != null && debe == null) monto = Math.abs(haber)
+      else if (debe != null && haber != null) monto = Math.abs(haber) - Math.abs(debe)
+    }
+
+    if (monto == null || !Number.isFinite(monto) || monto === 0) continue
+
+    out.push({ fechaISO, concepto, referencia, monto })
+  }
+  return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
+}
 
 const ConciliacionBancariaPage = () => {
   const navigate = useNavigate()
@@ -12,6 +125,17 @@ const ConciliacionBancariaPage = () => {
   const [pagos, setPagos] = useState<Pago[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoBancario[]>([])
   const [conciliaciones, setConciliaciones] = useState<ConciliacionBancaria[]>([])
+  const [plotAiFile, setPlotAiFile] = useState<File | null>(null)
+  const [plotAiExtracto, setPlotAiExtracto] = useState<ExtractoRow[]>([])
+  const [plotAiParsing, setPlotAiParsing] = useState(false)
+  const [plotAiFechaDesde, setPlotAiFechaDesde] = useState('')
+  const [plotAiFechaHasta, setPlotAiFechaHasta] = useState('')
+  const [plotAiBanco, setPlotAiBanco] = useState('')
+  const [plotAiCuenta, setPlotAiCuenta] = useState('')
+  const [plotAiReports, setPlotAiReports] = useState<ConciliacionPlotAIReporte[]>([])
+  const [plotAiRecoLoading, setPlotAiRecoLoading] = useState(false)
+  const [plotAiRecoText, setPlotAiRecoText] = useState<string>('')
+  const [plotAiRecoError, setPlotAiRecoError] = useState<string | null>(null)
   const [mostrarModalPago, setMostrarModalPago] = useState(false)
   const [mostrarModalMovimiento, setMostrarModalMovimiento] = useState(false)
   const [mostrarModalConciliacion, setMostrarModalConciliacion] = useState(false)
@@ -63,7 +187,13 @@ const ConciliacionBancariaPage = () => {
       return
     }
     loadData()
+    void loadPlotAiReports()
   }, [canManageCompras, navigate, authLoading])
+
+  const loadPlotAiReports = async () => {
+    const resp = await apiService.getConciliacionPlotAIReportes({ limit: 60 })
+    if (resp.success && resp.data) setPlotAiReports(resp.data)
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -283,6 +413,236 @@ const ConciliacionBancariaPage = () => {
   const pagosPendientes = pagos.filter(p => p.estado === 'Pendiente' || p.estado === 'Parcial')
   const movimientosPendientes = movimientos.filter(m => !m.conciliado)
 
+  const plotAiAnalysis = useMemo(() => {
+    const desdeISO = safeParseDateToISO(plotAiFechaDesde)
+    const hastaISO = safeParseDateToISO(plotAiFechaHasta ? `${plotAiFechaHasta}T23:59:59` : plotAiFechaHasta)
+    const hasRange = Boolean(desdeISO && hastaISO)
+
+    const extractoRange = plotAiExtracto.filter((r) => {
+      if (!hasRange) return true
+      return r.fechaISO >= (desdeISO as string) && r.fechaISO <= (hastaISO as string)
+    })
+
+    const pagosRange = pagos.filter((p) => {
+      const d = pagoFechaISO(p)
+      if (!d) return false
+      if (hasRange && (d < (desdeISO as string) || d > (hastaISO as string))) return false
+      if (plotAiBanco.trim() && (p.banco || '').toLowerCase().trim() !== plotAiBanco.toLowerCase().trim()) return false
+      if (plotAiCuenta.trim() && (p.cuenta_bancaria || '').toLowerCase().trim() !== plotAiCuenta.toLowerCase().trim()) return false
+      return true
+    })
+
+    // matching simple 1:1 por monto (egresos) + opcional referencia
+    const pagosDisponibles = new Set<number>(pagosRange.map((p) => p.id))
+    const matchExtractoToPago = new Map<number, number>() // idxExtracto -> pagoId
+
+    for (let i = 0; i < extractoRange.length; i++) {
+      const r = extractoRange[i]
+      if (r.monto >= 0) continue // por ahora conciliamos pagos vs egresos
+      const target = absMoney(r.monto)
+
+      let best: Pago | null = null
+      for (const p of pagosRange) {
+        if (!pagosDisponibles.has(p.id)) continue
+        const m = absMoney(p.monto_total)
+        if (!moneyEq(m, target)) continue
+        // preferir match por referencia si existe
+        if (r.referencia && (p.numero_comprobante || p.numero_pago || '').toLowerCase().includes(r.referencia.toLowerCase())) {
+          best = p
+          break
+        }
+        if (!best) best = p
+      }
+      if (best) {
+        matchExtractoToPago.set(i, best.id)
+        pagosDisponibles.delete(best.id)
+      }
+    }
+
+    const incongruencias: string[] = []
+    const egresosSinMatch: ExtractoRow[] = []
+
+    for (let i = 0; i < extractoRange.length; i++) {
+      const r = extractoRange[i]
+      if (r.monto >= 0) continue
+      if (!matchExtractoToPago.has(i)) {
+        egresosSinMatch.push(r)
+        incongruencias.push(
+          `Extracto sin pago: ${new Date(r.fechaISO).toLocaleDateString('es-AR')} · $${absMoney(r.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${r.concepto}${r.referencia ? ` · ref ${r.referencia}` : ''}`
+        )
+      }
+    }
+
+    const pagosSinMatch: Pago[] = pagosRange.filter((p) => pagosDisponibles.has(p.id))
+    for (const p of pagosSinMatch) {
+      incongruencias.push(
+        `Pago sin extracto: ${p.numero_pago} · $${absMoney(p.monto_total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}${p.proveedor?.nombre ? ` · ${p.proveedor.nombre}` : ''}`
+      )
+    }
+
+    const totalExtractoEgresos = extractoRange.filter((r) => r.monto < 0).reduce((s, r) => s + absMoney(r.monto), 0)
+    const totalExtractoIngresos = extractoRange.filter((r) => r.monto > 0).reduce((s, r) => s + absMoney(r.monto), 0)
+    const totalPagos = pagosRange.reduce((s, p) => s + absMoney(p.monto_total), 0)
+
+    const saldado = incongruencias.length === 0 && moneyEq(totalExtractoEgresos, totalPagos, 0.02)
+
+    return {
+      estado: saldado ? ('saldado' as const) : ('incongruencias' as const),
+      resumen: {
+        totalExtractoEgresos,
+        totalExtractoIngresos,
+        totalPagos,
+        movimientosExtracto: extractoRange.length,
+        pagosConsiderados: pagosRange.length
+      },
+      incongruencias
+    }
+  }, [pagos, plotAiBanco, plotAiCuenta, plotAiExtracto, plotAiFechaDesde, plotAiFechaHasta])
+
+  const handleParseExtracto = async () => {
+    if (!plotAiFile) return
+    setPlotAiParsing(true)
+    try {
+      const parsed = await parseExtractoFile(plotAiFile)
+      setPlotAiExtracto(parsed)
+    } catch (e) {
+      console.error('Error parseando extracto:', e)
+      alert('No se pudo leer el extracto. Probá con CSV/XLSX y columnas tipo: fecha, concepto, monto/importe.')
+      setPlotAiExtracto([])
+    } finally {
+      setPlotAiParsing(false)
+    }
+  }
+
+  const handleGuardarReporte = () => {
+    if (!plotAiFechaDesde || !plotAiFechaHasta) {
+      alert('Elegí fecha desde y hasta para guardar el reporte.')
+      return
+    }
+    void (async () => {
+      const resp = await apiService.crearConciliacionPlotAIReporte({
+        fecha_desde: plotAiFechaDesde,
+        fecha_hasta: plotAiFechaHasta,
+        banco: plotAiBanco.trim() || undefined,
+        cuenta_bancaria: plotAiCuenta.trim() || undefined,
+        estado: plotAiAnalysis.estado,
+        resumen: plotAiAnalysis.resumen,
+        incongruencias: plotAiAnalysis.incongruencias,
+        recomendaciones_md: plotAiRecoText || undefined
+      })
+      if (!resp.success || !resp.data) {
+        alert(`Error guardando reporte: ${resp.error || 'desconocido'}`)
+        return
+      }
+      alert('Reporte guardado en la BD.')
+      await loadPlotAiReports()
+    })()
+  }
+
+  const handleDownloadReporte = (rep: ConciliacionPlotAIReporte) => {
+    const doc = new jsPDF()
+    const w = doc.internal.pageSize.getWidth()
+    const m = 16
+    let y = m
+    doc.setFontSize(14)
+    doc.text('Reporte conciliación (extracto vs pagos)', w / 2, y, { align: 'center' })
+    y += 10
+    doc.setFontSize(10)
+    doc.text(`Rango: ${rep.fecha_desde} a ${rep.fecha_hasta}`, m, y)
+    y += 6
+    doc.text(`Estado: ${rep.estado === 'saldado' ? 'SALDADO' : 'INCONGRUENCIAS'}`, m, y)
+    y += 6
+    if (rep.banco) {
+      doc.text(`Banco: ${rep.banco}`, m, y)
+      y += 6
+    }
+    if (rep.cuenta_bancaria) {
+      doc.text(`Cuenta: ${rep.cuenta_bancaria}`, m, y)
+      y += 6
+    }
+    y += 4
+    doc.setFontSize(10)
+    doc.text(
+      `Total egresos extracto: $${Number(rep.resumen?.totalExtractoEgresos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+      m,
+      y
+    )
+    y += 6
+    doc.text(
+      `Total pagos considerados: $${Number(rep.resumen?.totalPagos || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+      m,
+      y
+    )
+    y += 10
+
+    if (rep.incongruencias.length > 0) {
+      doc.setFontSize(12)
+      doc.text('Incongruencias', m, y)
+      y += 8
+      doc.setFontSize(9)
+      for (let i = 0; i < rep.incongruencias.length; i++) {
+        const line = `${i + 1}. ${rep.incongruencias[i]}`
+        const lines = doc.splitTextToSize(line, w - m * 2)
+        for (const l of lines) {
+          if (y > 280) {
+            doc.addPage()
+            y = m
+          }
+          doc.text(l, m, y)
+          y += 5
+        }
+      }
+    }
+
+    if (rep.recomendaciones_md?.trim()) {
+      if (y > 270) {
+        doc.addPage()
+        y = m
+      }
+      doc.setFontSize(12)
+      doc.text('Recomendación PlotAI', m, y)
+      y += 8
+      doc.setFontSize(9)
+      const text = rep.recomendaciones_md.trim()
+      const lines = doc.splitTextToSize(text, w - m * 2)
+      for (const l of lines) {
+        if (y > 280) {
+          doc.addPage()
+          y = m
+        }
+        doc.text(l, m, y)
+        y += 5
+      }
+    }
+
+    doc.save(`conciliacion-${rep.fecha_desde}-${rep.fecha_hasta}.pdf`)
+  }
+
+  const handleGenerarRecomendacion = async () => {
+    if (!plotAiFechaDesde || !plotAiFechaHasta) {
+      alert('Elegí fecha desde y hasta.')
+      return
+    }
+    setPlotAiRecoLoading(true)
+    setPlotAiRecoError(null)
+    try {
+      const text = await fetchConciliacionPlotAIRecommendations({
+        fechaDesde: plotAiFechaDesde,
+        fechaHasta: plotAiFechaHasta,
+        banco: plotAiBanco.trim() || undefined,
+        cuentaBancaria: plotAiCuenta.trim() || undefined,
+        estado: plotAiAnalysis.estado,
+        resumen: plotAiAnalysis.resumen,
+        incongruencias: plotAiAnalysis.incongruencias
+      })
+      setPlotAiRecoText(text.trim())
+    } catch (e) {
+      setPlotAiRecoError(e instanceof Error ? e.message : 'No se pudo generar la recomendación.')
+    } finally {
+      setPlotAiRecoLoading(false)
+    }
+  }
+
   return (
     <div className="conciliacion-page">
       <header className="page-header">
@@ -327,6 +687,143 @@ const ConciliacionBancariaPage = () => {
             <div className="resumen-value">{conciliaciones.length}</div>
           </div>
         </div>
+      </section>
+
+      {/* PlotAI: comparar extracto vs pagos */}
+      <section className="plotai-section">
+        <div className="plotai-header">
+          <div>
+            <h2>✨ PlotAI — Comparar extracto bancario vs pagos</h2>
+            <p className="subtitle">Subí un extracto (CSV/XLSX), elegí rango y compará contra pagos cargados.</p>
+          </div>
+          <div className="plotai-badges">
+            <span className={`plotai-badge ${plotAiAnalysis.estado === 'saldado' ? 'ok' : 'bad'}`}>
+              {plotAiAnalysis.estado === 'saldado' ? 'SALDADO' : 'INCONGRUENCIAS'}
+            </span>
+          </div>
+        </div>
+
+        <div className="plotai-grid">
+          <div className="plotai-card">
+            <h3>1) Extracto</h3>
+            <input
+              type="file"
+              accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null
+                setPlotAiFile(f)
+                setPlotAiExtracto([])
+              }}
+            />
+            <div className="plotai-actions">
+              <button className="btn-primary" onClick={handleParseExtracto} disabled={!plotAiFile || plotAiParsing}>
+                {plotAiParsing ? 'Leyendo…' : 'Leer extracto'}
+              </button>
+              <span className="plotai-help">
+                {plotAiExtracto.length > 0 ? `${plotAiExtracto.length} movimientos leídos` : 'Columnas típicas: fecha, concepto, monto/importe.'}
+              </span>
+            </div>
+          </div>
+
+          <div className="plotai-card">
+            <h3>2) Parámetros</h3>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Fecha desde *</label>
+                <input type="date" value={plotAiFechaDesde} onChange={(e) => setPlotAiFechaDesde(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Fecha hasta *</label>
+                <input type="date" value={plotAiFechaHasta} onChange={(e) => setPlotAiFechaHasta(e.target.value)} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Banco (opcional)</label>
+                <input value={plotAiBanco} onChange={(e) => setPlotAiBanco(e.target.value)} placeholder="Ej: Galicia" />
+              </div>
+              <div className="form-group">
+                <label>Cuenta bancaria (opcional)</label>
+                <input value={plotAiCuenta} onChange={(e) => setPlotAiCuenta(e.target.value)} placeholder="Ej: 123-456..." />
+              </div>
+            </div>
+          </div>
+
+          <div className="plotai-card plotai-card--wide">
+            <h3>3) Resultado</h3>
+            <div className="plotai-result">
+              <div className="plotai-totals">
+                <div><strong>Egresos extracto:</strong> ${plotAiAnalysis.resumen.totalExtractoEgresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                <div><strong>Ingresos extracto:</strong> ${plotAiAnalysis.resumen.totalExtractoIngresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                <div><strong>Pagos considerados:</strong> ${plotAiAnalysis.resumen.totalPagos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                <div><strong>Movimientos leídos:</strong> {plotAiAnalysis.resumen.movimientosExtracto}</div>
+                <div><strong>Pagos en rango:</strong> {plotAiAnalysis.resumen.pagosConsiderados}</div>
+              </div>
+
+              {plotAiAnalysis.incongruencias.length > 0 ? (
+                <div className="plotai-issues">
+                  <h4>Incongruencias</h4>
+                  <ol>
+                    {plotAiAnalysis.incongruencias.map((x, i) => (
+                      <li key={i}>{x}</li>
+                    ))}
+                  </ol>
+                </div>
+              ) : (
+                <div className="plotai-ok">Todo coincide en el rango indicado.</div>
+              )}
+            </div>
+
+            <div className="plotai-actions">
+              <button className="btn-secondary" onClick={handleGenerarRecomendacion} disabled={plotAiRecoLoading}>
+                {plotAiRecoLoading ? 'Generando…' : 'Recomendación PlotAI'}
+              </button>
+              <button className="btn-action" onClick={handleGuardarReporte} disabled={!plotAiFechaDesde || !plotAiFechaHasta}>
+                Guardar reporte por fecha
+              </button>
+            </div>
+
+            {plotAiRecoError && (
+              <div className="plotai-issues" style={{ marginTop: 10 }}>
+                <h4>Error PlotAI</h4>
+                <div>{plotAiRecoError}</div>
+              </div>
+            )}
+            {plotAiRecoText && (
+              <div className="plotai-ok" style={{ marginTop: 10, whiteSpace: 'pre-wrap' }}>
+                {plotAiRecoText}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {plotAiReports.length > 0 && (
+          <div className="plotai-reports">
+            <h3>Reportes guardados</h3>
+            <div className="plotai-reports-list">
+              {plotAiReports.map((rep) => (
+                <div key={rep.id} className={`plotai-report ${rep.estado === 'saldado' ? 'ok' : 'bad'}`}>
+                  <div className="plotai-report-main">
+                    <div className="plotai-report-title">
+                      {rep.fecha_desde} → {rep.fecha_hasta}
+                    </div>
+                    <div className="plotai-report-sub">
+                      {rep.banco ? `${rep.banco}` : 'Banco: (sin filtro)'} · {rep.cuenta_bancaria ? `Cuenta: ${rep.cuenta_bancaria}` : 'Cuenta: (sin filtro)'}
+                    </div>
+                  </div>
+                  <div className="plotai-report-right">
+                    <span className={`plotai-badge ${rep.estado === 'saldado' ? 'ok' : 'bad'}`}>
+                      {rep.estado === 'saldado' ? 'SALDADO' : 'INCONGRUENCIAS'}
+                    </span>
+                    <button className="btn-secondary" onClick={() => handleDownloadReporte(rep)}>
+                      Descargar PDF
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Filtros */}

@@ -82,6 +82,7 @@ import type {
   Pago,
   MovimientoBancario,
   ConciliacionBancaria,
+  ConciliacionPlotAIReporte,
   EstadoPago
 } from '../types/pedidos'
 import { supabase, stockSupabase } from './supabaseClient'
@@ -8271,6 +8272,72 @@ class ApiService {
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  // ===== CONCILIACIÓN PLOTAI REPORTES (extracto vs pagos) =====
+  async crearConciliacionPlotAIReporte(input: {
+    fecha_desde: string
+    fecha_hasta: string
+    banco?: string
+    cuenta_bancaria?: string
+    estado: 'saldado' | 'incongruencias'
+    resumen: any
+    incongruencias: string[]
+    recomendaciones_md?: string
+  }): Promise<ApiResponse<ConciliacionPlotAIReporte>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const usuarioStr = localStorage.getItem('usuario')
+      const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+      const { data, error } = await supabase
+        .from('conciliacion_plotai_reportes')
+        .insert({
+          created_by_user_id: usuario?.id || null,
+          created_by_user_name: usuario?.nombre || null,
+          fecha_desde: input.fecha_desde,
+          fecha_hasta: input.fecha_hasta,
+          banco: input.banco || null,
+          cuenta_bancaria: input.cuenta_bancaria || null,
+          estado: input.estado,
+          resumen: input.resumen ?? {},
+          incongruencias: input.incongruencias ?? [],
+          recomendaciones_md: input.recomendaciones_md || null
+        })
+        .select('*')
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as ConciliacionPlotAIReporte }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error guardando reporte PlotAI' }
+    }
+  }
+
+  async getConciliacionPlotAIReportes(filters?: {
+    fecha_desde?: string
+    fecha_hasta?: string
+    banco?: string
+    cuenta_bancaria?: string
+    limit?: number
+  }): Promise<ApiResponse<ConciliacionPlotAIReporte[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      let query = supabase
+        .from('conciliacion_plotai_reportes')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (filters?.fecha_desde) query = query.gte('fecha_desde', filters.fecha_desde)
+      if (filters?.fecha_hasta) query = query.lte('fecha_hasta', filters.fecha_hasta)
+      if (filters?.banco) query = query.eq('banco', filters.banco)
+      if (filters?.cuenta_bancaria) query = query.eq('cuenta_bancaria', filters.cuenta_bancaria)
+      query = query.limit(filters?.limit ?? 50)
+
+      const { data, error } = await query
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as ConciliacionPlotAIReporte[] }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error listando reportes PlotAI' }
+    }
   }
 
   // ===== HISTORIAL ETAPAS TALLER GRÁFICO =====

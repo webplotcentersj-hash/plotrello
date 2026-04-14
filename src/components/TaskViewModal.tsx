@@ -467,14 +467,13 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
               <h3 className="task-view-panel-title">Materiales & m²</h3>
               <dl className="task-view-kv">
                 <Kv label="Lista">{task.materials?.length ? task.materials.join(' · ') : null}</Kv>
-                <Kv label="Tipo de impresión (OP)">{task.tipoImpresion?.trim() || null}</Kv>
                 <Kv label="Metros cuadrados (total OP)">
                   {task.metrosCuadrados != null ? `${Number(task.metrosCuadrados).toFixed(2)} m²` : null}
                 </Kv>
               </dl>
               {task.lineasMetrosM2 && task.lineasMetrosM2.length > 0 ? (
                 <div className="task-view-lineas-m2-readonly" aria-label="Ítems con metros, solo lectura">
-                  <h4 className="task-view-lineas-m2-title">Ítems m² (solo lectura)</h4>
+                  <h4 className="task-view-lineas-m2-title">Ítems con metros (solo lectura)</h4>
                   <ul className="task-view-lineas-m2-list">
                     {task.lineasMetrosM2.map((r, idx) => (
                       <li key={r.id ?? idx} className="task-view-lineas-m2-item">
