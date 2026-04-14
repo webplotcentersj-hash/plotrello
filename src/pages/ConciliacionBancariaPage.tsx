@@ -11,7 +11,6 @@ import type {
 } from '../types/pedidos'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
-import { generateContent } from '../services/plotAIService'
 import { fetchConciliacionPlotAIRecommendations } from '../utils/conciliacionPlotAIRecommendations'
 import './ConciliacionBancariaPage.css'
 
@@ -105,13 +104,6 @@ function stripAccents(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
-function normText(v: unknown): string {
-  return String(v ?? '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ')
-}
-
 /** Mercado Pago / bancos: primera hoja con títulos en fila 1; planilla "Conciliación" suele tener tabla desde fila 7+. */
 function sheetToObjectsWithHeaderDetection(ws: XLSX.WorkSheet, maxScanRows = 35): Record<string, any>[] {
   const aoa = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' }) as any[][]
@@ -180,48 +172,57 @@ function sheetToObjectsWithHeaderDetection(ws: XLSX.WorkSheet, maxScanRows = 35)
   return out
 }
 
-function buildRowKey(r: { fechaISO: string; tipoOperacion: string; numeroMovimiento: string; operacionRelacionada: string; importe: number }): string {
-  return [
-    isoToDateOnly(r.fechaISO),
-    normText(r.tipoOperacion),
-    normText(r.numeroMovimiento),
-    normText(r.operacionRelacionada),
-    absMoney(r.importe).toFixed(2)
-  ].join('|')
-}
-
 function formatRow(r: { fechaISO: string; tipoOperacion: string; numeroMovimiento: string; operacionRelacionada: string; importe: number }): string {
   const fecha = new Date(r.fechaISO).toLocaleDateString('es-AR')
   const imp = absMoney(r.importe).toLocaleString('es-AR', { minimumFractionDigits: 2 })
   return `${fecha} · $${imp} · ${r.tipoOperacion} · mov ${r.numeroMovimiento}${r.operacionRelacionada ? ` · rel ${r.operacionRelacionada}` : ''}`
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const id = window.setTimeout(() => reject(new Error(message)), ms)
-    promise.then(
-      (v) => {
-        window.clearTimeout(id)
-        resolve(v)
-      },
-      (e) => {
-        window.clearTimeout(id)
-        reject(e)
-      }
-    )
-  })
-}
+const MAX_INCONGRUENCIAS_MOSTRAR = 250
 
-type PlotAIConciliacionResult = {
-  estado: 'saldado' | 'incongruencias'
-  resumen: {
-    totalExtracto: number
-    totalPlanilla: number
-    filasExtracto: number
-    filasPlanilla: number
-    filasMatcheadas?: number
-  }
+/** Empareja extracto vs planilla por misma fecha (día) + mismo importe (abs). Sirve cuando los nº de movimiento no coinciden entre sistemas. */
+function conciliarPorFechaYImporte(extractoRows: ExtractoRow[], cuentaRows: CuentaRow[]): {
   incongruencias: string[]
+  totalExtracto: number
+  totalPlanilla: number
+  filasMatcheadas: number
+} {
+  const matchKey = (r: { fechaISO: string; importe: number }) =>
+    `${isoToDateOnly(r.fechaISO)}|${absMoney(r.importe).toFixed(2)}`
+
+  const eLeft = new Map<string, number>()
+  for (const r of extractoRows) {
+    const k = matchKey(r)
+    eLeft.set(k, (eLeft.get(k) || 0) + 1)
+  }
+
+  const incongruencias: string[] = []
+  let filasMatcheadas = 0
+
+  for (const r of cuentaRows) {
+    const k = matchKey(r)
+    const n = eLeft.get(k) || 0
+    if (n > 0) {
+      eLeft.set(k, n - 1)
+      filasMatcheadas++
+    } else {
+      incongruencias.push(`Falta en extracto: ${formatRow(r)}`)
+    }
+  }
+
+  for (const r of extractoRows) {
+    const k = matchKey(r)
+    const n = eLeft.get(k) || 0
+    if (n > 0) {
+      incongruencias.push(`Falta en planilla: ${formatRow(r)}`)
+      eLeft.set(k, n - 1)
+    }
+  }
+
+  const totalExtracto = extractoRows.reduce((s, r) => s + absMoney(r.importe), 0)
+  const totalPlanilla = cuentaRows.reduce((s, r) => s + absMoney(r.importe), 0)
+
+  return { incongruencias, totalExtracto, totalPlanilla, filasMatcheadas }
 }
 
 async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
@@ -382,9 +383,6 @@ const ConciliacionBancariaPage = () => {
   const [plotAiParsing, setPlotAiParsing] = useState(false)
   const [plotAiCuentaParsing, setPlotAiCuentaParsing] = useState(false)
   const [plotAiConciliacionGenerada, setPlotAiConciliacionGenerada] = useState(false)
-  const [plotAiConciliacionLoading, setPlotAiConciliacionLoading] = useState(false)
-  const [plotAiConciliacionError, setPlotAiConciliacionError] = useState<string | null>(null)
-  const [plotAiConciliacionResult, setPlotAiConciliacionResult] = useState<PlotAIConciliacionResult | null>(null)
   // parámetros removidos: se compara automático por columnas iguales en ambos Excel
   const [plotAiReports, setPlotAiReports] = useState<ConciliacionPlotAIReporte[]>([])
   const [plotAiRecoLoading, setPlotAiRecoLoading] = useState(false)
@@ -673,94 +671,32 @@ const ConciliacionBancariaPage = () => {
     const extractoRows = plotAiExtracto
     const cuentaRows = plotAiCuentaRows
 
-    const allDates = [...extractoRows.map(r => r.fechaISO), ...cuentaRows.map(r => r.fechaISO)].sort()
+    const allDates = [...extractoRows.map((r) => r.fechaISO), ...cuentaRows.map((r) => r.fechaISO)].sort()
     const fecha_desde = allDates.length > 0 ? isoToDateOnly(allDates[0]) : ''
     const fecha_hasta = allDates.length > 0 ? isoToDateOnly(allDates[allDates.length - 1]) : ''
+
+    const totalExtracto = extractoRows.reduce((s, r) => s + absMoney(r.importe), 0)
+    const totalPlanilla = cuentaRows.reduce((s, r) => s + absMoney(r.importe), 0)
 
     if (!listo) {
       return {
         listo,
-        estado: ('incongruencias' as const),
+        estado: 'incongruencias' as const,
         fecha_desde,
         fecha_hasta,
         resumen: {
-          totalExtractoEgresos: 0,
+          totalExtractoEgresos: totalExtracto,
           totalExtractoIngresos: 0,
-          totalPagos: 0,
+          totalPagos: totalPlanilla,
           movimientosExtracto: extractoRows.length,
           pagosConsiderados: cuentaRows.length
         },
-        incongruencias: []
+        incongruencias: [] as string[]
       }
     }
 
-    if (plotAiConciliacionResult) {
-      return {
-        listo,
-        estado: plotAiConciliacionResult.estado,
-        fecha_desde,
-        fecha_hasta,
-        resumen: {
-          totalExtractoEgresos: plotAiConciliacionResult.resumen.totalExtracto,
-          totalExtractoIngresos: 0,
-          totalPagos: plotAiConciliacionResult.resumen.totalPlanilla,
-          movimientosExtracto: plotAiConciliacionResult.resumen.filasExtracto,
-          pagosConsiderados: plotAiConciliacionResult.resumen.filasPlanilla
-        },
-        incongruencias: plotAiConciliacionResult.incongruencias || []
-      }
-    }
-
-    // Multiset diff por fila completa (mismas columnas en ambos Excel)
-    const eCount = new Map<string, number>()
-    const cCount = new Map<string, number>()
-
-    for (const r of extractoRows) {
-      const k = buildRowKey(r)
-      eCount.set(k, (eCount.get(k) || 0) + 1)
-    }
-    for (const r of cuentaRows) {
-      const k = buildRowKey(r)
-      cCount.set(k, (cCount.get(k) || 0) + 1)
-    }
-
-    const incongruencias: string[] = []
-
-    // Faltan en planilla (están en extracto pero no en planilla)
-    for (const r of extractoRows) {
-      const k = buildRowKey(r)
-      const eN = eCount.get(k) || 0
-      const cN = cCount.get(k) || 0
-      if (eN <= cN) continue
-      // consumir una diferencia (para no repetir de más en caso de duplicados)
-      eCount.set(k, eN - 1)
-      incongruencias.push(`Falta en planilla: ${formatRow(r)}`)
-    }
-
-    // Second pass using fresh counts (avoid mutation confusion)
-    const eCount2 = new Map<string, number>()
-    const cCount2 = new Map<string, number>()
-    for (const r of extractoRows) {
-      const k = buildRowKey(r)
-      eCount2.set(k, (eCount2.get(k) || 0) + 1)
-    }
-    for (const r of cuentaRows) {
-      const k = buildRowKey(r)
-      cCount2.set(k, (cCount2.get(k) || 0) + 1)
-    }
-    for (const r of cuentaRows) {
-      const k = buildRowKey(r)
-      const cN = cCount2.get(k) || 0
-      const eN = eCount2.get(k) || 0
-      if (cN <= eN) continue
-      cCount2.set(k, cN - 1)
-      incongruencias.push(`Falta en extracto: ${formatRow(r)}`)
-    }
-
-    const totalExtracto = extractoRows.reduce((s, r) => s + absMoney(r.importe), 0)
-    const totalCuenta = cuentaRows.reduce((s, r) => s + absMoney(r.importe), 0)
-
-    const saldado = listo && incongruencias.length === 0 && moneyEq(totalExtracto, totalCuenta, 0.02)
+    const { incongruencias, totalExtracto: te, totalPlanilla: tp } = conciliarPorFechaYImporte(extractoRows, cuentaRows)
+    const saldado = incongruencias.length === 0 && moneyEq(te, tp, 0.02)
 
     return {
       listo,
@@ -768,9 +704,9 @@ const ConciliacionBancariaPage = () => {
       fecha_desde,
       fecha_hasta,
       resumen: {
-        totalExtractoEgresos: totalExtracto,
+        totalExtractoEgresos: te,
         totalExtractoIngresos: 0,
-        totalPagos: totalCuenta,
+        totalPagos: tp,
         movimientosExtracto: extractoRows.length,
         pagosConsiderados: cuentaRows.length
       },
@@ -786,8 +722,6 @@ const ConciliacionBancariaPage = () => {
       const parsed = await parseExtractoFile(f)
       setPlotAiExtracto(parsed)
       setPlotAiConciliacionGenerada(false)
-      setPlotAiConciliacionResult(null)
-      setPlotAiConciliacionError(null)
       if (parsed.length === 0) {
         alert('No se encontraron filas válidas en el EXTRACTO. Verificá encabezados y formato de fecha/importe.')
       }
@@ -808,8 +742,6 @@ const ConciliacionBancariaPage = () => {
       const parsed = await parseCuentaFile(f)
       setPlotAiCuentaRows(parsed)
       setPlotAiConciliacionGenerada(false)
-      setPlotAiConciliacionResult(null)
-      setPlotAiConciliacionError(null)
       if (parsed.length === 0) {
         alert('No se encontraron filas válidas en la PLANILLA. Verificá encabezados y formato de fecha/importe.')
       }
@@ -845,87 +777,14 @@ const ConciliacionBancariaPage = () => {
     })()
   }
 
-  const handleGenerarConciliacionConAI = async () => {
+  const handleGenerarConciliacion = () => {
     if (plotAiParsing || plotAiCuentaParsing) return
     if (plotAiExtracto.length === 0 || plotAiCuentaRows.length === 0) {
       alert('Subí y leé ambos archivos primero.')
       return
     }
-    setPlotAiConciliacionLoading(true)
-    setPlotAiConciliacionError(null)
-    setPlotAiConciliacionResult(null)
     setPlotAiRecoText('')
-
-    try {
-      const MAX_ROWS = 350
-      const payload = {
-        columnas_esperadas: ['Fecha del pago', 'Tipo de Operación', 'Número de Movimiento', 'Operación Relacionada', 'Importe', 'Debe', 'Haber'],
-        nota: 'Los archivos pueden tener columnas distintas (p. ej. Debe/Haber en planilla, Importe con signo en extracto). Comparar y conciliar por movimiento/operación/importe/fecha con tolerancia de centavos.',
-        extracto: {
-          filas: plotAiExtracto.slice(0, MAX_ROWS),
-          total: plotAiExtracto.length,
-          suma_importe_abs: plotAiExtracto.reduce((s, r) => s + absMoney(r.importe), 0)
-        },
-        planilla: {
-          filas: plotAiCuentaRows.slice(0, MAX_ROWS),
-          total: plotAiCuentaRows.length,
-          suma_importe_abs: plotAiCuentaRows.reduce((s, r) => s + absMoney(r.importe), 0)
-        }
-      }
-
-      const prefix = `Sos PlotAI. Tenés que conciliar dos planillas bancarias.
-
-DEVOLVÉ EXCLUSIVAMENTE JSON VÁLIDO (sin markdown, sin texto alrededor) con este esquema:
-{
-  "estado": "saldado" | "incongruencias",
-  "resumen": {
-    "totalExtracto": number,
-    "totalPlanilla": number,
-    "filasExtracto": number,
-    "filasPlanilla": number,
-    "filasMatcheadas": number
-  },
-  "incongruencias": string[]
-}
-
-Reglas:
-- Si matchea todo, estado "saldado" e incongruencias [].
-- Si faltan coincidencias, estado "incongruencias" y enumerá strings claros: "Falta en planilla: ..." o "Falta en extracto: ...".
-- Usá tolerancia de $0,02 para importes.
-- Preferí matchear por (numeroMovimiento) y (importe) y cercanía de fecha; si falta numeroMovimiento, usá operacionRelacionada y tipoOperacion.
-- No inventes datos fuera de las filas recibidas.
-`
-
-      const text = await withTimeout(
-        generateContent({
-          contents: `Datos de conciliación (JSON):\n${JSON.stringify(payload)}`,
-          extraContextPrefix: prefix,
-          useCompleteContext: false,
-          useMemory: false,
-          learnFromResponse: false,
-          includeAppManual: false
-        }),
-        180_000,
-        'PlotAI tardó más de 3 minutos. Reintentá; si sigue igual, revisá conexión y que VITE_GEMINI_API_KEY esté configurada en Vercel. Podés probar también recargar la página con Ctrl+F5 (limpia caché del Service Worker).'
-      )
-
-      const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim()
-      const parsed = JSON.parse(cleaned) as PlotAIConciliacionResult
-      if (!parsed || (parsed.estado !== 'saldado' && parsed.estado !== 'incongruencias')) {
-        throw new Error('Respuesta PlotAI inválida (estado).')
-      }
-      if (!parsed.resumen) throw new Error('Respuesta PlotAI inválida (resumen).')
-      if (!Array.isArray(parsed.incongruencias)) throw new Error('Respuesta PlotAI inválida (incongruencias).')
-
-      setPlotAiConciliacionResult(parsed)
-      setPlotAiConciliacionGenerada(true)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo generar la conciliación con PlotAI.'
-      setPlotAiConciliacionError(msg)
-      setPlotAiConciliacionGenerada(false)
-    } finally {
-      setPlotAiConciliacionLoading(false)
-    }
+    setPlotAiConciliacionGenerada(true)
   }
 
   const handleDownloadReporte = (rep: ConciliacionPlotAIReporte) => {
@@ -1082,7 +941,7 @@ Reglas:
           <div>
             <h2>✨ PlotAI — Conciliación: extracto vs planilla cuenta</h2>
             <p className="subtitle">
-              Subí <strong>dos archivos</strong>: el extracto bancario y la planilla de cuenta bancaria. Al estar ambos listos se compara y se listan incongruencias.
+              Subí <strong>dos archivos</strong>: extracto y planilla. La conciliación empareja por <strong>misma fecha (día) y mismo importe</strong> (no depende de PlotAI). Podés pedir recomendación aparte con el botón PlotAI.
             </p>
           </div>
           <div className="plotai-badges">
@@ -1164,29 +1023,32 @@ Reglas:
                 <div className="plotai-issues">
                   <h4>Incongruencias</h4>
                   <ol>
-                    {plotAiAnalysis.incongruencias.map((x, i) => (
+                    {plotAiAnalysis.incongruencias.slice(0, MAX_INCONGRUENCIAS_MOSTRAR).map((x, i) => (
                       <li key={i}>{x}</li>
                     ))}
                   </ol>
+                  {plotAiAnalysis.incongruencias.length > MAX_INCONGRUENCIAS_MOSTRAR && (
+                    <p className="plotai-help">
+                      … y {plotAiAnalysis.incongruencias.length - MAX_INCONGRUENCIAS_MOSTRAR} más (el reporte guardado incluye la lista completa).
+                    </p>
+                  )}
                 </div>
               ) : (
-                <div className="plotai-ok">Cuenta saldada: los montos coinciden en el rango indicado.</div>
+                <div className="plotai-ok">
+                  Cuenta saldada: cada movimiento del extracto tiene par en la planilla con la misma fecha e importe (y los totales coinciden).
+                </div>
               )}
             </div>
 
             <div className="plotai-actions">
               <button
                 className="btn-primary"
-                onClick={handleGenerarConciliacionConAI}
+                onClick={handleGenerarConciliacion}
                 disabled={
-                  plotAiConciliacionLoading ||
-                  plotAiParsing ||
-                  plotAiCuentaParsing ||
-                  plotAiExtracto.length === 0 ||
-                  plotAiCuentaRows.length === 0
+                  plotAiParsing || plotAiCuentaParsing || plotAiExtracto.length === 0 || plotAiCuentaRows.length === 0
                 }
               >
-                {plotAiConciliacionLoading ? 'Generando…' : 'Generar conciliación'}
+                Generar conciliación
               </button>
               <button className="btn-secondary" onClick={handleGenerarRecomendacion} disabled={plotAiRecoLoading}>
                 {plotAiRecoLoading ? 'Generando…' : 'Recomendación PlotAI'}
@@ -1195,13 +1057,6 @@ Reglas:
                 Guardar reporte por fecha
               </button>
             </div>
-
-            {plotAiConciliacionError && (
-              <div className="plotai-issues" style={{ marginTop: 10 }}>
-                <h4>Error conciliando</h4>
-                <div>{plotAiConciliacionError}</div>
-              </div>
-            )}
 
             {plotAiRecoError && (
               <div className="plotai-issues" style={{ marginTop: 10 }}>
