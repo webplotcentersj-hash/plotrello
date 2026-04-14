@@ -7,7 +7,8 @@ import { filterOperariosBySector } from '../utils/dataMappers'
 import apiService from '../services/api'
 import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
 import { attachmentListHasReadySitePhoto, opSectoresRequierenFotosLugar } from '../utils/sectoresFotosLugar'
-import { getRecentTiposImpresionOp, getRecentTiposLineaM2 } from '../utils/opImpresionRecientes'
+import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
+import { pillColorFromString } from '../utils/pillColorFromString'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -102,10 +103,9 @@ const TaskCreateModal = ({
   const [photoUrl, setPhotoUrl] = useState('')
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [metrosCuadrados, setMetrosCuadrados] = useState<string>('')
-  const [tipoImpresion, setTipoImpresion] = useState('')
   const [lineasMetrosM2, setLineasMetrosM2] = useState<Array<{ tipo: string; metrosCuadrados: number }>>([])
-  const [recentTiposOp, setRecentTiposOp] = useState<string[]>(() => getRecentTiposImpresionOp())
-  const [recentTiposLinea, setRecentTiposLinea] = useState<string[]>(() => getRecentTiposLineaM2())
+  const [, setRecentTiposOp] = useState<string[]>(() => getRecentTiposImpresionOp())
+  const [lineaTipoSuggestionsByIdx, setLineaTipoSuggestionsByIdx] = useState<Record<number, string[]>>({})
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [etiquetasDisponibles, setEtiquetasDisponibles] = useState<Array<{ nombre: string; veces_usada: number; color: string }>>([])
@@ -114,6 +114,7 @@ const TaskCreateModal = ({
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false)
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false)
   const [isMaterialDropdownOpen, setIsMaterialDropdownOpen] = useState(false)
+  const [focusedLineaTipoIdx, setFocusedLineaTipoIdx] = useState<number | null>(null)
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -136,8 +137,40 @@ const TaskCreateModal = ({
 
   useEffect(() => {
     setRecentTiposOp(getRecentTiposImpresionOp())
-    setRecentTiposLinea(getRecentTiposLineaM2())
   }, [])
+
+  useEffect(() => {
+    if (focusedLineaTipoIdx == null) return
+    const idx = focusedLineaTipoIdx
+    const q = (lineasMetrosM2[idx]?.tipo ?? '').trim()
+    if (q.length < 3) {
+      setLineaTipoSuggestionsByIdx((prev) => {
+        if (!prev[idx]?.length) return prev
+        const next = { ...prev }
+        delete next[idx]
+        return next
+      })
+      return
+    }
+
+    let cancelled = false
+    const t = setTimeout(() => {
+      void (async () => {
+        const resp = await apiService.buscarTiposLineaM2(q, 12)
+        if (cancelled) return
+        if (!resp.success || !resp.data) {
+          setLineaTipoSuggestionsByIdx((prev) => ({ ...prev, [idx]: [] }))
+          return
+        }
+        setLineaTipoSuggestionsByIdx((prev) => ({ ...prev, [idx]: resp.data ?? [] }))
+      })()
+    }, 250)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [focusedLineaTipoIdx, lineasMetrosM2])
 
   useEffect(() => {
     if (lineasMetrosM2.length === 0) return
@@ -542,7 +575,6 @@ const TaskCreateModal = ({
       estiloDiseno: estiloDiseno.trim() || undefined,
       referencias: referencias.trim() || undefined,
       deadlineBrief: deadlineBrief || undefined,
-      tipoImpresion: tipoImpresion.trim() || undefined,
       lineasMetrosM2: lineasMetrosM2
         .filter((r) => (Number(r.metrosCuadrados) || 0) > 0)
         .map(({ tipo, metrosCuadrados: m2 }) => ({ tipo: tipo.trim(), metrosCuadrados: m2 }))
@@ -629,10 +661,11 @@ const TaskCreateModal = ({
     onClose()
   }
 
-  const addMaterial = (nombre: string) => {
-    if (nombre.length < 2) return
-    if (materials.some((m) => m.name.toLowerCase() === nombre.toLowerCase())) return
-    setMaterials([...materials, { name: nombre, quantity: 1 }])
+  const addMaterial = (nombre: string | number | null | undefined) => {
+    const n = String(nombre ?? '').trim()
+    if (n.length < 2) return
+    if (materials.some((m) => String(m.name ?? '').toLowerCase() === n.toLowerCase())) return
+    setMaterials([...materials, { name: n, quantity: 1 }])
   }
 
   const handleAddMaterial = () => {
@@ -643,9 +676,9 @@ const TaskCreateModal = ({
   }
 
   const handleSelectMaterial = (material: MaterialRecord) => {
-    const label = material.descripcion || material.codigo
-    if (!label) return
-    addMaterial(label)
+    const raw = material.descripcion?.trim() || material.codigo
+    if (raw == null || raw === '') return
+    addMaterial(String(raw).trim())
     setMaterialSearch('')
     setIsMaterialDropdownOpen(false)
   }
@@ -664,8 +697,10 @@ const TaskCreateModal = ({
           setEtiquetasDisponibles(response.data)
           // Crear mapa de colores
           const colorsMap = new Map<string, string>()
-          response.data.forEach(etiqueta => {
-            colorsMap.set(etiqueta.nombre.toLowerCase(), etiqueta.color || '#6B7280')
+          response.data.forEach((etiqueta) => {
+            const nom = etiqueta.nombre?.trim()
+            if (!nom) return
+            colorsMap.set(nom.toLowerCase(), etiqueta.color || '#6B7280')
           })
           setTagColors(colorsMap)
         }
@@ -686,13 +721,15 @@ const TaskCreateModal = ({
   useEffect(() => {
     // Mostrar todas las etiquetas disponibles cuando no hay texto o cuando hay texto que coincide
     const filtered = etiquetasDisponibles
-      .filter(e => {
+      .filter((e) => {
+        const nom = e.nombre?.trim()
+        if (!nom) return false
         // Si no hay texto, mostrar todas (excepto las ya seleccionadas)
         if (tagInput.trim().length === 0) {
-          return !tags.includes(e.nombre)
+          return !tags.includes(nom)
         }
         // Si hay texto, filtrar por coincidencia
-        return e.nombre.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(e.nombre)
+        return nom.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(nom)
       })
       .sort((a, b) => b.veces_usada - a.veces_usada) // Ordenar por uso (más usadas primero)
       .slice(0, 10) // Mostrar hasta 10 sugerencias
@@ -715,7 +752,7 @@ const TaskCreateModal = ({
     
     // Obtener color de la etiqueta (puede ser nueva o existente)
     const etiquetaExistente = etiquetasDisponibles.find(
-      e => e.nombre.toLowerCase() === value.toLowerCase()
+      (e) => e.nombre?.trim() && e.nombre.toLowerCase() === value.toLowerCase()
     )
     
     if (etiquetaExistente) {
@@ -763,7 +800,7 @@ const TaskCreateModal = ({
     
     // Obtener color de la etiqueta existente
     const etiquetaExistente = etiquetasDisponibles.find(
-      e => e.nombre.toLowerCase() === suggestion.toLowerCase()
+      (e) => e.nombre?.trim() && e.nombre.toLowerCase() === suggestion.toLowerCase()
     )
     
     if (etiquetaExistente) {
@@ -910,15 +947,24 @@ const TaskCreateModal = ({
     )
     .slice(0, normalizedSectorQuery ? 12 : 7)
 
-  const normalizedMaterialQuery = materialSearch.trim().toLowerCase()
-  const filteredMaterials = materiales
-    .filter((material) => {
-      if (!normalizedMaterialQuery) return true
-      const descripcion = material.descripcion?.toLowerCase() ?? ''
-      const codigo = material.codigo?.toLowerCase() ?? ''
-      return descripcion.includes(normalizedMaterialQuery) || codigo.includes(normalizedMaterialQuery)
-    })
-    .slice(0, normalizedMaterialQuery ? 15 : 10)
+  const filteredMaterials = useMemo(() => {
+    const q = materialSearch.trim().toLowerCase()
+    return materiales
+      .filter((material) => {
+        const label = String(material.descripcion?.trim() || material.codigo || '').trim()
+        if (!label) return false
+        if (materials.some((m) => String(m.name ?? '').toLowerCase() === label.toLowerCase())) {
+          return false
+        }
+        if (!q) return true
+        const descripcion = material.descripcion?.toLowerCase() ?? ''
+        const codigo = String(material.codigo ?? '').toLowerCase()
+        return descripcion.includes(q) || codigo.includes(q)
+      })
+      .slice(0, q ? 15 : 10)
+  }, [materiales, materialSearch, materials])
+
+  const getLineaTipoSuggestions = (idx: number) => lineaTipoSuggestionsByIdx[idx] ?? []
 
   return (
     <div
@@ -954,16 +1000,6 @@ const TaskCreateModal = ({
         </header>
 
         <div className="modal-body">
-          <datalist id="plotrello-datalist-tipo-op-create">
-            {recentTiposOp.map((t) => (
-              <option key={t} value={t} />
-            ))}
-          </datalist>
-          <datalist id="plotrello-datalist-tipo-linea-create">
-            {recentTiposLinea.map((t) => (
-              <option key={t} value={t} />
-            ))}
-          </datalist>
           <div className="form-row">
             <div className="form-group">
               <label>N° OP</label>
@@ -1543,10 +1579,13 @@ const TaskCreateModal = ({
                 onChange={(e) => {
                   const value = e.target.value
                   setTagInput(value)
-                  const hasSuggestions = etiquetasDisponibles.some(etiqueta =>
-                    etiqueta.nombre.toLowerCase().includes(value.toLowerCase()) &&
-                    !tags.includes(etiqueta.nombre)
-                  ) || value.trim().length === 0
+                  const hasSuggestions =
+                    etiquetasDisponibles.some(
+                      (etiqueta) =>
+                        !!etiqueta.nombre?.trim() &&
+                        etiqueta.nombre.toLowerCase().includes(value.toLowerCase()) &&
+                        !tags.includes(etiqueta.nombre)
+                    ) || value.trim().length === 0
                   setIsTagDropdownOpen(hasSuggestions)
                 }}
                 onFocus={() => {
@@ -1611,12 +1650,17 @@ const TaskCreateModal = ({
             {tags.length > 0 && (
               <div className="selected-tags" style={{ marginTop: '8px' }}>
                 {tags.map((tag) => {
-                  const tagColor = tagColors.get(tag.toLowerCase()) ||
-                    etiquetasDisponibles.find(e => e.nombre.toLowerCase() === tag.toLowerCase())?.color ||
+                  const tagStr = String(tag ?? '').trim()
+                  if (!tagStr) return null
+                  const tagColor =
+                    tagColors.get(tagStr.toLowerCase()) ||
+                    etiquetasDisponibles.find(
+                      (e) => e.nombre?.trim() && e.nombre.toLowerCase() === tagStr.toLowerCase()
+                    )?.color ||
                     '#6B7280'
                   return (
                     <span
-                      key={tag}
+                      key={tagStr}
                       className="tag selected"
                       style={{
                         backgroundColor: tagColor,
@@ -1624,8 +1668,8 @@ const TaskCreateModal = ({
                         color: '#ffffff'
                       }}
                     >
-                      {tag}
-                      <button type="button" onClick={() => handleRemoveTag(tag)}>
+                      {tagStr}
+                      <button type="button" onClick={() => handleRemoveTag(tagStr)}>
                         ×
                       </button>
                     </span>
@@ -1762,39 +1806,88 @@ const TaskCreateModal = ({
           </div>
 
           <div className="form-group">
-            <label>Tipo de impresión (OP)</label>
-            <input
-              type="text"
-              value={tipoImpresion}
-              onChange={(e) => setTipoImpresion(e.target.value)}
-              list="plotrello-datalist-tipo-op-create"
-              placeholder="Ej: Lona, vinilo, papel… (sugerencias de OPs recientes)"
-            />
-          </div>
-
-          <div className="form-group">
             <label>Ítems con metros (opcional)</label>
-            <p style={{ color: '#9ca3af', fontSize: '12px', marginTop: 0 }}>
-              Varias piezas con tipo y m². Si cargás ítems, el total se usa como m² de la OP. Las sugerencias salen de
-              tipos usados antes en esta computadora.
+            <p className="form-hint-muted">
+              Varias piezas con tipo y m². Si cargás ítems, el total se usa como m² de la OP. Sugerencias de tipo con el
+              mismo patrón que etiquetas (recientes en este equipo).
             </p>
             {lineasMetrosM2.map((row, idx) => (
               <div
                 key={idx}
-                style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  marginBottom: 8,
+                  alignItems: 'flex-start',
+                  flexWrap: 'wrap'
+                }}
               >
-                <input
-                  type="text"
-                  placeholder="Tipo / pieza"
-                  value={row.tipo}
-                  list="plotrello-datalist-tipo-linea-create"
-                  onChange={(e) => {
-                    const next = [...lineasMetrosM2]
-                    next[idx] = { ...next[idx], tipo: e.target.value }
-                    setLineasMetrosM2(next)
-                  }}
-                  style={{ flex: '1 1 140px', minWidth: 120 }}
-                />
+                <div
+                  className="tag-input-row"
+                  style={{ flex: '1 1 160px', minWidth: 140, alignSelf: 'flex-start' }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Tipo / pieza"
+                    value={row.tipo}
+                    onChange={(e) => {
+                      const next = [...lineasMetrosM2]
+                      next[idx] = { ...next[idx], tipo: e.target.value }
+                      setLineasMetrosM2(next)
+                    }}
+                    onFocus={() => setFocusedLineaTipoIdx(idx)}
+                    onBlur={() =>
+                      setTimeout(() => {
+                        setFocusedLineaTipoIdx((cur) => (cur === idx ? null : cur))
+                      }, 200)
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const sug = getLineaTipoSuggestions(idx)[0]
+                        if (sug) {
+                          const next = [...lineasMetrosM2]
+                          next[idx] = { ...next[idx], tipo: sug }
+                          setLineasMetrosM2(next)
+                        }
+                      } else if (e.key === 'Escape') {
+                        setFocusedLineaTipoIdx(null)
+                      }
+                    }}
+                  />
+                  {focusedLineaTipoIdx === idx && getLineaTipoSuggestions(idx).length > 0 && (
+                    <div className="tag-suggestions-dropdown">
+                      {getLineaTipoSuggestions(idx).map((suggestion) => {
+                        const c = pillColorFromString(suggestion)
+                        return (
+                          <div
+                            key={suggestion}
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => {
+                              const next = [...lineasMetrosM2]
+                              next[idx] = { ...next[idx], tipo: suggestion }
+                              setLineasMetrosM2(next)
+                              setFocusedLineaTipoIdx(null)
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                          >
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '3px',
+                                backgroundColor: c,
+                                flexShrink: 0
+                              }}
+                            />
+                            <span>{suggestion}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
                 <input
                   type="number"
                   step="0.01"
@@ -1807,11 +1900,12 @@ const TaskCreateModal = ({
                     next[idx] = { ...next[idx], metrosCuadrados: Number.isFinite(v) ? v : 0 }
                     setLineasMetrosM2(next)
                   }}
-                  style={{ width: 96 }}
+                  style={{ width: 96, alignSelf: 'center' }}
                 />
                 <button
                   type="button"
                   className="btn-secondary"
+                  style={{ alignSelf: 'center' }}
                   onClick={() => setLineasMetrosM2(lineasMetrosM2.filter((_, i) => i !== idx))}
                 >
                   Quitar
@@ -1858,78 +1952,148 @@ const TaskCreateModal = ({
 
           <div className="form-group">
             <label>Materiales</label>
-            <input
-              type="text"
-              placeholder="Buscar o seleccionar material..."
-              value={materialSearch}
-              onChange={(e) => setMaterialSearch(e.target.value)}
-              onFocus={() => setIsMaterialDropdownOpen(true)}
-              onBlur={() => setTimeout(() => setIsMaterialDropdownOpen(false), 120)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  if (filteredMaterials.length > 0) {
-                    handleSelectMaterial(filteredMaterials[0])
-                  } else {
-                    handleAddMaterial()
+            <p className="form-hint-muted">
+              Como etiquetas: buscá en el catálogo (precargados) o escribí libre; cada ítem es una pastilla con color.
+            </p>
+            <div className="tag-input-row">
+              <input
+                type="text"
+                placeholder="Buscar precargado o escribir material..."
+                value={materialSearch}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setMaterialSearch(value)
+                  const q = value.trim().toLowerCase()
+                  const hasAny = materiales.some((mat) => {
+                    const label = String(mat.descripcion?.trim() || mat.codigo || '').trim()
+                    if (!label) return false
+                    if (materials.some((m) => String(m.name ?? '').toLowerCase() === label.toLowerCase())) {
+                      return false
+                    }
+                    if (!q) return true
+                    const des = (mat.descripcion || '').toLowerCase()
+                    const cod = String(mat.codigo ?? '').toLowerCase()
+                    return des.includes(q) || cod.includes(q)
+                  })
+                  setIsMaterialDropdownOpen(hasAny && materiales.length > 0)
+                }}
+                onFocus={() => {
+                  if (materiales.length > 0) setIsMaterialDropdownOpen(true)
+                }}
+                onBlur={() => setTimeout(() => setIsMaterialDropdownOpen(false), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (filteredMaterials.length > 0) {
+                      handleSelectMaterial(filteredMaterials[0])
+                    } else {
+                      handleAddMaterial()
+                    }
+                  } else if (e.key === 'Escape') {
+                    setIsMaterialDropdownOpen(false)
                   }
-                }
-              }}
-            />
-            {isMaterialDropdownOpen && filteredMaterials.length > 0 && (
-              <div className="dropdown-list">
-                {filteredMaterials.map((material) => (
-                  <div
-                    key={material.id}
-                    className="dropdown-item"
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      handleSelectMaterial(material)
-                    }}
-                  >
-                    <div>
-                      <strong>{material.descripcion}</strong>
-                      <div className="dropdown-subtext">
-                        {material.codigo && <span>{material.codigo}</span>}
-                        {material.stock !== null && material.stock !== undefined && (
-                          <span
+                }}
+              />
+              <button type="button" className="btn-secondary" onClick={handleAddMaterial}>
+                + Agregar
+              </button>
+              {isMaterialDropdownOpen && filteredMaterials.length > 0 && (
+                <div className="tag-suggestions-dropdown">
+                  {filteredMaterials.map((material) => {
+                    const label = String(material.descripcion?.trim() || material.codigo || '').trim()
+                    const c = pillColorFromString(label)
+                    return (
+                      <div
+                        key={material.id}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => handleSelectMaterial(material)}
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}
+                      >
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '3px',
+                            backgroundColor: c,
+                            flexShrink: 0,
+                            marginTop: '3px'
+                          }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600 }}>{material.descripcion || label}</div>
+                          <div
                             style={{
-                              marginLeft: material.codigo ? '8px' : '0',
-                              color: material.stock <= 0 ? '#f87171' : material.stock <= 10 ? '#fbbf24' : '#22c55e',
-                              fontWeight: 600
+                              fontSize: '0.78rem',
+                              color: 'var(--text-muted, #9ca3af)',
+                              marginTop: '2px',
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '8px',
+                              alignItems: 'center'
                             }}
                           >
-                            Stock: {material.stock}
-                          </span>
-                        )}
+                            {material.codigo != null && material.codigo !== '' && (
+                              <span>Cód. {material.codigo}</span>
+                            )}
+                            {material.stock !== null && material.stock !== undefined && (
+                              <span
+                                style={{
+                                  fontWeight: 600,
+                                  color:
+                                    material.stock <= 0
+                                      ? '#f87171'
+                                      : material.stock <= 10
+                                        ? '#fbbf24'
+                                        : '#22c55e'
+                                }}
+                              >
+                                Stock: {material.stock}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )}
+            </div>
             {materials.length > 0 && (
-              <div className="materials-list">
-                {materials.map((material, index) => (
-                  <div key={index} className="material-item">
-                    <span>{material.name}</span>
-                    <div className="material-controls">
+              <div className="selected-tags" style={{ marginTop: '8px' }}>
+                {materials.map((material, index) => {
+                  const pillColor = pillColorFromString(material.name)
+                  return (
+                    <span
+                      key={`${material.name}-${index}`}
+                      className="tag selected material-tag-pill"
+                      style={{
+                        backgroundColor: pillColor,
+                        borderColor: pillColor,
+                        color: '#ffffff'
+                      }}
+                    >
+                      <span className="material-tag-name">{material.name}</span>
                       <input
                         type="number"
+                        className="material-tag-qty"
                         min="0"
                         step="0.001"
+                        title="Cantidad"
                         value={material.quantity}
                         onChange={(e) => {
                           const newMaterials = [...materials]
                           newMaterials[index].quantity = parseFloat(e.target.value) || 0
                           setMaterials(newMaterials)
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <button type="button" onClick={() => handleRemoveMaterial(index)}>
                         ×
                       </button>
-                    </div>
-                  </div>
-                ))}
+                    </span>
+                  )
+                })}
               </div>
             )}
           </div>

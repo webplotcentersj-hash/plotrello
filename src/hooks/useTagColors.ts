@@ -20,8 +20,10 @@ export function useTagColors() {
           setEtiquetasDisponibles(response.data)
           // Crear mapa de colores
           const colorsMap = new Map<string, string>()
-          response.data.forEach(etiqueta => {
-            colorsMap.set(etiqueta.nombre.toLowerCase(), etiqueta.color || '#6B7280')
+          response.data.forEach((etiqueta) => {
+            const nom = etiqueta.nombre?.trim()
+            if (!nom) return
+            colorsMap.set(nom.toLowerCase(), etiqueta.color || '#6B7280')
           })
           setTagColors(colorsMap)
         }
@@ -35,12 +37,14 @@ export function useTagColors() {
   }, [])
 
   const getTagColor = (tagName: string): string => {
-    const color = tagColors.get(tagName.toLowerCase())
+    const key = String(tagName ?? '').trim().toLowerCase()
+    if (!key) return '#6B7280'
+    const color = tagColors.get(key)
     if (color) return color
     
     // Si no está en el mapa, buscar en etiquetas disponibles
     const etiqueta = etiquetasDisponibles.find(
-      e => e.nombre.toLowerCase() === tagName.toLowerCase()
+      (e) => e.nombre?.trim() && e.nombre.toLowerCase() === key
     )
     if (etiqueta?.color) return etiqueta.color
     
@@ -49,13 +53,16 @@ export function useTagColors() {
   }
 
   const loadTagColor = async (tagName: string): Promise<string> => {
+    const raw = String(tagName ?? '').trim()
+    if (!raw) return '#6B7280'
+    const key = raw.toLowerCase()
     try {
-      const colorResponse = await apiService.obtenerColorEtiqueta(tagName)
+      const colorResponse = await apiService.obtenerColorEtiqueta(raw)
       if (colorResponse.success && colorResponse.data) {
         const color = colorResponse.data
         setTagColors(prev => {
           const newMap = new Map(prev)
-          newMap.set(tagName.toLowerCase(), color)
+          newMap.set(key, color)
           return newMap
         })
         return color

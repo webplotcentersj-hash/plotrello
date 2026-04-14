@@ -4960,6 +4960,40 @@ class ApiService {
   }
 
   /**
+   * Sugerencias de "Tipo / pieza" para líneas m², buscadas en BD.
+   * Se usa para autocompletar cuando el usuario escribe (>= 3 letras).
+   */
+  async buscarTiposLineaM2(query: string, limit = 12): Promise<ApiResponse<string[]>> {
+    const q = (query || '').trim()
+    if (q.length < 3) return { success: true, data: [] }
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase
+        .from('orden_lineas_m2')
+        .select('tipo')
+        .ilike('tipo', `%${q}%`)
+        .limit(200)
+
+      if (error) return { success: false, error: error.message }
+
+      const seen = new Set<string>()
+      const out: string[] = []
+      for (const row of (data || []) as Array<{ tipo: string | null }>) {
+        const t = (row.tipo || '').trim()
+        if (!t) continue
+        const key = t.toLowerCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push(t)
+        if (out.length >= limit) break
+      }
+      return { success: true, data: out }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error buscando tipos de línea m²' }
+    }
+  }
+
+  /**
    * Registros de `impresora_uso` cuyo inicio cae en [desdeISO, hastaISO) — para reportes diarios/mensuales.
    */
   async getImpresoraUsoEnRango(

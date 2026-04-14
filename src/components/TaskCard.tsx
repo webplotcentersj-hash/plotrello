@@ -928,12 +928,14 @@ const TaskCardInner = ({
             {task.tags.length > 0 && (
               <div className="task-tags">
                 {task.tags.map((tag) => {
-                  const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
-                  if (!tagColorsCache.has(tag.toLowerCase())) {
-                    loadTagColor(tag).then((loadedColor) => {
+                  const tagStr = String(tag ?? '').trim()
+                  if (!tagStr) return null
+                  const color = tagColorsCache.get(tagStr.toLowerCase()) || getTagColor(tagStr)
+                  if (!tagColorsCache.has(tagStr.toLowerCase())) {
+                    loadTagColor(tagStr).then((loadedColor) => {
                       setTagColorsCache((prev) => {
                         const newMap = new Map(prev)
-                        newMap.set(tag.toLowerCase(), loadedColor)
+                        newMap.set(tagStr.toLowerCase(), loadedColor)
                         return newMap
                       })
                     })
@@ -946,8 +948,8 @@ const TaskCardInner = ({
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
                   }
                   return (
-                    <span key={tag} className="task-tag" style={tagStyle}>
-                      {tag}
+                    <span key={tagStr} className="task-tag" style={tagStyle}>
+                      {tagStr}
                     </span>
                   )
                 })}
@@ -1177,12 +1179,14 @@ const TaskCardInner = ({
             {task.tags.length > 0 && (
               <div className="task-tags">
                 {task.tags.map((tag) => {
-                  const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
-                  if (!tagColorsCache.has(tag.toLowerCase())) {
-                    loadTagColor(tag).then((loadedColor) => {
+                  const tagStr = String(tag ?? '').trim()
+                  if (!tagStr) return null
+                  const color = tagColorsCache.get(tagStr.toLowerCase()) || getTagColor(tagStr)
+                  if (!tagColorsCache.has(tagStr.toLowerCase())) {
+                    loadTagColor(tagStr).then((loadedColor) => {
                       setTagColorsCache((prev) => {
                         const newMap = new Map(prev)
-                        newMap.set(tag.toLowerCase(), loadedColor)
+                        newMap.set(tagStr.toLowerCase(), loadedColor)
                         return newMap
                       })
                     })
@@ -1195,8 +1199,8 @@ const TaskCardInner = ({
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)'
                   }
                   return (
-                    <span key={tag} className="task-tag" style={tagStyle}>
-                      {tag}
+                    <span key={tagStr} className="task-tag" style={tagStyle}>
+                      {tagStr}
                     </span>
                   )
                 })}

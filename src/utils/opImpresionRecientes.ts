@@ -25,7 +25,9 @@ function pushUnique(list: string[], value: string, max: number): string[] {
   const t = value.trim()
   if (!t) return list
   const lower = t.toLowerCase()
-  const rest = list.filter((x) => x.trim().toLowerCase() !== lower)
+  const rest = list.filter(
+    (x) => typeof x === 'string' && x.trim().toLowerCase() !== lower
+  )
   return [t, ...rest].slice(0, max)
 }
 

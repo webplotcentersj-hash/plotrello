@@ -61,12 +61,13 @@ const TaskLibraryModal = ({
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       // Búsqueda
+      const q = searchQuery.toLowerCase()
       const matchesSearch =
         searchQuery === '' ||
-        task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.opNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.summary.toLowerCase().includes(searchQuery.toLowerCase())
+        String(task.id ?? '').toLowerCase().includes(q) ||
+        String(task.title ?? '').toLowerCase().includes(q) ||
+        String(task.opNumber ?? '').toLowerCase().includes(q) ||
+        String(task.summary ?? '').toLowerCase().includes(q)
 
       // Sector
       const matchesSector =
