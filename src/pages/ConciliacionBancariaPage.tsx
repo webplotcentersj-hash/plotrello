@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -413,7 +413,7 @@ const ConciliacionBancariaPage = () => {
   const pagosPendientes = pagos.filter(p => p.estado === 'Pendiente' || p.estado === 'Parcial')
   const movimientosPendientes = movimientos.filter(m => !m.conciliado)
 
-  const plotAiAnalysis = useMemo(() => {
+  const plotAiAnalysis = (() => {
     const desdeISO = safeParseDateToISO(plotAiFechaDesde)
     const hastaISO = safeParseDateToISO(plotAiFechaHasta ? `${plotAiFechaHasta}T23:59:59` : plotAiFechaHasta)
     const hasRange = Boolean(desdeISO && hastaISO)
@@ -497,7 +497,7 @@ const ConciliacionBancariaPage = () => {
       },
       incongruencias
     }
-  }, [pagos, plotAiBanco, plotAiCuenta, plotAiExtracto, plotAiFechaDesde, plotAiFechaHasta])
+  })()
 
   const handleParseExtracto = async () => {
     if (!plotAiFile) return
