@@ -25,7 +25,7 @@ type CuentaRow = {
   fechaISO: string
   concepto: string
   referencia?: string
-  monto: number // egreso positivo (normalizado, en pesos)
+  monto: number // egreso negativo / ingreso positivo (normalizado)
 }
 
 function safeParseDateToISO(value: unknown): string | null {
@@ -156,10 +156,20 @@ async function parseCuentaFile(file: File): Promise<CuentaRow[]> {
     ).trim() || undefined
 
     const montoRaw = pickFirstKey(r, ['monto', 'importe', 'importe total', 'importe_total', 'amount', 'total']) ?? undefined
-    const monto = toNumber(montoRaw)
+
+    const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
+    const haber = toNumber(pickFirstKey(r, ['haber', 'crédito', 'credito', 'ingreso']))
+    let monto = toNumber(montoRaw)
+
+    if (monto == null) {
+      if (debe != null && haber == null) monto = -Math.abs(debe)
+      else if (haber != null && debe == null) monto = Math.abs(haber)
+      else if (debe != null && haber != null) monto = Math.abs(haber) - Math.abs(debe)
+    }
+
     if (monto == null || !Number.isFinite(monto) || monto === 0) continue
 
-    out.push({ fechaISO, concepto, referencia, monto: absMoney(monto) })
+    out.push({ fechaISO, concepto, referencia, monto })
   }
   return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
 }
@@ -175,8 +185,8 @@ const ConciliacionBancariaPage = () => {
   const [plotAiCuentaFile, setPlotAiCuentaFile] = useState<File | null>(null)
   const [plotAiExtracto, setPlotAiExtracto] = useState<ExtractoRow[]>([])
   const [plotAiCuentaRows, setPlotAiCuentaRows] = useState<CuentaRow[]>([])
-  const [, setPlotAiParsing] = useState(false)
-  const [, setPlotAiCuentaParsing] = useState(false)
+  const [plotAiParsing, setPlotAiParsing] = useState(false)
+  const [plotAiCuentaParsing, setPlotAiCuentaParsing] = useState(false)
   const [plotAiFechaDesde, setPlotAiFechaDesde] = useState('')
   const [plotAiFechaHasta, setPlotAiFechaHasta] = useState('')
   const [plotAiBanco, setPlotAiBanco] = useState('')
@@ -479,7 +489,7 @@ const ConciliacionBancariaPage = () => {
 
     const incongruencias: string[] = []
 
-    // matching simple 1:1 por monto (egresos extracto) vs planilla cuenta (monto positivo)
+    // matching simple 1:1 por monto (egresos extracto) vs planilla cuenta (egresos)
     const cuentaDisponibles = new Set<number>(cuentaRange.map((_, idx) => idx))
     const matchExtractoToCuenta = new Map<number, number>() // idxExtracto -> idxCuenta
 
@@ -492,7 +502,8 @@ const ConciliacionBancariaPage = () => {
       for (let j = 0; j < cuentaRange.length; j++) {
         if (!cuentaDisponibles.has(j)) continue
         const c = cuentaRange[j]
-        if (!moneyEq(c.monto, target)) continue
+        if (c.monto >= 0) continue
+        if (!moneyEq(absMoney(c.monto), target)) continue
         // preferir match por referencia si existe
         if (r.referencia && (c.referencia || '').toLowerCase().includes(r.referencia.toLowerCase())) {
           bestIdx = j
@@ -518,14 +529,15 @@ const ConciliacionBancariaPage = () => {
 
     for (const j of cuentaDisponibles) {
       const c = cuentaRange[j]
+      if (c.monto >= 0) continue
       incongruencias.push(
-        `Planilla sin extracto: ${new Date(c.fechaISO).toLocaleDateString('es-AR')} · $${c.monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${c.concepto}${c.referencia ? ` · ref ${c.referencia}` : ''}`
+        `Planilla sin extracto: ${new Date(c.fechaISO).toLocaleDateString('es-AR')} · $${absMoney(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${c.concepto}${c.referencia ? ` · ref ${c.referencia}` : ''}`
       )
     }
 
     const totalExtractoEgresos = extractoRange.filter((r) => r.monto < 0).reduce((s, r) => s + absMoney(r.monto), 0)
     const totalExtractoIngresos = extractoRange.filter((r) => r.monto > 0).reduce((s, r) => s + absMoney(r.monto), 0)
-    const totalCuenta = cuentaRange.reduce((s, r) => s + absMoney(r.monto), 0)
+    const totalCuenta = cuentaRange.filter((r) => r.monto < 0).reduce((s, r) => s + absMoney(r.monto), 0)
 
     const saldado = listo && incongruencias.length === 0 && moneyEq(totalExtractoEgresos, totalCuenta, 0.02)
 
@@ -543,11 +555,12 @@ const ConciliacionBancariaPage = () => {
     }
   })()
 
-  const handleParseExtracto = async () => {
-    if (!plotAiExtractoFile) return
+  const handleParseExtracto = async (file?: File | null) => {
+    const f = file ?? plotAiExtractoFile
+    if (!f) return
     setPlotAiParsing(true)
     try {
-      const parsed = await parseExtractoFile(plotAiExtractoFile)
+      const parsed = await parseExtractoFile(f)
       setPlotAiExtracto(parsed)
     } catch (e) {
       console.error('Error parseando extracto:', e)
@@ -558,11 +571,12 @@ const ConciliacionBancariaPage = () => {
     }
   }
 
-  const handleParseCuenta = async () => {
-    if (!plotAiCuentaFile) return
+  const handleParseCuenta = async (file?: File | null) => {
+    const f = file ?? plotAiCuentaFile
+    if (!f) return
     setPlotAiCuentaParsing(true)
     try {
-      const parsed = await parseCuentaFile(plotAiCuentaFile)
+      const parsed = await parseCuentaFile(f)
       setPlotAiCuentaRows(parsed)
     } catch (e) {
       console.error('Error parseando planilla:', e)
@@ -778,12 +792,16 @@ const ConciliacionBancariaPage = () => {
                 const f = e.target.files?.[0] ?? null
                 setPlotAiExtractoFile(f)
                 setPlotAiExtracto([])
-                if (f) void handleParseExtracto()
+                if (f) void handleParseExtracto(f)
               }}
             />
             <div className="plotai-actions">
               <span className="plotai-help">
-                {plotAiExtracto.length > 0 ? `${plotAiExtracto.length} movimientos leídos` : 'Columnas típicas: fecha, concepto, monto/importe.'}
+                {plotAiParsing
+                  ? 'Leyendo…'
+                  : plotAiExtracto.length > 0
+                    ? `${plotAiExtracto.length} movimientos leídos`
+                    : 'Columnas típicas: fecha, concepto, monto/importe.'}
               </span>
             </div>
           </div>
@@ -797,12 +815,16 @@ const ConciliacionBancariaPage = () => {
                 const f = e.target.files?.[0] ?? null
                 setPlotAiCuentaFile(f)
                 setPlotAiCuentaRows([])
-                if (f) void handleParseCuenta()
+                if (f) void handleParseCuenta(f)
               }}
             />
             <div className="plotai-actions">
               <span className="plotai-help">
-                {plotAiCuentaRows.length > 0 ? `${plotAiCuentaRows.length} filas leídas` : 'Columnas típicas: fecha, concepto/proveedor, monto/importe.'}
+                {plotAiCuentaParsing
+                  ? 'Leyendo…'
+                  : plotAiCuentaRows.length > 0
+                    ? `${plotAiCuentaRows.length} filas leídas`
+                    : 'Columnas típicas: fecha, concepto/proveedor, monto/importe.'}
               </span>
             </div>
           </div>
