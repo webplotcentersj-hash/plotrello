@@ -101,8 +101,83 @@ function isoToDateOnly(iso: string): string {
   return iso.slice(0, 10)
 }
 
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
 function normText(v: unknown): string {
-  return String(v ?? '').toLowerCase().trim().replace(/\\s+/g, ' ')
+  return String(v ?? '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+/** Mercado Pago / bancos: primera hoja con títulos en fila 1; planilla "Conciliación" suele tener tabla desde fila 7+. */
+function sheetToObjectsWithHeaderDetection(ws: XLSX.WorkSheet, maxScanRows = 35): Record<string, any>[] {
+  const aoa = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' }) as any[][]
+  if (!aoa.length) return []
+
+  const headerKeywords = [
+    'fecha',
+    'importe',
+    'debe',
+    'haber',
+    'tipo',
+    'numero',
+    'número',
+    'movimiento',
+    'pago',
+    'operacion',
+    'operación',
+    'relacionada',
+    'saldo'
+  ]
+
+  let bestIdx = 0
+  let bestScore = -1
+  const scan = Math.min(maxScanRows, aoa.length)
+  for (let i = 0; i < scan; i++) {
+    const row = aoa[i] || []
+    const flat = stripAccents(
+      row.map((c) => String(c ?? '').toLowerCase()).join(' ')
+    )
+    let score = 0
+    for (const kw of headerKeywords) {
+      if (flat.includes(stripAccents(kw))) score += 1
+    }
+    if (flat.includes('fecha') && (flat.includes('importe') || flat.includes('debe') || flat.includes('haber'))) {
+      score += 5
+    }
+    if (score > bestScore) {
+      bestScore = score
+      bestIdx = i
+    }
+  }
+
+  // Si no encontramos una fila “tipo encabezado”, volvemos al modo clásico (fila 1 = títulos).
+  if (bestScore < 4) {
+    return XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' })
+  }
+
+  const headerRow = aoa[bestIdx] || []
+  const headers = headerRow.map((h, j) => {
+    const name = String(h ?? '').trim()
+    return name || `__EMPTY_${j}`
+  })
+
+  const out: Record<string, any>[] = []
+  for (let r = bestIdx + 1; r < aoa.length; r++) {
+    const row = aoa[r] || []
+    if (row.every((c) => c === '' || c == null)) continue
+    const obj: Record<string, any> = {}
+    for (let c = 0; c < headers.length; c++) {
+      const key = headers[c]
+      if (key.startsWith('__EMPTY_') && row[c] === '') continue
+      obj[key] = row[c]
+    }
+    out.push(obj)
+  }
+  return out
 }
 
 function buildRowKey(r: { fechaISO: string; tipoOperacion: string; numeroMovimiento: string; operacionRelacionada: string; importe: number }): string {
@@ -138,11 +213,20 @@ async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
   const wb = XLSX.read(ab, { type: 'array' })
   const sheetName = wb.SheetNames[0]
   const ws = wb.Sheets[sheetName]
-  const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' })
+  const rows = sheetToObjectsWithHeaderDetection(ws)
 
   const out: ExtractoRow[] = []
   for (const r of rows) {
-    const fechaRaw = pickFirstKey(r, ['fecha del pago', 'fecha_del_pago', 'fecha pago', 'fecha_pago', 'fecha', 'date'])
+    const fechaRaw = pickFirstKey(r, [
+      'fecha de pago',
+      'fecha del pago',
+      'fecha_de_pago',
+      'fecha_del_pago',
+      'fecha pago',
+      'fecha_pago',
+      'fecha',
+      'date'
+    ])
     const fechaISO = safeParseDateToISO(fechaRaw)
     if (!fechaISO) continue
 
@@ -150,10 +234,26 @@ async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
       pickFirstKey(r, ['tipo de operacion', 'tipo de operación', 'tipo_operacion', 'tipo_operación', 'tipo']) ?? ''
     ).trim()
     const numeroMovimiento = String(
-      pickFirstKey(r, ['numero de movimiento', 'número de movimiento', 'numero_movimiento', 'número_movimiento', 'nro movimiento', 'nro. movimiento', 'movimiento']) ?? ''
+      pickFirstKey(r, [
+        'numero de movimiento',
+        'número de movimiento',
+        'numero_movimiento',
+        'número_movimiento',
+        'nro movimiento',
+        'nro. movimiento',
+        'número',
+        'numero'
+      ]) ?? ''
     ).trim()
     const operacionRelacionada = String(
-      pickFirstKey(r, ['operacion relacionada', 'operación relacionada', 'operacion_relacionada', 'operación_relacionada', 'relacionada']) ?? ''
+      pickFirstKey(r, [
+        'operacion relacionada',
+        'operación relacionada',
+        'operacion_relacionada',
+        'operación_relacionada',
+        'relacionada',
+        'movimiento'
+      ]) ?? ''
     ).trim()
 
     const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
@@ -185,11 +285,20 @@ async function parseCuentaFile(file: File): Promise<CuentaRow[]> {
   const wb = XLSX.read(ab, { type: 'array' })
   const sheetName = wb.SheetNames[0]
   const ws = wb.Sheets[sheetName]
-  const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' })
+  const rows = sheetToObjectsWithHeaderDetection(ws)
 
   const out: CuentaRow[] = []
   for (const r of rows) {
-    const fechaRaw = pickFirstKey(r, ['fecha del pago', 'fecha_del_pago', 'fecha pago', 'fecha_pago', 'fecha', 'date'])
+    const fechaRaw = pickFirstKey(r, [
+      'fecha de pago',
+      'fecha del pago',
+      'fecha_de_pago',
+      'fecha_del_pago',
+      'fecha pago',
+      'fecha_pago',
+      'fecha',
+      'date'
+    ])
     const fechaISO = safeParseDateToISO(fechaRaw)
     if (!fechaISO) continue
 
@@ -197,10 +306,26 @@ async function parseCuentaFile(file: File): Promise<CuentaRow[]> {
       pickFirstKey(r, ['tipo de operacion', 'tipo de operación', 'tipo_operacion', 'tipo_operación', 'tipo']) ?? ''
     ).trim()
     const numeroMovimiento = String(
-      pickFirstKey(r, ['numero de movimiento', 'número de movimiento', 'numero_movimiento', 'número_movimiento', 'nro movimiento', 'nro. movimiento', 'movimiento']) ?? ''
+      pickFirstKey(r, [
+        'numero de movimiento',
+        'número de movimiento',
+        'numero_movimiento',
+        'número_movimiento',
+        'nro movimiento',
+        'nro. movimiento',
+        'número',
+        'numero'
+      ]) ?? ''
     ).trim()
     const operacionRelacionada = String(
-      pickFirstKey(r, ['operacion relacionada', 'operación relacionada', 'operacion_relacionada', 'operación_relacionada', 'relacionada']) ?? ''
+      pickFirstKey(r, [
+        'operacion relacionada',
+        'operación relacionada',
+        'operacion_relacionada',
+        'operación_relacionada',
+        'relacionada',
+        'movimiento'
+      ]) ?? ''
     ).trim()
 
     const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
