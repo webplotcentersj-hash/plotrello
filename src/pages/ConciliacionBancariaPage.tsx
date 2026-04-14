@@ -16,16 +16,18 @@ import './ConciliacionBancariaPage.css'
 
 type ExtractoRow = {
   fechaISO: string
-  concepto: string
-  referencia?: string
-  monto: number // egreso negativo / ingreso positivo (normalizado)
+  tipoOperacion: string
+  numeroMovimiento: string
+  operacionRelacionada: string
+  importe: number // normalizado (>= 0)
 }
 
 type CuentaRow = {
   fechaISO: string
-  concepto: string
-  referencia?: string
-  monto: number // egreso negativo / ingreso positivo (normalizado)
+  tipoOperacion: string
+  numeroMovimiento: string
+  operacionRelacionada: string
+  importe: number // normalizado (>= 0)
 }
 
 function safeParseDateToISO(value: unknown): string | null {
@@ -77,6 +79,31 @@ function moneyEq(a: number, b: number, tol = 0.01): boolean {
   return Math.abs(a - b) <= tol
 }
 
+function isoToDateOnly(iso: string): string {
+  // iso expected like 2026-04-14T...Z
+  return iso.slice(0, 10)
+}
+
+function normText(v: unknown): string {
+  return String(v ?? '').toLowerCase().trim().replace(/\\s+/g, ' ')
+}
+
+function buildRowKey(r: { fechaISO: string; tipoOperacion: string; numeroMovimiento: string; operacionRelacionada: string; importe: number }): string {
+  return [
+    isoToDateOnly(r.fechaISO),
+    normText(r.tipoOperacion),
+    normText(r.numeroMovimiento),
+    normText(r.operacionRelacionada),
+    absMoney(r.importe).toFixed(2)
+  ].join('|')
+}
+
+function formatRow(r: { fechaISO: string; tipoOperacion: string; numeroMovimiento: string; operacionRelacionada: string; importe: number }): string {
+  const fecha = new Date(r.fechaISO).toLocaleDateString('es-AR')
+  const imp = absMoney(r.importe).toLocaleString('es-AR', { minimumFractionDigits: 2 })
+  return `${fecha} · $${imp} · ${r.tipoOperacion} · mov ${r.numeroMovimiento}${r.operacionRelacionada ? ` · rel ${r.operacionRelacionada}` : ''}`
+}
+
 async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
   const ab = await file.arrayBuffer()
   const wb = XLSX.read(ab, { type: 'array' })
@@ -86,37 +113,25 @@ async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
 
   const out: ExtractoRow[] = []
   for (const r of rows) {
-    const fechaRaw =
-      pickFirstKey(r, ['fecha', 'fecha_movimiento', 'date', 'día', 'dia', 'fecha operación', 'fecha operacion']) ??
-      pickFirstKey(r, ['fecha_valor', 'valor'])
+    const fechaRaw = pickFirstKey(r, ['fecha del pago', 'fecha_pago', 'fecha', 'date'])
     const fechaISO = safeParseDateToISO(fechaRaw)
     if (!fechaISO) continue
 
-    const concepto =
-      String(
-        pickFirstKey(r, ['concepto', 'descripcion', 'descripción', 'detalle', 'observacion', 'observación']) ?? ''
-      ).trim() || 'Movimiento'
+    const tipoOperacion = String(pickFirstKey(r, ['tipo de operacion', 'tipo_operacion', 'tipo']) ?? '').trim()
+    const numeroMovimiento = String(pickFirstKey(r, ['numero de movimiento', 'numero_movimiento', 'nro movimiento', 'movimiento']) ?? '').trim()
+    const operacionRelacionada = String(pickFirstKey(r, ['operacion relacionada', 'operacion_relacionada', 'relacionada']) ?? '').trim()
 
-    const referencia = String(pickFirstKey(r, ['referencia', 'ref', 'comprobante', 'nro comprobante', 'numero_comprobante']) ?? '')
-      .trim() || undefined
+    const importeRaw = pickFirstKey(r, ['importe', 'monto', 'importe_total', 'importe total', 'amount', 'total']) ?? undefined
+    const importe = toNumber(importeRaw)
+    if (importe == null || !Number.isFinite(importe) || importe === 0) continue
 
-    const montoRaw =
-      pickFirstKey(r, ['monto', 'importe', 'importe total', 'importe_total', 'amount', 'valor']) ??
-      undefined
-
-    const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
-    const haber = toNumber(pickFirstKey(r, ['haber', 'crédito', 'credito', 'ingreso']))
-    let monto = toNumber(montoRaw)
-
-    if (monto == null) {
-      if (debe != null && haber == null) monto = -Math.abs(debe)
-      else if (haber != null && debe == null) monto = Math.abs(haber)
-      else if (debe != null && haber != null) monto = Math.abs(haber) - Math.abs(debe)
-    }
-
-    if (monto == null || !Number.isFinite(monto) || monto === 0) continue
-
-    out.push({ fechaISO, concepto, referencia, monto })
+    out.push({
+      fechaISO,
+      tipoOperacion,
+      numeroMovimiento,
+      operacionRelacionada,
+      importe: absMoney(importe)
+    })
   }
   return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
 }
@@ -130,46 +145,25 @@ async function parseCuentaFile(file: File): Promise<CuentaRow[]> {
 
   const out: CuentaRow[] = []
   for (const r of rows) {
-    const fechaRaw =
-      pickFirstKey(r, ['fecha', 'fecha_pago', 'date', 'día', 'dia']) ??
-      pickFirstKey(r, ['fecha_movimiento', 'fecha_valor'])
+    const fechaRaw = pickFirstKey(r, ['fecha del pago', 'fecha_pago', 'fecha', 'date'])
     const fechaISO = safeParseDateToISO(fechaRaw)
     if (!fechaISO) continue
 
-    const concepto =
-      String(
-        pickFirstKey(r, [
-          'concepto',
-          'descripcion',
-          'descripción',
-          'detalle',
-          'proveedor',
-          'observacion',
-          'observación',
-          'numero_pago',
-          'pago'
-        ]) ?? ''
-      ).trim() || 'Pago'
+    const tipoOperacion = String(pickFirstKey(r, ['tipo de operacion', 'tipo_operacion', 'tipo']) ?? '').trim()
+    const numeroMovimiento = String(pickFirstKey(r, ['numero de movimiento', 'numero_movimiento', 'nro movimiento', 'movimiento']) ?? '').trim()
+    const operacionRelacionada = String(pickFirstKey(r, ['operacion relacionada', 'operacion_relacionada', 'relacionada']) ?? '').trim()
 
-    const referencia = String(
-      pickFirstKey(r, ['referencia', 'ref', 'comprobante', 'nro comprobante', 'numero_comprobante', 'numero_pago']) ?? ''
-    ).trim() || undefined
+    const importeRaw = pickFirstKey(r, ['importe', 'monto', 'importe_total', 'importe total', 'amount', 'total']) ?? undefined
+    const importe = toNumber(importeRaw)
+    if (importe == null || !Number.isFinite(importe) || importe === 0) continue
 
-    const montoRaw = pickFirstKey(r, ['monto', 'importe', 'importe total', 'importe_total', 'amount', 'total']) ?? undefined
-
-    const debe = toNumber(pickFirstKey(r, ['debe', 'débito', 'debito', 'egreso']))
-    const haber = toNumber(pickFirstKey(r, ['haber', 'crédito', 'credito', 'ingreso']))
-    let monto = toNumber(montoRaw)
-
-    if (monto == null) {
-      if (debe != null && haber == null) monto = -Math.abs(debe)
-      else if (haber != null && debe == null) monto = Math.abs(haber)
-      else if (debe != null && haber != null) monto = Math.abs(haber) - Math.abs(debe)
-    }
-
-    if (monto == null || !Number.isFinite(monto) || monto === 0) continue
-
-    out.push({ fechaISO, concepto, referencia, monto })
+    out.push({
+      fechaISO,
+      tipoOperacion,
+      numeroMovimiento,
+      operacionRelacionada,
+      importe: absMoney(importe)
+    })
   }
   return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
 }
@@ -187,10 +181,7 @@ const ConciliacionBancariaPage = () => {
   const [plotAiCuentaRows, setPlotAiCuentaRows] = useState<CuentaRow[]>([])
   const [plotAiParsing, setPlotAiParsing] = useState(false)
   const [plotAiCuentaParsing, setPlotAiCuentaParsing] = useState(false)
-  const [plotAiFechaDesde, setPlotAiFechaDesde] = useState('')
-  const [plotAiFechaHasta, setPlotAiFechaHasta] = useState('')
-  const [plotAiBanco, setPlotAiBanco] = useState('')
-  const [plotAiCuenta, setPlotAiCuenta] = useState('')
+  // parámetros removidos: se compara automático por columnas iguales en ambos Excel
   const [plotAiReports, setPlotAiReports] = useState<ConciliacionPlotAIReporte[]>([])
   const [plotAiRecoLoading, setPlotAiRecoLoading] = useState(false)
   const [plotAiRecoText, setPlotAiRecoText] = useState<string>('')
@@ -474,82 +465,75 @@ const ConciliacionBancariaPage = () => {
 
   const plotAiAnalysis = (() => {
     const listo = plotAiExtracto.length > 0 && plotAiCuentaRows.length > 0
-    const desdeISO = safeParseDateToISO(plotAiFechaDesde)
-    const hastaISO = safeParseDateToISO(plotAiFechaHasta ? `${plotAiFechaHasta}T23:59:59` : plotAiFechaHasta)
-    const hasRange = Boolean(desdeISO && hastaISO)
+    const extractoRows = plotAiExtracto
+    const cuentaRows = plotAiCuentaRows
 
-    const extractoRange = plotAiExtracto.filter((r) => {
-      if (!hasRange) return true
-      return r.fechaISO >= (desdeISO as string) && r.fechaISO <= (hastaISO as string)
-    })
-    const cuentaRange = plotAiCuentaRows.filter((r) => {
-      if (!hasRange) return true
-      return r.fechaISO >= (desdeISO as string) && r.fechaISO <= (hastaISO as string)
-    })
+    const allDates = [...extractoRows.map(r => r.fechaISO), ...cuentaRows.map(r => r.fechaISO)].sort()
+    const fecha_desde = allDates.length > 0 ? isoToDateOnly(allDates[0]) : ''
+    const fecha_hasta = allDates.length > 0 ? isoToDateOnly(allDates[allDates.length - 1]) : ''
+
+    // Multiset diff por fila completa (mismas columnas en ambos Excel)
+    const eCount = new Map<string, number>()
+    const cCount = new Map<string, number>()
+
+    for (const r of extractoRows) {
+      const k = buildRowKey(r)
+      eCount.set(k, (eCount.get(k) || 0) + 1)
+    }
+    for (const r of cuentaRows) {
+      const k = buildRowKey(r)
+      cCount.set(k, (cCount.get(k) || 0) + 1)
+    }
 
     const incongruencias: string[] = []
 
-    // matching simple 1:1 por monto (egresos extracto) vs planilla cuenta (egresos)
-    const cuentaDisponibles = new Set<number>(cuentaRange.map((_, idx) => idx))
-    const matchExtractoToCuenta = new Map<number, number>() // idxExtracto -> idxCuenta
-
-    for (let i = 0; i < extractoRange.length; i++) {
-      const r = extractoRange[i]
-      if (r.monto >= 0) continue
-      const target = absMoney(r.monto)
-
-      let bestIdx: number | null = null
-      for (let j = 0; j < cuentaRange.length; j++) {
-        if (!cuentaDisponibles.has(j)) continue
-        const c = cuentaRange[j]
-        if (c.monto >= 0) continue
-        if (!moneyEq(absMoney(c.monto), target)) continue
-        // preferir match por referencia si existe
-        if (r.referencia && (c.referencia || '').toLowerCase().includes(r.referencia.toLowerCase())) {
-          bestIdx = j
-          break
-        }
-        if (bestIdx == null) bestIdx = j
-      }
-      if (bestIdx != null) {
-        matchExtractoToCuenta.set(i, bestIdx)
-        cuentaDisponibles.delete(bestIdx)
-      }
+    // Faltan en planilla (están en extracto pero no en planilla)
+    for (const r of extractoRows) {
+      const k = buildRowKey(r)
+      const eN = eCount.get(k) || 0
+      const cN = cCount.get(k) || 0
+      if (eN <= cN) continue
+      // consumir una diferencia (para no repetir de más en caso de duplicados)
+      eCount.set(k, eN - 1)
+      incongruencias.push(`Falta en planilla: ${formatRow(r)}`)
     }
 
-    for (let i = 0; i < extractoRange.length; i++) {
-      const r = extractoRange[i]
-      if (r.monto >= 0) continue
-      if (!matchExtractoToCuenta.has(i)) {
-        incongruencias.push(
-          `Extracto sin planilla: ${new Date(r.fechaISO).toLocaleDateString('es-AR')} · $${absMoney(r.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${r.concepto}${r.referencia ? ` · ref ${r.referencia}` : ''}`
-        )
-      }
+    // Second pass using fresh counts (avoid mutation confusion)
+    const eCount2 = new Map<string, number>()
+    const cCount2 = new Map<string, number>()
+    for (const r of extractoRows) {
+      const k = buildRowKey(r)
+      eCount2.set(k, (eCount2.get(k) || 0) + 1)
+    }
+    for (const r of cuentaRows) {
+      const k = buildRowKey(r)
+      cCount2.set(k, (cCount2.get(k) || 0) + 1)
+    }
+    for (const r of cuentaRows) {
+      const k = buildRowKey(r)
+      const cN = cCount2.get(k) || 0
+      const eN = eCount2.get(k) || 0
+      if (cN <= eN) continue
+      cCount2.set(k, cN - 1)
+      incongruencias.push(`Falta en extracto: ${formatRow(r)}`)
     }
 
-    for (const j of cuentaDisponibles) {
-      const c = cuentaRange[j]
-      if (c.monto >= 0) continue
-      incongruencias.push(
-        `Planilla sin extracto: ${new Date(c.fechaISO).toLocaleDateString('es-AR')} · $${absMoney(c.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${c.concepto}${c.referencia ? ` · ref ${c.referencia}` : ''}`
-      )
-    }
+    const totalExtracto = extractoRows.reduce((s, r) => s + absMoney(r.importe), 0)
+    const totalCuenta = cuentaRows.reduce((s, r) => s + absMoney(r.importe), 0)
 
-    const totalExtractoEgresos = extractoRange.filter((r) => r.monto < 0).reduce((s, r) => s + absMoney(r.monto), 0)
-    const totalExtractoIngresos = extractoRange.filter((r) => r.monto > 0).reduce((s, r) => s + absMoney(r.monto), 0)
-    const totalCuenta = cuentaRange.filter((r) => r.monto < 0).reduce((s, r) => s + absMoney(r.monto), 0)
-
-    const saldado = listo && incongruencias.length === 0 && moneyEq(totalExtractoEgresos, totalCuenta, 0.02)
+    const saldado = listo && incongruencias.length === 0 && moneyEq(totalExtracto, totalCuenta, 0.02)
 
     return {
       listo,
       estado: saldado ? ('saldado' as const) : ('incongruencias' as const),
+      fecha_desde,
+      fecha_hasta,
       resumen: {
-        totalExtractoEgresos,
-        totalExtractoIngresos,
+        totalExtractoEgresos: totalExtracto,
+        totalExtractoIngresos: 0,
         totalPagos: totalCuenta,
-        movimientosExtracto: extractoRange.length,
-        pagosConsiderados: cuentaRange.length
+        movimientosExtracto: extractoRows.length,
+        pagosConsiderados: cuentaRows.length
       },
       incongruencias
     }
@@ -588,16 +572,14 @@ const ConciliacionBancariaPage = () => {
   }
 
   const handleGuardarReporte = () => {
-    if (!plotAiFechaDesde || !plotAiFechaHasta) {
-      alert('Elegí fecha desde y hasta para guardar el reporte.')
+    if (!plotAiAnalysis.listo || !plotAiAnalysis.fecha_desde || !plotAiAnalysis.fecha_hasta) {
+      alert('Subí ambos archivos para guardar el reporte.')
       return
     }
     void (async () => {
       const resp = await apiService.crearConciliacionPlotAIReporte({
-        fecha_desde: plotAiFechaDesde,
-        fecha_hasta: plotAiFechaHasta,
-        banco: plotAiBanco.trim() || undefined,
-        cuenta_bancaria: plotAiCuenta.trim() || undefined,
+        fecha_desde: plotAiAnalysis.fecha_desde,
+        fecha_hasta: plotAiAnalysis.fecha_hasta,
         estado: plotAiAnalysis.estado,
         resumen: plotAiAnalysis.resumen,
         incongruencias: plotAiAnalysis.incongruencias,
@@ -692,18 +674,16 @@ const ConciliacionBancariaPage = () => {
   }
 
   const handleGenerarRecomendacion = async () => {
-    if (!plotAiFechaDesde || !plotAiFechaHasta) {
-      alert('Elegí fecha desde y hasta.')
+    if (!plotAiAnalysis.listo || !plotAiAnalysis.fecha_desde || !plotAiAnalysis.fecha_hasta) {
+      alert('Subí ambos archivos.')
       return
     }
     setPlotAiRecoLoading(true)
     setPlotAiRecoError(null)
     try {
       const text = await fetchConciliacionPlotAIRecommendations({
-        fechaDesde: plotAiFechaDesde,
-        fechaHasta: plotAiFechaHasta,
-        banco: plotAiBanco.trim() || undefined,
-        cuentaBancaria: plotAiCuenta.trim() || undefined,
+        fechaDesde: plotAiAnalysis.fecha_desde,
+        fechaHasta: plotAiAnalysis.fecha_hasta,
         estado: plotAiAnalysis.estado,
         resumen: plotAiAnalysis.resumen,
         incongruencias: plotAiAnalysis.incongruencias
@@ -829,37 +809,12 @@ const ConciliacionBancariaPage = () => {
             </div>
           </div>
 
-          <div className="plotai-card">
-            <h3>3) Parámetros</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Fecha desde *</label>
-                <input type="date" value={plotAiFechaDesde} onChange={(e) => setPlotAiFechaDesde(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Fecha hasta *</label>
-                <input type="date" value={plotAiFechaHasta} onChange={(e) => setPlotAiFechaHasta(e.target.value)} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Banco (opcional)</label>
-                <input value={plotAiBanco} onChange={(e) => setPlotAiBanco(e.target.value)} placeholder="Ej: Galicia" />
-              </div>
-              <div className="form-group">
-                <label>Cuenta bancaria (opcional)</label>
-                <input value={plotAiCuenta} onChange={(e) => setPlotAiCuenta(e.target.value)} placeholder="Ej: 123-456..." />
-              </div>
-            </div>
-          </div>
-
           <div className="plotai-card plotai-card--wide">
-            <h3>4) Resultado</h3>
+            <h3>3) Resultado</h3>
             <div className="plotai-result">
               <div className="plotai-totals">
-                <div><strong>Egresos extracto:</strong> ${plotAiAnalysis.resumen.totalExtractoEgresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                <div><strong>Ingresos extracto:</strong> ${plotAiAnalysis.resumen.totalExtractoIngresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                <div><strong>Total planilla cuenta:</strong> ${plotAiAnalysis.resumen.totalPagos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                <div><strong>Total extracto:</strong> ${plotAiAnalysis.resumen.totalExtractoEgresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                <div><strong>Total planilla:</strong> ${plotAiAnalysis.resumen.totalPagos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                 <div><strong>Movimientos leídos:</strong> {plotAiAnalysis.resumen.movimientosExtracto}</div>
                 <div><strong>Filas planilla:</strong> {plotAiAnalysis.resumen.pagosConsiderados}</div>
               </div>
@@ -887,7 +842,7 @@ const ConciliacionBancariaPage = () => {
               <button className="btn-secondary" onClick={handleGenerarRecomendacion} disabled={plotAiRecoLoading}>
                 {plotAiRecoLoading ? 'Generando…' : 'Recomendación PlotAI'}
               </button>
-              <button className="btn-action" onClick={handleGuardarReporte} disabled={!plotAiFechaDesde || !plotAiFechaHasta}>
+              <button className="btn-action" onClick={handleGuardarReporte} disabled={!plotAiAnalysis.listo}>
                 Guardar reporte por fecha
               </button>
             </div>
