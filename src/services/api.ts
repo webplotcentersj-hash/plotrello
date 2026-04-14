@@ -85,6 +85,7 @@ import type {
   ConciliacionPlotAIReporte,
   EstadoPago
 } from '../types/pedidos'
+import type { ConciliacionMpAiRun, ConciliacionMpSession } from '../types/conciliacionMp'
 import { supabase, stockSupabase } from './supabaseClient'
 
 /** Anexa `orden_lineas_m2` a cada orden (si la tabla existe en Supabase). */
@@ -8337,6 +8338,92 @@ class ApiService {
       return { success: true, data: (data || []) as ConciliacionPlotAIReporte[] }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error listando reportes PlotAI' }
+    }
+  }
+
+  // ===== CONCILIACIÓN MERCADO PAGO (sesiones + IA Gemini) =====
+  async crearConciliacionMpSession(input: {
+    bank_file_name: string
+    mp_file_name: string
+    bank_sheet_name?: string | null
+    mp_sheet_name?: string | null
+    rules_snapshot: Record<string, unknown>
+    bank_movements: unknown[]
+    mp_movements: unknown[]
+    heuristic_matches: unknown[]
+    metrics: Record<string, unknown>
+    status?: 'draft' | 'ready' | 'error'
+  }): Promise<ApiResponse<ConciliacionMpSession>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const usuarioStr = localStorage.getItem('usuario')
+      const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+      const { data, error } = await supabase
+        .from('conciliacion_mp_sessions')
+        .insert({
+          created_by_user_id: usuario?.id || null,
+          created_by_user_name: usuario?.nombre || null,
+          bank_file_name: input.bank_file_name,
+          mp_file_name: input.mp_file_name,
+          bank_sheet_name: input.bank_sheet_name ?? null,
+          mp_sheet_name: input.mp_sheet_name ?? null,
+          rules_snapshot: input.rules_snapshot,
+          bank_movements: input.bank_movements,
+          mp_movements: input.mp_movements,
+          heuristic_matches: input.heuristic_matches,
+          metrics: input.metrics,
+          status: input.status ?? 'ready'
+        })
+        .select('*')
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as ConciliacionMpSession }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error guardando sesión MP' }
+    }
+  }
+
+  async getConciliacionMpSessions(limit = 30): Promise<ApiResponse<ConciliacionMpSession[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('conciliacion_mp_sessions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as ConciliacionMpSession[] }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error listando sesiones MP' }
+    }
+  }
+
+  async registrarConciliacionMpAiRun(input: {
+    session_id: string
+    scope?: string
+    input_payload: Record<string, unknown>
+    output_payload: Record<string, unknown>
+  }): Promise<ApiResponse<ConciliacionMpAiRun>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const usuarioStr = localStorage.getItem('usuario')
+      const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
+      const { data, error } = await supabase
+        .from('conciliacion_mp_ai_runs')
+        .insert({
+          session_id: input.session_id,
+          created_by_user_id: usuario?.id || null,
+          scope: input.scope ?? 'unmatched',
+          input_payload: input.input_payload,
+          output_payload: input.output_payload,
+          provider: 'gemini'
+        })
+        .select('*')
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as ConciliacionMpAiRun }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error guardando análisis IA' }
     }
   }
 

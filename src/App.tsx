@@ -44,6 +44,7 @@ const ReportesComprasPage = lazy(() => import('./pages/ReportesComprasPage'))
 const CrearPedidoCompraPage = lazy(() => import('./pages/CrearPedidoCompraPage'))
 const MisPedidosPage = lazy(() => import('./pages/MisPedidosPage'))
 const ConciliacionBancariaPage = lazy(() => import('./pages/ConciliacionBancariaPage'))
+const ConciliacionMercadoPagoPage = lazy(() => import('./pages/ConciliacionMercadoPagoPage'))
 const RecursosHumanosDashboardPage = lazy(() => import('./pages/RecursosHumanosDashboardPage'))
 const ClientesWebDashboardPage = lazy(() => import('./pages/ClientesWebDashboardPage'))
 const ClientesWebGestionPage = lazy(() => import('./pages/ClientesWebGestionPage'))
@@ -1001,6 +1002,10 @@ function AppRoutes({
       <Route
         path="/compras/conciliacion-bancaria"
         element={<ConciliacionBancariaPage />}
+      />
+      <Route
+        path="/compras/conciliacion-mercadopago"
+        element={<ConciliacionMercadoPagoPage />}
       />
       <Route
         path="/diseno/dashboard"
