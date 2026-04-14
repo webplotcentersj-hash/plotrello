@@ -15,7 +15,9 @@ export default defineConfig({
       manifest: false,
       workbox: {
         navigateFallback: '/index.html',
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,ttf,txt,md}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,ttf,txt,md}'],
+        // Chunks muy grandes: precachearlos rompe a veces el SW (bytes corruptos / "Bad uncompressed size") tras deploys.
+        globIgnores: ['**/xlsx*.js', '**/pdf.worker*.js', '**/pdf.worker*.mjs']
       }
     })
   ],

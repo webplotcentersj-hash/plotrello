@@ -196,6 +196,22 @@ function formatRow(r: { fechaISO: string; tipoOperacion: string; numeroMovimient
   return `${fecha} · $${imp} · ${r.tipoOperacion} · mov ${r.numeroMovimiento}${r.operacionRelacionada ? ` · rel ${r.operacionRelacionada}` : ''}`
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error(message)), ms)
+    promise.then(
+      (v) => {
+        window.clearTimeout(id)
+        resolve(v)
+      },
+      (e) => {
+        window.clearTimeout(id)
+        reject(e)
+      }
+    )
+  })
+}
+
 type PlotAIConciliacionResult = {
   estado: 'saldado' | 'incongruencias'
   resumen: {
@@ -880,14 +896,18 @@ Reglas:
 - No inventes datos fuera de las filas recibidas.
 `
 
-      const text = await generateContent({
-        contents: `Datos de conciliación (JSON):\n${JSON.stringify(payload)}`,
-        extraContextPrefix: prefix,
-        useCompleteContext: false,
-        useMemory: false,
-        learnFromResponse: false,
-        includeAppManual: false
-      })
+      const text = await withTimeout(
+        generateContent({
+          contents: `Datos de conciliación (JSON):\n${JSON.stringify(payload)}`,
+          extraContextPrefix: prefix,
+          useCompleteContext: false,
+          useMemory: false,
+          learnFromResponse: false,
+          includeAppManual: false
+        }),
+        180_000,
+        'PlotAI tardó más de 3 minutos. Reintentá; si sigue igual, revisá conexión y que VITE_GEMINI_API_KEY esté configurada en Vercel. Podés probar también recargar la página con Ctrl+F5 (limpia caché del Service Worker).'
+      )
 
       const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim()
       const parsed = JSON.parse(cleaned) as PlotAIConciliacionResult
