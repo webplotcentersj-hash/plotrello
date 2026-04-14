@@ -128,15 +128,18 @@ const ImpresorasPage = () => {
     try {
       const response = await apiService.getImpresorasOcupacion()
       if (response.success && response.data) {
-        setImpresoras(response.data as ImpresoraOcupacion[])
-        
-        // Cargar trabajos activos para cada impresora (cola de impresión)
+        // Cerrar usos huérfanos y alinear `impresoras.estado` con la cola real (evita "En Uso" sin trabajos)
+        await Promise.all(
+          response.data.map((imp) => apiService.reconciliarEstadoImpresoraDesdeCola(imp.id))
+        )
+        const refreshed = await apiService.getImpresorasOcupacion()
+        const lista = refreshed.success && refreshed.data ? refreshed.data : response.data
+        setImpresoras(lista as ImpresoraOcupacion[])
+
         const trabajosMap: Record<number, TrabajoActivoImpresora[]> = {}
-        for (const imp of response.data) {
-          // Cargar trabajos activos incluso si trabajos_activos es 0 (puede haber desfase)
+        for (const imp of lista) {
           const trabajosResponse = await apiService.getTrabajosActivosImpresora(imp.id)
           if (trabajosResponse.success && trabajosResponse.data) {
-            // Ordenar por fecha_inicio ascendente (el primero es el que está imprimiendo)
             const trabajosOrdenados = (trabajosResponse.data as TrabajoActivoImpresora[])
               .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
             if (trabajosOrdenados.length > 0) {

@@ -4669,11 +4669,14 @@ class ApiService {
 
   async getUsoActivoPorOrden(ordenId: number): Promise<ApiResponse<any>> {
     if (supabase) {
+      // Si hubo más de un "En Proceso" por la misma OP (dato inconsistente), tomar el más reciente
       const { data, error } = await supabase
         .from('impresora_uso')
         .select('id, id_impresora')
         .eq('id_orden', ordenId)
         .eq('estado', 'En Proceso')
+        .order('fecha_inicio', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       if (error) return { success: false, error: error.message }
@@ -4711,26 +4714,101 @@ class ApiService {
         console.error('Error al verificar otros usos:', otrosUsosError)
       }
 
-      // Si hay otros trabajos en cola, mantener "En Uso"
-      // Si no hay más trabajos, cambiar a "Disponible"
+      const { data: impRow } = await supabase.from('impresoras').select('estado').eq('id', impresoraId).maybeSingle()
+      const estadoActual = (impRow as { estado?: string } | null)?.estado
+
+      // No pisar estados operativos puestos a mano (mantenimiento / fuera de servicio)
+      if (estadoActual === 'Mantenimiento' || estadoActual === 'Fuera de Servicio') {
+        return { success: true, data }
+      }
+
+      // Si hay otros trabajos en cola, mantener "En Uso"; si no, volver a Disponible
       if (otrosUsos && otrosUsos.length > 0) {
-        // Mantener en "En Uso" porque hay trabajos en cola
-        await supabase
-          .from('impresoras')
-          .update({ estado: 'En Uso' })
-          .eq('id', impresoraId)
+        await supabase.from('impresoras').update({ estado: 'En Uso' }).eq('id', impresoraId)
       } else {
-        // No hay más trabajos, cambiar a "Disponible"
-        await supabase
-          .from('impresoras')
-          .update({ estado: 'Disponible' })
-          .eq('id', impresoraId)
+        await supabase.from('impresoras').update({ estado: 'Disponible' }).eq('id', impresoraId)
       }
 
       return { success: true, data }
     }
 
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /**
+   * Alinea `impresoras.estado` con usos reales en cola (misma regla que `v_impresora_trabajos_activos`).
+   * Cierra usos huérfanos: `En Proceso` pero la OP ya está en estado final (desincronización histórica).
+   */
+  async reconciliarEstadoImpresoraDesdeCola(impresoraId: number): Promise<ApiResponse<{ corregido: boolean }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    const estadosFinalesOrden = new Set([
+      'Finalizado en Taller',
+      'Almacén de Entrega',
+      'Entregado o Instalado'
+    ])
+
+    const { data: usos, error: usosErr } = await supabase
+      .from('impresora_uso')
+      .select('id, ordenes_trabajo:id_orden(estado)')
+      .eq('id_impresora', impresoraId)
+      .eq('estado', 'En Proceso')
+
+    if (usosErr) return { success: false, error: usosErr.message }
+
+    const rows = (usos || []) as Array<{
+      id: number
+      ordenes_trabajo: { estado: string } | { estado: string }[] | null
+    }>
+
+    for (const row of rows) {
+      const ot = row.ordenes_trabajo
+      const estadoOrden =
+        ot == null ? null : Array.isArray(ot) ? (ot[0] as { estado?: string } | undefined)?.estado : (ot as { estado?: string }).estado
+
+      const huérfano =
+        estadoOrden == null || estadosFinalesOrden.has(estadoOrden)
+
+      if (huérfano) {
+        const { error: upErr } = await supabase
+          .from('impresora_uso')
+          .update({
+            fecha_fin: new Date().toISOString(),
+            estado: 'Completado'
+          })
+          .eq('id', row.id)
+        if (upErr) return { success: false, error: upErr.message }
+      }
+    }
+
+    const { count: activos, error: cntErr } = await supabase
+      .from('impresora_uso')
+      .select('*', { count: 'exact', head: true })
+      .eq('id_impresora', impresoraId)
+      .eq('estado', 'En Proceso')
+
+    if (cntErr) return { success: false, error: cntErr.message }
+
+    const { data: impRow, error: impErr } = await supabase
+      .from('impresoras')
+      .select('estado')
+      .eq('id', impresoraId)
+      .maybeSingle()
+
+    if (impErr) return { success: false, error: impErr.message }
+    const estadoActual = (impRow as { estado?: string } | null)?.estado
+    if (estadoActual === 'Mantenimiento' || estadoActual === 'Fuera de Servicio') {
+      return { success: true, data: { corregido: false } }
+    }
+
+    const deseado = (activos ?? 0) > 0 ? 'En Uso' : 'Disponible'
+    if (estadoActual === deseado) {
+      return { success: true, data: { corregido: false } }
+    }
+
+    const { error: updImpErr } = await supabase.from('impresoras').update({ estado: deseado }).eq('id', impresoraId)
+    if (updImpErr) return { success: false, error: updImpErr.message }
+    return { success: true, data: { corregido: true } }
   }
 
   async cambiarEstadoImpresora(

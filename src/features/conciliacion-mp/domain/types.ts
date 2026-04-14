@@ -9,6 +9,7 @@ export type HeuristicMatchType =
   | 'grouped_bank_to_mp'
   | 'partial'
   | 'none'
+  | 'manual'
 
 export interface ReconciliationRules {
   tolAmountAbs: number

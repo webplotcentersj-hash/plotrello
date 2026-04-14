@@ -290,6 +290,79 @@ export function runReconciliation(
   return { matches, metrics }
 }
 
+/** Métricas a partir de cualquier lista de matches (motor + manuales). */
+export function computeMetrics(
+  bank: NormalizedMovement[],
+  mp: NormalizedMovement[],
+  matches: HeuristicMatch[]
+): ReconciliationMetrics {
+  const matchedBank = new Set<string>()
+  const matchedMp = new Set<string>()
+  for (const x of matches) {
+    x.bankIds.forEach((id) => matchedBank.add(id))
+    x.mpIds.forEach((id) => matchedMp.add(id))
+  }
+  const sumBankAbs = bank.reduce((s, x) => s + Math.abs(x.importeNeto), 0)
+  const sumMpAbs = mp.reduce((s, x) => s + Math.abs(x.importeNeto), 0)
+  const grouped = matches.filter((m) => m.matchType === 'grouped_bank_to_mp').length
+
+  return {
+    totalBank: bank.length,
+    totalMp: mp.length,
+    matchedBankCount: matchedBank.size,
+    matchedMpCount: matchedMp.size,
+    pctBankReconciled: bank.length ? Math.round((matchedBank.size / bank.length) * 1000) / 10 : 0,
+    pctMpReconciled: mp.length ? Math.round((matchedMp.size / mp.length) * 1000) / 10 : 0,
+    sumBankAbs,
+    sumMpAbs,
+    groupedMatches: grouped
+  }
+}
+
+export interface MpCandidateScore {
+  mp: NormalizedMovement
+  score: number
+  reason: string
+}
+
+/** Candidatos MP para un movimiento banco (revisión manual); excluye MP ya emparejados. */
+export function suggestMpCandidatesForBank(
+  bank: NormalizedMovement,
+  mpList: NormalizedMovement[],
+  alreadyMatchedMp: Set<string>,
+  rules: ReconciliationRules,
+  limit = 35
+): MpCandidateScore[] {
+  const out: MpCandidateScore[] = []
+  for (const m of mpList) {
+    if (alreadyMatchedMp.has(m.id)) continue
+    if (sign(bank.importeNeto) !== sign(m.importeNeto)) continue
+
+    const d = daysBetween(bank.fecha, m.fecha)
+    if (d > Math.max(rules.dateWindowDays + 7, 14)) continue
+
+    const diffAmt = Math.abs(bank.importeNeto - m.importeNeto)
+    const amtScore = withinTol(bank.importeNeto, m.importeNeto, rules)
+      ? 42
+      : Math.max(0, 40 - (diffAmt / Math.max(1, Math.abs(bank.importeNeto))) * 35)
+
+    const dateScore = Math.max(0, 28 - d * 6)
+    const j = jaccard(bank.descripcion, m.descripcion)
+    const textScore = j * 22
+    const refScore = refOverlap(bank.referencia, m.referencia) * 12
+
+    const score = Math.round(amtScore + dateScore + textScore + refScore)
+    if (score < 12) continue
+
+    out.push({
+      mp: m,
+      score,
+      reason: `Δ ${d} días · Δ$${diffAmt.toFixed(2)} · similitud texto ${(j * 100).toFixed(0)}%`
+    })
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, limit)
+}
+
 export function summarizeUnmatched(
   bank: NormalizedMovement[],
   mp: NormalizedMovement[],

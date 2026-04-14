@@ -74,49 +74,58 @@ export async function analyzeUnmatchedWithGemini(input: {
 
   const payload = {
     resumen: {
-      unmatched_bank_total: input.unmatchedBank.length,
-      unmatched_mp_total: input.unmatchedMp.length,
-      bank_muestra: bankSample.length,
-      mp_muestra: mpSample.length
+      pendientes_banco_total: input.unmatchedBank.length,
+      pendientes_mp_total: input.unmatchedMp.length,
+      filas_en_muestra_banco: bankSample.length,
+      filas_en_muestra_mp: mpSample.length,
+      nota_muestra:
+        'La muestra es solo una parte; el total pendiente puede ser mucho mayor. Redactá conclusiones en consecuencia.'
     },
-    reglas_activas: input.rules,
+    reglas_activas_sistema: input.rules,
     movimientos_banco_sin_par_muestra: bankSample,
     movimientos_mp_sin_par_muestra: mpSample
   }
 
   const prefix = `Sos un asistente de conciliación contable entre PLANILLA BANCARIA (resumida) y EXTRACTO MERCADO PAGO (detallado).
-Los datos son una MUESTRA de movimientos aún sin emparejar; los totales indican cuántos hay en el archivo completo.
+
+REGLA DE IDIOMA (OBLIGATORIA):
+- Respondé en ESPAÑOL (Argentina), tono claro para contador/usuario.
+- Todo texto humano dentro del JSON debe estar en español: explanation, probable_reason, warnings, recommended_action, cada explanation de grouping_suggestions, cada observations y cada global_warnings.
+- NO escribas párrafos en inglés. Los únicos términos en inglés permitidos son los NOMBRES DE LAS CLAVES JSON del esquema (suggested_matches, bank_ids, etc.) y los ids técnicos de movimientos.
+- Si citás nombres de reglas en inglés (tolAmountAbs, minScoreAccept, etc.), traducí o explicá en español qué significan.
+
+Los datos son una MUESTRA de movimientos sin emparejar; los totales en resumen indican el volumen real.
 
 IMPORTANTE:
-- No tomes decisiones definitivas: solo sugerencias para que un humano revise.
-- Podés proponer matches 1:1, agrupaciones 1:N (un banco explicado por varios MP), y explicar diferencias por fees/impuestos/fechas.
-- Usá solo los ids de movimiento que recibís en el JSON.
+- No tomés decisiones definitivas: solo sugerencias auditables.
+- Podés proponer coincidencias 1:1, agrupaciones 1:N (un banco explicado por varios MP), y explicar diferencias por comisiones, impuestos o fechas.
+- Usá solo los ids de movimiento que vienen en el JSON.
 
-DEVOLVÉ SOLO JSON VÁLIDO (sin markdown) con esta forma:
+DEVOLVÉ SOLO JSON VÁLIDO (sin markdown, sin texto fuera del objeto) con esta estructura (mantené los nombres de claves exactamente así):
 {
   "suggested_matches": [
     {
-      "bank_ids": string[],
-      "mp_ids": string[],
-      "confidence_score": number,
-      "explanation": string,
-      "probable_reason": string,
-      "warnings": string[],
-      "recommended_action": string
+      "bank_ids": [],
+      "mp_ids": [],
+      "confidence_score": 0,
+      "explanation": "texto en español",
+      "probable_reason": "texto en español",
+      "warnings": ["texto en español"],
+      "recommended_action": "texto en español"
     }
   ],
   "grouping_suggestions": [
-    { "bank_id": string, "mp_ids": string[], "confidence_score": number, "explanation": string }
+    { "bank_id": "", "mp_ids": [], "confidence_score": 0, "explanation": "texto en español" }
   ],
-  "observations": string[],
-  "global_warnings": string[]
+  "observations": ["cada ítem en español"],
+  "global_warnings": ["cada ítem en español"]
 }
 
 confidence_score de 0 a 100. Sé conservador si faltan datos fuera de la muestra.`
 
   const text = await withTimeout(
     generateContent({
-      contents: `Contexto conciliación MP (JSON):\n${JSON.stringify(payload)}`,
+      contents: `Datos de pendientes para conciliar (JSON). Recordá: todo texto explicativo en español.\n${JSON.stringify(payload)}`,
       extraContextPrefix: prefix,
       useCompleteContext: false,
       useMemory: false,
