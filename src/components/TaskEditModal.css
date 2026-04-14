@@ -517,6 +517,45 @@
   border-color: #ff4444;
 }
 
+/* Materiales como etiquetas: cantidad dentro de la pastilla */
+.tag.selected.material-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.material-tag-pill .material-tag-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-tag-pill .material-tag-qty {
+  width: 4.25rem;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.material-tag-pill .material-tag-qty:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.form-hint-muted {
+  color: #9ca3af;
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+
 .attached-files {
   display: flex;
   flex-direction: column;
