@@ -17,6 +17,8 @@ type GanttPageProps = {
   onBack: () => void
 }
 
+const LABEL_COL_PX = 280
+
 const dayWidthByZoom: Record<ZoomLevel, number> = {
   week: 28,
   month: 14,
@@ -58,6 +60,7 @@ const GanttPage = ({ tasks, onBack }: GanttPageProps) => {
   const totalDays = Math.max(differenceInCalendarDays(mapped.max, mapped.min) + 1, 1)
   const dayWidth = dayWidthByZoom[zoom]
   const timelineWidth = totalDays * dayWidth
+  const todayOffset = differenceInCalendarDays(new Date(), mapped.min)
 
   const formatTick = (index: number) => {
     const date = addDays(mapped.min, index)
@@ -69,19 +72,20 @@ const GanttPage = ({ tasks, onBack }: GanttPageProps) => {
   return (
     <div className="gantt-page">
       <header className="gantt-topbar">
-        <button className="ghost-button" onClick={onBack}>
+        <button type="button" className="gantt-btn gantt-btn--ghost" onClick={onBack}>
           ← Volver
         </button>
         <div className="gantt-legend">
-          <span className="pill priority-alta">Alta</span>
-          <span className="pill priority-media">Media</span>
-          <span className="pill priority-baja">Baja</span>
+          <span className="gantt-pill gantt-pill--alta">Alta</span>
+          <span className="gantt-pill gantt-pill--media">Media</span>
+          <span className="gantt-pill gantt-pill--baja">Baja</span>
         </div>
         <div className="gantt-zoom">
           {(['week', 'month', 'quarter'] as ZoomLevel[]).map((level) => (
             <button
               key={level}
-              className={zoom === level ? 'ghost-button active' : 'ghost-button'}
+              type="button"
+              className={zoom === level ? 'gantt-btn gantt-btn--ghost is-active' : 'gantt-btn gantt-btn--ghost'}
               onClick={() => setZoom(level)}
             >
               {level === 'week' && 'Semana'}
@@ -96,53 +100,71 @@ const GanttPage = ({ tasks, onBack }: GanttPageProps) => {
         <div className="gantt-empty">No hay órdenes para mostrar.</div>
       ) : (
         <div className="gantt-wrapper">
-          <div className="gantt-timeline" style={{ width: timelineWidth }}>
-            <div className="gantt-ticks">
-              {Array.from({ length: totalDays }).map((_, index) => (
-                <div
-                  key={index}
-                  className="gantt-tick"
-                  style={{ width: dayWidth }}
-                  title={format(addDays(mapped.min, index), 'PPP', { locale: es })}
-                >
-                  {formatTick(index)}
+          <div
+            className="gantt-inner"
+            style={{
+              minWidth: LABEL_COL_PX + 16 + timelineWidth
+            }}
+          >
+            <div className="gantt-label-col">
+              <div className="gantt-corner" aria-hidden />
+              {mapped.items.map((item) => (
+                <div key={item.id} className="gantt-label" title={item.name}>
+                  <strong className="gantt-label-title">{item.name}</strong>
+                  <span className="gantt-label-dates">
+                    {format(item.start, 'd MMM', { locale: es })} → {format(item.end, 'd MMM', { locale: es })}
+                  </span>
                 </div>
               ))}
             </div>
 
-            <div className="gantt-bars">
-              {mapped.items.map((item) => {
-                const startOffset = differenceInCalendarDays(item.start, mapped.min)
-                const duration = Math.max(
-                  differenceInCalendarDays(item.end, item.start) + 1,
-                  1
-                )
-                const left = startOffset * dayWidth
-                const width = duration * dayWidth
-                return (
-                  <div key={item.id} className="gantt-row">
-                    <div className="gantt-label" title={item.name}>
-                      <strong>{item.name}</strong>
-                      <span>{format(item.start, 'd MMM', { locale: es })} → {format(item.end, 'd MMM', { locale: es })}</span>
-                    </div>
-                    <div className="gantt-bar-track">
-                      <div
-                        className={`gantt-bar priority-${item.priority}`}
-                        style={{ left, width }}
-                        title={item.name}
-                      />
-                    </div>
+            <div className="gantt-chart-scroll">
+            <div className="gantt-chart" style={{ width: timelineWidth }}>
+              <div className="gantt-ticks">
+                {Array.from({ length: totalDays }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="gantt-tick"
+                    style={{ width: dayWidth, minWidth: dayWidth }}
+                    title={format(addDays(mapped.min, index), 'PPP', { locale: es })}
+                  >
+                    <span className="gantt-tick-label">{formatTick(index)}</span>
                   </div>
-                )
-              })}
-            </div>
+                ))}
+              </div>
 
-            <div
-              className="gantt-today-line"
-              style={{
-                left: differenceInCalendarDays(new Date(), mapped.min) * dayWidth
-              }}
-            />
+              <div className="gantt-bar-rows">
+                {mapped.items.map((item) => {
+                  const startOffset = differenceInCalendarDays(item.start, mapped.min)
+                  const duration = Math.max(
+                    differenceInCalendarDays(item.end, item.start) + 1,
+                    1
+                  )
+                  const left = startOffset * dayWidth
+                  const width = duration * dayWidth
+                  return (
+                    <div key={item.id} className="gantt-bar-row">
+                      <div className="gantt-bar-track">
+                        <div
+                          className={`gantt-bar gantt-bar--${item.priority}`}
+                          style={{ left, width }}
+                          title={item.name}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {todayOffset >= 0 && todayOffset < totalDays && (
+                <div
+                  className="gantt-today-line"
+                  style={{ left: todayOffset * dayWidth + dayWidth / 2 }}
+                  title="Hoy"
+                />
+              )}
+            </div>
+            </div>
           </div>
         </div>
       )}
@@ -151,4 +173,3 @@ const GanttPage = ({ tasks, onBack }: GanttPageProps) => {
 }
 
 export default GanttPage
-
