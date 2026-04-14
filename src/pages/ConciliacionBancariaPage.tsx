@@ -21,6 +21,13 @@ type ExtractoRow = {
   monto: number // egreso negativo / ingreso positivo (normalizado)
 }
 
+type CuentaRow = {
+  fechaISO: string
+  concepto: string
+  referencia?: string
+  monto: number // egreso positivo (normalizado, en pesos)
+}
+
 function safeParseDateToISO(value: unknown): string | null {
   if (value == null) return null
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString()
@@ -60,10 +67,6 @@ function toNumber(value: unknown): number | null {
   const normalized = s.replace(/\./g, '').replace(',', '.').replace(/[^0-9.\-]/g, '')
   const n = Number(normalized)
   return Number.isFinite(n) ? n : null
-}
-
-function pagoFechaISO(p: Pago): string | null {
-  return safeParseDateToISO(p.fecha_pago || p.created_at)
 }
 
 function absMoney(n: number): number {
@@ -118,6 +121,49 @@ async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
   return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
 }
 
+async function parseCuentaFile(file: File): Promise<CuentaRow[]> {
+  const ab = await file.arrayBuffer()
+  const wb = XLSX.read(ab, { type: 'array' })
+  const sheetName = wb.SheetNames[0]
+  const ws = wb.Sheets[sheetName]
+  const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' })
+
+  const out: CuentaRow[] = []
+  for (const r of rows) {
+    const fechaRaw =
+      pickFirstKey(r, ['fecha', 'fecha_pago', 'date', 'día', 'dia']) ??
+      pickFirstKey(r, ['fecha_movimiento', 'fecha_valor'])
+    const fechaISO = safeParseDateToISO(fechaRaw)
+    if (!fechaISO) continue
+
+    const concepto =
+      String(
+        pickFirstKey(r, [
+          'concepto',
+          'descripcion',
+          'descripción',
+          'detalle',
+          'proveedor',
+          'observacion',
+          'observación',
+          'numero_pago',
+          'pago'
+        ]) ?? ''
+      ).trim() || 'Pago'
+
+    const referencia = String(
+      pickFirstKey(r, ['referencia', 'ref', 'comprobante', 'nro comprobante', 'numero_comprobante', 'numero_pago']) ?? ''
+    ).trim() || undefined
+
+    const montoRaw = pickFirstKey(r, ['monto', 'importe', 'importe total', 'importe_total', 'amount', 'total']) ?? undefined
+    const monto = toNumber(montoRaw)
+    if (monto == null || !Number.isFinite(monto) || monto === 0) continue
+
+    out.push({ fechaISO, concepto, referencia, monto: absMoney(monto) })
+  }
+  return out.sort((a, b) => a.fechaISO.localeCompare(b.fechaISO))
+}
+
 const ConciliacionBancariaPage = () => {
   const navigate = useNavigate()
   const { canManageCompras, loading: authLoading } = useAuth()
@@ -125,9 +171,12 @@ const ConciliacionBancariaPage = () => {
   const [pagos, setPagos] = useState<Pago[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoBancario[]>([])
   const [conciliaciones, setConciliaciones] = useState<ConciliacionBancaria[]>([])
-  const [plotAiFile, setPlotAiFile] = useState<File | null>(null)
+  const [plotAiExtractoFile, setPlotAiExtractoFile] = useState<File | null>(null)
+  const [plotAiCuentaFile, setPlotAiCuentaFile] = useState<File | null>(null)
   const [plotAiExtracto, setPlotAiExtracto] = useState<ExtractoRow[]>([])
-  const [plotAiParsing, setPlotAiParsing] = useState(false)
+  const [plotAiCuentaRows, setPlotAiCuentaRows] = useState<CuentaRow[]>([])
+  const [, setPlotAiParsing] = useState(false)
+  const [, setPlotAiCuentaParsing] = useState(false)
   const [plotAiFechaDesde, setPlotAiFechaDesde] = useState('')
   const [plotAiFechaHasta, setPlotAiFechaHasta] = useState('')
   const [plotAiBanco, setPlotAiBanco] = useState('')
@@ -414,6 +463,7 @@ const ConciliacionBancariaPage = () => {
   const movimientosPendientes = movimientos.filter(m => !m.conciliado)
 
   const plotAiAnalysis = (() => {
+    const listo = plotAiExtracto.length > 0 && plotAiCuentaRows.length > 0
     const desdeISO = safeParseDateToISO(plotAiFechaDesde)
     const hastaISO = safeParseDateToISO(plotAiFechaHasta ? `${plotAiFechaHasta}T23:59:59` : plotAiFechaHasta)
     const hasRange = Boolean(desdeISO && hastaISO)
@@ -422,88 +472,82 @@ const ConciliacionBancariaPage = () => {
       if (!hasRange) return true
       return r.fechaISO >= (desdeISO as string) && r.fechaISO <= (hastaISO as string)
     })
-
-    const pagosRange = pagos.filter((p) => {
-      const d = pagoFechaISO(p)
-      if (!d) return false
-      if (hasRange && (d < (desdeISO as string) || d > (hastaISO as string))) return false
-      if (plotAiBanco.trim() && (p.banco || '').toLowerCase().trim() !== plotAiBanco.toLowerCase().trim()) return false
-      if (plotAiCuenta.trim() && (p.cuenta_bancaria || '').toLowerCase().trim() !== plotAiCuenta.toLowerCase().trim()) return false
-      return true
+    const cuentaRange = plotAiCuentaRows.filter((r) => {
+      if (!hasRange) return true
+      return r.fechaISO >= (desdeISO as string) && r.fechaISO <= (hastaISO as string)
     })
 
-    // matching simple 1:1 por monto (egresos) + opcional referencia
-    const pagosDisponibles = new Set<number>(pagosRange.map((p) => p.id))
-    const matchExtractoToPago = new Map<number, number>() // idxExtracto -> pagoId
-
-    for (let i = 0; i < extractoRange.length; i++) {
-      const r = extractoRange[i]
-      if (r.monto >= 0) continue // por ahora conciliamos pagos vs egresos
-      const target = absMoney(r.monto)
-
-      let best: Pago | null = null
-      for (const p of pagosRange) {
-        if (!pagosDisponibles.has(p.id)) continue
-        const m = absMoney(p.monto_total)
-        if (!moneyEq(m, target)) continue
-        // preferir match por referencia si existe
-        if (r.referencia && (p.numero_comprobante || p.numero_pago || '').toLowerCase().includes(r.referencia.toLowerCase())) {
-          best = p
-          break
-        }
-        if (!best) best = p
-      }
-      if (best) {
-        matchExtractoToPago.set(i, best.id)
-        pagosDisponibles.delete(best.id)
-      }
-    }
-
     const incongruencias: string[] = []
-    const egresosSinMatch: ExtractoRow[] = []
+
+    // matching simple 1:1 por monto (egresos extracto) vs planilla cuenta (monto positivo)
+    const cuentaDisponibles = new Set<number>(cuentaRange.map((_, idx) => idx))
+    const matchExtractoToCuenta = new Map<number, number>() // idxExtracto -> idxCuenta
 
     for (let i = 0; i < extractoRange.length; i++) {
       const r = extractoRange[i]
       if (r.monto >= 0) continue
-      if (!matchExtractoToPago.has(i)) {
-        egresosSinMatch.push(r)
+      const target = absMoney(r.monto)
+
+      let bestIdx: number | null = null
+      for (let j = 0; j < cuentaRange.length; j++) {
+        if (!cuentaDisponibles.has(j)) continue
+        const c = cuentaRange[j]
+        if (!moneyEq(c.monto, target)) continue
+        // preferir match por referencia si existe
+        if (r.referencia && (c.referencia || '').toLowerCase().includes(r.referencia.toLowerCase())) {
+          bestIdx = j
+          break
+        }
+        if (bestIdx == null) bestIdx = j
+      }
+      if (bestIdx != null) {
+        matchExtractoToCuenta.set(i, bestIdx)
+        cuentaDisponibles.delete(bestIdx)
+      }
+    }
+
+    for (let i = 0; i < extractoRange.length; i++) {
+      const r = extractoRange[i]
+      if (r.monto >= 0) continue
+      if (!matchExtractoToCuenta.has(i)) {
         incongruencias.push(
-          `Extracto sin pago: ${new Date(r.fechaISO).toLocaleDateString('es-AR')} · $${absMoney(r.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${r.concepto}${r.referencia ? ` · ref ${r.referencia}` : ''}`
+          `Extracto sin planilla: ${new Date(r.fechaISO).toLocaleDateString('es-AR')} · $${absMoney(r.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${r.concepto}${r.referencia ? ` · ref ${r.referencia}` : ''}`
         )
       }
     }
 
-    const pagosSinMatch: Pago[] = pagosRange.filter((p) => pagosDisponibles.has(p.id))
-    for (const p of pagosSinMatch) {
+    for (const j of cuentaDisponibles) {
+      const c = cuentaRange[j]
       incongruencias.push(
-        `Pago sin extracto: ${p.numero_pago} · $${absMoney(p.monto_total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}${p.proveedor?.nombre ? ` · ${p.proveedor.nombre}` : ''}`
+        `Planilla sin extracto: ${new Date(c.fechaISO).toLocaleDateString('es-AR')} · $${c.monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })} · ${c.concepto}${c.referencia ? ` · ref ${c.referencia}` : ''}`
       )
     }
 
     const totalExtractoEgresos = extractoRange.filter((r) => r.monto < 0).reduce((s, r) => s + absMoney(r.monto), 0)
     const totalExtractoIngresos = extractoRange.filter((r) => r.monto > 0).reduce((s, r) => s + absMoney(r.monto), 0)
-    const totalPagos = pagosRange.reduce((s, p) => s + absMoney(p.monto_total), 0)
+    const totalCuenta = cuentaRange.reduce((s, r) => s + absMoney(r.monto), 0)
 
-    const saldado = incongruencias.length === 0 && moneyEq(totalExtractoEgresos, totalPagos, 0.02)
+    const saldado = listo && incongruencias.length === 0 && moneyEq(totalExtractoEgresos, totalCuenta, 0.02)
 
     return {
+      listo,
       estado: saldado ? ('saldado' as const) : ('incongruencias' as const),
       resumen: {
         totalExtractoEgresos,
         totalExtractoIngresos,
-        totalPagos,
+        totalPagos: totalCuenta,
         movimientosExtracto: extractoRange.length,
-        pagosConsiderados: pagosRange.length
+        pagosConsiderados: cuentaRange.length
       },
       incongruencias
     }
   })()
 
   const handleParseExtracto = async () => {
-    if (!plotAiFile) return
+    if (!plotAiExtractoFile) return
     setPlotAiParsing(true)
     try {
-      const parsed = await parseExtractoFile(plotAiFile)
+      const parsed = await parseExtractoFile(plotAiExtractoFile)
       setPlotAiExtracto(parsed)
     } catch (e) {
       console.error('Error parseando extracto:', e)
@@ -511,6 +555,21 @@ const ConciliacionBancariaPage = () => {
       setPlotAiExtracto([])
     } finally {
       setPlotAiParsing(false)
+    }
+  }
+
+  const handleParseCuenta = async () => {
+    if (!plotAiCuentaFile) return
+    setPlotAiCuentaParsing(true)
+    try {
+      const parsed = await parseCuentaFile(plotAiCuentaFile)
+      setPlotAiCuentaRows(parsed)
+    } catch (e) {
+      console.error('Error parseando planilla:', e)
+      alert('No se pudo leer la planilla. Probá con CSV/XLSX y columnas tipo: fecha, concepto/proveedor, monto/importe.')
+      setPlotAiCuentaRows([])
+    } finally {
+      setPlotAiCuentaParsing(false)
     }
   }
 
@@ -689,17 +748,23 @@ const ConciliacionBancariaPage = () => {
         </div>
       </section>
 
-      {/* PlotAI: comparar extracto vs pagos */}
+      {/* PlotAI: comparar extracto vs planilla cuenta */}
       <section className="plotai-section">
         <div className="plotai-header">
           <div>
-            <h2>✨ PlotAI — Comparar extracto bancario vs pagos</h2>
-            <p className="subtitle">Subí un extracto (CSV/XLSX), elegí rango y compará contra pagos cargados.</p>
+            <h2>✨ PlotAI — Conciliación: extracto vs planilla cuenta</h2>
+            <p className="subtitle">
+              Subí <strong>dos archivos</strong>: el extracto bancario y la planilla de cuenta bancaria. Al estar ambos listos se compara y se listan incongruencias.
+            </p>
           </div>
           <div className="plotai-badges">
-            <span className={`plotai-badge ${plotAiAnalysis.estado === 'saldado' ? 'ok' : 'bad'}`}>
-              {plotAiAnalysis.estado === 'saldado' ? 'SALDADO' : 'INCONGRUENCIAS'}
-            </span>
+            {plotAiAnalysis.listo ? (
+              <span className={`plotai-badge ${plotAiAnalysis.estado === 'saldado' ? 'ok' : 'bad'}`}>
+                {plotAiAnalysis.estado === 'saldado' ? 'CUENTA SALDADA' : 'INCONGRUENCIAS'}
+              </span>
+            ) : (
+              <span className="plotai-badge">PENDIENTE</span>
+            )}
           </div>
         </div>
 
@@ -711,14 +776,12 @@ const ConciliacionBancariaPage = () => {
               accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null
-                setPlotAiFile(f)
+                setPlotAiExtractoFile(f)
                 setPlotAiExtracto([])
+                if (f) void handleParseExtracto()
               }}
             />
             <div className="plotai-actions">
-              <button className="btn-primary" onClick={handleParseExtracto} disabled={!plotAiFile || plotAiParsing}>
-                {plotAiParsing ? 'Leyendo…' : 'Leer extracto'}
-              </button>
               <span className="plotai-help">
                 {plotAiExtracto.length > 0 ? `${plotAiExtracto.length} movimientos leídos` : 'Columnas típicas: fecha, concepto, monto/importe.'}
               </span>
@@ -726,7 +789,26 @@ const ConciliacionBancariaPage = () => {
           </div>
 
           <div className="plotai-card">
-            <h3>2) Parámetros</h3>
+            <h3>2) Planilla cuenta bancaria</h3>
+            <input
+              type="file"
+              accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null
+                setPlotAiCuentaFile(f)
+                setPlotAiCuentaRows([])
+                if (f) void handleParseCuenta()
+              }}
+            />
+            <div className="plotai-actions">
+              <span className="plotai-help">
+                {plotAiCuentaRows.length > 0 ? `${plotAiCuentaRows.length} filas leídas` : 'Columnas típicas: fecha, concepto/proveedor, monto/importe.'}
+              </span>
+            </div>
+          </div>
+
+          <div className="plotai-card">
+            <h3>3) Parámetros</h3>
             <div className="form-row">
               <div className="form-group">
                 <label>Fecha desde *</label>
@@ -750,17 +832,22 @@ const ConciliacionBancariaPage = () => {
           </div>
 
           <div className="plotai-card plotai-card--wide">
-            <h3>3) Resultado</h3>
+            <h3>4) Resultado</h3>
             <div className="plotai-result">
               <div className="plotai-totals">
                 <div><strong>Egresos extracto:</strong> ${plotAiAnalysis.resumen.totalExtractoEgresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                 <div><strong>Ingresos extracto:</strong> ${plotAiAnalysis.resumen.totalExtractoIngresos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-                <div><strong>Pagos considerados:</strong> ${plotAiAnalysis.resumen.totalPagos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                <div><strong>Total planilla cuenta:</strong> ${plotAiAnalysis.resumen.totalPagos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
                 <div><strong>Movimientos leídos:</strong> {plotAiAnalysis.resumen.movimientosExtracto}</div>
-                <div><strong>Pagos en rango:</strong> {plotAiAnalysis.resumen.pagosConsiderados}</div>
+                <div><strong>Filas planilla:</strong> {plotAiAnalysis.resumen.pagosConsiderados}</div>
               </div>
 
-              {plotAiAnalysis.incongruencias.length > 0 ? (
+              {!plotAiAnalysis.listo ? (
+                <div className="plotai-issues">
+                  <h4>Pendiente</h4>
+                  <div>Subí ambos archivos para ejecutar la comparación.</div>
+                </div>
+              ) : plotAiAnalysis.incongruencias.length > 0 ? (
                 <div className="plotai-issues">
                   <h4>Incongruencias</h4>
                   <ol>
@@ -770,7 +857,7 @@ const ConciliacionBancariaPage = () => {
                   </ol>
                 </div>
               ) : (
-                <div className="plotai-ok">Todo coincide en el rango indicado.</div>
+                <div className="plotai-ok">Cuenta saldada: los montos coinciden en el rango indicado.</div>
               )}
             </div>
 
