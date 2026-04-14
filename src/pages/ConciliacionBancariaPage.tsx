@@ -11,8 +11,38 @@ import type {
 } from '../types/pedidos'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
+import { generateContent } from '../services/plotAIService'
 import { fetchConciliacionPlotAIRecommendations } from '../utils/conciliacionPlotAIRecommendations'
 import './ConciliacionBancariaPage.css'
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error(message)), ms)
+    promise.then(
+      (v) => {
+        window.clearTimeout(id)
+        resolve(v)
+      },
+      (e) => {
+        window.clearTimeout(id)
+        reject(e)
+      }
+    )
+  })
+}
+
+/** Respuesta esperada de Gemini al analizar extracto vs planilla */
+type GeminiConciliacionResult = {
+  estado: 'saldado' | 'incongruencias'
+  resumen: {
+    totalExtracto: number
+    totalPlanilla: number
+    filasExtracto: number
+    filasPlanilla: number
+    filasMatcheadas?: number
+  }
+  incongruencias: string[]
+}
 
 type ExtractoRow = {
   fechaISO: string
@@ -225,6 +255,33 @@ function conciliarPorFechaYImporte(extractoRows: ExtractoRow[], cuentaRows: Cuen
   return { incongruencias, totalExtracto, totalPlanilla, filasMatcheadas }
 }
 
+/** Todas las filas al modelo: mismos campos que el parseo (sin recortar). */
+function filasCompletasParaGemini(rows: ExtractoRow[] | CuentaRow[]) {
+  return rows.map((r) => ({
+    fechaISO: r.fechaISO,
+    tipoOperacion: r.tipoOperacion,
+    numeroMovimiento: r.numeroMovimiento,
+    operacionRelacionada: r.operacionRelacionada,
+    importe: r.importe,
+    ...(r.debe != null ? { debe: r.debe } : {}),
+    ...(r.haber != null ? { haber: r.haber } : {})
+  }))
+}
+
+function parseGeminiConciliacionJson(text: string): GeminiConciliacionResult {
+  const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim()
+  try {
+    return JSON.parse(cleaned) as GeminiConciliacionResult
+  } catch {
+    const start = cleaned.indexOf('{')
+    const end = cleaned.lastIndexOf('}')
+    if (start >= 0 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1)) as GeminiConciliacionResult
+    }
+    throw new Error('Gemini no devolvió JSON válido. Probá de nuevo o acotá el archivo.')
+  }
+}
+
 async function parseExtractoFile(file: File): Promise<ExtractoRow[]> {
   const ab = await file.arrayBuffer()
   const wb = XLSX.read(ab, { type: 'array' })
@@ -383,6 +440,9 @@ const ConciliacionBancariaPage = () => {
   const [plotAiParsing, setPlotAiParsing] = useState(false)
   const [plotAiCuentaParsing, setPlotAiCuentaParsing] = useState(false)
   const [plotAiConciliacionGenerada, setPlotAiConciliacionGenerada] = useState(false)
+  const [plotAiGeminiLoading, setPlotAiGeminiLoading] = useState(false)
+  const [plotAiGeminiError, setPlotAiGeminiError] = useState<string | null>(null)
+  const [plotAiGeminiResult, setPlotAiGeminiResult] = useState<GeminiConciliacionResult | null>(null)
   // parámetros removidos: se compara automático por columnas iguales en ambos Excel
   const [plotAiReports, setPlotAiReports] = useState<ConciliacionPlotAIReporte[]>([])
   const [plotAiRecoLoading, setPlotAiRecoLoading] = useState(false)
@@ -722,6 +782,8 @@ const ConciliacionBancariaPage = () => {
       const parsed = await parseExtractoFile(f)
       setPlotAiExtracto(parsed)
       setPlotAiConciliacionGenerada(false)
+      setPlotAiGeminiResult(null)
+      setPlotAiGeminiError(null)
       if (parsed.length === 0) {
         alert('No se encontraron filas válidas en el EXTRACTO. Verificá encabezados y formato de fecha/importe.')
       }
@@ -742,6 +804,8 @@ const ConciliacionBancariaPage = () => {
       const parsed = await parseCuentaFile(f)
       setPlotAiCuentaRows(parsed)
       setPlotAiConciliacionGenerada(false)
+      setPlotAiGeminiResult(null)
+      setPlotAiGeminiError(null)
       if (parsed.length === 0) {
         alert('No se encontraron filas válidas en la PLANILLA. Verificá encabezados y formato de fecha/importe.')
       }
@@ -785,6 +849,104 @@ const ConciliacionBancariaPage = () => {
     }
     setPlotAiRecoText('')
     setPlotAiConciliacionGenerada(true)
+  }
+
+  const handleGenerarConciliacionGemini = async () => {
+    if (plotAiParsing || plotAiCuentaParsing) return
+    if (plotAiExtracto.length === 0 || plotAiCuentaRows.length === 0) {
+      alert('Subí y leé ambos archivos primero.')
+      return
+    }
+    setPlotAiGeminiLoading(true)
+    setPlotAiGeminiError(null)
+    setPlotAiGeminiResult(null)
+
+    const filasExtracto = filasCompletasParaGemini(plotAiExtracto)
+    const filasPlanilla = filasCompletasParaGemini(plotAiCuentaRows)
+    const sumaExt = plotAiExtracto.reduce((s, r) => s + absMoney(r.importe), 0)
+    const sumaPlan = plotAiCuentaRows.reduce((s, r) => s + absMoney(r.importe), 0)
+
+    const payload = {
+      extracto: {
+        filas: filasExtracto,
+        totalFilas: filasExtracto.length,
+        sumaImporteAbs: sumaExt
+      },
+      planilla: {
+        filas: filasPlanilla,
+        totalFilas: filasPlanilla.length,
+        sumaImporteAbs: sumaPlan
+      },
+      meta: {
+        cobertura: '100%',
+        instruccion:
+          'Los arrays extracto.filas y planilla.filas incluyen TODAS las filas válidas leídas de cada archivo. No hay muestreo ni truncado.'
+      }
+    }
+
+    const prefix = `Sos un auditor contable. Comparás el EXTRACTO bancario (ej. Mercado Pago) contra la PLANILLA interna de conciliación.
+
+IMPORTANTE: el JSON incluye el 100% de las filas de cada lado (extracto.filas y planilla.filas). Tenés que analizar el conjunto completo, no una muestra.
+
+Cada fila tiene: fechaISO, tipoOperacion, numeroMovimiento, operacionRelacionada, importe (puede ser negativo), opcional debe/haber.
+
+Tu tarea:
+1) Recorré todas las filas de ambos lados. Emparejá movimientos con fecha (mismo día), importe (tolerancia $0,02 en valor absoluto), y cuando aplique número de movimiento, tipo u operación relacionada (los IDs pueden diferir entre sistemas).
+2) Detectá todo lo que no cierre: sin par, totales distintos, duplicados sospechosos, desfasajes de fechas, importes parecidos pero no iguales.
+3) En "incongruencias" describí dónde está cada problema. Si hay muchas filas del mismo tipo de error, podés agrupar en pocas entradas del array (ej. "47 movimientos en extracto sin contraparte en planilla (importe X, fechas entre A y B); ejemplos: …") pero el análisis debe basarse en haber considerado todas las filas enviadas.
+
+DEVOLVÉ EXCLUSIVAMENTE JSON VÁLIDO (sin markdown, sin texto fuera del JSON) con este esquema exacto:
+{
+  "estado": "saldado" | "incongruencias",
+  "resumen": {
+    "totalExtracto": number,
+    "totalPlanilla": number,
+    "filasExtracto": number,
+    "filasPlanilla": number,
+    "filasMatcheadas": number
+  },
+  "incongruencias": string[]
+}
+
+Reglas:
+- "saldado" solo si, tras revisar todas las filas, la conciliación cierra razonablemente y los totales alinean (tolerancia $0,02).
+- "incongruencias" si hay diferencias; el array puede mezclar ítems detallados y agrupados si el volumen es alto.
+- No inventes montos ni fechas: usá solo datos del JSON.
+- filasExtracto y filasPlanilla en resumen deben ser exactamente ${filasExtracto.length} y ${filasPlanilla.length}.
+- totalExtracto y totalPlanilla en resumen: suma de |importe| de todas las filas de cada lado (debe coincidir con sumaImporteAbs del payload salvo redondeo mínimo).`
+
+    try {
+      const text = await withTimeout(
+        generateContent({
+          contents: `Datos para conciliación (JSON):\n${JSON.stringify(payload)}`,
+          extraContextPrefix: prefix,
+          useCompleteContext: false,
+          useMemory: false,
+          learnFromResponse: false,
+          includeAppManual: false
+        }),
+        600_000,
+        'Gemini tardó más de 10 minutos. Reintentá con archivos más chicos, o revisá VITE_GEMINI_API_KEY y la conexión.'
+      )
+
+      const parsed = parseGeminiConciliacionJson(text)
+      if (!parsed || (parsed.estado !== 'saldado' && parsed.estado !== 'incongruencias')) {
+        throw new Error('Respuesta de IA inválida (campo estado).')
+      }
+      if (!parsed.resumen || typeof parsed.resumen !== 'object') {
+        throw new Error('Respuesta de IA inválida (resumen).')
+      }
+      if (!Array.isArray(parsed.incongruencias)) {
+        throw new Error('Respuesta de IA inválida (incongruencias).')
+      }
+
+      setPlotAiGeminiResult(parsed)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo obtener el análisis con Gemini.'
+      setPlotAiGeminiError(msg)
+    } finally {
+      setPlotAiGeminiLoading(false)
+    }
   }
 
   const handleDownloadReporte = (rep: ConciliacionPlotAIReporte) => {
@@ -941,7 +1103,7 @@ const ConciliacionBancariaPage = () => {
           <div>
             <h2>✨ PlotAI — Conciliación: extracto vs planilla cuenta</h2>
             <p className="subtitle">
-              Subí <strong>dos archivos</strong>: extracto y planilla. La conciliación empareja por <strong>misma fecha (día) y mismo importe</strong> (no depende de PlotAI). Podés pedir recomendación aparte con el botón PlotAI.
+              Subí <strong>dos archivos</strong>: extracto y planilla. <strong>Generar conciliación</strong> usa reglas locales (fecha + importe). <strong>Conciliación con IA</strong> envía los datos a Gemini para detectar incongruencias con criterio flexible (montos, fechas, descripciones).
             </p>
           </div>
           <div className="plotai-badges">
@@ -1056,7 +1218,90 @@ const ConciliacionBancariaPage = () => {
               <button className="btn-action" onClick={handleGuardarReporte} disabled={!plotAiAnalysis.listo}>
                 Guardar reporte por fecha
               </button>
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => void handleGenerarConciliacionGemini()}
+                disabled={
+                  plotAiGeminiLoading ||
+                  plotAiParsing ||
+                  plotAiCuentaParsing ||
+                  plotAiExtracto.length === 0 ||
+                  plotAiCuentaRows.length === 0
+                }
+              >
+                {plotAiGeminiLoading ? 'Analizando con Gemini…' : 'Conciliación con IA (Gemini)'}
+              </button>
             </div>
+            {plotAiExtracto.length > 0 && plotAiCuentaRows.length > 0 && (
+              <p className="plotai-help" style={{ marginTop: 8 }}>
+                Gemini recibe las <strong>{plotAiExtracto.length + plotAiCuentaRows.length}</strong> filas leídas (
+                {plotAiExtracto.length} extracto + {plotAiCuentaRows.length} planilla), sin recorte. En archivos muy
+                grandes puede tardar varios minutos o fallar por límite del modelo.
+              </p>
+            )}
+
+            {(plotAiGeminiError || plotAiGeminiResult) && (
+              <div className="plotai-gemini-block" style={{ marginTop: 14 }}>
+                <h4 style={{ margin: '0 0 8px' }}>Resultado Gemini (IA)</h4>
+                {plotAiGeminiError && (
+                  <div className="plotai-issues">
+                    <div>{plotAiGeminiError}</div>
+                  </div>
+                )}
+                {plotAiGeminiResult && (
+                  <>
+                    <div style={{ marginBottom: 8 }}>
+                      <span
+                        className={`plotai-badge ${plotAiGeminiResult.estado === 'saldado' ? 'ok' : 'bad'}`}
+                        style={{ marginRight: 8 }}
+                      >
+                        {plotAiGeminiResult.estado === 'saldado' ? 'IA: CUENTA SALDADA' : 'IA: INCONGRUENCIAS'}
+                      </span>
+                    </div>
+                    <div className="plotai-totals" style={{ marginBottom: 10 }}>
+                      <div>
+                        <strong>Total extracto (IA):</strong>{' '}
+                        ${Number(plotAiGeminiResult.resumen.totalExtracto ?? 0).toLocaleString('es-AR', {
+                          minimumFractionDigits: 2
+                        })}
+                      </div>
+                      <div>
+                        <strong>Total planilla (IA):</strong>{' '}
+                        ${Number(plotAiGeminiResult.resumen.totalPlanilla ?? 0).toLocaleString('es-AR', {
+                          minimumFractionDigits: 2
+                        })}
+                      </div>
+                      <div>
+                        <strong>Filas / matches (IA):</strong>{' '}
+                        {plotAiGeminiResult.resumen.filasExtracto ?? '—'} extracto ·{' '}
+                        {plotAiGeminiResult.resumen.filasPlanilla ?? '—'} planilla
+                        {plotAiGeminiResult.resumen.filasMatcheadas != null
+                          ? ` · ~${plotAiGeminiResult.resumen.filasMatcheadas} emparejados`
+                          : ''}
+                      </div>
+                    </div>
+                    {plotAiGeminiResult.incongruencias.length > 0 ? (
+                      <div className="plotai-issues">
+                        <h5 style={{ margin: '0 0 6px' }}>Incongruencias según Gemini</h5>
+                        <ol>
+                          {plotAiGeminiResult.incongruencias.slice(0, MAX_INCONGRUENCIAS_MOSTRAR).map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ol>
+                        {plotAiGeminiResult.incongruencias.length > MAX_INCONGRUENCIAS_MOSTRAR && (
+                          <p className="plotai-help">
+                            … y {plotAiGeminiResult.incongruencias.length - MAX_INCONGRUENCIAS_MOSTRAR} más.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="plotai-ok">Gemini no reporta incongruencias en este análisis.</div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {plotAiRecoError && (
               <div className="plotai-issues" style={{ marginTop: 10 }}>
