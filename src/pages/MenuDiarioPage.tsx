@@ -59,7 +59,7 @@ const MenuDiarioPage = () => {
   }, [authLoading, usuario, navigate])
 
   useEffect(() => {
-    setPuedeSeleccionar(isBeforeArgentinaTime(9, 30))
+    setPuedeSeleccionar(isBeforeArgentinaTime(10, 30))
   }, [horaActual])
 
   const loadSeleccionesMesa = useCallback(async (idMenu: number) => {
@@ -124,7 +124,7 @@ const MenuDiarioPage = () => {
   const handleConfirmarPedido = async () => {
     if (!usuario?.id || !menu) return
     if (!puedeSeleccionar) {
-      alert('El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 9:30 AM (hora Argentina)')
+      alert('El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las 10:30 AM (hora Argentina)')
       return
     }
     if (platoElegido == null || turnoElegido == null || !emojiElegido) {
@@ -164,7 +164,7 @@ const MenuDiarioPage = () => {
   const handleCancelarSeleccion = async () => {
     if (!usuario?.id || !menu || !miSeleccion) return
     if (!puedeSeleccionar) {
-      alert('El plazo para cancelar la selección ha expirado. Debes hacerlo antes de las 9:30 AM (hora Argentina)')
+      alert('El plazo para cancelar la selección ha expirado. Debes hacerlo antes de las 10:30 AM (hora Argentina)')
       return
     }
 
@@ -237,7 +237,7 @@ const MenuDiarioPage = () => {
           <div className={`horario-badge ${puedeSeleccionar ? 'horario-activo' : 'horario-expirado'}`}>
             {puedeSeleccionar ? (
               <>
-                ⏰ Hora actual (Argentina): {horaFormateada} — Podés elegir menú, turno y estado hasta las 9:30
+                ⏰ Hora actual (Argentina): {horaFormateada} — Podés elegir menú, turno y estado hasta las 10:30
               </>
             ) : (
               <>
@@ -430,7 +430,7 @@ const MenuDiarioPage = () => {
             {!miSeleccion && !puedeSeleccionar ? (
               <div className="menu-seleccion-card menu-seleccion-expirada">
                 <h3>⏰ Plazo vencido</h3>
-                <p>No registraste pedido a tiempo (hasta las 9:30 AM Argentina). Contactá a RRHH si necesitás ayuda.</p>
+                <p>No registraste pedido a tiempo (hasta las 10:30 AM Argentina). Contactá a RRHH si necesitás ayuda.</p>
               </div>
             ) : null}
 
