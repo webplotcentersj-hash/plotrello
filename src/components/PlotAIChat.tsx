@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import type { Task, TeamMember, ActivityEvent, TaskStatus, Priority } from '../types/board'
 import { generateContent, getSystemContext } from '../services/plotAIService'
 import { generateImage, generateVideo, detectGenerationIntent, type GenerationResult } from '../services/plotAIGenerationService'
-import { PlotAILiveVoice } from '../services/plotAILiveService'
 import { buildAgenticContext } from '../utils/agentInsights'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useAuth } from '../hooks/useAuth'
@@ -84,8 +83,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   const [micError, setMicError] = useState<string | null>(null)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const [isLiveCallActive, setIsLiveCallActive] = useState(false)
-  const liveVoiceRef = useRef<PlotAILiveVoice | null>(null)
+  const dictationFinalRef = useRef<string>('')
+  const dictationInterimRef = useRef<string>('')
   const [isCreateOpOpen, setIsCreateOpOpen] = useState(false)
   const [isCreatingOp, setIsCreatingOp] = useState(false)
   const [createOpFeedback, setCreateOpFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -303,16 +302,28 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         recognition.interimResults = true // Habilitar resultados intermedios para mejor UX
         
         recognition.onresult = (event: SpeechRecognitionResultEventLike) => {
-          const transcript = Array.from(event.results)
-            .map((result) => {
-              const resultItem = result as { 0: { transcript: string }; isFinal?: boolean }
-              return resultItem[0]?.transcript ?? ''
-            })
-            .join(' ')
-          
-          if (transcript.trim()) {
-            setInput((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript))
-            setMicError(null) // Limpiar errores si hay transcripción exitosa
+          // Evitar duplicados: reconstruir final + interim en vez de append sobre el input
+          let interim = ''
+          let finalText = dictationFinalRef.current
+
+          for (let i = 0; i < (event.results?.length ?? 0); i++) {
+            const resultItem = (event.results as any)[i] as { 0?: { transcript?: string }; isFinal?: boolean }
+            const t = (resultItem?.[0]?.transcript || '').trim()
+            if (!t) continue
+            if (resultItem?.isFinal) {
+              finalText = `${finalText} ${t}`.trim()
+            } else {
+              interim = `${interim} ${t}`.trim()
+            }
+          }
+
+          dictationFinalRef.current = finalText
+          dictationInterimRef.current = interim
+
+          const merged = `${finalText}${finalText && interim ? ' ' : ''}${interim}`.trim()
+          if (merged) {
+            setInput(merged)
+            setMicError(null)
           }
         }
         
@@ -354,8 +365,16 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         
         recognition.onend = () => {
           setIsRecording(false)
-          // Si terminó inesperadamente y no fue por error, puede ser timeout
-          // No hacer nada, el usuario puede reiniciar manualmente
+
+          // Auto-enviar al terminar el dictado
+          const finalText = dictationFinalRef.current.trim()
+          dictationFinalRef.current = ''
+          dictationInterimRef.current = ''
+
+          if (finalText) {
+            setInput('')
+            void handleSendMessage(finalText)
+          }
         }
         
         recognition.onstart = () => {
@@ -445,6 +464,9 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
         // Limpiar estado anterior
         setMicError(null)
+        dictationFinalRef.current = ''
+        dictationInterimRef.current = ''
+        setInput('')
         
         // Si el reconocimiento ya está iniciado, detenerlo primero
         try {
@@ -522,6 +544,18 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
 
     const selectedColumn = BOARD_COLUMNS.find((col) => col.id === quickOpForm.status)
     const creatorName = stripEmailDomain(usuario?.nombre) ?? usuario?.nombre ?? 'Usuario'
+
+    // Foto: usar la primera imagen adjunta/pegada en el chat (si existe)
+    let photoUrl = ''
+    const firstImage = uploadedFiles.find((f) => f.type.startsWith('image/'))
+    if (firstImage) {
+      try {
+        photoUrl = await optimizeImage(firstImage, 900 * 1024)
+      } catch (e) {
+        console.warn('No se pudo preparar la foto para la OP:', e)
+        photoUrl = ''
+      }
+    }
     const newTask: Omit<Task, 'id'> = {
       opNumber: quickOpForm.opNumber.trim() || `OP-${Date.now().toString().slice(-5)}`,
       title: quickOpForm.cliente.trim(),
@@ -534,7 +568,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       tags: [],
       materials: [],
       assignedSector: selectedColumn?.label ?? 'Sin sector',
-      photoUrl: '',
+      photoUrl,
       storyPoints: 0,
       progress: 0,
       createdAt: new Date().toISOString(),
@@ -561,6 +595,10 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         priority: 'media',
         impact: 'media'
       }))
+
+      if (firstImage) {
+        setUploadedFiles((prev) => prev.filter((f) => f !== firstImage))
+      }
     } catch (error) {
       setCreateOpFeedback({
         type: 'error',
@@ -1120,6 +1158,23 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     }
   }
 
+  const handlePasteIntoChat = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = event.clipboardData?.items
+    if (!items || items.length === 0) return
+    const images: File[] = []
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) {
+          images.push(new File([file], `captura-${Date.now()}.png`, { type: file.type || 'image/png' }))
+        }
+      }
+    }
+    if (images.length > 0) {
+      setUploadedFiles((prev) => [...prev, ...images])
+    }
+  }
+
   const removeFile = (index: number) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
   }
@@ -1135,113 +1190,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
     handleSendMessage(prompt)
   }
 
-  const isProbablySpanish = (text: string) => {
-    const t = text.toLowerCase()
-    // Heurística simple: evitar “meta-razonamiento” en inglés que a veces devuelve Live.
-    const looksEnglish =
-      /\b(i'm|i am|i've|i|the|and|with|now|please|could you|clarifying|responding)\b/.test(t)
-    const looksSpanish =
-      /\b(que|para|con|por|hola|necesit|ayud|pod(e|és)|vamos|listo|bien|gracias|repet|decime|contame)\b/.test(t)
-    return looksSpanish && !looksEnglish
-  }
-
-  const toggleLiveCall = async () => {
-    if (isLiveCallActive) {
-      // Detener llamada
-      if (liveVoiceRef.current) {
-        liveVoiceRef.current.stopCall()
-        liveVoiceRef.current = null
-      }
-      setIsLiveCallActive(false)
-    } else {
-      // Iniciar llamada
-      try {
-        const liveVoice = new PlotAILiveVoice()
-        liveVoiceRef.current = liveVoice
-
-        // Obtener nombre del usuario
-        const nombreUsuario = usuario?.nombre || stripEmailDomain(usuario?.nombre) || undefined
-
-        await liveVoice.startCall({
-          tasks,
-          activity,
-          teamMembers,
-          userName: nombreUsuario
-        }, {
-          onOpen: () => {
-            setIsLiveCallActive(true)
-            setMicError(null)
-            // Agregar mensaje de sistema
-            const systemMessage: Message = {
-              id: Date.now().toString(),
-              role: 'system',
-              content: '🔊 Llamada de voz iniciada. Hablá normalmente y PlotAI te responderá.',
-              timestamp: new Date()
-            }
-            setMessages((prev) => [...prev, systemMessage])
-          },
-          onMessage: (message) => {
-            // Procesar mensajes de texto si los hay
-            if (message.serverContent?.modelTurn?.parts) {
-              for (const part of message.serverContent.modelTurn.parts) {
-                if (part.text) {
-                  // En modo llamada, NO mostramos el texto crudo si viene en inglés/meta-razonamiento.
-                  // Si parece español, lo mostramos como “subtítulo” breve.
-                  if (isProbablySpanish(part.text)) {
-                    const assistantMessage: Message = {
-                      id: Date.now().toString(),
-                      role: 'assistant',
-                      content: part.text,
-                      timestamp: new Date()
-                    }
-                    setMessages((prev) => [...prev, assistantMessage])
-                  }
-                }
-              }
-            }
-          },
-          onError: (error) => {
-            console.error('Error en llamada Live:', error)
-            setMicError(`Error en llamada: ${error.message}`)
-            setIsLiveCallActive(false)
-            if (liveVoiceRef.current) {
-              liveVoiceRef.current.stopCall()
-              liveVoiceRef.current = null
-            }
-          },
-          onClose: (reason) => {
-            setIsLiveCallActive(false)
-            if (liveVoiceRef.current) {
-              liveVoiceRef.current.stopCall()
-              liveVoiceRef.current = null
-            }
-            const systemMessage: Message = {
-              id: Date.now().toString(),
-              role: 'system',
-              content: `🔇 Llamada finalizada${reason ? `: ${reason}` : ''}`,
-              timestamp: new Date()
-            }
-            setMessages((prev) => [...prev, systemMessage])
-          }
-        })
-      } catch (error) {
-        console.error('Error iniciando llamada:', error)
-        const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
-        setMicError(`No se pudo iniciar la llamada: ${errorMsg}`)
-        setIsLiveCallActive(false)
-      }
-    }
-  }
-
-  // Limpiar llamada al desmontar
-  useEffect(() => {
-    return () => {
-      if (liveVoiceRef.current) {
-        liveVoiceRef.current.stopCall()
-        liveVoiceRef.current = null
-      }
-    }
-  }, [])
+  // (Se eliminó la "llamada" en vivo; queda solo dictado por voz.)
 
   return (
     <div
@@ -1595,19 +1544,11 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
+              onPaste={handlePasteIntoChat}
               placeholder="Escribime como si habláramos. Ej: “¿Qué tengo urgente hoy?”, “Armame un plan para entregar la OP 124”, “Analizá esta foto”, “Haceme una imagen de…”"
               rows={2}
               className="plotai-textarea"
             />
-            <button
-              type="button"
-              className={`live-call-button ${isLiveCallActive ? 'active' : ''}`}
-              onClick={toggleLiveCall}
-              disabled={isLoading}
-              title={isLiveCallActive ? 'Finalizar llamada de voz' : 'Iniciar llamada de voz (conversación en tiempo real)'}
-            >
-              {isLiveCallActive ? '📞' : '📱'}
-            </button>
             <button
               type="button"
               className={`voice-button ${isVoiceEnabled ? 'enabled' : ''}`}
@@ -1616,7 +1557,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
                 setIsVoiceEnabled((prev) => !prev)
               }}
               title={isVoiceEnabled ? 'Voz activada (leer respuestas)' : 'Activar voz (leer respuestas)'}
-              disabled={isLoading || isLiveCallActive}
+              disabled={isLoading}
             >
               {isVoiceEnabled ? '🔊' : '🔈'}
             </button>
@@ -1635,8 +1576,8 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
               type="button"
               className={`mic-button ${isRecording ? 'recording' : ''}`}
               onClick={toggleRecording}
-              disabled={!isMicSupported || isLoading || isLiveCallActive}
-              title={isLiveCallActive ? 'Micrófono en uso (llamada activa)' : isMicSupported ? 'Dictar con micrófono' : 'Dictado no disponible'}
+              disabled={!isMicSupported || isLoading}
+              title={isMicSupported ? 'Dictar con micrófono (se envía al terminar)' : 'Dictado no disponible'}
             >
               {isRecording ? '⏺' : '🎙️'}
             </button>

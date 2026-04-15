@@ -713,22 +713,40 @@
 }
 
 .mic-button {
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.18);
   color: var(--text-primary);
   font-size: 1.3rem;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   flex-shrink: 0;
 }
 
 .mic-button.recording {
-  background: rgba(248, 113, 113, 0.2);
-  color: #f87171;
-  box-shadow: 0 0 12px rgba(248, 113, 113, 0.4);
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.35), rgba(248, 113, 113, 0.18));
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fee2e2;
+  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.12), 0 0 18px rgba(248, 113, 113, 0.35);
+  animation: mic-pulse 1.25s ease-in-out infinite;
+}
+
+.mic-button.recording::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fecaca;
+  display: inline-block;
+  margin-left: 6px;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.65);
+}
+
+@keyframes mic-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
 }
 
 .mic-button:disabled {
@@ -746,52 +764,7 @@
   color: #fca5a5;
 }
 
-.live-call-button {
-  background: rgba(34, 197, 94, 0.15);
-  border: 2px solid rgba(34, 197, 94, 0.3);
-  color: #22c55e;
-  font-size: 1.3rem;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.live-call-button.active {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #ef4444;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-  animation: pulse-call 2s infinite;
-}
-
-@keyframes pulse-call {
-  0%, 100% {
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
-  }
-}
-
-.live-call-button:hover:not(:disabled) {
-  transform: scale(1.05);
-  background: rgba(34, 197, 94, 0.25);
-}
-
-.live-call-button.active:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.3);
-}
-
-.live-call-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* (Se eliminó la llamada en vivo; queda solo dictado por voz.) */
 
 .voice-button,
 .voice-stop-button {
