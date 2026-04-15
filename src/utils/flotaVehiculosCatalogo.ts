@@ -7,9 +7,7 @@ import type { Vehiculo, VehiculoEstadoParque } from '../types/api'
 export const FLOTA_VEHICULOS_CATALOGO: readonly string[] = [
   'Amarok',
   'Berlingo',
-  'Camión MB',
   'Lifán',
-  'Máster',
   'Ránger',
   'Camión LED'
 ] as const

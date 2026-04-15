@@ -75,6 +75,67 @@
   font-size: 0.9rem;
 }
 
+.solicitud-modal .solicitud-status {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.solicitud-modal .solicitud-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.solicitud-modal .solicitud-status-label {
+  font-weight: 600;
+  color: #111827;
+}
+
+.solicitud-modal .solicitud-status-badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.solicitud-modal .solicitud-status-badge.estado-pendiente {
+  background: rgba(245, 158, 11, 0.18);
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.solicitud-modal .solicitud-status-badge.estado-aprobado {
+  background: rgba(16, 185, 129, 0.16);
+  color: #065f46;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.solicitud-modal .solicitud-status-badge.estado-rechazado {
+  background: rgba(239, 68, 68, 0.14);
+  color: #991b1b;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.solicitud-modal .solicitud-status-badge.estado-cancelado {
+  background: rgba(148, 163, 184, 0.22);
+  color: #334155;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.solicitud-modal .solicitud-status-details {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
 .solicitud-modal .form-group {
   display: flex;
   flex-direction: column;

@@ -14,6 +14,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
   const { usuario } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [savedSolicitud, setSavedSolicitud] = useState<SolicitudPermiso | null>(null)
   const [formData, setFormData] = useState({
     tipo_solicitud: 'permiso' as 'turno' | 'ausencia' | 'vacaciones' | 'ropa' | 'permiso' | 'otro',
     titulo: '',
@@ -28,6 +29,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
 
   useEffect(() => {
     if (solicitudEditar) {
+      setSavedSolicitud(solicitudEditar)
       setFormData({
         tipo_solicitud: solicitudEditar.tipo_solicitud,
         titulo: solicitudEditar.titulo,
@@ -41,6 +43,21 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
       })
     }
   }, [solicitudEditar])
+
+  const estadoLabel = (s: SolicitudPermiso['estado']) => {
+    switch (s) {
+      case 'pendiente':
+        return 'Pendiente'
+      case 'aprobado':
+        return 'Aprobada'
+      case 'rechazado':
+        return 'Rechazada'
+      case 'cancelado':
+        return 'Cancelada'
+      default:
+        return s
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,9 +80,9 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
         formData.archivo_adjunto_url || null
       )
 
-      if (response.success) {
+      if (response.success && response.data) {
+        setSavedSolicitud(response.data)
         onSolicitudCreada?.()
-        onClose()
       } else {
         setError(response.error || 'Error al crear solicitud')
       }
@@ -104,7 +121,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
     >
       <div className="solicitud-modal" onClick={(e) => e.stopPropagation()}>
         <div className="solicitud-modal-header">
-          <h2>📋 Nueva Solicitud</h2>
+          <h2>📋 {savedSolicitud ? 'Solicitud' : 'Nueva Solicitud'}</h2>
           <button className="solicitud-modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -115,12 +132,65 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
             </div>
           )}
 
+          {savedSolicitud && (
+            <div className="solicitud-status">
+              <div className="solicitud-status-row">
+                <div className="solicitud-status-label">Estado</div>
+                <span className={`solicitud-status-badge estado-${savedSolicitud.estado}`}>
+                  {estadoLabel(savedSolicitud.estado)}
+                </span>
+              </div>
+              {savedSolicitud.estado === 'aprobado' && (
+                <div className="solicitud-status-details">
+                  <div>
+                    <strong>Aprobó:</strong> {savedSolicitud.aprobado_por_nombre || 'RRHH'}
+                  </div>
+                  {savedSolicitud.fecha_aprobacion && (
+                    <div>
+                      <strong>Fecha:</strong>{' '}
+                      {new Date(savedSolicitud.fecha_aprobacion).toLocaleString('es-AR')}
+                    </div>
+                  )}
+                  {savedSolicitud.observaciones && (
+                    <div>
+                      <strong>Observaciones:</strong> {savedSolicitud.observaciones}
+                    </div>
+                  )}
+                </div>
+              )}
+              {savedSolicitud.estado === 'rechazado' && (
+                <div className="solicitud-status-details">
+                  <div>
+                    <strong>Rechazó:</strong> {savedSolicitud.aprobado_por_nombre || 'RRHH'}
+                  </div>
+                  {savedSolicitud.fecha_aprobacion && (
+                    <div>
+                      <strong>Fecha:</strong>{' '}
+                      {new Date(savedSolicitud.fecha_aprobacion).toLocaleString('es-AR')}
+                    </div>
+                  )}
+                  {savedSolicitud.motivo_rechazo && (
+                    <div>
+                      <strong>Motivo:</strong> {savedSolicitud.motivo_rechazo}
+                    </div>
+                  )}
+                  {savedSolicitud.observaciones && (
+                    <div>
+                      <strong>Observaciones:</strong> {savedSolicitud.observaciones}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="form-group">
             <label>Tipo de Solicitud *</label>
             <select
               value={formData.tipo_solicitud}
               onChange={(e) => setFormData({ ...formData, tipo_solicitud: e.target.value as any })}
               required
+              disabled={!!savedSolicitud}
             >
               <option value="turno">🕐 Turno</option>
               <option value="ausencia">❌ Ausencia</option>
@@ -139,6 +209,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
               onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
               placeholder="Ej: Solicitud de vacaciones enero"
               required
+              disabled={!!savedSolicitud}
             />
           </div>
 
@@ -149,6 +220,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
               onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
               placeholder="Detalles adicionales de la solicitud..."
               rows={4}
+              disabled={!!savedSolicitud}
             />
           </div>
 
@@ -159,6 +231,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
                 type="date"
                 value={formData.fecha_inicio}
                 onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
+                disabled={!!savedSolicitud}
               />
             </div>
 
@@ -168,6 +241,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
                 type="date"
                 value={formData.fecha_fin}
                 onChange={(e) => setFormData({ ...formData, fecha_fin: e.target.value })}
+                disabled={!!savedSolicitud}
               />
             </div>
           </div>
@@ -191,16 +265,19 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
               onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
               placeholder="Información adicional..."
               rows={3}
+              disabled={!!savedSolicitud}
             />
           </div>
 
           <div className="form-actions">
             <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>
-              Cancelar
+              {savedSolicitud ? 'Cerrar' : 'Cancelar'}
             </button>
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Enviando...' : 'Enviar Solicitud'}
-            </button>
+            {!savedSolicitud && (
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? 'Enviando...' : 'Enviar Solicitud'}
+              </button>
+            )}
           </div>
         </form>
       </div>

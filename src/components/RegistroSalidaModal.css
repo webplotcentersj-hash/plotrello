@@ -37,14 +37,15 @@
   justify-content: space-between;
   padding: 18px 22px;
   border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  /* Evitar que estilos globales de otros modales (con !important) rompan este header */
+  background: #f8fafc !important;
   border-radius: 16px 16px 0 0;
 }
 
 .registro-salida-modal-inner .modal-header h2 {
   margin: 0;
   font-size: 1.2rem;
-  color: #0f172a;
+  color: #0f172a !important;
 }
 
 .registro-salida-modal-inner .modal-close {

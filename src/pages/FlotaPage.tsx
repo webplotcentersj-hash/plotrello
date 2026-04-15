@@ -72,7 +72,7 @@ const FlotaPage = () => {
   const [showRegistroModal, setShowRegistroModal] = useState(false)
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<Vehiculo | null>(null)
   const [llegadaRegistro, setLlegadaRegistro] = useState<RegistroSalidaVehiculo | null>(null)
-  const [historialAbierto, setHistorialAbierto] = useState(true)
+  const [historialAbierto, setHistorialAbierto] = useState(false)
   /** Ayuda cuando la API devuelve vacío (típico: RLS solo para `authenticated` y la app usa rol `anon`). */
   const [vehiculosLoadHint, setVehiculosLoadHint] = useState<string | null>(null)
 
@@ -106,7 +106,7 @@ const FlotaPage = () => {
         )
       } else if (mergedParque.every((m) => !m.enBase)) {
         setVehiculosLoadHint(
-          'Hay filas en vehículos pero ningún nombre coincide con el catálogo (Amarok, Berlingo, Camión MB, Lifán, Máster, Ránger, Camión LED). Revisá la columna nombre en la tabla.'
+          'Hay filas en vehículos pero ningún nombre coincide con el catálogo (Amarok, Berlingo, Lifán, Ránger, Camión LED). Revisá la columna nombre en la tabla.'
         )
       } else {
         setVehiculosLoadHint(null)
