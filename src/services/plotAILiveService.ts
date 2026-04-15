@@ -24,6 +24,7 @@ export class PlotAILiveVoice {
   private ai: GoogleGenAI | null = null
   private session: any = null
   private audioContext: AudioContext | null = null
+  private micAudioContext: AudioContext | null = null
   private mediaStream: MediaStream | null = null
   private audioQueue: ArrayBuffer[] = []
   private isPlaying = false
@@ -47,6 +48,9 @@ export class PlotAILiveVoice {
     try {
       // Configurar AudioContext para reproducir audio
       this.audioContext = new AudioContext({ sampleRate: 24000 })
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume()
+      }
 
       // Construir systemInstruction con contexto del sistema
       const systemInstruction = this.buildSystemInstruction(options)
@@ -114,11 +118,20 @@ export class PlotAILiveVoice {
         },
       })
 
+      // Contexto dedicado a captura. Guardarlo para poder cerrarlo al finalizar.
       const audioContext = new AudioContext({ sampleRate: 16000 })
+      this.micAudioContext = audioContext
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+      }
       const source = audioContext.createMediaStreamSource(this.mediaStream)
       
       // Usar AudioWorklet si está disponible, sino ScriptProcessor como fallback
       let processor: ScriptProcessorNode | AudioWorkletNode | null = null
+      // Mantener el grafo "vivo" sin generar salida audible
+      const sink = audioContext.createGain()
+      sink.gain.value = 0
+      sink.connect(audioContext.destination)
 
       try {
         // Intentar usar AudioWorklet (más moderno y eficiente)
@@ -150,6 +163,8 @@ export class PlotAILiveVoice {
           const audioData = event.data.audioData
           this.sendAudioChunk(audioData)
         }
+        // Importante: algunos navegadores no procesan Worklets si el nodo no está conectado
+        processor.connect(sink)
       } catch (workletError) {
         console.warn('AudioWorklet no disponible, usando ScriptProcessor:', workletError)
         // Fallback a ScriptProcessor
@@ -167,12 +182,10 @@ export class PlotAILiveVoice {
 
           this.sendAudioChunk(pcmData.buffer)
         }
+        processor.connect(sink)
       }
 
       source.connect(processor as AudioNode)
-      if (processor instanceof ScriptProcessorNode) {
-        processor.connect(audioContext.destination)
-      }
 
       console.log('🎙️ Micrófono iniciado correctamente')
     } catch (error) {
@@ -286,6 +299,12 @@ export class PlotAILiveVoice {
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((track) => track.stop())
       this.mediaStream = null
+    }
+
+    // Cerrar AudioContext del micrófono
+    if (this.micAudioContext) {
+      this.micAudioContext.close()
+      this.micAudioContext = null
     }
 
     // Cerrar sesión
