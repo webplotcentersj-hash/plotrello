@@ -14,6 +14,8 @@ export type TaskStatus =
   | 'no-aprobados-asesor-presupuestos'
   | 'armados-enviados-asesor-presupuestos'
   | 'finalizado-asesor-presupuestos'
+import type { OpGaleriaSlide } from './api'
+
 export type Priority = 'alta' | 'media' | 'baja'
 
 export interface TeamMember {
@@ -122,6 +124,8 @@ export interface Task {
   enReclamo?: boolean
   /** Motivo del reclamo (si se cargó al marcar) */
   reclamoMotivo?: string | null
+  /** Carrusel de imágenes con título (persistido en ordenes_trabajo.galeria_carrusel) */
+  galeriaCarrusel?: OpGaleriaSlide[]
 }
 
 export interface Subtask {

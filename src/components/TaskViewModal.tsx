@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { marked } from 'marked'
 import type { Task, TeamMember } from '../types/board'
-import type { SectorRecord } from '../types/api'
+import type { HistorialMovimiento, SectorRecord } from '../types/api'
+import apiService from '../services/api'
+import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { mapStatusToEstado } from '../utils/dataMappers'
 import { useTagColors } from '../hooks/useTagColors'
 import { fetchPlotAIRecommendationsForTask } from '../utils/taskPlotAIRecommendations'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
+import OpGaleriaCarousel from './OpGaleriaCarousel'
 import './TaskEditModal.css'
 import './TaskViewModal.css'
 
@@ -42,6 +45,16 @@ function YesNo(v: boolean | null | undefined) {
   return null
 }
 
+function describeHistorialMovimiento(m: HistorialMovimiento): string {
+  const c = m.comentario?.trim()
+  if (c) return c
+  const ea = m.estado_anterior?.trim()
+  const en = m.estado_nuevo?.trim()
+  if (ea || en) return `${ea || '—'} → ${en || '—'}`
+  const at = m.accion_tipo?.trim()
+  return at ? `Acción: ${at}` : 'Registro sin detalle'
+}
+
 /** Fila estándar: solo renderiza si hay contenido */
 function Kv({ label, children }: { label: string; children: ReactNode }) {
   if (children === null || children === undefined || children === '') return null
@@ -71,6 +84,10 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
   const [plotAIRecoLoading, setPlotAIRecoLoading] = useState(false)
   const [plotAIRecoText, setPlotAIRecoText] = useState('')
   const [plotAIRecoError, setPlotAIRecoError] = useState<string | null>(null)
+  const ordenIdView = useMemo(() => parseTaskIdToOrdenId(task.id), [task.id])
+  const [historial, setHistorial] = useState<HistorialMovimiento[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialError, setHistorialError] = useState<string | null>(null)
 
   const owner = teamMembers.find((m) => m.id === task.ownerId)
   const createdByMember = teamMembers.find((m) => m.id === task.createdBy)
@@ -97,6 +114,31 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, plotAIRecoOpen])
+
+  useEffect(() => {
+    if (!ordenIdView) {
+      setHistorial([])
+      return
+    }
+    let cancelled = false
+    setHistorialLoading(true)
+    setHistorialError(null)
+    void apiService.getHistorialMovimientos({ ordenId: ordenIdView, limit: 500 }).then((r) => {
+      if (cancelled) return
+      setHistorialLoading(false)
+      if (r.success && r.data) {
+        setHistorial(
+          [...r.data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        )
+      } else {
+        setHistorial([])
+        setHistorialError(r.error || 'No se pudo cargar el historial.')
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ordenIdView])
 
   const openPlotAIRecommendations = () => {
     setPlotAIRecoOpen(true)
@@ -292,6 +334,14 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
               <div className="task-view-hero-photo task-view-hero-photo--empty">Sin imagen</div>
             )}
           </section>
+
+          {task.galeriaCarrusel && task.galeriaCarrusel.length > 0 ? (
+            <section className="task-view-galeria-section" aria-label="Galería de la OP">
+              <h3 className="task-view-galeria-title">Galería</h3>
+              <p className="task-view-galeria-sub">Deslizá o usá las flechas para ver cada imagen.</p>
+              <OpGaleriaCarousel slides={task.galeriaCarrusel} />
+            </section>
+          ) : null}
 
           <KvBlock label="Descripción / resumen" value={task.summary} />
 
@@ -507,6 +557,41 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                   </li>
                 ))}
               </ul>
+            </section>
+          )}
+
+          {ordenIdView != null && (
+            <section className="task-view-panel task-view-panel--wide task-view-historial" aria-label="Historial de cambios">
+              <h3 className="task-view-panel-title">Historial de cambios</h3>
+              {historialLoading && <p className="task-view-muted">Cargando historial…</p>}
+              {historialError && (
+                <p className="task-view-historial-error" role="alert">
+                  {historialError}
+                </p>
+              )}
+              {!historialLoading && !historialError && historial.length === 0 && (
+                <p className="task-view-muted">No hay movimientos registrados para esta ficha.</p>
+              )}
+              {!historialLoading && historial.length > 0 && (
+                <ul className="task-view-historial-thread">
+                  {historial.map((m) => (
+                    <li key={m.id} className="task-view-historial-item">
+                      <div className="task-view-historial-meta">
+                        <time className="task-view-historial-time" dateTime={m.timestamp}>
+                          {formatDisplayDate(m.timestamp) ?? m.timestamp}
+                        </time>
+                        <span className="task-view-historial-user">
+                          {m.nombre_usuario?.trim() || `Usuario #${m.id_usuario}`}
+                        </span>
+                        {m.accion_tipo ? (
+                          <span className="task-view-historial-accion">{m.accion_tipo}</span>
+                        ) : null}
+                      </div>
+                      <p className="task-view-historial-body">{describeHistorialMovimiento(m)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
 

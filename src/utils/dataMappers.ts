@@ -1,6 +1,21 @@
 import type { ActivityEvent, Priority, Task, TaskStatus } from '../types/board'
-import type { HistorialMovimiento, OrdenTrabajo, TareaRecord } from '../types/api'
+import type { HistorialMovimiento, OpGaleriaSlide, OrdenTrabajo, TareaRecord } from '../types/api'
 import { getArgentinaDate } from './dateUtils'
+
+export function normalizeGaleriaCarrusel(raw: unknown): OpGaleriaSlide[] {
+  if (raw == null) return []
+  if (!Array.isArray(raw)) return []
+  const out: OpGaleriaSlide[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    const url = String(rec.url ?? '').trim()
+    if (!url) continue
+    const nombre = String(rec.nombre ?? rec.titulo ?? '').trim()
+    out.push({ url, nombre })
+  }
+  return out
+}
 
 const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   'diseno-grafico': 'Diseño Gráfico',
@@ -233,6 +248,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     esDuplicado: orden.es_duplicado ?? false,
     idOrdenOriginal: orden.id_orden_original ?? undefined,
     photoUrl: orden.foto_url?.trim() || '',
+    galeriaCarrusel: normalizeGaleriaCarrusel((orden as OrdenTrabajo).galeria_carrusel),
     storyPoints: 0,
     progress: calculateProgressFromStatus(statusFinal, orden.entregado ?? false),
     createdAt: createdArgentinaIso,
@@ -420,6 +436,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     presupuesto_enviado_cliente: task.presupuestoEnviadoCliente ?? false,
     presupuesto_armado: task.presupuestoArmado ?? false,
     presupuesto_en_espera: task.presupuestoEnEspera ?? false,
+    galeria_carrusel: normalizeGaleriaCarrusel(task.galeriaCarrusel as unknown),
     ...(task.opBloqueada !== undefined ? { op_bloqueada: task.opBloqueada } : {}),
     ...(task.enReclamo !== undefined ? { en_reclamo: task.enReclamo } : {}),
     ...(task.reclamoMotivo !== undefined
@@ -512,7 +529,8 @@ export const tareaToTask = (tarea: TareaRecord, orden: OrdenTrabajo): Task => {
     clientAddress: orden.direccion_cliente?.trim() || undefined,
     whatsappUrl: orden.whatsapp_link?.trim() || buildWhatsappLinkFromPhone(orden.telefono_cliente),
     locationUrl: orden.ubicacion_link?.trim() || undefined,
-    driveUrl: orden.drive_link?.trim() || undefined
+    driveUrl: orden.drive_link?.trim() || undefined,
+    galeriaCarrusel: normalizeGaleriaCarrusel((orden as OrdenTrabajo).galeria_carrusel)
   }
 }
 

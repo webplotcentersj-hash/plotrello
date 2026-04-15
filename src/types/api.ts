@@ -25,6 +25,13 @@ export interface ImpresoraUsoReportFila {
   tipo_impresion_orden: string | null
 }
 
+/** Ítem del carrusel de imágenes de la OP (editor + vista solo lectura) */
+export interface OpGaleriaSlide {
+  url: string
+  /** Nombre descriptivo de la foto (en BD puede existir legado `titulo`) */
+  nombre: string
+}
+
 export interface OrdenTrabajo {
   id: number
   numero_op: string
@@ -117,6 +124,8 @@ export interface OrdenTrabajo {
   en_reclamo?: boolean | null
   /** Motivo del reclamo (texto libre; ver también comentarios_orden) */
   reclamo_motivo?: string | null
+  /** Carrusel de imágenes con título (JSON en BD) */
+  galeria_carrusel?: OpGaleriaSlide[] | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */

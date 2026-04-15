@@ -50,6 +50,8 @@ type LocalAttachment = {
   file?: File // Referencia al archivo original para descarga
 }
 
+type CarouselSlideEdit = { id: string; url: string; nombre: string; uploading?: boolean }
+
 const COMPLEXITY_OPTIONS = ['Baja', 'Media', 'Alta']
 const PRIORITY_OPTIONS = ['Alta', 'Media', 'Baja']
 
@@ -97,8 +99,12 @@ const TaskEditModal = ({
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [savingComment, setSavingComment] = useState(false)
   const [opBloqueadaSyncing, setOpBloqueadaSyncing] = useState(false)
+  const [savingPortada, setSavingPortada] = useState(false)
+  const [carouselSlides, setCarouselSlides] = useState<CarouselSlideEdit[]>([])
   const attachmentsRef = useRef<LocalAttachment[]>([])
-  const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
+  const hasPendingCarouselUploads = carouselSlides.some((s) => s.uploading)
+  const hasPendingUploads =
+    attachments.some((attachment) => attachment.uploading) || hasPendingCarouselUploads
   const [previewAttachment, setPreviewAttachment] = useState<LocalAttachment | null>(null)
   const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null)
   const [fichaTecnicaUrl, setFichaTecnicaUrl] = useState<string | null>(null)
@@ -199,6 +205,14 @@ const TaskEditModal = ({
               metrosCuadrados: Number(r.metrosCuadrados) || 0
             }))
           : []
+      )
+      setCarouselSlides(
+        (task.galeriaCarrusel ?? []).map((s) => ({
+          id: crypto.randomUUID(),
+          url: s.url,
+          nombre: s.nombre || '',
+          uploading: false
+        }))
       )
 
       // Verificar si la ficha relacionada tiene planilla preliminar
@@ -466,6 +480,35 @@ const TaskEditModal = ({
     }
   }
 
+  const handleSavePortada = async () => {
+    if (!task) return
+    if (hasPendingUploads) {
+      alert('Esperá a que termine la subida de archivos antes de guardar.')
+      return
+    }
+    if (!opLocked) return
+    const ordenId = parseTaskIdToOrdenId(task.id)
+    if (!ordenId) return
+    const next = (formData.photoUrl ?? '').trim()
+    const prev = (task.photoUrl ?? '').trim()
+    if (next === prev) {
+      alert('No hay cambios en la portada.')
+      return
+    }
+    setSavingPortada(true)
+    try {
+      const r = await apiService.updateOrden(ordenId, { foto_url: next || null })
+      if (r.success && r.data) {
+        onSave(ordenToTask(r.data as OrdenTrabajo))
+        onClose(task.id)
+      } else {
+        alert(r.error || 'No se pudo guardar la portada (¿sos el operario asignado?).')
+      }
+    } finally {
+      setSavingPortada(false)
+    }
+  }
+
   const handleSave = async () => {
     if (hasPendingUploads) {
       alert('Espera a que termine la subida de archivos antes de guardar.')
@@ -530,7 +573,10 @@ const TaskEditModal = ({
               tipo: tipo.trim(),
               metrosCuadrados
             }))
-        : task.lineasMetrosM2
+        : task.lineasMetrosM2,
+      galeriaCarrusel: carouselSlides
+        .filter((s) => s.url && !s.uploading)
+        .map(({ url, nombre }) => ({ url, nombre: nombre.trim() }))
     } as Task
     
     // Guardar archivos nuevos después de guardar la orden
@@ -848,6 +894,37 @@ const TaskEditModal = ({
     })
   }
 
+  const addCarouselImage = async (file: File) => {
+    const id = crypto.randomUUID()
+    setCarouselSlides((prev) => [...prev, { id, url: '', nombre: '', uploading: true }])
+    try {
+      const remoteUrl = await uploadAttachmentAndGetUrl(file, `capturas/carrusel/${task?.id ?? 'sin-id'}`)
+      setCarouselSlides((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, url: remoteUrl, uploading: false } : s))
+      )
+    } catch (error) {
+      console.error('Error subiendo imagen del carrusel', error)
+      setUploadError('No se pudo subir una imagen del carrusel.')
+      setCarouselSlides((prev) => prev.filter((s) => s.id !== id))
+    }
+  }
+
+  const moveCarouselSlide = (idx: number, delta: number) => {
+    setCarouselSlides((rows) => {
+      const j = idx + delta
+      if (j < 0 || j >= rows.length) return rows
+      const next = [...rows]
+      const a = next[idx]!
+      next[idx] = next[j]!
+      next[j] = a
+      return next
+    })
+  }
+
+  const removeCarouselSlide = (slideId: string) => {
+    setCarouselSlides((prev) => prev.filter((s) => s.id !== slideId))
+  }
+
   const uploadSingleAttachment = async (file: File) => {
     const id = crypto.randomUUID()
     const previewUrl = URL.createObjectURL(file)
@@ -985,12 +1062,17 @@ const TaskEditModal = ({
               </label>
             </div>
           )}
-          <fieldset className="task-edit-op-fieldset" disabled={opLocked}>
-          <div className="task-cover-section">
+          <div className="task-cover-section task-cover-section--always-editable">
             <div className="task-cover-header">
               <strong>Portada</strong>
               <small>Pegá una captura con Ctrl+V o subí una imagen.</small>
             </div>
+            {opLocked && (
+              <p className="task-cover-lock-hint">
+                OP trabada: el resto de los campos no se puede editar, pero sí la portada. Guardá con «Guardar portada»
+                (quien puede hacerlo depende del rol y del operario asignado).
+              </p>
+            )}
             {formData.photoUrl ? (
               <div className="task-photo-preview">
                 <img
@@ -1024,6 +1106,92 @@ const TaskEditModal = ({
                 Quitar portada
               </button>
             </div>
+          </div>
+          <fieldset className="task-edit-op-fieldset" disabled={opLocked}>
+          <div className="task-carousel-editor">
+            <div className="task-carousel-header">
+              <strong>Carrusel de imágenes</strong>
+              <small>Cada foto puede tener un nombre; se muestra en la vista expandida (solo lectura).</small>
+            </div>
+            <div className="task-carousel-list">
+              {carouselSlides.length === 0 ? (
+                <p className="task-carousel-empty">Todavía no hay imágenes en el carrusel.</p>
+              ) : (
+                carouselSlides.map((slide, idx) => (
+                  <div key={slide.id} className="task-carousel-row">
+                    <div className="task-carousel-thumb">
+                      {slide.uploading ? (
+                        <span className="task-carousel-uploading">Subiendo…</span>
+                      ) : slide.url ? (
+                        <img src={slide.url} alt="" />
+                      ) : (
+                        <span className="task-carousel-thumb-placeholder">—</span>
+                      )}
+                    </div>
+                    <div className="task-carousel-nombre-field">
+                      <label className="task-carousel-nombre-label" htmlFor={`carousel-nombre-${slide.id}`}>
+                        Nombre
+                      </label>
+                      <input
+                        id={`carousel-nombre-${slide.id}`}
+                        type="text"
+                        className="task-carousel-title-input"
+                        placeholder="Nombre de la foto (opcional)"
+                        value={slide.nombre}
+                        onChange={(e) =>
+                          setCarouselSlides((rows) =>
+                            rows.map((r) => (r.id === slide.id ? { ...r, nombre: e.target.value } : r))
+                          )
+                        }
+                        disabled={slide.uploading}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="task-carousel-row-actions">
+                      <button
+                        type="button"
+                        className="task-carousel-move"
+                        title="Mover arriba"
+                        disabled={idx === 0 || slide.uploading}
+                        onClick={() => moveCarouselSlide(idx, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="task-carousel-move"
+                        title="Mover abajo"
+                        disabled={idx === carouselSlides.length - 1 || slide.uploading}
+                        onClick={() => moveCarouselSlide(idx, 1)}
+                      >
+                        {'\u2193'}
+                      </button>
+                      <button
+                        type="button"
+                        className="task-carousel-remove"
+                        disabled={slide.uploading}
+                        onClick={() => removeCarouselSlide(slide.id)}
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <label className="task-carousel-add">
+              + Agregar imagen al carrusel
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void addCarouselImage(f)
+                  e.target.value = ''
+                }}
+              />
+            </label>
           </div>
           <div className="form-row">
             <div className="form-group">
@@ -2489,6 +2657,20 @@ const TaskEditModal = ({
           <button type="button" className="btn-cancel" onClick={() => onClose(task?.id)}>
             Cancelar
           </button>
+          {opLocked && (
+            <button
+              type="button"
+              className="btn-save task-edit-save-cover"
+              onClick={() => void handleSavePortada()}
+              disabled={
+                savingPortada ||
+                hasPendingUploads ||
+                (formData.photoUrl ?? '').trim() === (task.photoUrl ?? '').trim()
+              }
+            >
+              {savingPortada ? 'Guardando…' : 'Guardar portada'}
+            </button>
+          )}
           <button
             type="button"
             className="btn-save"

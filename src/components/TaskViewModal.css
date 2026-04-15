@@ -845,3 +845,116 @@
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.35);
 }
+
+.task-view-galeria-section {
+  margin: 24px 0 8px;
+}
+
+.task-view-galeria-title {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, #e9d5ff, #93c5fd, #a5b4fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.task-view-galeria-sub {
+  margin: 0 0 14px;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.task-view-muted {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.task-view-historial {
+  margin-top: 8px;
+}
+
+.task-view-historial-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  font-size: 0.9rem;
+}
+
+.task-view-historial-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-left: 2px solid rgba(99, 102, 241, 0.45);
+  margin-left: 6px;
+}
+
+.task-view-historial-item {
+  position: relative;
+  padding: 12px 12px 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.task-view-historial-item::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 0 3px rgba(12, 14, 24, 0.95);
+}
+
+.task-view-historial-item:last-child {
+  border-bottom: none;
+}
+
+.task-view-historial-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.task-view-historial-time {
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.task-view-historial-user {
+  font-weight: 600;
+  color: rgba(147, 197, 253, 0.95);
+}
+
+.task-view-historial-accion {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.task-view-historial-body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

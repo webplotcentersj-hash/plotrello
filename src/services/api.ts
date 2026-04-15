@@ -257,6 +257,11 @@ class ApiService {
 
     if (admin) return { ok: true }
 
+    const onlyFotoUrl =
+      definedKeys.length === 1 &&
+      definedKeys[0] === 'foto_url'
+    if (onlyFotoUrl && assignee) return { ok: true }
+
     const onlyUnlock =
       definedKeys.length === 1 &&
       definedKeys[0] === 'op_bloqueada' &&
@@ -1067,7 +1072,7 @@ class ApiService {
       const { data: ordenAnterior } = await supabaseClient
         .from('ordenes_trabajo')
         .select(
-          'estado, operario_asignado, sector, sectores, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera, op_bloqueada'
+          'estado, operario_asignado, sector, sectores, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera, op_bloqueada, foto_url'
         )
         .eq('id', id)
         .maybeSingle()
@@ -1093,7 +1098,11 @@ class ApiService {
       const presupuestoEnviadoAnterior = (ordenAnterior as any)?.presupuesto_enviado_cliente ?? null
       const presupuestoArmadoAnterior = (ordenAnterior as any)?.presupuesto_armado ?? null
       const presupuestoEnEsperaAnterior = (ordenAnterior as any)?.presupuesto_en_espera ?? null
-      
+      const fotoUrlAnterior = (ordenAnterior as any)?.foto_url ?? null
+
+      const normFotoUrl = (u: unknown): string =>
+        typeof u === 'string' ? u.trim() : u != null && String(u).trim() !== '' ? String(u).trim() : ''
+
       // SOLUCIÓN DIRECTA: Si hay campos de contacto, usar función SQL que evita schema cache
       if (orden.telefono_cliente || orden.direccion_cliente || orden.drive_link || 
           orden.ubicacion_link || orden.email_cliente || orden.whatsapp_link) {
@@ -1223,6 +1232,12 @@ class ApiService {
               if (orden.prioridad && orden.prioridad !== prioridadAnterior) {
                 cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${orden.prioridad}`)
               }
+
+              const fotoNuevaRpc = (fullOrden as any)?.foto_url ?? null
+              const fotoChangedRpc = normFotoUrl(fotoUrlAnterior) !== normFotoUrl(fotoNuevaRpc)
+              if (fotoChangedRpc) {
+                cambios.push(normFotoUrl(fotoNuevaRpc) ? 'Portada actualizada' : 'Portada eliminada')
+              }
               
               // Registrar SIEMPRE si hay cambios relevantes (AUDITORÍA PROFESIONAL)
               if (cambios.length > 0) {
@@ -1270,6 +1285,9 @@ class ApiService {
                     nuevo: presupuestoEnEsperaNuevo
                   }
                 }
+                if (fotoChangedRpc) {
+                  cambiosDetallados.foto_url = { anterior: fotoUrlAnterior, nuevo: fotoNuevaRpc }
+                }
                 
                 // Determinar tipo de acción
                 let accionTipo = 'actualizacion'
@@ -1278,6 +1296,7 @@ class ApiService {
                 else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
                 else if (checklistChanged) accionTipo = 'checklist'
                 else if (motivosChanged) accionTipo = 'motivos'
+                else if (fotoChangedRpc) accionTipo = 'portada'
                 
                 await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo || orden.estado || null, comentario, accionTipo, cambiosDetallados)
               }
@@ -1299,12 +1318,16 @@ class ApiService {
       // Preparar el objeto para actualizar
       const ordenToUpdate = { ...orden }
 
-      // Solo eliminar foto_url si está vacío, null o undefined (pero NUNCA eliminarlo si tiene valor)
-      if (ordenToUpdate.foto_url && ordenToUpdate.foto_url.trim() !== '') {
-        // Mantener foto_url - es importante
-        console.log('📸 Foto URL presente en actualización:', ordenToUpdate.foto_url)
+      if ('foto_url' in ordenToUpdate) {
+        const rawF = ordenToUpdate.foto_url
+        const t = typeof rawF === 'string' ? rawF.trim() : rawF != null ? String(rawF).trim() : ''
+        if (t) {
+          ordenToUpdate.foto_url = t
+          console.log('📸 Foto URL presente en actualización:', ordenToUpdate.foto_url)
+        } else {
+          ;(ordenToUpdate as any).foto_url = null
+        }
       } else {
-        // Solo eliminar si realmente está vacío
         delete ordenToUpdate.foto_url
       }
       
@@ -1533,6 +1556,12 @@ class ApiService {
       pushBool('Presupuesto enviado', presupuestoEnviadoAnterior, presupuestoEnviadoNuevo)
       pushBool('Presupuesto armado', presupuestoArmadoAnterior, presupuestoArmadoNuevo)
       pushBool('Presupuesto en espera', presupuestoEnEsperaAnterior, presupuestoEnEsperaNuevo)
+
+      const fotoNuevaData = (data as any)?.foto_url ?? null
+      const fotoChangedData = normFotoUrl(fotoUrlAnterior) !== normFotoUrl(fotoNuevaData)
+      if (fotoChangedData) {
+        cambios.push(normFotoUrl(fotoNuevaData) ? 'Portada actualizada' : 'Portada eliminada')
+      }
       
       // Registrar SIEMPRE si hay cambios relevantes (AUDITORÍA PROFESIONAL)
       if (cambios.length > 0) {
@@ -1577,6 +1606,9 @@ class ApiService {
             nuevo: presupuestoEnEsperaNuevo
           }
         }
+        if (fotoChangedData) {
+          cambiosDetallados.foto_url = { anterior: fotoUrlAnterior, nuevo: fotoNuevaData }
+        }
         
         // Determinar tipo de acción
         let accionTipo = 'actualizacion'
@@ -1585,6 +1617,7 @@ class ApiService {
         else if (sectorAnterior !== sectorNuevo) accionTipo = 'cambio_sector'
         else if (checklistChanged) accionTipo = 'checklist'
         else if (motivosChanged) accionTipo = 'motivos'
+        else if (fotoChangedData) accionTipo = 'portada'
         
         await this.registrarCambioHistorial(id, estadoAnterior, estadoNuevo, comentario, accionTipo, cambiosDetallados)
       }
