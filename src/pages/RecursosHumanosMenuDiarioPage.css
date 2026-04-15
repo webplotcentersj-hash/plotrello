@@ -176,6 +176,59 @@
   flex-wrap: wrap;
 }
 
+.rrhh-menu-history {
+  margin-top: 22px;
+  padding: 18px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.rrhh-menu-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rrhh-menu-history-head h2 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.rrhh-menu-history-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  margin-bottom: 12px;
+}
+
+.rrhh-menu-history-loading,
+.rrhh-menu-history-empty {
+  color: var(--text-secondary);
+  padding: 10px 0;
+}
+
+.rrhh-menu-history-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rrhh-menu-history-table .rrhh-menu-history-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rrhh-menu-history-actions--modal {
+  margin-top: 14px;
+}
+
 .rrhh-empty-state {
   text-align: center;
   padding: 40px;

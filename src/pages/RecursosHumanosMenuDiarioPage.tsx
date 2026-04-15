@@ -14,9 +14,14 @@ const RecursosHumanosMenuDiarioPage = () => {
   const [loading, setLoading] = useState(true)
   const [menuHoy, setMenuHoy] = useState<MenuDiario | null>(null)
   const [selecciones, setSelecciones] = useState<MenuSeleccion[]>([])
+  const [menuSeleccionado, setMenuSeleccionado] = useState<MenuDiario | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [showSelecciones, setShowSelecciones] = useState(false)
   const [platos, setPlatos] = useState<string[]>([''])
+  const [menusHistorial, setMenusHistorial] = useState<MenuDiario[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialError, setHistorialError] = useState<string | null>(null)
+  const [showHistorialDetalle, setShowHistorialDetalle] = useState(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -25,6 +30,7 @@ const RecursosHumanosMenuDiarioPage = () => {
       return
     }
     loadMenuHoy()
+    void loadHistorialMenus()
   }, [canManageRecursosHumanos, navigate, authLoading])
 
   const loadMenuHoy = async () => {
@@ -50,10 +56,31 @@ const RecursosHumanosMenuDiarioPage = () => {
   }
 
   const loadSelecciones = async () => {
-    if (!menuHoy) return
-    const response = await apiService.obtenerSeleccionesMenu(menuHoy.id)
+    const m = menuSeleccionado ?? menuHoy
+    if (!m) return
+    const response = await apiService.obtenerSeleccionesMenu(m.id)
     if (response.success && response.data) {
       setSelecciones(response.data)
+    }
+  }
+
+  const loadHistorialMenus = async () => {
+    setHistorialLoading(true)
+    setHistorialError(null)
+    try {
+      const resp = await apiService.obtenerMenusDiarios(null, null)
+      if (resp.success && resp.data) {
+        const ordered = [...resp.data].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+        setMenusHistorial(ordered.slice(0, 30))
+      } else {
+        setMenusHistorial([])
+        setHistorialError(resp.error || 'No se pudo cargar el historial de menús')
+      }
+    } catch (e: any) {
+      setMenusHistorial([])
+      setHistorialError(e?.message || 'No se pudo cargar el historial de menús')
+    } finally {
+      setHistorialLoading(false)
     }
   }
 
@@ -115,10 +142,11 @@ const RecursosHumanosMenuDiarioPage = () => {
     setShowSelecciones(true)
   }
 
-  const handleDescargarPDF = async () => {
-    if (!menuHoy) return
+  const handleDescargarPDF = async (menu?: MenuDiario | null) => {
+    const m = menu ?? menuSeleccionado ?? menuHoy
+    if (!m) return
 
-    const selRes = await apiService.obtenerSeleccionesMenu(menuHoy.id)
+    const selRes = await apiService.obtenerSeleccionesMenu(m.id)
     const listaPdf =
       selRes.success && selRes.data ? selRes.data : []
     setSelecciones(listaPdf)
@@ -147,7 +175,7 @@ const RecursosHumanosMenuDiarioPage = () => {
     yPos += 10
 
     doc.setFontSize(11)
-    const fechaFormateada = formatArgentinaDate(menuHoy.fecha)
+    const fechaFormateada = formatArgentinaDate(m.fecha)
     doc.text(`Fecha: ${fechaFormateada}`, margin, yPos)
     yPos += 4
     doc.setFontSize(9)
@@ -166,7 +194,7 @@ const RecursosHumanosMenuDiarioPage = () => {
     yPos += 7
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    menuHoy.platos.forEach((plato, index) => {
+    m.platos.forEach((plato, index) => {
       nuevaPaginaSiHaceFalta(8)
       doc.text(`${index + 1}. ${plato.nombre_plato}`, margin + 4, yPos)
       yPos += 6
@@ -180,7 +208,7 @@ const RecursosHumanosMenuDiarioPage = () => {
     yPos += 8
     doc.setFont('helvetica', 'normal')
 
-    for (const plato of menuHoy.platos) {
+    for (const plato of m.platos) {
       const n = (porPlato.get(plato.id) ?? []).length
       nuevaPaginaSiHaceFalta(12)
       doc.setFontSize(11)
@@ -193,7 +221,7 @@ const RecursosHumanosMenuDiarioPage = () => {
       yPos += 10
     }
 
-    doc.save(`resumen-menu-${menuHoy.fecha}.pdf`)
+    doc.save(`resumen-menu-${m.fecha}.pdf`)
   }
 
   if (loading) {
@@ -248,7 +276,7 @@ const RecursosHumanosMenuDiarioPage = () => {
               <button className="btn-secondary" onClick={handleVerSelecciones}>
                 👥 Ver Selecciones ({menuHoy.total_selecciones || 0})
               </button>
-              <button className="btn-secondary" onClick={handleDescargarPDF}>
+              <button className="btn-secondary" onClick={() => void handleDescargarPDF(menuHoy)}>
                 📄 Descargar PDF
               </button>
             </div>
@@ -261,14 +289,113 @@ const RecursosHumanosMenuDiarioPage = () => {
             </button>
           </div>
         )}
+
+        {/* Historial de menús */}
+        <div className="rrhh-menu-history">
+          <div className="rrhh-menu-history-head">
+            <h2>📚 Historial de menús</h2>
+            <button className="btn-secondary" onClick={() => void loadHistorialMenus()} disabled={historialLoading}>
+              {historialLoading ? 'Actualizando…' : 'Actualizar'}
+            </button>
+          </div>
+          {historialError && <div className="rrhh-menu-history-error">⚠️ {historialError}</div>}
+          {historialLoading ? (
+            <div className="rrhh-menu-history-loading">Cargando…</div>
+          ) : menusHistorial.length === 0 ? (
+            <div className="rrhh-menu-history-empty">Aún no hay menús anteriores.</div>
+          ) : (
+            <div className="rrhh-menu-history-table-wrap">
+              <table className="rrhh-table rrhh-menu-history-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Platos</th>
+                    <th>Pedidos</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {menusHistorial.map((m) => (
+                    <tr key={m.id}>
+                      <td>{formatArgentinaDate(m.fecha)}</td>
+                      <td>{m.platos?.length ?? 0}</td>
+                      <td>{m.total_selecciones ?? 0}</td>
+                      <td>
+                        <div className="rrhh-menu-history-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => {
+                              setMenuSeleccionado(m)
+                              setShowHistorialDetalle(true)
+                            }}
+                          >
+                            Ver
+                          </button>
+                          <button type="button" className="btn-secondary" onClick={() => void handleDescargarPDF(m)}>
+                            PDF
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Modal: detalle de menú histórico */}
+      {showHistorialDetalle && menuSeleccionado && (
+        <div className="rrhh-modal-overlay" onClick={() => setShowHistorialDetalle(false)}>
+          <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rrhh-modal-header">
+              <h2>Menú — {formatArgentinaDate(menuSeleccionado.fecha)}</h2>
+              <button className="btn-close" onClick={() => setShowHistorialDetalle(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="rrhh-modal-body">
+              <div className="menu-platos-list">
+                {menuSeleccionado.platos?.length ? (
+                  menuSeleccionado.platos.map((plato, index) => (
+                    <div key={plato.id} className="menu-plato-item">
+                      <span className="plato-number">{index + 1}.</span>
+                      <span className="plato-name">{plato.nombre_plato}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p>No hay platos cargados</p>
+                )}
+              </div>
+              <div className="menu-stats">
+                <strong>Total Selecciones:</strong> {menuSeleccionado.total_selecciones || 0}
+              </div>
+              <div className="rrhh-menu-history-actions rrhh-menu-history-actions--modal">
+                <button className="btn-secondary" onClick={() => void handleDescargarPDF(menuSeleccionado)}>
+                  📄 Descargar PDF
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={async () => {
+                    await handleVerSelecciones()
+                  }}
+                >
+                  👥 Ver Selecciones
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de selecciones */}
       {showSelecciones && (
         <div className="rrhh-modal-overlay" onClick={() => setShowSelecciones(false)}>
           <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
             <div className="rrhh-modal-header">
-              <h2>Selecciones - {menuHoy && formatArgentinaDate(menuHoy.fecha)}</h2>
+              <h2>Selecciones - {(menuSeleccionado ?? menuHoy) && formatArgentinaDate((menuSeleccionado ?? menuHoy)!.fecha)}</h2>
               <button className="btn-close" onClick={() => setShowSelecciones(false)}>✕</button>
             </div>
             <div className="rrhh-modal-body">
