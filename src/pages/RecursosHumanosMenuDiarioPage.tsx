@@ -22,6 +22,15 @@ const RecursosHumanosMenuDiarioPage = () => {
   const [historialLoading, setHistorialLoading] = useState(false)
   const [historialError, setHistorialError] = useState<string | null>(null)
   const [showHistorialDetalle, setShowHistorialDetalle] = useState(false)
+  const [historialAbierto, setHistorialAbierto] = useState(false)
+  const [filtroMes, setFiltroMes] = useState<string>(() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    return `${y}-${m}`
+  })
+  const [filtroDesde, setFiltroDesde] = useState<string>('')
+  const [filtroHasta, setFiltroHasta] = useState<string>('')
 
   useEffect(() => {
     if (authLoading) return
@@ -30,7 +39,7 @@ const RecursosHumanosMenuDiarioPage = () => {
       return
     }
     loadMenuHoy()
-    void loadHistorialMenus()
+    // Historial inicia colapsado; se carga cuando se abre o cuando se ajustan filtros.
   }, [canManageRecursosHumanos, navigate, authLoading])
 
   const loadMenuHoy = async () => {
@@ -64,11 +73,11 @@ const RecursosHumanosMenuDiarioPage = () => {
     }
   }
 
-  const loadHistorialMenus = async () => {
+  const loadHistorialMenus = async (params?: { desde?: string | null; hasta?: string | null }) => {
     setHistorialLoading(true)
     setHistorialError(null)
     try {
-      const resp = await apiService.obtenerMenusDiarios(null, null)
+      const resp = await apiService.obtenerMenusDiarios(params?.desde ?? null, params?.hasta ?? null)
       if (resp.success && resp.data) {
         const ordered = [...resp.data].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
         setMenusHistorial(ordered.slice(0, 30))
@@ -83,6 +92,35 @@ const RecursosHumanosMenuDiarioPage = () => {
       setHistorialLoading(false)
     }
   }
+
+  const applyFiltrosHistorial = async () => {
+    const desde = filtroDesde.trim() || null
+    const hasta = filtroHasta.trim() || null
+    await loadHistorialMenus({ desde, hasta })
+  }
+
+  useEffect(() => {
+    // Si el usuario elige mes, proponemos rango (1..último día) y cargamos cuando el panel esté abierto.
+    if (!filtroMes) return
+    const [yyRaw, mmRaw] = filtroMes.split('-')
+    const yy = parseInt(yyRaw || '', 10)
+    const mm = parseInt(mmRaw || '', 10)
+    if (!Number.isFinite(yy) || !Number.isFinite(mm) || mm < 1 || mm > 12) return
+    const first = `${yy}-${String(mm).padStart(2, '0')}-01`
+    const lastDate = new Date(yy, mm, 0) // día 0 del mes siguiente => último del mes actual
+    const last = `${yy}-${String(mm).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`
+    setFiltroDesde(first)
+    setFiltroHasta(last)
+    if (historialAbierto) void loadHistorialMenus({ desde: first, hasta: last })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroMes])
+
+  useEffect(() => {
+    if (historialAbierto && menusHistorial.length === 0 && !historialLoading) {
+      void applyFiltrosHistorial()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historialAbierto])
 
   const handleNuevoMenu = () => {
     setPlatos([''])
@@ -292,55 +330,110 @@ const RecursosHumanosMenuDiarioPage = () => {
 
         {/* Historial de menús */}
         <div className="rrhh-menu-history">
-          <div className="rrhh-menu-history-head">
-            <h2>📚 Historial de menús</h2>
-            <button className="btn-secondary" onClick={() => void loadHistorialMenus()} disabled={historialLoading}>
-              {historialLoading ? 'Actualizando…' : 'Actualizar'}
-            </button>
-          </div>
-          {historialError && <div className="rrhh-menu-history-error">⚠️ {historialError}</div>}
-          {historialLoading ? (
-            <div className="rrhh-menu-history-loading">Cargando…</div>
-          ) : menusHistorial.length === 0 ? (
-            <div className="rrhh-menu-history-empty">Aún no hay menús anteriores.</div>
-          ) : (
-            <div className="rrhh-menu-history-table-wrap">
-              <table className="rrhh-table rrhh-menu-history-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Platos</th>
-                    <th>Pedidos</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {menusHistorial.map((m) => (
-                    <tr key={m.id}>
-                      <td>{formatArgentinaDate(m.fecha)}</td>
-                      <td>{m.platos?.length ?? 0}</td>
-                      <td>{m.total_selecciones ?? 0}</td>
-                      <td>
-                        <div className="rrhh-menu-history-actions">
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={() => {
-                              setMenuSeleccionado(m)
-                              setShowHistorialDetalle(true)
-                            }}
-                          >
-                            Ver
-                          </button>
-                          <button type="button" className="btn-secondary" onClick={() => void handleDescargarPDF(m)}>
-                            PDF
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <button
+            type="button"
+            className="rrhh-menu-history-toggle"
+            onClick={() => setHistorialAbierto((v) => !v)}
+            aria-expanded={historialAbierto}
+          >
+            <span className="rrhh-menu-history-toggle-title">📚 Historial de menús</span>
+            <span className="rrhh-menu-history-toggle-meta">
+              {menusHistorial.length} registros (máx 30)
+            </span>
+            <span className="rrhh-menu-history-chevron">{historialAbierto ? '▼' : '▶'}</span>
+          </button>
+
+          {historialAbierto && (
+            <div className="rrhh-menu-history-body">
+              <div className="rrhh-menu-history-filters">
+                <div className="rrhh-menu-history-filter">
+                  <label>Mes</label>
+                  <input
+                    type="month"
+                    value={filtroMes}
+                    onChange={(e) => setFiltroMes(e.target.value)}
+                  />
+                </div>
+                <div className="rrhh-menu-history-filter">
+                  <label>Desde</label>
+                  <input
+                    type="date"
+                    value={filtroDesde}
+                    onChange={(e) => setFiltroDesde(e.target.value)}
+                  />
+                </div>
+                <div className="rrhh-menu-history-filter">
+                  <label>Hasta</label>
+                  <input
+                    type="date"
+                    value={filtroHasta}
+                    onChange={(e) => setFiltroHasta(e.target.value)}
+                  />
+                </div>
+                <div className="rrhh-menu-history-filter rrhh-menu-history-filter-actions">
+                  <button className="btn-secondary" onClick={() => void applyFiltrosHistorial()} disabled={historialLoading}>
+                    {historialLoading ? 'Buscando…' : 'Aplicar'}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      const d = new Date()
+                      const y = d.getFullYear()
+                      const m = String(d.getMonth() + 1).padStart(2, '0')
+                      setFiltroMes(`${y}-${m}`)
+                    }}
+                    disabled={historialLoading}
+                  >
+                    Mes actual
+                  </button>
+                </div>
+              </div>
+
+              {historialError && <div className="rrhh-menu-history-error">⚠️ {historialError}</div>}
+              {historialLoading ? (
+                <div className="rrhh-menu-history-loading">Cargando…</div>
+              ) : menusHistorial.length === 0 ? (
+                <div className="rrhh-menu-history-empty">No hay menús para ese filtro.</div>
+              ) : (
+                <div className="rrhh-menu-history-table-wrap">
+                  <table className="rrhh-table rrhh-menu-history-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Platos</th>
+                        <th>Pedidos</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {menusHistorial.map((m) => (
+                        <tr key={m.id}>
+                          <td>{formatArgentinaDate(m.fecha)}</td>
+                          <td>{m.platos?.length ?? 0}</td>
+                          <td>{m.total_selecciones ?? 0}</td>
+                          <td>
+                            <div className="rrhh-menu-history-actions">
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => {
+                                  setMenuSeleccionado(m)
+                                  setShowHistorialDetalle(true)
+                                }}
+                              >
+                                Ver
+                              </button>
+                              <button type="button" className="btn-secondary" onClick={() => void handleDescargarPDF(m)}>
+                                PDF
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>

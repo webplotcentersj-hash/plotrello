@@ -184,18 +184,78 @@
   border-radius: 8px;
 }
 
-.rrhh-menu-history-head {
-  display: flex;
+.rrhh-menu-history-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: var(--text-primary);
+  text-align: left;
 }
 
-.rrhh-menu-history-head h2 {
-  margin: 0;
-  font-size: 20px;
+.rrhh-menu-history-toggle-title {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.rrhh-menu-history-toggle-meta {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.rrhh-menu-history-chevron {
+  color: var(--text-secondary);
+  font-weight: 900;
+}
+
+.rrhh-menu-history-body {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.rrhh-menu-history-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.rrhh-menu-history-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rrhh-menu-history-filter label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.rrhh-menu-history-filter input {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
+  font-family: inherit;
+}
+
+.rrhh-menu-history-filter-actions {
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.rrhh-menu-history-filter-actions .btn-secondary {
+  white-space: nowrap;
 }
 
 .rrhh-menu-history-error {
@@ -204,7 +264,6 @@
   border: 1px solid rgba(245, 158, 11, 0.35);
   background: rgba(245, 158, 11, 0.12);
   color: #fbbf24;
-  margin-bottom: 12px;
 }
 
 .rrhh-menu-history-loading,
@@ -227,6 +286,17 @@
 
 .rrhh-menu-history-actions--modal {
   margin-top: 14px;
+}
+
+@media (max-width: 980px) {
+  .rrhh-menu-history-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .rrhh-menu-history-filter-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    align-items: center;
+  }
 }
 
 .rrhh-empty-state {
