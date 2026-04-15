@@ -71,13 +71,13 @@ export function getSystemContext(
   activity: ActivityEvent[],
   teamMembers: TeamMember[]
 ): SystemContext {
-  const totalTasks = tasks.length
-  const completedTasks = tasks.filter((t) => t.status === 'almacen-entrega').length
-  const inProgressTasks = tasks.filter((t) => 
-    !['diseno-grafico', 'almacen-entrega'].includes(t.status)
-  ).length
+  // PlotAI: no contar OPs en "Almacén de Entrega" (estado final logístico)
+  const tasksForAI = tasks.filter((t) => t.status !== 'almacen-entrega')
+  const totalTasks = tasksForAI.length
+  const completedTasks = tasksForAI.filter((t) => t.status === 'finalizado-taller').length
+  const inProgressTasks = tasksForAI.filter((t) => !['diseno-grafico', 'finalizado-taller'].includes(t.status)).length
 
-  const statusDistribution = tasks.reduce((acc, task) => {
+  const statusDistribution = tasksForAI.reduce((acc, task) => {
     const column = BOARD_COLUMNS.find((col) => col.id === task.status)
     const label = column?.label || task.status
     acc[label] = (acc[label] || 0) + 1
@@ -85,7 +85,7 @@ export function getSystemContext(
   }, {} as Record<string, number>)
 
   const workloadByMember = teamMembers.map((member) => {
-    const memberTasks = tasks.filter((task) => task.ownerId === member.id)
+    const memberTasks = tasksForAI.filter((task) => task.ownerId === member.id)
     return {
       name: member.name,
       taskCount: memberTasks.length,

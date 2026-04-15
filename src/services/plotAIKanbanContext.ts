@@ -217,9 +217,12 @@ export function formatKanbanDetailedContext(
     .slice(0, 5)
 
   // Tareas críticas (urgentes + atrasadas)
-  const criticalTasks = tasks.filter((t) => {
+  // PlotAI: excluir Almacén de Entrega de conteos/resúmenes
+  const tasksForAI = tasks.filter((t) => t.status !== 'almacen-entrega')
+
+  const criticalTasks = tasksForAI.filter((t) => {
     const isUrgent = t.priority === 'alta'
-    const isFinalizado = t.status === 'finalizado-taller' || t.status === 'almacen-entrega'
+    const isFinalizado = t.status === 'finalizado-taller'
     const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && !isFinalizado
     return isUrgent || isOverdue
   })
@@ -234,10 +237,10 @@ REGLA ANTI-ALUCINACIÓN:
 - Los totales del bloque "CONTEXTO COMPLETO DEL SISTEMA" son agregados; para una OP concreta usá solo filas del índice / foco / detalle.
 
 RESUMEN GENERAL:
-- Total de OPs en el sistema: ${tasks.length}
+- Total de OPs en el sistema: ${tasksForAI.length}
 - OPs críticas (urgentes o atrasadas): ${criticalTasks.length}
-- OPs finalizadas: ${tasks.filter((t) => t.status === 'finalizado-taller' || t.status === 'almacen-entrega').length}
-- OPs en proceso: ${tasks.filter((t) => t.status !== 'finalizado-taller' && t.status !== 'almacen-entrega').length}
+- OPs finalizadas: ${tasksForAI.filter((t) => t.status === 'finalizado-taller').length}
+- OPs en proceso: ${tasksForAI.filter((t) => t.status !== 'finalizado-taller').length}
 
 `
 
@@ -319,7 +322,7 @@ RESUMEN GENERAL:
 
   // Distribución por operario
   const tasksByOperator: Record<string, Task[]> = {}
-  tasks.forEach((task) => {
+  tasksForAI.forEach((task) => {
     const operator = task.ownerId || 'Sin asignar'
     if (!tasksByOperator[operator]) {
       tasksByOperator[operator] = []
