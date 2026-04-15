@@ -160,25 +160,29 @@ const SatisfaccionClientePublicPage = () => {
 
   return (
     <div className="sat-cliente-page">
+      <div className="sat-cliente-bg-aurora" aria-hidden />
       <div className="sat-cliente-inner">
         <header className="sat-cliente-header">
+          <p className="sat-cliente-kicker">Tu voz importa</p>
           <h1>¿Cómo te fue con Plot Center?</h1>
           <p className="sat-cliente-lead">
-            Tu opinión nos ayuda a mejorar. Es anónima y solo se usa de forma agregada en nuestro equipo de atención al público.
+            Valoramos tu tiempo: es anónimo, rápido y nos ayuda a mejorar el servicio en San Juan.
           </p>
         </header>
 
         <form className="sat-cliente-form" onSubmit={handleSubmit}>
           <section className="sat-cliente-block" aria-labelledby="sat-rating-title">
             <h2 id="sat-rating-title" className="sat-cliente-block-title">
-              Calificación
+              ¿Cómo calificarías la atención?
             </h2>
+            <p className="sat-cliente-block-sub">Tocá el emoji que mejor refleje tu experiencia</p>
             <div className="sat-cliente-emojis" role="group" aria-label="Calificación con emojis">
-              {RATINGS.map((r) => (
+              {RATINGS.map((r, idx) => (
                 <button
                   key={r.value}
                   type="button"
                   className={`sat-cliente-emoji-btn ${rating === r.value ? 'selected' : ''}`}
+                  style={{ animationDelay: `${idx * 0.12}s` }}
                   onClick={() => {
                     setRating(r.value)
                     setError(null)
@@ -187,6 +191,7 @@ const SatisfaccionClientePublicPage = () => {
                   aria-pressed={rating === r.value}
                   aria-label={`${r.label}, ${r.value} de 5`}
                 >
+                  <span className="sat-cliente-emoji-glow" aria-hidden />
                   <span className="sat-cliente-emoji-face" aria-hidden>
                     {r.emoji}
                   </span>

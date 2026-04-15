@@ -148,14 +148,14 @@ const AtencionSatisfaccionPanel = ({ active }: Props) => {
 
   const mapZoom = rows.length === 0 ? 8 : rows.length < 4 ? FLOTA_MAP_ZOOM_CIUDAD : 9
 
+  const filasConComentario = useMemo(
+    () => rows.filter((r) => r.comentario && String(r.comentario).trim().length > 0),
+    [rows]
+  )
+
   return (
     <div className="atencion-sat-panel">
       <div className="atencion-sat-toolbar">
-        <p className="atencion-sat-hint">
-          Respuestas de la página pública <strong>/satisfaccion-cliente</strong>. Podés compartir enlaces con zona precargada, por ejemplo{' '}
-          <code className="atencion-sat-code">?depto=capital&amp;distrito=Trinidad</code> (slug de departamento + nombre exacto de localidad).
-          Ubicación en mapa aproximada según esos datos.
-        </p>
         <button type="button" className="atencion-sat-refresh" onClick={() => void load()} disabled={loading}>
           {loading ? 'Actualizando…' : 'Actualizar'}
         </button>
@@ -257,6 +257,30 @@ const AtencionSatisfaccionPanel = ({ active }: Props) => {
             </div>
           </div>
 
+          {filasConComentario.length > 0 && (
+            <div className="atencion-sat-comentarios">
+              <h3>Comentarios de clientes ({filasConComentario.length})</h3>
+              <ul className="atencion-sat-comentarios-list">
+                {filasConComentario.slice(0, 40).map((r) => (
+                  <li key={r.id} className="atencion-sat-comentario-card">
+                    <div className="atencion-sat-comentario-meta">
+                      <span className="atencion-sat-comentario-nota">
+                        {emojiRating(r.rating)} {r.rating}/5
+                      </span>
+                      <span className="atencion-sat-comentario-ubic">
+                        {r.departamento} · {r.distrito}
+                      </span>
+                      <time className="atencion-sat-comentario-fecha" dateTime={r.created_at}>
+                        {new Date(r.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+                      </time>
+                    </div>
+                    <p className="atencion-sat-comentario-texto">{r.comentario}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="atencion-sat-map-wrap">
             <h3>Mapa · San Juan (aprox.)</h3>
             <div className="atencion-sat-map-inner">
@@ -308,6 +332,7 @@ const AtencionSatisfaccionPanel = ({ active }: Props) => {
                     <th>Distrito</th>
                     <th>Edad</th>
                     <th>Sexo</th>
+                    <th>Comentario</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -321,6 +346,9 @@ const AtencionSatisfaccionPanel = ({ active }: Props) => {
                       <td>{r.distrito}</td>
                       <td>{r.edad}</td>
                       <td>{sexoLabel(r.sexo)}</td>
+                      <td className="atencion-sat-td-comentario" title={r.comentario || undefined}>
+                        {r.comentario ? r.comentario : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

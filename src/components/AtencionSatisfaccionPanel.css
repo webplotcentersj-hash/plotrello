@@ -5,27 +5,75 @@
 .atencion-sat-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-end;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-.atencion-sat-hint {
-  margin: 0;
-  max-width: 52rem;
-  color: #94a3b8;
-  font-size: 0.9rem;
-  line-height: 1.45;
+.atencion-sat-comentarios {
+  margin-bottom: 1.25rem;
 }
 
-.atencion-sat-code {
-  font-size: 0.78rem;
+.atencion-sat-comentarios h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
   color: #e2e8f0;
-  background: rgba(15, 23, 42, 0.9);
-  padding: 0.12rem 0.35rem;
-  border-radius: 6px;
-  word-break: break-all;
+}
+
+.atencion-sat-comentarios-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.atencion-sat-comentario-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+}
+
+.atencion-sat-comentario-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-bottom: 0.4rem;
+}
+
+.atencion-sat-comentario-nota {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.atencion-sat-comentario-fecha {
+  margin-left: auto;
+  color: #64748b;
+}
+
+.atencion-sat-comentario-texto {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #f1f5f9;
+  white-space: pre-wrap;
+}
+
+.atencion-sat-td-comentario {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.78rem;
+  color: #cbd5e1;
 }
 
 .atencion-sat-refresh {

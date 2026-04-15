@@ -5888,6 +5888,9 @@ class ApiService {
           query = query.eq('prioridad', filters.prioridad)
         }
 
+        // PostgREST/Supabase suele devolver como máximo 1000 filas por defecto; pedidos de compra deben listarse completos.
+        query = query.limit(10000)
+
         const { data, error } = await query
 
         if (error) {

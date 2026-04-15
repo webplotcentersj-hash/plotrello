@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoCompra } from '../types/pedidos'
@@ -8,10 +8,13 @@ import './ComprasDashboardPage.css'
 
 const ComprasDashboardPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
-  const [filtroEstado, setFiltroEstado] = useState<string>('todos')
+  const [filtroEstado, setFiltroEstado] = useState<string>(() =>
+    location.pathname === '/compras/pedidos' ? 'Pendiente' : 'todos'
+  )
   const [datosGraficos, setDatosGraficos] = useState({
     pedidosPorEstado: [] as Array<{ name: string; value: number; color: string }>,
     pedidosPorDia: [] as Array<{ fecha: string; pendientes: number; aprobados: number; completados: number }>,
@@ -521,14 +524,19 @@ const ComprasDashboardPage = () => {
 
       {/* Lista de Pedidos */}
       <section className="pedidos-section">
-        <h2>Pedidos Recientes</h2>
+        <h2>
+          {filtroEstado === 'Pendiente' ? 'Pedidos pendientes' : 'Pedidos'}
+          {pedidos.length > 0 ? (
+            <span className="pedidos-section-count"> ({pedidos.length})</span>
+          ) : null}
+        </h2>
         {pedidos.length === 0 ? (
           <div className="empty-state">
             <p>No hay pedidos para mostrar</p>
           </div>
         ) : (
           <div className="pedidos-list">
-            {pedidos.slice(0, 10).map((pedido) => (
+            {pedidos.map((pedido) => (
               <div
                 key={pedido.id}
                 className="pedido-card"

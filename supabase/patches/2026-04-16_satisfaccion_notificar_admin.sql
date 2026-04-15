@@ -1,39 +1,5 @@
--- Encuestas de satisfacción del cliente (página pública) + panel Atención al público.
--- Insert vía RPC SECURITY DEFINER (anon puede ejecutar). Lectura solo usuarios autenticados (RLS).
-
-CREATE TABLE IF NOT EXISTS public.atencion_satisfaccion_encuestas (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  rating smallint NOT NULL CHECK (rating >= 1 AND rating <= 5),
-  departamento text NOT NULL,
-  distrito text NOT NULL,
-  edad smallint NOT NULL CHECK (edad >= 12 AND edad <= 110),
-  sexo text NOT NULL CHECK (sexo IN ('f', 'm', 'x', 'prefiero_no_decir')),
-  lat double precision NOT NULL CHECK (lat >= -90 AND lat <= 90),
-  lng double precision NOT NULL CHECK (lng >= -180 AND lng <= 180),
-  comentario varchar(600),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_atencion_satisfaccion_created_at
-  ON public.atencion_satisfaccion_encuestas (created_at DESC);
-
-ALTER TABLE public.atencion_satisfaccion_encuestas ENABLE ROW LEVEL SECURITY;
-
--- La app usa la anon key con sesión propia (localStorage), no JWT de Supabase Auth:
--- el rol efectivo en el cliente es `anon`. Misma idea que otras tablas internas leídas desde el panel.
-DROP POLICY IF EXISTS "atencion_satisfaccion_select_authenticated"
-  ON public.atencion_satisfaccion_encuestas;
-
-DROP POLICY IF EXISTS "atencion_satisfaccion_select_anon_authenticated"
-  ON public.atencion_satisfaccion_encuestas;
-
-CREATE POLICY "atencion_satisfaccion_select_anon_authenticated"
-  ON public.atencion_satisfaccion_encuestas
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
-COMMENT ON TABLE public.atencion_satisfaccion_encuestas IS 'Respuestas de encuesta pública de satisfacción; insert solo por RPC público.';
+-- Reemplaza registrar_encuesta_satisfaccion_public: tras guardar la encuesta,
+-- notifica a usuarios con rol administracion o gerencia (descripción incluye comentario si lo hubo).
 
 CREATE OR REPLACE FUNCTION public.registrar_encuesta_satisfaccion_public(
   p_rating smallint,
@@ -55,6 +21,8 @@ DECLARE
   v_dep text;
   v_dis text;
   v_com text;
+  v_desc text;
+  u record;
 BEGIN
   IF p_rating IS NULL OR p_rating < 1 OR p_rating > 5 THEN
     RAISE EXCEPTION 'rating inválido';
@@ -90,11 +58,52 @@ BEGIN
   )
   RETURNING id INTO v_id;
 
+  v_desc :=
+    format(
+      'Calificación %s/5 · %s · %s · edad %s · sexo %s.',
+      p_rating::text,
+      v_dep,
+      v_dis,
+      p_edad::text,
+      p_sexo
+    );
+  IF v_com IS NOT NULL THEN
+    v_desc := v_desc || E'\n\nComentario del cliente:\n' || left(v_com, 2000);
+  END IF;
+
+  BEGIN
+    FOR u IN
+      SELECT id
+      FROM public.usuarios
+      WHERE rol IN ('administracion', 'gerencia')
+    LOOP
+      BEGIN
+        INSERT INTO public.user_notifications (
+          user_id,
+          title,
+          description,
+          type,
+          is_read
+        ) VALUES (
+          u.id,
+          'Encuesta de satisfacción',
+          v_desc,
+          'info',
+          false
+        );
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE WARNING 'notif satisfacción usuario %: %', u.id, SQLERRM;
+      END;
+    END LOOP;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RAISE WARNING 'notif satisfacción: %', SQLERRM;
+  END;
+
   RETURN json_build_object('id', v_id);
 END;
 $$;
 
 REVOKE ALL ON FUNCTION public.registrar_encuesta_satisfaccion_public(smallint, text, text, smallint, text, double precision, double precision, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.registrar_encuesta_satisfaccion_public(smallint, text, text, smallint, text, double precision, double precision, text) TO anon, authenticated;
-
-GRANT SELECT ON TABLE public.atencion_satisfaccion_encuestas TO anon, authenticated;

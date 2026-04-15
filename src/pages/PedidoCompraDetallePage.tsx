@@ -40,6 +40,13 @@ const PedidoCompraDetallePage = () => {
     }
   }, [id, canManageCompras, navigate, authLoading])
 
+  /** Si estaba en Pendiente y pasa a otro estado, sale de la cola /compras/pedidos → dashboard. */
+  const navigateIfDejoPendiente = (estadoAnterior: string | undefined) => {
+    if (estadoAnterior === 'Pendiente') {
+      navigate('/compras/dashboard', { replace: true })
+    }
+  }
+
   const loadPedido = async () => {
     setLoading(true)
     try {
@@ -100,6 +107,7 @@ const PedidoCompraDetallePage = () => {
   const handleAprobar = async () => {
     if (!pedido || !usuario) return
 
+    const estadoAntes = pedido.estado
     setSaving(true)
     try {
       const itemsAprobados = pedido.items?.map(item => ({
@@ -114,7 +122,10 @@ const PedidoCompraDetallePage = () => {
 
       if (response.success) {
         setMostrarAprobacion(false)
-        loadPedido()
+        navigateIfDejoPendiente(estadoAntes)
+        if (estadoAntes !== 'Pendiente') {
+          loadPedido()
+        }
       } else {
         alert(`Error: ${response.error}`)
       }
@@ -132,6 +143,7 @@ const PedidoCompraDetallePage = () => {
       return
     }
 
+    const estadoAntes = pedido.estado
     setSaving(true)
     try {
       const response = await apiService.rechazarPedidoCompra(pedido.id, {
@@ -142,7 +154,10 @@ const PedidoCompraDetallePage = () => {
       if (response.success) {
         setMostrarRechazo(false)
         setMotivoRechazo('')
-        loadPedido()
+        navigateIfDejoPendiente(estadoAntes)
+        if (estadoAntes !== 'Pendiente') {
+          loadPedido()
+        }
       } else {
         alert(`Error: ${response.error}`)
       }
@@ -161,11 +176,16 @@ const PedidoCompraDetallePage = () => {
       return
     }
 
+    const estadoAntes = pedido.estado
     setSaving(true)
     try {
       const response = await apiService.actualizarEstadoPedido(pedido.id, nuevoEstado as any)
       if (response.success) {
-        loadPedido()
+        if (estadoAntes === 'Pendiente' && nuevoEstado !== 'Pendiente') {
+          navigateIfDejoPendiente(estadoAntes)
+        } else {
+          loadPedido()
+        }
       } else {
         alert(`Error: ${response.error}`)
       }
