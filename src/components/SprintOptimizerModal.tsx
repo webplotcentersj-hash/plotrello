@@ -387,9 +387,9 @@ const SprintOptimizerModal = ({
                 <div className="report-error">
                   <p>❌ {reportError}</p>
                   <p className="error-hint">
-                    Por favor, configura tu API key de Gemini en un archivo .env:
+                    Por favor, configura tu API key de Gemini en Vercel (server) o en un archivo .env:
                     <br />
-                    <code>VITE_GEMINI_API_KEY=tu_api_key_aqui</code>
+                    <code>GEMINI_API_KEY=tu_api_key_aqui</code>
                   </p>
                 </div>
               ) : (

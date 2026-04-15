@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import './AtencionPublicoDashboardPage.css'
+import AtencionSatisfaccionPanel from '../components/AtencionSatisfaccionPanel'
 
 const REFRESH_INTERVAL_MS = 25000
 
@@ -116,7 +117,16 @@ const AtencionPublicoDashboardPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { canAccessAtencionPublico, usuario } = useAuth()
-  const [activeTab, setActiveTab] = useState<'mensajes' | 'reclamos'>('mensajes')
+  const [activeTab, setActiveTab] = useState<'mensajes' | 'reclamos' | 'satisfaccion'>(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab')
+      if (t === 'reclamos') return 'reclamos'
+      if (t === 'satisfaccion') return 'satisfaccion'
+    } catch {
+      /* ignore */
+    }
+    return 'mensajes'
+  })
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
   const [reclamos, setReclamos] = useState<Reclamo[]>([])
   const [loadingConv, setLoadingConv] = useState(false)
@@ -267,6 +277,8 @@ const AtencionPublicoDashboardPage = () => {
     const tab = searchParams.get('tab')
     if (tab === 'reclamos') {
       setActiveTab('reclamos')
+    } else if (tab === 'satisfaccion') {
+      setActiveTab('satisfaccion')
     }
     if (sid) {
       const id = parseInt(sid, 10)
@@ -437,7 +449,7 @@ const AtencionPublicoDashboardPage = () => {
             <div>
               <h1>Atención al público</h1>
               <p className="atencion-publico-subtitle">
-                Conversaciones del chat web, solicitudes de contacto y reclamos.
+                Conversaciones del chat web, solicitudes de contacto, reclamos y encuestas de satisfacción.
               </p>
             </div>
           </div>
@@ -571,16 +583,41 @@ const AtencionPublicoDashboardPage = () => {
             <button
               type="button"
               className={`atencion-publico-tab ${activeTab === 'mensajes' ? 'active' : ''}`}
-              onClick={() => setActiveTab('mensajes')}
+              onClick={() => {
+                setActiveTab('mensajes')
+                setSearchParams((p) => {
+                  p.delete('tab')
+                  return p
+                })
+              }}
             >
               💬 Mensajes y conversaciones
             </button>
             <button
               type="button"
               className={`atencion-publico-tab ${activeTab === 'reclamos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('reclamos')}
+              onClick={() => {
+                setActiveTab('reclamos')
+                setSearchParams((p) => {
+                  p.set('tab', 'reclamos')
+                  return p
+                })
+              }}
             >
               📋 Estado de reclamos
+            </button>
+            <button
+              type="button"
+              className={`atencion-publico-tab ${activeTab === 'satisfaccion' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('satisfaccion')
+                setSearchParams((p) => {
+                  p.set('tab', 'satisfaccion')
+                  return p
+                })
+              }}
+            >
+              ⭐ Satisfacción cliente
             </button>
           </div>
 
@@ -712,6 +749,12 @@ const AtencionPublicoDashboardPage = () => {
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {activeTab === 'satisfaccion' && (
+            <div className="atencion-publico-content atencion-publico-reclamos-dark">
+              <AtencionSatisfaccionPanel active />
             </div>
           )}
 

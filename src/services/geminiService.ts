@@ -1,12 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Task, TeamMember } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
-
-// La API key se puede configurar como variable de entorno
-// Por ahora usaremos una variable de entorno o un valor por defecto
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
-
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null
 
 export interface SprintAnalysisData {
   tasks: Task[]
@@ -38,15 +31,48 @@ export interface SprintAnalysisData {
 }
 
 export async function generateSprintReport(analysisData: SprintAnalysisData): Promise<string> {
-  if (!genAI) {
-    throw new Error('Gemini API key no configurada. Por favor, configura VITE_GEMINI_API_KEY en tu archivo .env')
+  // En producción, generamos el informe desde el servidor (Vercel /api) para no exponer API keys en el navegador.
+  // Nota: en dev con `vite`, las rutas `/api/*` no existen y devuelve 404 (ahí hacemos fallback al modo cliente).
+  try {
+    const resp = await fetch('/api/plotai/sprint-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        analysisData: {
+          ...analysisData,
+          columns: BOARD_COLUMNS
+        }
+      })
+    })
+
+    if (resp.status !== 404) {
+      const json = (await resp.json().catch(() => ({}))) as { report?: string; error?: string }
+      if (!resp.ok) throw new Error(json.error || 'Error al generar el informe con IA.')
+      const report = (json.report || '').trim()
+      if (!report) throw new Error('La IA no devolvió contenido para el informe.')
+      return report
+    }
+  } catch {
+    // continue to fallback below
   }
 
+  const key = (import.meta as any)?.env?.VITE_GEMINI_API_KEY || ''
+  if (!key) {
+    throw new Error(
+      'No se pudo generar el informe. En producción configurá GEMINI_API_KEY en el servidor. En desarrollo, usá `vercel dev` o configurá VITE_GEMINI_API_KEY.'
+    )
+  }
+
+  const { GoogleGenerativeAI } = await import('@google/generative-ai')
+  const genAI = new GoogleGenerativeAI(key)
   const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
 
-  // Preparar datos para el prompt
+  // Mantener el prompt del modo cliente para desarrollo local.
   const workloadSummary = analysisData.workloadByPerson
-    .map((w) => `- ${w.member.name}: ${w.taskCount} tareas, ${w.highPriorityCount} alta prioridad, ${Math.round(w.avgProgress)}% progreso promedio, carga: ${Math.round(w.workload)} pts`)
+    .map(
+      (w) =>
+        `- ${w.member.name}: ${w.taskCount} tareas, ${w.highPriorityCount} alta prioridad, ${Math.round(w.avgProgress)}% progreso promedio, carga: ${Math.round(w.workload)} pts`
+    )
     .join('\n')
 
   const bottlenecks = analysisData.bottlenecksByColumn
@@ -58,15 +84,11 @@ export async function generateSprintReport(analysisData: SprintAnalysisData): Pr
     .map((t) => `- ${t.title} (OP: ${t.opNumber}): bloqueada desde ${new Date(t.updatedAt).toLocaleDateString('es-AR')}`)
     .join('\n')
 
-  const suggestionsSummary = analysisData.suggestions
-    .map((s, i) => `${i + 1}. ${s.type}: ${s.taskTitle} - ${s.reason}`)
-    .join('\n')
+  const suggestionsSummary = analysisData.suggestions.map((s, i) => `${i + 1}. ${s.type}: ${s.taskTitle} - ${s.reason}`).join('\n')
 
   const totalTasks = analysisData.tasks.length
   const completedTasks = analysisData.tasks.filter((t) => t.status === 'almacen-entrega').length
-  const inProgressTasks = analysisData.tasks.filter((t) => 
-    !['diseno-grafico', 'almacen-entrega'].includes(t.status)
-  ).length
+  const inProgressTasks = analysisData.tasks.filter((t) => !['diseno-grafico', 'almacen-entrega'].includes(t.status)).length
 
   const prompt = `Eres un experto en gestión de proyectos y análisis de sprints. Analiza los siguientes datos de un sprint de producción gráfica e imprenta y genera un informe detallado y profesional en español.
 
@@ -98,44 +120,17 @@ ${BOARD_COLUMNS.map((col) => {
 }).join('\n')}
 
 Por favor, genera un informe detallado que incluya:
-
-1. RESUMEN EJECUTIVO: Un resumen general del estado del sprint (2-3 párrafos)
-
-2. ANÁLISIS DE CARGA DE TRABAJO: 
-   - Identifica desequilibrios en la distribución de trabajo
-   - Señala personas sobrecargadas o subutilizadas
-   - Recomendaciones específicas para balancear la carga
-
-3. ANÁLISIS DE FLUJO:
-   - Identifica cuellos de botella en el proceso
-   - Analiza el tiempo promedio en cada etapa
-   - Sugiere mejoras en el flujo de trabajo
-
-4. RIESGOS Y BLOQUEOS:
-   - Lista tareas bloqueadas y su impacto
-   - Identifica riesgos potenciales (fechas de entrega, recursos, etc.)
-   - Prioriza acciones para desbloquear tareas
-
-5. RECOMENDACIONES ESTRATÉGICAS:
-   - Acciones inmediatas (esta semana)
-   - Mejoras a mediano plazo (este mes)
-   - Optimizaciones a largo plazo
-
-6. MÉTRICAS CLAVE:
-   - Tasa de completitud
-   - Velocidad del equipo
-   - Tiempo promedio de ciclo
-   - Eficiencia por etapa
+1. RESUMEN EJECUTIVO
+2. ANÁLISIS DE CARGA DE TRABAJO
+3. ANÁLISIS DE FLUJO
+4. RIESGOS Y BLOQUEOS
+5. RECOMENDACIONES ESTRATÉGICAS
+6. MÉTRICAS CLAVE
 
 El informe debe ser profesional, claro, accionable y específico para el contexto de producción gráfica e imprenta. Usa formato markdown para mejor legibilidad.`
 
-  try {
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    return response.text()
-  } catch (error) {
-    console.error('Error generando informe con Gemini:', error)
-    throw new Error('Error al generar el informe. Por favor, verifica tu API key de Gemini.')
-  }
+  const result = await model.generateContent(prompt)
+  const response = await result.response
+  return response.text()
 }
 

@@ -1,0 +1,232 @@
+.sat-cliente-page {
+  min-height: 100vh;
+  background: radial-gradient(1200px 800px at 50% -10%, #1e3a5f 0%, #0f172a 45%, #020617 100%);
+  color: #e2e8f0;
+  padding: 2rem 1rem 3rem;
+  box-sizing: border-box;
+}
+
+.sat-cliente-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.sat-cliente-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sat-cliente-lead {
+  margin: 0 0 1.75rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  font-size: 1rem;
+}
+
+.sat-cliente-form {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 1.5rem 1.25rem 1.75rem;
+  backdrop-filter: blur(8px);
+}
+
+.sat-cliente-block {
+  margin-bottom: 1.5rem;
+}
+
+.sat-cliente-block-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.sat-cliente-precarga-hint {
+  margin: -0.35rem 0 0.85rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #bae6fd;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 10px;
+}
+
+.sat-cliente-emojis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+}
+
+.sat-cliente-emoji-btn {
+  flex: 1 1 calc(20% - 0.5rem);
+  min-width: 92px;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 14px;
+  border: 2px solid rgba(148, 163, 184, 0.25);
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.12s, background 0.15s;
+  padding: 0.5rem;
+}
+
+.sat-cliente-emoji-btn:hover {
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+}
+
+.sat-cliente-emoji-btn.selected {
+  border-color: #22d3ee;
+  background: rgba(8, 47, 73, 0.95);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35);
+}
+
+.sat-cliente-emoji-face {
+  font-size: clamp(2.5rem, 8vw, 3.25rem);
+  line-height: 1;
+}
+
+.sat-cliente-emoji-label {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.sat-cliente-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .sat-cliente-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sat-cliente-emojis {
+    justify-content: center;
+  }
+
+  .sat-cliente-emoji-btn {
+    flex: 1 1 45%;
+    min-width: 120px;
+  }
+}
+
+.sat-cliente-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sat-cliente-field > span,
+.sat-cliente-field legend {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.sat-cliente-field select,
+.sat-cliente-field input[type='number'],
+.sat-cliente-field textarea {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 0.65rem 0.75rem;
+  font-size: 1rem;
+  color-scheme: dark;
+}
+
+.sat-cliente-field textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.sat-cliente-field-full {
+  grid-column: 1 / -1;
+}
+
+.sat-cliente-sexo {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sat-cliente-sexo-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.25rem;
+}
+
+.sat-cliente-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.sat-cliente-radio input {
+  accent-color: #22d3ee;
+}
+
+.sat-cliente-alert {
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.sat-cliente-alert--error {
+  background: rgba(127, 29, 29, 0.35);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+}
+
+.sat-cliente-alert--ok {
+  background: rgba(20, 83, 45, 0.35);
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  color: #bbf7d0;
+}
+
+.sat-cliente-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sat-cliente-submit {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.85rem 1.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sat-cliente-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.sat-cliente-footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #64748b;
+}

@@ -3498,6 +3498,78 @@ class ApiService {
     }
   }
 
+  async registrarEncuestaSatisfaccionPublic(payload: {
+    rating: number
+    departamento: string
+    distrito: string
+    edad: number
+    sexo: 'f' | 'm' | 'x' | 'prefiero_no_decir'
+    lat: number
+    lng: number
+    comentario?: string | null
+  }): Promise<ApiResponse<{ id: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('registrar_encuesta_satisfaccion_public', {
+        p_rating: payload.rating,
+        p_departamento: payload.departamento,
+        p_distrito: payload.distrito,
+        p_edad: payload.edad,
+        p_sexo: payload.sexo,
+        p_lat: payload.lat,
+        p_lng: payload.lng,
+        p_comentario: payload.comentario ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      const raw = data as { id?: number } | string | null
+      const parsed =
+        typeof raw === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(raw) as { id?: number }
+              } catch {
+                return null
+              }
+            })()
+          : raw
+      const id = parsed?.id
+      if (!id || !Number.isFinite(Number(id))) return { success: false, error: 'No se obtuvo el ID de la encuesta' }
+      return { success: true, data: { id: Number(id) } }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al registrar encuesta' }
+    }
+  }
+
+  async listEncuestasSatisfaccionAtencion(limit = 500): Promise<
+    ApiResponse<
+      Array<{
+        id: number
+        rating: number
+        departamento: string
+        distrito: string
+        edad: number
+        sexo: string
+        lat: number
+        lng: number
+        comentario: string | null
+        created_at: string
+      }>
+    >
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('atencion_satisfaccion_encuestas')
+        .select('id, rating, departamento, distrito, edad, sexo, lat, lng, comentario, created_at')
+        .order('created_at', { ascending: false })
+        .limit(Math.min(Math.max(limit, 1), 2000))
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as any }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar encuestas' }
+    }
+  }
+
   async buscarReclamosPublico(email: string, telefono: string): Promise<ApiResponse<Array<{
     id: number
     descripcion: string
