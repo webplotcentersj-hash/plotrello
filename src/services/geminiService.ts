@@ -70,6 +70,9 @@ export async function generateSprintReport(analysisData: SprintAnalysisData): Pr
 
   const prompt = `Eres un experto en gestión de proyectos y análisis de sprints. Analiza los siguientes datos de un sprint de producción gráfica e imprenta y genera un informe detallado y profesional en español.
 
+REGLA CLAVE DEL FLUJO (muy importante):
+- Cuando un usuario mueve una tarea a otra columna, se considera que FINALIZÓ su trabajo en la etapa/columna anterior (aunque la OP continúe en otra etapa).
+
 CONTEXTO DEL SPRINT:
 - Total de tareas: ${totalTasks}
 - Tareas completadas: ${completedTasks}

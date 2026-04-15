@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { marked } from 'marked'
 import type { Task, TeamMember } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
@@ -31,6 +31,33 @@ const SprintOptimizerModal = ({
   const [aiReport, setAiReport] = useState<string | null>(null)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const reportRef = useRef<HTMLDivElement | null>(null)
+
+  const displayUserName = (raw: string): string => {
+    const s = (raw ?? '').trim()
+    if (!s) return '—'
+    const noAtPrefix = s.startsWith('@') ? s.slice(1) : s
+    const beforeAt = noAtPrefix.split('@')[0] ?? noAtPrefix
+    const first = beforeAt.trim().split(/\s+/)[0]
+    return first || beforeAt.trim() || noAtPrefix
+  }
+
+  const memberNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of teamMembers) map.set(m.id, displayUserName(m.name))
+    return map
+  }, [teamMembers])
+
+  const taskById = useMemo(() => {
+    const map = new Map<string, Task>()
+    for (const t of tasks) map.set(t.id, t)
+    return map
+  }, [tasks])
+
+  useEffect(() => {
+    if (!aiReport && !reportError) return
+    reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [aiReport, reportError])
 
   const analysis = useMemo(() => {
     // Análisis de carga de trabajo por persona
@@ -99,9 +126,9 @@ const SprintOptimizerModal = ({
               type: 'reassign',
               taskId: task.id,
               taskTitle: task.title,
-              currentValue: workload.member.name,
-              suggestedValue: underloadedMembers[0].member.name,
-              reason: `${workload.member.name} tiene ${workload.taskCount} tareas (${Math.round(workload.workload)} pts). Redistribuir carga.`,
+              currentValue: displayUserName(workload.member.name),
+              suggestedValue: displayUserName(underloadedMembers[0].member.name),
+              reason: `${displayUserName(workload.member.name)} tiene ${workload.taskCount} tareas (${Math.round(workload.workload)} pts). Redistribuir carga.`,
               impact: 'high'
             })
           })
@@ -222,7 +249,7 @@ const SprintOptimizerModal = ({
                 return (
                   <div key={workload.member.id} className={`workload-card ${isOverloaded ? 'overloaded' : ''}`}>
                     <div className="workload-header">
-                      <strong>{workload.member.name}</strong>
+                      <strong>{displayUserName(workload.member.name)}</strong>
                       <span className="workload-badge">{workload.taskCount} tareas</span>
                     </div>
                     <div className="workload-stats">
@@ -290,42 +317,64 @@ const SprintOptimizerModal = ({
               </div>
             ) : (
               <div className="suggestions-list">
-                {analysis.suggestions.map((suggestion, index) => (
-                  <div key={index} className={`suggestion-card impact-${suggestion.impact}`}>
-                    <div className="suggestion-header">
-                      <div className="suggestion-type">
-                        {suggestion.type === 'reassign' && '🔄'}
-                        {suggestion.type === 'move' && '➡️'}
-                        {suggestion.type === 'priority' && '⚡'}
-                        <span className="suggestion-type-label">
-                          {suggestion.type === 'reassign' && 'Reasignar'}
-                          {suggestion.type === 'move' && 'Mover'}
-                          {suggestion.type === 'priority' && 'Priorizar'}
+                {analysis.suggestions.map((suggestion, index) => {
+                  const t = taskById.get(suggestion.taskId)
+                  const owner = t ? (memberNameById.get(t.ownerId) ?? '—') : '—'
+                  const statusLabel = t ? (BOARD_COLUMNS.find((c) => c.id === t.status)?.label ?? t.status) : ''
+                  return (
+                    <div key={index} className={`suggestion-card impact-${suggestion.impact}`}>
+                      <div className="suggestion-top">
+                        <div className="suggestion-type">
+                          {suggestion.type === 'reassign' && '🔄'}
+                          {suggestion.type === 'move' && '➡️'}
+                          {suggestion.type === 'priority' && '⚡'}
+                          <span className="suggestion-type-label">
+                            {suggestion.type === 'reassign' && 'Reasignar'}
+                            {suggestion.type === 'move' && 'Mover'}
+                            {suggestion.type === 'priority' && 'Priorizar'}
+                          </span>
+                        </div>
+                        <span className={`impact-badge impact-${suggestion.impact}`}>
+                          {suggestion.impact === 'high' && 'Alto'}
+                          {suggestion.impact === 'medium' && 'Medio'}
+                          {suggestion.impact === 'low' && 'Bajo'}
                         </span>
                       </div>
-                      <span className={`impact-badge impact-${suggestion.impact}`}>
-                        {suggestion.impact === 'high' && 'Alto'}
-                        {suggestion.impact === 'medium' && 'Medio'}
-                        {suggestion.impact === 'low' && 'Bajo'}
-                      </span>
-                    </div>
-                    <div className="suggestion-content">
-                      <strong>{suggestion.taskTitle}</strong>
-                      <p className="suggestion-reason">{suggestion.reason}</p>
-                      <div className="suggestion-change">
-                        <span className="change-from">{suggestion.currentValue}</span>
-                        <span className="change-arrow">→</span>
-                        <span className="change-to">{suggestion.suggestedValue}</span>
+
+                      <div className="suggestion-main">
+                        <div className="suggestion-title-row">
+                          <strong className="suggestion-title">{suggestion.taskTitle}</strong>
+                          {t?.opNumber && <span className="pill pill-op">OP {t.opNumber}</span>}
+                          {t?.priority && <span className={`pill pill-priority pri-${t.priority}`}>{t.priority}</span>}
+                          {statusLabel && <span className="pill pill-status">{statusLabel}</span>}
+                        </div>
+                        <div className="suggestion-sub">
+                          <span className="muted">Operario:</span> <strong>{owner}</strong>
+                          {t?.dueDate && (
+                            <>
+                              <span className="dot">•</span>
+                              <span className="muted">Entrega:</span>{' '}
+                              <strong>{new Date(t.dueDate).toLocaleDateString('es-AR')}</strong>
+                            </>
+                          )}
+                        </div>
+
+                        <p className="suggestion-reason">{suggestion.reason}</p>
+                        <div className="suggestion-change">
+                          <span className="change-from">{suggestion.currentValue}</span>
+                          <span className="change-arrow">→</span>
+                          <span className="change-to">{suggestion.suggestedValue}</span>
+                        </div>
+                      </div>
+
+                      <div className="suggestion-actions">
+                        <button className="btn-apply-suggestion" onClick={() => handleApplySuggestion(suggestion)}>
+                          Aplicar
+                        </button>
                       </div>
                     </div>
-                    <button
-                      className="btn-apply-suggestion"
-                      onClick={() => handleApplySuggestion(suggestion)}
-                    >
-                      Aplicar
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </section>
@@ -344,7 +393,7 @@ const SprintOptimizerModal = ({
                   </p>
                 </div>
               ) : (
-                <div className="ai-report">
+                <div className="ai-report" ref={reportRef}>
                   <div
                     className="report-content"
                     dangerouslySetInnerHTML={{
