@@ -15,6 +15,9 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedSolicitud, setSavedSolicitud] = useState<SolicitudPermiso | null>(null)
+  const [historial, setHistorial] = useState<SolicitudPermiso[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialError, setHistorialError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     tipo_solicitud: 'permiso' as 'turno' | 'ausencia' | 'vacaciones' | 'ropa' | 'permiso' | 'otro',
     titulo: '',
@@ -44,6 +47,22 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
     }
   }, [solicitudEditar])
 
+  const resetNuevaSolicitud = () => {
+    setSavedSolicitud(null)
+    setError(null)
+    setFormData({
+      tipo_solicitud: 'permiso',
+      titulo: '',
+      descripcion: '',
+      fecha_solicitud: new Date().toISOString().split('T')[0],
+      fecha_inicio: '',
+      fecha_fin: '',
+      dias_solicitados: null,
+      observaciones: '',
+      archivo_adjunto_url: ''
+    })
+  }
+
   const estadoLabel = (s: SolicitudPermiso['estado']) => {
     switch (s) {
       case 'pendiente':
@@ -58,6 +77,36 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
         return s
     }
   }
+
+  const loadHistorial = async () => {
+    if (!usuario?.id) return
+    setHistorialLoading(true)
+    setHistorialError(null)
+    try {
+      const r = await apiService.obtenerSolicitudesPermisos(usuario.id, null, null, null, null)
+      if (r.success && r.data) {
+        const ordered = [...r.data].sort((a, b) => {
+          const da = new Date(a.fecha_solicitud).getTime()
+          const db = new Date(b.fecha_solicitud).getTime()
+          return db - da
+        })
+        setHistorial(ordered.slice(0, 50))
+      } else {
+        setHistorial([])
+        setHistorialError(r.error || 'No se pudo cargar el historial')
+      }
+    } catch (e: any) {
+      setHistorial([])
+      setHistorialError(e?.message || 'No se pudo cargar el historial')
+    } finally {
+      setHistorialLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (usuario?.id) void loadHistorial()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,6 +132,7 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
       if (response.success && response.data) {
         setSavedSolicitud(response.data)
         onSolicitudCreada?.()
+        void loadHistorial()
       } else {
         setError(response.error || 'Error al crear solicitud')
       }
@@ -270,13 +320,86 @@ const SolicitudPermisoModal = ({ onClose, onSolicitudCreada, solicitudEditar }: 
           </div>
 
           <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>
-              {savedSolicitud ? 'Cerrar' : 'Cancelar'}
-            </button>
-            {!savedSolicitud && (
-              <button type="submit" className="btn-primary" disabled={loading}>
-                {loading ? 'Enviando...' : 'Enviar Solicitud'}
+            {savedSolicitud ? (
+              <>
+                <button type="button" className="btn-secondary" onClick={resetNuevaSolicitud} disabled={loading}>
+                  Nueva solicitud
+                </button>
+                <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>
+                  Cerrar
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Enviando...' : 'Enviar Solicitud'}
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="solicitud-historial">
+            <div className="solicitud-historial-head">
+              <h3>📚 Historial de solicitudes</h3>
+              <button type="button" className="solicitud-historial-refresh" onClick={loadHistorial} disabled={historialLoading}>
+                {historialLoading ? 'Actualizando…' : 'Actualizar'}
               </button>
+            </div>
+
+            {historialError && <div className="solicitud-historial-error">⚠️ {historialError}</div>}
+
+            {historialLoading ? (
+              <div className="solicitud-historial-loading">Cargando…</div>
+            ) : historial.length === 0 ? (
+              <div className="solicitud-historial-empty">Aún no hay solicitudes.</div>
+            ) : (
+              <div className="solicitud-historial-table-wrap">
+                <table className="solicitud-historial-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Tipo</th>
+                      <th>Título</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historial.map((s) => (
+                      <tr
+                        key={s.id}
+                        className={savedSolicitud?.id === s.id ? 'is-active' : undefined}
+                        onClick={() => {
+                          setSavedSolicitud(s)
+                          setError(null)
+                          setFormData({
+                            tipo_solicitud: s.tipo_solicitud,
+                            titulo: s.titulo,
+                            descripcion: s.descripcion || '',
+                            fecha_solicitud: s.fecha_solicitud,
+                            fecha_inicio: s.fecha_inicio || '',
+                            fecha_fin: s.fecha_fin || '',
+                            dias_solicitados: s.dias_solicitados,
+                            observaciones: s.observaciones || '',
+                            archivo_adjunto_url: s.archivo_adjunto_url || ''
+                          })
+                        }}
+                      >
+                        <td>{new Date(s.fecha_solicitud).toLocaleDateString('es-AR')}</td>
+                        <td>{s.tipo_solicitud}</td>
+                        <td className="cell-clip" title={s.titulo}>
+                          {s.titulo}
+                        </td>
+                        <td>
+                          <span className={`solicitud-historial-badge estado-${s.estado}`}>{estadoLabel(s.estado)}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </form>
