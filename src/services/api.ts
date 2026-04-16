@@ -14481,6 +14481,33 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  async getCuentaPorCobrarByFacturaId(
+    id_factura: number
+  ): Promise<ApiResponse<(import('../types/api').CuentaPorCobrarRecord & { factura?: import('../types/api').FacturaVentaRecord | null }) | null>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('cuentas_por_cobrar')
+          .select(
+            `
+            *,
+            factura:facturas_venta(*)
+          `
+          )
+          .eq('id_factura', id_factura)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any) ?? null }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   // ========== CUENTAS POR PAGAR ==========
   async getCuentasPorPagar(filters?: {
     estado?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado'
@@ -14551,6 +14578,43 @@ class ApiService {
           .single()
 
         if (error) return { success: false, error: error.message }
+
+        // Mantener CxC consistente: recalcular montos y estado
+        try {
+          const { data: cuenta, error: errCuenta } = await supabase
+            .from('cuentas_por_cobrar')
+            .select('*')
+            .eq('id', cobro.id_cuenta_por_cobrar)
+            .single()
+
+          if (!errCuenta && cuenta) {
+            const montoTotal = Number((cuenta as any).monto_total) || 0
+            const pagadoPrev = Number((cuenta as any).monto_pagado) || 0
+            const pagadoNuevo = pagadoPrev + (Number(cobro.monto) || 0)
+            const pendienteNuevo = Math.max(0, montoTotal - pagadoNuevo)
+
+            const fv = (cuenta as any).fecha_vencimiento ? new Date((cuenta as any).fecha_vencimiento).getTime() : null
+            const now = Date.now()
+
+            let estadoNuevo: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado' = 'Pendiente'
+            if (pendienteNuevo <= 0) estadoNuevo = 'Pagado'
+            else if (pagadoNuevo > 0) estadoNuevo = 'Parcial'
+            if (estadoNuevo !== 'Pagado' && fv && fv < now) estadoNuevo = 'Vencido'
+
+            await supabase
+              .from('cuentas_por_cobrar')
+              .update({
+                monto_pagado: pagadoNuevo,
+                monto_pendiente: pendienteNuevo,
+                estado: estadoNuevo,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', cobro.id_cuenta_por_cobrar)
+          }
+        } catch (e) {
+          console.warn('No se pudo actualizar CxC luego del cobro:', e)
+        }
+
         return { success: true, data: data as import('../types/api').PagoCobroRecord }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }

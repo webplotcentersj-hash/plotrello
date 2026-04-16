@@ -218,6 +218,54 @@
   white-space: pre-wrap;
 }
 
+.cobranza-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cobranza-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cobranza-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.cobranza-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cobranza-field--full {
+  grid-column: 1 / -1;
+}
+
+.cobranza-field label {
+  font-size: 0.85rem;
+  color: #718096;
+  font-weight: 500;
+}
+
+.cobranza-field input,
+.cobranza-field select,
+.cobranza-field textarea {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.cobranza-field textarea {
+  resize: vertical;
+}
+
 .loading,
 .error {
   text-align: center;

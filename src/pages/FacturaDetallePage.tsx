@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import apiService from '../services/api'
-import type { FacturaVentaRecord, FacturaItemRecord } from '../types/api'
+import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
 import './FacturaDetallePage.css'
 
 export default function FacturaDetallePage() {
@@ -9,6 +9,19 @@ export default function FacturaDetallePage() {
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
   const [factura, setFactura] = useState<(FacturaVentaRecord & { items?: FacturaItemRecord[] }) | null>(null)
+  const [cxc, setCxc] = useState<CuentaPorCobrarRecord | null>(null)
+  const [loadingCobro, setLoadingCobro] = useState(false)
+  const [showCobro, setShowCobro] = useState(false)
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
+  const [cobroForm, setCobroForm] = useState({
+    monto: '',
+    fecha_pago: todayStr,
+    metodo_pago: 'Transferencia' as MetodoPago,
+    numero_comprobante: '',
+    observaciones: ''
+  })
 
   useEffect(() => {
     if (id) {
@@ -16,12 +29,26 @@ export default function FacturaDetallePage() {
     }
   }, [id])
 
+  const loadCxc = async (facturaId: number) => {
+    try {
+      const r = await apiService.getCuentaPorCobrarByFacturaId(facturaId)
+      if (r.success) setCxc(r.data ?? null)
+    } catch {
+      // noop
+    }
+  }
+
   const loadFactura = async (facturaId: number) => {
     setLoading(true)
     try {
       const response = await apiService.getFactura(facturaId)
       if (response.success && response.data) {
         setFactura(response.data)
+        if ((response.data as any)?.estado === 'Emitida') {
+          await loadCxc(facturaId)
+        } else {
+          setCxc(null)
+        }
       } else {
         alert('Error al cargar factura: ' + response.error)
         navigate('/erp/facturas')
@@ -44,13 +71,60 @@ export default function FacturaDetallePage() {
       const response = await apiService.emitirFactura(factura.id)
       if (response.success) {
         alert('Factura emitida correctamente')
-        if (id) loadFactura(parseInt(id))
+        if (id) await loadFactura(parseInt(id))
       } else {
         alert('Error al emitir factura: ' + response.error)
       }
     } catch (error) {
       console.error('Error emitiendo factura:', error)
       alert('Error al emitir factura')
+    }
+  }
+
+  const handleRegistrarCobro = async () => {
+    if (!factura || factura.estado !== 'Emitida') return
+    if (!cxc) {
+      alert('No se encontró la cuenta por cobrar asociada a esta factura.')
+      return
+    }
+
+    const monto = Number(String(cobroForm.monto || '').replace(',', '.'))
+    if (!Number.isFinite(monto) || monto <= 0) {
+      alert('Ingresá un monto válido.')
+      return
+    }
+    if (!cobroForm.fecha_pago) {
+      alert('Seleccioná la fecha de cobro.')
+      return
+    }
+    if (monto > Number(cxc.monto_pendiente || 0) + 0.00001) {
+      alert('El monto no puede superar el pendiente.')
+      return
+    }
+
+    setLoadingCobro(true)
+    try {
+      const r = await apiService.registrarCobro({
+        id_cuenta_por_cobrar: cxc.id,
+        monto,
+        fecha_pago: cobroForm.fecha_pago,
+        metodo_pago: cobroForm.metodo_pago,
+        numero_comprobante: cobroForm.numero_comprobante?.trim() || null,
+        observaciones: cobroForm.observaciones?.trim() || null
+      })
+      if (!r.success) {
+        alert('Error registrando cobro: ' + (r.error || 'desconocido'))
+        return
+      }
+      alert('Cobro registrado.')
+      await loadCxc(factura.id)
+      setShowCobro(false)
+      setCobroForm((p) => ({ ...p, monto: '', numero_comprobante: '', observaciones: '' }))
+    } catch (e) {
+      alert('Error registrando cobro.')
+      console.error(e)
+    } finally {
+      setLoadingCobro(false)
     }
   }
 
@@ -147,6 +221,120 @@ export default function FacturaDetallePage() {
             )}
           </div>
         </div>
+
+        {factura.estado === 'Emitida' && (
+          <div className="factura-section">
+            <h2>Cobranza</h2>
+            {!cxc ? (
+              <p className="erp-muted">No hay cuenta por cobrar asociada (o no se pudo cargar).</p>
+            ) : (
+              <>
+                <div className="info-grid">
+                  <div className="info-item">
+                    <label>Estado CxC</label>
+                    <div>{cxc.estado}</div>
+                  </div>
+                  <div className="info-item">
+                    <label>Monto total</label>
+                    <div>${Number(cxc.monto_total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                  <div className="info-item">
+                    <label>Pagado</label>
+                    <div>${Number(cxc.monto_pagado || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                  <div className="info-item">
+                    <label>Pendiente</label>
+                    <div>${Number(cxc.monto_pendiente || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                  {cxc.fecha_vencimiento && (
+                    <div className="info-item">
+                      <label>Vencimiento</label>
+                      <div>{new Date(cxc.fecha_vencimiento).toLocaleDateString('es-AR')}</div>
+                    </div>
+                  )}
+                </div>
+
+                {cxc.monto_pendiente > 0 ? (
+                  <div className="cobranza-actions">
+                    <button className="btn-primary" onClick={() => setShowCobro((s) => !s)} disabled={loadingCobro}>
+                      {showCobro ? 'Cancelar' : 'Registrar cobro'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="erp-muted" style={{ marginTop: 12 }}>
+                    Esta factura está totalmente cobrada.
+                  </p>
+                )}
+
+                {showCobro && (
+                  <div className="cobranza-form">
+                    <div className="cobranza-grid">
+                      <div className="cobranza-field">
+                        <label>Monto *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={cobroForm.monto}
+                          onChange={(e) => setCobroForm((p) => ({ ...p, monto: e.target.value }))}
+                        />
+                      </div>
+                      <div className="cobranza-field">
+                        <label>Fecha *</label>
+                        <input
+                          type="date"
+                          value={cobroForm.fecha_pago}
+                          onChange={(e) => setCobroForm((p) => ({ ...p, fecha_pago: e.target.value }))}
+                        />
+                      </div>
+                      <div className="cobranza-field">
+                        <label>Método *</label>
+                        <select
+                          value={cobroForm.metodo_pago}
+                          onChange={(e) => setCobroForm((p) => ({ ...p, metodo_pago: e.target.value as any }))}
+                        >
+                          <option value="Transferencia">Transferencia</option>
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Tarjeta">Tarjeta</option>
+                          <option value="Cheque">Cheque</option>
+                          <option value="Depósito">Depósito</option>
+                          <option value="Otro">Otro</option>
+                        </select>
+                      </div>
+                      <div className="cobranza-field">
+                        <label>Comprobante</label>
+                        <input
+                          type="text"
+                          value={cobroForm.numero_comprobante}
+                          onChange={(e) => setCobroForm((p) => ({ ...p, numero_comprobante: e.target.value }))}
+                          placeholder="N° / referencia"
+                        />
+                      </div>
+                      <div className="cobranza-field cobranza-field--full">
+                        <label>Observaciones</label>
+                        <textarea
+                          rows={3}
+                          value={cobroForm.observaciones}
+                          onChange={(e) => setCobroForm((p) => ({ ...p, observaciones: e.target.value }))}
+                          placeholder="Detalle del cobro…"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="cobranza-actions">
+                      <button className="btn-secondary" onClick={() => setShowCobro(false)} disabled={loadingCobro}>
+                        Cancelar
+                      </button>
+                      <button className="btn-primary" onClick={handleRegistrarCobro} disabled={loadingCobro}>
+                        {loadingCobro ? 'Registrando…' : 'Confirmar cobro'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <div className="factura-section">
           <h2>Datos del Cliente</h2>
