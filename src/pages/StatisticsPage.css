@@ -5,6 +5,18 @@
   padding: 16px;
 }
 
+.statistics-page :where(p, span, div, li, dt, dd, small, label, th, td, h1, h2, h3, h4, h5, h6) {
+  color: inherit;
+}
+
+.statistics-page :where(a, a:visited) {
+  color: #e5ecf5;
+}
+
+.statistics-page :where(a:hover, a:focus-visible) {
+  color: #f8fafc;
+}
+
 .stats-header {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -45,7 +57,7 @@
 
 .back-button {
   background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
-  color: #0b0d17;
+  color: #f8fafc;
   border: none;
   padding: 10px 20px;
   border-radius: 10px;
@@ -166,11 +178,11 @@
 }
 
 .stat-value.success {
-  color: #22c55e;
+  color: #e5ecf5;
 }
 
 .stat-value.warning {
-  color: #f59e0b;
+  color: #e5ecf5;
 }
 
 .stat-label {
@@ -206,6 +218,14 @@
 }
 
 .recharts-tooltip-label {
+  color: #e5ecf5 !important;
+}
+
+.statistics-page .recharts-tooltip-wrapper {
+  color: #e5ecf5 !important;
+}
+
+.statistics-page .recharts-tooltip-wrapper :where(span, p, div) {
   color: #e5ecf5 !important;
 }
 
@@ -333,7 +353,7 @@
 
 .export-group button {
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: #0b0d17;
+  color: #f8fafc;
   border: none;
   border-radius: 10px;
   padding: 8px 12px;
@@ -344,7 +364,7 @@
 
 .export-group button:last-child {
   background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-  color: #0b0d17;
+  color: #f8fafc;
 }
 
 /* Responsive */
