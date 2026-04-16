@@ -62,12 +62,23 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
   const [articulosStock, setArticulosStock] = useState<any[]>([])
   const [stockBajo, setStockBajo] = useState<any[]>([])
   const [movimientosStock, setMovimientosStock] = useState<any[]>([])
+  const [vehiculosFlota, setVehiculosFlota] = useState<any[]>([])
+  const [registrosFlota, setRegistrosFlota] = useState<any[]>([])
+  const [menusDiarios, setMenusDiarios] = useState<any[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [backendLoading, setBackendLoading] = useState<boolean>(false)
   const [backendError, setBackendError] = useState<string | null>(null)
   const { isAdmin, loading } = useAuth()
   const navigate = useNavigate()
+
+  const toArgentinaRangeTs = (from: string, to: string) => {
+    // Filtra timestamptz (ej. hora_salida) por día completo en zona AR.
+    return {
+      desde: `${from}T00:00:00-03:00`,
+      hasta: `${to}T23:59:59-03:00`
+    }
+  }
 
   // Proteger la ruta: solo administradores pueden acceder
   useEffect(() => {
@@ -147,13 +158,22 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
           else setClientesWeb([])
         }
 
-        // Pedidos web, compras, stock (ámbitos medibles)
-        const [pedWebResp, comprasResp, stockResp, stockBajoResp, movResp] = await Promise.all([
+        // Pedidos web, compras, stock, flota y comida (ámbitos medibles)
+        const { desde, hasta } = toArgentinaRangeTs(dateFrom, dateTo)
+        const [pedWebResp, comprasResp, stockResp, stockBajoResp, movResp, vehResp, flotaRegResp, menusResp] =
+          await Promise.all([
           apiService.getPedidosPendientes(),
           apiService.getPedidosCompra(),
           apiService.getArticulosStock().catch(() => ({ success: true, data: [] })),
           apiService.getArticulosStock(undefined, true).catch(() => ({ success: true, data: [] })),
-          apiService.getMovimientosStock({ fecha_desde: dateFrom, fecha_hasta: dateTo }).catch(() => ({ success: true, data: [] }))
+          apiService
+            .getMovimientosStock({ fecha_desde: dateFrom, fecha_hasta: dateTo })
+            .catch(() => ({ success: true, data: [] })),
+          apiService.getVehiculos().catch(() => ({ success: true, data: [] })),
+          apiService
+            .getRegistrosSalidasVehiculos({ fecha_desde: desde, fecha_hasta: hasta })
+            .catch(() => ({ success: true, data: [] })),
+          apiService.obtenerMenusDiarios(dateFrom, dateTo).catch(() => ({ success: true, data: [] }))
         ])
         if (!cancelled) {
           if (pedWebResp.success && pedWebResp.data) setPedidosPendientes(Array.isArray(pedWebResp.data) ? pedWebResp.data : [])
@@ -174,6 +194,12 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
           else setStockBajo([])
           if (movResp.success && movResp.data) setMovimientosStock(Array.isArray(movResp.data) ? movResp.data : [])
           else setMovimientosStock([])
+          if (vehResp.success && vehResp.data) setVehiculosFlota(Array.isArray(vehResp.data) ? vehResp.data : [])
+          else setVehiculosFlota([])
+          if (flotaRegResp.success && flotaRegResp.data) setRegistrosFlota(Array.isArray(flotaRegResp.data) ? flotaRegResp.data : [])
+          else setRegistrosFlota([])
+          if (menusResp.success && menusResp.data) setMenusDiarios(Array.isArray(menusResp.data) ? menusResp.data : [])
+          else setMenusDiarios([])
           setLastUpdated(new Date())
         }
       } catch (error: any) {
@@ -876,6 +902,41 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     }
   }, [articulosStock, stockBajo, movimientosStock])
 
+  // ========== FLOTA ==========
+  const statsFlota = useMemo(() => {
+    const vehs = Array.isArray(vehiculosFlota) ? vehiculosFlota : []
+    const regs = Array.isArray(registrosFlota) ? registrosFlota : []
+    const activos = vehs.filter((v: any) => v?.activo !== false)
+    const enUso = regs.filter((r: any) => r?.estado === 'en_uso').length
+    const retrasados = regs.filter((r: any) => r?.estado === 'retrasado').length
+    const pendientes = regs.filter((r: any) => r?.estado === 'pendiente_autorizacion').length
+    const kmTotal = regs.reduce((acc: number, r: any) => acc + (Number(r?.km_aproximado) || 0), 0)
+    return {
+      vehiculosTotales: vehs.length,
+      vehiculosActivos: activos.length,
+      salidas: regs.length,
+      kmTotal,
+      enUso,
+      retrasados,
+      pendientes
+    }
+  }, [vehiculosFlota, registrosFlota])
+
+  // ========== COMIDA / MENÚ DIARIO ==========
+  const statsComida = useMemo(() => {
+    const menus = Array.isArray(menusDiarios) ? menusDiarios : []
+    const totalMenus = menus.length
+    const totalSelecciones = menus.reduce((acc: number, m: any) => acc + (Number(m?.total_selecciones) || 0), 0)
+    const totalPlatos = menus.reduce((acc: number, m: any) => acc + (Array.isArray(m?.platos) ? m.platos.length : 0), 0)
+    const avgSelecciones = totalMenus > 0 ? totalSelecciones / totalMenus : 0
+    return {
+      totalMenus,
+      totalSelecciones,
+      totalPlatos,
+      avgSelecciones
+    }
+  }, [menusDiarios])
+
   const exportCsv = (filename: string, rows: any[], columns: string[]) => {
     if (!rows || rows.length === 0) {
       alert('No hay datos para exportar.')
@@ -932,6 +993,14 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     addLine(`- Pedidos de compra: ${statsCompras.total}`)
     addLine('Stock:', true)
     addLine(`- Artículos: ${statsStock.totalArticulos} | Stock bajo: ${statsStock.stockBajo} | Movimientos: ${statsStock.movimientosEnPeriodo}`)
+    addLine('Flota (período):', true)
+    addLine(
+      `- Vehículos activos: ${statsFlota.vehiculosActivos}/${statsFlota.vehiculosTotales} | Salidas: ${statsFlota.salidas} | Km aprox: ${formatNumber(statsFlota.kmTotal, 0)}`
+    )
+    addLine('Comida (menú diario):', true)
+    addLine(
+      `- Menús: ${statsComida.totalMenus} | Selecciones: ${statsComida.totalSelecciones} (prom: ${formatNumber(statsComida.avgSelecciones, 1)})`
+    )
     line += 4
 
     addLine('Órdenes por estado:', true)
@@ -1316,6 +1385,63 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                 </BarChart>
               </ResponsiveContainer>
             )}
+          </div>
+        </div>
+
+        {/* Flota · Comida */}
+        <div className="stats-row">
+          <div className="stat-card stats-card-live">
+            <h3>🚚 Flota (período)</h3>
+            <p className="stat-subtitle">{dateFrom} → {dateTo}</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsFlota.vehiculosActivos)}</div>
+                <div className="stat-label">Vehículos activos</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsFlota.salidas)}</div>
+                <div className="stat-label">Salidas (período)</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsFlota.kmTotal, 0)}</div>
+                <div className="stat-label">Km aprox (sum)</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsFlota.enUso)}</div>
+                <div className="stat-label">En uso ahora</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsFlota.pendientes)}</div>
+                <div className="stat-label">Pend. autorización</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsFlota.retrasados)}</div>
+                <div className="stat-label">Retrasados</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="stat-card stats-card-live">
+            <h3>🍽️ Comida (menú diario)</h3>
+            <p className="stat-subtitle">{dateFrom} → {dateTo}</p>
+            <div className="stat-grid-2">
+              <div>
+                <div className="stat-value">{formatNumber(statsComida.totalMenus)}</div>
+                <div className="stat-label">Menús publicados</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsComida.totalSelecciones)}</div>
+                <div className="stat-label">Selecciones totales</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsComida.avgSelecciones, 1)}</div>
+                <div className="stat-label">Prom. selecciones/menú</div>
+              </div>
+              <div>
+                <div className="stat-value">{formatNumber(statsComida.totalPlatos)}</div>
+                <div className="stat-label">Platos publicados</div>
+              </div>
+            </div>
           </div>
         </div>
 
