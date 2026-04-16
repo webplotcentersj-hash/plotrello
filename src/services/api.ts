@@ -1136,17 +1136,36 @@ class ApiService {
             }
             
             if (fullOrden) {
+              // `update_orden_with_contact` hace foto_url = COALESCE(p_foto_url, foto_url): un NULL en p_foto_url
+              // no borra la portada. Si el valor pedido no coincide con la fila, corregimos con UPDATE directo.
+              let ordenDatos = fullOrden as OrdenTrabajo
+              if ('foto_url' in orden) {
+                const desiredF = normFotoUrl(orden.foto_url)
+                const actualF = normFotoUrl((ordenDatos as any)?.foto_url)
+                if (desiredF !== actualF) {
+                  const fotoForDb = desiredF ? String(orden.foto_url).trim() : null
+                  const { data: patchedFoto, error: errFoto } = await supabaseClient
+                    .from('ordenes_trabajo')
+                    .update({ foto_url: fotoForDb })
+                    .eq('id', id)
+                    .select('*')
+                    .single()
+                  if (!errFoto && patchedFoto) ordenDatos = patchedFoto as OrdenTrabajo
+                  else if (errFoto) console.warn('Corrección foto_url después de RPC:', errFoto.message)
+                }
+              }
+
               // Registrar cambios en historial si hay cambios relevantes (incluso si se usó función SQL)
-              const estadoNuevo = fullOrden.estado || null
-              const operarioNuevo = fullOrden.operario_asignado || null
-              const sectorNuevo = fullOrden.sector || null
-              const prioridadNueva = fullOrden.prioridad || null
-              const descripcionNueva = (fullOrden as any)?.descripcion ?? null
-              const planillaNueva = (fullOrden as any)?.planilla_preliminar ?? null
-              const fichaCargadaNueva = (fullOrden as any)?.ficha_tecnica_cargada ?? null
-              const presupuestoEnviadoNuevo = (fullOrden as any)?.presupuesto_enviado_cliente ?? null
-              const presupuestoArmadoNuevo = (fullOrden as any)?.presupuesto_armado ?? null
-              const presupuestoEnEsperaNuevo = (fullOrden as any)?.presupuesto_en_espera ?? null
+              const estadoNuevo = ordenDatos.estado || null
+              const operarioNuevo = ordenDatos.operario_asignado || null
+              const sectorNuevo = ordenDatos.sector || null
+              const prioridadNueva = ordenDatos.prioridad || null
+              const descripcionNueva = (ordenDatos as any)?.descripcion ?? null
+              const planillaNueva = (ordenDatos as any)?.planilla_preliminar ?? null
+              const fichaCargadaNueva = (ordenDatos as any)?.ficha_tecnica_cargada ?? null
+              const presupuestoEnviadoNuevo = (ordenDatos as any)?.presupuesto_enviado_cliente ?? null
+              const presupuestoArmadoNuevo = (ordenDatos as any)?.presupuesto_armado ?? null
+              const presupuestoEnEsperaNuevo = (ordenDatos as any)?.presupuesto_en_espera ?? null
               
               const cambios: string[] = []
               let checklistChanged = false
@@ -1233,7 +1252,7 @@ class ApiService {
                 cambios.push(`Prioridad: ${prioridadAnterior || 'N/A'} → ${orden.prioridad}`)
               }
 
-              const fotoNuevaRpc = (fullOrden as any)?.foto_url ?? null
+              const fotoNuevaRpc = (ordenDatos as any)?.foto_url ?? null
               const fotoChangedRpc = normFotoUrl(fotoUrlAnterior) !== normFotoUrl(fotoNuevaRpc)
               if (fotoChangedRpc) {
                 cambios.push(normFotoUrl(fotoNuevaRpc) ? 'Portada actualizada' : 'Portada eliminada')
@@ -1303,8 +1322,8 @@ class ApiService {
               
               // Descontar stock si hay materiales asociados (solo si se actualizaron materiales)
               // Nota: En actualización no descontamos automáticamente, solo al crear
-              this.triggerEmailOrdenLista(id, estadoAnterior, fullOrden as OrdenTrabajo)
-              return { success: true, data: fullOrden as OrdenTrabajo }
+              this.triggerEmailOrdenLista(id, estadoAnterior, ordenDatos as OrdenTrabajo)
+              return { success: true, data: ordenDatos as OrdenTrabajo }
             }
             
             return { success: false, error: 'No se pudo obtener la orden actualizada' }

@@ -925,7 +925,10 @@ const TaskEditModal = ({
     setCarouselSlides((prev) => prev.filter((s) => s.id !== slideId))
   }
 
-  const uploadSingleAttachment = async (file: File) => {
+  const uploadSingleAttachment = async (
+    file: File,
+    opts?: { asPortada?: boolean }
+  ) => {
     const id = crypto.randomUUID()
     const previewUrl = URL.createObjectURL(file)
     setAttachments((prev) => [
@@ -947,8 +950,15 @@ const TaskEditModal = ({
           attachment.id === id ? { ...attachment, remoteUrl, uploading: false } : attachment
         )
       )
-      // Si no hay portada, usar la primera captura como portada
-      setFormData((prev) => (prev.photoUrl ? prev : { ...prev, photoUrl: remoteUrl }))
+      // Subida desde la sección Portada (o pegado): siempre reemplaza la portada.
+      // Desde adjuntos generales: solo auto-portada si todavía no hay una elegida.
+      setFormData((prev) =>
+        opts?.asPortada
+          ? { ...prev, photoUrl: remoteUrl }
+          : prev.photoUrl
+            ? prev
+            : { ...prev, photoUrl: remoteUrl }
+      )
     } catch (error) {
       console.error('Error subiendo archivo', error)
       setUploadError('No se pudo subir el archivo. Intenta nuevamente.')
@@ -1030,7 +1040,7 @@ const TaskEditModal = ({
           e.preventDefault()
           const ext = file.type === 'image/png' ? 'png' : file.type === 'image/jpeg' ? 'jpg' : 'img'
           const named = new File([file], `captura-${Date.now()}.${ext}`, { type: file.type })
-          void uploadSingleAttachment(named)
+          void uploadSingleAttachment(named, { asPortada: true })
         }}
       >
         <header className="modal-header">
@@ -1092,7 +1102,7 @@ const TaskEditModal = ({
                   onChange={(e) => {
                     const f = e.target.files?.[0]
                     if (!f) return
-                    void uploadSingleAttachment(f)
+                    void uploadSingleAttachment(f, { asPortada: true })
                     e.target.value = ''
                   }}
                 />
@@ -1110,12 +1120,12 @@ const TaskEditModal = ({
           <fieldset className="task-edit-op-fieldset" disabled={opLocked}>
           <div className="task-carousel-editor">
             <div className="task-carousel-header">
-              <strong>Carrusel de imágenes</strong>
-              <small>Cada foto puede tener un nombre; se muestra en la vista expandida (solo lectura).</small>
+              <strong>Galería de imágenes</strong>
+              <small>Se muestran miniaturas en la vista expandida (solo lectura). Cada foto puede tener un nombre.</small>
             </div>
             <div className="task-carousel-list">
               {carouselSlides.length === 0 ? (
-                <p className="task-carousel-empty">Todavía no hay imágenes en el carrusel.</p>
+                <p className="task-carousel-empty">Todavía no hay imágenes en la galería.</p>
               ) : (
                 carouselSlides.map((slide, idx) => (
                   <div key={slide.id} className="task-carousel-row">
@@ -1180,7 +1190,7 @@ const TaskEditModal = ({
               )}
             </div>
             <label className="task-carousel-add">
-              + Agregar imagen al carrusel
+              + Agregar imagen a la galería
               <input
                 type="file"
                 accept="image/*"

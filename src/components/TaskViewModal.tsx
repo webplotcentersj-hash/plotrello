@@ -338,7 +338,7 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
           {task.galeriaCarrusel && task.galeriaCarrusel.length > 0 ? (
             <section className="task-view-galeria-section" aria-label="Galería de la OP">
               <h3 className="task-view-galeria-title">Galería</h3>
-              <p className="task-view-galeria-sub">Deslizá o usá las flechas para ver cada imagen.</p>
+              <p className="task-view-galeria-sub">Miniaturas visibles. Tocá una para verla grande.</p>
               <OpGaleriaCarousel slides={task.galeriaCarrusel} />
             </section>
           ) : null}
