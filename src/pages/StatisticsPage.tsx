@@ -5,6 +5,8 @@ import {
   BarChart,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -246,6 +248,22 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     })
   }, [safeActivity, dateFrom, dateTo])
 
+  const listDatesInRange = useMemo(() => {
+    const from = (dateFrom || '').trim()
+    const to = (dateTo || '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return []
+    const start = new Date(`${from}T00:00:00-03:00`).getTime()
+    const end = new Date(`${to}T00:00:00-03:00`).getTime()
+    if (Number.isNaN(start) || Number.isNaN(end) || end < start) return []
+    const days: string[] = []
+    for (let t = start; t <= end; t += 86400000) {
+      const d = new Date(t)
+      const key = d.toISOString().slice(0, 10)
+      days.push(key)
+    }
+    return days
+  }, [dateFrom, dateTo])
+
   // IMPORTANTE: Todos los hooks (useMemo) deben estar ANTES de los returns condicionales
   // para cumplir con las reglas de los hooks de React
   
@@ -265,6 +283,75 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
       color: COLORS[name as keyof typeof COLORS] || '#6b7280'
     }))
   }, [safeTasks])
+
+  // 1b. Series temporales: creadas vs finalizadas y movimientos por día
+  const serieOpsPorDia = useMemo(() => {
+    if (!listDatesInRange.length) return []
+    const createdCounts: Record<string, number> = {}
+    const completedCounts: Record<string, number> = {}
+    const movementCounts: Record<string, number> = {}
+
+    for (const k of listDatesInRange) {
+      createdCounts[k] = 0
+      completedCounts[k] = 0
+      movementCounts[k] = 0
+    }
+
+    // Creadas: por createdAt (tareas filtradas ya respetan desde/hasta + filtros)
+    filteredTasks.forEach((t) => {
+      if (!t?.createdAt) return
+      const k = new Date(t.createdAt).toISOString().slice(0, 10)
+      if (k in createdCounts) createdCounts[k] += 1
+    })
+
+    const isFinalState = (raw: any) => {
+      const v = String(raw ?? '').trim()
+      if (!v) return false
+      const low = v.toLowerCase()
+      return (
+        low.includes('almac') ||
+        low.includes('entreg') ||
+        low.includes('finaliz') ||
+        v === 'almacen-entrega'
+      )
+    }
+
+    // Finalizadas: por actividad (mover a finalizado/almacén/entregado) y movimientos totales por día
+    filteredActivity.forEach((e) => {
+      if (!e?.timestamp) return
+      const k = new Date(e.timestamp).toISOString().slice(0, 10)
+      if (!(k in movementCounts)) return
+      movementCounts[k] += 1
+      if (isFinalState((e as any).to)) completedCounts[k] += 1
+    })
+
+    return listDatesInRange.map((k) => ({
+      day: k,
+      creadas: createdCounts[k] || 0,
+      finalizadas: completedCounts[k] || 0,
+      movimientos: movementCounts[k] || 0
+    }))
+  }, [listDatesInRange, filteredTasks, filteredActivity])
+
+  const kpisOperacion = useMemo(() => {
+    const isDone = (t: Task) => t.status === 'almacen-entrega' || t.entregado === true
+    const wip = filteredTasks.filter((t) => t && !isDone(t)).length
+    const throughput = serieOpsPorDia.reduce((acc: number, r: any) => acc + (Number(r.finalizadas) || 0), 0)
+    // Recalcular en base a updatedAt (misma lógica que agingWIP)
+    const now = Date.now()
+    const wip11plus = filteredTasks.filter((task) => {
+      if (!task?.updatedAt || isDone(task)) return false
+      try {
+        const updatedTime = new Date(task.updatedAt).getTime()
+        if (Number.isNaN(updatedTime)) return false
+        const days = Math.floor((now - updatedTime) / 86400000)
+        return days >= 11
+      } catch {
+        return false
+      }
+    }).length
+    return { wip, throughput, wip11plus }
+  }, [filteredTasks, serieOpsPorDia])
 
   // 2. Top 5 Clientes
   const topClients = useMemo(() => {
@@ -1616,6 +1703,45 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
 
         {/* Primera fila: Gráficos circulares */}
         <div className="stats-row">
+          <div className="stat-card">
+            <h3>📈 Operación (por día)</h3>
+            <p className="stat-subtitle">Creadas vs finalizadas + movimientos • {dateFrom} → {dateTo}</p>
+            {serieOpsPorDia.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={serieOpsPorDia} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="day" tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip
+                    contentStyle={{ background: '#1a1d2e', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="creadas" stroke="#60a5fa" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="finalizadas" stroke="#22c55e" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="movimientos" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ padding: '36px', textAlign: 'center', color: '#c7d0dd' }}>
+                No hay datos en el rango seleccionado.
+              </div>
+            )}
+            <div className="stat-grid-2" style={{ marginTop: 12 }}>
+              <div>
+                <div className="stat-value">{formatNumber(kpisOperacion.wip)}</div>
+                <div className="stat-label">WIP total</div>
+              </div>
+              <div>
+                <div className="stat-value success">{formatNumber(kpisOperacion.throughput)}</div>
+                <div className="stat-label">Finalizadas (período)</div>
+              </div>
+              <div>
+                <div className="stat-value warning">{formatNumber(kpisOperacion.wip11plus)}</div>
+                <div className="stat-label">WIP 11+ días</div>
+              </div>
+            </div>
+          </div>
+
           <div className="stat-card">
             <h3>Órdenes por Estado</h3>
             <ResponsiveContainer width="100%" height={300}>
