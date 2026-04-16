@@ -2733,11 +2733,114 @@ class ApiService {
         return { success: false, error: error.message }
       }
 
-      if (data && Array.isArray(data) && data.length > 0) {
-        return { success: true, data: data[0] }
+      const rpcRow = data && Array.isArray(data) && data.length > 0 ? (data[0] as any) : null
+
+      // FIX: `operario_asignado` hoy puede guardarse como ID (string) o como nombre.
+      // La RPC histórica cuenta por nombre; si devolvió 0, revalidamos con query directa
+      // para no mostrar la tabla en ceros.
+      try {
+        const idStr = String(idUsuario)
+        const from = (fechaDesde || '').trim()
+        const to = (fechaHasta || '').trim()
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+          return { success: true, data: rpcRow }
+        }
+
+        const { data: uRow } = await supabase
+          .from('usuarios')
+          .select('nombre')
+          .eq('id', idUsuario)
+          .maybeSingle()
+        const nombre = (uRow as any)?.nombre ? String((uRow as any).nombre).trim() : ''
+
+        // Órdenes por rango (fecha_creacion), con match por ID o por nombre (compatibilidad)
+        let q = supabase
+          .from('ordenes_trabajo')
+          .select('estado, fecha_creacion, fecha_entrega, sector, operario_asignado, usuario_trabajando_nombre, nombre_creador')
+          // date-only en BD → rango inclusivo simple
+          .gte('fecha_creacion', `${from}T00:00:00-03:00`)
+          .lte('fecha_creacion', `${to}T23:59:59-03:00`)
+
+        // PostgREST `or` (si nombre está vacío, igual matchea por idStr)
+        const orParts = [
+          `operario_asignado.eq.${idStr}`,
+          nombre ? `operario_asignado.eq.${nombre}` : null,
+          nombre ? `usuario_trabajando_nombre.eq.${nombre}` : null,
+          nombre ? `nombre_creador.eq.${nombre}` : null
+        ].filter(Boolean)
+        if (orParts.length > 0) q = q.or(orParts.join(','))
+
+        const { data: ordenes, error: errOrd } = await q
+        if (!errOrd && Array.isArray(ordenes)) {
+          const total = ordenes.length
+          const completadas = ordenes.filter(
+            (o: any) => o?.estado === 'Finalizado en Taller' || o?.estado === 'Almacén de Entrega'
+          ).length
+          const enProceso = ordenes.filter(
+            (o: any) =>
+              o?.estado != null &&
+              o?.estado !== 'Diseño Gráfico' &&
+              o?.estado !== 'Finalizado en Taller' &&
+              o?.estado !== 'Almacén de Entrega'
+          ).length
+          const pendientes = ordenes.filter((o: any) => o?.estado === 'Diseño Gráfico').length
+
+          const avgDias =
+            completadas > 0
+              ? (() => {
+                  const days: number[] = []
+                  for (const o of ordenes) {
+                    if (!(o?.estado === 'Finalizado en Taller' || o?.estado === 'Almacén de Entrega')) continue
+                    if (!o?.fecha_entrega || !o?.fecha_creacion) continue
+                    const a = new Date(o.fecha_creacion).getTime()
+                    const b = new Date(o.fecha_entrega).getTime()
+                    if (Number.isNaN(a) || Number.isNaN(b) || b < a) continue
+                    days.push((b - a) / 86400000)
+                  }
+                  if (days.length === 0) return null
+                  return days.reduce((acc, v) => acc + v, 0) / days.length
+                })()
+              : null
+
+          // Movimientos (por timestamp)
+          const { data: movs, error: errMov } = await supabase
+            .from('historial_movimientos')
+            .select('id')
+            .eq('id_usuario', idUsuario)
+            .gte('timestamp', `${from}T00:00:00-03:00`)
+            .lte('timestamp', `${to}T23:59:59-03:00`)
+          const movimientos = !errMov && Array.isArray(movs) ? movs.length : rpcRow?.movimientos_realizados ?? 0
+
+          // Órdenes/día (rango inclusivo)
+          const daysRange = Math.max(
+            1,
+            Math.floor((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1
+          )
+
+          const merged = {
+            id_usuario: idUsuario,
+            nombre_usuario: nombre || rpcRow?.nombre_usuario || '',
+            total_ordenes: total,
+            ordenes_completadas: completadas,
+            ordenes_en_proceso: enProceso,
+            ordenes_pendientes: pendientes,
+            movimientos_realizados: movimientos,
+            movimientos_totales: movimientos,
+            ordenes_por_dia: total / daysRange,
+            promedio_dias_completar: avgDias,
+            sector_principal: rpcRow?.sector_principal ?? null,
+            ultima_actividad: rpcRow?.ultima_actividad ?? null
+          }
+
+          // Si la RPC ya devolvía datos reales, no los pisamos salvo que esté todo en 0 y acá haya contenido.
+          const rpcTotal = Number(rpcRow?.total_ordenes || 0)
+          if (rpcTotal === 0 && total > 0) return { success: true, data: merged }
+        }
+      } catch {
+        // Si falla el fallback, usar lo que vino de la RPC.
       }
 
-      return { success: true, data: null }
+      return { success: true, data: rpcRow }
     }
 
     return { success: false, error: 'Supabase no configurado' }

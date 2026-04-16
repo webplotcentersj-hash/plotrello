@@ -1466,14 +1466,26 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   {backendUserStats.map((row, idx) => {
                     const member = safeTeamMembers.find((m) => Number(m.id) === Number(row.userId))
                     const name = sanitizeName(member?.name) || `Usuario ${row.userId}`
+                    const daysRange = Math.max(
+                      1,
+                      Math.floor(
+                        (new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000
+                      ) + 1
+                    )
+                    const ordenesPorDia = Number(row.ordenes_por_dia ?? 0) || (Number(row.total_ordenes || 0) / daysRange)
+                    const movimientos =
+                      row.movimientos_totales ??
+                      row.movimientos_realizados ??
+                      row.movimientos ??
+                      0
                     return (
                       <tr key={`${row.userId}-${idx}`}>
                         <td>{name}</td>
                         <td>{formatNumber(row.total_ordenes)}</td>
                         <td className="success">{formatNumber(row.ordenes_completadas)}</td>
                         <td className="warning">{formatNumber(row.ordenes_en_proceso)}</td>
-                        <td>{formatNumber(row.movimientos_totales || row.movimientos)}</td>
-                        <td>{formatNumber(row.ordenes_por_dia, 1)}</td>
+                        <td>{formatNumber(movimientos)}</td>
+                        <td>{formatNumber(ordenesPorDia, 1)}</td>
                         <td>{formatNumber(row.promedio_dias_completar, 1)}</td>
                       </tr>
                     )
