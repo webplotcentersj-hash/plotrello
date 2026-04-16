@@ -7,34 +7,12 @@ import { formatArgentinaDate } from '../utils/dateUtils'
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './CajaDashboardPage.css'
 
-type TotemImpresionRow = {
-  id: number
-  cliente_nombre: string
-  cliente_dni: string
-  cliente_telefono: string
-  cantidad_hojas: number
-  tipo_impresion: string
-  archivo_url: string
-  archivo_nombre: string
-  numero_op: string | null
-  estado_pago: string
-  created_at: string
-  pagado_at: string | null
-  id_venta?: number | null
-  numero_venta_crm?: string | null
-  valor_venta?: number | null
-  estado_pago_venta?: string | null
-}
-
 const CajaDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja, usuario } = useAuth()
+  const { isAdmin, isCaja } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [totemImpresion, setTotemImpresion] = useState<TotemImpresionRow[]>([])
-  const [totemImpresionLoading, setTotemImpresionLoading] = useState(false)
-  const [totemImpresionErr, setTotemImpresionErr] = useState<string | null>(null)
-  
+
   // Estados principales
   const [ventasHoy, setVentasHoy] = useState<Venta[]>([])
   const [ordenesPendientesFacturacion, setOrdenesPendientesFacturacion] = useState<OrdenTrabajo[]>([])
@@ -184,21 +162,6 @@ const CajaDashboardPage = () => {
     }
   }, [fechaDesde, fechaHasta])
 
-  const loadTotemImpresion = useCallback(async () => {
-    if (!usuario?.id) return
-    setTotemImpresionLoading(true)
-    setTotemImpresionErr(null)
-    try {
-      const res = await apiService.listarSolicitudesImpresionTotem(usuario.id, 80)
-      if (res.success && res.data) setTotemImpresion(res.data as TotemImpresionRow[])
-      else setTotemImpresionErr(res.error || 'No se pudieron cargar las solicitudes del tótem')
-    } catch (e) {
-      setTotemImpresionErr(e instanceof Error ? e.message : 'Error al cargar solicitudes del tótem')
-    } finally {
-      setTotemImpresionLoading(false)
-    }
-  }, [usuario?.id])
-
   // Cargar todos los datos
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
@@ -209,8 +172,7 @@ const CajaDashboardPage = () => {
         loadOrdenesPendientesFacturacion(),
         loadCuentasPorCobrar(),
         loadCuentasPorPagar(),
-        loadFlujoCaja(),
-        loadTotemImpresion()
+        loadFlujoCaja()
       ])
     } catch (error) {
       console.error('Error cargando datos del dashboard:', error)
@@ -218,7 +180,7 @@ const CajaDashboardPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [loadVentasHoy, loadOrdenesPendientesFacturacion, loadCuentasPorCobrar, loadCuentasPorPagar, loadFlujoCaja, loadTotemImpresion])
+  }, [loadVentasHoy, loadOrdenesPendientesFacturacion, loadCuentasPorCobrar, loadCuentasPorPagar, loadFlujoCaja])
 
   useEffect(() => {
     console.log('CajaDashboardPage - Montado')
@@ -242,10 +204,6 @@ const CajaDashboardPage = () => {
     return () => clearTimeout(timer)
   }, [isAdmin, isCaja, navigate, loadDashboardData])
 
-  useEffect(() => {
-    if (usuario?.id && (isCaja || isAdmin)) void loadTotemImpresion()
-  }, [usuario?.id, isCaja, isAdmin, loadTotemImpresion])
-
   // Preparar datos para gráficos
   const datosFlujoCaja = flujoCaja.map(m => ({
     fecha: formatArgentinaDate(m.fecha),
@@ -263,7 +221,7 @@ const CajaDashboardPage = () => {
   if (!isAdmin && !isCaja) {
     return (
       <div className="caja-dashboard-page">
-        <div className="loading-container">
+        <div className="caja-loading-container">
           <p>Verificando permisos...</p>
         </div>
       </div>
@@ -273,8 +231,8 @@ const CajaDashboardPage = () => {
   if (loading) {
     return (
       <div className="caja-dashboard-page">
-        <div className="loading-container">
-          <p>Cargando Dashboard de Caja...</p>
+        <div className="caja-loading-container">
+          <p>Cargando dashboard de caja...</p>
         </div>
       </div>
     )
@@ -283,10 +241,12 @@ const CajaDashboardPage = () => {
   if (error) {
     return (
       <div className="caja-dashboard-page">
-        <div className="error-container" style={{ padding: '20px', textAlign: 'center' }}>
+        <div className="caja-error-panel">
           <h2>Error</h2>
           <p>{error}</p>
-          <button onClick={() => window.location.reload()}>Recargar</button>
+          <button type="button" className="btn-primary" onClick={() => window.location.reload()}>
+            Recargar
+          </button>
         </div>
       </div>
     )
@@ -296,143 +256,43 @@ const CajaDashboardPage = () => {
     <div className="caja-dashboard-page">
       <header className="caja-header">
         <div className="caja-header-content">
-          <h1>💰 Dashboard de Caja</h1>
+          <div className="caja-header-title-block">
+            <h1>Dashboard de Caja</h1>
+            <p className="caja-header-lead">Resumen de movimientos, ventas y cuentas</p>
+          </div>
           <div className="caja-header-actions">
             <button 
               className="btn-secondary"
               onClick={() => navigate('/clientes-web/dashboard')}
             >
-              👤 Clientes
+              Clientes
             </button>
             <button 
               className="btn-secondary"
               onClick={() => navigate('/clientes-web/articulos')}
             >
-              📦 Artículos
+              Artículos
             </button>
             <button 
               className="btn-primary"
               onClick={() => navigate('/crm-ventas')}
             >
-              💼 Ver CRM de Ventas
+              CRM de ventas
             </button>
             <button 
               className="btn-primary"
               onClick={() => navigate('/erp')}
             >
-              📊 Ver ERP
+              ERP
             </button>
           </div>
         </div>
       </header>
 
-      <section className="caja-totem-impresion" aria-label="Pedidos de impresión tótem">
-        <div className="caja-totem-impresion-header">
-          <h2>🖨️ Pedidos de impresión (tótem)</h2>
-          <button type="button" className="btn-secondary btn-small" onClick={() => loadTotemImpresion()} disabled={totemImpresionLoading}>
-            {totemImpresionLoading ? 'Actualizando…' : 'Actualizar'}
-          </button>
-        </div>
-        <p className="caja-totem-impresion-lead">
-          El cliente dejó el pedido en el tótem; usá la venta CRM y el archivo para cobrar y cerrar la venta.
-        </p>
-        {totemImpresionErr && <p className="caja-totem-impresion-err">{totemImpresionErr}</p>}
-        {!totemImpresionErr && totemImpresion.length === 0 && !totemImpresionLoading && (
-          <p className="caja-totem-impresion-empty">No hay pedidos recientes del tótem.</p>
-        )}
-        {totemImpresion.length > 0 && (
-          <div className="caja-totem-impresion-table-wrap">
-            <table className="caja-totem-impresion-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Cliente</th>
-                  <th>Venta CRM</th>
-                  <th>Hojas</th>
-                  <th>Tipo</th>
-                  <th>Pago tótem</th>
-                  <th>Archivo</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {totemImpresion.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.id}</td>
-                    <td>
-                      {row.cliente_nombre}
-                      <br />
-                      <small>
-                        DNI {row.cliente_dni} · {row.cliente_telefono}
-                      </small>
-                    </td>
-                    <td>
-                      {row.numero_venta_crm ? (
-                        <>
-                          <button
-                            type="button"
-                            className="caja-totem-link-venta"
-                            onClick={() => navigate('/crm-ventas')}
-                          >
-                            {row.numero_venta_crm}
-                          </button>
-                          {row.valor_venta != null ? (
-                            <div>
-                              <small>
-                                ${Number(row.valor_venta).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ·{' '}
-                                {row.estado_pago_venta ?? '—'}
-                              </small>
-                            </div>
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="caja-totem-sin-venta">—</span>
-                      )}
-                    </td>
-                    <td>{row.cantidad_hojas}</td>
-                    <td>{row.tipo_impresion}</td>
-                    <td>
-                      {row.estado_pago === 'pagado' ? (
-                        <span className="caja-totem-pagado">Pagado</span>
-                      ) : (
-                        <span className="caja-totem-pendiente">Pendiente</span>
-                      )}
-                    </td>
-                    <td>
-                      <a href={row.archivo_url} target="_blank" rel="noopener noreferrer">
-                        {row.archivo_nombre}
-                      </a>
-                    </td>
-                    <td>
-                      {row.estado_pago === 'pendiente' && usuario?.id ? (
-                        <button
-                          type="button"
-                          className="btn-primary btn-small"
-                          onClick={async () => {
-                            const r = await apiService.marcarPagoSolicitudImpresionTotem(row.id, usuario.id)
-                            if (r.success) await loadTotemImpresion()
-                            else alert(r.error || 'No se pudo marcar el pago')
-                          }}
-                        >
-                          Marcar pagado (MP)
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="caja-totem-impresion-hint">
-          Al marcar pagado se notifica de nuevo a imprenta, mostrador y caja.
-        </p>
-      </section>
-
       {/* Tarjetas de estadísticas */}
       <div className="caja-stats-grid">
         <div className="stat-card ingresos">
-          <div className="stat-icon">💰</div>
+          <div className="stat-icon" aria-hidden>↑</div>
           <div className="stat-content">
             <h3>Ingresos Hoy</h3>
             <p className="stat-value">${estadisticas.ingresosHoy.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
@@ -440,7 +300,7 @@ const CajaDashboardPage = () => {
         </div>
 
         <div className="stat-card egresos">
-          <div className="stat-icon">💸</div>
+          <div className="stat-icon" aria-hidden>↓</div>
           <div className="stat-content">
             <h3>Egresos (Período)</h3>
             <p className="stat-value">${estadisticas.egresosHoy.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
@@ -448,7 +308,7 @@ const CajaDashboardPage = () => {
         </div>
 
         <div className="stat-card saldo">
-          <div className="stat-icon">💵</div>
+          <div className="stat-icon" aria-hidden>=</div>
           <div className="stat-content">
             <h3>Saldo de Caja</h3>
             <p className="stat-value">${estadisticas.saldoCaja.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
@@ -456,7 +316,7 @@ const CajaDashboardPage = () => {
         </div>
 
         <div className="stat-card pendientes-cobro">
-          <div className="stat-icon">📋</div>
+          <div className="stat-icon" aria-hidden>C</div>
           <div className="stat-content">
             <h3>Pendiente de Cobro</h3>
             <p className="stat-value">${estadisticas.montoPendienteCobro.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
@@ -465,7 +325,7 @@ const CajaDashboardPage = () => {
         </div>
 
         <div className="stat-card pendientes-pago">
-          <div className="stat-icon">💳</div>
+          <div className="stat-icon" aria-hidden>P</div>
           <div className="stat-content">
             <h3>Pendiente de Pago</h3>
             <p className="stat-value">${estadisticas.montoPendientePago.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
@@ -474,7 +334,7 @@ const CajaDashboardPage = () => {
         </div>
 
         <div className="stat-card ordenes-pendientes">
-          <div className="stat-icon">📄</div>
+          <div className="stat-icon" aria-hidden>OP</div>
           <div className="stat-content">
             <h3>Órdenes Pendientes Facturación</h3>
             <p className="stat-value">{estadisticas.ordenesPendientesFacturacion}</p>
@@ -517,11 +377,14 @@ const CajaDashboardPage = () => {
           <h3>Flujo de Caja</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={datosFlujoCaja}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="fecha" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid strokeDasharray="3 3" stroke="#d4d4d4" />
+              <XAxis dataKey="fecha" tick={{ fill: '#0a0a0a' }} stroke="#525252" />
+              <YAxis tick={{ fill: '#0a0a0a' }} stroke="#525252" />
+              <Tooltip
+                contentStyle={{ color: '#0a0a0a', backgroundColor: '#fff', border: '1px solid #d4d4d4', borderRadius: 8 }}
+                labelStyle={{ color: '#0a0a0a' }}
+              />
+              <Legend wrapperStyle={{ color: '#0a0a0a' }} />
               <Line type="monotone" dataKey="ingresos" stroke="#10b981" name="Ingresos" />
               <Line type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos" />
               <Line type="monotone" dataKey="saldo" stroke="#3b82f6" name="Saldo" />
@@ -547,7 +410,7 @@ const CajaDashboardPage = () => {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip contentStyle={{ color: '#0a0a0a', backgroundColor: '#fff', border: '1px solid #d4d4d4' }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -558,7 +421,7 @@ const CajaDashboardPage = () => {
         {/* Ventas de hoy */}
         <div className="section-card">
           <div className="section-header">
-            <h2>💼 Ventas de Hoy</h2>
+            <h2>Ventas de hoy</h2>
             <button 
               className="btn-link"
               onClick={() => navigate('/crm-ventas')}
@@ -595,7 +458,7 @@ const CajaDashboardPage = () => {
         {/* Órdenes pendientes de facturación */}
         <div className="section-card">
           <div className="section-header">
-            <h2>📄 Órdenes Pendientes de Facturación</h2>
+            <h2>Órdenes pendientes de facturación</h2>
             <button 
               className="btn-link"
               onClick={() => navigate('/')}
@@ -633,7 +496,7 @@ const CajaDashboardPage = () => {
         {/* Cuentas por cobrar */}
         <div className="section-card">
           <div className="section-header">
-            <h2>📋 Cuentas por Cobrar</h2>
+            <h2>Cuentas por cobrar</h2>
             <button 
               className="btn-link"
               onClick={() => navigate('/erp/cuentas-por-cobrar')}
@@ -672,7 +535,7 @@ const CajaDashboardPage = () => {
         {/* Cuentas por pagar */}
         <div className="section-card">
           <div className="section-header">
-            <h2>💳 Cuentas por Pagar</h2>
+            <h2>Cuentas por pagar</h2>
             <button 
               className="btn-link"
               onClick={() => navigate('/erp/cuentas-por-pagar')}
