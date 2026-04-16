@@ -937,6 +937,56 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     }
   }, [menusDiarios])
 
+  // ========== RANKINGS DE USUARIOS (datos reales) ==========
+  const rankingsUsuarios = useMemo(() => {
+    const rows = Array.isArray(backendUserStats) ? backendUserStats : []
+    const getName = (userId: any) => {
+      const member = safeTeamMembers.find((m) => Number(m.id) === Number(userId))
+      return sanitizeName(member?.name) || `Usuario ${userId}`
+    }
+    const daysRange = dateFrom && dateTo
+      ? Math.max(
+          1,
+          Math.floor((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000) + 1
+        )
+      : 1
+
+    const base = rows.map((r: any) => {
+      const userId = r.userId ?? r.id_usuario
+      const total = Number(r.total_ordenes || 0)
+      const completadas = Number(r.ordenes_completadas || 0)
+      const enProceso = Number(r.ordenes_en_proceso || 0)
+      const movimientos =
+        Number(r.movimientos_totales ?? r.movimientos_realizados ?? r.movimientos ?? 0) || 0
+      const ordenesPorDia =
+        Number(r.ordenes_por_dia ?? 0) || (daysRange > 0 ? total / daysRange : total)
+      const promDias =
+        r.promedio_dias_completar == null ? null : Number(r.promedio_dias_completar)
+
+      return {
+        userId,
+        name: getName(userId),
+        total,
+        completadas,
+        enProceso,
+        movimientos,
+        ordenesPorDia,
+        promDias
+      }
+    })
+
+    const topN = 10
+    const byCompletadas = [...base].sort((a, b) => b.completadas - a.completadas).slice(0, topN)
+    const byMovimientos = [...base].sort((a, b) => b.movimientos - a.movimientos).slice(0, topN)
+    const byOrdenesDia = [...base].sort((a, b) => b.ordenesPorDia - a.ordenesPorDia).slice(0, topN)
+    const byPromDias = [...base]
+      .filter((r) => r.promDias != null && r.completadas >= 2)
+      .sort((a, b) => (a.promDias as number) - (b.promDias as number))
+      .slice(0, topN)
+
+    return { byCompletadas, byMovimientos, byOrdenesDia, byPromDias }
+  }, [backendUserStats, safeTeamMembers, dateFrom, dateTo])
+
   const exportCsv = (filename: string, rows: any[], columns: string[]) => {
     if (!rows || rows.length === 0) {
       alert('No hay datos para exportar.')
@@ -1492,6 +1542,74 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {backendUserStats && backendUserStats.length > 0 && (
+          <div className="stat-card full-width">
+            <h3>🏆 Rankings de usuarios (datos reales)</h3>
+            <p className="stat-subtitle">Top 10 • Supabase • {dateFrom} → {dateTo}</p>
+            <div className="stats-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+              <div className="stat-card" style={{ boxShadow: 'none', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h3>✅ Más completadas</h3>
+                <p className="stat-subtitle">Órdenes finalizadas en período</p>
+                <ol className="stats-ranking">
+                  {rankingsUsuarios.byCompletadas.map((r, i) => (
+                    <li key={`comp-${r.userId}-${i}`} className="stats-ranking-item">
+                      <span className="stats-ranking-pos">{i + 1}</span>
+                      <span className="stats-ranking-name">{r.name}</span>
+                      <span className="stats-ranking-val">{formatNumber(r.completadas)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="stat-card" style={{ boxShadow: 'none', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h3>🧾 Más movimientos</h3>
+                <p className="stat-subtitle">Actividad registrada en historial</p>
+                <ol className="stats-ranking">
+                  {rankingsUsuarios.byMovimientos.map((r, i) => (
+                    <li key={`mov-${r.userId}-${i}`} className="stats-ranking-item">
+                      <span className="stats-ranking-pos">{i + 1}</span>
+                      <span className="stats-ranking-name">{r.name}</span>
+                      <span className="stats-ranking-val">{formatNumber(r.movimientos)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="stat-card" style={{ boxShadow: 'none', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h3>📈 Mejor ritmo</h3>
+                <p className="stat-subtitle">Órdenes/día (por total en el rango)</p>
+                <ol className="stats-ranking">
+                  {rankingsUsuarios.byOrdenesDia.map((r, i) => (
+                    <li key={`spd-${r.userId}-${i}`} className="stats-ranking-item">
+                      <span className="stats-ranking-pos">{i + 1}</span>
+                      <span className="stats-ranking-name">{r.name}</span>
+                      <span className="stats-ranking-val">{formatNumber(r.ordenesPorDia, 1)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="stat-card" style={{ boxShadow: 'none', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h3>⏱️ Mejor tiempo</h3>
+                <p className="stat-subtitle">Menor prom. días/orden (mín. 2 completadas)</p>
+                {rankingsUsuarios.byPromDias.length > 0 ? (
+                  <ol className="stats-ranking">
+                    {rankingsUsuarios.byPromDias.map((r, i) => (
+                      <li key={`lt-${r.userId}-${i}`} className="stats-ranking-item">
+                        <span className="stats-ranking-pos">{i + 1}</span>
+                        <span className="stats-ranking-name">{r.name}</span>
+                        <span className="stats-ranking-val">{formatNumber(r.promDias, 1)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="stat-subtitle">Sin datos suficientes en el rango.</p>
+                )}
+              </div>
             </div>
           </div>
         )}
