@@ -90,6 +90,8 @@ export interface StockMovimiento {
   id_orden_trabajo?: number | null
   id_pedido_compra?: number | null
   id_venta?: number | null
+  id_deposito_origen?: number | null
+  id_deposito_destino?: number | null
   id_usuario?: number | null
   nombre_usuario?: string | null
   created_at: string

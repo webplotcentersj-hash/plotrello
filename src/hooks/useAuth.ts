@@ -51,6 +51,7 @@ export function useAuth() {
 
   const adminRoles: Usuario['rol'][] = ['administracion', 'gerencia']
   const isAdmin = !!usuario && adminRoles.includes(usuario.rol)
+  const isGerencia = usuario?.rol === 'gerencia'
   const isMostrador = usuario?.rol === 'mostrador'
   const isCaja = usuario?.rol === 'caja'
   const isTallerGrafico = usuario?.rol === 'taller-grafico'
@@ -66,6 +67,9 @@ export function useAuth() {
   const canManageImpresoras = !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
   // Puede gestionar compras: compras o administracion
   const canManageCompras = !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion')
+  /** Ver detalle de pedido de compra y recepción a stock (p. ej. desde ERP); gerencia incluida, sin dar acceso al dashboard clásico de compras. */
+  const canViewPedidoCompraDetalle =
+    !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion' || isGerencia)
   // Puede gestionar caja: caja o administracion
   const canManageCaja = !!usuario && (usuario.rol === 'caja' || usuario.rol === 'administracion')
   // Puede gestionar instalaciones: instalaciones o administracion
@@ -99,6 +103,8 @@ export function useAuth() {
     isPresupuestos,
     canManageImpresoras,
     canManageCompras,
+    isGerencia,
+    canViewPedidoCompraDetalle,
     canManageCaja,
     canManageInstalaciones,
     canManageTallerImprenta,

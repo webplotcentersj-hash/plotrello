@@ -212,10 +212,34 @@ export default function ERPDashboardPage() {
           <p>Gestión de pagos a proveedores</p>
         </div>
 
+        <div className="erp-module-card" onClick={() => navigate('/erp/compras')}>
+          <div className="module-icon">🛒</div>
+          <h3>Compras / Proveedores</h3>
+          <p>Proveedores, pedidos, recepción, CxP</p>
+        </div>
+
+        <div className="erp-module-card" onClick={() => navigate('/erp/stock')}>
+          <div className="module-icon">📦</div>
+          <h3>Stock / Inventario</h3>
+          <p>Existencias, movimientos, reportes</p>
+        </div>
+
+        <div className="erp-module-card" onClick={() => navigate('/erp/crm')}>
+          <div className="module-icon">🤝</div>
+          <h3>CRM / Comercial</h3>
+          <p>Clientes, ventas, oportunidades</p>
+        </div>
+
         <div className="erp-module-card" onClick={() => navigate('/erp/reportes')}>
           <div className="module-icon">📊</div>
           <h3>Reportes Financieros</h3>
           <p>Estado de resultados, balance, flujo de caja</p>
+        </div>
+
+        <div className="erp-module-card" onClick={() => navigate('/erp/admin')}>
+          <div className="module-icon">⚙️</div>
+          <h3>Administración ERP</h3>
+          <p>Circuitos, roles y checklist</p>
         </div>
 
         <div className="erp-module-card" onClick={() => navigate('/erp/configuracion-afip')}>

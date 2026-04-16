@@ -12,6 +12,7 @@ export default function FacturaDetallePage() {
   const [cxc, setCxc] = useState<CuentaPorCobrarRecord | null>(null)
   const [loadingCobro, setLoadingCobro] = useState(false)
   const [showCobro, setShowCobro] = useState(false)
+  const [cuentas, setCuentas] = useState<any[]>([])
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
   type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
@@ -20,6 +21,7 @@ export default function FacturaDetallePage() {
     fecha_pago: todayStr,
     metodo_pago: 'Transferencia' as MetodoPago,
     numero_comprobante: '',
+    id_cuenta_bancaria: '',
     observaciones: ''
   })
 
@@ -28,6 +30,18 @@ export default function FacturaDetallePage() {
       loadFactura(parseInt(id))
     }
   }, [id])
+
+  useEffect(() => {
+    let cancelled = false
+    void apiService.getCuentasBancarias({ activa: true }).then((r) => {
+      if (cancelled) return
+      if (r.success && r.data) setCuentas(Array.isArray(r.data) ? r.data : [])
+      else setCuentas([])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const loadCxc = async (facturaId: number) => {
     try {
@@ -44,7 +58,11 @@ export default function FacturaDetallePage() {
       const response = await apiService.getFactura(facturaId)
       if (response.success && response.data) {
         setFactura(response.data)
-        if ((response.data as any)?.estado === 'Emitida') {
+        const tipo = String((response.data as any)?.tipo_comprobante || '')
+        const esNotaCredito = tipo.startsWith('Nota de Crédito')
+        const total = Number((response.data as any)?.total || 0)
+        const esCobrable = (response.data as any)?.estado === 'Emitida' && !esNotaCredito && total > 0
+        if (esCobrable) {
           await loadCxc(facturaId)
         } else {
           setCxc(null)
@@ -110,6 +128,7 @@ export default function FacturaDetallePage() {
         fecha_pago: cobroForm.fecha_pago,
         metodo_pago: cobroForm.metodo_pago,
         numero_comprobante: cobroForm.numero_comprobante?.trim() || null,
+        id_cuenta_bancaria: cobroForm.id_cuenta_bancaria ? Number(cobroForm.id_cuenta_bancaria) : null,
         observaciones: cobroForm.observaciones?.trim() || null
       })
       if (!r.success) {
@@ -144,11 +163,16 @@ export default function FacturaDetallePage() {
     )
   }
 
+  const tipo = String(factura.tipo_comprobante || '')
+  const esNotaCredito = tipo.startsWith('Nota de Crédito')
+  const puedeCrearNotas = factura.estado === 'Emitida' && tipo.startsWith('Factura')
+  const esCobrable = factura.estado === 'Emitida' && !esNotaCredito && Number(factura.total || 0) > 0
+
   return (
     <div className="factura-detalle-page">
       <div className="factura-header">
         <div>
-          <h1>Factura {factura.numero_factura}</h1>
+          <h1>{factura.tipo_comprobante} {factura.numero_factura}</h1>
           <div className="factura-meta">
             <span className={`estado-badge estado-${factura.estado.toLowerCase()}`}>
               {factura.estado}
@@ -172,6 +196,16 @@ export default function FacturaDetallePage() {
               Emitir Factura
             </button>
           )}
+          {puedeCrearNotas && (
+            <>
+              <button className="btn-secondary" onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=credito`)}>
+                Nota crédito
+              </button>
+              <button className="btn-secondary" onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=debito`)}>
+                Nota débito
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -183,6 +217,20 @@ export default function FacturaDetallePage() {
               <label>Tipo de Comprobante</label>
               <div>{factura.tipo_comprobante}</div>
             </div>
+            {(factura as any).id_factura_referencia && (
+              <div className="info-item">
+                <label>Referencia</label>
+                <div>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => navigate(`/erp/facturas/${(factura as any).id_factura_referencia}`)}
+                  >
+                    Ver comprobante origen
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="info-item">
               <label>Punto de Venta</label>
               <div>{factura.punto_venta}</div>
@@ -222,7 +270,7 @@ export default function FacturaDetallePage() {
           </div>
         </div>
 
-        {factura.estado === 'Emitida' && (
+        {esCobrable && (
           <div className="factura-section">
             <h2>Cobranza</h2>
             {!cxc ? (
@@ -309,6 +357,20 @@ export default function FacturaDetallePage() {
                           onChange={(e) => setCobroForm((p) => ({ ...p, numero_comprobante: e.target.value }))}
                           placeholder="N° / referencia"
                         />
+                      </div>
+                      <div className="cobranza-field">
+                        <label>Cuenta bancaria</label>
+                        <select
+                          value={cobroForm.id_cuenta_bancaria}
+                          onChange={(e) => setCobroForm((p) => ({ ...p, id_cuenta_bancaria: e.target.value }))}
+                        >
+                          <option value="">(sin asignar)</option>
+                          {cuentas.map((c: any) => (
+                            <option key={c.id} value={String(c.id)}>
+                              {c.nombre}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="cobranza-field cobranza-field--full">
                         <label>Observaciones</label>

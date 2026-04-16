@@ -74,16 +74,23 @@ const ERPDashboardPage = lazy(() => import('./pages/ERPDashboardPage'))
 const FacturasPage = lazy(() => import('./pages/FacturasPage'))
 const FacturaDetallePage = lazy(() => import('./pages/FacturaDetallePage'))
 const CrearFacturaPage = lazy(() => import('./pages/CrearFacturaPage'))
+const CrearNotaPage = lazy(() => import('./pages/CrearNotaPage.tsx'))
 const AsientosContablesPage = lazy(() => import('./pages/AsientosContablesPage'))
 const ConfiguracionAFIPPage = lazy(() => import('./pages/ConfiguracionAFIPPage'))
 const ErpTesoreriaPage = lazy(() => import('./pages/ErpTesoreriaPage.tsx'))
+const ErpCuentasBancariasPage = lazy(() => import('./pages/ErpCuentasBancariasPage'))
 const ErpContabilidadPage = lazy(() => import('./pages/ErpContabilidadPage.tsx'))
+const ErpContabilidadReportesPage = lazy(() => import('./pages/ErpContabilidadReportesPage.tsx'))
 const ErpImpuestosPage = lazy(() => import('./pages/ErpImpuestosPage.tsx'))
 const ErpCuentasPorCobrarPage = lazy(() => import('./pages/ErpCuentasPorCobrarPage.tsx'))
 const ErpCuentasPorPagarPage = lazy(() => import('./pages/ErpCuentasPorPagarPage.tsx'))
 const ErpPlanCuentasPage = lazy(() => import('./pages/ErpPlanCuentasPage.tsx'))
 const ErpCostosPage = lazy(() => import('./pages/ErpCostosPage.tsx'))
 const ErpReportesPage = lazy(() => import('./pages/ErpReportesPage.tsx'))
+const ErpComprasPage = lazy(() => import('./pages/ErpComprasPage'))
+const ErpStockPage = lazy(() => import('./pages/ErpStockPage'))
+const ErpCrmPage = lazy(() => import('./pages/ErpCrmPage'))
+const ErpAdminPage = lazy(() => import('./pages/ErpAdminPage'))
 const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInventarioPage'))
 const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashboardPage'))
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
@@ -1205,6 +1212,10 @@ function AppRoutes({
         element={<FacturaDetallePage />}
       />
       <Route
+        path="/erp/facturas/:id/nota"
+        element={<CrearNotaPage />}
+      />
+      <Route
         path="/erp/asientos"
         element={<AsientosContablesPage />}
       />
@@ -1213,8 +1224,16 @@ function AppRoutes({
         element={<ErpTesoreriaPage />}
       />
       <Route
+        path="/erp/tesoreria/cuentas"
+        element={<ErpCuentasBancariasPage />}
+      />
+      <Route
         path="/erp/contabilidad"
         element={<ErpContabilidadPage />}
+      />
+      <Route
+        path="/erp/contabilidad/reportes"
+        element={<ErpContabilidadReportesPage />}
       />
       <Route
         path="/erp/impuestos"
@@ -1227,6 +1246,22 @@ function AppRoutes({
       <Route
         path="/erp/cuentas-por-pagar"
         element={<ErpCuentasPorPagarPage />}
+      />
+      <Route
+        path="/erp/compras"
+        element={<ErpComprasPage />}
+      />
+      <Route
+        path="/erp/stock"
+        element={<ErpStockPage />}
+      />
+      <Route
+        path="/erp/crm"
+        element={<ErpCrmPage />}
+      />
+      <Route
+        path="/erp/admin"
+        element={<ErpAdminPage />}
       />
       <Route
         path="/erp/plan-cuentas"

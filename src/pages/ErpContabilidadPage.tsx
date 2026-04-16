@@ -88,6 +88,9 @@ export default function ErpContabilidadPage() {
             <button type="button" className="btn-primary" onClick={() => navigate('/erp/plan-cuentas')}>
               Plan de cuentas
             </button>
+            <button type="button" className="btn-primary" onClick={() => navigate('/erp/contabilidad/reportes')}>
+              Reportes contables
+            </button>
             <button type="button" className="btn-primary" onClick={() => navigate('/erp/reportes')}>
               Reportes
             </button>

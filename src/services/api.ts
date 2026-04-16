@@ -6844,6 +6844,7 @@ class ApiService {
     id_pedido_compra?: number
     fecha_desde?: string
     fecha_hasta?: string
+    limit?: number
   }): Promise<ApiResponse<StockMovimiento[]>> {
     if (supabase) {
       try {
@@ -6871,6 +6872,9 @@ class ApiService {
           query = query.lte('created_at', filters.fecha_hasta)
         }
 
+        const lim = filters?.limit != null && filters.limit > 0 ? Math.min(filters.limit, 5000) : 200
+        query = query.limit(lim)
+
         const { data, error } = await query
 
         if (error) {
@@ -6883,6 +6887,523 @@ class ApiService {
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Entrada/Salida: `cantidad` es delta (unidades a sumar o restar).
+   * Ajuste: `cantidad` es la existencia nueva absoluta.
+   * Actualiza `articulos.stock` en la base de stock y registra `stock_movimientos` en la principal.
+   */
+  async aplicarMovimientoStockManual(input: {
+    id_articulo_stock: number
+    tipo_movimiento: 'Entrada' | 'Salida' | 'Ajuste'
+    cantidad: number
+    motivo?: string | null
+    id_pedido_compra?: number | null
+  }): Promise<ApiResponse<StockMovimiento>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    if (!stockSupabase) {
+      return { success: false, error: 'No hay conexión a la base de stock (VITE_STOCK_SUPABASE_*)' }
+    }
+    const tipo = input.tipo_movimiento
+    const raw = Number(input.cantidad)
+    if (!Number.isFinite(raw) || raw < 0) {
+      return { success: false, error: 'La cantidad no es válida.' }
+    }
+    if (tipo !== 'Ajuste' && raw <= 0) {
+      return { success: false, error: 'Para entrada o salida indicá una cantidad mayor a cero.' }
+    }
+
+    let usuarioId: number | null = null
+    let nombreUsuario = 'ERP'
+    try {
+      const usuarioData = localStorage.getItem('usuario')
+      if (usuarioData) {
+        const p = JSON.parse(usuarioData) as { id?: number; nombre?: string }
+        if (typeof p?.id === 'number') usuarioId = p.id
+        if (typeof p?.nombre === 'string' && p.nombre.trim()) nombreUsuario = p.nombre.trim()
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const { data: art, error: errArt } = await stockSupabase
+        .from('articulos')
+        .select('id, codigo, descripcion, stock')
+        .eq('id', input.id_articulo_stock)
+        .single()
+
+      if (errArt || !art) {
+        return { success: false, error: errArt?.message || 'Artículo no encontrado en stock.' }
+      }
+
+      const cantidadAnterior = Number((art as { stock?: unknown }).stock) || 0
+      let cantidadNueva = cantidadAnterior
+      let cantidadMov = 0
+
+      if (tipo === 'Entrada') {
+        cantidadNueva = cantidadAnterior + raw
+        cantidadMov = raw
+      } else if (tipo === 'Salida') {
+        if (cantidadAnterior < raw) {
+          return { success: false, error: 'Stock insuficiente para esta salida.' }
+        }
+        cantidadNueva = cantidadAnterior - raw
+        cantidadMov = raw
+      } else {
+        cantidadNueva = raw
+        cantidadMov = Math.abs(cantidadNueva - cantidadAnterior)
+      }
+
+      const { error: errUpd } = await stockSupabase
+        .from('articulos')
+        .update({ stock: cantidadNueva })
+        .eq('id', input.id_articulo_stock)
+
+      if (errUpd) return { success: false, error: errUpd.message }
+
+      const motivo =
+        (input.motivo && String(input.motivo).trim()) ||
+        (tipo === 'Ajuste' ? 'Ajuste manual ERP' : `Movimiento manual ERP (${tipo})`)
+
+      const { data: mov, error: errMov } = await supabase
+        .from('stock_movimientos')
+        .insert({
+          id_articulo_stock: input.id_articulo_stock,
+          codigo_articulo: (art as { codigo?: string | null }).codigo || null,
+          descripcion: String((art as { descripcion?: string }).descripcion || ''),
+          tipo_movimiento: tipo,
+          cantidad: cantidadMov,
+          cantidad_anterior: cantidadAnterior,
+          cantidad_nueva: cantidadNueva,
+          motivo,
+          id_pedido_compra: input.id_pedido_compra ?? null,
+          id_usuario: usuarioId,
+          nombre_usuario: nombreUsuario
+        })
+        .select()
+        .single()
+
+      if (errMov) return { success: false, error: errMov.message }
+      return { success: true, data: mov as StockMovimiento }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Por cada ítem del pedido con `id_articulo_stock` y cantidad a recibir (>0),
+   * registra una **Entrada** en stock y el movimiento en `stock_movimientos` vinculado al pedido.
+   * Ítems sin artículo de stock o con cantidad 0 se omiten (no son error).
+   */
+  async aplicarEntradasStockDesdePedidoCompra(idPedido: number): Promise<
+    ApiResponse<{
+      aplicados: number
+      omitidos: number
+      detalles: string[]
+    }>
+  > {
+    const pedidoRes = await this.getPedidoCompra(idPedido)
+    if (!pedidoRes.success || !pedidoRes.data) {
+      return { success: false, error: pedidoRes.error || 'No se pudo cargar el pedido.' }
+    }
+    const p = pedidoRes.data
+    const numero = p.numero_pedido || String(idPedido)
+    let aplicados = 0
+    let omitidos = 0
+    const detalles: string[] = []
+
+    for (const it of p.items || []) {
+      const idArt = it.id_articulo_stock
+      if (idArt == null || Number(idArt) <= 0) {
+        omitidos++
+        continue
+      }
+      const idArtNum = Number(idArt)
+      if (supabase) {
+        const { data: yaEntrada, error: errYa } = await supabase
+          .from('stock_movimientos')
+          .select('id')
+          .eq('id_pedido_compra', idPedido)
+          .eq('id_articulo_stock', idArtNum)
+          .eq('tipo_movimiento', 'Entrada')
+          .limit(1)
+        if (errYa) {
+          detalles.push(`Error (${it.descripcion || 'ítem'}): ${errYa.message}`)
+          continue
+        }
+        if (yaEntrada && yaEntrada.length > 0) {
+          omitidos++
+          detalles.push(
+            `Omitido (${it.descripcion || 'ítem'}): ya hay una entrada de stock registrada para este pedido y artículo.`
+          )
+          continue
+        }
+      }
+      const qty =
+        Number(it.cantidad_comprada ?? it.cantidad_aprobada ?? it.cantidad_solicitada) || 0
+      if (qty <= 0) {
+        omitidos++
+        detalles.push(`Omitido (${it.descripcion || 'ítem'}): cantidad a recibir en cero.`)
+        continue
+      }
+      const mov = await this.aplicarMovimientoStockManual({
+        id_articulo_stock: idArtNum,
+        tipo_movimiento: 'Entrada',
+        cantidad: qty,
+        motivo: `Recepción pedido compra ${numero}`,
+        id_pedido_compra: idPedido
+      })
+      if (!mov.success) {
+        detalles.push(`Error (${it.descripcion || 'ítem'}): ${mov.error || 'desconocido'}`)
+        continue
+      }
+      aplicados++
+      detalles.push(`Entrada: ${it.descripcion || 'ítem'} +${qty}`)
+    }
+
+    return {
+      success: true,
+      data: { aplicados, omitidos, detalles }
+    }
+  }
+
+  // ========== STOCK: DEPÓSITOS Y SALDOS (BD principal) ==========
+
+  async getStockDepositos(): Promise<ApiResponse<import('../types/api').StockDepositoRecord[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase
+        .from('stock_depositos')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre', { ascending: true })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as import('../types/api').StockDepositoRecord[]) ?? [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async createStockDeposito(input: {
+    nombre: string
+    codigo?: string | null
+  }): Promise<ApiResponse<import('../types/api').StockDepositoRecord>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const nombre = String(input.nombre || '').trim()
+    if (!nombre) return { success: false, error: 'El nombre del depósito es obligatorio.' }
+    try {
+      const { data, error } = await supabase
+        .from('stock_depositos')
+        .insert({
+          nombre,
+          codigo: input.codigo?.trim() || null,
+          activo: true
+        })
+        .select('*')
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as import('../types/api').StockDepositoRecord }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async getStockSaldosPorArticulo(
+    idArticuloStock: number
+  ): Promise<ApiResponse<import('../types/api').StockSaldoDepositoRow[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase
+        .from('stock_saldo_deposito')
+        .select(
+          `
+          cantidad,
+          deposito:stock_depositos(id, nombre, codigo)
+        `
+        )
+        .eq('id_articulo_stock', idArticuloStock)
+
+      if (error) return { success: false, error: error.message }
+      const rows = (data as any[] | null) || []
+      const mapped: import('../types/api').StockSaldoDepositoRow[] = rows.map((r) => {
+        const d = r.deposito as { id?: number; nombre?: string; codigo?: string | null } | null
+        return {
+          id_deposito: Number(d?.id) || 0,
+          deposito_nombre: String(d?.nombre || '—'),
+          deposito_codigo: d?.codigo ?? null,
+          cantidad: Number(r.cantidad) || 0
+        }
+      })
+      return { success: true, data: mapped }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Copia la existencia actual del artículo (base de stock) al depósito Principal en `stock_saldo_deposito`.
+   * Útil para alinear multi-depósito con el stock global antes de transferir.
+   */
+  async replicarStockArticuloADepositoPrincipal(idArticuloStock: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    if (!stockSupabase) {
+      return { success: false, error: 'No hay conexión a la base de stock (VITE_STOCK_SUPABASE_*).' }
+    }
+    try {
+      const { data: dep, error: eDep } = await supabase
+        .from('stock_depositos')
+        .select('id')
+        .eq('codigo', 'PRINCIPAL')
+        .maybeSingle()
+      if (eDep || !dep) {
+        return {
+          success: false,
+          error:
+            eDep?.message ||
+            'No existe el depósito Principal (aplicá el patch 2026-04-18_stock_depositos_saldos_transferencia.sql).'
+        }
+      }
+      const idDep = Number((dep as { id?: number }).id)
+      const { data: art, error: eArt } = await stockSupabase
+        .from('articulos')
+        .select('stock')
+        .eq('id', idArticuloStock)
+        .single()
+      if (eArt) return { success: false, error: eArt.message }
+      const cant = Number((art as { stock?: unknown })?.stock) || 0
+      const { error: eUp } = await supabase.from('stock_saldo_deposito').upsert(
+        {
+          id_articulo_stock: idArticuloStock,
+          id_deposito: idDep,
+          cantidad: cant,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'id_articulo_stock,id_deposito' }
+      )
+      if (eUp) return { success: false, error: eUp.message }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async transferirStockEntreDepositos(input: {
+    id_articulo_stock: number
+    id_deposito_origen: number
+    id_deposito_destino: number
+    cantidad: number
+    codigo_articulo?: string | null
+    descripcion_articulo: string
+  }): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const sb = supabase
+    const qty = Number(input.cantidad)
+    if (!Number.isFinite(qty) || qty <= 0) return { success: false, error: 'Cantidad inválida.' }
+    if (input.id_deposito_origen === input.id_deposito_destino) {
+      return { success: false, error: 'El depósito de origen y destino deben ser distintos.' }
+    }
+
+    let usuarioId: number | null = null
+    let nombreUsuario = 'ERP'
+    try {
+      const usuarioData = localStorage.getItem('usuario')
+      if (usuarioData) {
+        const p = JSON.parse(usuarioData) as { id?: number; nombre?: string }
+        if (typeof p?.id === 'number') usuarioId = p.id
+        if (typeof p?.nombre === 'string' && p.nombre.trim()) nombreUsuario = p.nombre.trim()
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const codigo = input.codigo_articulo ?? null
+    const desc = String(input.descripcion_articulo || '').trim() || 'Artículo'
+    const motivoBase = `Transferencia entre depósitos`
+
+    try {
+      const { data: rowO, error: errO } = await sb
+        .from('stock_saldo_deposito')
+        .select('id, cantidad')
+        .eq('id_articulo_stock', input.id_articulo_stock)
+        .eq('id_deposito', input.id_deposito_origen)
+        .maybeSingle()
+
+      if (errO) return { success: false, error: errO.message }
+      if (!rowO) {
+        return {
+          success: false,
+          error:
+            'No hay saldo registrado en el depósito de origen. Usá “Sincronizar Principal” o replicá existencias antes de transferir.'
+        }
+      }
+      const prevO = Number((rowO as { cantidad?: unknown }).cantidad) || 0
+      if (prevO < qty) {
+        return { success: false, error: 'Cantidad insuficiente en el depósito de origen.' }
+      }
+
+      const { data: rowD, error: errD } = await sb
+        .from('stock_saldo_deposito')
+        .select('id, cantidad')
+        .eq('id_articulo_stock', input.id_articulo_stock)
+        .eq('id_deposito', input.id_deposito_destino)
+        .maybeSingle()
+
+      if (errD) return { success: false, error: errD.message }
+      const prevD = Number((rowD as { cantidad?: unknown } | null)?.cantidad) || 0
+      const destRowExisted = !!(rowD as { id?: number } | null)?.id
+
+      const newO = prevO - qty
+      const { error: eUpO } = await sb
+        .from('stock_saldo_deposito')
+        .update({ cantidad: newO, updated_at: new Date().toISOString() })
+        .eq('id_articulo_stock', input.id_articulo_stock)
+        .eq('id_deposito', input.id_deposito_origen)
+
+      if (eUpO) return { success: false, error: eUpO.message }
+
+      if (destRowExisted) {
+        const { error: eUpD } = await sb
+          .from('stock_saldo_deposito')
+          .update({ cantidad: prevD + qty, updated_at: new Date().toISOString() })
+          .eq('id_articulo_stock', input.id_articulo_stock)
+          .eq('id_deposito', input.id_deposito_destino)
+        if (eUpD) {
+          await sb
+            .from('stock_saldo_deposito')
+            .update({ cantidad: prevO, updated_at: new Date().toISOString() })
+            .eq('id_articulo_stock', input.id_articulo_stock)
+            .eq('id_deposito', input.id_deposito_origen)
+          return { success: false, error: eUpD.message }
+        }
+      } else {
+        const { error: eIns } = await sb.from('stock_saldo_deposito').insert({
+          id_articulo_stock: input.id_articulo_stock,
+          id_deposito: input.id_deposito_destino,
+          cantidad: qty,
+          updated_at: new Date().toISOString()
+        })
+        if (eIns) {
+          await sb
+            .from('stock_saldo_deposito')
+            .update({ cantidad: prevO, updated_at: new Date().toISOString() })
+            .eq('id_articulo_stock', input.id_articulo_stock)
+            .eq('id_deposito', input.id_deposito_origen)
+          return { success: false, error: eIns.message }
+        }
+      }
+
+      const rollbackSaldos = async () => {
+        await sb
+          .from('stock_saldo_deposito')
+          .update({ cantidad: prevO, updated_at: new Date().toISOString() })
+          .eq('id_articulo_stock', input.id_articulo_stock)
+          .eq('id_deposito', input.id_deposito_origen)
+        if (destRowExisted) {
+          await sb
+            .from('stock_saldo_deposito')
+            .update({ cantidad: prevD, updated_at: new Date().toISOString() })
+            .eq('id_articulo_stock', input.id_articulo_stock)
+            .eq('id_deposito', input.id_deposito_destino)
+        } else {
+          await sb
+            .from('stock_saldo_deposito')
+            .delete()
+            .eq('id_articulo_stock', input.id_articulo_stock)
+            .eq('id_deposito', input.id_deposito_destino)
+        }
+      }
+
+      const { data: mov1, error: er1 } = await sb
+        .from('stock_movimientos')
+        .insert({
+          id_articulo_stock: input.id_articulo_stock,
+          codigo_articulo: codigo,
+          descripcion: desc,
+          tipo_movimiento: 'Salida',
+          cantidad: qty,
+          cantidad_anterior: prevO,
+          cantidad_nueva: newO,
+          motivo: motivoBase,
+          id_deposito_origen: input.id_deposito_origen,
+          id_deposito_destino: null,
+          id_usuario: usuarioId,
+          nombre_usuario: nombreUsuario
+        })
+        .select('id')
+        .single()
+
+      if (er1) {
+        await rollbackSaldos()
+        return { success: false, error: er1.message }
+      }
+
+      const newD = prevD + qty
+      const { error: er2 } = await sb
+        .from('stock_movimientos')
+        .insert({
+          id_articulo_stock: input.id_articulo_stock,
+          codigo_articulo: codigo,
+          descripcion: desc,
+          tipo_movimiento: 'Entrada',
+          cantidad: qty,
+          cantidad_anterior: prevD,
+          cantidad_nueva: newD,
+          motivo: motivoBase,
+          id_deposito_origen: null,
+          id_deposito_destino: input.id_deposito_destino,
+          id_usuario: usuarioId,
+          nombre_usuario: nombreUsuario
+        })
+        .select('id')
+        .single()
+
+      if (er2) {
+        const idM1 = (mov1 as { id?: number } | null)?.id
+        if (idM1) await sb.from('stock_movimientos').delete().eq('id', idM1)
+        await rollbackSaldos()
+        return { success: false, error: er2.message }
+      }
+
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Pone `articulos.stock` igual a la suma de `stock_saldo_deposito` para ese artículo (base principal + stock).
+   * No crea filas en `stock_movimientos`; sirve para alinear el total global con multi-depósito.
+   */
+  async sincronizarStockGlobalDesdeSumaDepositos(
+    idArticuloStock: number
+  ): Promise<ApiResponse<{ nuevo_stock: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    if (!stockSupabase) {
+      return { success: false, error: 'No hay conexión a la base de stock (VITE_STOCK_SUPABASE_*).' }
+    }
+    try {
+      const { data: rows, error } = await supabase
+        .from('stock_saldo_deposito')
+        .select('cantidad')
+        .eq('id_articulo_stock', idArticuloStock)
+      if (error) return { success: false, error: error.message }
+      const list = (rows as { cantidad?: unknown }[] | null | undefined) ?? []
+      if (list.length === 0) {
+        return {
+          success: false,
+          error:
+            'Este artículo no tiene saldos por depósito. Primero cargá saldos (p. ej. “Sincronizar Principal”) o no uses esta acción en modo solo stock global.'
+        }
+      }
+      const sum = list.reduce((acc, r) => acc + (Number(r?.cantidad) || 0), 0)
+      const { error: e2 } = await stockSupabase.from('articulos').update({ stock: sum }).eq('id', idArticuloStock)
+      if (e2) return { success: false, error: e2.message }
+      return { success: true, data: { nuevo_stock: sum } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
   }
 
   // ==================== ATENCIONES MOSTRADOR ====================
@@ -14214,6 +14735,138 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  // ========== FACTURAS DE COMPRA (IVA COMPRAS) ==========
+  async getFacturasCompra(filters?: {
+    fechaDesde?: string
+    fechaHasta?: string
+    id_proveedor?: number
+    id_pedido_compra?: number
+    id_cuenta_por_pagar?: number
+  }): Promise<ApiResponse<Array<import('../types/api').FacturaCompraRecord & { items?: import('../types/api').FacturaCompraItemRecord[] }>>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('facturas_compra')
+          .select(`
+            *,
+            items:facturas_compra_items(*)
+          `)
+          .order('fecha_emision', { ascending: false })
+          .order('numero_comprobante', { ascending: false })
+
+        if (filters?.fechaDesde) query = query.gte('fecha_emision', filters.fechaDesde)
+        if (filters?.fechaHasta) query = query.lte('fecha_emision', filters.fechaHasta)
+        if (filters?.id_proveedor) query = query.eq('id_proveedor', filters.id_proveedor)
+        if (filters?.id_pedido_compra != null) query = query.eq('id_pedido_compra', filters.id_pedido_compra)
+        if (filters?.id_cuenta_por_pagar != null) query = query.eq('id_cuenta_por_pagar', filters.id_cuenta_por_pagar)
+
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async createFacturaCompra(input: {
+    tipo_comprobante: 'Factura' | 'Nota de Crédito' | 'Nota de Débito'
+    letra: 'A' | 'B' | 'C'
+    punto_venta: number
+    numero_comprobante: number
+    fecha_emision: string
+    id_proveedor?: number | null
+    proveedor_nombre: string
+    proveedor_cuit?: string | null
+    items: Array<{
+      descripcion: string
+      cantidad: number
+      precio_unitario: number
+      descuento?: number
+      iva_porcentaje?: number
+    }>
+    observaciones?: string | null
+    id_pedido_compra?: number | null
+    id_cuenta_por_pagar?: number | null
+  }): Promise<ApiResponse<import('../types/api').FacturaCompraRecord>> {
+    if (supabase) {
+      try {
+        const usuarioData = localStorage.getItem('usuario')
+        const usuario = usuarioData ? JSON.parse(usuarioData) : null
+
+        const isNotaCredito = input.tipo_comprobante === 'Nota de Crédito'
+        const sign = isNotaCredito ? -1 : 1
+
+        let subtotal = 0
+        let ivaTotal = 0
+
+        const itemsCalculados = input.items.map((it, idx) => {
+          const cantidad = Number(it.cantidad || 0) || 1
+          const precioUnitario = Number(it.precio_unitario || 0) || 0
+          const descuento = Number(it.descuento || 0) || 0
+          const ivaPorcentaje = Number(it.iva_porcentaje ?? 21) || 0
+          const sub = cantidad * precioUnitario - descuento
+          const iva = sub * (ivaPorcentaje / 100)
+          const tot = sub + iva
+          subtotal += sub * sign
+          ivaTotal += iva * sign
+          return {
+            item_numero: idx + 1,
+            descripcion: it.descripcion,
+            cantidad,
+            precio_unitario: precioUnitario,
+            descuento: descuento * sign,
+            iva_porcentaje: ivaPorcentaje,
+            iva_monto: iva * sign,
+            subtotal: sub * sign,
+            total: tot * sign
+          }
+        })
+
+        const total = subtotal + ivaTotal
+        const numeroFactura = `${String(input.punto_venta).padStart(4, '0')}-${String(input.numero_comprobante).padStart(8, '0')}`
+
+        const { data: factura, error } = await supabase
+          .from('facturas_compra')
+          .insert({
+            tipo_comprobante: input.tipo_comprobante,
+            letra: input.letra,
+            punto_venta: input.punto_venta,
+            numero_comprobante: input.numero_comprobante,
+            numero_factura: numeroFactura,
+            fecha_emision: input.fecha_emision,
+            id_proveedor: input.id_proveedor ?? null,
+            proveedor_nombre: input.proveedor_nombre,
+            proveedor_cuit: input.proveedor_cuit ?? null,
+            subtotal,
+            iva: ivaTotal,
+            total,
+            observaciones: input.observaciones ?? null,
+            id_pedido_compra: input.id_pedido_compra ?? null,
+            id_cuenta_por_pagar: input.id_cuenta_por_pagar ?? null,
+            id_usuario: usuario?.id ?? null
+          })
+          .select('*')
+          .single()
+
+        if (error) return { success: false, error: error.message }
+
+        const itemsData = itemsCalculados.map((x) => ({ id_factura: (factura as any).id, ...x }))
+        const { error: errItems } = await supabase.from('facturas_compra_items').insert(itemsData)
+        if (errItems) {
+          await supabase.from('facturas_compra').delete().eq('id', (factura as any).id)
+          return { success: false, error: errItems.message }
+        }
+
+        return { success: true, data: factura as any }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async crearFactura(factura: {
     tipo_comprobante: 'Factura A' | 'Factura B' | 'Factura C' | 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Crédito C' | 'Nota de Débito A' | 'Nota de Débito B' | 'Nota de Débito C'
     fecha_emision: string
@@ -14226,6 +14879,7 @@ class ApiService {
     id_op?: number | null
     numero_op?: string | null
     id_venta?: number | null
+    id_factura_referencia?: number | null
     items: Array<{
       descripcion: string
       cantidad: number
@@ -14262,6 +14916,9 @@ class ApiService {
         let descuentoTotal = 0
         let ivaTotal = 0
 
+        const isNotaCredito = String(factura.tipo_comprobante || '').startsWith('Nota de Crédito')
+        const sign = isNotaCredito ? -1 : 1
+
         const itemsCalculados = factura.items.map((item, index) => {
           const cantidad = item.cantidad || 1
           const precioUnitario = item.precio_unitario || 0
@@ -14272,9 +14929,9 @@ class ApiService {
           const ivaMonto = subtotalItem * (ivaPorcentaje / 100)
           const totalItem = subtotalItem + ivaMonto
 
-          subtotal += subtotalItem
-          descuentoTotal += descuento
-          ivaTotal += ivaMonto
+          subtotal += subtotalItem * sign
+          descuentoTotal += descuento * sign
+          ivaTotal += ivaMonto * sign
 
           return {
             item_numero: index + 1,
@@ -14282,11 +14939,11 @@ class ApiService {
             cantidad,
             unidad_medida: item.unidad_medida || 'UN',
             precio_unitario: precioUnitario,
-            descuento,
+            descuento: descuento * sign,
             iva_porcentaje: ivaPorcentaje,
-            iva_monto: ivaMonto,
-            subtotal: subtotalItem,
-            total: totalItem
+            iva_monto: ivaMonto * sign,
+            subtotal: subtotalItem * sign,
+            total: totalItem * sign
           }
         })
 
@@ -14295,31 +14952,34 @@ class ApiService {
         // Crear factura
         const numeroFactura = `${configAFIP.punto_venta.toString().padStart(4, '0')}-${numeroComprobante.toString().padStart(8, '0')}`
 
+        const insertPayload: any = {
+          numero_factura: numeroFactura,
+          punto_venta: configAFIP.punto_venta,
+          numero_comprobante: numeroComprobante,
+          tipo_comprobante: factura.tipo_comprobante,
+          fecha_emision: factura.fecha_emision,
+          fecha_vencimiento: factura.fecha_vencimiento || null,
+          id_cliente: factura.id_cliente || null,
+          cliente_nombre: factura.cliente_nombre,
+          cliente_dni_cuit: factura.cliente_dni_cuit || null,
+          cliente_direccion: factura.cliente_direccion || null,
+          cliente_condicion_iva: factura.cliente_condicion_iva || null,
+          id_op: factura.id_op || null,
+          numero_op: factura.numero_op || null,
+          id_venta: factura.id_venta || null,
+          id_factura_referencia: factura.id_factura_referencia || null,
+          subtotal,
+          descuento: descuentoTotal,
+          iva: ivaTotal,
+          total,
+          estado: 'Borrador',
+          estado_afip: 'Pendiente',
+          observaciones: factura.observaciones || null
+        }
+
         const { data: facturaData, error: errorFactura } = await supabase
           .from('facturas_venta')
-          .insert({
-            numero_factura: numeroFactura,
-            punto_venta: configAFIP.punto_venta,
-            numero_comprobante: numeroComprobante,
-            tipo_comprobante: factura.tipo_comprobante,
-            fecha_emision: factura.fecha_emision,
-            fecha_vencimiento: factura.fecha_vencimiento || null,
-            id_cliente: factura.id_cliente || null,
-            cliente_nombre: factura.cliente_nombre,
-            cliente_dni_cuit: factura.cliente_dni_cuit || null,
-            cliente_direccion: factura.cliente_direccion || null,
-            cliente_condicion_iva: factura.cliente_condicion_iva || null,
-            id_op: factura.id_op || null,
-            numero_op: factura.numero_op || null,
-            id_venta: factura.id_venta || null,
-            subtotal,
-            descuento: descuentoTotal,
-            iva: ivaTotal,
-            total,
-            estado: 'Borrador',
-            estado_afip: 'Pendiente',
-            observaciones: factura.observaciones || null
-          })
+          .insert(insertPayload)
           .select()
           .single()
 
@@ -14510,10 +15170,12 @@ class ApiService {
 
   // ========== CUENTAS POR PAGAR ==========
   async getCuentasPorPagar(filters?: {
+    id?: number
     estado?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado'
     fechaDesde?: string
     fechaHasta?: string
     id_proveedor?: number
+    id_pedido_compra?: number
   }): Promise<ApiResponse<import('../types/api').CuentaPorPagarRecord[]>> {
     if (supabase) {
       try {
@@ -14522,6 +15184,9 @@ class ApiService {
           .select('*')
           .order('fecha_emision', { ascending: false })
 
+        if (filters?.id != null) {
+          query = query.eq('id', filters.id)
+        }
         if (filters?.estado) {
           query = query.eq('estado', filters.estado)
         }
@@ -14533,6 +15198,9 @@ class ApiService {
         }
         if (filters?.id_proveedor) {
           query = query.eq('id_proveedor', filters.id_proveedor)
+        }
+        if (filters?.id_pedido_compra != null) {
+          query = query.eq('id_pedido_compra', filters.id_pedido_compra)
         }
 
         const { data, error } = await query
@@ -14546,7 +15214,151 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  async createCuentaPorPagar(input: {
+    proveedor_nombre: string
+    monto_total: number
+    fecha_emision: string
+    fecha_vencimiento?: string | null
+    numero_documento?: string | null
+    observaciones?: string | null
+    id_pedido_compra?: number | null
+    id_proveedor?: number | null
+  }): Promise<ApiResponse<import('../types/api').CuentaPorPagarRecord>> {
+    if (supabase) {
+      try {
+        const monto = Number(input.monto_total)
+        if (!Number.isFinite(monto) || monto <= 0) {
+          return { success: false, error: 'El monto total debe ser mayor a cero.' }
+        }
+        const nombre = String(input.proveedor_nombre || '').trim()
+        if (!nombre) {
+          return { success: false, error: 'Indicá el nombre del proveedor.' }
+        }
+        const { data, error } = await supabase
+          .from('cuentas_por_pagar')
+          .insert({
+            proveedor_nombre: nombre,
+            monto_total: monto,
+            monto_pagado: 0,
+            monto_pendiente: monto,
+            fecha_emision: input.fecha_emision,
+            fecha_vencimiento: input.fecha_vencimiento || null,
+            numero_documento: input.numero_documento?.trim() || null,
+            observaciones: input.observaciones?.trim() || null,
+            id_pedido_compra: input.id_pedido_compra ?? null,
+            id_proveedor: input.id_proveedor ?? null,
+            estado: 'Pendiente'
+          })
+          .select('*')
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').CuentaPorPagarRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   // ========== PAGOS Y COBROS ==========
+  async getPagosCobros(filters?: {
+    tipo?: 'Pago' | 'Cobro'
+    fechaDesde?: string
+    fechaHasta?: string
+    id_cuenta_bancaria?: number
+    limit?: number
+  }): Promise<ApiResponse<import('../types/api').PagoCobroRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('pagos_cobros')
+          .select('*')
+          .order('fecha_pago', { ascending: false })
+          .order('id', { ascending: false })
+
+        if (filters?.tipo) query = query.eq('tipo', filters.tipo)
+        if (filters?.fechaDesde) query = query.gte('fecha_pago', filters.fechaDesde)
+        if (filters?.fechaHasta) query = query.lte('fecha_pago', filters.fechaHasta)
+        if (filters?.id_cuenta_bancaria) query = query.eq('id_cuenta_bancaria', filters.id_cuenta_bancaria)
+        if (filters?.limit) query = query.limit(filters.limit)
+
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as import('../types/api').PagoCobroRecord[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getCuentasBancarias(filters?: { activa?: boolean }): Promise<ApiResponse<import('../types/api').CuentaBancariaRecord[]>> {
+    if (supabase) {
+      try {
+        let query = supabase.from('cuentas_bancarias').select('*').order('nombre', { ascending: true })
+        if (filters?.activa !== undefined) query = query.eq('activa', filters.activa)
+        const { data, error } = await query
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as import('../types/api').CuentaBancariaRecord[]) ?? [] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async createCuentaBancaria(input: {
+    nombre: string
+    banco?: string | null
+    tipo?: string | null
+    moneda?: string
+    activa?: boolean
+    saldo_inicial?: number
+  }): Promise<ApiResponse<import('../types/api').CuentaBancariaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('cuentas_bancarias')
+          .insert({
+            nombre: input.nombre,
+            banco: input.banco ?? null,
+            tipo: input.tipo ?? null,
+            moneda: (input.moneda ?? 'ARS') as any,
+            activa: input.activa ?? true,
+            saldo_inicial: input.saldo_inicial ?? 0
+          })
+          .select('*')
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').CuentaBancariaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async updateCuentaBancaria(
+    id: number,
+    updates: Partial<import('../types/api').CuentaBancariaRecord>
+  ): Promise<ApiResponse<import('../types/api').CuentaBancariaRecord>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('cuentas_bancarias')
+          .update({ ...updates, updated_at: new Date().toISOString() } as any)
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: data as import('../types/api').CuentaBancariaRecord }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'Supabase no configurado' }
+  }
+
   async registrarCobro(cobro: {
     id_cuenta_por_cobrar: number
     monto: number
@@ -14578,6 +15390,13 @@ class ApiService {
           .single()
 
         if (error) return { success: false, error: error.message }
+
+        // Asiento contable automático (si existe RPC)
+        try {
+          await supabase.rpc('crear_asiento_desde_pago_cobro', { p_id_pago_cobro: (data as any).id })
+        } catch (e) {
+          console.warn('No se pudo crear asiento desde cobro:', e)
+        }
 
         // Mantener CxC consistente: recalcular montos y estado
         try {
@@ -14654,6 +15473,50 @@ class ApiService {
           .single()
 
         if (error) return { success: false, error: error.message }
+
+        // Asiento contable automático (si existe RPC)
+        try {
+          await supabase.rpc('crear_asiento_desde_pago_cobro', { p_id_pago_cobro: (data as any).id })
+        } catch (e) {
+          console.warn('No se pudo crear asiento desde pago:', e)
+        }
+
+        // Mantener CxP consistente (si no hay trigger en BD)
+        try {
+          const { data: cuenta, error: errCuenta } = await supabase
+            .from('cuentas_por_pagar')
+            .select('*')
+            .eq('id', pago.id_cuenta_por_pagar)
+            .single()
+
+          if (!errCuenta && cuenta) {
+            const montoTotal = Number((cuenta as any).monto_total) || 0
+            const pagadoPrev = Number((cuenta as any).monto_pagado) || 0
+            const pagadoNuevo = pagadoPrev + (Number(pago.monto) || 0)
+            const pendienteNuevo = Math.max(0, montoTotal - pagadoNuevo)
+
+            const fv = (cuenta as any).fecha_vencimiento ? new Date((cuenta as any).fecha_vencimiento).getTime() : null
+            const now = Date.now()
+
+            let estadoNuevo: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido' | 'Cancelado' = 'Pendiente'
+            if (pendienteNuevo <= 0) estadoNuevo = 'Pagado'
+            else if (pagadoNuevo > 0) estadoNuevo = 'Parcial'
+            if (estadoNuevo !== 'Pagado' && fv && fv < now) estadoNuevo = 'Vencido'
+
+            await supabase
+              .from('cuentas_por_pagar')
+              .update({
+                monto_pagado: pagadoNuevo,
+                monto_pendiente: pendienteNuevo,
+                estado: estadoNuevo,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', pago.id_cuenta_por_pagar)
+          }
+        } catch (e) {
+          console.warn('No se pudo actualizar CxP luego del pago:', e)
+        }
+
         return { success: true, data: data as import('../types/api').PagoCobroRecord }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
@@ -14722,20 +15585,25 @@ class ApiService {
 
         if (error) return { success: false, error: error.message }
 
-        // Crear cuenta por cobrar automáticamente
-        await supabase
-          .from('cuentas_por_cobrar')
-          .insert({
-            id_factura: id,
-            id_cliente: factura.id_cliente || null,
-            cliente_nombre: factura.cliente_nombre,
-            monto_total: factura.total,
-            monto_pagado: 0,
-            monto_pendiente: factura.total,
-            fecha_emision: factura.fecha_emision,
-            fecha_vencimiento: factura.fecha_vencimiento || null,
-            estado: 'Pendiente'
-          })
+        const tipo = String(factura.tipo_comprobante || '')
+        const esNotaCredito = tipo.startsWith('Nota de Crédito')
+
+        // Crear cuenta por cobrar automáticamente (solo facturas y notas débito; las notas crédito ajustan deuda y no generan CxC)
+        if (!esNotaCredito) {
+          await supabase
+            .from('cuentas_por_cobrar')
+            .insert({
+              id_factura: id,
+              id_cliente: factura.id_cliente || null,
+              cliente_nombre: factura.cliente_nombre,
+              monto_total: factura.total,
+              monto_pagado: 0,
+              monto_pendiente: factura.total,
+              fecha_emision: factura.fecha_emision,
+              fecha_vencimiento: factura.fecha_vencimiento || null,
+              estado: 'Pendiente'
+            })
+        }
 
         // Crear asiento contable automático si está configurado
         try {

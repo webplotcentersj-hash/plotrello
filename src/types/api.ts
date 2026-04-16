@@ -551,6 +551,7 @@ export interface FacturaVentaRecord {
   id_op?: number | null
   numero_op?: string | null
   id_venta?: number | null
+  id_factura_referencia?: number | null
   subtotal: number
   descuento: number
   iva: number
@@ -584,6 +585,43 @@ export interface FacturaItemRecord {
   subtotal: number
   total: number
   id_articulo?: number | null
+  created_at?: string
+}
+
+export interface FacturaCompraRecord {
+  id: number
+  tipo_comprobante: 'Factura' | 'Nota de Crédito' | 'Nota de Débito'
+  letra: 'A' | 'B' | 'C'
+  punto_venta: number
+  numero_comprobante: number
+  numero_factura: string
+  fecha_emision: string
+  id_proveedor?: number | null
+  proveedor_nombre: string
+  proveedor_cuit?: string | null
+  subtotal: number
+  iva: number
+  total: number
+  observaciones?: string | null
+  id_pedido_compra?: number | null
+  id_cuenta_por_pagar?: number | null
+  id_usuario?: number | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface FacturaCompraItemRecord {
+  id: number
+  id_factura: number
+  item_numero: number
+  descripcion: string
+  cantidad: number
+  precio_unitario: number
+  descuento: number
+  iva_porcentaje: number
+  iva_monto: number
+  subtotal: number
+  total: number
   created_at?: string
 }
 
@@ -651,6 +689,34 @@ export interface PagoCobroRecord {
   observaciones?: string | null
   id_usuario?: number | null
   created_at?: string
+}
+
+export interface StockDepositoRecord {
+  id: number
+  nombre: string
+  codigo?: string | null
+  activo: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface StockSaldoDepositoRow {
+  id_deposito: number
+  deposito_nombre: string
+  deposito_codigo?: string | null
+  cantidad: number
+}
+
+export interface CuentaBancariaRecord {
+  id: number
+  nombre: string
+  banco?: string | null
+  tipo?: string | null
+  moneda: string
+  activa: boolean
+  saldo_inicial: number
+  created_at?: string
+  updated_at?: string
 }
 
 export interface ConfiguracionAFIPRecord {

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useMemo, useState, useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoCompra, EstadoEntrega } from '../types/pedidos'
@@ -9,7 +9,10 @@ import './PedidoCompraDetallePage.css'
 const PedidoCompraDetallePage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { usuario, canManageCompras, loading: authLoading } = useAuth()
+  const [searchParams] = useSearchParams()
+  const fromErp = searchParams.get('from') === 'erp'
+  const volverHref = fromErp ? '/erp/compras' : '/compras/dashboard'
+  const { usuario, canManageCompras, canViewPedidoCompraDetalle, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedido, setPedido] = useState<PedidoCompra | null>(null)
   const [nuevoComentario, setNuevoComentario] = useState('')
@@ -19,6 +22,7 @@ const PedidoCompraDetallePage = () => {
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [cantidadesAprobadas, setCantidadesAprobadas] = useState<Record<number, number>>({})
   const [saving, setSaving] = useState(false)
+  const [stockRecepcionLoading, setStockRecepcionLoading] = useState(false)
   const [mostrarTracking, setMostrarTracking] = useState(false)
   const [formTracking, setFormTracking] = useState({
     estado_entrega: 'Pendiente' as EstadoEntrega,
@@ -31,19 +35,19 @@ const PedidoCompraDetallePage = () => {
   useEffect(() => {
     if (authLoading) return // Esperar a que termine la carga de autenticación
     
-    if (!canManageCompras) {
-      navigate('/compras/dashboard')
+    if (!canViewPedidoCompraDetalle) {
+      navigate('/')
       return
     }
     if (id) {
       loadPedido()
     }
-  }, [id, canManageCompras, navigate, authLoading])
+  }, [id, canViewPedidoCompraDetalle, navigate, authLoading])
 
-  /** Si estaba en Pendiente y pasa a otro estado, sale de la cola /compras/pedidos → dashboard. */
+  /** Si estaba en Pendiente y pasa a otro estado, sale de la cola /compras/pedidos → dashboard (o ERP si vino desde ahí). */
   const navigateIfDejoPendiente = (estadoAnterior: string | undefined) => {
     if (estadoAnterior === 'Pendiente') {
-      navigate('/compras/dashboard', { replace: true })
+      navigate(volverHref, { replace: true })
     }
   }
 
@@ -254,6 +258,47 @@ const PedidoCompraDetallePage = () => {
     }
   }
 
+  const recepcionStockResumen = useMemo(() => {
+    if (!pedido?.items?.length) return { conStock: 0, sinStock: 0 }
+    let conStock = 0
+    let sinStock = 0
+    for (const it of pedido.items) {
+      const idArt = it.id_articulo_stock
+      const qty =
+        Number(it.cantidad_comprada ?? it.cantidad_aprobada ?? it.cantidad_solicitada) || 0
+      if (idArt != null && Number(idArt) > 0 && qty > 0) conStock++
+      else sinStock++
+    }
+    return { conStock, sinStock }
+  }, [pedido])
+
+  const handleRecepcionStock = async () => {
+    if (!pedido) return
+    if (
+      !window.confirm(
+        'Se registrarán entradas de stock por cada ítem que tenga artículo de stock vinculado y cantidad a recibir mayor a cero. Los ítems que ya tengan una entrada registrada para este pedido se omiten automáticamente. ¿Continuar?'
+      )
+    ) {
+      return
+    }
+    setStockRecepcionLoading(true)
+    try {
+      const r = await apiService.aplicarEntradasStockDesdePedidoCompra(pedido.id)
+      if (!r.success || !r.data) {
+        alert(r.error || 'No se pudieron aplicar las entradas.')
+        return
+      }
+      const { aplicados, omitidos, detalles } = r.data
+      const msg = [
+        `Movimientos aplicados: ${aplicados}. Ítems omitidos (sin stock o cantidad 0): ${omitidos}.`,
+        detalles.length ? '\n' + detalles.join('\n') : ''
+      ].join('')
+      alert(msg)
+    } finally {
+      setStockRecepcionLoading(false)
+    }
+  }
+
   const getPrioridadColor = (prioridad: string) => {
     const colores: Record<string, string> = {
       'Baja': '#6b7280',
@@ -438,8 +483,8 @@ const PedidoCompraDetallePage = () => {
       <div className="pedido-detalle-page">
         <div className="error-container">
           <p>Pedido no encontrado</p>
-          <button onClick={() => navigate('/compras/dashboard')}>
-            Volver al Dashboard
+          <button onClick={() => navigate(volverHref)}>
+            Volver
           </button>
         </div>
       </div>
@@ -474,16 +519,18 @@ const PedidoCompraDetallePage = () => {
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <button
                 className="btn-secondary"
-                onClick={() => navigate('/compras/dashboard')}
+                onClick={() => navigate(volverHref)}
               >
                 ← Volver
               </button>
-              <button
-                className="btn-primary"
-                onClick={() => navigate(`/compras/presupuestos/${pedido.id}`)}
-              >
-                💰 Presupuestos
-              </button>
+              {canManageCompras && (
+                <button
+                  className="btn-primary"
+                  onClick={() => navigate(`/compras/presupuestos/${pedido.id}`)}
+                >
+                  💰 Presupuestos
+                </button>
+              )}
               <button
                 className="btn-primary"
                 onClick={generarPDF}
@@ -553,9 +600,11 @@ const PedidoCompraDetallePage = () => {
             <div className="section-header">
               <h2>📦 Tracking de Entrega</h2>
               <div className="tracking-actions-bar">
-                <button className="btn-action" onClick={() => setMostrarTracking(true)}>
-                  {pedido.estado_entrega ? '✏️ Editar Tracking' : '➕ Agregar Tracking'}
-                </button>
+                {canManageCompras && (
+                  <button className="btn-action" onClick={() => setMostrarTracking(true)}>
+                    {pedido.estado_entrega ? '✏️ Editar Tracking' : '➕ Agregar Tracking'}
+                  </button>
+                )}
               </div>
             </div>
             {pedido.estado_entrega ? (
@@ -601,6 +650,25 @@ const PedidoCompraDetallePage = () => {
           </section>
         )}
 
+        {/* Recepción → stock */}
+        {canViewPedidoCompraDetalle && pedido.estado !== 'Rechazado' && pedido.estado !== 'Cancelado' && (
+          <section className="info-section" style={{ marginBottom: 8 }}>
+            <h2>Recepción en inventario</h2>
+            <p style={{ color: '#6b7280', fontSize: '0.95rem', marginTop: 0 }}>
+              Ítems con artículo de stock y cantidad a recibir: {recepcionStockResumen.conStock}. Sin vínculo o cantidad
+              0: {recepcionStockResumen.sinStock}.
+            </p>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={stockRecepcionLoading || recepcionStockResumen.conStock === 0}
+              onClick={() => void handleRecepcionStock()}
+            >
+              {stockRecepcionLoading ? 'Aplicando…' : 'Registrar entradas de stock (recepción)'}
+            </button>
+          </section>
+        )}
+
         {/* Items del Pedido */}
         <section className="items-section">
           <h2>Productos Solicitados</h2>
@@ -609,6 +677,7 @@ const PedidoCompraDetallePage = () => {
               <thead>
                 <tr>
                   <th>Código</th>
+                  <th>Art. stock</th>
                   <th>Descripción</th>
                   <th>Cantidad Solicitada</th>
                   {puedeAprobar && <th>Cantidad a Aprobar</th>}
@@ -622,6 +691,7 @@ const PedidoCompraDetallePage = () => {
                 {pedido.items?.map((item) => (
                   <tr key={item.id}>
                     <td>{item.codigo_articulo || '-'}</td>
+                    <td>{item.id_articulo_stock != null ? `#${item.id_articulo_stock}` : '—'}</td>
                     <td>{item.descripcion}</td>
                     <td>{item.cantidad_solicitada} {item.unidad}</td>
                     {puedeAprobar && (

@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS public.asientos_contables (
   fecha date NOT NULL DEFAULT CURRENT_DATE,
   concepto text NOT NULL,
   tipo_asiento varchar(50) NOT NULL DEFAULT 'Manual' CHECK (
-    tipo_asiento IN ('Manual', 'Automático', 'Facturación', 'Compra', 'Pago', 'Cobro', 'Ajuste')
+    tipo_asiento IN ('Manual', 'Automático', 'Facturación', 'Compra', 'Pago', 'Cobro', 'Ajuste', 'Tesorería')
   ),
   id_origen integer, -- ID de la operación que originó el asiento (factura, compra, etc.)
   tipo_origen varchar(50), -- Tipo de origen: 'factura', 'compra', 'op', etc.
@@ -964,9 +964,10 @@ EXECUTE FUNCTION public.crear_factura_automatica_op();
 
 -- ============================================
 -- 13. POLÍTICAS RLS (Row Level Security)
+-- Versión Supabase: auth.uid() es uuid — no usar auth.uid()::integer.
+-- Políticas permisivas anon + authenticated (alineado a facturas_compra / depósitos en este proyecto).
 -- ============================================
 
--- Habilitar RLS en todas las tablas
 ALTER TABLE public.plan_cuentas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asientos_contables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asientos_detalle ENABLE ROW LEVEL SECURITY;
@@ -978,94 +979,41 @@ ALTER TABLE public.cuentas_por_pagar ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pagos_cobros ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.configuracion_afip ENABLE ROW LEVEL SECURITY;
 
--- Políticas: Todos los usuarios autenticados pueden leer, solo admin puede escribir
--- (Ajustar según necesidades de seguridad)
+DROP POLICY IF EXISTS "Plan cuentas lectura" ON public.plan_cuentas;
+DROP POLICY IF EXISTS "Plan cuentas escritura" ON public.plan_cuentas;
+DROP POLICY IF EXISTS "Asientos lectura" ON public.asientos_contables;
+DROP POLICY IF EXISTS "Asientos escritura" ON public.asientos_contables;
+DROP POLICY IF EXISTS "Facturas lectura" ON public.facturas_venta;
+DROP POLICY IF EXISTS "Facturas escritura" ON public.facturas_venta;
+DROP POLICY IF EXISTS "Costos lectura" ON public.costos_op;
+DROP POLICY IF EXISTS "Costos escritura" ON public.costos_op;
+DROP POLICY IF EXISTS "CXC lectura" ON public.cuentas_por_cobrar;
+DROP POLICY IF EXISTS "CXC escritura" ON public.cuentas_por_cobrar;
+DROP POLICY IF EXISTS "CXP lectura" ON public.cuentas_por_pagar;
+DROP POLICY IF EXISTS "CXP escritura" ON public.cuentas_por_pagar;
+DROP POLICY IF EXISTS "AFIP solo admin" ON public.configuracion_afip;
 
--- Plan de cuentas: lectura para todos, escritura solo admin
-CREATE POLICY "Plan cuentas lectura" ON public.plan_cuentas
-  FOR SELECT USING (true);
+DROP POLICY IF EXISTS "erp_plan_cuentas_all" ON public.plan_cuentas;
+DROP POLICY IF EXISTS "erp_asientos_contables_all" ON public.asientos_contables;
+DROP POLICY IF EXISTS "erp_asientos_detalle_all" ON public.asientos_detalle;
+DROP POLICY IF EXISTS "erp_facturas_venta_all" ON public.facturas_venta;
+DROP POLICY IF EXISTS "erp_facturas_items_all" ON public.facturas_items;
+DROP POLICY IF EXISTS "erp_costos_op_all" ON public.costos_op;
+DROP POLICY IF EXISTS "erp_cxc_all" ON public.cuentas_por_cobrar;
+DROP POLICY IF EXISTS "erp_cxp_all" ON public.cuentas_por_pagar;
+DROP POLICY IF EXISTS "erp_pagos_cobros_all" ON public.pagos_cobros;
+DROP POLICY IF EXISTS "erp_config_afip_all" ON public.configuracion_afip;
 
-CREATE POLICY "Plan cuentas escritura" ON public.plan_cuentas
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.usuarios
-      WHERE usuarios.id = auth.uid()::integer
-      AND usuarios.rol IN ('administracion', 'gerencia')
-    )
-  );
-
--- Asientos contables: lectura para todos, escritura solo admin
-CREATE POLICY "Asientos lectura" ON public.asientos_contables
-  FOR SELECT USING (true);
-
-CREATE POLICY "Asientos escritura" ON public.asientos_contables
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.usuarios
-      WHERE usuarios.id = auth.uid()::integer
-      AND usuarios.rol IN ('administracion', 'gerencia', 'caja')
-    )
-  );
-
--- Facturas: lectura para todos, escritura para admin, caja, mostrador
-CREATE POLICY "Facturas lectura" ON public.facturas_venta
-  FOR SELECT USING (true);
-
-CREATE POLICY "Facturas escritura" ON public.facturas_venta
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.usuarios
-      WHERE usuarios.id = auth.uid()::integer
-      AND usuarios.rol IN ('administracion', 'gerencia', 'caja', 'mostrador')
-    )
-  );
-
--- Costos OP: lectura para todos, escritura para admin y sectores
-CREATE POLICY "Costos lectura" ON public.costos_op
-  FOR SELECT USING (true);
-
-CREATE POLICY "Costos escritura" ON public.costos_op
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.usuarios
-      WHERE usuarios.id = auth.uid()::integer
-    )
-  );
-
--- Cuentas por cobrar/pagar: lectura para todos, escritura solo admin y caja
-CREATE POLICY "CXC lectura" ON public.cuentas_por_cobrar
-  FOR SELECT USING (true);
-
-CREATE POLICY "CXC escritura" ON public.cuentas_por_cobrar
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.usuarios
-      WHERE usuarios.id = auth.uid()::integer
-      AND usuarios.rol IN ('administracion', 'gerencia', 'caja')
-    )
-  );
-
-CREATE POLICY "CXP lectura" ON public.cuentas_por_pagar
-  FOR SELECT USING (true);
-
-CREATE POLICY "CXP escritura" ON public.cuentas_por_pagar
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.usuarios
-      WHERE usuarios.id = auth.uid()::integer
-      AND usuarios.rol IN ('administracion', 'gerencia', 'caja')
-    )
-  );
-
--- Configuración AFIP: solo admin
-CREATE POLICY "AFIP solo admin" ON public.configuracion_afip
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.usuarios
-      WHERE usuarios.id = auth.uid()::integer
-      AND usuarios.rol IN ('administracion', 'gerencia')
-    )
-  );
+CREATE POLICY "erp_plan_cuentas_all" ON public.plan_cuentas FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_asientos_contables_all" ON public.asientos_contables FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_asientos_detalle_all" ON public.asientos_detalle FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_facturas_venta_all" ON public.facturas_venta FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_facturas_items_all" ON public.facturas_items FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_costos_op_all" ON public.costos_op FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_cxc_all" ON public.cuentas_por_cobrar FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_cxp_all" ON public.cuentas_por_pagar FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_pagos_cobros_all" ON public.pagos_cobros FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "erp_config_afip_all" ON public.configuracion_afip FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
 -- ============================================
 -- 14. DATOS INICIALES - PLAN DE CUENTAS BÁSICO

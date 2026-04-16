@@ -1,0 +1,33 @@
+Orden sugerido (ERP / compras / stock — abril 2026)
+====================================================
+
+Ya aplicado en tu proyecto (confirmaste tablas):
+  2026-04-23_BUNDLE_iva_compras_y_stock_secciones_1_a_4.sql
+    → facturas_compra, facturas_compra_items, stock_depositos, stock_saldo_deposito,
+      columnas depósito en stock_movimientos.
+
+Siguiente bloque (solo si tenés módulo contable en la MISMA base):
+  2026-04-24_BUNDLE_contabilidad_secciones_5_y_6.sql
+    → Requiere: facturas_venta, plan_cuentas, asientos_contables, asientos_detalle,
+      pagos_cobros, generar_numero_asiento(), cuentas por cobrar/pagar.
+    → Si falta alguna tabla, aplicá antes el patch ERP base del repo (p. ej. 2025-01-23).
+
+Opcional — recepción pedido → stock sin duplicar en BD:
+  2026-04-25_stock_mov_entrada_unique_index_pedido_articulo.sql
+
+Corrección RLS facturas_compra si alguna vez corriste un bundle viejo con auth.uid()::integer:
+  2026-04-22_fix_facturas_compra_rls_auth_uid_uuid.sql
+
+Archivos sueltos (mismo contenido que el bundle grande, por si preferís granular):
+  2026-04-16_create_cuentas_bancarias.sql
+  2026-04-16_facturas_compra_libro_iva_compras.sql
+  2026-04-17_facturas_compra_vinculos_pedido_cxp.sql
+  2026-04-18_stock_depositos_saldos_transferencia.sql
+  2026-04-16_facturas_notas_credito_debito.sql
+  2026-04-16_pagos_cobros_asientos_automaticos.sql
+
+Monolito todo-en-uno (incluye 1–6 + comentario índice opcional):
+  2026-04-21_BUNDLE_ejecutar_en_orden_erp_iva_compras_stock.sql
+
+Otros patches 2026-04 del repo (no son el bundle ERP): revisá nombre/fecha según feature
+(atención, flota, totem, conciliación MP, etc.).
