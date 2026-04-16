@@ -76,6 +76,14 @@ const FacturaDetallePage = lazy(() => import('./pages/FacturaDetallePage'))
 const CrearFacturaPage = lazy(() => import('./pages/CrearFacturaPage'))
 const AsientosContablesPage = lazy(() => import('./pages/AsientosContablesPage'))
 const ConfiguracionAFIPPage = lazy(() => import('./pages/ConfiguracionAFIPPage'))
+const ErpTesoreriaPage = lazy(() => import('./pages/ErpTesoreriaPage.tsx'))
+const ErpContabilidadPage = lazy(() => import('./pages/ErpContabilidadPage.tsx'))
+const ErpImpuestosPage = lazy(() => import('./pages/ErpImpuestosPage.tsx'))
+const ErpCuentasPorCobrarPage = lazy(() => import('./pages/ErpCuentasPorCobrarPage.tsx'))
+const ErpCuentasPorPagarPage = lazy(() => import('./pages/ErpCuentasPorPagarPage.tsx'))
+const ErpPlanCuentasPage = lazy(() => import('./pages/ErpPlanCuentasPage.tsx'))
+const ErpCostosPage = lazy(() => import('./pages/ErpCostosPage.tsx'))
+const ErpReportesPage = lazy(() => import('./pages/ErpReportesPage.tsx'))
 const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInventarioPage'))
 const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashboardPage'))
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
@@ -1199,6 +1207,38 @@ function AppRoutes({
       <Route
         path="/erp/asientos"
         element={<AsientosContablesPage />}
+      />
+      <Route
+        path="/erp/tesoreria"
+        element={<ErpTesoreriaPage />}
+      />
+      <Route
+        path="/erp/contabilidad"
+        element={<ErpContabilidadPage />}
+      />
+      <Route
+        path="/erp/impuestos"
+        element={<ErpImpuestosPage />}
+      />
+      <Route
+        path="/erp/cuentas-por-cobrar"
+        element={<ErpCuentasPorCobrarPage />}
+      />
+      <Route
+        path="/erp/cuentas-por-pagar"
+        element={<ErpCuentasPorPagarPage />}
+      />
+      <Route
+        path="/erp/plan-cuentas"
+        element={<ErpPlanCuentasPage />}
+      />
+      <Route
+        path="/erp/costos"
+        element={<ErpCostosPage />}
+      />
+      <Route
+        path="/erp/reportes"
+        element={<ErpReportesPage />}
       />
       <Route
         path="/erp/configuracion-afip"

@@ -158,6 +158,24 @@ export default function ERPDashboardPage() {
       )}
 
       <div className="erp-modules-grid">
+        <div className="erp-module-card" onClick={() => navigate('/erp/tesoreria')}>
+          <div className="module-icon">🏦</div>
+          <h3>Tesorería</h3>
+          <p>Cobros, pagos, vencimientos, flujo de caja</p>
+        </div>
+
+        <div className="erp-module-card" onClick={() => navigate('/erp/contabilidad')}>
+          <div className="module-icon">📚</div>
+          <h3>Contabilidad</h3>
+          <p>Asientos, plan de cuentas, reportes contables</p>
+        </div>
+
+        <div className="erp-module-card" onClick={() => navigate('/erp/impuestos')}>
+          <div className="module-icon">🧾</div>
+          <h3>Impuestos</h3>
+          <p>AFIP, IVA, reportes impositivos</p>
+        </div>
+
         <div className="erp-module-card" onClick={() => navigate('/erp/facturas')}>
           <div className="module-icon">🧾</div>
           <h3>Facturación</h3>

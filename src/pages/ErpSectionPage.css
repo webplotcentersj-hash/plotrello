@@ -1,0 +1,156 @@
+.erp-section {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.erp-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.erp-section-header h1 {
+  margin: 0;
+  color: #1a202c;
+  font-size: 1.85rem;
+}
+
+.erp-section-sub {
+  margin: 6px 0 0;
+  color: #718096;
+  font-size: 0.95rem;
+}
+
+.erp-section-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.erp-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.erp-panel {
+  background: white;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.erp-panel h2 {
+  margin: 0 0 10px 0;
+  color: #2d3748;
+  font-size: 1.15rem;
+}
+
+.erp-kpi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.erp-kpi-item {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.erp-kpi-value {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #2d3748;
+}
+
+.erp-kpi-label {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.erp-table-wrap {
+  overflow-x: auto;
+}
+
+.erp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.erp-table th {
+  text-align: left;
+  padding: 12px;
+  background: #f7fafc;
+  color: #4a5568;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-bottom: 2px solid #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.erp-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+}
+
+.erp-muted {
+  color: #718096;
+}
+
+.erp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid #e2e8f0;
+  background: #f7fafc;
+  color: #2d3748;
+}
+
+.erp-pill.danger {
+  border-color: rgba(245, 101, 101, 0.35);
+  background: rgba(245, 101, 101, 0.12);
+  color: #c53030;
+}
+
+.btn-secondary {
+  padding: 10px 16px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-secondary:hover {
+  background: #cbd5e0;
+}
+
+.btn-primary {
+  padding: 10px 16px;
+  background: #4299e1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primary:hover {
+  background: #3182ce;
+}
+
