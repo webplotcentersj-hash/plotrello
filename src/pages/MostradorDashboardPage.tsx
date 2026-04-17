@@ -370,10 +370,25 @@ const MostradorDashboardPage = () => {
     [usuario, handleRegistrarAtencionSuccess]
   )
 
-  // Atajos de teclado para registro rápido
+  // Atajos: V = venta rápida; Alt+1/2/3 = registro rápido de atención
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!usuario) return
+      if (!usuario || loading) return
+      if (showVentaRapida || showRegistrarAtencion) return
+
+      const target = e.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        if (target.isContentEditable) return
+      }
+
+      if ((e.key === 'v' || e.key === 'V') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        setShowVentaRapida(true)
+        return
+      }
+
       if (e.altKey && e.key === '1') {
         e.preventDefault()
         registrarAtencionRapida('virtual')
@@ -389,7 +404,13 @@ const MostradorDashboardPage = () => {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [usuario, registrarAtencionRapida])
+  }, [
+    usuario,
+    loading,
+    showVentaRapida,
+    showRegistrarAtencion,
+    registrarAtencionRapida
+  ])
 
   // Suscripción en tiempo real a atenciones_mostrador
   useEffect(() => {
@@ -1173,7 +1194,7 @@ const MostradorDashboardPage = () => {
         <button
           className="fab-button fab-venta"
           onClick={() => setShowVentaRapida(true)}
-          title="Venta Rápida"
+          title="Venta Rápida (tecla V)"
         >
           💰
         </button>
@@ -1188,7 +1209,7 @@ const MostradorDashboardPage = () => {
         </button>
         {showFabMenu && (
           <div className="fab-menu" onMouseLeave={() => setShowFabMenu(false)}>
-            <p className="fab-hint">Atajos: Alt+1 / Alt+2 / Alt+3</p>
+            <p className="fab-hint">Venta rápida: V · Atención: Alt+1 / Alt+2 / Alt+3</p>
             <button
               className="fab-option virtual"
               onClick={() => registrarAtencionRapida('virtual')}
@@ -1217,6 +1238,7 @@ const MostradorDashboardPage = () => {
       {/* Modal de Venta Rápida */}
       {showVentaRapida && usuario && (
         <VentaRapidaModal
+          uiVariant="mostrador"
           onClose={() => {
             setShowVentaRapida(false)
             loadDashboardData()

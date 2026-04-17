@@ -541,3 +541,17 @@
   }
 }
 
+/* Desplegables y campos con fondo claro (solo cuando se abre desde dashboard mostrador) */
+.venta-rapida-modal.venta-rapida-modal--mostrador .form-input,
+.venta-rapida-modal.venta-rapida-modal--mostrador .form-select,
+.venta-rapida-modal.venta-rapida-modal--mostrador .form-textarea {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .form-select option {
+  background: #f8fafc;
+  color: #0f172a;
+}
+

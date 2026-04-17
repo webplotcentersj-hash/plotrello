@@ -10,6 +10,8 @@ interface VentaRapidaModalProps {
   onSuccess: () => void
   usuarioId: number
   usuarioNombre: string
+  /** Tema de formularios (p. ej. desplegables claros en dashboard mostrador) */
+  uiVariant?: 'default' | 'mostrador'
 }
 
 interface ItemVenta {
@@ -22,7 +24,13 @@ interface ItemVenta {
   observaciones?: string
 }
 
-const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: VentaRapidaModalProps) => {
+const VentaRapidaModal = ({
+  onClose,
+  onSuccess,
+  usuarioId,
+  usuarioNombre,
+  uiVariant = 'default'
+}: VentaRapidaModalProps) => {
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -444,7 +452,10 @@ const VentaRapidaModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: Vent
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`venta-rapida-modal${uiVariant === 'mostrador' ? ' venta-rapida-modal--mostrador' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Cartel VENTA REALIZADA al generar la venta */}
         {showCartelVentaRealizada && (
           <div className="venta-realizada-cartel">

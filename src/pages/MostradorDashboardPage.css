@@ -1,7 +1,14 @@
 .mostrador-dashboard-page {
   min-height: 100vh;
-  background: var(--surface-base);
+  /* Nunca fondo plano #fff: capa base + gradiente (solo esta página) */
+  background-color: #dbe4f0;
+  background-image:
+    radial-gradient(ellipse 120% 80% at 10% -20%, rgba(59, 130, 246, 0.12), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 100% 0%, rgba(16, 185, 129, 0.08), transparent 50%),
+    linear-gradient(180deg, #eef2f7 0%, #e2e9f2 45%, #d4dee9 100%);
+  background-attachment: fixed;
   padding: 24px;
+  color: var(--text-primary);
 }
 
 .loading-container {
@@ -602,5 +609,13 @@
   .grafico-card {
     padding: 16px;
   }
+}
+
+/* Desplegables nativos en esta página (si se agregan filtros, etc.) */
+.mostrador-dashboard-page select,
+.mostrador-dashboard-page select option {
+  background-color: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
