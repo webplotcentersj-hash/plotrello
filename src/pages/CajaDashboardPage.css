@@ -1,17 +1,14 @@
 /* Solo aplica dentro de /caja/dashboard — todo el bloque está acotado a .caja-dashboard-page */
 .caja-dashboard-page {
-  --caja-ink: #0a0a0a;
-  --caja-muted: #404040;
-  --caja-border: #d4d4d4;
-  --caja-surface: #ffffff;
-  --caja-bg: #eceef2;
-  --caja-accent-soft: #e8eaef;
+  --caja-ink: #000000;
+  --caja-muted: #1a1a1a;
+  --caja-border: #b8bec8;
+  --caja-surface: #f2f4f7;
+  --caja-bg: #c5cad4;
+  --caja-accent-soft: #e4e7ec;
 
   min-height: 100vh;
   background: var(--caja-bg);
-  background-image:
-    radial-gradient(ellipse 120% 80% at 0% 0%, rgba(255, 255, 255, 0.75) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 60% at 100% 100%, rgba(255, 255, 255, 0.5) 0%, transparent 50%);
   padding: 24px;
   color: var(--caja-ink);
 }
@@ -62,8 +59,8 @@
 .caja-dashboard-page .caja-header-lead {
   margin: 0;
   font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--caja-muted);
+  font-weight: 600;
+  color: var(--caja-ink);
 }
 
 .caja-dashboard-page .caja-header-actions {
@@ -130,7 +127,7 @@
 
 .caja-dashboard-page .stat-content h3 {
   margin: 0 0 8px 0;
-  color: var(--caja-muted);
+  color: var(--caja-ink);
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -148,7 +145,7 @@
 
 .caja-dashboard-page .stat-subtitle {
   margin: 6px 0 0 0;
-  color: var(--caja-muted);
+  color: var(--caja-ink);
   font-size: 0.8125rem;
   font-weight: 600;
 }
@@ -194,7 +191,7 @@
   border-radius: 8px;
   font-size: 0.9375rem;
   color: var(--caja-ink);
-  background: #fafafa;
+  background: var(--caja-surface);
 }
 
 .caja-dashboard-page .date-filters input:focus {
@@ -292,7 +289,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  background: #fafafa;
+  background: #e8ebf0;
   border-radius: 10px;
   border: 1px solid var(--caja-border);
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -331,7 +328,7 @@
 }
 
 .caja-dashboard-page .cuenta-fecha {
-  color: var(--caja-muted);
+  color: var(--caja-ink);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -399,9 +396,9 @@
 
 .caja-dashboard-page .empty-state {
   text-align: center;
-  color: var(--caja-muted);
+  color: var(--caja-ink);
   padding: 20px;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.9375rem;
 }
 
@@ -454,7 +451,8 @@
 }
 
 .caja-dashboard-page .btn-link:hover {
-  color: #262626;
+  color: var(--caja-ink);
+  opacity: 0.85;
 }
 
 .caja-dashboard-page .caja-loading-container,
