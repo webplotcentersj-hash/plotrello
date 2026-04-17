@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback, Fragment } from 'react'
 import type { Task, TaskStatus, Priority, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
 import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import apiService from '../services/api'
 import { ordenToTask, parseTaskIdToOrdenId } from '../utils/dataMappers'
+import TaskViewModal from './TaskViewModal'
 import './TaskLibraryModal.css'
 
 type DeletedOpRow = {
@@ -157,6 +158,11 @@ const TaskLibraryModal = ({
   const [elimDetalleError, setElimDetalleError] = useState<string | null>(null)
   /** Escala visual de las fichas (solo biblioteca; no modifica datos). */
   const [cardScale, setCardScale] = useState(1)
+  const [libraryDetailTask, setLibraryDetailTask] = useState<Task | null>(null)
+
+  const openLibraryDetail = useCallback((t: Task) => {
+    setLibraryDetailTask(t)
+  }, [])
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -419,6 +425,7 @@ const TaskLibraryModal = ({
     })
 
   return (
+    <Fragment>
     <div
       className="task-library-modal-overlay"
       onMouseDown={(e) => {
@@ -433,7 +440,8 @@ const TaskLibraryModal = ({
           <div>
             <h2>Bibliotecas de OPs - Filtros Avanzados</h2>
             <p className="task-library-readonly-hint">
-              Solo búsqueda y consulta: desde acá no se edita la OP (usá el tablero para cambios).
+              Solo búsqueda y consulta: desde acá no se edita la OP (usá el tablero para cambios). Hacé clic en una
+              ficha para abrir el detalle completo en grande (movimientos, adjuntos, comentarios, trazados).
             </p>
           </div>
           <button type="button" className="task-library-close" onClick={onClose}>
@@ -660,6 +668,7 @@ const TaskLibraryModal = ({
                           sectores={sectores}
                           isDraggable={false}
                           readOnly
+                          onInspectReadOnly={openLibraryDetail}
                         />
                       )
                     })}
@@ -713,6 +722,7 @@ const TaskLibraryModal = ({
                                   sectores={sectores}
                                   isDraggable={false}
                                   readOnly
+                                  onInspectReadOnly={openLibraryDetail}
                                 />
                               )
                             })}
@@ -764,6 +774,16 @@ const TaskLibraryModal = ({
         </div>
       </div>
     </div>
+    {libraryDetailTask && (
+      <TaskViewModal
+        task={libraryDetailTask}
+        teamMembers={teamMembers}
+        sectores={sectores}
+        exhaustiveDetail
+        onClose={() => setLibraryDetailTask(null)}
+      />
+    )}
+    </Fragment>
   )
 }
 

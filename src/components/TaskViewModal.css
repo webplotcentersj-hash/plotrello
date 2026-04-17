@@ -958,3 +958,109 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.task-view-overlay--exhaustive.modal-overlay {
+  z-index: 1400 !important;
+}
+
+.task-view-modal--exhaustive.modal-content {
+  max-width: min(99vw, 1720px) !important;
+  width: min(99vw, 1720px);
+}
+
+.task-view-exhaustive-loading {
+  margin: 0 0 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: rgba(191, 219, 254, 0.95);
+  font-size: 0.9rem;
+}
+
+.task-view-historial-json {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(226, 232, 240, 0.9);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.task-view-comentarios-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-view-comentario-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.task-view-archivos-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.task-view-archivo-card {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(11, 16, 32, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-view-archivo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.task-view-archivo-thumb-wrap {
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.task-view-archivo-thumb {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.task-view-archivo-link {
+  font-size: 0.85rem;
+  color: #93c5fd;
+}
+
+.task-view-relev-sublist {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+  color: rgba(226, 232, 240, 0.9);
+  font-size: 0.9rem;
+}
+
+.task-view-footer-warn {
+  color: #fecaca;
+}

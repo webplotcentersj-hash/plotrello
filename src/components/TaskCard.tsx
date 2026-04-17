@@ -78,6 +78,8 @@ type TaskCardProps = {
   hideReclamoUI?: boolean
   /** Biblioteca u otras vistas: solo lectura, sin cambiar etapas, checklist, reclamo, etc. */
   readOnly?: boolean
+  /** Con `readOnly`: abre vista detallada solo consulta (p. ej. biblioteca de OPs) */
+  onInspectReadOnly?: (task: Task) => void
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat('es-AR', {
@@ -141,7 +143,8 @@ const TaskCardInner = ({
   onViewTask,
   boardDnD = null,
   hideReclamoUI = false,
-  readOnly = false
+  readOnly = false,
+  onInspectReadOnly
 }: TaskCardProps) => {
   const isReadOnly = Boolean(readOnly)
   const { getTagColor, loadTagColor } = useTagColors()
@@ -514,6 +517,12 @@ const TaskCardInner = ({
             if (e.defaultPrevented) return
             if (isMinimized) {
               toggleMinimized()
+              return
+            }
+            if (isReadOnly && onInspectReadOnly) {
+              if (Date.now() - boardDragJustEndedAt.current > 420) {
+                onInspectReadOnly(task)
+              }
               return
             }
             if (!isReadOnly) {
@@ -2161,7 +2170,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       prev.onSelect === next.onSelect &&
       prev.onViewTask === next.onViewTask &&
       prev.hideReclamoUI === next.hideReclamoUI &&
-      prev.readOnly === next.readOnly
+      prev.readOnly === next.readOnly &&
+      prev.onInspectReadOnly === next.onInspectReadOnly
     )
   }
   if ((prev.boardDnD == null) !== (next.boardDnD == null)) return false
@@ -2224,6 +2234,7 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   if (prev.onViewTask !== next.onViewTask) return false
   if (prev.hideReclamoUI !== next.hideReclamoUI) return false
   if (prev.readOnly !== next.readOnly) return false
+  if (prev.onInspectReadOnly !== next.onInspectReadOnly) return false
   return true
 }
 

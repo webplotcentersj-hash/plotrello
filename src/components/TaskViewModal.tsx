@@ -1,15 +1,27 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { marked } from 'marked'
 import type { Task, TeamMember } from '../types/board'
-import type { HistorialMovimiento, SectorRecord } from '../types/api'
+import type {
+  ComentarioOrden,
+  HistorialMovimiento,
+  OrdenRelevamientoRecord,
+  RegistroTiempo,
+  RelevamientoSubitemRecord,
+  RevisionOrden,
+  SectorRecord
+} from '../types/api'
 import apiService from '../services/api'
-import { parseTaskIdToOrdenId } from '../utils/dataMappers'
+import { ordenToTask, parseTaskIdToOrdenId, mapStatusToEstado } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
-import { mapStatusToEstado } from '../utils/dataMappers'
 import { useTagColors } from '../hooks/useTagColors'
 import { fetchPlotAIRecommendationsForTask } from '../utils/taskPlotAIRecommendations'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
 import OpGaleriaCarousel from './OpGaleriaCarousel'
+import Subtasks from './Subtasks'
+import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
+import HistorialEtapasInstalaciones from './HistorialEtapasInstalaciones'
+import HistorialEtapasTallerImprenta from './HistorialEtapasTallerImprenta'
+import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskEditModal.css'
 import './TaskViewModal.css'
 
@@ -18,6 +30,18 @@ type TaskViewModalProps = {
   teamMembers: TeamMember[]
   sectores: SectorRecord[]
   onClose: () => void
+  /** Biblioteca: refrescar desde API y mostrar comentarios, adjuntos, trazados de etapas, checklist, etc. */
+  exhaustiveDetail?: boolean
+}
+
+function formatCambiosJson(cd: unknown): string | null {
+  if (cd == null) return null
+  if (typeof cd === 'string' && cd.trim()) return cd.trim()
+  try {
+    return JSON.stringify(cd, null, 2)
+  } catch {
+    return String(cd)
+  }
 }
 
 function formatDisplayDate(s: string | null | undefined) {
@@ -77,30 +101,48 @@ function KvBlock({ label, value }: { label: string; value: string | null | undef
   )
 }
 
-export default function TaskViewModal({ task, teamMembers, sectores, onClose }: TaskViewModalProps) {
+export default function TaskViewModal({
+  task,
+  teamMembers,
+  sectores,
+  onClose,
+  exhaustiveDetail = false
+}: TaskViewModalProps) {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(() => new Map())
   const [plotAIRecoOpen, setPlotAIRecoOpen] = useState(false)
   const [plotAIRecoLoading, setPlotAIRecoLoading] = useState(false)
   const [plotAIRecoText, setPlotAIRecoText] = useState('')
   const [plotAIRecoError, setPlotAIRecoError] = useState<string | null>(null)
-  const ordenIdView = useMemo(() => parseTaskIdToOrdenId(task.id), [task.id])
   const [historial, setHistorial] = useState<HistorialMovimiento[]>([])
   const [historialLoading, setHistorialLoading] = useState(false)
   const [historialError, setHistorialError] = useState<string | null>(null)
 
-  const owner = teamMembers.find((m) => m.id === task.ownerId)
-  const createdByMember = teamMembers.find((m) => m.id === task.createdBy)
-  const columnCfg = BOARD_COLUMNS.find((c) => c.id === task.status)
-  const columnLabel = columnCfg?.label ?? mapStatusToEstado(task.status)
-  const sectorColor = sectores.find((s) => s.nombre === task.assignedSector)?.color ?? '#eb671b'
+  const [resolvedFromApi, setResolvedFromApi] = useState<Task | null>(null)
+  const [exhaustiveLoading, setExhaustiveLoading] = useState(false)
+  const [exhaustiveError, setExhaustiveError] = useState<string | null>(null)
+  const [comentariosLib, setComentariosLib] = useState<ComentarioOrden[]>([])
+  const [archivosLib, setArchivosLib] = useState<Array<Record<string, unknown>>>([])
+  const [relevamientoLib, setRelevamientoLib] = useState<OrdenRelevamientoRecord | null>(null)
+  const [relevSubLib, setRelevSubLib] = useState<RelevamientoSubitemRecord[]>([])
+  const [revisionesLib, setRevisionesLib] = useState<RevisionOrden[]>([])
+  const [tiempoLib, setTiempoLib] = useState<RegistroTiempo[]>([])
+
+  const viewTask = resolvedFromApi ?? task
+  const ordenIdView = useMemo(() => parseTaskIdToOrdenId(viewTask.id), [viewTask.id])
+
+  const owner = teamMembers.find((m) => m.id === viewTask.ownerId)
+  const createdByMember = teamMembers.find((m) => m.id === viewTask.createdBy)
+  const columnCfg = BOARD_COLUMNS.find((c) => c.id === viewTask.status)
+  const columnLabel = columnCfg?.label ?? mapStatusToEstado(viewTask.status)
+  const sectorColor = sectores.find((s) => s.nombre === viewTask.assignedSector)?.color ?? '#eb671b'
 
   const impactLabel = useMemo(() => {
-    const i = task.impact
+    const i = viewTask.impact
     if (i === 'alta') return 'Alta'
     if (i === 'media') return 'Media'
     return 'Baja'
-  }, [task.impact])
+  }, [viewTask.impact])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -118,6 +160,9 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
   useEffect(() => {
     if (!ordenIdView) {
       setHistorial([])
+      return
+    }
+    if (exhaustiveDetail) {
       return
     }
     let cancelled = false
@@ -138,14 +183,99 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
     return () => {
       cancelled = true
     }
-  }, [ordenIdView])
+  }, [ordenIdView, exhaustiveDetail])
+
+  useEffect(() => {
+    setResolvedFromApi(null)
+    setComentariosLib([])
+    setArchivosLib([])
+    setRelevamientoLib(null)
+    setRelevSubLib([])
+    setRevisionesLib([])
+    setTiempoLib([])
+    setExhaustiveError(null)
+    if (!exhaustiveDetail || !ordenIdView) {
+      setExhaustiveLoading(false)
+      return
+    }
+    let cancelled = false
+    setExhaustiveLoading(true)
+    setHistorialLoading(true)
+    setHistorialError(null)
+    void (async () => {
+      try {
+        const [
+          ordResp,
+          comResp,
+          archResp,
+          relResp,
+          relSubResp,
+          revResp,
+          tiempoResp,
+          histResp
+        ] = await Promise.all([
+          apiService.getOrden(ordenIdView),
+          apiService.getComentariosOrden(ordenIdView),
+          apiService.getArchivosOrden(ordenIdView),
+          apiService.getOrdenRelevamiento(ordenIdView),
+          apiService.getRelevamientoSubitems(ordenIdView),
+          apiService.obtenerRevisionesOrden(ordenIdView),
+          apiService.obtenerTiempoTrabajoOrden(ordenIdView),
+          apiService.getHistorialMovimientos({ ordenId: ordenIdView, limit: 2000 })
+        ])
+        if (cancelled) return
+        if (ordResp.success && ordResp.data) {
+          setResolvedFromApi(ordenToTask(ordResp.data))
+        }
+        if (comResp.success && comResp.data) {
+          setComentariosLib(comResp.data as ComentarioOrden[])
+        }
+        if (archResp.success && archResp.data) {
+          setArchivosLib((archResp.data as Record<string, unknown>[]) ?? [])
+        }
+        if (relResp.success && relResp.data) {
+          setRelevamientoLib(relResp.data as OrdenRelevamientoRecord)
+        }
+        if (relSubResp.success && relSubResp.data) {
+          setRelevSubLib(relSubResp.data as RelevamientoSubitemRecord[])
+        }
+        if (revResp.success && revResp.data) {
+          setRevisionesLib(revResp.data as RevisionOrden[])
+        }
+        if (tiempoResp.success && tiempoResp.data) {
+          setTiempoLib(tiempoResp.data as RegistroTiempo[])
+        }
+        if (histResp.success && histResp.data) {
+          setHistorial(
+            [...histResp.data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          )
+          setHistorialError(null)
+        } else {
+          setHistorial([])
+          setHistorialError(histResp.error || 'No se pudo cargar el historial.')
+        }
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setExhaustiveError(e instanceof Error ? e.message : 'Error al cargar el detalle completo.')
+        }
+      } finally {
+        if (!cancelled) {
+          setExhaustiveLoading(false)
+          setHistorialLoading(false)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [exhaustiveDetail, ordenIdView, viewTask.id])
 
   const openPlotAIRecommendations = () => {
     setPlotAIRecoOpen(true)
     setPlotAIRecoError(null)
     setPlotAIRecoText('')
     setPlotAIRecoLoading(true)
-    void fetchPlotAIRecommendationsForTask(task, columnLabel)
+    void fetchPlotAIRecommendationsForTask(viewTask, columnLabel)
       .then((text) => {
         setPlotAIRecoText(text.trim())
       })
@@ -157,13 +287,17 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
       })
   }
 
-  const opLabel = task.esFichaNoOP ? 'Ficha' : 'OP'
-  const progress = Math.min(100, Math.max(0, task.progress))
+  const opLabel = viewTask.esFichaNoOP ? 'Ficha' : 'OP'
+  const progress = Math.min(100, Math.max(0, viewTask.progress))
 
   return (
-    <div className="modal-overlay task-view-overlay" role="presentation" onClick={() => onClose()}>
+    <div
+      className={`modal-overlay task-view-overlay${exhaustiveDetail ? ' task-view-overlay--exhaustive' : ''}`}
+      role="presentation"
+      onClick={() => onClose()}
+    >
       <div
-        className={`modal-content task-view-modal${task.enReclamo ? ' task-view-modal--reclamo' : ''}`}
+        className={`modal-content task-view-modal${viewTask.enReclamo ? ' task-view-modal--reclamo' : ''}${exhaustiveDetail ? ' task-view-modal--exhaustive' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-view-heading"
@@ -175,12 +309,12 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
             <div className="task-view-header-titles">
               <p className="task-view-op-pill" id="task-view-heading">
                 <span className="task-view-op-label">{opLabel}</span>
-                <span className="task-view-op-num">#{task.opNumber}</span>
+                <span className="task-view-op-num">#{viewTask.opNumber}</span>
               </p>
-              <h2 className="task-view-main-title">{task.title}</h2>
+              <h2 className="task-view-main-title">{viewTask.title}</h2>
               <p className="task-view-column-line">
                 Columna actual:{' '}
-                <strong>{columnCfg?.label ?? mapStatusToEstado(task.status)}</strong>
+                <strong>{columnCfg?.label ?? mapStatusToEstado(viewTask.status)}</strong>
                 {columnCfg?.description ? ` · ${columnCfg.description}` : ''}
               </p>
             </div>
@@ -191,46 +325,68 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
         </header>
 
         <div className="modal-body task-view-body">
-          {task.enReclamo && (
+          {viewTask.enReclamo && (
             <div className="task-view-reclamo-banner" role="status">
               <span className="task-view-reclamo-banner-icon" aria-hidden>
                 <ReclamoTriangleIcon size={28} />
               </span>
               <div className="task-view-reclamo-banner-text">
                 <strong>Reclamo — el trabajo debe rehacerse</strong>
-                {task.reclamoMotivo?.trim() ? (
-                  <p className="task-view-reclamo-motivo">{task.reclamoMotivo.trim()}</p>
+                {viewTask.reclamoMotivo?.trim() ? (
+                  <p className="task-view-reclamo-motivo">{viewTask.reclamoMotivo.trim()}</p>
                 ) : (
                   <p className="task-view-reclamo-sin-motivo">No se cargó un motivo detallado al marcar el reclamo.</p>
                 )}
               </div>
             </div>
           )}
-          <div className="task-view-banner task-view-banner--with-action">
+          {exhaustiveLoading && exhaustiveDetail && (
+            <p className="task-view-exhaustive-loading" role="status">
+              Cargando ficha completa desde el servidor (movimientos, adjuntos, comentarios, trazados…)…
+            </p>
+          )}
+          {exhaustiveError && exhaustiveDetail && (
+            <p className="task-view-historial-error" role="alert">
+              {exhaustiveError}
+            </p>
+          )}
+          <div
+            className={
+              exhaustiveDetail
+                ? 'task-view-banner'
+                : 'task-view-banner task-view-banner--with-action'
+            }
+          >
             <span className="task-view-banner-icon" aria-hidden="true">
               👁
             </span>
             <div className="task-view-banner-copy">
-              <strong>Vista expandida · solo lectura</strong>
-              <p>Para editar usá el botón ✏️ en la tarjeta del tablero.</p>
+              <strong>{exhaustiveDetail ? 'Biblioteca · detalle completo' : 'Vista expandida · solo lectura'}</strong>
+              <p>
+                {exhaustiveDetail
+                  ? 'Todos los datos se cargan desde la base; no se puede editar desde aquí.'
+                  : 'Para editar usá el botón ✏️ en la tarjeta del tablero.'}
+              </p>
             </div>
-            <button
-              type="button"
-              className="task-view-plotai-reco-btn"
-              onClick={openPlotAIRecommendations}
-              disabled={plotAIRecoLoading}
-            >
-              {plotAIRecoLoading ? 'Generando…' : 'Recomendación de PlotAI'}
-            </button>
+            {!exhaustiveDetail && (
+              <button
+                type="button"
+                className="task-view-plotai-reco-btn"
+                onClick={openPlotAIRecommendations}
+                disabled={plotAIRecoLoading}
+              >
+                {plotAIRecoLoading ? 'Generando…' : 'Recomendación de PlotAI'}
+              </button>
+            )}
           </div>
 
           <section className="task-view-hero-card">
             <div className="task-view-hero-main">
               <div className="task-view-tags-hero">
                 <h3 className="task-view-tags-hero-title">Etiquetas</h3>
-                {task.tags?.length ? (
+                {viewTask.tags?.length ? (
                   <div className="task-view-tags-hero-row" role="list">
-                    {task.tags.map((tag) => {
+                    {viewTask.tags.map((tag) => {
                       const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
                       if (!tagColorsCache.has(tag.toLowerCase())) {
                         void loadTagColor(tag).then((loadedColor) => {
@@ -265,11 +421,11 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
               </div>
 
               <div className="task-view-chip-row">
-                <span className={`task-view-chip task-view-chip--priority task-view-chip--${task.priority}`}>
-                  Prioridad {task.priority}
+                <span className={`task-view-chip task-view-chip--priority task-view-chip--${viewTask.priority}`}>
+                  Prioridad {viewTask.priority}
                 </span>
                 <span className="task-view-chip task-view-chip--impact">Impacto {impactLabel}</span>
-                {task.assignedSector && (
+                {viewTask.assignedSector && (
                   <span
                     className="task-view-chip task-view-chip--sector"
                     style={{
@@ -278,15 +434,15 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                       color: '#fff'
                     }}
                   >
-                    {task.assignedSector}
+                    {viewTask.assignedSector}
                   </span>
                 )}
-                {task.entregado && <span className="task-view-chip task-view-chip--ok">Entregado</span>}
-                {task.esDuplicado && <span className="task-view-chip">Duplicado</span>}
-                {task.esSubTarea && <span className="task-view-chip">Subtarea</span>}
-                {task.origenPedidoWeb && <span className="task-view-chip task-view-chip--web">Pedido web</span>}
-                {task.esUrgencia && <span className="task-view-chip task-view-chip--urgent">Urgencia</span>}
-                {task.enReclamo && (
+                {viewTask.entregado && <span className="task-view-chip task-view-chip--ok">Entregado</span>}
+                {viewTask.esDuplicado && <span className="task-view-chip">Duplicado</span>}
+                {viewTask.esSubTarea && <span className="task-view-chip">Subtarea</span>}
+                {viewTask.origenPedidoWeb && <span className="task-view-chip task-view-chip--web">Pedido web</span>}
+                {viewTask.esUrgencia && <span className="task-view-chip task-view-chip--urgent">Urgencia</span>}
+                {viewTask.enReclamo && (
                   <span className="task-view-chip task-view-chip--reclamo">
                     <ReclamoTriangleIcon size={14} /> Reclamo
                   </span>
@@ -302,10 +458,10 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                   <div className="task-view-progress-fill" style={{ width: `${progress}%` }} />
                 </div>
                 <div className="task-view-progress-meta">
-                  <span>{task.storyPoints} pts historia</span>
-                  {task.subtaskProgress != null && <span>Subtareas: {task.subtaskProgress}%</span>}
-                  {task.subtaskTimeSpentSec != null && task.subtaskTimeSpentSec > 0 && (
-                    <span>Tiempo en subtareas: {formatSeconds(task.subtaskTimeSpentSec)}</span>
+                  <span>{viewTask.storyPoints} pts historia</span>
+                  {viewTask.subtaskProgress != null && <span>Subtareas: {viewTask.subtaskProgress}%</span>}
+                  {viewTask.subtaskTimeSpentSec != null && viewTask.subtaskTimeSpentSec > 0 && (
+                    <span>Tiempo en subtareas: {formatSeconds(viewTask.subtaskTimeSpentSec)}</span>
                   )}
                 </div>
               </div>
@@ -313,53 +469,53 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
               <div className="task-view-dates-row">
                 <div className="task-view-date-card">
                   <span className="task-view-date-label">Alta</span>
-                  <span className="task-view-date-value">{formatDisplayDate(task.createdAt) ?? task.createdAt}</span>
+                  <span className="task-view-date-value">{formatDisplayDate(viewTask.createdAt) ?? viewTask.createdAt}</span>
                 </div>
                 <div className="task-view-date-card">
                   <span className="task-view-date-label">Vencimiento</span>
-                  <span className="task-view-date-value">{formatDisplayDate(task.dueDate) ?? task.dueDate}</span>
+                  <span className="task-view-date-value">{formatDisplayDate(viewTask.dueDate) ?? viewTask.dueDate}</span>
                 </div>
                 <div className="task-view-date-card">
                   <span className="task-view-date-label">Última actividad</span>
-                  <span className="task-view-date-value">{formatDisplayDate(task.updatedAt) ?? task.updatedAt}</span>
+                  <span className="task-view-date-value">{formatDisplayDate(viewTask.updatedAt) ?? viewTask.updatedAt}</span>
                 </div>
               </div>
             </div>
 
-            {task.photoUrl ? (
+            {viewTask.photoUrl ? (
               <div className="task-view-hero-photo">
-                <img src={task.photoUrl} alt="Referencia del trabajo" loading="lazy" />
+                <img src={viewTask.photoUrl} alt="Referencia del trabajo" loading="lazy" />
               </div>
             ) : (
               <div className="task-view-hero-photo task-view-hero-photo--empty">Sin imagen</div>
             )}
           </section>
 
-          {task.galeriaCarrusel && task.galeriaCarrusel.length > 0 ? (
+          {viewTask.galeriaCarrusel && viewTask.galeriaCarrusel.length > 0 ? (
             <section className="task-view-galeria-section" aria-label="Galería de la OP">
               <h3 className="task-view-galeria-title">Galería</h3>
               <p className="task-view-galeria-sub">Miniaturas visibles. Tocá una para verla grande.</p>
-              <OpGaleriaCarousel slides={task.galeriaCarrusel} />
+              <OpGaleriaCarousel slides={viewTask.galeriaCarrusel} />
             </section>
           ) : null}
 
-          <KvBlock label="Descripción / resumen" value={task.summary} />
+          <KvBlock label="Descripción / resumen" value={viewTask.summary} />
 
-          {task.fichaTecnicaPdfUrl ? (
+          {viewTask.fichaTecnicaPdfUrl ? (
             <section className="task-view-panel" style={{ marginTop: 14 }}>
               <h3 className="task-view-panel-title">Ficha técnica (PDF)</h3>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => window.open(task.fichaTecnicaPdfUrl as string, '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(viewTask.fichaTecnicaPdfUrl as string, '_blank', 'noopener,noreferrer')}
                 >
                   Ver
                 </button>
                 <a
                   className="btn-secondary"
-                  href={task.fichaTecnicaPdfUrl as string}
-                  download={`Ficha-Tecnica-${task.opNumber || 'sin-op'}.pdf`}
+                  href={viewTask.fichaTecnicaPdfUrl as string}
+                  download={`Ficha-Tecnica-${viewTask.opNumber || 'sin-op'}.pdf`}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -367,8 +523,8 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                 </a>
               </div>
               <iframe
-                src={task.fichaTecnicaPdfUrl as string}
-                title={`Ficha técnica ${task.opNumber || ''}`}
+                src={viewTask.fichaTecnicaPdfUrl as string}
+                title={`Ficha técnica ${viewTask.opNumber || ''}`}
                 style={{
                   width: '100%',
                   height: 520,
@@ -384,45 +540,45 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
             <section className="task-view-panel">
               <h3 className="task-view-panel-title">Equipo</h3>
               <dl className="task-view-kv">
-                <Kv label="Responsable">{owner?.name ?? task.ownerId}</Kv>
-                <Kv label="Creado por">{createdByMember?.name ?? task.createdBy}</Kv>
-                <Kv label="Trabajando ahora">{task.workingUser}</Kv>
+                <Kv label="Responsable">{owner?.name ?? viewTask.ownerId}</Kv>
+                <Kv label="Creado por">{createdByMember?.name ?? viewTask.createdBy}</Kv>
+                <Kv label="Trabajando ahora">{viewTask.workingUser}</Kv>
               </dl>
             </section>
 
             <section className="task-view-panel">
               <h3 className="task-view-panel-title">Cliente & contacto</h3>
               <dl className="task-view-kv">
-                <Kv label="Nombre completo">{task.clienteNombreCompleto}</Kv>
-                <Kv label="Empresa">{task.clienteEmpresa}</Kv>
-                <Kv label="Teléfono">{task.clientPhone}</Kv>
-                <Kv label="Email">{task.clientEmail}</Kv>
-                <Kv label="DNI / CUIT">{task.dniCuit}</Kv>
-                <Kv label="Dirección">{task.clientAddress}</Kv>
-                {task.whatsappUrl && (
+                <Kv label="Nombre completo">{viewTask.clienteNombreCompleto}</Kv>
+                <Kv label="Empresa">{viewTask.clienteEmpresa}</Kv>
+                <Kv label="Teléfono">{viewTask.clientPhone}</Kv>
+                <Kv label="Email">{viewTask.clientEmail}</Kv>
+                <Kv label="DNI / CUIT">{viewTask.dniCuit}</Kv>
+                <Kv label="Dirección">{viewTask.clientAddress}</Kv>
+                {viewTask.whatsappUrl && (
                   <Kv label="WhatsApp">
-                    <a href={task.whatsappUrl} target="_blank" rel="noreferrer">
+                    <a href={viewTask.whatsappUrl} target="_blank" rel="noreferrer">
                       Abrir conversación
                     </a>
                   </Kv>
                 )}
-                {task.driveUrl && (
+                {viewTask.driveUrl && (
                   <Kv label="Google Drive">
-                    <a href={task.driveUrl} target="_blank" rel="noreferrer">
+                    <a href={viewTask.driveUrl} target="_blank" rel="noreferrer">
                       Abrir carpeta / archivo
                     </a>
                   </Kv>
                 )}
-                {task.locationUrl && (
+                {viewTask.locationUrl && (
                   <Kv label="Ubicación">
-                    <a href={task.locationUrl} target="_blank" rel="noreferrer">
+                    <a href={viewTask.locationUrl} target="_blank" rel="noreferrer">
                       Ver en mapa
                     </a>
                   </Kv>
                 )}
-                {task.fichaTecnicaPdfUrl && (
+                {viewTask.fichaTecnicaPdfUrl && (
                   <Kv label="Ficha técnica (PDF)">
-                    <a href={task.fichaTecnicaPdfUrl} target="_blank" rel="noreferrer">
+                    <a href={viewTask.fichaTecnicaPdfUrl} target="_blank" rel="noreferrer">
                       Descargar / ver PDF
                     </a>
                   </Kv>
@@ -433,24 +589,24 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
             <section className="task-view-panel">
               <h3 className="task-view-panel-title">Sectores & recorrido</h3>
               <dl className="task-view-kv">
-                <Kv label="Sector asignado">{task.assignedSector}</Kv>
-                <Kv label="Sectores requeridos">{task.sectores?.length ? task.sectores.join(' · ') : null}</Kv>
-                <Kv label="Sector inicial">{task.sectorInicial}</Kv>
-                <Kv label="Ubicación en taller (final)">{task.finalLocation}</Kv>
+                <Kv label="Sector asignado">{viewTask.assignedSector}</Kv>
+                <Kv label="Sectores requeridos">{viewTask.sectores?.length ? viewTask.sectores.join(' · ') : null}</Kv>
+                <Kv label="Sector inicial">{viewTask.sectorInicial}</Kv>
+                <Kv label="Ubicación en taller (final)">{viewTask.finalLocation}</Kv>
               </dl>
             </section>
 
             <section className="task-view-panel">
               <h3 className="task-view-panel-title">Checklist & pedido</h3>
               <dl className="task-view-kv">
-                <Kv label="Planilla preliminar">{YesNo(task.planillaPreliminar)}</Kv>
-                <Kv label="Ficha técnica incompleta (manual)">{YesNo(task.fichaTecnicaIncompleta)}</Kv>
-                <Kv label="Ficha técnica cargada">{YesNo(task.fichaTecnicaCargada)}</Kv>
-                <Kv label="Presupuesto enviado al cliente">{YesNo(task.presupuestoEnviadoCliente)}</Kv>
-                <Kv label="Estado revisión">{task.estadoRevision}</Kv>
-                <Kv label="ID pedido cliente">{task.idPedidoCliente != null ? String(task.idPedidoCliente) : null}</Kv>
-                {task.esDuplicado && <Kv label="ID orden original">{task.idOrdenOriginal != null ? String(task.idOrdenOriginal) : null}</Kv>}
-                {task.esSubTarea && <Kv label="ID ficha principal">{task.idFichaPrincipal}</Kv>}
+                <Kv label="Planilla preliminar">{YesNo(viewTask.planillaPreliminar)}</Kv>
+                <Kv label="Ficha técnica incompleta (manual)">{YesNo(viewTask.fichaTecnicaIncompleta)}</Kv>
+                <Kv label="Ficha técnica cargada">{YesNo(viewTask.fichaTecnicaCargada)}</Kv>
+                <Kv label="Presupuesto enviado al cliente">{YesNo(viewTask.presupuestoEnviadoCliente)}</Kv>
+                <Kv label="Estado revisión">{viewTask.estadoRevision}</Kv>
+                <Kv label="ID pedido cliente">{viewTask.idPedidoCliente != null ? String(viewTask.idPedidoCliente) : null}</Kv>
+                {viewTask.esDuplicado && <Kv label="ID orden original">{viewTask.idOrdenOriginal != null ? String(viewTask.idOrdenOriginal) : null}</Kv>}
+                {viewTask.esSubTarea && <Kv label="ID ficha principal">{viewTask.idFichaPrincipal}</Kv>}
               </dl>
             </section>
 
@@ -458,33 +614,33 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
               <h3 className="task-view-panel-title">Etapas por área</h3>
               <dl className="task-view-kv task-view-kv--dense">
                 <Kv label="Taller gráfico">
-                  {task.etapaTallerGrafico}
-                  {task.etapaTallerGraficoFechaInicio
-                    ? ` · desde ${formatDisplayDate(task.etapaTallerGraficoFechaInicio)}`
+                  {viewTask.etapaTallerGrafico}
+                  {viewTask.etapaTallerGraficoFechaInicio
+                    ? ` · desde ${formatDisplayDate(viewTask.etapaTallerGraficoFechaInicio)}`
                     : null}
                 </Kv>
                 <Kv label="Instalaciones">
-                  {task.etapaInstalaciones}
-                  {task.etapaInstalacionesFechaInicio
-                    ? ` · desde ${formatDisplayDate(task.etapaInstalacionesFechaInicio)}`
+                  {viewTask.etapaInstalaciones}
+                  {viewTask.etapaInstalacionesFechaInicio
+                    ? ` · desde ${formatDisplayDate(viewTask.etapaInstalacionesFechaInicio)}`
                     : null}
                 </Kv>
                 <Kv label="Taller imprenta">
-                  {task.etapaTallerImprenta}
-                  {task.etapaTallerImprentaFechaInicio
-                    ? ` · desde ${formatDisplayDate(task.etapaTallerImprentaFechaInicio)}`
+                  {viewTask.etapaTallerImprenta}
+                  {viewTask.etapaTallerImprentaFechaInicio
+                    ? ` · desde ${formatDisplayDate(viewTask.etapaTallerImprentaFechaInicio)}`
                     : null}
                 </Kv>
                 <Kv label="Impresión digital">
-                  {task.etapaImpresionDigital}
-                  {task.etapaImpresionDigitalFechaInicio
-                    ? ` · desde ${formatDisplayDate(task.etapaImpresionDigitalFechaInicio)}`
+                  {viewTask.etapaImpresionDigital}
+                  {viewTask.etapaImpresionDigitalFechaInicio
+                    ? ` · desde ${formatDisplayDate(viewTask.etapaImpresionDigitalFechaInicio)}`
                     : null}
                 </Kv>
                 <Kv label="Metalúrgica">
-                  {task.etapaMetalurgica}
-                  {task.etapaMetalurgicaFechaInicio
-                    ? ` · desde ${formatDisplayDate(task.etapaMetalurgicaFechaInicio)}`
+                  {viewTask.etapaMetalurgica}
+                  {viewTask.etapaMetalurgicaFechaInicio
+                    ? ` · desde ${formatDisplayDate(viewTask.etapaMetalurgicaFechaInicio)}`
                     : null}
                 </Kv>
               </dl>
@@ -493,39 +649,40 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
             <section className="task-view-panel task-view-panel--wide">
               <h3 className="task-view-panel-title">Brief público / proyecto</h3>
               <dl className="task-view-kv">
-                <Kv label="Brief (texto)">{task.briefPublico}</Kv>
-                <Kv label="Objetivo del proyecto">{task.objetivoProyecto}</Kv>
-                <Kv label="Público objetivo">{task.publicoObjetivo}</Kv>
-                <Kv label="Estilo de diseño">{task.estiloDiseno}</Kv>
-                <Kv label="Referencias">{task.referencias}</Kv>
-                <Kv label="Deadline brief">{formatDisplayDate(task.deadlineBrief ?? task.fechaLimiteBrief)}</Kv>
-                <Kv label="Tipo producto / servicio">{task.tipoProductoServicio?.join(', ')}</Kv>
-                <Kv label="Tipo (otro)">{task.tipoProductoOtro}</Kv>
-                <Kv label="Necesita asesoramiento">{YesNo(task.necesitaAsesoramiento)}</Kv>
-                <Kv label="Dónde colocados">{task.dondeColocados}</Kv>
-                <Kv label="Digital o impresión">{task.digitalOImpresion}</Kv>
-                <Kv label="Cantidades">{task.cantidades}</Kv>
-                <Kv label="Material: logo">{task.materialLogo}</Kv>
-                <Kv label="Material: textos">{task.materialTextos}</Kv>
-                <Kv label="Material: imágenes">{task.materialImagenes}</Kv>
-                <Kv label="Tiene referencias">{YesNo(task.tieneReferencias)}</Kv>
-                <Kv label="Links de referencias">{task.referenciasLinks}</Kv>
+                <Kv label="Brief (texto)">{viewTask.briefPublico}</Kv>
+                <Kv label="Objetivo del proyecto">{viewTask.objetivoProyecto}</Kv>
+                <Kv label="Público objetivo">{viewTask.publicoObjetivo}</Kv>
+                <Kv label="Estilo de diseño">{viewTask.estiloDiseno}</Kv>
+                <Kv label="Referencias">{viewTask.referencias}</Kv>
+                <Kv label="Deadline brief">{formatDisplayDate(viewTask.deadlineBrief ?? viewTask.fechaLimiteBrief)}</Kv>
+                <Kv label="Tipo producto / servicio">{viewTask.tipoProductoServicio?.join(', ')}</Kv>
+                <Kv label="Tipo (otro)">{viewTask.tipoProductoOtro}</Kv>
+                <Kv label="Necesita asesoramiento">{YesNo(viewTask.necesitaAsesoramiento)}</Kv>
+                <Kv label="Dónde colocados">{viewTask.dondeColocados}</Kv>
+                <Kv label="Digital o impresión">{viewTask.digitalOImpresion}</Kv>
+                <Kv label="Cantidades">{viewTask.cantidades}</Kv>
+                <Kv label="Material: logo">{viewTask.materialLogo}</Kv>
+                <Kv label="Material: textos">{viewTask.materialTextos}</Kv>
+                <Kv label="Material: imágenes">{viewTask.materialImagenes}</Kv>
+                <Kv label="Tiene referencias">{YesNo(viewTask.tieneReferencias)}</Kv>
+                <Kv label="Links de referencias">{viewTask.referenciasLinks}</Kv>
               </dl>
             </section>
 
             <section className="task-view-panel">
               <h3 className="task-view-panel-title">Materiales & m²</h3>
               <dl className="task-view-kv">
-                <Kv label="Lista">{task.materials?.length ? task.materials.join(' · ') : null}</Kv>
+                <Kv label="Tipo impresión (texto libre)">{viewTask.tipoImpresion}</Kv>
+                <Kv label="Lista">{viewTask.materials?.length ? viewTask.materials.join(' · ') : null}</Kv>
                 <Kv label="Metros cuadrados (total OP)">
-                  {task.metrosCuadrados != null ? `${Number(task.metrosCuadrados).toFixed(2)} m²` : null}
+                  {viewTask.metrosCuadrados != null ? `${Number(viewTask.metrosCuadrados).toFixed(2)} m²` : null}
                 </Kv>
               </dl>
-              {task.lineasMetrosM2 && task.lineasMetrosM2.length > 0 ? (
+              {viewTask.lineasMetrosM2 && viewTask.lineasMetrosM2.length > 0 ? (
                 <div className="task-view-lineas-m2-readonly" aria-label="Ítems con metros, solo lectura">
                   <h4 className="task-view-lineas-m2-title">Ítems con metros (solo lectura)</h4>
                   <ul className="task-view-lineas-m2-list">
-                    {task.lineasMetrosM2.map((r, idx) => (
+                    {viewTask.lineasMetrosM2.map((r, idx) => (
                       <li key={r.id ?? idx} className="task-view-lineas-m2-item">
                         <span className="task-view-lineas-m2-nombre">
                           {(r.tipo || '').trim() || 'Ítem sin nombre'}
@@ -541,11 +698,11 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
             </section>
           </div>
 
-          {task.subtasks && task.subtasks.length > 0 && (
+          {!exhaustiveDetail && viewTask.subtasks && viewTask.subtasks.length > 0 && (
             <section className="task-view-panel task-view-panel--subtasks">
-              <h3 className="task-view-panel-title">Subtareas ({task.subtasks.length})</h3>
+              <h3 className="task-view-panel-title">Subtareas ({viewTask.subtasks.length})</h3>
               <ul className="task-view-subtasks">
-                {task.subtasks.map((s) => (
+                {viewTask.subtasks.map((s) => (
                   <li key={s.id} className={s.done ? 'is-done' : ''}>
                     <span className="task-view-subtask-check" aria-hidden="true">
                       {s.done ? '✓' : '○'}
@@ -558,6 +715,168 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                 ))}
               </ul>
             </section>
+          )}
+
+          {exhaustiveDetail && ordenIdView != null && (
+            <>
+              <section className="task-view-panel task-view-panel--wide" aria-label="Checklist en vivo">
+                <h3 className="task-view-panel-title">Checklist (subtareas en BD)</h3>
+                <Subtasks ordenId={ordenIdView} readOnly />
+              </section>
+
+              <section className="task-view-panel task-view-panel--wide" aria-label="Comentarios">
+                <h3 className="task-view-panel-title">Comentarios en la OP</h3>
+                {comentariosLib.length === 0 ? (
+                  <p className="task-view-muted">Sin comentarios registrados.</p>
+                ) : (
+                  <ul className="task-view-comentarios-thread">
+                    {comentariosLib.map((c) => (
+                      <li key={c.id} className="task-view-comentario-item">
+                        <div className="task-view-historial-meta">
+                          <time dateTime={c.timestamp}>{formatDisplayDate(c.timestamp) ?? c.timestamp}</time>
+                          <span className="task-view-historial-user">{c.usuario_nombre}</span>
+                        </div>
+                        <p className="task-view-historial-body">{c.comentario}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="task-view-panel task-view-panel--wide" aria-label="Archivos y enlaces">
+                <h3 className="task-view-panel-title">Archivos, fotos y enlaces adjuntos</h3>
+                {archivosLib.length === 0 ? (
+                  <p className="task-view-muted">Sin adjuntos en enlaces_adjuntos.</p>
+                ) : (
+                  <ul className="task-view-archivos-grid">
+                    {archivosLib.map((a) => {
+                      const id = Number(a.id)
+                      const titulo = (a.titulo != null ? String(a.titulo) : '') || 'Adjunto'
+                      const url = String(a.url ?? '')
+                      const creado = a.creado_en != null ? String(a.creado_en) : ''
+                      const evidencia = a.es_evidencia_campo === true
+                      const relev = a.origen_relevamiento === true
+                      const isImg = /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(url)
+                      return (
+                        <li key={Number.isFinite(id) ? id : url} className="task-view-archivo-card">
+                          <div className="task-view-archivo-meta">
+                            <strong>{titulo}</strong>
+                            {creado ? (
+                              <span className="task-view-muted">{formatDisplayDate(creado) ?? creado}</span>
+                            ) : null}
+                            {evidencia ? <span className="task-view-chip task-view-chip--sector">Evidencia campo</span> : null}
+                            {relev ? <span className="task-view-chip">Relevamiento</span> : null}
+                          </div>
+                          {isImg ? (
+                            <a href={url} target="_blank" rel="noreferrer" className="task-view-archivo-thumb-wrap">
+                              <img src={url} alt="" className="task-view-archivo-thumb" loading="lazy" />
+                            </a>
+                          ) : null}
+                          <a href={url} target="_blank" rel="noreferrer" className="task-view-archivo-link">
+                            Abrir / descargar
+                          </a>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </section>
+
+              <section className="task-view-panel task-view-panel--wide" aria-label="Relevamiento campo">
+                <h3 className="task-view-panel-title">Relevamiento (app campo)</h3>
+                <KvBlock
+                  label="Notas de relevamiento"
+                  value={relevamientoLib?.notas?.trim() || undefined}
+                />
+                {relevamientoLib?.actualizado_por ? (
+                  <p className="task-view-muted">
+                    Última actualización:{' '}
+                    {relevamientoLib.actualizado_en
+                      ? formatDisplayDate(relevamientoLib.actualizado_en) ?? relevamientoLib.actualizado_en
+                      : '—'}{' '}
+                    · {relevamientoLib.actualizado_por}
+                  </p>
+                ) : null}
+                {relevSubLib.length > 0 ? (
+                  <>
+                    <h4 className="task-view-lineas-m2-title">Checklist relevamiento</h4>
+                    <ul className="task-view-relev-sublist">
+                      {relevSubLib.map((r) => (
+                        <li key={r.id}>
+                          {r.done ? '✓' : '○'} {r.titulo}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+              </section>
+
+              <section className="task-view-panel task-view-panel--wide" aria-label="Revisiones">
+                <h3 className="task-view-panel-title">Revisiones de diseño</h3>
+                {revisionesLib.length === 0 ? (
+                  <p className="task-view-muted">Sin revisiones registradas.</p>
+                ) : (
+                  <ul className="task-view-comentarios-thread">
+                    {revisionesLib.map((r) => (
+                      <li key={r.id} className="task-view-comentario-item">
+                        <div className="task-view-historial-meta">
+                          <time dateTime={r.fecha_revision}>
+                            {formatDisplayDate(r.fecha_revision) ?? r.fecha_revision}
+                          </time>
+                          <span className="task-view-historial-user">{r.usuario_revisor_nombre}</span>
+                          <span className="task-view-historial-accion">{r.estado_revision}</span>
+                        </div>
+                        {r.comentarios?.trim() ? (
+                          <p className="task-view-historial-body">{r.comentarios.trim()}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="task-view-panel task-view-panel--wide" aria-label="Tiempo de trabajo">
+                <h3 className="task-view-panel-title">Tiempo de trabajo registrado</h3>
+                {tiempoLib.length === 0 ? (
+                  <p className="task-view-muted">Sin registros de tiempo.</p>
+                ) : (
+                  <ul className="task-view-comentarios-thread">
+                    {tiempoLib.map((reg) => (
+                      <li key={reg.id} className="task-view-comentario-item">
+                        <div className="task-view-historial-meta">
+                          <span>{formatDisplayDate(reg.fecha) ?? reg.fecha}</span>
+                          <span className="task-view-historial-user">{reg.usuario_nombre}</span>
+                          <span className="task-view-historial-accion">{reg.tipo_trabajo}</span>
+                        </div>
+                        <p className="task-view-historial-body">
+                          {reg.hora_inicio}
+                          {reg.hora_fin ? ` → ${reg.hora_fin}` : ''}
+                          {reg.tiempo_minutos != null ? ` · ${reg.tiempo_minutos} min` : ''}
+                          {reg.descripcion?.trim() ? ` — ${reg.descripcion.trim()}` : ''}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas taller gráfico">
+                <h3 className="task-view-panel-title">Trazado de etapas · Taller Gráfico</h3>
+                <HistorialEtapasTallerGrafico ordenId={ordenIdView} />
+              </section>
+              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas instalaciones">
+                <h3 className="task-view-panel-title">Trazado de etapas · Instalaciones</h3>
+                <HistorialEtapasInstalaciones ordenId={ordenIdView} />
+              </section>
+              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas taller imprenta">
+                <h3 className="task-view-panel-title">Trazado de etapas · Taller Imprenta</h3>
+                <HistorialEtapasTallerImprenta ordenId={ordenIdView} />
+              </section>
+              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas metalurgica">
+                <h3 className="task-view-panel-title">Trazado de etapas · Metalúrgica</h3>
+                <HistorialEtapasMetalurgica ordenId={ordenIdView} />
+              </section>
+            </>
           )}
 
           {ordenIdView != null && (
@@ -588,6 +907,9 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
                         ) : null}
                       </div>
                       <p className="task-view-historial-body">{describeHistorialMovimiento(m)}</p>
+                      {exhaustiveDetail && m.cambios_detallados ? (
+                        <pre className="task-view-historial-json">{formatCambiosJson(m.cambios_detallados)}</pre>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -596,8 +918,14 @@ export default function TaskViewModal({ task, teamMembers, sectores, onClose }: 
           )}
 
           <footer className="task-view-footer">
-            <span>ID interno: {task.id}</span>
-            {task.briefToken && <span>Brief token: configurado</span>}
+            <span>ID interno: {viewTask.id}</span>
+            {viewTask.briefToken && <span>Brief token: configurado</span>}
+            {viewTask.ordenEliminada && (
+              <span className="task-view-footer-warn">OP eliminada (lógico) · motivo: {viewTask.motivoEliminacion ?? '—'}</span>
+            )}
+            {viewTask.fechaEliminacion && (
+              <span className="task-view-muted">Eliminada: {formatDisplayDate(viewTask.fechaEliminacion) ?? viewTask.fechaEliminacion}</span>
+            )}
           </footer>
         </div>
       </div>

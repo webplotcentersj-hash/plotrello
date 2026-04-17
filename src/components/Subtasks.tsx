@@ -5,6 +5,8 @@ import './Subtasks.css'
 
 type SubtasksProps = {
   ordenId: number
+  /** Solo listado: sin agregar, marcar ni timers */
+  readOnly?: boolean
 }
 
 const formatTime = (seconds: number) => {
@@ -16,7 +18,7 @@ const formatTime = (seconds: number) => {
   return `${m}m ${secs.toString().padStart(2, '0')}s`
 }
 
-const Subtasks = ({ ordenId }: SubtasksProps) => {
+const Subtasks = ({ ordenId, readOnly = false }: SubtasksProps) => {
   const [subtasks, setSubtasks] = useState<Subtask[]>([])
   const [loading, setLoading] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -159,7 +161,11 @@ const Subtasks = ({ ordenId }: SubtasksProps) => {
                 <input
                   type="checkbox"
                   checked={item.done}
-                  onChange={(e) => void handleToggle(item.id, e.target.checked)}
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    void handleToggle(item.id, e.target.checked)
+                  }}
                 />
                 <span className="subtask-title">{item.title}</span>
               </label>
@@ -168,8 +174,9 @@ const Subtasks = ({ ordenId }: SubtasksProps) => {
                   <span className="pill estimate">Est: {item.estimatedMinutes}m</span>
                 )}
                 <span className="pill time">⏱ {formatTime(totalSeconds)}</span>
-                {!item.done && (
-                  running ? (
+                {!readOnly &&
+                  !item.done &&
+                  (running ? (
                     <button className="pill action stop" onClick={() => void handlePause(item.id)}>
                       ⏸ Pausar
                     </button>
@@ -177,33 +184,36 @@ const Subtasks = ({ ordenId }: SubtasksProps) => {
                     <button className="pill action start" onClick={() => void handlePlay(item.id)}>
                       ▶ Iniciar
                     </button>
-                  )
-                )}
+                  ))}
               </div>
             </div>
           )
         })}
         {subtasks.length === 0 && !loading && (
-          <div className="subtasks-empty">Sin subtareas. Agrega una para empezar.</div>
+          <div className="subtasks-empty">
+            {readOnly ? 'Sin ítems en el checklist de esta OP.' : 'Sin subtareas. Agrega una para empezar.'}
+          </div>
         )}
       </div>
 
-      <div className="subtasks-add">
-        <input
-          type="text"
-          placeholder="Nueva subtarea..."
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="min"
-          value={newEstimate ?? ''}
-          onChange={(e) => setNewEstimate(e.target.value ? Number(e.target.value) : undefined)}
-          min={1}
-        />
-        <button onClick={() => void handleAdd()}>Agregar</button>
-      </div>
+      {!readOnly && (
+        <div className="subtasks-add">
+          <input
+            type="text"
+            placeholder="Nueva subtarea..."
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+          />
+          <input
+            type="number"
+            placeholder="min"
+            value={newEstimate ?? ''}
+            onChange={(e) => setNewEstimate(e.target.value ? Number(e.target.value) : undefined)}
+            min={1}
+          />
+          <button onClick={() => void handleAdd()}>Agregar</button>
+        </div>
+      )}
     </div>
   )
 }
