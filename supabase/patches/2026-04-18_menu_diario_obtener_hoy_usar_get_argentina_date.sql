@@ -15,7 +15,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $obtener_menu_dia_actual$
 BEGIN
   RETURN QUERY
   SELECT
@@ -50,4 +50,4 @@ BEGIN
   ORDER BY m.id DESC
   LIMIT 1;
 END;
-$$;
+$obtener_menu_dia_actual$;

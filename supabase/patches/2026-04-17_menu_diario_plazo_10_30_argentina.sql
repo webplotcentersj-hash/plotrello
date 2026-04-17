@@ -1,5 +1,8 @@
 -- Menú diario: alinear cierre de pedidos con la app (10:30 hora Argentina).
 -- Antes la RPC usaba 09:30 y el front mostraba 10:30 → el usuario veía plazo vigente pero el servidor rechazaba.
+--
+-- IMPORTANTE: ejecutar TODO el archivo en Supabase (SQL Editor). Si pegás desde chat,
+-- puede cortarse a la mitad y dar ERROR 42601 en "turno_almuerzo".
 
 CREATE OR REPLACE FUNCTION public.seleccionar_plato_menu(
   p_id_menu integer,
@@ -12,7 +15,7 @@ RETURNS public.menu_selecciones
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $seleccionar_plato_menu$
 DECLARE
   v_menu public.menus_diarios;
   v_hora_actual time;
@@ -63,22 +66,14 @@ BEGIN
     RAISE EXCEPTION 'Ese turno de almuerzo ya está completo (máximo 10 personas)';
   END IF;
 
-  INSERT INTO public.menu_selecciones (
-    id_menu, id_usuario, id_plato, turno_almuerzo, emoji_estado
-  )
-  VALUES (
-    p_id_menu, p_id_usuario, p_id_plato, p_turno_almuerzo, v_emoji_trim
-  )
-  ON CONFLICT (id_menu, id_usuario) DO UPDATE SET
-    id_plato = EXCLUDED.id_plato,
-    turno_almuerzo = EXCLUDED.turno_almuerzo,
-    emoji_estado = EXCLUDED.emoji_estado,
-    fecha_seleccion = now()
+  INSERT INTO public.menu_selecciones (id_menu, id_usuario, id_plato, turno_almuerzo, emoji_estado)
+  VALUES (p_id_menu, p_id_usuario, p_id_plato, p_turno_almuerzo, v_emoji_trim)
+  ON CONFLICT (id_menu, id_usuario) DO UPDATE SET id_plato = EXCLUDED.id_plato, turno_almuerzo = EXCLUDED.turno_almuerzo, emoji_estado = EXCLUDED.emoji_estado, fecha_seleccion = now()
   RETURNING * INTO v_result;
 
   RETURN v_result;
 END;
-$$;
+$seleccionar_plato_menu$;
 
 CREATE OR REPLACE FUNCTION public.cancelar_seleccion_menu(
   p_id_menu integer,
@@ -88,7 +83,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $cancelar_seleccion_menu$
 DECLARE
   v_menu public.menus_diarios;
   v_hora_actual time;
@@ -115,4 +110,4 @@ BEGIN
 
   RETURN FOUND;
 END;
-$$;
+$cancelar_seleccion_menu$;
