@@ -2058,3 +2058,36 @@ body.compact-mode .task-toolbar {
   background: rgba(99, 102, 241, 0.25);
 }
 
+/* OP marcada como eliminada (borrado lógico; p. ej. vista previa en biblioteca) */
+.task-card-eliminada-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  margin: -2px -2px 8px -2px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(90deg, rgba(190, 18, 60, 0.95), rgba(244, 63, 94, 0.55));
+  border: 1px solid rgba(254, 205, 211, 0.45);
+  border-bottom: none;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: #fff7ed;
+}
+
+.task-card-eliminada-label {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.task-card-eliminada-motivo {
+  font-weight: 500;
+  opacity: 0.95;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+

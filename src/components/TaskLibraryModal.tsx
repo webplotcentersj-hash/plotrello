@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Task, TaskStatus, Priority, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
 import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import apiService from '../services/api'
-import { parseTaskIdToOrdenId } from '../utils/dataMappers'
+import { ordenToTask, parseTaskIdToOrdenId } from '../utils/dataMappers'
 import './TaskLibraryModal.css'
 
 type DeletedOpRow = {
@@ -21,6 +21,8 @@ type DeletedOpRow = {
   accion_tipo: string | null
   cambios_detallados?: unknown
   timestamp: string
+  /** Motivo persistido en ordenes_trabajo (borrado lógico) */
+  motivo_eliminacion?: string | null
 }
 
 function startOfLocalDayYmd(ymd: string): Date {
@@ -61,10 +63,20 @@ function taskSearchBlob(task: Task): string {
     task.whatsappUrl ?? '',
     task.locationUrl ?? '',
     task.driveUrl ?? '',
+    task.motivoEliminacion ?? '',
+    task.fechaEliminacion ?? '',
     ...(task.tags ?? []),
     ...(task.materials ?? [])
   ]
   return bits.join(' ').toLowerCase()
+}
+
+/** En OP eliminadas, las fechas “desde/hasta” de la biblioteca usan fecha de borrado si existe. */
+function taskDateForLibraryFechaFilter(task: Task): Date {
+  if (task.ordenEliminada && task.fechaEliminacion) {
+    return new Date(task.fechaEliminacion)
+  }
+  return new Date(task.createdAt)
 }
 
 function strFromCambios(cd: unknown, key: string): string {
@@ -96,6 +108,7 @@ function deletedRowSearchBlob(row: DeletedOpRow): string {
   push(row.estado_nuevo)
   push(row.nombre_usuario)
   push(row.rol_usuario)
+  push(row.motivo_eliminacion)
   if (row.id_orden != null) push(`#${row.id_orden}`)
   push(row.id_orden)
   const cd = row.cambios_detallados
@@ -117,9 +130,6 @@ type TaskLibraryModalProps = {
   /** Si se pasa, no se vuelve a pedir a la API (p. ej. tests). Omitir en producción para cargar siempre al abrir. */
   deletedOpsRows?: DeletedOpRow[]
   onClose: () => void
-  onEditTask?: (task: Task) => void
-  onDeleteTask?: (taskId: string) => void
-  onMarkDelivered?: (taskId: string, delivered: boolean) => Promise<void>
 }
 
 const TaskLibraryModal = ({
@@ -128,10 +138,7 @@ const TaskLibraryModal = ({
   sectores,
   columns,
   deletedOpsRows,
-  onClose,
-  onEditTask,
-  onDeleteTask,
-  onMarkDelivered
+  onClose
 }: TaskLibraryModalProps) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSector, setSelectedSector] = useState<string>('todos')
@@ -144,20 +151,16 @@ const TaskLibraryModal = ({
   const [incluirCompletadas, setIncluirCompletadas] = useState(false)
   const [viewMode, setViewMode] = useState<'activas' | 'eliminadas'>('activas')
   const [elimAuditRows, setElimAuditRows] = useState<DeletedOpRow[]>([])
+  const [eliminadasTasks, setEliminadasTasks] = useState<Task[]>([])
   const [elimAuditLoading, setElimAuditLoading] = useState(() => deletedOpsRows === undefined)
   const [elimAuditError, setElimAuditError] = useState<string | null>(null)
-  /** OPs abiertas con ✏️ desde esta biblioteca: siguen visibles aunque el guardado cambie campos que rompen el filtro. */
-  const [pinnedTaskIds, setPinnedTaskIds] = useState<Set<string>>(() => new Set())
-
-  const pinTaskForLibrarySession = useCallback((taskId: string) => {
-    setPinnedTaskIds((prev) => new Set(prev).add(taskId))
-  }, [])
+  const [elimDetalleError, setElimDetalleError] = useState<string | null>(null)
+  /** Escala visual de las fichas (solo biblioteca; no modifica datos). */
+  const [cardScale, setCardScale] = useState(1)
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return tasks.filter((task) => {
-      if (pinnedTaskIds.has(task.id)) return true
-
       const matchesSearch = matchesSearchQuery(task, q)
 
       const matchesSector = selectedSector === 'todos' || task.assignedSector === selectedSector
@@ -220,8 +223,73 @@ const TaskLibraryModal = ({
     fechaDesde,
     fechaHasta,
     incluirCompletadas,
-    columns,
-    pinnedTaskIds
+    columns
+  ])
+
+  const filteredEliminadasTasks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return eliminadasTasks.filter((task) => {
+      const matchesSearch = matchesSearchQuery(task, q)
+      const matchesSector = selectedSector === 'todos' || task.assignedSector === selectedSector
+      const matchesOperario = selectedOperario === 'todos' || task.ownerId === selectedOperario
+      const matchesEstado =
+        selectedEstado === 'todos' ||
+        task.status === selectedEstado ||
+        columns.find((c) => c.id === task.status)?.label === selectedEstado
+      const matchesPrioridad = selectedPrioridad === 'todas' || task.priority === selectedPrioridad
+      const impact = task.impact
+      const matchesComplejidad =
+        selectedComplejidad === 'todas' ||
+        (selectedComplejidad === 'baja' && impact === 'low') ||
+        (selectedComplejidad === 'media' && impact === 'media') ||
+        (selectedComplejidad === 'alta' && impact === 'alta')
+
+      let matchesFecha = true
+      const rowDate = taskDateForLibraryFechaFilter(task)
+      if (fechaDesde) {
+        const desde = startOfLocalDayYmd(fechaDesde)
+        if (!Number.isNaN(desde.getTime()) && rowDate < desde) matchesFecha = false
+      }
+      if (fechaHasta) {
+        const hasta = endOfLocalDayYmd(fechaHasta)
+        if (!Number.isNaN(hasta.getTime()) && rowDate > hasta) matchesFecha = false
+      }
+
+      const isCompleted = task.status === 'almacen-entrega' || task.status === 'finalizado-taller'
+      if (
+        !incluirCompletadas &&
+        isCompleted &&
+        !task.entregado &&
+        !task.ordenEliminada
+      ) {
+        const u = new Date(task.updatedAt)
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        if (u < thirtyDaysAgo) return false
+      }
+
+      return (
+        matchesSearch &&
+        matchesSector &&
+        matchesOperario &&
+        matchesEstado &&
+        matchesPrioridad &&
+        matchesComplejidad &&
+        matchesFecha
+      )
+    })
+  }, [
+    eliminadasTasks,
+    searchQuery,
+    selectedSector,
+    selectedOperario,
+    selectedEstado,
+    selectedPrioridad,
+    selectedComplejidad,
+    fechaDesde,
+    fechaHasta,
+    incluirCompletadas,
+    columns
   ])
 
   const filteredDeletedOps = useMemo(() => {
@@ -247,28 +315,43 @@ const TaskLibraryModal = ({
   useEffect(() => {
     if (deletedOpsRows !== undefined) {
       setElimAuditRows(deletedOpsRows)
+      setEliminadasTasks([])
       setElimAuditLoading(false)
       setElimAuditError(null)
+      setElimDetalleError(null)
       return
     }
     let cancelled = false
     const load = async () => {
       try {
         setElimAuditError(null)
+        setElimDetalleError(null)
         setElimAuditLoading(true)
-        const resp = await apiService.getOpEliminadas()
+        const [auditResp, detResp] = await Promise.all([
+          apiService.getOpEliminadas(),
+          apiService.getOrdenesEliminadasDetalle()
+        ])
         if (!cancelled) {
-          if (resp.success && resp.data) {
-            setElimAuditRows(resp.data as DeletedOpRow[])
+          if (auditResp.success && auditResp.data) {
+            setElimAuditRows(auditResp.data as DeletedOpRow[])
           } else {
             setElimAuditRows([])
-            setElimAuditError(resp.error || 'No se pudo cargar la lista de OP eliminadas.')
+            setElimAuditError(auditResp.error || 'No se pudo cargar la lista de OP eliminadas.')
+          }
+          if (detResp.success && detResp.data) {
+            setEliminadasTasks(detResp.data.map((o) => ordenToTask(o)))
+            setElimDetalleError(null)
+          } else {
+            setEliminadasTasks([])
+            setElimDetalleError(detResp.error || 'No se pudieron cargar las fichas de OP eliminadas.')
           }
         }
       } catch (e: unknown) {
         if (!cancelled) {
           setElimAuditRows([])
+          setEliminadasTasks([])
           setElimAuditError(e instanceof Error ? e.message : 'Error al cargar OP eliminadas.')
+          setElimDetalleError(null)
         }
       } finally {
         if (!cancelled) setElimAuditLoading(false)
@@ -280,7 +363,8 @@ const TaskLibraryModal = ({
     }
   }, [deletedOpsRows])
 
-  const elimTotalCount = deletedOpsRows !== undefined ? deletedOpsRows.length : elimAuditRows.length
+  const eliminadasFichasCount =
+    deletedOpsRows !== undefined ? 0 : eliminadasTasks.length
 
   const handleLimpiar = () => {
     setSearchQuery('')
@@ -292,41 +376,47 @@ const TaskLibraryModal = ({
     setFechaDesde('')
     setFechaHasta('')
     setIncluirCompletadas(false)
-    setPinnedTaskIds(new Set())
   }
 
-  const handleEditFromLibrary = (task: Task) => {
-    pinTaskForLibrarySession(task.id)
-    onEditTask?.(task)
+  const deletedMotivoParts = (row: DeletedOpRow): { main: string; extra?: string } => {
+    const m = row.motivo_eliminacion != null ? String(row.motivo_eliminacion).trim() : ''
+    const c = row.comentario != null ? String(row.comentario).trim() : ''
+    if (m) {
+      return { main: m, extra: c && c !== m ? c : undefined }
+    }
+    if (c) return { main: c }
+    return { main: 'Sin motivo registrado' }
   }
 
   const deletedTableRows = (rows: DeletedOpRow[]) =>
-    rows.map((row) => (
-      <tr key={row.id}>
-        <td className="deleted-cell-fecha">
-          {new Date(row.timestamp).toLocaleString('es-AR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </td>
-        <td className="deleted-cell-op">
-          {row.numero_op || strFromCambios(row.cambios_detallados, 'numero_op') || (row.id_orden ? `#${row.id_orden}` : '-')}
-        </td>
-        <td className="deleted-cell-cliente">
-          {row.cliente || strFromCambios(row.cambios_detallados, 'cliente') || '-'}
-        </td>
-        <td className="deleted-cell-usuario">{row.nombre_usuario || '-'}</td>
-        <td className="deleted-cell-rol">
-          <span className="deleted-rol-chip">{row.rol_usuario || '-'}</span>
-        </td>
-        <td className="deleted-cell-motivo">
-          <span className="deleted-motivo-pill">{row.comentario || 'Sin motivo registrado'}</span>
-        </td>
-      </tr>
-    ))
+    rows.map((row) => {
+      const { main, extra } = deletedMotivoParts(row)
+      const op =
+        row.numero_op ||
+        strFromCambios(row.cambios_detallados, 'numero_op') ||
+        (row.id_orden ? `#${row.id_orden}` : '-')
+      const cliente = row.cliente || strFromCambios(row.cambios_detallados, 'cliente') || '-'
+      const fechaCorta = new Date(row.timestamp).toLocaleString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      const metaBits = [row.nombre_usuario, row.rol_usuario].filter(Boolean).join(' · ')
+      return (
+        <tr key={row.id}>
+          <td className="deleted-cell-fecha deleted-cell-fecha--compact">{fechaCorta}</td>
+          <td className="deleted-cell-op deleted-cell-op--compact">{op}</td>
+          <td className="deleted-cell-cliente deleted-cell-cliente--compact">{cliente}</td>
+          <td className="deleted-cell-motivo deleted-cell-motivo--compact">
+            <div className="deleted-motivo-main">{main}</div>
+            {extra ? <div className="deleted-motivo-extra">{extra}</div> : null}
+            {metaBits ? <div className="deleted-motivo-meta">{metaBits}</div> : null}
+          </td>
+        </tr>
+      )
+    })
 
   return (
     <div
@@ -340,7 +430,12 @@ const TaskLibraryModal = ({
     >
       <div className="task-library-modal" onClick={(e) => e.stopPropagation()}>
         <div className="task-library-header">
-          <h2>Bibliotecas de OPs - Filtros Avanzados</h2>
+          <div>
+            <h2>Bibliotecas de OPs - Filtros Avanzados</h2>
+            <p className="task-library-readonly-hint">
+              Solo búsqueda y consulta: desde acá no se edita la OP (usá el tablero para cambios).
+            </p>
+          </div>
           <button type="button" className="task-library-close" onClick={onClose}>
             ✕
           </button>
@@ -375,7 +470,7 @@ const TaskLibraryModal = ({
                   className={viewMode === 'eliminadas' ? 'is-active' : ''}
                   onClick={() => setViewMode('eliminadas')}
                 >
-                  Eliminadas ({elimAuditLoading ? '…' : elimTotalCount})
+                  Eliminadas ({elimAuditLoading ? '…' : `${eliminadasFichasCount} OP`})
                 </button>
               </div>
             </div>
@@ -476,10 +571,24 @@ const TaskLibraryModal = ({
           <div className="results-header">
             <span>Resultados</span>
             <div className="results-header-right">
+              {(viewMode === 'activas' || viewMode === 'eliminadas') && (
+                <label className="task-library-scale-control" title="Tamaño de las fichas (solo visualización)">
+                  <span className="task-library-scale-label">Tamaño</span>
+                  <input
+                    type="range"
+                    min={0.65}
+                    max={1.55}
+                    step={0.05}
+                    value={cardScale}
+                    onChange={(e) => setCardScale(Number(e.target.value))}
+                  />
+                  <span className="task-library-scale-value">{Math.round(cardScale * 100)}%</span>
+                </label>
+              )}
               <span className="results-count">
                 {viewMode === 'activas'
                   ? `${filteredTasks.length} fichas encontradas`
-                  : `${filteredDeletedOps.length} eliminadas encontradas`}
+                  : `${filteredEliminadasTasks.length} fichas · ${filteredDeletedOps.length} filas auditoría`}
               </span>
               {viewMode === 'activas' && filteredTasks.length > 0 && (
                 <div className="export-buttons">
@@ -507,22 +616,20 @@ const TaskLibraryModal = ({
           {viewMode === 'activas' ? (
             <>
               {searchQuery.trim() !== '' && filteredDeletedOps.length > 0 && (
-                <div className="task-library-deleted-hits">
-                  <h3 className="task-library-deleted-hits-title">
-                    OP eliminadas que coinciden con la búsqueda ({filteredDeletedOps.length})
-                  </h3>
-                  <p className="task-library-deleted-hits-note">
-                    Las fichas borradas no están en el tablero; aquí ves el historial de auditoría.
-                  </p>
-                  <div className="task-library-deleted-table-wrapper">
-                    <table className="task-library-deleted-table">
+                <div className="task-library-deleted-hits task-library-deleted-hits--compact">
+                  <div className="task-library-deleted-hits-head">
+                    <span className="task-library-deleted-hits-title">
+                      Eliminadas en búsqueda ({filteredDeletedOps.length})
+                    </span>
+                    <span className="task-library-deleted-hits-hint">Motivo en columna final</span>
+                  </div>
+                  <div className="task-library-deleted-table-wrapper task-library-deleted-table-wrapper--compact">
+                    <table className="task-library-deleted-table task-library-deleted-table--compact">
                       <thead>
                         <tr>
                           <th className="deleted-col-fecha">Fecha</th>
                           <th className="deleted-col-op">Nº OP</th>
                           <th className="deleted-col-cliente">Cliente</th>
-                          <th className="deleted-col-usuario">Usuario</th>
-                          <th className="deleted-col-rol">Rol</th>
                           <th className="deleted-col-motivo">Motivo</th>
                         </tr>
                       </thead>
@@ -532,23 +639,32 @@ const TaskLibraryModal = ({
                 </div>
               )}
 
-              <div className="task-library-grid">
-                {filteredTasks.map((task, index) => {
-                  const owner = teamMembers.find((m) => m.id === task.ownerId)
-                  return (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      index={index}
-                      owner={owner}
-                      onEdit={handleEditFromLibrary}
-                      onDelete={onDeleteTask}
-                      sectores={sectores}
-                      isDraggable={false}
-                      onMarkDelivered={onMarkDelivered}
-                    />
-                  )
-                })}
+              <div className="task-library-grid-outer">
+                <div
+                  className="task-library-grid-scaler"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'top left',
+                    width: `${100 / cardScale}%`
+                  }}
+                >
+                  <div className="task-library-grid">
+                    {filteredTasks.map((task, index) => {
+                      const owner = teamMembers.find((m) => m.id === task.ownerId)
+                      return (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          index={index}
+                          owner={owner}
+                          sectores={sectores}
+                          isDraggable={false}
+                          readOnly
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
 
               {filteredTasks.length === 0 && (
@@ -558,47 +674,90 @@ const TaskLibraryModal = ({
               )}
             </>
           ) : (
-            <div className="task-library-deleted-section">
-              <h3>Historial de OP eliminadas</h3>
-              <p className="task-library-deleted-subtitle">
-                Registro de fichas borradas: quién las eliminó, cuándo y con qué motivo (incluye datos en
-                auditoría aunque la OP ya no exista en el tablero).
+            <div className="task-library-deleted-section task-library-deleted-section--compact">
+              <p className="task-library-deleted-lead">
+                Fichas de OP con borrado lógico (misma vista que en el tablero, solo lectura). Debajo:{' '}
+                <strong>auditoría</strong> de eliminación (quién / cuándo / motivo en historial).
               </p>
 
               {elimAuditLoading ? (
-                <div className="no-results">
-                  <p>Cargando OP eliminadas...</p>
-                </div>
-              ) : elimAuditError ? (
-                <div className="no-results">
-                  <p>{elimAuditError}</p>
+                <div className="no-results no-results--compact">
+                  <p>Cargando…</p>
                 </div>
               ) : (
-                <div className="task-library-deleted-table-wrapper">
-                  <table className="task-library-deleted-table">
-                    <thead>
-                      <tr>
-                        <th className="deleted-col-fecha">Fecha</th>
-                        <th className="deleted-col-op">Nº OP</th>
-                        <th className="deleted-col-cliente">Cliente</th>
-                        <th className="deleted-col-usuario">Usuario</th>
-                        <th className="deleted-col-rol">Rol</th>
-                        <th className="deleted-col-motivo">Motivo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredDeletedOps.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} style={{ textAlign: 'center', padding: '16px' }}>
-                            No hay OP eliminadas para mostrar con estos filtros.
-                          </td>
-                        </tr>
-                      ) : (
-                        deletedTableRows(filteredDeletedOps)
+                <>
+                  {elimDetalleError ? (
+                    <div className="no-results no-results--compact">
+                      <p>{elimDetalleError}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="task-library-grid-outer">
+                        <div
+                          className="task-library-grid-scaler"
+                          style={{
+                            transform: `scale(${cardScale})`,
+                            transformOrigin: 'top left',
+                            width: `${100 / cardScale}%`
+                          }}
+                        >
+                          <div className="task-library-grid">
+                            {filteredEliminadasTasks.map((task, index) => {
+                              const owner = teamMembers.find((m) => m.id === task.ownerId)
+                              return (
+                                <TaskCard
+                                  key={task.id}
+                                  task={task}
+                                  index={index}
+                                  owner={owner}
+                                  sectores={sectores}
+                                  isDraggable={false}
+                                  readOnly
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      {filteredEliminadasTasks.length === 0 && (
+                        <div className="no-results no-results--compact">
+                          <p>No hay fichas eliminadas con estos filtros.</p>
+                        </div>
                       )}
-                    </tbody>
-                  </table>
-                </div>
+                    </>
+                  )}
+
+                  <h3 className="task-library-deleted-audit-heading">Auditoría de eliminación</h3>
+                  {elimAuditError ? (
+                    <div className="no-results no-results--compact">
+                      <p>{elimAuditError}</p>
+                    </div>
+                  ) : (
+                    <div className="task-library-deleted-table-wrapper task-library-deleted-table-wrapper--compact">
+                      <table className="task-library-deleted-table task-library-deleted-table--compact">
+                        <thead>
+                          <tr>
+                            <th className="deleted-col-fecha">Fecha</th>
+                            <th className="deleted-col-op">Nº OP</th>
+                            <th className="deleted-col-cliente">Cliente</th>
+                            <th className="deleted-col-motivo">Motivo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredDeletedOps.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="deleted-cell-empty">
+                                No hay filas de auditoría con estos filtros.
+                              </td>
+                            </tr>
+                          ) : (
+                            deletedTableRows(filteredDeletedOps)
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

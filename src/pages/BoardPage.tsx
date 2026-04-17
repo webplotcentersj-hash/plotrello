@@ -300,6 +300,7 @@ const BoardPage = ({
     }
 
     return tasks.filter((task) => {
+      if (task.ordenEliminada) return false
       // Excluir fichas entregadas/archivadas del board principal
       if (task.entregado) return false
 
@@ -1328,9 +1329,6 @@ const BoardPage = ({
           sectores={sectores}
           columns={BOARD_COLUMNS}
           onClose={() => setIsLibraryModalOpen(false)}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
-          onMarkDelivered={handleMarkDelivered}
         />
       )}
     </div>

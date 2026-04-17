@@ -19,6 +19,9 @@
 -- OPCIONAL (idempotencia recepción stock en BD): archivo aparte
 --   2026-04-25_stock_mov_entrada_unique_index_pedido_articulo.sql
 -- Secciones 5–6 por separado: 2026-04-24_BUNDLE_contabilidad_secciones_5_y_6.sql
+--
+-- OP borrado lógico (columnas eliminada / motivo_eliminacion / fecha_eliminacion + vista auditoría):
+--   2026-04-27_ordenes_soft_delete_eliminada.sql  ← ejecutarlo aparte si la app ya elimina con motivo
 -- =============================================================================
 
 

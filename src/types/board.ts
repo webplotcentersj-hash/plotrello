@@ -124,6 +124,11 @@ export interface Task {
   enReclamo?: boolean
   /** Motivo del reclamo (si se cargó al marcar) */
   reclamoMotivo?: string | null
+  /** Borrado lógico: la fila sigue en BD; no se muestra en el tablero */
+  ordenEliminada?: boolean
+  motivoEliminacion?: string | null
+  /** Fecha de borrado lógico (BD); útil en biblioteca para filtrar por “cuándo se eliminó” */
+  fechaEliminacion?: string | null
   /** Carrusel de imágenes con título (persistido en ordenes_trabajo.galeria_carrusel) */
   galeriaCarrusel?: OpGaleriaSlide[]
 }

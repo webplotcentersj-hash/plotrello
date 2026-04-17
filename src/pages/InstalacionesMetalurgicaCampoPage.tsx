@@ -45,6 +45,7 @@ export const CHECKLIST_FINALIZADO = ETAPA_KANBAN_FINALIZADO
 const MIN_FOTOS_EVIDENCIA = 3
 
 function isCampoRelevantTask(t: Task): boolean {
+  if (t.ordenEliminada) return false
   if (t.entregado) return false
   if (taskEstaEnColumnaInstalacionOMetalurgica(t)) return true
   return opSectoresRequierenFotosLugar(t.sectores)

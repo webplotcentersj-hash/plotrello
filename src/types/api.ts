@@ -118,6 +118,10 @@ export interface OrdenTrabajo {
   op_bloqueada?: boolean | null
   /** false = no listar en tablero; la fila sigue en BD (fusión / unificación sin DELETE) */
   visible_en_tablero?: boolean | null
+  /** true = borrado lógico; la fila sigue en BD con motivo_eliminacion */
+  eliminada?: boolean | null
+  motivo_eliminacion?: string | null
+  fecha_eliminacion?: string | null
   /** Número FICHA-* antes de convertir a OP (historial) */
   numero_ficha_original?: string | null
   /** Reclamo: el trabajo debe rehacerse (marca visual en tablero + comentario/historial) */

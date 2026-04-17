@@ -19,6 +19,7 @@ type DeletedOpRow = {
   comentario: string | null
   accion_tipo: string | null
   timestamp: string
+  motivo_eliminacion?: string | null
 }
 
 const OpEliminadasPage = () => {
@@ -122,6 +123,7 @@ const OpEliminadasPage = () => {
                       <th>Fecha</th>
                       <th>Nº OP</th>
                       <th>Cliente</th>
+                      <th>Estado</th>
                       <th>Usuario</th>
                       <th>Rol</th>
                       <th>Estado anterior</th>
@@ -131,7 +133,7 @@ const OpEliminadasPage = () => {
                   <tbody>
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '16px' }}>
+                        <td colSpan={8} style={{ textAlign: 'center', padding: '16px' }}>
                           No hay OP eliminadas registradas aún.
                         </td>
                       </tr>
@@ -145,11 +147,22 @@ const OpEliminadasPage = () => {
                         <td>{formatDate(row.timestamp)}</td>
                         <td>{row.numero_op || (row.id_orden ? `#${row.id_orden}` : '-')}</td>
                         <td>{row.cliente || '-'}</td>
+                        <td>
+                          <span
+                            className="op-eliminada-estado-chip"
+                            title="La OP permanece en la base de datos (borrado lógico)"
+                          >
+                            Eliminada
+                          </span>
+                        </td>
                         <td>{row.nombre_usuario || '-'}</td>
                         <td>{row.rol_usuario || '-'}</td>
                         <td>{row.estado_anterior || '-'}</td>
                         <td style={{ maxWidth: '360px', whiteSpace: 'pre-wrap' }}>
-                          {row.comentario || '-'}
+                          {[row.motivo_eliminacion, row.comentario]
+                            .map((s) => (s != null ? String(s).trim() : ''))
+                            .filter(Boolean)
+                            .join(' · ') || '-'}
                         </td>
                       </tr>
                     ))}

@@ -439,6 +439,10 @@ function App() {
         setTasks((prev) => prev.filter((task) => task.id !== taskId))
         return
       }
+      if ((orden as { eliminada?: boolean | null }).eliminada === true) {
+        setTasks((prev) => prev.filter((task) => task.id !== taskId))
+        return
+      }
       // Las OP entregadas/archivadas siguen en `tasks` para biblioteca, búsquedas y reportes;
       // el tablero las oculta con filteredTasks (BoardPage).
       const settling = multiSectorSettleRef.current

@@ -263,6 +263,9 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     driveUrl,
     opBloqueada: orden.op_bloqueada === true,
     entregado: orden.entregado ?? false,
+    ordenEliminada: orden.eliminada === true,
+    motivoEliminacion: orden.motivo_eliminacion ?? undefined,
+    fechaEliminacion: orden.fecha_eliminacion ?? undefined,
     metrosCuadrados: orden.metros_cuadrados ?? undefined,
     tipoImpresion: orden.tipo_impresion?.trim() || undefined,
     lineasMetrosM2:

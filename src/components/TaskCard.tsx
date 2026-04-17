@@ -76,6 +76,8 @@ type TaskCardProps = {
   boardDnD?: TaskCardBoardDnD | null
   /** Ocultar marca/indicadores y acciones de reclamo (ej. tablero asesor/presupuestos) */
   hideReclamoUI?: boolean
+  /** Biblioteca u otras vistas: solo lectura, sin cambiar etapas, checklist, reclamo, etc. */
+  readOnly?: boolean
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat('es-AR', {
@@ -138,9 +140,30 @@ const TaskCardInner = ({
   onSelect,
   onViewTask,
   boardDnD = null,
-  hideReclamoUI = false
+  hideReclamoUI = false,
+  readOnly = false
 }: TaskCardProps) => {
+  const isReadOnly = Boolean(readOnly)
   const { getTagColor, loadTagColor } = useTagColors()
+
+  useEffect(() => {
+    if (!isReadOnly) return
+    setShowChecklist(false)
+    setShowAudit(false)
+    setShowAsignarImpresora(false)
+    setShowQRPrint(false)
+    setQrPrintData(null)
+    setShowHistorialTallerModal(false)
+    setShowHistorialInstalacionesModal(false)
+    setShowHistorialTallerImprentaModal(false)
+    setShowHistorialMetalurgicaModal(false)
+    setShowEtapasTallerModal(false)
+    setShowEtapasInstalacionesModal(false)
+    setShowEtapasTallerImprentaModal(false)
+    setShowEtapasImpresionDigitalModal(false)
+    setShowEtapasMetalurgicaModal(false)
+    setContextMenu(null)
+  }, [isReadOnly])
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
@@ -493,17 +516,20 @@ const TaskCardInner = ({
               toggleMinimized()
               return
             }
-            onSelect?.(task.id)
-            if (
-              onViewTask &&
-              Date.now() - boardDragJustEndedAt.current > 420
-            ) {
-              onViewTask(task)
+            if (!isReadOnly) {
+              onSelect?.(task.id)
+              if (
+                onViewTask &&
+                Date.now() - boardDragJustEndedAt.current > 420
+              ) {
+                onViewTask(task)
+              }
             }
           }}
           onContextMenuCapture={(e) => {
             e.preventDefault()
             e.stopPropagation()
+            if (isReadOnly) return
             if (!onMoveTask || columns.length === 0 || moveBlocked) return
             const el = e.currentTarget as HTMLElement
             const itemCount = columns.filter((c) => c.id !== task.status).length
@@ -513,6 +539,21 @@ const TaskCardInner = ({
             )
           }}
         >
+          {task.ordenEliminada && (
+            <div
+              className="task-card-eliminada-strip"
+              title={
+                task.motivoEliminacion?.trim()
+                  ? `Eliminada — ${task.motivoEliminacion.trim()}`
+                  : 'Eliminada (no visible en tablero)'
+              }
+            >
+              <span className="task-card-eliminada-label">Eliminada</span>
+              {task.motivoEliminacion?.trim() ? (
+                <span className="task-card-eliminada-motivo">{task.motivoEliminacion.trim()}</span>
+              ) : null}
+            </div>
+          )}
           {(isMinimized || isDragLightMode) && (
             <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
               {task.photoUrl && (
@@ -591,7 +632,7 @@ const TaskCardInner = ({
               <ReclamoTriangleIcon className="reclamo-indicator-svg" size={17} />
             </div>
           )}
-          {!isDragLightMode && onMoveTask && columns.length > 0 && !moveBlocked && (() => {
+          {!isDragLightMode && onMoveTask && columns.length > 0 && !moveBlocked && !isReadOnly && (() => {
             const idx = columns.findIndex((c) => c.id === task.status)
             const prevCol = idx > 0 ? columns[idx - 1] : null
             const nextCol = idx >= 0 && idx < columns.length - 1 ? columns[idx + 1] : null
@@ -642,7 +683,7 @@ const TaskCardInner = ({
                 📄
               </button>
             )}
-            {onDelete && (
+            {onDelete && !isReadOnly && (
               <button
                 type="button"
                 className="task-action-btn task-delete"
@@ -666,7 +707,7 @@ const TaskCardInner = ({
             >
               📜
             </button>
-            {hasOrdenId && !task.enReclamo && !hideReclamoUI && (
+            {hasOrdenId && !task.enReclamo && !hideReclamoUI && !isReadOnly && (
               <button
                 type="button"
                 className="task-action-btn task-reclamo-btn"
@@ -708,7 +749,7 @@ const TaskCardInner = ({
                 )}
               </button>
             )}
-            {hasOrdenId && task.enReclamo && isAdmin && !hideReclamoUI && (
+            {hasOrdenId && task.enReclamo && isAdmin && !hideReclamoUI && !isReadOnly && (
               <button
                 type="button"
                 className="task-action-btn task-reclamo-quitar-btn"
@@ -739,7 +780,7 @@ const TaskCardInner = ({
                 )}
               </button>
             )}
-            {task.opNumber && (
+            {task.opNumber && !isReadOnly && (
               <button
                 type="button"
                 className="task-action-btn"
@@ -779,7 +820,7 @@ const TaskCardInner = ({
               </button>
             )}
               </div>
-              {onEdit && (
+              {onEdit && !isReadOnly && (
                 <button
                   type="button"
                   className="task-action-btn task-edit task-edit--always"
@@ -1214,7 +1255,7 @@ const TaskCardInner = ({
               <span>{task.progress}%</span>
             </div>
 
-            {hasOrdenId && (
+            {hasOrdenId && !isReadOnly && (
               <div className="task-subtasks">
                 {((task.subtasks && task.subtasks.length > 0) || (task.subtaskProgress ?? 0) > 0) && (
                   <span className="checklist-badge" title="Tiene subtareas pendientes">
@@ -1239,17 +1280,19 @@ const TaskCardInner = ({
             {isTallerGrafico && hasOrdenId && (isAdmin || canManageImpresoras) && (
               <div className="task-taller-grafico-section">
                 {/* Botón para cambiar etapa */}
-                <button
-                  type="button"
-                  className="btn-view-etapas"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowEtapasTallerModal(true)
-                  }}
-                  title="Cambiar etapa"
-                >
-                  {task.etapaTallerGrafico ? `📍 ${task.etapaTallerGrafico}` : '⚙️ Seleccionar Etapa'}
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="btn-view-etapas"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowEtapasTallerModal(true)
+                    }}
+                    title="Cambiar etapa"
+                  >
+                    {task.etapaTallerGrafico ? `📍 ${task.etapaTallerGrafico}` : '⚙️ Seleccionar Etapa'}
+                  </button>
+                )}
 
                 {/* Botón para ver historial */}
                 <button
@@ -1265,7 +1308,7 @@ const TaskCardInner = ({
                 </button>
 
                 {/* Botón para asignar impresora (solo para usuarios con permisos) */}
-                {canManageImpresoras && (
+                {canManageImpresoras && !isReadOnly && (
                   <div className="task-impresora-section" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     {task.metrosCuadrados !== undefined && task.metrosCuadrados !== null && (
                       <div style={{ marginBottom: '8px', fontSize: '12px', color: '#9ca3af' }}>
@@ -1306,17 +1349,19 @@ const TaskCardInner = ({
             {isInstalaciones && hasOrdenId && (isAdmin || canManageInstalaciones) && (
               <div className="task-instalaciones-section">
                 {/* Botón para cambiar etapa */}
-                <button
-                  type="button"
-                  className="btn-view-etapas"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowEtapasInstalacionesModal(true)
-                  }}
-                  title="Cambiar etapa"
-                >
-                  {task.etapaInstalaciones ? `📍 ${task.etapaInstalaciones}` : '⚙️ Seleccionar Etapa'}
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="btn-view-etapas"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowEtapasInstalacionesModal(true)
+                    }}
+                    title="Cambiar etapa"
+                  >
+                    {task.etapaInstalaciones ? `📍 ${task.etapaInstalaciones}` : '⚙️ Seleccionar Etapa'}
+                  </button>
+                )}
 
                 {/* Botón para ver historial */}
                 <button
@@ -1334,7 +1379,7 @@ const TaskCardInner = ({
             )}
 
             {/* Sección Imprenta (Área de Impresión) - Modal IMPRESIÓN DIGITAL */}
-            {isImprentaArea && hasOrdenId && (
+            {isImprentaArea && hasOrdenId && !isReadOnly && (
               <div className="task-impresion-digital-section">
                 <button
                   type="button"
@@ -1354,17 +1399,19 @@ const TaskCardInner = ({
             {isTallerImprenta && hasOrdenId && (isAdmin || canManageTallerImprenta) && (
               <div className="task-taller-imprenta-section">
                 {/* Botón para cambiar etapa */}
-                <button
-                  type="button"
-                  className="btn-view-etapas"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowEtapasTallerImprentaModal(true)
-                  }}
-                  title="Cambiar etapa"
-                >
-                  {task.etapaTallerImprenta ? `📍 ${task.etapaTallerImprenta}` : '⚙️ Seleccionar Etapa'}
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="btn-view-etapas"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowEtapasTallerImprentaModal(true)
+                    }}
+                    title="Cambiar etapa"
+                  >
+                    {task.etapaTallerImprenta ? `📍 ${task.etapaTallerImprenta}` : '⚙️ Seleccionar Etapa'}
+                  </button>
+                )}
 
                 {/* Botón para ver historial */}
                 <button
@@ -1385,17 +1432,19 @@ const TaskCardInner = ({
             {isMetalurgica && hasOrdenId && (isAdmin || canManageMetalurgica) && (
               <div className="task-metalurgica-section">
                 {/* Botón para cambiar etapa */}
-                <button
-                  type="button"
-                  className="btn-view-etapas"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowEtapasMetalurgicaModal(true)
-                  }}
-                  title="Cambiar etapa"
-                >
-                  {task.etapaMetalurgica ? `📍 ${task.etapaMetalurgica}` : '⚙️ Seleccionar Etapa'}
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="btn-view-etapas"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowEtapasMetalurgicaModal(true)
+                    }}
+                    title="Cambiar etapa"
+                  >
+                    {task.etapaMetalurgica ? `📍 ${task.etapaMetalurgica}` : '⚙️ Seleccionar Etapa'}
+                  </button>
+                )}
 
                 {/* Botón para ver historial */}
                 <button
@@ -1452,7 +1501,7 @@ const TaskCardInner = ({
             {isExpanded ? 'Ocultar detalles' : 'Ver detalles'}
           </button>}
         </article>
-        {showChecklist && hasOrdenId && (
+        {showChecklist && hasOrdenId && !isReadOnly && (
           <div
             className="modal-overlay subtasks-modal"
             onClick={(e) => {
@@ -1527,7 +1576,7 @@ const TaskCardInner = ({
             </div>
           </div>
         )}
-        {showAsignarImpresora && (
+        {showAsignarImpresora && !isReadOnly && (
           <div
             className="modal-overlay"
             onMouseDown={(e) => {
@@ -1741,7 +1790,7 @@ const TaskCardInner = ({
           </div>,
           document.body
         )}
-      {showQRPrint && qrPrintData && (
+      {showQRPrint && qrPrintData && !isReadOnly && (
         <QRPrintView
           opNumber={qrPrintData.opNumber}
           cliente={qrPrintData.cliente}
@@ -1752,7 +1801,7 @@ const TaskCardInner = ({
         />
       )}
       {/* Modal de Selector de Etapas Taller Gráfico */}
-      {showEtapasTallerModal && hasOrdenId && (
+      {showEtapasTallerModal && hasOrdenId && !isReadOnly && (
         <div
           className="modal-overlay subtasks-modal"
           onClick={(e) => {
@@ -1790,7 +1839,7 @@ const TaskCardInner = ({
         </div>
       )}
       {/* Modal de Selector de Etapas Instalaciones */}
-      {showEtapasInstalacionesModal && hasOrdenId && (
+      {showEtapasInstalacionesModal && hasOrdenId && !isReadOnly && (
         <div
           className="modal-overlay subtasks-modal"
           onClick={(e) => {
@@ -1888,7 +1937,7 @@ const TaskCardInner = ({
         </div>
       )}
       {/* Modal de Selector de Etapas Taller de Imprenta */}
-      {showEtapasTallerImprentaModal && hasOrdenId && (
+      {showEtapasTallerImprentaModal && hasOrdenId && !isReadOnly && (
         <div
           className="modal-overlay subtasks-modal"
           onClick={(e) => {
@@ -1926,7 +1975,7 @@ const TaskCardInner = ({
         </div>
       )}
       {/* Modal IMPRESIÓN DIGITAL - Columna Imprenta (Área de Impresión) */}
-      {showEtapasImpresionDigitalModal && hasOrdenId && (
+      {showEtapasImpresionDigitalModal && hasOrdenId && !isReadOnly && (
         <div
           className="modal-overlay subtasks-modal"
           onClick={(e) => {
@@ -1990,7 +2039,7 @@ const TaskCardInner = ({
         </div>
       )}
       {/* Modal de Selector de Etapas Metalúrgica */}
-      {showEtapasMetalurgicaModal && hasOrdenId && (
+      {showEtapasMetalurgicaModal && hasOrdenId && !isReadOnly && (
         <div
           className="modal-overlay subtasks-modal"
           onClick={(e) => {
@@ -2111,7 +2160,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       prev.isSelected === next.isSelected &&
       prev.onSelect === next.onSelect &&
       prev.onViewTask === next.onViewTask &&
-      prev.hideReclamoUI === next.hideReclamoUI
+      prev.hideReclamoUI === next.hideReclamoUI &&
+      prev.readOnly === next.readOnly
     )
   }
   if ((prev.boardDnD == null) !== (next.boardDnD == null)) return false
@@ -2173,6 +2223,7 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   if (prev.onSelect !== next.onSelect) return false
   if (prev.onViewTask !== next.onViewTask) return false
   if (prev.hideReclamoUI !== next.hideReclamoUI) return false
+  if (prev.readOnly !== next.readOnly) return false
   return true
 }
 

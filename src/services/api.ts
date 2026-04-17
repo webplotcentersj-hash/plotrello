@@ -461,7 +461,7 @@ class ApiService {
       const pickBestPublicOrdenRow = (rows: OrdenTrabajo[]): OrdenTrabajo | null => {
         if (!rows?.length) return null
         // Preferir filas que siguen visibles en tablero (fusión sin DELETE)
-        const visible = rows.filter((r) => r.visible_en_tablero !== false)
+        const visible = rows.filter((r) => r.visible_en_tablero !== false && (r as any).eliminada !== true)
         const pool = visible.length > 0 ? visible : rows
         const sorted = [...pool].sort((a, b) => {
           const dupA = a.es_duplicado ? 1 : 0
@@ -596,8 +596,10 @@ class ApiService {
           return { success: false, error: error.message }
         }
 
-        // Ocultas del tablero (fusión sin borrar fila). Si no existe la columna, visible_en_tablero es undefined → se muestran todas.
-        const visibles = (data || []).filter((orden: any) => orden.visible_en_tablero !== false)
+        // Ocultas del tablero (fusión / borrado lógico). Columnas ausentes → se muestran.
+        const visibles = (data || []).filter(
+          (orden: any) => orden.visible_en_tablero !== false && orden.eliminada !== true
+        )
 
         // Si hay datos, asegurarse de que los campos opcionales estén definidos (aunque sean null)
         const normalizedData = visibles.map((orden: any) => ({
@@ -1073,10 +1075,14 @@ class ApiService {
       const { data: ordenAnterior } = await supabaseClient
         .from('ordenes_trabajo')
         .select(
-          'estado, operario_asignado, sector, sectores, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera, op_bloqueada, foto_url'
+          'estado, operario_asignado, sector, sectores, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera, op_bloqueada, foto_url, eliminada'
         )
         .eq('id', id)
         .maybeSingle()
+
+      if ((ordenAnterior as { eliminada?: boolean | null } | null)?.eliminada === true) {
+        return { success: false, error: 'Esta OP fue eliminada y no se puede editar.' }
+      }
 
       const lockEval = this.evaluateOrdenOpLock(
         ordenAnterior as {
@@ -1692,13 +1698,22 @@ class ApiService {
         const delGuard = await this.assertOpNotLockedForMutation(id)
         if (!delGuard.ok) return { success: false, error: delGuard.error }
 
-        // Registrar SIEMPRE la eliminación y si falla, NO borrar (para no perder auditoría)
+        const { data: rowEstado } = await supabase
+          .from('ordenes_trabajo')
+          .select('eliminada')
+          .eq('id', id)
+          .maybeSingle()
+        if ((rowEstado as { eliminada?: boolean } | null)?.eliminada === true) {
+          return { success: false, error: 'Esta OP ya está marcada como eliminada.' }
+        }
+
+        // Registrar SIEMPRE la eliminación y si falla, NO marcar borrado (para no perder auditoría)
         const { id: currentUserId, nombre: currentUserName } = this.getCurrentUser()
         const changes: Record<string, any> = { origen: 'deleteOrden_frontend' }
         if (options?.motivo) changes.motivo = options.motivo
         if (options?.estadoAnterior) changes.estado_anterior = options.estadoAnterior
 
-        // Capturar datos clave antes de borrar (la vista pierde numero_op/cliente cuando se elimina la fila)
+        // Capturar datos clave para auditoría (borrado lógico: la fila sigue en ordenes_trabajo)
         try {
           const { data: ordenInfo } = await supabase
             .from('ordenes_trabajo')
@@ -1731,11 +1746,20 @@ class ApiService {
             success: false,
             error:
               auditError.message ||
-              'No se pudo registrar la auditoría de eliminación. No se eliminó la OP.'
+              'No se pudo registrar la auditoría de eliminación. No se marcó la OP como eliminada.'
           }
         }
 
-        const { error } = await supabase.from('ordenes_trabajo').delete().eq('id', id)
+        const motivoFinal = (options?.motivo || '').trim() || 'Eliminación de OP desde la app principal.'
+        const { error } = await supabase
+          .from('ordenes_trabajo')
+          .update({
+            eliminada: true,
+            motivo_eliminacion: motivoFinal,
+            fecha_eliminacion: new Date().toISOString(),
+            visible_en_tablero: false
+          })
+          .eq('id', id)
         if (error) return { success: false, error: error.message }
         return { success: true }
       } catch (e: any) {
@@ -1757,7 +1781,7 @@ class ApiService {
   }
 
   /**
-   * Política: una fila de ordenes_trabajo solo se ELIMINA (DELETE) por deleteOrden (acción explícita).
+   * Política: deleteOrden hace borrado lógico (eliminada=true, motivo, visible_en_tablero=false).
    * La “fusión” por movimiento solo oculta la ficha duplicada (visible_en_tablero = false), sin borrarla.
    * Antes de ocultar, unifica en la fila visible los flags que pintan la tarjeta (planilla, FT incompleta, checklists, PDF).
    */
@@ -2476,6 +2500,7 @@ class ApiService {
         accion_tipo: string | null
         cambios_detallados?: any
         timestamp: string
+        motivo_eliminacion?: string | null
       }>
     >
   > {
@@ -2484,7 +2509,7 @@ class ApiService {
     }
 
     const selectVista =
-      'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp'
+      'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp,motivo_eliminacion'
     const selectHistorial =
       'id,id_orden,id_usuario,nombre_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp'
 
@@ -2504,6 +2529,7 @@ class ApiService {
       accion_tipo: string | null
       cambios_detallados?: any
       timestamp: string
+      motivo_eliminacion?: string | null
     }> =>
       rows.map((r) => {
         const cd = (r.cambios_detallados && typeof r.cambios_detallados === 'object'
@@ -2526,7 +2552,8 @@ class ApiService {
           comentario: r.comentario != null ? String(r.comentario) : null,
           accion_tipo: r.accion_tipo != null ? String(r.accion_tipo) : null,
           cambios_detallados: r.cambios_detallados,
-          timestamp: String(r.timestamp ?? '')
+          timestamp: String(r.timestamp ?? ''),
+          motivo_eliminacion: null
         }
       })
 
@@ -2542,6 +2569,61 @@ class ApiService {
     const isNetworkLike = (msg: string) =>
       /failed to fetch|networkerror|load failed|fetch/i.test(msg)
 
+    /** OPs con borrado lógico sin fila en historial/vista (p. ej. auditoría falló en su momento). */
+    const appendOrdenesEliminadasSinAuditoria = async (auditRows: any[]): Promise<any[]> => {
+      const sb = supabase
+      if (!sb) return auditRows
+      try {
+        const { data: ordRaw, error: ordErr } = await sb
+          .from('ordenes_trabajo')
+          .select('id,numero_op,cliente,motivo_eliminacion,fecha_eliminacion,updated_at,estado')
+          .eq('eliminada', true)
+          .limit(2000)
+        if (ordErr || !ordRaw?.length) return auditRows
+        const withAudit = new Set<number>()
+        for (const r of auditRows) {
+          const oid = r?.id_orden
+          if (oid != null && Number.isFinite(Number(oid))) withAudit.add(Number(oid))
+        }
+        const synth: any[] = []
+        for (const o of ordRaw as Record<string, unknown>[]) {
+          const id = Number(o.id)
+          if (!Number.isFinite(id) || id <= 0) continue
+          if (withAudit.has(id)) continue
+          const ts =
+            (o.fecha_eliminacion != null && String(o.fecha_eliminacion)) ||
+            (o.updated_at != null && String(o.updated_at)) ||
+            new Date().toISOString()
+          synth.push({
+            id: -id,
+            id_orden: id,
+            numero_op: o.numero_op,
+            cliente: o.cliente,
+            id_usuario: null,
+            nombre_usuario: null,
+            rol_usuario: null,
+            estado_anterior: o.estado != null ? String(o.estado) : null,
+            estado_nuevo: null,
+            comentario:
+              'Sin registro de auditoría de eliminación; la orden figura como eliminada en la base.',
+            accion_tipo: 'eliminacion',
+            cambios_detallados: null,
+            timestamp: ts,
+            motivo_eliminacion: o.motivo_eliminacion != null ? String(o.motivo_eliminacion) : null
+          })
+        }
+        if (synth.length === 0) return auditRows
+        return [...auditRows, ...synth].sort(
+          (a, b) =>
+            new Date(String(b.timestamp ?? '')).getTime() -
+            new Date(String(a.timestamp ?? '')).getTime()
+        )
+      } catch (e) {
+        console.warn('getOpEliminadas: appendOrdenesEliminadasSinAuditoria', e)
+        return auditRows
+      }
+    }
+
     try {
       let query = supabase
         .from('vista_auditoria_completa')
@@ -2553,7 +2635,9 @@ class ApiService {
 
       const { data, error } = await query
       if (!error) {
-        return { success: true, data: (data as any[]) ?? [] }
+        const base = (data as any[]) ?? []
+        const merged = await appendOrdenesEliminadasSinAuditoria(base)
+        return { success: true, data: merged }
       }
 
       const errMsg = error.message || String(error)
@@ -2570,7 +2654,9 @@ class ApiService {
         q2 = applyFecha(q2)
         const { data: d2, error: e2 } = await q2
         if (!e2 && d2) {
-          return { success: true, data: mapHistorialEliminacion(d2 as Record<string, unknown>[]) }
+          const mapped = mapHistorialEliminacion(d2 as Record<string, unknown>[])
+          const merged = await appendOrdenesEliminadasSinAuditoria(mapped as any[])
+          return { success: true, data: merged }
         }
         if (e2) {
           console.warn('getOpEliminadas: historial_movimientos fallback', e2.message)
@@ -2592,6 +2678,32 @@ class ApiService {
           ? 'Sin conexión a Supabase (red, proyecto pausado o URL incorrecta). Revisá internet y VITE_SUPABASE_URL.'
           : msg
       }
+    }
+  }
+
+  /** Órdenes marcadas eliminadas (borrado lógico) para vista previa en biblioteca — no filtra tablero. */
+  async getOrdenesEliminadasDetalle(): Promise<ApiResponse<OrdenTrabajo[]>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('ordenes_trabajo')
+        .select('*')
+        .eq('eliminada', true)
+        .order('fecha_eliminacion', { ascending: false, nullsFirst: false })
+        .limit(1500)
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+      const rows = (data ?? []) as any[]
+      await attachLineasM2ToOrdenes(rows)
+      return { success: true, data: rows as OrdenTrabajo[] }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error desconocido'
+      console.error('getOrdenesEliminadasDetalle:', e)
+      return { success: false, error: msg }
     }
   }
 
