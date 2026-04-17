@@ -439,13 +439,8 @@ function App() {
         setTasks((prev) => prev.filter((task) => task.id !== taskId))
         return
       }
-      // Entrega desde mostrador (u otro flujo): no debe seguir en Finalizado en Taller / Almacén
-      const ordenEntregada =
-        orden.entregado === true || orden.estado === 'Entregado o Instalado'
-      if (ordenEntregada) {
-        setTasks((prev) => prev.filter((task) => task.id !== taskId))
-        return
-      }
+      // Las OP entregadas/archivadas siguen en `tasks` para biblioteca, búsquedas y reportes;
+      // el tablero las oculta con filteredTasks (BoardPage).
       const settling = multiSectorSettleRef.current
       const opNorm = normNumeroOp(orden.numero_op)
       if (settling && opNorm && opNorm === settling.numeroOpNorm) {

@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import type { Task, TaskStatus, Priority, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
 import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import apiService from '../services/api'
+import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import './TaskLibraryModal.css'
 
 type DeletedOpRow = {
@@ -32,6 +33,16 @@ function endOfLocalDayYmd(ymd: string): Date {
   const [y, m, d] = ymd.split('-').map(Number)
   if (!y || !m || !d) return new Date(NaN)
   return new Date(y, m - 1, d, 23, 59, 59, 999)
+}
+
+function matchesSearchQuery(task: Task, q: string): boolean {
+  if (!q) return true
+  if (taskSearchBlob(task).includes(q)) return true
+  if (/^\d+$/.test(q)) {
+    const oid = parseTaskIdToOrdenId(task.id)
+    if (oid != null && String(oid) === q) return true
+  }
+  return false
 }
 
 function taskSearchBlob(task: Task): string {
@@ -135,16 +146,19 @@ const TaskLibraryModal = ({
   const [elimAuditRows, setElimAuditRows] = useState<DeletedOpRow[]>([])
   const [elimAuditLoading, setElimAuditLoading] = useState(() => deletedOpsRows === undefined)
   const [elimAuditError, setElimAuditError] = useState<string | null>(null)
+  /** OPs abiertas con ✏️ desde esta biblioteca: siguen visibles aunque el guardado cambie campos que rompen el filtro. */
+  const [pinnedTaskIds, setPinnedTaskIds] = useState<Set<string>>(() => new Set())
+
+  const pinTaskForLibrarySession = useCallback((taskId: string) => {
+    setPinnedTaskIds((prev) => new Set(prev).add(taskId))
+  }, [])
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return tasks.filter((task) => {
-      const matchesSearch =
-        q === '' ||
-        taskSearchBlob(task).includes(q) ||
-        String(task.id ?? '')
-          .toLowerCase()
-          .includes(q)
+      if (pinnedTaskIds.has(task.id)) return true
+
+      const matchesSearch = matchesSearchQuery(task, q)
 
       const matchesSector = selectedSector === 'todos' || task.assignedSector === selectedSector
 
@@ -177,7 +191,8 @@ const TaskLibraryModal = ({
       }
 
       const isCompleted = task.status === 'almacen-entrega' || task.status === 'finalizado-taller'
-      if (!incluirCompletadas && isCompleted) {
+      // OP ya entregada/archivada: siempre listar en biblioteca (proceso de entrega / historial).
+      if (!incluirCompletadas && isCompleted && !task.entregado) {
         const taskDate = new Date(task.updatedAt)
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -205,7 +220,8 @@ const TaskLibraryModal = ({
     fechaDesde,
     fechaHasta,
     incluirCompletadas,
-    columns
+    columns,
+    pinnedTaskIds
   ])
 
   const filteredDeletedOps = useMemo(() => {
@@ -276,6 +292,12 @@ const TaskLibraryModal = ({
     setFechaDesde('')
     setFechaHasta('')
     setIncluirCompletadas(false)
+    setPinnedTaskIds(new Set())
+  }
+
+  const handleEditFromLibrary = (task: Task) => {
+    pinTaskForLibrarySession(task.id)
+    onEditTask?.(task)
   }
 
   const deletedTableRows = (rows: DeletedOpRow[]) =>
@@ -330,7 +352,7 @@ const TaskLibraryModal = ({
               <label>Buscar</label>
               <input
                 type="text"
-                placeholder="N° OP, cliente, descripción, etiquetas, materiales, contacto…"
+                placeholder="N° OP, id orden, cliente, descripción, etiquetas, materiales, contacto…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -519,7 +541,7 @@ const TaskLibraryModal = ({
                       task={task}
                       index={index}
                       owner={owner}
-                      onEdit={onEditTask}
+                      onEdit={handleEditFromLibrary}
                       onDelete={onDeleteTask}
                       sectores={sectores}
                       isDraggable={false}
