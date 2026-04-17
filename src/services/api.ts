@@ -13425,6 +13425,72 @@ class ApiService {
     }
   }
 
+  /**
+   * Sube comprobante de pago (imagen o PDF) al bucket archivos y guarda la URL en la venta.
+   */
+  async subirComprobantePagoVenta(
+    idVenta: number,
+    file: File
+  ): Promise<ApiResponse<{ url: string }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    const maxBytes = 8 * 1024 * 1024
+    if (file.size > maxBytes) {
+      return { success: false, error: 'El archivo supera 8 MB' }
+    }
+
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const allowedExt = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'])
+    if (!allowedExt.has(ext)) {
+      return { success: false, error: 'Formato no permitido. Use PDF, JPG, PNG, WEBP o GIF.' }
+    }
+
+    const safeBase = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .slice(0, 80)
+    const path = `ventas-comprobantes/${idVenta}/${Date.now()}_${safeBase}.${ext}`
+
+    try {
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || `application/${ext === 'pdf' ? 'pdf' : 'octet-stream'}`
+      })
+
+      if (uploadError) {
+        return { success: false, error: uploadError.message }
+      }
+
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) {
+        return { success: false, error: 'No se pudo obtener la URL pública del archivo' }
+      }
+
+      const { error: dbError } = await supabase
+        .from('ventas')
+        .update({
+          comprobante_pago_url: publicUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idVenta)
+
+      if (dbError) {
+        return { success: false, error: dbError.message }
+      }
+
+      return { success: true, data: { url: publicUrl } }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al subir comprobante'
+      }
+    }
+  }
+
   async crearVentaDesdeOportunidad(venta: {
     id_oportunidad: number
     id_op: number
@@ -13686,6 +13752,7 @@ class ApiService {
       estado_pago: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
       fecha_venta: string
       observaciones: string
+      comprobante_pago_url: string | null
     }>
   ): Promise<ApiResponse<{ success: boolean }>> {
     if (!supabase) {
@@ -13701,6 +13768,9 @@ class ApiService {
       if (venta.estado_pago !== undefined) updateData.estado_pago = venta.estado_pago
       if (venta.fecha_venta !== undefined) updateData.fecha_venta = venta.fecha_venta
       if (venta.observaciones !== undefined) updateData.observaciones = venta.observaciones
+      if (venta.comprobante_pago_url !== undefined) {
+        updateData.comprobante_pago_url = venta.comprobante_pago_url
+      }
       updateData.updated_at = new Date().toISOString()
 
       const { error } = await supabase

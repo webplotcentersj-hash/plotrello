@@ -2748,6 +2748,18 @@ const CRMVentasPage = () => {
                 <div className="info-item">
                   <strong>Estado de Pago:</strong> {ventaEditando.estado_pago}
                 </div>
+                {ventaEditando.comprobante_pago_url && (
+                  <div className="info-item">
+                    <strong>Comprobante de pago:</strong>{' '}
+                    <a
+                      href={ventaEditando.comprobante_pago_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Abrir archivo
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Búsqueda de artículos */}

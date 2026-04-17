@@ -59,6 +59,8 @@ const VentaRapidaModal = ({
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
   const [showCartelVentaRealizada, setShowCartelVentaRealizada] = useState(false)
   const [cartelAceptarEnabled, setCartelAceptarEnabled] = useState(false)
+  const [comprobanteArchivo, setComprobanteArchivo] = useState<File | null>(null)
+  const comprobanteInputRef = useRef<HTMLInputElement>(null)
   const convertirRef = useRef<HTMLDivElement>(null)
 
   // Habilitar "Aceptar" del cartel después de 2.5 s para que se lea "Venta realizada"
@@ -300,6 +302,21 @@ const VentaRapidaModal = ({
           console.error('Error procesando item:', itemError)
           throw itemError // Re-lanzar para que se muestre el error al usuario
         }
+      }
+
+      if (comprobanteArchivo) {
+        const compResp = await apiService.subirComprobantePagoVenta(ventaData.id, comprobanteArchivo)
+        if (!compResp.success) {
+          alert(
+            `La venta se guardó, pero no se pudo adjuntar el comprobante: ${compResp.error || 'Error desconocido'}`
+          )
+        } else if (compResp.data?.url) {
+          setVentaCreada((prev) =>
+            prev ? { ...prev, comprobante_pago_url: compResp.data!.url } : prev
+          )
+        }
+        setComprobanteArchivo(null)
+        if (comprobanteInputRef.current) comprobanteInputRef.current.value = ''
       }
 
       // Opcional: actualizar con la venta completa desde el servidor (no bloquea la UI)
@@ -677,6 +694,38 @@ const VentaRapidaModal = ({
             </label>
           </div>
 
+          <div className="form-group">
+            <label>Comprobante de pago (opcional)</label>
+            <p className="form-hint-comprobante">
+              PDF o imagen (transferencia, QR, etc.). Máximo 8 MB.
+            </p>
+            <input
+              ref={comprobanteInputRef}
+              type="file"
+              className="form-input-file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null
+                setComprobanteArchivo(f)
+              }}
+            />
+            {comprobanteArchivo && (
+              <div className="comprobante-seleccionado">
+                <span className="comprobante-nombre">{comprobanteArchivo.name}</span>
+                <button
+                  type="button"
+                  className="btn-link"
+                  onClick={() => {
+                    setComprobanteArchivo(null)
+                    if (comprobanteInputRef.current) comprobanteInputRef.current.value = ''
+                  }}
+                >
+                  Quitar archivo
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Fecha */}
           <div className="form-group">
             <label>Fecha *</label>
@@ -839,6 +888,18 @@ const VentaRapidaModal = ({
                 {ventaCreada.numero_op && (
                   <div style={{ marginTop: '8px', fontSize: '0.95rem' }}>
                     ✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong>
+                  </div>
+                )}
+                {ventaCreada.comprobante_pago_url && (
+                  <div style={{ marginTop: '10px', fontSize: '0.95rem' }}>
+                    <a
+                      href={ventaCreada.comprobante_pago_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="comprobante-pago-link"
+                    >
+                      Ver comprobante de pago
+                    </a>
                   </div>
                 )}
               </div>

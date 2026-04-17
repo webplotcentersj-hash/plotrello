@@ -191,6 +191,51 @@
   cursor: not-allowed;
 }
 
+.form-hint-comprobante {
+  margin: 0 0 8px 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.35;
+}
+
+.form-input-file {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px dashed var(--surface-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.comprobante-seleccionado {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.comprobante-nombre {
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.comprobante-pago-link {
+  color: #38bdf8;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.comprobante-pago-link:hover {
+  color: #7dd3fc;
+}
+
 .cliente-search-container,
 .articulo-search-container {
   position: relative;
@@ -553,5 +598,23 @@
 .venta-rapida-modal.venta-rapida-modal--mostrador .form-select option {
   background: #f8fafc;
   color: #0f172a;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .form-hint-comprobante {
+  color: #475569;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .form-input-file {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .comprobante-seleccionado {
+  color: #0f172a;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .comprobante-pago-link {
+  color: #0369a1;
 }
 

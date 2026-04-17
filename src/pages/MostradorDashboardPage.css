@@ -1,14 +1,25 @@
 .mostrador-dashboard-page {
+  /* Tema oscuro solo en esta página (texto y superficies coherentes con el fondo) */
+  --text-primary: #e8edf5;
+  --text-muted: #94a3b8;
+  --surface-card: rgba(30, 41, 59, 0.92);
+  --surface-border: rgba(148, 163, 184, 0.22);
+  --surface-base: #0f172a;
+
   min-height: 100vh;
-  /* Nunca fondo plano #fff: capa base + gradiente (solo esta página) */
-  background-color: #dbe4f0;
+  background-color: #020617;
   background-image:
-    radial-gradient(ellipse 120% 80% at 10% -20%, rgba(59, 130, 246, 0.12), transparent 55%),
-    radial-gradient(ellipse 90% 60% at 100% 0%, rgba(16, 185, 129, 0.08), transparent 50%),
-    linear-gradient(180deg, #eef2f7 0%, #e2e9f2 45%, #d4dee9 100%);
+    radial-gradient(ellipse 110% 75% at 12% -15%, rgba(59, 130, 246, 0.22), transparent 52%),
+    radial-gradient(ellipse 85% 55% at 95% 10%, rgba(16, 185, 129, 0.14), transparent 48%),
+    linear-gradient(165deg, #0f172a 0%, #0b1324 38%, #020617 100%);
   background-attachment: fixed;
   padding: 24px;
   color: var(--text-primary);
+}
+
+.mostrador-dashboard-page .spinner {
+  border-color: rgba(148, 163, 184, 0.28);
+  border-top-color: #60a5fa;
 }
 
 .loading-container {
@@ -614,8 +625,8 @@
 /* Desplegables nativos en esta página (si se agregan filtros, etc.) */
 .mostrador-dashboard-page select,
 .mostrador-dashboard-page select option {
-  background-color: #f8fafc;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  background-color: #1e293b;
+  color: #e8edf5;
+  border-color: #475569;
 }
 

@@ -1205,6 +1205,8 @@ export interface Venta {
   id_vendedor: number
   nombre_vendedor: string
   observaciones?: string | null
+  /** URL del comprobante de pago (imagen/PDF) en Storage */
+  comprobante_pago_url?: string | null
   created_at: string
   updated_at: string
   items?: VentaItem[]
