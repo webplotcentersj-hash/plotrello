@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { MenuDiario, MenuSeleccion } from '../types/api'
 import { formatArgentinaDate, formatArgentinaTime } from '../utils/dateUtils'
-import { getTurnoAlmuerzoLabel } from '../constants/menuDiario'
+import { getTurnoAlmuerzoLabel, MENU_TURNOS_ALMUERZO } from '../constants/menuDiario'
 import jsPDF from 'jspdf'
 import './RecursosHumanosMenuDiarioPage.css'
 
@@ -239,10 +239,62 @@ const RecursosHumanosMenuDiarioPage = () => {
     })
 
     yPos += 8
+    nuevaPaginaSiHaceFalta(20)
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Pedidos por turno de almuerzo', margin, yPos)
+    yPos += 7
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+
+    const byTurn = new Map<number, MenuSeleccion[]>()
+    for (const s of listaPdf) {
+      const tid = s.turno_almuerzo ?? 1
+      const arr = byTurn.get(tid) ?? []
+      arr.push(s)
+      byTurn.set(tid, arr)
+    }
+
+    for (const turno of MENU_TURNOS_ALMUERZO) {
+      nuevaPaginaSiHaceFalta(18)
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${turno.label} — ${turno.horario}`, margin, yPos)
+      yPos += 6
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      const list = (byTurn.get(turno.id) ?? []).sort((a, b) =>
+        (a.nombre_usuario || '').localeCompare(b.nombre_usuario || '', 'es', { sensitivity: 'base' })
+      )
+      if (list.length === 0) {
+        doc.setTextColor(110, 110, 110)
+        doc.text('Sin pedidos en este turno.', margin + 4, yPos)
+        doc.setTextColor(0, 0, 0)
+        yPos += 6
+      } else {
+        for (const s of list) {
+          const nombre = s.nombre_usuario || `Usuario ${s.id_usuario}`
+          const platoNom = s.nombre_plato || '—'
+          const em = s.emoji_estado || '—'
+          const horaReg = formatArgentinaTime(s.fecha_seleccion)
+          const linea = `• ${nombre} — Plato: ${platoNom} — Estado: ${em} — Registro: ${horaReg}`
+          const wrapped = doc.splitTextToSize(linea, pageWidth - margin * 2 - 4)
+          for (const ln of wrapped) {
+            nuevaPaginaSiHaceFalta(6)
+            doc.text(ln, margin + 4, yPos)
+            yPos += 5
+          }
+          yPos += 1
+        }
+      }
+      yPos += 4
+    }
+
+    yPos += 4
     nuevaPaginaSiHaceFalta(14)
     doc.setFontSize(13)
     doc.setFont('helvetica', 'bold')
-    doc.text('Pedidos por plato', margin, yPos)
+    doc.text('Resumen: pedidos por plato', margin, yPos)
     yPos += 8
     doc.setFont('helvetica', 'normal')
 
@@ -314,8 +366,8 @@ const RecursosHumanosMenuDiarioPage = () => {
               <button className="btn-secondary" onClick={handleVerSelecciones}>
                 👥 Ver Selecciones ({menuHoy.total_selecciones || 0})
               </button>
-              <button className="btn-secondary" onClick={() => void handleDescargarPDF(menuHoy)}>
-                📄 Descargar PDF
+              <button className="btn-secondary" onClick={() => void handleDescargarPDF(menuHoy)} title="Incluye turnos y detalle por empleado">
+                📄 Descargar PDF (reporte)
               </button>
             </div>
           </div>
@@ -423,7 +475,12 @@ const RecursosHumanosMenuDiarioPage = () => {
                               >
                                 Ver
                               </button>
-                              <button type="button" className="btn-secondary" onClick={() => void handleDescargarPDF(m)}>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => void handleDescargarPDF(m)}
+                                title="Turnos y pedidos por usuario"
+                              >
                                 PDF
                               </button>
                             </div>
@@ -466,8 +523,12 @@ const RecursosHumanosMenuDiarioPage = () => {
                 <strong>Total Selecciones:</strong> {menuSeleccionado.total_selecciones || 0}
               </div>
               <div className="rrhh-menu-history-actions rrhh-menu-history-actions--modal">
-                <button className="btn-secondary" onClick={() => void handleDescargarPDF(menuSeleccionado)}>
-                  📄 Descargar PDF
+                <button
+                  className="btn-secondary"
+                  onClick={() => void handleDescargarPDF(menuSeleccionado)}
+                  title="Incluye turnos y detalle por empleado"
+                >
+                  📄 Descargar PDF (reporte)
                 </button>
                 <button
                   className="btn-secondary"
