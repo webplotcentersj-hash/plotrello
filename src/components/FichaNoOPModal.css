@@ -1,3 +1,9 @@
+/* =============================================================================
+   FichaNoOPModal — solo asesor-presupuestos (Crear/Editar ficha).
+   Contraste: cuerpo gris-azulado + labels oscuros. No revertir con overrides
+   globales del tema oscuro (usar selectores bajo .ficha-no-op-modal).
+   ============================================================================= */
+
 .ficha-no-op-modal-overlay {
   position: fixed;
   top: 0;
@@ -12,7 +18,8 @@
 }
 
 .ficha-no-op-modal {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  /* Fondo del panel: gris-azulado suave (no blanco puro). Solo FichaNoOPModal / asesor-presupuestos. */
+  background: linear-gradient(165deg, #e2e9f1 0%, #d8e2ec 42%, #cfd9e6 100%);
   border-radius: 16px;
   width: 90%;
   max-width: 650px;
@@ -64,25 +71,30 @@
 
 .ficha-no-op-modal-body {
   padding: 28px;
-  background: #ffffff;
-  color: #000000;
+  /* Mismo criterio: no blanco #fff para no competir con tema oscuro global */
+  background: #dfe7f0 !important;
+  color: #0f172a !important;
 }
 
-.form-group {
+.ficha-no-op-modal .form-group {
   margin-bottom: 20px;
 }
 
-.form-group label {
+/* Títulos de campos: oscuros y fijos; el tema global no debe aclararlos. */
+.ficha-no-op-modal .ficha-no-op-modal-body .form-group label,
+.ficha-no-op-modal .ficha-no-op-modal-body label.motivos-label {
   display: block;
   margin-bottom: 10px;
   font-weight: 700;
-  color: #000000;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
   font-size: 0.95rem;
   letter-spacing: 0.02em;
 }
 
 .ficha-no-op-modal .motivos-label {
-  color: #000000;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
 /* Checklist (Presupuestos) dentro de FichaNoOPModal: siempre negro y visible */
@@ -92,8 +104,8 @@
   gap: 12px;
   margin-top: 12px;
   padding: 16px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
+  background: #eef2f7;
+  border: 2px solid #cbd5e1;
   border-radius: 12px;
 }
 
@@ -104,20 +116,21 @@
   cursor: pointer;
   user-select: none;
   padding: 12px 16px;
-  background: #ffffff;
+  background: #f8fafc;
   border-radius: 10px;
   border: 2px solid #cbd5e1;
 }
 
 .ficha-no-op-modal .checklist-item span {
-  color: #000000;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
-.form-group input,
-.form-group textarea,
-.form-group select {
+.ficha-no-op-modal .form-group input,
+.ficha-no-op-modal .form-group textarea,
+.ficha-no-op-modal .form-group select {
   width: 100%;
   padding: 12px 16px;
   border: 2px solid #cbd5e1;
@@ -126,28 +139,29 @@
   font-weight: 500;
   font-family: inherit;
   transition: all 0.2s;
-  background: #ffffff;
-  color: #000000;
+  background: #f8fafc;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
-.form-group input::placeholder,
-.form-group textarea::placeholder {
+.ficha-no-op-modal .form-group input::placeholder,
+.ficha-no-op-modal .form-group textarea::placeholder {
   color: #525252;
   font-weight: 500;
   opacity: 1;
 }
 
-.form-group input:focus,
-.form-group textarea:focus,
-.form-group select:focus {
+.ficha-no-op-modal .form-group input:focus,
+.ficha-no-op-modal .form-group textarea:focus,
+.ficha-no-op-modal .form-group select:focus {
   outline: none;
   border-color: #f97316;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
   transform: translateY(-1px);
 }
 
-.form-group select option {
-  color: #000000;
+.ficha-no-op-modal .form-group select option {
+  color: #0f172a;
   font-weight: 500;
 }
 
@@ -204,7 +218,7 @@
   background-color: #fde68a;
 }
 
-.form-group textarea {
+.ficha-no-op-modal .form-group textarea {
   resize: vertical;
   min-height: 80px;
 }
@@ -482,7 +496,7 @@
   gap: 12px;
   padding: 24px 28px;
   border-top: 2px solid rgba(249, 115, 22, 0.2);
-  background: #f1f5f9;
+  background: #d5dee8;
   border-radius: 0 0 16px 16px;
 }
 
