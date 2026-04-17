@@ -1190,6 +1190,8 @@ export interface Venta {
   id: number
   numero_venta: string
   id_oportunidad?: number | null
+  /** Cliente del catálogo (venta rápida / CRM) */
+  id_cliente?: number | null
   cliente_nombre: string
   cliente_telefono?: string | null
   cliente_email?: string | null

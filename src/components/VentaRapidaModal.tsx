@@ -3,6 +3,7 @@ import apiService from '../services/api'
 import type { ClienteRecord, Venta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
+import { getArgentinaDateString } from '../utils/dateUtils'
 import './VentaRapidaModal.css'
 
 interface VentaRapidaModalProps {
@@ -46,7 +47,7 @@ const VentaRapidaModal = ({
 
   const [condicionVenta, setCondicionVenta] = useState<'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'>('Efectivo')
   const [esCuentaCorriente, setEsCuentaCorriente] = useState(false)
-  const [fechaVenta, setFechaVenta] = useState(new Date().toISOString().split('T')[0])
+  const [fechaVenta, setFechaVenta] = useState(() => getArgentinaDateString())
   const [prioridad, setPrioridad] = useState<'Baja' | 'Normal' | 'Alta' | 'Urgente'>('Normal')
   const [observaciones, setObservaciones] = useState('')
 

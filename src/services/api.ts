@@ -13546,10 +13546,28 @@ class ApiService {
 
       if (error) throw error
 
-      return {
-        success: true,
-        data: data.data as { id: number; numero_venta: string }
+      let payload: unknown = data
+      if (typeof data === 'string') {
+        try {
+          payload = JSON.parse(data)
+        } catch {
+          throw new Error('Respuesta inválida al crear venta desde oportunidad')
+        }
       }
+
+      if (payload && typeof payload === 'object' && 'success' in (payload as object)) {
+        const result = payload as { success?: boolean; data?: { id: number; numero_venta: string }; error?: string }
+        if (result.success && result.data) {
+          return { success: true, data: result.data }
+        }
+        throw new Error(result.error || 'No se pudo crear la venta desde la oportunidad')
+      }
+
+      if (payload && typeof payload === 'object' && 'id' in (payload as object)) {
+        return { success: true, data: payload as { id: number; numero_venta: string } }
+      }
+
+      throw new Error('Formato de respuesta inesperado al crear venta desde oportunidad')
     } catch (error: any) {
       console.error('Error al crear venta desde oportunidad:', error)
       return {

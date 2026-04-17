@@ -7,6 +7,11 @@ import VentaRapidaModal from '../components/VentaRapidaModal'
 import type { OrdenTrabajo, Venta, PedidoClienteRecord } from '../types/api'
 import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import {
+  formatArgentinaDateOnly,
+  getArgentinaDateString,
+  parseArgentinaDate
+} from '../utils/dateUtils'
 import './MostradorDashboardPage.css'
 
 type TipoAtencion = 'virtual' | 'consulta' | 'venta'
@@ -255,10 +260,10 @@ const MostradorDashboardPage = () => {
   }, [ordenesListas.length])
 
   const loadVentasData = useCallback(async () => {
-    const hoyStr = fechaLocalYYYYMMDD()
-    const desde = new Date()
+    const hoyStr = getArgentinaDateString()
+    const desde = parseArgentinaDate(hoyStr)
     desde.setDate(desde.getDate() - 62)
-    const desdeStr = fechaLocalYYYYMMDD(desde)
+    const desdeStr = formatArgentinaDateOnly(desde)
 
     try {
       let ventasResponse = await apiService.obtenerVentas(undefined, desdeStr, hoyStr)

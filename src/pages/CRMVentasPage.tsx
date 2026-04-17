@@ -5,7 +5,7 @@ import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, PresupuestoVentaRecord } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
-import { formatArgentinaDate } from '../utils/dateUtils'
+import { formatArgentinaDate, getArgentinaDateString } from '../utils/dateUtils'
 import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
@@ -101,7 +101,7 @@ const CRMVentasPage = () => {
     valor_total: '',
     metodo_pago: 'Efectivo' as const,
     estado_pago: 'Pendiente' as const,
-    fecha_venta: new Date().toISOString().split('T')[0],
+    fecha_venta: getArgentinaDateString(),
     observaciones: ''
   })
   const [ordenesDisponibles, setOrdenesDisponibles] = useState<OrdenTrabajo[]>([])
@@ -793,7 +793,7 @@ const CRMVentasPage = () => {
       valor_total: oportunidad.valor_estimado?.toString() || '',
       metodo_pago: 'Efectivo',
       estado_pago: 'Pendiente',
-      fecha_venta: new Date().toISOString().split('T')[0],
+      fecha_venta: getArgentinaDateString(),
       observaciones: ''
     })
     setItemsVenta([])

@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { Venta, OrdenTrabajo, CuentaPorCobrarRecord, CuentaPorPagarRecord } from '../types/api'
-import { formatArgentinaDate } from '../utils/dateUtils'
+import {
+  formatArgentinaDate,
+  formatArgentinaDateOnly,
+  getArgentinaDateString,
+  parseArgentinaDate
+} from '../utils/dateUtils'
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './CajaDashboardPage.css'
 
@@ -41,18 +46,16 @@ const CajaDashboardPage = () => {
 
   // Filtros de fecha
   const [fechaDesde, setFechaDesde] = useState(() => {
-    const hoy = new Date()
-    hoy.setDate(hoy.getDate() - 7) // Últimos 7 días por defecto
-    return hoy.toISOString().split('T')[0]
+    const d = parseArgentinaDate(getArgentinaDateString())
+    d.setDate(d.getDate() - 7)
+    return formatArgentinaDateOnly(d)
   })
-  const [fechaHasta, setFechaHasta] = useState(() => {
-    return new Date().toISOString().split('T')[0]
-  })
+  const [fechaHasta, setFechaHasta] = useState(() => getArgentinaDateString())
 
   // Cargar ventas del día
   const loadVentasHoy = useCallback(async () => {
     try {
-      const hoy = new Date().toISOString().split('T')[0]
+      const hoy = getArgentinaDateString()
       const response = await apiService.obtenerVentas(undefined, hoy, hoy)
       if (response.success && response.data) {
         setVentasHoy(response.data)
