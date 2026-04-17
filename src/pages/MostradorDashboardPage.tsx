@@ -22,6 +22,14 @@ type Atencion = {
   notas?: string
 }
 
+/** Fecha calendario local YYYY-MM-DD (evita desfase vs toISOString() en zonas como AR). */
+function fechaLocalYYYYMMDD(d = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const MostradorDashboardPage = () => {
   const navigate = useNavigate()
   const { isAdmin, usuario } = useAuth()
@@ -233,24 +241,22 @@ const MostradorDashboardPage = () => {
   }, [ordenesListas.length])
 
   const loadVentasData = useCallback(async () => {
+    const hoyStr = fechaLocalYYYYMMDD()
     try {
-      const hoy = new Date()
-      hoy.setHours(0, 0, 0, 0)
-      const hoyISO = hoy.toISOString().split('T')[0]
-
-      // Cargar ventas del día
-      const ventasResponse = await apiService.obtenerVentas(undefined, hoyISO, hoyISO)
+      const ventasResponse = await apiService.obtenerVentas(undefined, hoyStr, hoyStr)
       if (ventasResponse.success && ventasResponse.data) {
-        // Ordenar por fecha más reciente
-        const ventasOrdenadas = ventasResponse.data.sort((a, b) => 
-          new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime()
+        const delDia = ventasResponse.data.filter((v) => {
+          const f = v.fecha_venta ? String(v.fecha_venta).slice(0, 10) : ''
+          return f === hoyStr
+        })
+        const ventasOrdenadas = [...delDia].sort(
+          (a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime()
         )
         setVentasRecientes(ventasOrdenadas.slice(0, 5))
 
-        // Calcular estadísticas
-        const totalHoy = ventasResponse.data.length
-        const ingresosHoy = ventasResponse.data.reduce((sum, v) => sum + v.valor_total, 0)
-        const ventasPendientes = ventasResponse.data.filter(v => v.estado_pago === 'Pendiente')
+        const totalHoy = delDia.length
+        const ingresosHoy = delDia.reduce((sum, v) => sum + v.valor_total, 0)
+        const ventasPendientes = delDia.filter((v) => v.estado_pago === 'Pendiente')
         const ingresosPendientes = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
 
         setEstadisticasVentas({
@@ -259,22 +265,37 @@ const MostradorDashboardPage = () => {
           ventasPendientes: ventasPendientes.length,
           ingresosPendientes
         })
+      } else {
+        setVentasRecientes([])
+        setEstadisticasVentas({
+          totalHoy: 0,
+          ingresosHoy: 0,
+          ventasPendientes: 0,
+          ingresosPendientes: 0
+        })
       }
     } catch (error) {
       console.error('Error cargando ventas:', error)
+      setVentasRecientes([])
+      setEstadisticasVentas({
+        totalHoy: 0,
+        ingresosHoy: 0,
+        ventasPendientes: 0,
+        ingresosPendientes: 0
+      })
     }
   }, [])
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true)
+    let ordenesCreadasHoyCount = 0
     try {
-      // Cargar órdenes listas para retirar
       const ordenesResponse = await apiService.getOrdenes()
+
       if (ordenesResponse.success && ordenesResponse.data) {
         const hoy = new Date()
         hoy.setHours(0, 0, 0, 0)
-        
-        // Órdenes listas para retirar (Finalizado en Taller o Almacén de Entrega), sin entregar aún
+
         const listas = ordenesResponse.data.filter(
           (orden) =>
             !orden.entregado &&
@@ -283,17 +304,16 @@ const MostradorDashboardPage = () => {
         )
         setOrdenesListas(listas)
 
-        // Órdenes pendientes de entrega hoy
         const pendientesHoy = ordenesResponse.data.filter((orden) => {
           if (!orden.fecha_entrega) return false
           const fechaEntrega = new Date(orden.fecha_entrega)
           fechaEntrega.setHours(0, 0, 0, 0)
-          return fechaEntrega.getTime() === hoy.getTime() && 
-                 orden.estado !== 'Entregado o Instalado'
+          return (
+            fechaEntrega.getTime() === hoy.getTime() && orden.estado !== 'Entregado o Instalado'
+          )
         })
         setOrdenesPendientesHoy(pendientesHoy)
 
-        // Órdenes creadas hoy
         const creadasHoy = ordenesResponse.data.filter((orden) => {
           if (!orden.fecha_creacion) return false
           const fechaCreacion = new Date(orden.fecha_creacion)
@@ -302,32 +322,33 @@ const MostradorDashboardPage = () => {
         })
         setOrdenesCreadasHoy(creadasHoy)
         setOrdenesCreadasCount(creadasHoy.length)
+        ordenesCreadasHoyCount = creadasHoy.length
 
-        // Órdenes activas (no finalizadas ni entregadas)
         const activas = ordenesResponse.data.filter(
-          (orden) => 
+          (orden) =>
             orden.estado !== 'Entregado o Instalado' &&
             orden.estado !== 'Finalizado en Taller' &&
             orden.estado !== 'Almacén de Entrega'
         )
         setOrdenesActivas(activas)
+      } else {
+        setOrdenesListas([])
+        setOrdenesPendientesHoy([])
+        setOrdenesCreadasHoy([])
+        setOrdenesCreadasCount(0)
+        setOrdenesActivas([])
+      }
 
-        // Cargar atenciones del día (si existe la tabla)
-        await loadAtencionesHoy()
+      await loadAtencionesHoy()
+      await loadVentasData()
 
-        // Cargar ventas
-        await loadVentasData()
+      const pedidosResp = await apiService.getPedidosPendientes()
+      if (pedidosResp.success && pedidosResp.data) {
+        setPedidosClientes(pedidosResp.data)
+      }
 
-        // Cargar pedidos del portal de clientes (pendientes, en revisión, aprobados)
-        const pedidosResp = await apiService.getPedidosPendientes()
-        if (pedidosResp.success && pedidosResp.data) {
-          setPedidosClientes(pedidosResp.data)
-        }
-
-        // Cargar métricas si es admin (después de cargar todos los datos)
-        if (isAdmin) {
-          await loadMetricas(creadasHoy.length)
-        }
+      if (isAdmin) {
+        await loadMetricas(ordenesCreadasHoyCount)
       }
     } catch (error) {
       console.error('Error cargando dashboard:', error)
