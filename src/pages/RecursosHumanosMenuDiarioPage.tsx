@@ -209,6 +209,69 @@ const RecursosHumanosMenuDiarioPage = () => {
       porPlato.set(sel.id_plato, arr)
     }
 
+    if (tipo === 'enviar') {
+      const doc = new jsPDF()
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const margin = 20
+      let yPos = margin
+      const nuevaPaginaSiHaceFalta = (extra: number) => {
+        if (yPos + extra > 280) {
+          doc.addPage()
+          yPos = margin
+        }
+      }
+
+      doc.setFontSize(18)
+      doc.text('Menú del día — Para enviar', pageWidth / 2, yPos, { align: 'center' })
+      yPos += 9
+      doc.setFontSize(10)
+      doc.setTextColor(90, 90, 90)
+      doc.text('Solo cantidades por plato (números)', pageWidth / 2, yPos, { align: 'center' })
+      doc.setTextColor(0, 0, 0)
+      yPos += 12
+
+      doc.setFontSize(11)
+      doc.text(`Fecha: ${formatArgentinaDate(m.fecha)}`, margin, yPos)
+      yPos += 7
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Total de pedidos: ${listaPdf.length}`, margin, yPos)
+      doc.setFont('helvetica', 'normal')
+      yPos += 14
+
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Cantidades por plato', margin, yPos)
+      yPos += 10
+      doc.setFont('helvetica', 'normal')
+
+      let idx = 0
+      for (const plato of m.platos) {
+        idx += 1
+        const n = (porPlato.get(plato.id) ?? []).length
+        nuevaPaginaSiHaceFalta(12)
+        doc.setFontSize(11)
+        doc.setFont('helvetica', 'bold')
+        const label = `${idx}. ${plato.nombre_plato}`
+        const wTexto = pageWidth - margin * 2 - 28
+        const lineas = doc.splitTextToSize(label, wTexto)
+        for (let i = 0; i < lineas.length; i++) {
+          nuevaPaginaSiHaceFalta(7)
+          doc.text(lineas[i], margin, yPos)
+          if (i === lineas.length - 1) {
+            doc.setFontSize(13)
+            doc.text(String(n), pageWidth - margin, yPos, { align: 'right' })
+            doc.setFontSize(11)
+          }
+          yPos += 6
+        }
+        yPos += 4
+      }
+
+      doc.save(`menu-diario-para-enviar-${m.fecha}.pdf`)
+      return
+    }
+
     const byTurn = new Map<number, MenuSeleccion[]>()
     for (const s of listaPdf) {
       const tid = s.turno_almuerzo ?? 1
@@ -230,21 +293,15 @@ const RecursosHumanosMenuDiarioPage = () => {
     }
 
     doc.setFontSize(18)
-    const tituloPrincipal =
-      tipo === 'enviar' ? 'Menú del día — Para enviar' : 'Menú del día — Para imprimir'
-    doc.text(tituloPrincipal, pageWidth / 2, yPos, { align: 'center' })
-    yPos += tipo === 'imprimir' ? 8 : 10
-    if (tipo === 'imprimir') {
-      doc.setFontSize(10)
-      doc.setTextColor(90, 90, 90)
-      doc.text('Listado por turno (comedor) — sin hora de registro ni emoji', pageWidth / 2, yPos, {
-        align: 'center'
-      })
-      doc.setTextColor(0, 0, 0)
-      yPos += 8
-    } else {
-      yPos += 2
-    }
+    doc.text('Menú del día — Para imprimir', pageWidth / 2, yPos, { align: 'center' })
+    yPos += 8
+    doc.setFontSize(10)
+    doc.setTextColor(90, 90, 90)
+    doc.text('Listado por turno (comedor) — sin hora de registro ni emoji', pageWidth / 2, yPos, {
+      align: 'center'
+    })
+    doc.setTextColor(0, 0, 0)
+    yPos += 10
 
     doc.setFontSize(11)
     const fechaFormateada = formatArgentinaDate(m.fecha)
@@ -285,12 +342,12 @@ const RecursosHumanosMenuDiarioPage = () => {
       yPos += 6
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      const sortKey = (s: MenuSeleccion) =>
-        tipo === 'imprimir'
-          ? etiquetaUsuarioArrobaParaImprimir(s)
-          : s.nombre_usuario || ''
       const list = (byTurn.get(turno.id) ?? []).sort((a, b) =>
-        sortKey(a).localeCompare(sortKey(b), 'es', { sensitivity: 'base' })
+        etiquetaUsuarioArrobaParaImprimir(a).localeCompare(
+          etiquetaUsuarioArrobaParaImprimir(b),
+          'es',
+          { sensitivity: 'base' }
+        )
       )
       if (list.length === 0) {
         doc.setTextColor(110, 110, 110)
@@ -300,10 +357,7 @@ const RecursosHumanosMenuDiarioPage = () => {
       } else {
         for (const s of list) {
           const platoNom = s.nombre_plato || '—'
-          const linea =
-            tipo === 'imprimir'
-              ? `• ${etiquetaUsuarioArrobaParaImprimir(s)} — ${platoNom}`
-              : `• ${s.nombre_usuario || `Usuario ${s.id_usuario}`} — Plato: ${platoNom} — Estado: ${s.emoji_estado || '—'} — Registro: ${formatArgentinaTime(s.fecha_seleccion)}`
+          const linea = `• ${etiquetaUsuarioArrobaParaImprimir(s)} — ${platoNom}`
           const wrapped = doc.splitTextToSize(linea, pageWidth - margin * 2 - 4)
           for (const ln of wrapped) {
             nuevaPaginaSiHaceFalta(6)
@@ -337,11 +391,7 @@ const RecursosHumanosMenuDiarioPage = () => {
       yPos += 10
     }
 
-    const fname =
-      tipo === 'enviar'
-        ? `menu-diario-para-enviar-${m.fecha}.pdf`
-        : `menu-diario-para-imprimir-${m.fecha}.pdf`
-    doc.save(fname)
+    doc.save(`menu-diario-para-imprimir-${m.fecha}.pdf`)
   }
 
   const handlePdfParaEnviar = async (menu?: MenuDiario | null) => {
@@ -418,7 +468,7 @@ const RecursosHumanosMenuDiarioPage = () => {
                 className="btn-secondary"
                 type="button"
                 onClick={() => void handlePdfParaEnviar(menuHoy)}
-                title="Reporte completo: nombre, plato, emoji y hora de registro"
+                title="Solo cantidades numéricas por plato (para proveedor / cocina)"
               >
                 📧 PDF para enviar
               </button>
@@ -540,7 +590,7 @@ const RecursosHumanosMenuDiarioPage = () => {
                                 type="button"
                                 className="btn-secondary"
                                 onClick={() => void handlePdfParaEnviar(m)}
-                                title="PDF completo para enviar"
+                                title="Cantidades por plato solamente"
                               >
                                 📧 Enviar
                               </button>
@@ -596,7 +646,7 @@ const RecursosHumanosMenuDiarioPage = () => {
                   type="button"
                   className="btn-secondary"
                   onClick={() => void handlePdfParaEnviar(menuSeleccionado)}
-                  title="Reporte completo para enviar"
+                  title="Cantidades por plato solamente"
                 >
                   📧 PDF para enviar
                 </button>
