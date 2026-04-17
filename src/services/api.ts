@@ -13807,10 +13807,7 @@ class ApiService {
       // La función RPC devuelve JSON directamente
       // Supabase puede devolverlo como string JSON o como objeto ya parseado
       let ventasData: any[] = []
-      
-      console.log('Tipo de data recibida:', typeof data)
-      console.log('Data recibida:', data)
-      
+
       if (data === null || data === undefined) {
         console.warn('Data es null o undefined, retornando array vacío')
         ventasData = []
@@ -13849,11 +13846,6 @@ class ApiService {
         } else {
           ventasData = [data]
         }
-      }
-
-      console.log('Ventas parseadas:', ventasData.length)
-      if (ventasData.length > 0) {
-        console.log('Primera venta ejemplo:', ventasData[0])
       }
 
       return {

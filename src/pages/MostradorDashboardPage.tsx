@@ -7,11 +7,7 @@ import VentaRapidaModal from '../components/VentaRapidaModal'
 import type { OrdenTrabajo, Venta, PedidoClienteRecord } from '../types/api'
 import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import {
-  formatArgentinaDateOnly,
-  getArgentinaDateString,
-  parseArgentinaDate
-} from '../utils/dateUtils'
+import { getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import './MostradorDashboardPage.css'
 
 type TipoAtencion = 'virtual' | 'consulta' | 'venta'
@@ -27,26 +23,50 @@ type Atencion = {
   notas?: string
 }
 
-/** Fecha calendario local YYYY-MM-DD (evita desfase vs toISOString() en zonas como AR). */
-function fechaLocalYYYYMMDD(d = new Date()): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+/**
+ * Suma días a una fecha civil YYYY-MM-DD sin depender del huso del navegador (coherente con getArgentinaDateString).
+ */
+function addCalendarDaysToYMD(ymd: string, deltaDays: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim())
+  if (!m) return ymd
+  const y = parseInt(m[1], 10)
+  const mo = parseInt(m[2], 10) - 1
+  const da = parseInt(m[3], 10)
+  const u = new Date(Date.UTC(y, mo, da))
+  u.setUTCDate(u.getUTCDate() + deltaDays)
+  return `${u.getUTCFullYear()}-${String(u.getUTCMonth() + 1).padStart(2, '0')}-${String(u.getUTCDate()).padStart(2, '0')}`
 }
 
-/**
- * Día calendario local (YYYY-MM-DD) de fecha_venta.
- * Si viene solo fecha desde PG (2026-04-17) se usa tal cual.
- * Si viene ISO (2026-04-16T21:00:00.000Z) no usar slice(0,10): en AR sería el día anterior en UTC.
- */
-function diaCalendarioLocalDeFechaVenta(fechaVenta: string | undefined | null): string {
+/** Día calendario en Argentina para fecha_venta (misma lógica que getArgentinaDateString para "hoy"). */
+function diaCalendarioArgentinaDeFechaVenta(fechaVenta: string | undefined | null): string {
   if (fechaVenta == null || String(fechaVenta).trim() === '') return ''
-  const s = String(fechaVenta).trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return s.slice(0, 10)
-  return fechaLocalYYYYMMDD(d)
+  return isoToArgentinaDateKey(String(fechaVenta).trim())
+}
+
+/** Solo dashboard mostrador: ajusta tipos raros del RPC sin tocar `obtenerVentas` global. */
+function normalizarVentaDashboard(row: unknown): Venta | null {
+  if (row == null || typeof row !== 'object') return null
+  const r = row as Record<string, unknown>
+  const vt = r.valor_total
+  const numTotal =
+    vt == null || vt === ''
+      ? 0
+      : typeof vt === 'number'
+        ? vt
+        : Number(String(vt).replace(',', '.'))
+  const fv = r.fecha_venta
+  const fechaVenta =
+    fv != null && String(fv).trim() !== ''
+      ? String(fv).trim()
+      : r.created_at != null
+        ? String(r.created_at)
+        : ''
+  return {
+    ...(r as unknown as Venta),
+    id: Number(r.id),
+    valor_total: Number.isFinite(numTotal) ? numTotal : 0,
+    fecha_venta: fechaVenta
+  }
 }
 
 const MostradorDashboardPage = () => {
@@ -261,12 +281,13 @@ const MostradorDashboardPage = () => {
 
   const loadVentasData = useCallback(async () => {
     const hoyStr = getArgentinaDateString()
-    const desde = parseArgentinaDate(hoyStr)
-    desde.setDate(desde.getDate() - 62)
-    const desdeStr = formatArgentinaDateOnly(desde)
+    const desdeStr = addCalendarDaysToYMD(hoyStr, -62)
 
     try {
       let ventasResponse = await apiService.obtenerVentas(undefined, desdeStr, hoyStr)
+      if (!ventasResponse.success) {
+        ventasResponse = await apiService.obtenerVentas()
+      }
       if (
         ventasResponse.success &&
         (!ventasResponse.data || ventasResponse.data.length === 0)
@@ -278,12 +299,22 @@ const MostradorDashboardPage = () => {
       }
 
       if (ventasResponse.success && ventasResponse.data) {
-        const delDia = ventasResponse.data.filter(
-          (v) => diaCalendarioLocalDeFechaVenta(v.fecha_venta) === hoyStr
-        )
-        const ventasOrdenadas = [...delDia].sort(
-          (a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime()
-        )
+        const ventasLista = ventasResponse.data
+          .map(normalizarVentaDashboard)
+          .filter((v): v is Venta => v != null)
+
+        const delDia = ventasLista.filter((v) => {
+          const key = diaCalendarioArgentinaDeFechaVenta(v.fecha_venta)
+          return key === hoyStr
+        })
+        const ventasOrdenadas = [...delDia].sort((a, b) => {
+          const ta = Date.parse(String(a.fecha_venta))
+          const tb = Date.parse(String(b.fecha_venta))
+          const sa = Number.isFinite(ta) ? ta : 0
+          const sb = Number.isFinite(tb) ? tb : 0
+          if (sb !== sa) return sb - sa
+          return (Number(b.id) || 0) - (Number(a.id) || 0)
+        })
         setVentasRecientes(ventasOrdenadas.slice(0, 5))
 
         const totalHoy = delDia.length
@@ -1201,7 +1232,11 @@ const MostradorDashboardPage = () => {
                   <strong>Venta:</strong> {venta.numero_venta}
                 </div>
                 <div className="orden-fecha">
-                  <strong>Total:</strong> ${venta.valor_total.toLocaleString()}
+                  <strong>Total:</strong> $
+                  {Number(venta.valor_total ?? 0).toLocaleString('es-AR', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2
+                  })}
                   {venta.metodo_pago && ` • ${venta.metodo_pago}`}
                 </div>
                 {venta.numero_op ? (
