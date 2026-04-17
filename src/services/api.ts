@@ -2479,29 +2479,120 @@ class ApiService {
       }>
     >
   > {
-    if (supabase) {
-      let query = supabase
-        .from('vista_auditoria_completa')
-        .select(
-          'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp'
-        )
-        .in('accion_tipo', ['eliminacion', 'Eliminación', 'ELIMINACION'])
-        .order('timestamp', { ascending: false })
-        .limit(5000)
-
-      if (filters?.desde) {
-        query = query.gte('timestamp', filters.desde)
-      }
-      if (filters?.hasta) {
-        query = query.lte('timestamp', filters.hasta)
-      }
-
-      const { data, error } = await query
-      if (error) return { success: false, error: error.message }
-      return { success: true, data: (data as any[]) ?? [] }
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
     }
 
-    return { success: false, error: 'No hay conexión a Supabase' }
+    const selectVista =
+      'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp'
+    const selectHistorial =
+      'id,id_orden,id_usuario,nombre_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp'
+
+    const mapHistorialEliminacion = (
+      rows: Array<Record<string, unknown>>
+    ): Array<{
+      id: number
+      id_orden: number | null
+      numero_op: string | null
+      cliente: string | null
+      id_usuario: number | null
+      nombre_usuario: string | null
+      rol_usuario: string | null
+      estado_anterior: string | null
+      estado_nuevo: string | null
+      comentario: string | null
+      accion_tipo: string | null
+      cambios_detallados?: any
+      timestamp: string
+    }> =>
+      rows.map((r) => {
+        const cd = (r.cambios_detallados && typeof r.cambios_detallados === 'object'
+          ? (r.cambios_detallados as Record<string, unknown>)
+          : {}) as Record<string, unknown>
+        const pickStr = (k: string) => {
+          const v = cd[k]
+          return v != null && v !== '' ? String(v) : null
+        }
+        return {
+          id: Number(r.id),
+          id_orden: r.id_orden != null ? Number(r.id_orden) : null,
+          numero_op: pickStr('numero_op'),
+          cliente: pickStr('cliente'),
+          id_usuario: r.id_usuario != null ? Number(r.id_usuario) : null,
+          nombre_usuario: r.nombre_usuario != null ? String(r.nombre_usuario) : null,
+          rol_usuario: null,
+          estado_anterior: r.estado_anterior != null ? String(r.estado_anterior) : null,
+          estado_nuevo: r.estado_nuevo != null ? String(r.estado_nuevo) : null,
+          comentario: r.comentario != null ? String(r.comentario) : null,
+          accion_tipo: r.accion_tipo != null ? String(r.accion_tipo) : null,
+          cambios_detallados: r.cambios_detallados,
+          timestamp: String(r.timestamp ?? '')
+        }
+      })
+
+    const applyFecha = <T extends { gte: (c: string, v: string) => T; lte: (c: string, v: string) => T }>(
+      query: T
+    ): T => {
+      let q = query
+      if (filters?.desde) q = q.gte('timestamp', filters.desde)
+      if (filters?.hasta) q = q.lte('timestamp', filters.hasta)
+      return q
+    }
+
+    const isNetworkLike = (msg: string) =>
+      /failed to fetch|networkerror|load failed|fetch/i.test(msg)
+
+    try {
+      let query = supabase
+        .from('vista_auditoria_completa')
+        .select(selectVista)
+        .eq('accion_tipo', 'eliminacion')
+        .order('timestamp', { ascending: false })
+        .limit(2000)
+      query = applyFecha(query)
+
+      const { data, error } = await query
+      if (!error) {
+        return { success: true, data: (data as any[]) ?? [] }
+      }
+
+      const errMsg = error.message || String(error)
+      console.warn('getOpEliminadas: vista_auditoria_completa', errMsg)
+
+      if (!isNetworkLike(errMsg)) {
+        // Error de RLS / SQL / vista: intentar tabla base (misma acción guardada en app)
+        let q2 = supabase
+          .from('historial_movimientos')
+          .select(selectHistorial)
+          .eq('accion_tipo', 'eliminacion')
+          .order('timestamp', { ascending: false })
+          .limit(2000)
+        q2 = applyFecha(q2)
+        const { data: d2, error: e2 } = await q2
+        if (!e2 && d2) {
+          return { success: true, data: mapHistorialEliminacion(d2 as Record<string, unknown>[]) }
+        }
+        if (e2) {
+          console.warn('getOpEliminadas: historial_movimientos fallback', e2.message)
+        }
+      }
+
+      return {
+        success: false,
+        error: isNetworkLike(errMsg)
+          ? 'Sin conexión a Supabase (red, proyecto pausado o URL incorrecta). Revisá internet y VITE_SUPABASE_URL.'
+          : errMsg
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error desconocido'
+      console.error('getOpEliminadas:', e)
+      return {
+        success: false,
+        error: isNetworkLike(msg)
+          ? 'Sin conexión a Supabase (red, proyecto pausado o URL incorrecta). Revisá internet y VITE_SUPABASE_URL.'
+          : msg
+      }
+    }
   }
 
   // ========== USUARIOS ==========
