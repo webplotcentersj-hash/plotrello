@@ -30,6 +30,20 @@ function fechaLocalYYYYMMDD(d = new Date()): string {
   return `${y}-${m}-${day}`
 }
 
+/**
+ * Día calendario local (YYYY-MM-DD) de fecha_venta.
+ * Si viene solo fecha desde PG (2026-04-17) se usa tal cual.
+ * Si viene ISO (2026-04-16T21:00:00.000Z) no usar slice(0,10): en AR sería el día anterior en UTC.
+ */
+function diaCalendarioLocalDeFechaVenta(fechaVenta: string | undefined | null): string {
+  if (fechaVenta == null || String(fechaVenta).trim() === '') return ''
+  const s = String(fechaVenta).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10)
+  return fechaLocalYYYYMMDD(d)
+}
+
 const MostradorDashboardPage = () => {
   const navigate = useNavigate()
   const { isAdmin, usuario } = useAuth()
@@ -242,22 +256,38 @@ const MostradorDashboardPage = () => {
 
   const loadVentasData = useCallback(async () => {
     const hoyStr = fechaLocalYYYYMMDD()
+    const desde = new Date()
+    desde.setDate(desde.getDate() - 62)
+    const desdeStr = fechaLocalYYYYMMDD(desde)
+
     try {
-      const ventasResponse = await apiService.obtenerVentas(undefined, hoyStr, hoyStr)
+      let ventasResponse = await apiService.obtenerVentas(undefined, desdeStr, hoyStr)
+      if (
+        ventasResponse.success &&
+        (!ventasResponse.data || ventasResponse.data.length === 0)
+      ) {
+        const sinFecha = await apiService.obtenerVentas()
+        if (sinFecha.success && sinFecha.data && sinFecha.data.length > 0) {
+          ventasResponse = sinFecha
+        }
+      }
+
       if (ventasResponse.success && ventasResponse.data) {
-        const delDia = ventasResponse.data.filter((v) => {
-          const f = v.fecha_venta ? String(v.fecha_venta).slice(0, 10) : ''
-          return f === hoyStr
-        })
+        const delDia = ventasResponse.data.filter(
+          (v) => diaCalendarioLocalDeFechaVenta(v.fecha_venta) === hoyStr
+        )
         const ventasOrdenadas = [...delDia].sort(
           (a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime()
         )
         setVentasRecientes(ventasOrdenadas.slice(0, 5))
 
         const totalHoy = delDia.length
-        const ingresosHoy = delDia.reduce((sum, v) => sum + v.valor_total, 0)
+        const ingresosHoy = delDia.reduce((sum, v) => sum + (Number(v.valor_total) || 0), 0)
         const ventasPendientes = delDia.filter((v) => v.estado_pago === 'Pendiente')
-        const ingresosPendientes = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
+        const ingresosPendientes = ventasPendientes.reduce(
+          (sum, v) => sum + (Number(v.valor_total) || 0),
+          0
+        )
 
         setEstadisticasVentas({
           totalHoy,

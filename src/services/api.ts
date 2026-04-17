@@ -13589,11 +13589,19 @@ class ApiService {
       } else if (Array.isArray(data)) {
         ventasData = data
       } else if (data && typeof data === 'object') {
-        // Verificar si tiene una propiedad 'data' que sea un array
-        if ('data' in data && Array.isArray((data as any).data)) {
+        const d = data as Record<string, unknown>
+        const keys = Object.keys(d)
+        if (
+          keys.length > 0 &&
+          keys.every((k) => /^\d+$/.test(k)) &&
+          keys.some((k) => d[k] && typeof d[k] === 'object')
+        ) {
+          ventasData = keys
+            .sort((a, b) => Number(a) - Number(b))
+            .map((k) => d[k] as object)
+        } else if ('data' in data && Array.isArray((data as any).data)) {
           ventasData = (data as any).data
         } else {
-          // Si es un objeto único, convertirlo a array
           ventasData = [data]
         }
       }
