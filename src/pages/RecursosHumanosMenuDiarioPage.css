@@ -286,6 +286,9 @@
 
 .rrhh-menu-history-actions--modal {
   margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 @media (max-width: 980px) {

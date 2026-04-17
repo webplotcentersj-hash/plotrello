@@ -8,6 +8,27 @@ import { getTurnoAlmuerzoLabel, MENU_TURNOS_ALMUERZO } from '../constants/menuDi
 import jsPDF from 'jspdf'
 import './RecursosHumanosMenuDiarioPage.css'
 
+/**
+ * Lista de comedor (PDF imprimir): etiqueta corta con @.
+ * Si `nombre_usuario` es email, usa la parte antes del @; si ya empieza con @, la conserva; si no, @ + primera palabra.
+ */
+function etiquetaUsuarioArrobaParaImprimir(sel: MenuSeleccion): string {
+  const raw = (sel.nombre_usuario || '').trim()
+  if (!raw) return `@u${sel.id_usuario}`
+  if (raw.startsWith('@')) {
+    const token = raw.split(/\s+/)[0]
+    return token.length > 1 ? token : `@u${sel.id_usuario}`
+  }
+  const at = raw.indexOf('@')
+  if (at > 0) {
+    const local = raw.slice(0, at).replace(/[^\w.-]/gi, '')
+    return local ? `@${local}` : `@u${sel.id_usuario}`
+  }
+  const first = raw.split(/\s+/)[0] || raw
+  const safe = first.replace(/[^\wÀ-ÿ0-9._-]/gi, '')
+  return safe ? `@${safe}` : `@u${sel.id_usuario}`
+}
+
 const RecursosHumanosMenuDiarioPage = () => {
   const navigate = useNavigate()
   const { canManageRecursosHumanos, usuario, loading: authLoading } = useAuth()
@@ -180,20 +201,20 @@ const RecursosHumanosMenuDiarioPage = () => {
     setShowSelecciones(true)
   }
 
-  const handleDescargarPDF = async (menu?: MenuDiario | null) => {
-    const m = menu ?? menuSeleccionado ?? menuHoy
-    if (!m) return
-
-    const selRes = await apiService.obtenerSeleccionesMenu(m.id)
-    const listaPdf =
-      selRes.success && selRes.data ? selRes.data : []
-    setSelecciones(listaPdf)
-
+  const generarPdfMenuDiario = (m: MenuDiario, listaPdf: MenuSeleccion[], tipo: 'enviar' | 'imprimir') => {
     const porPlato = new Map<number, MenuSeleccion[]>()
     for (const sel of listaPdf) {
       const arr = porPlato.get(sel.id_plato) ?? []
       arr.push(sel)
       porPlato.set(sel.id_plato, arr)
+    }
+
+    const byTurn = new Map<number, MenuSeleccion[]>()
+    for (const s of listaPdf) {
+      const tid = s.turno_almuerzo ?? 1
+      const arr = byTurn.get(tid) ?? []
+      arr.push(s)
+      byTurn.set(tid, arr)
     }
 
     const doc = new jsPDF()
@@ -209,8 +230,21 @@ const RecursosHumanosMenuDiarioPage = () => {
     }
 
     doc.setFontSize(18)
-    doc.text('Resumen del día — Menú', pageWidth / 2, yPos, { align: 'center' })
-    yPos += 10
+    const tituloPrincipal =
+      tipo === 'enviar' ? 'Menú del día — Para enviar' : 'Menú del día — Para imprimir'
+    doc.text(tituloPrincipal, pageWidth / 2, yPos, { align: 'center' })
+    yPos += tipo === 'imprimir' ? 8 : 10
+    if (tipo === 'imprimir') {
+      doc.setFontSize(10)
+      doc.setTextColor(90, 90, 90)
+      doc.text('Listado por turno (comedor) — sin hora de registro ni emoji', pageWidth / 2, yPos, {
+        align: 'center'
+      })
+      doc.setTextColor(0, 0, 0)
+      yPos += 8
+    } else {
+      yPos += 2
+    }
 
     doc.setFontSize(11)
     const fechaFormateada = formatArgentinaDate(m.fecha)
@@ -218,11 +252,7 @@ const RecursosHumanosMenuDiarioPage = () => {
     yPos += 4
     doc.setFontSize(9)
     doc.setTextColor(100, 100, 100)
-    doc.text(
-      `Total de pedidos: ${listaPdf.length}`,
-      margin,
-      yPos
-    )
+    doc.text(`Total de pedidos: ${listaPdf.length}`, margin, yPos)
     doc.setTextColor(0, 0, 0)
     yPos += 12
 
@@ -247,14 +277,6 @@ const RecursosHumanosMenuDiarioPage = () => {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
 
-    const byTurn = new Map<number, MenuSeleccion[]>()
-    for (const s of listaPdf) {
-      const tid = s.turno_almuerzo ?? 1
-      const arr = byTurn.get(tid) ?? []
-      arr.push(s)
-      byTurn.set(tid, arr)
-    }
-
     for (const turno of MENU_TURNOS_ALMUERZO) {
       nuevaPaginaSiHaceFalta(18)
       doc.setFontSize(11)
@@ -263,8 +285,12 @@ const RecursosHumanosMenuDiarioPage = () => {
       yPos += 6
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
+      const sortKey = (s: MenuSeleccion) =>
+        tipo === 'imprimir'
+          ? etiquetaUsuarioArrobaParaImprimir(s)
+          : s.nombre_usuario || ''
       const list = (byTurn.get(turno.id) ?? []).sort((a, b) =>
-        (a.nombre_usuario || '').localeCompare(b.nombre_usuario || '', 'es', { sensitivity: 'base' })
+        sortKey(a).localeCompare(sortKey(b), 'es', { sensitivity: 'base' })
       )
       if (list.length === 0) {
         doc.setTextColor(110, 110, 110)
@@ -273,11 +299,11 @@ const RecursosHumanosMenuDiarioPage = () => {
         yPos += 6
       } else {
         for (const s of list) {
-          const nombre = s.nombre_usuario || `Usuario ${s.id_usuario}`
           const platoNom = s.nombre_plato || '—'
-          const em = s.emoji_estado || '—'
-          const horaReg = formatArgentinaTime(s.fecha_seleccion)
-          const linea = `• ${nombre} — Plato: ${platoNom} — Estado: ${em} — Registro: ${horaReg}`
+          const linea =
+            tipo === 'imprimir'
+              ? `• ${etiquetaUsuarioArrobaParaImprimir(s)} — ${platoNom}`
+              : `• ${s.nombre_usuario || `Usuario ${s.id_usuario}`} — Plato: ${platoNom} — Estado: ${s.emoji_estado || '—'} — Registro: ${formatArgentinaTime(s.fecha_seleccion)}`
           const wrapped = doc.splitTextToSize(linea, pageWidth - margin * 2 - 4)
           for (const ln of wrapped) {
             nuevaPaginaSiHaceFalta(6)
@@ -311,7 +337,29 @@ const RecursosHumanosMenuDiarioPage = () => {
       yPos += 10
     }
 
-    doc.save(`resumen-menu-${m.fecha}.pdf`)
+    const fname =
+      tipo === 'enviar'
+        ? `menu-diario-para-enviar-${m.fecha}.pdf`
+        : `menu-diario-para-imprimir-${m.fecha}.pdf`
+    doc.save(fname)
+  }
+
+  const handlePdfParaEnviar = async (menu?: MenuDiario | null) => {
+    const m = menu ?? menuSeleccionado ?? menuHoy
+    if (!m) return
+    const selRes = await apiService.obtenerSeleccionesMenu(m.id)
+    const listaPdf = selRes.success && selRes.data ? selRes.data : []
+    setSelecciones(listaPdf)
+    generarPdfMenuDiario(m, listaPdf, 'enviar')
+  }
+
+  const handlePdfParaImprimir = async (menu?: MenuDiario | null) => {
+    const m = menu ?? menuSeleccionado ?? menuHoy
+    if (!m) return
+    const selRes = await apiService.obtenerSeleccionesMenu(m.id)
+    const listaPdf = selRes.success && selRes.data ? selRes.data : []
+    setSelecciones(listaPdf)
+    generarPdfMenuDiario(m, listaPdf, 'imprimir')
   }
 
   if (loading) {
@@ -366,8 +414,21 @@ const RecursosHumanosMenuDiarioPage = () => {
               <button className="btn-secondary" onClick={handleVerSelecciones}>
                 👥 Ver Selecciones ({menuHoy.total_selecciones || 0})
               </button>
-              <button className="btn-secondary" onClick={() => void handleDescargarPDF(menuHoy)} title="Incluye turnos y detalle por empleado">
-                📄 Descargar PDF (reporte)
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => void handlePdfParaEnviar(menuHoy)}
+                title="Reporte completo: nombre, plato, emoji y hora de registro"
+              >
+                📧 PDF para enviar
+              </button>
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => void handlePdfParaImprimir(menuHoy)}
+                title="Comedor: @usuario y plato por turno, sin hora ni emoji"
+              >
+                🖨️ PDF para imprimir
               </button>
             </div>
           </div>
@@ -478,10 +539,18 @@ const RecursosHumanosMenuDiarioPage = () => {
                               <button
                                 type="button"
                                 className="btn-secondary"
-                                onClick={() => void handleDescargarPDF(m)}
-                                title="Turnos y pedidos por usuario"
+                                onClick={() => void handlePdfParaEnviar(m)}
+                                title="PDF completo para enviar"
                               >
-                                PDF
+                                📧 Enviar
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => void handlePdfParaImprimir(m)}
+                                title="PDF listo para imprimir (comedor)"
+                              >
+                                🖨️ Imprimir
                               </button>
                             </div>
                           </td>
@@ -524,11 +593,20 @@ const RecursosHumanosMenuDiarioPage = () => {
               </div>
               <div className="rrhh-menu-history-actions rrhh-menu-history-actions--modal">
                 <button
+                  type="button"
                   className="btn-secondary"
-                  onClick={() => void handleDescargarPDF(menuSeleccionado)}
-                  title="Incluye turnos y detalle por empleado"
+                  onClick={() => void handlePdfParaEnviar(menuSeleccionado)}
+                  title="Reporte completo para enviar"
                 >
-                  📄 Descargar PDF (reporte)
+                  📧 PDF para enviar
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => void handlePdfParaImprimir(menuSeleccionado)}
+                  title="Listado comedor para imprimir"
+                >
+                  🖨️ PDF para imprimir
                 </button>
                 <button
                   className="btn-secondary"
