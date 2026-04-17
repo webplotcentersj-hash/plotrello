@@ -3,6 +3,8 @@ import { marked } from 'marked'
 import type { Task, TeamMember } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { generateSprintReport, type SprintAnalysisData } from '../services/geminiService'
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { plotAiGetSprintPrediction, plotAiRecordSprintSnapshot } from '../services/plotaiSprintPredictionService'
 import './SprintOptimizerModal.css'
 
 type SprintOptimizerModalProps = {
@@ -31,6 +33,12 @@ const SprintOptimizerModal = ({
   const [aiReport, setAiReport] = useState<string | null>(null)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [serverPrediction, setServerPrediction] = useState<{
+    velocity_per_day?: number
+    eta_days?: number | null
+    eta_range_days?: { low: number; high: number } | null
+    snapshots_used?: number
+  } | null>(null)
   const reportRef = useRef<HTMLDivElement | null>(null)
 
   const displayUserName = (raw: string): string => {
@@ -58,6 +66,31 @@ const SprintOptimizerModal = ({
     if (!aiReport && !reportError) return
     reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [aiReport, reportError])
+
+  useEffect(() => {
+    // Aprendizaje: guardamos snapshot y consultamos predicción basada en histórico.
+    // Si falla, no afecta el flujo del optimizador.
+    let cancelled = false
+    ;(async () => {
+      try {
+        await plotAiRecordSprintSnapshot(tasks, null)
+        const pred = await plotAiGetSprintPrediction(null)
+        if (!cancelled && pred?.has_data) {
+          setServerPrediction({
+            velocity_per_day: pred.velocity_per_day,
+            eta_days: pred.eta_days ?? null,
+            eta_range_days: pred.eta_range_days ?? null,
+            snapshots_used: pred.snapshots_used
+          })
+        }
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tasks])
 
   const analysis = useMemo(() => {
     // Análisis de carga de trabajo por persona
@@ -178,6 +211,55 @@ const SprintOptimizerModal = ({
     }
   }, [tasks, teamMembers])
 
+  const insights = useMemo(() => {
+    const byPriority = [
+      { name: 'Alta', key: 'alta', value: tasks.filter((t) => t.priority === 'alta').length, color: '#ef4444' },
+      { name: 'Media', key: 'media', value: tasks.filter((t) => t.priority === 'media').length, color: '#f59e0b' },
+      { name: 'Baja', key: 'baja', value: tasks.filter((t) => t.priority === 'baja').length, color: '#10b981' }
+    ].filter((x) => x.value > 0)
+
+    const byStatus = BOARD_COLUMNS.map((c) => {
+      const count = tasks.filter((t) => t.status === c.id).length
+      return { name: c.label, key: c.id, value: count, color: c.accent }
+    }).filter((x) => x.value > 0)
+
+    const doneStatusId = 'almacen-entrega'
+    const now = Date.now()
+    const ms7d = 7 * 24 * 60 * 60 * 1000
+    const doneLast7d = tasks.filter(
+      (t) => t.status === doneStatusId && now - new Date(t.updatedAt).getTime() <= ms7d
+    ).length
+    const velocityPerDay = doneLast7d / 7
+    const remaining = tasks.filter((t) => t.status !== doneStatusId).length
+    const etaDays = velocityPerDay > 0 ? Math.ceil(remaining / velocityPerDay) : null
+    const etaRange =
+      velocityPerDay > 0
+        ? {
+            low: Math.ceil(remaining / (velocityPerDay * 1.25)),
+            high: Math.ceil(remaining / (velocityPerDay * 0.75))
+          }
+        : null
+
+    const etaDate = (days: number) => {
+      const d = new Date()
+      d.setDate(d.getDate() + days)
+      return d.toLocaleDateString('es-AR')
+    }
+
+    return {
+      byPriority,
+      byStatus,
+      prediction: {
+        doneLast7d,
+        velocityPerDay: serverPrediction?.velocity_per_day ?? velocityPerDay,
+        remaining,
+        etaDays: serverPrediction?.eta_days ?? etaDays,
+        etaRange: serverPrediction?.eta_range_days ?? etaRange,
+        etaDate
+      }
+    }
+  }, [tasks, serverPrediction])
+
   const handleApplySuggestion = (suggestion: OptimizationSuggestion) => {
     if (onApplyOptimization) {
       onApplyOptimization([suggestion])
@@ -231,7 +313,7 @@ const SprintOptimizerModal = ({
               onClick={handleGenerateReport}
               disabled={isGeneratingReport}
             >
-              {isGeneratingReport ? 'Generando...' : '🤖 Generar Informe con IA'}
+              {isGeneratingReport ? 'Generando...' : 'Generar informe con IA'}
             </button>
             <button type="button" className="modal-close" onClick={onClose}>
               ×
@@ -240,6 +322,142 @@ const SprintOptimizerModal = ({
         </header>
 
         <div className="optimizer-body">
+          <section className="optimizer-section">
+            <div className="insights-header">
+              <h3>Panel visual (PlotAI)</h3>
+              <div className="insights-kpis">
+                <span className="insights-pill">
+                  <strong>{tasks.length}</strong> tareas
+                </span>
+                <span className="insights-pill">
+                  <strong>{insights.prediction.remaining}</strong> pendientes
+                </span>
+                <span className="insights-pill">
+                  <strong>{insights.prediction.doneLast7d}</strong> finalizadas (7 días)
+                </span>
+              </div>
+            </div>
+
+            <div className="insights-grid">
+              <div className="insight-card">
+                <div className="insight-card-head">
+                  <h4>Prioridades</h4>
+                </div>
+                <div className="insight-chart">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={insights.byPriority}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={68}
+                        outerRadius={95}
+                        paddingAngle={2}
+                      >
+                        {insights.byPriority.map((entry) => (
+                          <Cell key={entry.key} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: '#0b1020',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          borderRadius: 12
+                        }}
+                        labelStyle={{ color: '#fff' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="donut-center" aria-hidden>
+                    <div className="donut-center-big">{tasks.length}</div>
+                    <div className="donut-center-sub">tareas</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="insight-card">
+                <div className="insight-card-head">
+                  <h4>Distribución por columna</h4>
+                </div>
+                <div className="insight-chart">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={insights.byStatus}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={68}
+                        outerRadius={95}
+                        paddingAngle={1}
+                      >
+                        {insights.byStatus.map((entry) => (
+                          <Cell key={entry.key} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: '#0b1020',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          borderRadius: 12
+                        }}
+                        labelStyle={{ color: '#fff' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="donut-center" aria-hidden>
+                    <div className="donut-center-big">
+                      {insights.prediction.velocityPerDay > 0 ? insights.prediction.velocityPerDay.toFixed(1) : '—'}
+                    </div>
+                    <div className="donut-center-sub">tareas/día</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="insight-card insight-card-wide">
+                <div className="insight-card-head">
+                  <h4>Predicción</h4>
+                </div>
+                <div className="prediction-grid">
+                  <div className="prediction-metric">
+                    <div className="prediction-label">Pendientes</div>
+                    <div className="prediction-value">{insights.prediction.remaining}</div>
+                  </div>
+                  <div className="prediction-metric">
+                    <div className="prediction-label">Throughput (7d)</div>
+                    <div className="prediction-value">{insights.prediction.doneLast7d}</div>
+                  </div>
+                  <div className="prediction-metric">
+                    <div className="prediction-label">Ritmo estimado</div>
+                    <div className="prediction-value">
+                      {insights.prediction.velocityPerDay > 0 ? insights.prediction.velocityPerDay.toFixed(2) : '—'}
+                      <span className="prediction-unit"> / día</span>
+                    </div>
+                  </div>
+                  <div className="prediction-metric">
+                    <div className="prediction-label">ETA</div>
+                    <div className="prediction-value">
+                      {insights.prediction.etaDays != null ? `${insights.prediction.etaDays} días` : 'Sin datos'}
+                    </div>
+                    {insights.prediction.etaRange ? (
+                      <div className="prediction-sub">
+                        Rango: {insights.prediction.etaRange.low}–{insights.prediction.etaRange.high} días (≈{' '}
+                        {insights.prediction.etaDate(insights.prediction.etaRange.low)} –{' '}
+                        {insights.prediction.etaDate(insights.prediction.etaRange.high)})
+                      </div>
+                    ) : (
+                      <div className="prediction-sub">
+                        Para activar predicción: mover tareas a <strong>Almacén de Entrega</strong> y mantener historial de 7 días.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Análisis de Carga de Trabajo */}
           <section className="optimizer-section">
             <h3>Carga de Trabajo por Persona</h3>
@@ -382,7 +600,7 @@ const SprintOptimizerModal = ({
           {/* Informe Generado por IA */}
           {(aiReport || reportError) && (
             <section className="optimizer-section">
-              <h3>📊 Informe Detallado Generado por IA</h3>
+              <h3>Informe detallado generado por IA</h3>
               {reportError ? (
                 <div className="report-error">
                   <p>❌ {reportError}</p>
