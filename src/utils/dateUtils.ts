@@ -215,10 +215,28 @@ export function getArgentinaTime(): { hours: number; minutes: number; seconds: n
  * @param formatStr Formato opcional (por defecto 'dd/MM/yyyy')
  */
 export function formatArgentinaDate(date: Date | string, formatStr: string = 'dd/MM/yyyy'): string {
+  const useDefaultEsAR = formatStr === 'dd/MM/yyyy' || !formatStr
+
+  // Cadenas YYYY-MM-DD o ISO: no usar `new Date(string)` solo (medianoche UTC desplaza el día en AR).
+  if (useDefaultEsAR && typeof date === 'string') {
+    const key = legajoCalendarDateKey(date)
+    if (key.length >= 10) {
+      const [y, m, dd] = key.slice(0, 10).split('-')
+      if (y && m && dd) return `${dd.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`
+    }
+  }
+
+  if (useDefaultEsAR && typeof date !== 'string') {
+    const key = formatArgentinaDateOnly(date)
+    if (key.length >= 10) {
+      const [y, m, dd] = key.split('-')
+      return `${dd.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`
+    }
+  }
+
   const d = typeof date === 'string' ? new Date(date) : date
-  
-  // Si no se especifica formato o es el formato por defecto, usar toLocaleDateString
-  if (formatStr === 'dd/MM/yyyy' || !formatStr) {
+
+  if (useDefaultEsAR) {
     return d.toLocaleDateString('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires',
       day: '2-digit',
