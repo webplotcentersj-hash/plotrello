@@ -348,6 +348,27 @@
   transform: translateY(0);
 }
 
+.task-library-deleted-hits {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.task-library-deleted-hits-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.task-library-deleted-hits-note {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .task-library-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

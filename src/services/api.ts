@@ -2485,8 +2485,9 @@ class ApiService {
         .select(
           'id,id_orden,numero_op,cliente,id_usuario,nombre_usuario,rol_usuario,estado_anterior,estado_nuevo,comentario,accion_tipo,cambios_detallados,timestamp'
         )
-        .eq('accion_tipo', 'eliminacion')
+        .in('accion_tipo', ['eliminacion', 'Eliminación', 'ELIMINACION'])
         .order('timestamp', { ascending: false })
+        .limit(5000)
 
       if (filters?.desde) {
         query = query.gte('timestamp', filters.desde)

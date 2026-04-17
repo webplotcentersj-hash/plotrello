@@ -123,22 +123,6 @@ const BoardPage = ({
   const [qrPrintTask, setQrPrintTask] = useState<{ opNumber: string; cliente: string } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
-  const [deletedOpsRows, setDeletedOpsRows] = useState<
-    Array<{
-      id: number
-      id_orden: number | null
-      numero_op: string | null
-      cliente: string | null
-      id_usuario: number | null
-      nombre_usuario: string | null
-      rol_usuario: string | null
-      estado_anterior: string | null
-      estado_nuevo: string | null
-      comentario: string | null
-      accion_tipo: string | null
-      timestamp: string
-    }>
-  >([])
   const [isChatAIOpen, setIsChatAIOpen] = useState(false)
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
   const [isSolicitarProductosOpen, setIsSolicitarProductosOpen] = useState(false)
@@ -1147,20 +1131,7 @@ const BoardPage = ({
         availableSectors={availableSectors}
         onSectorChange={setSectorFilter}
         onAddNewOrder={() => setIsCreateModalOpen(true)}
-        onOpenLibrary={async () => {
-          try {
-            const resp = await apiService.getOpEliminadas()
-            if (resp.success && resp.data) {
-              setDeletedOpsRows(resp.data as any)
-            } else {
-              setDeletedOpsRows([])
-            }
-          } catch (e) {
-            console.error('Error cargando OP eliminadas para la biblioteca:', e)
-            setDeletedOpsRows([])
-          }
-          setIsLibraryModalOpen(true)
-        }}
+        onOpenLibrary={() => setIsLibraryModalOpen(true)}
         onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
         showEtapaKanbanButton={
           sectorFilter !== 'todos' && sectorNameSupportsEtapaKanban(sectorFilter)
@@ -1356,7 +1327,6 @@ const BoardPage = ({
           teamMembers={teamMembers}
           sectores={sectores}
           columns={BOARD_COLUMNS}
-          deletedOpsRows={deletedOpsRows}
           onClose={() => setIsLibraryModalOpen(false)}
           onEditTask={handleEditTask}
           onDeleteTask={handleDeleteTask}
