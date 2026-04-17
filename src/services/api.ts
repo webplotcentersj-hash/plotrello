@@ -3,6 +3,7 @@ import {
   getArgentinaDateString,
   formatArgentinaDateOnly,
   instanteArgentinaDentroFranjaHorariaReserva,
+  legajoCalendarDateKey,
   normalizeTimeHHMMSS,
   timeStringToSecondsSinceMidnight
 } from '../utils/dateUtils'
@@ -13010,13 +13011,35 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('obtener_menu_dia_actual')
+      // Calendario "hoy" = mismo criterio que el plazo 10:30 (Intl AR), no el reloj del servidor Postgres.
+      const hoyYmd = getArgentinaDateString()
+      const { data, error } = await supabase.rpc('obtener_menus_diarios', {
+        p_fecha_desde: hoyYmd,
+        p_fecha_hasta: hoyYmd
+      })
 
       if (error) throw error
 
+      let rows: unknown[] = Array.isArray(data) ? data : []
+      if (!Array.isArray(data) && data && typeof data === 'object') {
+        const o = data as Record<string, unknown>
+        const keys = Object.keys(o)
+          .filter((k) => /^\d+$/.test(k))
+          .sort((a, b) => Number(a) - Number(b))
+        rows = keys.map((k) => o[k])
+      }
+
+      const raw = rows.length > 0 ? (rows[0] as MenuDiario) : null
+      if (!raw) {
+        return { success: true, data: null }
+      }
+      const fechaYmd = legajoCalendarDateKey(String(raw.fecha ?? ''))
       return {
         success: true,
-        data: (data && data.length > 0) ? data[0] as MenuDiario : null
+        data: {
+          ...raw,
+          fecha: fechaYmd.length >= 10 ? fechaYmd : String(raw.fecha ?? '')
+        } as MenuDiario
       }
     } catch (error: any) {
       console.error('Error al obtener menú del día actual:', error)
