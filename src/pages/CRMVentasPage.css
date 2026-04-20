@@ -262,9 +262,61 @@
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   color: white;
+  color-scheme: dark;
   font-size: 0.95rem;
   transition: all 0.3s;
   backdrop-filter: blur(10px);
+}
+
+.venta-estado-select {
+  min-width: 140px;
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: white;
+  color-scheme: dark;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.venta-card--compact .card-info {
+  display: none;
+}
+
+.venta-compact-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0 6px;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.venta-compact-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.venta-compact-k {
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.venta-compact-v {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: right;
+  word-break: break-word;
 }
 
 .filtro-input[type="text"] {
@@ -632,6 +684,78 @@
 .export-menu button:active {
   transform: translateX(2px);
   background: rgba(59, 130, 246, 0.35);
+}
+
+.export-menu-header {
+  padding: 10px 12px 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(226, 232, 240, 0.85);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.plotai-opp-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plotai-opp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.plotai-opp-title {
+  font-weight: 900;
+  color: rgba(191, 219, 254, 0.95);
+}
+
+.plotai-opp-sub {
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.plotai-opp-output {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(226, 232, 240, 0.92);
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.plotai-opp-placeholder {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.85rem;
+}
+
+.plotai-opp-error {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: rgba(254, 202, 202, 0.95);
+  font-size: 0.85rem;
 }
 
 .empty-state {

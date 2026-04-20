@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -7,6 +7,7 @@ import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, P
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString } from '../utils/dateUtils'
 import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
+import { generateContent } from '../services/plotAIService'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
@@ -126,6 +127,14 @@ const CRMVentasPage = () => {
   const [dropdownDocumentosAbierto, setDropdownDocumentosAbierto] = useState<number | null>(null)
   const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
   const [mostrarModalPresupuesto, setMostrarModalPresupuesto] = useState(false)
+
+  // Ventas (solo CRM): ficha compacta + ampliar
+  const [ventaExpandidaId, setVentaExpandidaId] = useState<number | null>(null)
+
+  // PlotAI informe (solo modal Nueva/Editar Oportunidad)
+  const [plotAiInforme, setPlotAiInforme] = useState<string>('')
+  const [plotAiInformeLoading, setPlotAiInformeLoading] = useState(false)
+  const [plotAiInformeError, setPlotAiInformeError] = useState<string | null>(null)
   
   // Presupuestos
   const [presupuestos, setPresupuestos] = useState<PresupuestoVentaRecord[]>([])
@@ -149,6 +158,61 @@ const CRMVentasPage = () => {
       return () => document.removeEventListener('click', handleClickOutside)
     }
   }, [dropdownDocumentosAbierto])
+
+  const toggleVentaExpandida = useCallback((ventaId: number) => {
+    setVentaExpandidaId((prev) => (prev === ventaId ? null : ventaId))
+  }, [])
+
+  const generarInformePlotAiOportunidad = useCallback(async () => {
+    setPlotAiInformeError(null)
+    setPlotAiInforme('')
+    setPlotAiInformeLoading(true)
+    try {
+      const cliente = formOportunidad.cliente_nombre?.trim() || 'Cliente sin nombre'
+      const empresa = formOportunidad.cliente_empresa?.trim()
+      const tel = formOportunidad.cliente_telefono?.trim()
+      const email = formOportunidad.cliente_email?.trim()
+      const desc = formOportunidad.descripcion?.trim()
+      const valor = formOportunidad.valor_estimado?.trim()
+      const etapa = formOportunidad.etapa
+      const prob = formOportunidad.probabilidad_cierre
+      const cierre = formOportunidad.fecha_cierre_estimada?.trim()
+
+      const prompt = `Necesito un informe para una oportunidad de ventas en Plotlab. Respondé en español argentino, claro y accionable, con bullets cortos.
+
+## Datos
+- Cliente: ${cliente}${empresa ? ` (${empresa})` : ''}
+- Contacto: ${[tel ? `Tel: ${tel}` : null, email ? `Email: ${email}` : null].filter(Boolean).join(' · ') || '—'}
+- Etapa: ${etapa}
+- Probabilidad: ${prob}%
+- Valor estimado: ${valor ? `$${valor}` : '—'}
+- Fecha cierre estimada: ${cierre || '—'}
+- Descripción: ${desc || '—'}
+
+## Pedidos del informe
+1) Resumen ejecutivo (1-2 líneas)
+2) Señales de riesgo y cómo mitigarlas
+3) Próximas 3 acciones recomendadas (con texto sugerido para WhatsApp/llamada)
+4) Datos que faltan y preguntas para el cliente
+5) Recomendación de etapa próxima (si aplica)
+`
+
+      const text = await generateContent({
+        contents: prompt,
+        model: 'gemini-2.5-flash',
+        useCompleteContext: false,
+        useMemory: false,
+        learnFromResponse: false,
+        includeAppManual: false,
+        userName: usuario?.nombre
+      })
+      setPlotAiInforme(text)
+    } catch (e: any) {
+      setPlotAiInformeError(e?.message || 'No se pudo generar el informe PlotAI')
+    } finally {
+      setPlotAiInformeLoading(false)
+    }
+  }, [formOportunidad, usuario?.nombre])
 
   // Verificar permisos
   useEffect(() => {
@@ -1881,7 +1945,10 @@ const CRMVentasPage = () => {
           {/* Lista de Ventas */}
           <div className="ventas-grid">
             {ventasFiltradas.map((venta) => (
-              <div key={venta.id} className="venta-card">
+              <div
+                key={venta.id}
+                className={`venta-card venta-card--compact${ventaExpandidaId === venta.id ? ' is-expanded' : ''}`}
+              >
                 <div className="card-header">
                   <div>
                     <h3>{venta.cliente_nombre}</h3>
@@ -1898,48 +1965,64 @@ const CRMVentasPage = () => {
                 {venta.cliente_empresa && (
                   <p className="cliente-empresa">🏢 {venta.cliente_empresa}</p>
                 )}
-                
-                <div className="card-info">
-                  <div className="info-item">
-                    <strong>OP:</strong> {venta.numero_op || 'Sin OP'}
+
+                {/* Resumen compacto */}
+                <div className="venta-compact-summary">
+                  <div className="venta-compact-row">
+                    <span className="venta-compact-k">OP</span>
+                    <span className="venta-compact-v">{venta.numero_op || 'Sin OP'}</span>
                   </div>
-                  <div className="info-item">
-                    <strong>Valor total:</strong> ${venta.valor_total.toLocaleString()}
+                  <div className="venta-compact-row">
+                    <span className="venta-compact-k">Total</span>
+                    <span className="venta-compact-v">${Number(venta.valor_total || 0).toLocaleString()}</span>
                   </div>
-                  {venta.metodo_pago && (
-                    <div className="info-item">
-                      <strong>Método de pago:</strong> {venta.metodo_pago}
-                    </div>
-                  )}
-                  <div className="info-item">
-                    <strong>Fecha:</strong> {formatArgentinaDate(venta.fecha_venta)}
+                  <div className="venta-compact-row">
+                    <span className="venta-compact-k">Fecha</span>
+                    <span className="venta-compact-v">{formatArgentinaDate(venta.fecha_venta)}</span>
                   </div>
-                  <div className="info-item">
-                    <strong>Vendedor:</strong> {venta.nombre_vendedor}
+                  <div className="venta-compact-row">
+                    <span className="venta-compact-k">Vendedor</span>
+                    <span className="venta-compact-v">{venta.nombre_vendedor}</span>
                   </div>
-                  {venta.cliente_telefono && (
-                    <div className="info-item">
-                      <strong>Teléfono:</strong> {venta.cliente_telefono}
+                  {venta.metodo_pago ? (
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Pago</span>
+                      <span className="venta-compact-v">{venta.metodo_pago}</span>
                     </div>
-                  )}
-                  {venta.cliente_email && (
-                    <div className="info-item">
-                      <strong>Email:</strong> {venta.cliente_email}
-                    </div>
-                  )}
-                  {venta.cliente_dni_cuit && (
-                    <div className="info-item">
-                      <strong>DNI/CUIT:</strong> {venta.cliente_dni_cuit}
-                    </div>
-                  )}
-                  {venta.items && venta.items.length > 0 && (
-                    <div className="info-item">
-                      <strong>Items:</strong> {venta.items.length} artículo{venta.items.length > 1 ? 's' : ''}
-                    </div>
-                  )}
+                  ) : null}
+                  {ventaExpandidaId === venta.id ? (
+                    <>
+                      {venta.cliente_telefono ? (
+                        <div className="venta-compact-row">
+                          <span className="venta-compact-k">Tel</span>
+                          <span className="venta-compact-v">{venta.cliente_telefono}</span>
+                        </div>
+                      ) : null}
+                      {venta.cliente_email ? (
+                        <div className="venta-compact-row">
+                          <span className="venta-compact-k">Email</span>
+                          <span className="venta-compact-v">{venta.cliente_email}</span>
+                        </div>
+                      ) : null}
+                      {venta.cliente_dni_cuit ? (
+                        <div className="venta-compact-row">
+                          <span className="venta-compact-k">DNI/CUIT</span>
+                          <span className="venta-compact-v">{venta.cliente_dni_cuit}</span>
+                        </div>
+                      ) : null}
+                      {venta.items && venta.items.length > 0 ? (
+                        <div className="venta-compact-row">
+                          <span className="venta-compact-k">Items</span>
+                          <span className="venta-compact-v">
+                            {venta.items.length} artículo{venta.items.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
                 </div>
 
-                {venta.items && venta.items.length > 0 && (
+                {ventaExpandidaId === venta.id && venta.items && venta.items.length > 0 && (
                   <div className="items-section">
                     <strong>Items ({venta.items.length}):</strong>
                     {venta.items.map((item) => (
@@ -1968,7 +2051,7 @@ const CRMVentasPage = () => {
                   </div>
                 )}
                 
-                {venta.observaciones && (
+                {ventaExpandidaId === venta.id && venta.observaciones && (
                   <div className="items-section" style={{ background: 'rgba(139, 92, 246, 0.1)', borderColor: 'rgba(139, 92, 246, 0.2)' }}>
                     <strong>Observaciones:</strong>
                     <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
@@ -1978,6 +2061,13 @@ const CRMVentasPage = () => {
                 )}
 
                 <div className="card-actions">
+                  <button
+                    className="btn-action"
+                    onClick={() => toggleVentaExpandida(venta.id)}
+                    title="Ampliar/contraer ficha"
+                  >
+                    {ventaExpandidaId === venta.id ? '🔽 Cerrar' : '🔎 Ampliar'}
+                  </button>
                   {venta.numero_op ? (
                     <button
                       className="btn-action"
@@ -2009,7 +2099,7 @@ const CRMVentasPage = () => {
                         )
                       }}
                     >
-                      📄 Documentos {dropdownDocumentosAbierto === venta.id ? '▼' : '▶'}
+                      📄 Documentos {dropdownDocumentosAbierto === venta.id ? '▴' : '▾'}
                     </button>
                     {dropdownDocumentosAbierto === venta.id && (
                       <div 
@@ -2022,13 +2112,14 @@ const CRMVentasPage = () => {
                           left: 'auto'
                         }}
                       >
+                        <div className="export-menu-header">Documentos</div>
                         <button 
                           onClick={() => {
                             generarPagarePDF(venta)
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
-                          📄 Generar Pagaré
+                          🧾 Generar Pagaré
                         </button>
                         <button 
                           onClick={() => {
@@ -2036,26 +2127,23 @@ const CRMVentasPage = () => {
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
-                          📋 Generar Remito
+                          📦 Generar Remito
+                        </button>
+                        <button 
+                          onClick={() => {
+                            generarFacturaRemitoPDF(venta, 'factura')
+                            setDropdownDocumentosAbierto(null)
+                          }}
+                        >
+                          🧾 Generar Factura
                         </button>
                       </div>
                     )}
                   </div>
                   <select
-                    className="btn-action"
+                    className="venta-estado-select"
                     value={venta.estado_pago}
                     onChange={(e) => actualizarEstadoPagoVenta(venta, e.target.value as any)}
-                    style={{ 
-                      minWidth: '120px',
-                      padding: '8px 16px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid var(--surface-border)',
-                      borderRadius: '6px',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.85rem',
-                      fontWeight: 500,
-                      cursor: 'pointer'
-                    }}
                   >
                     <option value="Pendiente">💳 Pendiente</option>
                     <option value="Parcial">💳 Parcial</option>
@@ -2405,6 +2493,31 @@ const CRMVentasPage = () => {
                   placeholder="Observaciones adicionales"
                   rows={2}
                 />
+              </div>
+
+              <div className="plotai-opp-panel">
+                <div className="plotai-opp-header">
+                  <div>
+                    <div className="plotai-opp-title">✨ PlotAI</div>
+                    <div className="plotai-opp-sub">Informe sugerido para esta oportunidad (solo acá).</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={generarInformePlotAiOportunidad}
+                    disabled={plotAiInformeLoading}
+                  >
+                    {plotAiInformeLoading ? 'Generando…' : 'Generar informe'}
+                  </button>
+                </div>
+                {plotAiInformeError ? <div className="plotai-opp-error">{plotAiInformeError}</div> : null}
+                {plotAiInforme ? (
+                  <pre className="plotai-opp-output">{plotAiInforme}</pre>
+                ) : (
+                  <div className="plotai-opp-placeholder">
+                    Completá cliente, descripción y valor estimado para un informe más preciso.
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
