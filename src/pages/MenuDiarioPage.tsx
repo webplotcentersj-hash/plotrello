@@ -46,6 +46,15 @@ const MenuDiarioPage = () => {
   const [platoElegido, setPlatoElegido] = useState<number | null>(null)
   const [turnoElegido, setTurnoElegido] = useState<MenuTurnoAlmuerzoId | null>(null)
   const [emojiElegido, setEmojiElegido] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 720px)')
+    const update = () => setIsMobile(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
 
   useEffect(() => {
     if (authLoading) return
@@ -235,9 +244,11 @@ const MenuDiarioPage = () => {
     <div className="menu-diario-page">
       <div className="menu-diario-header">
         <h1>🍽️ Menú Diario</h1>
-        <button className="btn-back" onClick={() => navigate('/')}>
-          ← Volver al Tablero
-        </button>
+        {!isMobile && (
+          <button className="btn-back" onClick={() => navigate('/')}>
+            ← Volver al Tablero
+          </button>
+        )}
       </div>
 
       <div className="menu-diario-content">
@@ -284,7 +295,8 @@ const MenuDiarioPage = () => {
               </div>
             </div>
 
-            <div className="menu-mesa-section">
+            {!isMobile && (
+              <div className="menu-mesa-section">
               <div className="menu-mesa-header">
                 <h3>🪑 Mesas por turno de almuerzo</h3>
                 <p className="menu-mesa-sub">
@@ -329,7 +341,8 @@ const MenuDiarioPage = () => {
                   )
                 })}
               </div>
-            </div>
+              </div>
+            )}
 
             {miSeleccion ? (
               <div className="menu-seleccion-card">
@@ -349,9 +362,11 @@ const MenuDiarioPage = () => {
                   </p>
                 </div>
                 <div className="menu-pedido-acciones">
-                  <button type="button" className="btn-descargar-pedido" onClick={handleDescargarPedido}>
-                    📄 Descargar pedido (PDF)
-                  </button>
+                  {!isMobile && (
+                    <button type="button" className="btn-descargar-pedido" onClick={handleDescargarPedido}>
+                      📄 Descargar pedido (PDF)
+                    </button>
+                  )}
                   {puedeSeleccionar && (
                     <button
                       className="btn-secondary"
