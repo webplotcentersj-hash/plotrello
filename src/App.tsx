@@ -66,6 +66,7 @@ const RecursosHumanosPruebasPage = lazy(() => import('./pages/RecursosHumanosPru
 const MisPruebasPage = lazy(() => import('./pages/MisPruebasPage'))
 const CapacitacionesPage = lazy(() => import('./pages/CapacitacionesPage'))
 const MenuDiarioPage = lazy(() => import('./pages/MenuDiarioPage'))
+const MenuOnlyPage = lazy(() => import('./pages/MenuOnlyPage'))
 const CRMVentasPage = lazy(() => import('./pages/CRMVentasPage'))
 const ReportesVentasPage = lazy(() => import('./pages/ReportesVentasPage'))
 const FlotaPage = lazy(() => import('./pages/FlotaPage'))
@@ -826,6 +827,7 @@ function AppRoutes({
           />
         }
       />
+      <Route path="/menu" element={<MenuOnlyPage onLogout={onLogout} />} />
       <Route
         path="/kanban-etapas/:slug"
         element={
