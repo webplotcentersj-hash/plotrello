@@ -422,8 +422,8 @@ const CajaDashboardPage = () => {
       {/* Secciones de gestión */}
       <div className="caja-sections-grid">
         {/* Ventas de hoy */}
-        <div className="section-card">
-          <div className="section-header">
+        <div className="caja-section-card">
+          <div className="caja-section-header">
             <h2>Ventas de hoy</h2>
             <button 
               className="btn-link"
@@ -432,7 +432,7 @@ const CajaDashboardPage = () => {
               Ver todas →
             </button>
           </div>
-          <div className="section-content">
+          <div className="caja-section-content">
             {ventasHoy.length === 0 ? (
               <p className="empty-state">No hay ventas registradas hoy</p>
             ) : (
@@ -459,8 +459,8 @@ const CajaDashboardPage = () => {
         </div>
 
         {/* Órdenes pendientes de facturación */}
-        <div className="section-card">
-          <div className="section-header">
+        <div className="caja-section-card">
+          <div className="caja-section-header">
             <h2>Órdenes pendientes de facturación</h2>
             <button 
               className="btn-link"
@@ -469,7 +469,7 @@ const CajaDashboardPage = () => {
               Ver todas →
             </button>
           </div>
-          <div className="section-content">
+          <div className="caja-section-content">
             {ordenesPendientesFacturacion.length === 0 ? (
               <p className="empty-state">No hay órdenes pendientes de facturación</p>
             ) : (
@@ -497,8 +497,8 @@ const CajaDashboardPage = () => {
         </div>
 
         {/* Cuentas por cobrar */}
-        <div className="section-card">
-          <div className="section-header">
+        <div className="caja-section-card">
+          <div className="caja-section-header">
             <h2>Cuentas por cobrar</h2>
             <button 
               className="btn-link"
@@ -507,7 +507,7 @@ const CajaDashboardPage = () => {
               Ver todas →
             </button>
           </div>
-          <div className="section-content">
+          <div className="caja-section-content">
             {cuentasPorCobrar.length === 0 ? (
               <p className="empty-state">No hay cuentas por cobrar pendientes</p>
             ) : (
@@ -536,8 +536,8 @@ const CajaDashboardPage = () => {
         </div>
 
         {/* Cuentas por pagar */}
-        <div className="section-card">
-          <div className="section-header">
+        <div className="caja-section-card">
+          <div className="caja-section-header">
             <h2>Cuentas por pagar</h2>
             <button 
               className="btn-link"
@@ -546,7 +546,7 @@ const CajaDashboardPage = () => {
               Ver todas →
             </button>
           </div>
-          <div className="section-content">
+          <div className="caja-section-content">
             {cuentasPorPagar.length === 0 ? (
               <p className="empty-state">No hay cuentas por pagar pendientes</p>
             ) : (
