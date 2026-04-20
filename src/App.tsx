@@ -734,6 +734,8 @@ function AppRoutes({
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const hideCampoFloaters = pathname === '/app-campo'
+  const hideImpresorasButton =
+    pathname === '/menu-diario' && window.matchMedia && window.matchMedia('(max-width: 720px)').matches
   const { isAdmin, isPresupuestos } = useAuth()
 
   // Los movimientos de asesor técnico/presupuestos solo los ven admin y presupuestos
@@ -751,41 +753,43 @@ function AppRoutes({
       {!hideCampoFloaters && (
         <>
           {/* Botón flotante para acceder a impresoras */}
-          <button
-            className="floating-button"
-            onClick={() => navigate('/impresoras')}
-            title="Ver ocupación de impresoras"
-            style={{
-              position: 'fixed',
-              bottom: '30px',
-              right: '30px',
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              border: 'none',
-              color: '#fff',
-              fontSize: '28px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
-              zIndex: 1000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease',
-              fontWeight: 'bold'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.1)'
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.6)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)'
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
-            }}
-          >
-            🖨️
-          </button>
+          {!hideImpresorasButton && (
+            <button
+              className="floating-button"
+              onClick={() => navigate('/impresoras')}
+              title="Ver ocupación de impresoras"
+              style={{
+                position: 'fixed',
+                bottom: '30px',
+                right: '30px',
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                border: 'none',
+                color: '#fff',
+                fontSize: '28px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease',
+                fontWeight: 'bold'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.6)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
+              }}
+            >
+              🖨️
+            </button>
+          )}
           {/* Botón flotante para solicitudes y permisos */}
           <SolicitudesPermisosFloatingButton />
         </>
