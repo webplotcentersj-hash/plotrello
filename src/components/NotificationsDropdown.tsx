@@ -6,6 +6,17 @@ import { supabase } from '../services/supabaseClient'
 import type { Notification } from '../types/api'
 import './NotificationsDropdown.css'
 
+/** Coincide con títulos/textos insertados por solicitar/responder_intercambio_turno_menu (menú diario). */
+function notificationTargetsMenuDiario(n: Pick<Notification, 'title' | 'description'>): boolean {
+  const title = (n.title ?? '').toLowerCase()
+  const desc = (n.description ?? '').toLowerCase()
+  if (title.includes('intercambio de turno')) return true
+  if (desc.includes('menú diario') || desc.includes('menu diario')) return true
+  if (desc.includes('menú del día') || desc.includes('menu del dia')) return true
+  if (desc.includes('menú de hoy') || desc.includes('menu de hoy')) return true
+  return false
+}
+
 type NotificationsDropdownProps = {
   onNotificationClick?: (notification: Notification) => void
 }
@@ -113,11 +124,18 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
           
           // Mostrar notificación del navegador si está permitido
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(newNotification.title, {
+            const bn = new Notification(newNotification.title, {
               body: newNotification.description || '',
               icon: '/vite.svg',
               tag: `notification-${newNotification.id}`
             })
+            if (notificationTargetsMenuDiario(newNotification)) {
+              bn.onclick = () => {
+                window.focus()
+                navigate('/menu-diario')
+                bn.close()
+              }
+            }
           }
         }
       )
@@ -232,6 +250,11 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
       // Reclamo de atención al público
       if (notification.reclamo_id != null) {
         navigate(`/atencion-publico?tab=reclamos`)
+        return
+      }
+      // Menú diario (intercambio de turno u otros avisos con copy del menú del día)
+      if (notificationTargetsMenuDiario(notification)) {
+        navigate('/menu-diario')
         return
       }
       // Menciones en el chat
