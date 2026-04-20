@@ -55,6 +55,7 @@ import type {
   InscripcionCapacitacion,
   MenuDiario,
   MenuSeleccion,
+  MenuIntercambioTurno,
   Vehiculo,
   VehiculoEstadoParque,
   RegistroSalidaVehiculo,
@@ -13215,7 +13216,7 @@ class ApiService {
     }
 
     try {
-      // Calendario "hoy" = mismo criterio que el plazo 10:30 (Intl AR), no el reloj del servidor Postgres.
+      // Calendario "hoy" = mismo criterio que el plazo 9:30 menú (Intl AR), no el reloj del servidor Postgres.
       const hoyYmd = getArgentinaDateString()
       const { data, error } = await supabase.rpc('obtener_menus_diarios', {
         p_fecha_desde: hoyYmd,
@@ -13285,6 +13286,37 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al seleccionar plato'
+      }
+    }
+  }
+
+  async actualizarSoloTurnoMenu(
+    idMenu: number,
+    idUsuario: number,
+    turnoAlmuerzo: 1 | 2 | 3
+  ): Promise<ApiResponse<MenuSeleccion>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('actualizar_solo_turno_menu', {
+        p_id_menu: idMenu,
+        p_id_usuario: idUsuario,
+        p_turno_almuerzo: turnoAlmuerzo
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data as MenuSeleccion
+      }
+    } catch (error: any) {
+      console.error('Error al actualizar turno de menú:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar turno de almuerzo'
       }
     }
   }
@@ -13394,6 +13426,79 @@ class ApiService {
         success: false,
         error: error.message || 'Error al cancelar selección'
       }
+    }
+  }
+
+  async solicitarIntercambioTurnoMenu(
+    idMenu: number,
+    idSolicita: number,
+    idDestino: number
+  ): Promise<ApiResponse<MenuIntercambioTurno>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase.rpc('solicitar_intercambio_turno_menu', {
+        p_id_menu: idMenu,
+        p_id_solicita: idSolicita,
+        p_id_destino: idDestino
+      })
+      if (error) throw error
+      return { success: true, data: data as MenuIntercambioTurno }
+    } catch (error: any) {
+      console.error('Error al solicitar intercambio de turno:', error)
+      return { success: false, error: error.message || 'No se pudo enviar la solicitud' }
+    }
+  }
+
+  async obtenerIntercambiosTurnoMenu(
+    idUsuario: number,
+    idMenu?: number
+  ): Promise<ApiResponse<MenuIntercambioTurno[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase.rpc('obtener_intercambios_turno_menu', {
+        p_id_usuario: idUsuario,
+        p_id_menu: idMenu ?? null
+      })
+      if (error) throw error
+      let raw: unknown = data
+      if (typeof raw === 'string') {
+        try {
+          raw = JSON.parse(raw)
+        } catch {
+          raw = []
+        }
+      }
+      const list = Array.isArray(raw) ? raw : []
+      return { success: true, data: list as MenuIntercambioTurno[] }
+    } catch (error: any) {
+      console.error('Error al listar intercambios de turno:', error)
+      return { success: false, error: error.message || 'Error al cargar solicitudes' }
+    }
+  }
+
+  async responderIntercambioTurnoMenu(
+    idIntercambio: number,
+    idUsuario: number,
+    accion: 'aceptar' | 'rechazar' | 'cancelar'
+  ): Promise<ApiResponse<MenuIntercambioTurno>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase.rpc('responder_intercambio_turno_menu', {
+        p_id_intercambio: idIntercambio,
+        p_id_usuario: idUsuario,
+        p_accion: accion
+      })
+      if (error) throw error
+      return { success: true, data: data as MenuIntercambioTurno }
+    } catch (error: any) {
+      console.error('Error al responder intercambio de turno:', error)
+      return { success: false, error: error.message || 'No se pudo procesar la solicitud' }
     }
   }
 

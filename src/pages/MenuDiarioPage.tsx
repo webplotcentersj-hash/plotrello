@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { MenuDiario, MenuSeleccion } from '../types/api'
+import type { MenuDiario, MenuIntercambioTurno, MenuSeleccion } from '../types/api'
 import { getArgentinaDate, formatArgentinaTime, formatArgentinaDate, isBeforeArgentinaTime } from '../utils/dateUtils'
 import {
   MENU_TURNOS_ALMUERZO,
@@ -47,6 +47,11 @@ const MenuDiarioPage = () => {
   const [turnoElegido, setTurnoElegido] = useState<MenuTurnoAlmuerzoId | null>(null)
   const [emojiElegido, setEmojiElegido] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [intercambios, setIntercambios] = useState<MenuIntercambioTurno[]>([])
+  const [idDestinoIntercambio, setIdDestinoIntercambio] = useState<number | ''>('')
+  const [swapBusy, setSwapBusy] = useState(false)
+  const [turnoSoloEdit, setTurnoSoloEdit] = useState<MenuTurnoAlmuerzoId>(1)
+  const [guardandoTurno, setGuardandoTurno] = useState(false)
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 720px)')
@@ -75,6 +80,12 @@ const MenuDiarioPage = () => {
     )
   }, [horaActual])
 
+  useEffect(() => {
+    if (miSeleccion) {
+      setTurnoSoloEdit((miSeleccion.turno_almuerzo ?? 1) as MenuTurnoAlmuerzoId)
+    }
+  }, [miSeleccion])
+
   const loadSeleccionesMesa = useCallback(async (idMenu: number) => {
     const response = await apiService.obtenerSeleccionesMenu(idMenu)
     if (response.success && response.data) {
@@ -85,11 +96,17 @@ const MenuDiarioPage = () => {
   }, [])
 
   useEffect(() => {
-    if (!menu?.id) return
-    loadSeleccionesMesa(menu.id)
-    const t = setInterval(() => loadSeleccionesMesa(menu.id), 45000)
+    if (!menu?.id || !usuario?.id) return
+    const tick = async () => {
+      await loadSeleccionesMesa(menu.id)
+      const r = await apiService.obtenerIntercambiosTurnoMenu(usuario.id, menu.id)
+      if (r.success && r.data) setIntercambios(r.data)
+      else setIntercambios([])
+    }
+    tick()
+    const t = setInterval(tick, 45000)
     return () => clearInterval(t)
-  }, [menu?.id, loadSeleccionesMesa])
+  }, [menu?.id, usuario?.id, loadSeleccionesMesa])
 
   const loadMenu = async () => {
     setLoading(true)
@@ -176,6 +193,34 @@ const MenuDiarioPage = () => {
     }
   }
 
+  const handleGuardarSoloTurno = async () => {
+    if (!usuario?.id || !menu || !miSeleccion) return
+    if (turnoSoloEdit === (miSeleccion.turno_almuerzo ?? 1)) {
+      alert('Ya estás en ese turno.')
+      return
+    }
+    const otros = countEnTurno(turnoSoloEdit, usuario.id)
+    if (otros >= MENU_ALMUERZO_CUPO_POR_TURNO) {
+      alert('Ese turno ya está completo (10 lugares). Elegí otro horario.')
+      return
+    }
+    setGuardandoTurno(true)
+    try {
+      const response = await apiService.actualizarSoloTurnoMenu(menu.id, usuario.id, turnoSoloEdit)
+      if (response.success && response.data) {
+        setMiSeleccion(response.data)
+        await loadSeleccionesMesa(menu.id)
+        alert('Turno de almuerzo actualizado')
+      } else {
+        alert('Error: ' + (response.error || 'No se pudo guardar'))
+      }
+    } catch (error: unknown) {
+      alert('Error: ' + (error instanceof Error ? error.message : 'Error al guardar'))
+    } finally {
+      setGuardandoTurno(false)
+    }
+  }
+
   const handleCancelarSeleccion = async () => {
     if (!usuario?.id || !menu || !miSeleccion) return
     if (!puedeSeleccionar) {
@@ -197,6 +242,55 @@ const MenuDiarioPage = () => {
       loadMenu()
     } else {
       alert('Error: ' + response.error)
+    }
+  }
+
+  const compañerosConPedido = seleccionesMesa.filter((s) => {
+    if (!usuario || s.id_usuario === usuario.id) return false
+    if (!miSeleccion) return true
+    return (s.turno_almuerzo ?? 1) !== (miSeleccion.turno_almuerzo ?? 1)
+  })
+
+  const handleSolicitarIntercambio = async () => {
+    if (!usuario?.id || !menu || miSeleccion == null || idDestinoIntercambio === '') return
+    setSwapBusy(true)
+    try {
+      const r = await apiService.solicitarIntercambioTurnoMenu(menu.id, usuario.id, Number(idDestinoIntercambio))
+      if (r.success) {
+        alert('Solicitud enviada. Tu compañero puede aceptarla cuando quiera.')
+        setIdDestinoIntercambio('')
+        const ri = await apiService.obtenerIntercambiosTurnoMenu(usuario.id, menu.id)
+        if (ri.success && ri.data) setIntercambios(ri.data)
+      } else {
+        alert(r.error || 'No se pudo enviar la solicitud')
+      }
+    } finally {
+      setSwapBusy(false)
+    }
+  }
+
+  const handleResponderIntercambio = async (
+    idIntercambio: number,
+    accion: 'aceptar' | 'rechazar' | 'cancelar'
+  ) => {
+    if (!usuario?.id || !menu) return
+    if (accion === 'aceptar' && !confirm('¿Confirmás el intercambio de turno de almuerzo?')) return
+    if (accion === 'rechazar' && !confirm('¿Rechazar esta solicitud?')) return
+    if (accion === 'cancelar' && !confirm('¿Cancelar tu solicitud de intercambio?')) return
+    setSwapBusy(true)
+    try {
+      const r = await apiService.responderIntercambioTurnoMenu(idIntercambio, usuario.id, accion)
+      if (r.success) {
+        if (accion === 'aceptar') alert('Listo: los turnos ya se intercambiaron.')
+        const ri = await apiService.obtenerIntercambiosTurnoMenu(usuario.id, menu.id)
+        if (ri.success && ri.data) setIntercambios(ri.data)
+        await loadMiSeleccion(menu.id, usuario.id)
+        await loadSeleccionesMesa(menu.id)
+      } else {
+        alert(r.error || 'No se pudo procesar la solicitud')
+      }
+    } finally {
+      setSwapBusy(false)
     }
   }
 
@@ -240,6 +334,9 @@ const MenuDiarioPage = () => {
 
   const horaFormateada = formatArgentinaTime(horaActual)
 
+  const incomingSwap = usuario ? intercambios.filter((i) => i.id_destino === usuario.id) : []
+  const outgoingSwap = usuario ? intercambios.filter((i) => i.id_solicita === usuario.id) : []
+
   return (
     <div className="menu-diario-page">
       <div className="menu-diario-header">
@@ -256,12 +353,13 @@ const MenuDiarioPage = () => {
           <div className={`horario-badge ${puedeSeleccionar ? 'horario-activo' : 'horario-expirado'}`}>
             {puedeSeleccionar ? (
               <>
-                ⏰ Hora actual (Argentina): {horaFormateada} — Podés elegir menú, turno y estado hasta las{' '}
-                {MENU_PEDIDO_HORA_TOPE_TEXTO}
+                ⏰ Hora actual (Argentina): {horaFormateada} — Pedido y cancelación del plato hasta las{' '}
+                {MENU_PEDIDO_HORA_TOPE_TEXTO} AM. El turno de almuerzo podés cambiarlo cuando quieras (sin tope).
               </>
             ) : (
               <>
-                ⏰ Hora actual (Argentina): {horaFormateada} — El plazo para elegir o cambiar el menú ya cerró
+                ⏰ Hora actual (Argentina): {horaFormateada} — El plazo para elegir o cancelar el pedido del plato
+                cerró ({MENU_PEDIDO_HORA_TOPE_TEXTO} AM). El turno de almuerzo sigue editable abajo.
               </>
             )}
           </div>
@@ -380,6 +478,157 @@ const MenuDiarioPage = () => {
               </div>
             ) : null}
 
+            {miSeleccion && usuario && menu ? (
+              <div className="menu-seleccion-card menu-turno-libre-card">
+                <h3>🕐 Cambiar turno de almuerzo</h3>
+                <p className="seleccion-subtitle">
+                  Sin límite de horario: podés moverte de turno cuando quieras. El plato solo se puede elegir o
+                  cancelar hasta las {MENU_PEDIDO_HORA_TOPE_TEXTO} AM (Argentina).
+                </p>
+                <div className="menu-turno-pick">
+                  {MENU_TURNOS_ALMUERZO.map((t) => {
+                    const otros = countEnTurno(t.id, usuario.id)
+                    const lleno = otros >= MENU_ALMUERZO_CUPO_POR_TURNO
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        disabled={lleno}
+                        className={`menu-turno-opt ${turnoSoloEdit === t.id ? 'selected' : ''} ${lleno ? 'disabled' : ''}`}
+                        onClick={() => setTurnoSoloEdit(t.id)}
+                      >
+                        <span className="menu-turno-nombre">{t.label}</span>
+                        <span className="menu-turno-hora">{t.horario}</span>
+                        <span className="menu-turno-cupo">
+                          {otros}/{MENU_ALMUERZO_CUPO_POR_TURNO}
+                        </span>
+                        {lleno ? <span className="menu-turno-lleno">Completo</span> : null}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className="btn-confirmar-pedido"
+                  onClick={handleGuardarSoloTurno}
+                  disabled={
+                    guardandoTurno ||
+                    turnoSoloEdit === (miSeleccion.turno_almuerzo ?? 1) ||
+                    countEnTurno(turnoSoloEdit, usuario.id) >= MENU_ALMUERZO_CUPO_POR_TURNO
+                  }
+                >
+                  {guardandoTurno ? 'Guardando…' : 'Guardar turno'}
+                </button>
+              </div>
+            ) : null}
+
+            {menu && usuario ? (
+              <div className="menu-intercambio-card">
+                <h3>🔁 Intercambio de turno de almuerzo</h3>
+                <p className="menu-intercambio-desc">
+                  Podés pedirle a un compañero que ya tiene pedido que intercambien turnos en <strong>cualquier hora</strong>.
+                  Cuando la otra persona acepta, los turnos se actualizan solos (no hace falta cancelar y volver a pedir).
+                </p>
+
+                {incomingSwap.length > 0 ? (
+                  <div className="menu-intercambio-bloque">
+                    <h4>Te solicitaron intercambio</h4>
+                    <ul className="menu-intercambio-lista">
+                      {incomingSwap.map((it) => (
+                        <li key={it.id} className="menu-intercambio-item">
+                          <span>
+                            <strong>{it.nombre_solicita || 'Compañero/a'}</strong> quiere intercambiar turno contigo.
+                          </span>
+                          <span className="menu-intercambio-acciones">
+                            <button
+                              type="button"
+                              className="btn-intercambio-ok"
+                              disabled={swapBusy}
+                              onClick={() => handleResponderIntercambio(it.id, 'aceptar')}
+                            >
+                              Aceptar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-intercambio-no"
+                              disabled={swapBusy}
+                              onClick={() => handleResponderIntercambio(it.id, 'rechazar')}
+                            >
+                              Rechazar
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {outgoingSwap.length > 0 ? (
+                  <div className="menu-intercambio-bloque">
+                    <h4>Tus solicitudes pendientes</h4>
+                    <ul className="menu-intercambio-lista">
+                      {outgoingSwap.map((it) => (
+                        <li key={it.id} className="menu-intercambio-item">
+                          <span>
+                            Esperando respuesta de <strong>{it.nombre_destino || 'compañero/a'}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-intercambio-cancel"
+                            disabled={swapBusy}
+                            onClick={() => handleResponderIntercambio(it.id, 'cancelar')}
+                          >
+                            Cancelar solicitud
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {miSeleccion ? (
+                  <div className="menu-intercambio-solicitar">
+                    <label htmlFor="menu-swap-destino">Pedir intercambio con</label>
+                    <div className="menu-intercambio-row">
+                      <select
+                        id="menu-swap-destino"
+                        value={idDestinoIntercambio === '' ? '' : String(idDestinoIntercambio)}
+                        onChange={(e) =>
+                          setIdDestinoIntercambio(e.target.value === '' ? '' : Number(e.target.value))
+                        }
+                        disabled={swapBusy || compañerosConPedido.length === 0}
+                      >
+                        <option value="">Elegí compañero/a con pedido…</option>
+                        {compañerosConPedido.map((s) => (
+                          <option key={s.id_usuario} value={s.id_usuario}>
+                            {s.nombre_usuario || `Usuario ${s.id_usuario}`} —{' '}
+                            {getTurnoAlmuerzoLabel(s.turno_almuerzo ?? 1)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn-intercambio-enviar"
+                        disabled={
+                          swapBusy || idDestinoIntercambio === '' || compañerosConPedido.length === 0
+                        }
+                        onClick={handleSolicitarIntercambio}
+                      >
+                        {swapBusy ? '…' : 'Enviar solicitud'}
+                      </button>
+                    </div>
+                    {compañerosConPedido.length === 0 ? (
+                      <p className="menu-intercambio-hint">No hay otros compañeros con pedido para hoy.</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="menu-intercambio-hint">
+                    Para solicitar intercambio necesitás tener tu pedido del menú cargado.
+                  </p>
+                )}
+              </div>
+            ) : null}
+
             {!miSeleccion && puedeSeleccionar ? (
               <div className="menu-seleccion-card menu-form-pedido">
                 <h3>Armar tu pedido</h3>
@@ -464,7 +713,17 @@ const MenuDiarioPage = () => {
             {miSeleccion && puedeSeleccionar ? (
               <div className="menu-seleccion-card menu-cambiar-hint">
                 <p>
-                  Para cambiar plato, turno o emoji, cancelá el pedido con el botón de arriba y volvé a cargarlo.
+                  Para cambiar solo el turno usá la sección &quot;Cambiar turno de almuerzo&quot;. Para cambiar plato o
+                  emoji, cancelá el pedido arriba y volvé a cargarlo (antes de las {MENU_PEDIDO_HORA_TOPE_TEXTO} AM).
+                </p>
+              </div>
+            ) : null}
+
+            {miSeleccion && !puedeSeleccionar ? (
+              <div className="menu-seleccion-card menu-cambiar-hint">
+                <p>
+                  Ya no podés cancelar ni cambiar plato ni emoji. Podés seguir cambiando solo el turno de almuerzo en la
+                  sección de arriba.
                 </p>
               </div>
             ) : null}

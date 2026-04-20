@@ -1143,6 +1143,19 @@ export interface MenuSeleccion {
   emoji_estado: string
 }
 
+/** Solicitud de intercambio de turno de almuerzo (menú diario) */
+export interface MenuIntercambioTurno {
+  id: number
+  id_menu: number
+  id_solicita: number
+  id_destino: number
+  nombre_solicita?: string | null
+  nombre_destino?: string | null
+  estado: 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada'
+  created_at: string
+  updated_at: string
+}
+
 // ============================================
 // SISTEMA CRM DE VENTAS
 // ============================================
