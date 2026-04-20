@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -6,23 +6,147 @@ import { supabase } from '../services/supabaseClient'
 import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, PresupuestoVentaRecord } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString } from '../utils/dateUtils'
-import { exportarVentasPDF, exportarVentasExcel, exportarOportunidadesPDF, generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
+import {
+  exportarVentasPDF,
+  exportarVentasExcel,
+  exportarOportunidadesPDF,
+  exportarOportunidadesCSV,
+  generarFacturaRemitoPDF,
+  generarPagarePDF
+} from '../utils/crmExportUtils'
+import {
+  fechaProximaAccionMasTemprana,
+  oportunidadRequiereAtencionInmediata,
+  urgenciaProximaAccion,
+  valorPonderadoPipeline,
+  type UrgenciaProximaAccion
+} from '../utils/crmVentasHelpers'
 import { generateContent } from '../services/plotAIService'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import './CRMVentasPage.css'
 
+const CRM_VENTAS_TAB_KEY = 'crmVentasActiveTab'
+
+/** Mínimo de caracteres en la búsqueda para autoseleccionar si hay un único cliente */
+const CLIENTE_AUTOPICK_MIN_CHARS = 4
+
+/** Suma días calendario a una fecha YYYY-MM-DD (componentes UTC, sin desfase por huso local). */
+function addCalendarDaysToDateString(isoYYYYMMDD: string, days: number): string {
+  const parts = isoYYYYMMDD.split('-').map((n) => parseInt(n, 10))
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return isoYYYYMMDD
+  const [y, m, d] = parts
+  const dt = new Date(Date.UTC(y, m - 1, d + days))
+  const yy = dt.getUTCFullYear()
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getUTCDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+type OportunidadFormCRM = {
+  cliente_nombre: string
+  cliente_telefono: string
+  cliente_email: string
+  cliente_dni_cuit: string
+  cliente_empresa: string
+  cliente_direccion: string
+  descripcion: string
+  valor_estimado: string
+  probabilidad_cierre: number
+  etapa: 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido'
+  fecha_cierre_estimada: string
+  observaciones: string
+  id_cliente: number | null
+}
+
+function aplicarClienteAOportunidadForm(
+  prev: OportunidadFormCRM,
+  cliente: ClienteRecord,
+  oportunidades: OportunidadVenta[],
+  isEditing: boolean
+): OportunidadFormCRM {
+  const nombreMostrar = [cliente.nombre, cliente.apellido].filter(Boolean).join(' ').trim() || cliente.nombre
+  const base: OportunidadFormCRM = {
+    ...prev,
+    cliente_nombre: cliente.nombre,
+    cliente_telefono: cliente.telefono || '',
+    cliente_email: cliente.email || '',
+    cliente_dni_cuit: cliente.dni_cuit || '',
+    cliente_empresa: cliente.empresa || '',
+    cliente_direccion: cliente.direccion || '',
+    id_cliente: cliente.id
+  }
+  if (isEditing) {
+    return base
+  }
+
+  const sinDesc = !prev.descripcion?.trim()
+  const descDefault = cliente.empresa?.trim()
+    ? `Seguimiento comercial — ${cliente.empresa.trim()} · ${nombreMostrar}`
+    : `Seguimiento comercial — ${nombreMostrar}`
+
+  const extraLines: string[] = []
+  if (cliente.ubicacion_link?.trim()) extraLines.push(`Ubicación: ${cliente.ubicacion_link.trim()}`)
+  if (cliente.drive_link?.trim()) extraLines.push(`Drive: ${cliente.drive_link.trim()}`)
+  let observaciones = prev.observaciones || ''
+  for (const line of extraLines) {
+    if (line && !observaciones.includes(line)) {
+      observaciones = observaciones ? `${observaciones}\n${line}` : line
+    }
+  }
+
+  const hoy = getArgentinaDateString()
+  const fechaCierre = prev.fecha_cierre_estimada?.trim()
+    ? prev.fecha_cierre_estimada
+    : addCalendarDaysToDateString(hoy, 30)
+
+  const prevNom = (s: string) => s.trim().toLowerCase()
+  const prevOpp = oportunidades
+    .filter((o) => prevNom(o.cliente_nombre) === prevNom(cliente.nombre))
+    .slice()
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0]
+
+  let valor = prev.valor_estimado
+  if (!valor?.trim() && prevOpp?.valor_estimado != null && prevOpp.valor_estimado > 0) {
+    valor = String(prevOpp.valor_estimado)
+  }
+
+  let probabilidad = prev.probabilidad_cierre
+  if (cliente.telefono?.trim() && cliente.email?.trim() && probabilidad <= 50) {
+    probabilidad = Math.max(probabilidad, 55)
+  }
+
+  return {
+    ...base,
+    descripcion: sinDesc ? descDefault : prev.descripcion,
+    fecha_cierre_estimada: fechaCierre,
+    observaciones,
+    valor_estimado: valor,
+    probabilidad_cierre: probabilidad
+  }
+}
+
 const CRMVentasPage = () => {
   const navigate = useNavigate()
   const { isAdmin, isMostrador, isPresupuestos, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas' | 'presupuestos'>('oportunidades')
+  const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas' | 'presupuestos'>(() => {
+    try {
+      const raw = sessionStorage.getItem(CRM_VENTAS_TAB_KEY)
+      if (raw === 'oportunidades' || raw === 'ventas' || raw === 'presupuestos') return raw
+    } catch {
+      /* ignore */
+    }
+    return 'oportunidades'
+  })
   
   // Oportunidades
   const [oportunidades, setOportunidades] = useState<OportunidadVenta[]>([])
   const [oportunidadesFiltradas, setOportunidadesFiltradas] = useState<OportunidadVenta[]>([])
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todas')
+  /** Filtro por fecha próxima acción en seguimientos */
+  const [filtroAlertaSeguimiento, setFiltroAlertaSeguimiento] = useState<'todas' | 'criticas' | 'con_alerta'>('todas')
   const [busquedaOportunidad, setBusquedaOportunidad] = useState('')
   const [mostrarModalOportunidad, setMostrarModalOportunidad] = useState(false)
   const [oportunidadEditando, setOportunidadEditando] = useState<OportunidadVenta | null>(null)
@@ -59,7 +183,10 @@ const CRMVentasPage = () => {
     presupuestosAceptados: 0,
     presupuestosRechazados: 0,
     valorTotalPresupuestos: 0,
-    tasaAceptacionPresupuestos: 0
+    tasaAceptacionPresupuestos: 0,
+    valorPonderadoPipeline: 0,
+    oportunidadesAlertaCritica: 0,
+    oportunidadesConAlertaProxima: 0
   })
   
   // Búsqueda de clientes
@@ -125,6 +252,14 @@ const CRMVentasPage = () => {
   const [articulosEncontradosEditar, setArticulosEncontradosEditar] = useState<ArticuloStock[]>([])
   const [buscandoArticulosEditar, setBuscandoArticulosEditar] = useState(false)
   const [dropdownDocumentosAbierto, setDropdownDocumentosAbierto] = useState<number | null>(null)
+  const [dropdownExportVentasAbierto, setDropdownExportVentasAbierto] = useState(false)
+  const [oportunidadParaPresupuesto, setOportunidadParaPresupuesto] = useState<OportunidadVenta | null>(null)
+  const [crmBootstrapped, setCrmBootstrapped] = useState(false)
+  const [lastDataRefresh, setLastDataRefresh] = useState<Date | null>(null)
+
+  const busquedaOportunidadRef = useRef<HTMLInputElement>(null)
+  const busquedaVentaRef = useRef<HTMLInputElement>(null)
+  const busquedaPresupuestoRef = useRef<HTMLInputElement>(null)
   const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
   const [mostrarModalPresupuesto, setMostrarModalPresupuesto] = useState(false)
 
@@ -144,20 +279,74 @@ const CRMVentasPage = () => {
   const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState('')
   const [fechaHastaPresupuesto, setFechaHastaPresupuesto] = useState('')
 
+  const etiquetaUrgencia = (u: UrgenciaProximaAccion): string | null => {
+    if (u === 'vencida') return 'Acción vencida'
+    if (u === 'hoy') return 'Acción hoy'
+    if (u === 'semana') return 'Esta semana'
+    return null
+  }
+
+  const whatsappHrefDesdeTelefono = (tel: string | null | undefined): string | null => {
+    if (!tel?.trim()) return null
+    const d = tel.replace(/\D/g, '')
+    if (d.length < 8) return null
+    const n = d.startsWith('54') ? d : `54${d.replace(/^0+/, '')}`
+    return `https://wa.me/${n}`
+  }
+
+  const clientSearchReqId = useRef(0)
+
+  const aplicarSeleccionCliente = useCallback((cliente: ClienteRecord) => {
+    setClienteSeleccionado(cliente)
+    setBusquedaCliente(cliente.nombre)
+    setClientesEncontrados([])
+    setFormOportunidad((prev) =>
+      aplicarClienteAOportunidadForm(prev, cliente, oportunidades, !!oportunidadEditando)
+    )
+  }, [oportunidades, oportunidadEditando])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(CRM_VENTAS_TAB_KEY, activeTab)
+    } catch {
+      /* ignore */
+    }
+  }, [activeTab])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      if (e.key !== 'k' && e.key !== 'K') return
+      e.preventDefault()
+      if (activeTab === 'oportunidades') busquedaOportunidadRef.current?.focus()
+      else if (activeTab === 'ventas') busquedaVentaRef.current?.focus()
+      else busquedaPresupuestoRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [activeTab])
+
+  useEffect(() => {
+    setPlotAiInforme('')
+    setPlotAiInformeError(null)
+    setPlotAiInformeLoading(false)
+  }, [mostrarModalOportunidad])
+
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       if (!target.closest('.export-dropdown')) {
         setDropdownDocumentosAbierto(null)
+        setDropdownExportVentasAbierto(false)
       }
     }
 
-    if (dropdownDocumentosAbierto !== null) {
+    if (dropdownDocumentosAbierto !== null || dropdownExportVentasAbierto) {
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
     }
-  }, [dropdownDocumentosAbierto])
+  }, [dropdownDocumentosAbierto, dropdownExportVentasAbierto])
 
   const toggleVentaExpandida = useCallback((ventaId: number) => {
     setVentaExpandidaId((prev) => (prev === ventaId ? null : ventaId))
@@ -388,6 +577,16 @@ const CRMVentasPage = () => {
         const valorTotalOportunidades = oportunidadesConValor.reduce((sum, o) => sum + (o.valor_estimado || 0), 0)
         const valorPromedioOportunidad = oportunidadesConValor.length > 0 ? valorTotalOportunidades / oportunidadesConValor.length : 0
 
+        const listaOppsAll = oppResponse.data || []
+        const valorPonderadoPipelineVal = valorPonderadoPipeline(listaOppsAll)
+        let oportunidadesAlertaCritica = 0
+        let oportunidadesConAlertaProxima = 0
+        for (const o of listaOppsAll) {
+          if (!o.activo || o.etapa === 'Cerrado' || o.etapa === 'Perdido') continue
+          if (oportunidadRequiereAtencionInmediata(o)) oportunidadesAlertaCritica++
+          if (urgenciaProximaAccion(o) !== null) oportunidadesConAlertaProxima++
+        }
+
         setEstadisticas({
           totalVentas,
           totalIngresos,
@@ -408,7 +607,10 @@ const CRMVentasPage = () => {
           presupuestosAceptados,
           presupuestosRechazados,
           valorTotalPresupuestos,
-          tasaAceptacionPresupuestos
+          tasaAceptacionPresupuestos,
+          valorPonderadoPipeline: valorPonderadoPipelineVal,
+          oportunidadesAlertaCritica,
+          oportunidadesConAlertaProxima
         })
       } else {
         console.error('Error cargando ventas:', ventasResponse.error)
@@ -434,7 +636,10 @@ const CRMVentasPage = () => {
           presupuestosAceptados: 0,
           presupuestosRechazados: 0,
           valorTotalPresupuestos: 0,
-          tasaAceptacionPresupuestos: 0
+          tasaAceptacionPresupuestos: 0,
+          valorPonderadoPipeline: 0,
+          oportunidadesAlertaCritica: 0,
+          oportunidadesConAlertaProxima: 0
         })
       }
       
@@ -486,6 +691,8 @@ const CRMVentasPage = () => {
       console.error('Error cargando datos:', error)
     } finally {
       setLoading(false)
+      setLastDataRefresh(new Date())
+      setCrmBootstrapped(true)
     }
   }
 
@@ -495,6 +702,15 @@ const CRMVentasPage = () => {
     
     if (filtroEtapa !== 'todas') {
       filtradas = filtradas.filter(o => o.etapa === filtroEtapa)
+    }
+
+    if (filtroAlertaSeguimiento === 'criticas') {
+      filtradas = filtradas.filter((o) => oportunidadRequiereAtencionInmediata(o))
+    } else if (filtroAlertaSeguimiento === 'con_alerta') {
+      filtradas = filtradas.filter((o) => {
+        if (!o.activo || o.etapa === 'Cerrado' || o.etapa === 'Perdido') return false
+        return urgenciaProximaAccion(o) !== null
+      })
     }
     
     if (busquedaOportunidad) {
@@ -508,7 +724,7 @@ const CRMVentasPage = () => {
     }
     
     setOportunidadesFiltradas(filtradas)
-  }, [oportunidades, filtroEtapa, busquedaOportunidad])
+  }, [oportunidades, filtroEtapa, filtroAlertaSeguimiento, busquedaOportunidad])
 
   // Filtros ventas
   useEffect(() => {
@@ -647,41 +863,38 @@ const CRMVentasPage = () => {
       return
     }
 
+    const q = busquedaCliente.trim()
     const timer = setTimeout(async () => {
+      const myReq = ++clientSearchReqId.current
       setBuscandoClientes(true)
       try {
-        const response = await apiService.buscarClientes(busquedaCliente.trim())
+        const response = await apiService.buscarClientes(q)
+        if (myReq !== clientSearchReqId.current) return
         if (response.success && response.data) {
-          setClientesEncontrados(response.data)
+          if (!oportunidadEditando && response.data.length === 1 && q.length >= CLIENTE_AUTOPICK_MIN_CHARS) {
+            aplicarSeleccionCliente(response.data[0])
+          } else {
+            setClientesEncontrados(response.data)
+          }
         } else {
           setClientesEncontrados([])
         }
       } catch (error) {
         console.error('Error buscando clientes:', error)
-        setClientesEncontrados([])
+        if (myReq === clientSearchReqId.current) {
+          setClientesEncontrados([])
+        }
       } finally {
-        setBuscandoClientes(false)
+        if (myReq === clientSearchReqId.current) {
+          setBuscandoClientes(false)
+        }
       }
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [busquedaCliente])
+  }, [busquedaCliente, oportunidadEditando, aplicarSeleccionCliente])
 
-  const seleccionarCliente = (cliente: ClienteRecord) => {
-    setClienteSeleccionado(cliente)
-    setBusquedaCliente(cliente.nombre)
-    setClientesEncontrados([])
-    setFormOportunidad({
-      ...formOportunidad,
-      cliente_nombre: cliente.nombre,
-      cliente_telefono: cliente.telefono || '',
-      cliente_email: cliente.email || '',
-      cliente_dni_cuit: cliente.dni_cuit || '',
-      cliente_empresa: cliente.empresa || '',
-      cliente_direccion: cliente.direccion || '',
-      id_cliente: cliente.id
-    })
-  }
+  const seleccionarCliente = aplicarSeleccionCliente
 
   const handleCrearOportunidad = () => {
     setOportunidadEditando(null)
@@ -723,6 +936,28 @@ const CRMVentasPage = () => {
       fecha_cierre_estimada: oportunidad.fecha_cierre_estimada || '',
       observaciones: oportunidad.observaciones || '',
       id_cliente: null // Se puede buscar y asociar después
+    })
+    setMostrarModalOportunidad(true)
+  }
+
+  const handleDuplicarOportunidad = (o: OportunidadVenta) => {
+    setOportunidadEditando(null)
+    setClienteSeleccionado(null)
+    setBusquedaCliente(o.cliente_nombre)
+    setFormOportunidad({
+      cliente_nombre: o.cliente_nombre,
+      cliente_telefono: o.cliente_telefono || '',
+      cliente_email: o.cliente_email || '',
+      cliente_dni_cuit: o.cliente_dni_cuit || '',
+      cliente_empresa: o.cliente_empresa || '',
+      cliente_direccion: o.cliente_direccion || '',
+      descripcion: o.descripcion ? `${o.descripcion}\n\n(duplicado desde ${o.numero_oportunidad})` : `(duplicado desde ${o.numero_oportunidad})`,
+      valor_estimado: o.valor_estimado != null ? String(o.valor_estimado) : '',
+      probabilidad_cierre: o.probabilidad_cierre,
+      etapa: 'Prospecto',
+      fecha_cierre_estimada: '',
+      observaciones: o.observaciones || '',
+      id_cliente: null
     })
     setMostrarModalOportunidad(true)
   }
@@ -1222,7 +1457,7 @@ const CRMVentasPage = () => {
     return colores[estado] || '#6b7280'
   }
 
-  if (loading) {
+  if (loading && !crmBootstrapped) {
     return (
       <div className="crm-ventas-page">
         <div className="loading-container">
@@ -1235,9 +1470,21 @@ const CRMVentasPage = () => {
 
   return (
     <div className="crm-ventas-page">
+      {loading && crmBootstrapped ? (
+        <div className="crm-refresh-banner" role="status">
+          Actualizando datos…
+        </div>
+      ) : null}
       <header className="crm-header">
         <div className="header-content">
-          <h1>💼 CRM de Ventas</h1>
+          <div>
+            <h1 style={{ margin: 0 }}>💼 CRM de Ventas</h1>
+            <p style={{ margin: '6px 0 0 0', fontSize: '0.82rem', color: 'rgba(226,232,240,0.65)' }}>
+              {lastDataRefresh
+                ? `Última actualización: ${lastDataRefresh.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · Ctrl+K buscar`
+                : 'Ctrl+K enfoca la búsqueda de esta pestaña'}
+            </p>
+          </div>
           <div className="header-actions">
             <button className="btn-secondary" onClick={() => navigate('/')}>
               ← Volver al Tablero
@@ -1248,39 +1495,71 @@ const CRMVentasPage = () => {
               </button>
             )}
             {activeTab === 'presupuestos' && (
-              <button className="btn-primary" onClick={() => setMostrarModalPresupuesto(true)}>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setOportunidadParaPresupuesto(null)
+                  setMostrarModalPresupuesto(true)
+                }}
+              >
                 ➕ Nuevo Presupuesto
               </button>
             )}
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => {
-                console.log('Navegando a reportes...')
-                navigate('/crm-ventas/reportes')
-              }}
+              onClick={() => navigate('/crm-ventas/reportes')}
             >
               📊 Ver Reportes
             </button>
             {activeTab === 'ventas' && ventasFiltradas.length > 0 && (
               <div className="export-dropdown">
-                <button className="btn-secondary">
-                  📥 Exportar
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDropdownExportVentasAbierto((v) => !v)
+                  }}
+                >
+                  📥 Exportar {dropdownExportVentasAbierto ? '▴' : '▾'}
                 </button>
-                <div className="export-menu">
-                  <button onClick={() => exportarVentasPDF(ventasFiltradas, { fechaDesde, fechaHasta, estadoPago: filtroEstadoPago })}>
-                    📄 Exportar a PDF
-                  </button>
-                  <button onClick={() => exportarVentasExcel(ventasFiltradas, { fechaDesde, fechaHasta, estadoPago: filtroEstadoPago })}>
-                    📊 Exportar a Excel
-                  </button>
-                </div>
+                {dropdownExportVentasAbierto ? (
+                  <div
+                    className="export-menu export-menu-visible export-menu--below-trigger"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportarVentasPDF(ventasFiltradas, { fechaDesde, fechaHasta, estadoPago: filtroEstadoPago })
+                        setDropdownExportVentasAbierto(false)
+                      }}
+                    >
+                      📄 Exportar a PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportarVentasExcel(ventasFiltradas, { fechaDesde, fechaHasta, estadoPago: filtroEstadoPago })
+                        setDropdownExportVentasAbierto(false)
+                      }}
+                    >
+                      📊 Exportar a Excel
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
             {activeTab === 'oportunidades' && oportunidadesFiltradas.length > 0 && (
-              <button className="btn-secondary" onClick={() => exportarOportunidadesPDF(oportunidadesFiltradas)}>
-                📄 Exportar PDF
-              </button>
+              <>
+                <button className="btn-secondary" onClick={() => exportarOportunidadesPDF(oportunidadesFiltradas)}>
+                  📄 Exportar PDF
+                </button>
+                <button className="btn-secondary" onClick={() => exportarOportunidadesCSV(oportunidadesFiltradas)}>
+                  📑 Exportar CSV
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1351,6 +1630,30 @@ const CRMVentasPage = () => {
                   <h3>Oportunidades Activas</h3>
                   <p className="metrica-valor">{estadisticas.oportunidadesActivas}</p>
                   <p className="metrica-subtitle">En proceso</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #c4b5fd' }}>
+                <div className="metrica-icon">⚖️</div>
+                <div className="metrica-content">
+                  <h3>Pipeline ponderado</h3>
+                  <p className="metrica-valor">
+                    $
+                    {estadisticas.valorPonderadoPipeline.toLocaleString('es-AR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </p>
+                  <p className="metrica-subtitle">Activas: probabilidad × valor</p>
+                </div>
+              </div>
+              <div className="metrica-card" style={{ borderLeft: '4px solid #f43f5e' }}>
+                <div className="metrica-icon">🔔</div>
+                <div className="metrica-content">
+                  <h3>Alertas seguimiento</h3>
+                  <p className="metrica-valor">
+                    {estadisticas.oportunidadesAlertaCritica} / {estadisticas.oportunidadesConAlertaProxima}
+                  </p>
+                  <p className="metrica-subtitle">Urgentes / próximos 7 días</p>
                 </div>
               </div>
             </>
@@ -1672,20 +1975,32 @@ const CRMVentasPage = () => {
       </header>
 
       {/* Tabs */}
-      <div className="crm-tabs">
+      <div className="crm-tabs" role="tablist" aria-label="Secciones del CRM">
         <button
+          type="button"
+          role="tab"
+          id="crm-tab-oportunidades"
+          aria-selected={activeTab === 'oportunidades'}
           className={`tab-button ${activeTab === 'oportunidades' ? 'active' : ''}`}
           onClick={() => setActiveTab('oportunidades')}
         >
           📋 Oportunidades ({oportunidadesFiltradas.length})
         </button>
         <button
+          type="button"
+          role="tab"
+          id="crm-tab-ventas"
+          aria-selected={activeTab === 'ventas'}
           className={`tab-button ${activeTab === 'ventas' ? 'active' : ''}`}
           onClick={() => setActiveTab('ventas')}
         >
           💰 Ventas ({ventasFiltradas.length})
         </button>
         <button
+          type="button"
+          role="tab"
+          id="crm-tab-presupuestos"
+          aria-selected={activeTab === 'presupuestos'}
           className={`tab-button ${activeTab === 'presupuestos' ? 'active' : ''}`}
           onClick={() => setActiveTab('presupuestos')}
         >
@@ -1695,7 +2010,7 @@ const CRMVentasPage = () => {
 
       {/* Tab: Oportunidades */}
       {activeTab === 'oportunidades' && (
-        <div className="crm-section">
+        <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-oportunidades">
           {/* Filtros */}
           <div className="filtros-section">
             <div className="filtro-group">
@@ -1714,9 +2029,24 @@ const CRMVentasPage = () => {
                 <option value="Perdido">Perdido</option>
               </select>
             </div>
+            <div className="filtro-group">
+              <label>Seguimiento:</label>
+              <select
+                value={filtroAlertaSeguimiento}
+                onChange={(e) =>
+                  setFiltroAlertaSeguimiento(e.target.value as 'todas' | 'criticas' | 'con_alerta')
+                }
+                className="filtro-select"
+              >
+                <option value="todas">Todas</option>
+                <option value="criticas">Urgentes (vencida / hoy)</option>
+                <option value="con_alerta">Con alerta ≤ 7 días</option>
+              </select>
+            </div>
             <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
               <label>🔍 Buscar:</label>
               <input
+                ref={busquedaOportunidadRef}
                 type="text"
                 placeholder="Buscar por cliente, número de oportunidad, OP, empresa..."
                 value={busquedaOportunidad}
@@ -1729,19 +2059,45 @@ const CRMVentasPage = () => {
 
           {/* Lista de Oportunidades */}
           <div className="oportunidades-grid">
-            {oportunidadesFiltradas.map((oportunidad) => (
+            {oportunidadesFiltradas.map((oportunidad) => {
+              const proxFecha = fechaProximaAccionMasTemprana(oportunidad)
+              const wa = whatsappHrefDesdeTelefono(oportunidad.cliente_telefono)
+              const urg = urgenciaProximaAccion(oportunidad)
+              const urgLabel = etiquetaUrgencia(urg)
+              const ponderadoFila =
+                oportunidad.valor_estimado != null
+                  ? (oportunidad.valor_estimado * oportunidad.probabilidad_cierre) / 100
+                  : null
+              return (
               <div key={oportunidad.id} className="oportunidad-card">
                 <div className="card-header">
                   <div>
                     <h3>{oportunidad.cliente_nombre}</h3>
                     <span className="numero-oportunidad">{oportunidad.numero_oportunidad}</span>
                   </div>
-                  <span
-                    className="etapa-badge"
-                    style={{ backgroundColor: getEtapaColor(oportunidad.etapa) }}
-                  >
-                    {oportunidad.etapa}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                    {urgLabel ? (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          background:
+                            urg === 'vencida' ? '#b91c1c' : urg === 'hoy' ? '#c2410c' : '#a16207',
+                          color: 'white',
+                          fontWeight: 800
+                        }}
+                      >
+                        {urgLabel}
+                      </span>
+                    ) : null}
+                    <span
+                      className="etapa-badge"
+                      style={{ backgroundColor: getEtapaColor(oportunidad.etapa) }}
+                    >
+                      {oportunidad.etapa}
+                    </span>
+                  </div>
                 </div>
                 
                 {oportunidad.cliente_empresa && (
@@ -1753,9 +2109,18 @@ const CRMVentasPage = () => {
                 )}
                 
                 <div className="card-info">
-                  {oportunidad.valor_estimado && (
+                  {oportunidad.valor_estimado != null && oportunidad.valor_estimado > 0 && (
                     <div className="info-item">
                       <strong>Valor estimado:</strong> ${oportunidad.valor_estimado.toLocaleString()}
+                    </div>
+                  )}
+                  {ponderadoFila != null && (
+                    <div className="info-item">
+                      <strong>Valor ponderado:</strong> $
+                      {ponderadoFila.toLocaleString('es-AR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                     </div>
                   )}
                   <div className="info-item">
@@ -1766,6 +2131,11 @@ const CRMVentasPage = () => {
                       <strong>Cierre estimado:</strong> {formatArgentinaDate(oportunidad.fecha_cierre_estimada)}
                     </div>
                   )}
+                  {proxFecha ? (
+                    <div className="info-item">
+                      <strong>Próx. acción (seguimiento):</strong> {formatArgentinaDate(proxFecha)}
+                    </div>
+                  ) : null}
                   {oportunidad.numero_op && (
                     <div className="info-item">
                       <strong>OP asociada:</strong> {oportunidad.numero_op}
@@ -1778,13 +2148,26 @@ const CRMVentasPage = () => {
 
                 {oportunidad.seguimientos && oportunidad.seguimientos.length > 0 && (
                   <div className="seguimientos-section">
-                    <strong>Últimos seguimientos:</strong>
-                    {oportunidad.seguimientos.slice(0, 2).map((seg) => (
-                      <div key={seg.id} className="seguimiento-item">
-                        <span className="tipo-seguimiento">{seg.tipo_seguimiento}</span>
-                        <span className="fecha-seguimiento">
-                          {formatArgentinaDate(seg.fecha_seguimiento, 'dd/MM/yyyy HH:mm')}
-                        </span>
+                    <strong>Historial reciente:</strong>
+                    {oportunidad.seguimientos.slice(0, 5).map((seg) => (
+                      <div key={seg.id} className="seguimiento-item crm-seg-detalle">
+                        <div>
+                          <span className="tipo-seguimiento">{seg.tipo_seguimiento}</span>
+                          <span className="fecha-seguimiento" style={{ marginLeft: 8 }}>
+                            {formatArgentinaDate(seg.fecha_seguimiento, 'dd/MM/yyyy HH:mm')}
+                          </span>
+                        </div>
+                        {seg.descripcion ? (
+                          <div className="crm-seg-texto">
+                            {seg.descripcion.length > 200 ? `${seg.descripcion.slice(0, 200)}…` : seg.descripcion}
+                          </div>
+                        ) : null}
+                        {(seg.proxima_accion || seg.fecha_proxima_accion) && (
+                          <div className="crm-seg-prox">
+                            {seg.proxima_accion ? `${seg.proxima_accion} · ` : ''}
+                            {seg.fecha_proxima_accion ? formatArgentinaDate(seg.fecha_proxima_accion) : ''}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1797,12 +2180,39 @@ const CRMVentasPage = () => {
                   >
                     ✏️ Editar
                   </button>
+                  <button type="button" className="btn-action" onClick={() => handleDuplicarOportunidad(oportunidad)}>
+                    📋 Duplicar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-action"
+                    onClick={() => {
+                      setOportunidadParaPresupuesto(oportunidad)
+                      setMostrarModalPresupuesto(true)
+                    }}
+                  >
+                    📄 Presupuesto
+                  </button>
                   <button
                     className="btn-action"
                     onClick={() => handleAgregarSeguimiento(oportunidad)}
                   >
                     📝 Seguimiento
                   </button>
+                  {wa ? (
+                    <a className="btn-action" href={wa} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                      💬 WhatsApp
+                    </a>
+                  ) : null}
+                  {oportunidad.cliente_email?.trim() ? (
+                    <a
+                      className="btn-action"
+                      href={`mailto:${encodeURIComponent(oportunidad.cliente_email!.trim())}`}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      ✉️ Email
+                    </a>
+                  ) : null}
                   {oportunidad.etapa !== 'Cerrado' && oportunidad.etapa !== 'Perdido' && (
                     <button
                       className="btn-action btn-primary"
@@ -1813,7 +2223,8 @@ const CRMVentasPage = () => {
                   )}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
 
           {oportunidadesFiltradas.length === 0 && (
@@ -1826,7 +2237,7 @@ const CRMVentasPage = () => {
 
       {/* Tab: Ventas */}
       {activeTab === 'ventas' && (
-        <div className="crm-section">
+        <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-ventas">
           {/* Filtros */}
           <div className="filtros-section">
             <div className="filtros-basicos" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -1865,6 +2276,7 @@ const CRMVentasPage = () => {
               <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
                 <label>🔍 Buscar:</label>
                 <input
+                  ref={busquedaVentaRef}
                   type="text"
                   placeholder="Buscar por cliente, número de venta, OP, teléfono, email..."
                   value={busquedaVenta}
@@ -1947,7 +2359,7 @@ const CRMVentasPage = () => {
             {ventasFiltradas.map((venta) => (
               <div
                 key={venta.id}
-                className={`venta-card venta-card--compact${ventaExpandidaId === venta.id ? ' is-expanded' : ''}`}
+                className={`venta-card venta-card--compact${ventaExpandidaId === venta.id ? ' is-expanded' : ''}${dropdownDocumentosAbierto === venta.id ? ' venta-card--menu-open' : ''}`}
               >
                 <div className="card-header">
                   <div>
@@ -2103,14 +2515,8 @@ const CRMVentasPage = () => {
                     </button>
                     {dropdownDocumentosAbierto === venta.id && (
                       <div 
-                        className="export-menu export-menu-visible"
+                        className="export-menu export-menu-visible export-menu--anchored-up"
                         onClick={(e) => e.stopPropagation()}
-                        style={{
-                          position: 'absolute',
-                          top: 'calc(100% + 8px)',
-                          right: 0,
-                          left: 'auto'
-                        }}
                       >
                         <div className="export-menu-header">Documentos</div>
                         <button 
@@ -2165,7 +2571,7 @@ const CRMVentasPage = () => {
 
       {/* Tab: Presupuestos */}
       {activeTab === 'presupuestos' && (
-        <div className="crm-section">
+        <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-presupuestos">
           {/* Filtros */}
           <div className="filtros-section">
             <div className="filtro-group">
@@ -2205,6 +2611,7 @@ const CRMVentasPage = () => {
             <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
               <label>🔍 Buscar:</label>
               <input
+                ref={busquedaPresupuestoRef}
                 type="text"
                 placeholder="Buscar por número, cliente, empresa, email..."
                 value={busquedaPresupuesto}
@@ -2352,7 +2759,13 @@ const CRMVentasPage = () => {
                       setBusquedaCliente(e.target.value)
                       setFormOportunidad({ ...formOportunidad, cliente_nombre: e.target.value })
                     }}
-                    placeholder="Buscar cliente por nombre, DNI, teléfono..."
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return
+                      if (clientesEncontrados.length === 0) return
+                      e.preventDefault()
+                      seleccionarCliente(clientesEncontrados[0])
+                    }}
+                    placeholder="Buscar cliente: nombre, DNI, tel. (Enter = 1.º · 4+ letras y 1 solo match = autoselección)"
                     style={{ paddingRight: buscandoClientes ? '35px' : '12px' }}
                   />
                   {buscandoClientes && (
@@ -3005,13 +3418,19 @@ const CRMVentasPage = () => {
       {/* Modal Crear Presupuesto */}
       {mostrarModalPresupuesto && usuario && (
         <CrearPresupuestoModal
-          onClose={() => setMostrarModalPresupuesto(false)}
+          key={oportunidadParaPresupuesto ? `opp-${oportunidadParaPresupuesto.id}` : 'presupuesto-nuevo'}
+          onClose={() => {
+            setMostrarModalPresupuesto(false)
+            setOportunidadParaPresupuesto(null)
+          }}
           onSuccess={() => {
             setMostrarModalPresupuesto(false)
+            setOportunidadParaPresupuesto(null)
             loadData()
           }}
           usuarioId={usuario.id}
           usuarioNombre={usuario.nombre}
+          prefillDesdeOportunidad={oportunidadParaPresupuesto}
         />
       )}
     </div>

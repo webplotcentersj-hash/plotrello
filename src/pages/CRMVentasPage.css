@@ -4,6 +4,40 @@
   padding: 32px;
 }
 
+.crm-refresh-banner {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  margin: -32px -32px 24px -32px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: rgba(59, 130, 246, 0.22);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+  color: #e2e8f0;
+}
+
+.oportunidad-card .crm-seg-detalle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 0;
+}
+
+.oportunidad-card .crm-seg-texto {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.45;
+}
+
+.oportunidad-card .crm-seg-prox {
+  font-size: 0.78rem;
+  color: #a5b4fc;
+}
+
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -399,6 +433,16 @@
   border-color: rgba(59, 130, 246, 0.5);
 }
 
+/* Ficha con menú Documentos abierto: por encima del resto del grid (evita solapamiento visual) */
+.venta-card--menu-open {
+  z-index: 40000;
+  isolation: isolate;
+}
+
+.venta-card--menu-open:hover {
+  transform: none;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -642,6 +686,34 @@
 
 .export-menu-visible {
   display: block !important;
+}
+
+/* Encabezado CRM: exportar ventas debajo del botón */
+.export-menu--below-trigger {
+  top: calc(100% + 8px);
+  bottom: auto;
+  right: 0;
+  left: auto;
+}
+
+/* Menú de documentos en fichas de venta: se abre hacia arriba para no tapar las cards de abajo */
+.export-menu--anchored-up {
+  top: auto;
+  bottom: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  animation: slideUpMenu 0.2s ease-out;
+}
+
+@keyframes slideUpMenu {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideDown {

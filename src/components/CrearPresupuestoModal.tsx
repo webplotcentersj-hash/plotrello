@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import apiService from '../services/api'
-import type { ClienteRecord, PresupuestoVentaRecord } from '../types/api'
+import type { ClienteRecord, PresupuestoVentaRecord, OportunidadVenta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import './VentaRapidaModal.css'
 
@@ -9,6 +9,8 @@ interface CrearPresupuestoModalProps {
   onSuccess: () => void
   usuarioId: number
   usuarioNombre: string
+  /** Pre-llenar datos de cliente y notas desde una oportunidad del CRM */
+  prefillDesdeOportunidad?: OportunidadVenta | null
 }
 
 interface ItemPresupuesto {
@@ -22,7 +24,13 @@ interface ItemPresupuesto {
   observaciones?: string
 }
 
-const CrearPresupuestoModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }: CrearPresupuestoModalProps) => {
+const CrearPresupuestoModal = ({
+  onClose,
+  onSuccess,
+  usuarioId,
+  usuarioNombre,
+  prefillDesdeOportunidad
+}: CrearPresupuestoModalProps) => {
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -49,6 +57,27 @@ const CrearPresupuestoModal = ({ onClose, onSuccess, usuarioId, usuarioNombre }:
 
   const [guardando, setGuardando] = useState(false)
   const [presupuestoCreado, setPresupuestoCreado] = useState<PresupuestoVentaRecord | null>(null)
+
+  useEffect(() => {
+    if (!prefillDesdeOportunidad) return
+    const o = prefillDesdeOportunidad
+    setBusquedaCliente(o.cliente_nombre)
+    setCrearNuevoCliente(true)
+    setClienteSeleccionado(null)
+    setNuevoCliente({
+      nombre: o.cliente_nombre,
+      dni_cuit: o.cliente_dni_cuit || '',
+      telefono: o.cliente_telefono || '',
+      email: o.cliente_email || '',
+      empresa: o.cliente_empresa || '',
+      direccion: o.cliente_direccion || ''
+    })
+    const int = [o.descripcion, o.observaciones && `Obs. CRM: ${o.observaciones}`].filter(Boolean).join('\n\n')
+    setObservacionesInternas(`Oportunidad CRM ${o.numero_oportunidad}${int ? `\n\n${int}` : ''}`.trim())
+    if (o.descripcion?.trim()) {
+      setObservacionesCliente(`Alcance / referencia: ${o.descripcion.slice(0, 800)}${o.descripcion.length > 800 ? '…' : ''}`)
+    }
+  }, [prefillDesdeOportunidad])
 
   // Buscar clientes (desde 1 letra)
   useEffect(() => {

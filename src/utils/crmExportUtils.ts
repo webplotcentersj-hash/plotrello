@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
 import type { Venta, OportunidadVenta } from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
+import { valorPonderadoPipeline } from './crmVentasHelpers'
 
 /**
  * Exporta ventas a PDF
@@ -269,6 +270,13 @@ export function exportarOportunidadesPDF(oportunidades: OportunidadVenta[]): voi
   doc.text(`Generado el ${fechaGeneracion}`, margin, yPos)
   yPos += lineHeight
   doc.text(`Total de oportunidades: ${oportunidades.length}`, margin, yPos)
+  yPos += lineHeight
+  const ponderado = valorPonderadoPipeline(oportunidades)
+  doc.text(
+    `Valor ponderado (pipeline activo): $${ponderado.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    margin,
+    yPos
+  )
   yPos += lineHeight * 2
 
   // Resumen por etapa
@@ -361,6 +369,62 @@ export function exportarOportunidadesPDF(oportunidades: OportunidadVenta[]): voi
 
   const fechaArchivo = new Date().toISOString().split('T')[0]
   doc.save(`reporte-oportunidades-${fechaArchivo}.pdf`)
+}
+
+/**
+ * Exporta oportunidades a CSV (UTF-8 con BOM, separador ; para Excel en es-AR).
+ */
+export function exportarOportunidadesCSV(oportunidades: OportunidadVenta[]): void {
+  const headers = [
+    'numero_oportunidad',
+    'cliente_nombre',
+    'cliente_empresa',
+    'etapa',
+    'valor_estimado',
+    'probabilidad_cierre',
+    'valor_ponderado',
+    'fecha_cierre_estimada',
+    'numero_op',
+    'vendedor',
+    'descripcion',
+    'observaciones',
+    'created_at'
+  ]
+
+  const esc = (v: unknown) => {
+    const s = v == null ? '' : String(v)
+    return `"${s.replace(/"/g, '""')}"`
+  }
+
+  const rows = oportunidades.map((o) => {
+    const prob = (o.probabilidad_cierre ?? 0) / 100
+    const ponderado = (o.valor_estimado ?? 0) * prob
+    return [
+      o.numero_oportunidad,
+      o.cliente_nombre,
+      o.cliente_empresa ?? '',
+      o.etapa,
+      o.valor_estimado ?? '',
+      o.probabilidad_cierre,
+      Math.round(ponderado * 100) / 100,
+      o.fecha_cierre_estimada ?? '',
+      o.numero_op ?? '',
+      o.nombre_vendedor,
+      (o.descripcion ?? '').replace(/\r?\n/g, ' '),
+      (o.observaciones ?? '').replace(/\r?\n/g, ' '),
+      o.created_at ?? ''
+    ]
+  })
+
+  const line = (cells: (string | number)[]) => cells.map(esc).join(';')
+  const csv = [line(headers), ...rows.map(line)].join('\r\n')
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `oportunidades-crm-${new Date().toISOString().split('T')[0]}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /**
