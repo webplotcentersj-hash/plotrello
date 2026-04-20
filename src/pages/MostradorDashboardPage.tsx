@@ -303,11 +303,7 @@ const MostradorDashboardPage = () => {
           .map(normalizarVentaDashboard)
           .filter((v): v is Venta => v != null)
 
-        const delDia = ventasLista.filter((v) => {
-          const key = diaCalendarioArgentinaDeFechaVenta(v.fecha_venta)
-          return key === hoyStr
-        })
-        const ventasOrdenadas = [...delDia].sort((a, b) => {
+        const ventasOrdenadasTodas = [...ventasLista].sort((a, b) => {
           const ta = Date.parse(String(a.fecha_venta))
           const tb = Date.parse(String(b.fecha_venta))
           const sa = Number.isFinite(ta) ? ta : 0
@@ -315,7 +311,22 @@ const MostradorDashboardPage = () => {
           if (sb !== sa) return sb - sa
           return (Number(b.id) || 0) - (Number(a.id) || 0)
         })
-        setVentasRecientes(ventasOrdenadas.slice(0, 5))
+
+        const delDia = ventasLista.filter((v) => {
+          const key = diaCalendarioArgentinaDeFechaVenta(v.fecha_venta)
+          return key === hoyStr
+        })
+        const ventasOrdenadasHoy = [...delDia].sort((a, b) => {
+          const ta = Date.parse(String(a.fecha_venta))
+          const tb = Date.parse(String(b.fecha_venta))
+          const sa = Number.isFinite(ta) ? ta : 0
+          const sb = Number.isFinite(tb) ? tb : 0
+          if (sb !== sa) return sb - sa
+          return (Number(b.id) || 0) - (Number(a.id) || 0)
+        })
+
+        // Si hoy no hay ventas, mostrar las últimas 5 recientes igual (para que "Ventas" no quede vacío).
+        setVentasRecientes((ventasOrdenadasHoy.length > 0 ? ventasOrdenadasHoy : ventasOrdenadasTodas).slice(0, 5))
 
         const totalHoy = delDia.length
         const ingresosHoy = delDia.reduce((sum, v) => sum + (Number(v.valor_total) || 0), 0)
