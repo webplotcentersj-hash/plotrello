@@ -89,6 +89,11 @@ import type {
 } from '../types/pedidos'
 import type { ConciliacionMpAiRun, ConciliacionMpSession } from '../types/conciliacionMp'
 import { supabase, stockSupabase } from './supabaseClient'
+import {
+  TALLER_GRAFICO_PEDIDO_ENTREGA_CHANNEL,
+  TALLER_GRAFICO_PEDIDO_ENTREGA_EVENT,
+  type TallerGraficoPedidoEntregaInput
+} from '../constants/tallerGraficoPedidoEntrega'
 
 /** Anexa `orden_lineas_m2` a cada orden (si la tabla existe en Supabase). */
 async function attachLineasM2ToOrdenes(ordenes: any[]): Promise<void> {
@@ -2281,6 +2286,75 @@ class ApiService {
     }
 
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Aviso inmediato a Taller Gráfico (Supabase Realtime Broadcast).
+   * Desde la pantalla de entrega: operarios con rol taller-grafico suscritos al canal muestran modal y alerta sonora.
+   */
+  async broadcastPedidoTallerGraficoDesdeEntrega(
+    input: TallerGraficoPedidoEntregaInput
+  ): Promise<ApiResponse<void>> {
+    const sb = supabase
+    if (!sb) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    const payload = {
+      ...input,
+      sentAt: new Date().toISOString(),
+      nonce:
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`
+    }
+
+    return await new Promise((resolve) => {
+      let settled = false
+      const ch = sb.channel(TALLER_GRAFICO_PEDIDO_ENTREGA_CHANNEL, {
+        config: { broadcast: { ack: false } }
+      })
+
+      const done = async (out: ApiResponse<void>) => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timeoutId)
+        try {
+          await sb.removeChannel(ch)
+        } catch {
+          /* ignore */
+        }
+        resolve(out)
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        void done({ success: false, error: 'Tiempo de espera al enviar el aviso a Taller Gráfico. Reintentá.' })
+      }, 12000)
+
+      ch.subscribe((status) => {
+        if (settled) return
+        if (status === 'SUBSCRIBED') {
+          void ch
+            .send({
+              type: 'broadcast',
+              event: TALLER_GRAFICO_PEDIDO_ENTREGA_EVENT,
+              payload
+            })
+            .then((sendResult) => {
+              if (sendResult === 'ok') void done({ success: true })
+              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+            })
+            .catch((e: unknown) => {
+              void done({
+                success: false,
+                error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
+              })
+            })
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          void done({ success: false, error: `Canal Realtime: ${status}` })
+        }
+      })
+    })
   }
 
   // ===== SUBTAREAS / CHECKLIST =====

@@ -17,6 +17,8 @@ export default function TabletFirmaPage() {
   const [firmaGuardadaOk, setFirmaGuardadaOk] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [pedidoTgLoading, setPedidoTgLoading] = useState(false)
+  const [pedidoTgMsg, setPedidoTgMsg] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -202,6 +204,42 @@ export default function TabletFirmaPage() {
     }
   }
 
+  const handlePedirTallerGrafico = async () => {
+    if (!orden) return
+    let nombre = 'Tablet'
+    let rol: string | undefined
+    try {
+      const raw = localStorage.getItem('usuario')
+      if (raw) {
+        const u = JSON.parse(raw) as { nombre?: string; rol?: string }
+        if (u.nombre) nombre = u.nombre
+        if (u.rol) rol = u.rol
+      }
+    } catch {
+      /* ignore */
+    }
+    setPedidoTgLoading(true)
+    setPedidoTgMsg(null)
+    try {
+      const res = await apiService.broadcastPedidoTallerGraficoDesdeEntrega({
+        idOrden: orden.id!,
+        numeroOp: String(orden.numero_op ?? '').trim(),
+        cliente: String(orden.cliente ?? '').trim(),
+        solicitanteNombre: nombre,
+        solicitanteRol: rol
+      })
+      if (!res.success) setPedidoTgMsg(res.error || 'No se pudo enviar el aviso.')
+      else {
+        setPedidoTgMsg('Aviso enviado a Taller Gráfico.')
+        window.setTimeout(() => setPedidoTgMsg(null), 5000)
+      }
+    } catch {
+      setPedidoTgMsg('Error de red.')
+    } finally {
+      setPedidoTgLoading(false)
+    }
+  }
+
   const handleProcesarEntrega = async () => {
     if (!orden) return
 
@@ -309,18 +347,33 @@ export default function TabletFirmaPage() {
             <h1>OP #{orden.numero_op}</h1>
             <p className="firma-cliente">{orden.cliente}</p>
           </div>
-          <button
-            className="btn-secondary"
-            onClick={() => navigate('/')}
-            disabled={saving}
-          >
-            ← Volver
-          </button>
+          <div className="firma-header-actions">
+            <button
+              type="button"
+              className="btn-taller-grafico-request"
+              onClick={() => void handlePedirTallerGrafico()}
+              disabled={pedidoTgLoading || !orden.id}
+            >
+              {pedidoTgLoading ? '⏳…' : '🖨️ Pedir a Taller Gráfico'}
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => navigate('/')}
+              disabled={saving}
+            >
+              ← Volver
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Contenido principal */}
       <div className="firma-content">
+        {pedidoTgMsg && (
+          <div style={{ margin: '0 auto 12px', maxWidth: 900, padding: '10px 16px', borderRadius: 10, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.4)', fontWeight: 600 }}>
+            {pedidoTgMsg}
+          </div>
+        )}
         {/* Información rápida */}
         <div className="info-badge">
           <span>📋 {orden.numero_op}</span>

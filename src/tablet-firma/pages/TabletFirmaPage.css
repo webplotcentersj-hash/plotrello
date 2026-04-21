@@ -59,8 +59,40 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+.firma-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.tablet-firma-page .btn-taller-grafico-request {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 50%, #22d3ee 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.45);
+}
+
+.tablet-firma-page .btn-taller-grafico-request:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.tablet-firma-page .btn-taller-grafico-request:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .firma-header h1 {

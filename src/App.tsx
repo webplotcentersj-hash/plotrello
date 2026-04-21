@@ -125,6 +125,7 @@ import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import SolicitudesPermisosFloatingButton from './components/SolicitudesPermisosFloatingButton'
+import TallerGraficoPedidoEntregaOverlay from './components/TallerGraficoPedidoEntregaOverlay'
 import { useAuth } from './hooks/useAuth'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
 import type {
@@ -745,6 +746,7 @@ function AppRoutes({
 
   return (
     <>
+      <TallerGraficoPedidoEntregaOverlay />
       {!hideCampoFloaters && (
         <>
           {/* Botón flotante para acceder a impresoras */}

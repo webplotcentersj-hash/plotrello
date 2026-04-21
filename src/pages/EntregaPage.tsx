@@ -34,6 +34,8 @@ const EntregaPage = () => {
   const [errors, setErrors] = useState<{ entregadoA?: string; firma?: string }>({})
   const [success, setSuccess] = useState(false)
   const [firmaCargadaDesdeTablet, setFirmaCargadaDesdeTablet] = useState(false)
+  const [pedidoTgLoading, setPedidoTgLoading] = useState(false)
+  const [pedidoTgMsg, setPedidoTgMsg] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const comprobanteRef = useRef<HTMLDivElement>(null)
 
@@ -229,6 +231,31 @@ const EntregaPage = () => {
     }
   }, [loading, orden])
 
+  const handlePedirTallerGrafico = async () => {
+    if (!orden || !usuario) return
+    setPedidoTgLoading(true)
+    setPedidoTgMsg(null)
+    try {
+      const res = await apiService.broadcastPedidoTallerGraficoDesdeEntrega({
+        idOrden: orden.id!,
+        numeroOp: String(orden.numero_op ?? '').trim(),
+        cliente: String(orden.cliente ?? '').trim(),
+        solicitanteNombre: usuario.nombre,
+        solicitanteRol: usuario.rol
+      })
+      if (!res.success) {
+        setPedidoTgMsg(res.error || 'No se pudo enviar el aviso.')
+      } else {
+        setPedidoTgMsg('Aviso enviado: en Taller Gráfico se abre el aviso con sonido y luces.')
+        window.setTimeout(() => setPedidoTgMsg(null), 6000)
+      }
+    } catch {
+      setPedidoTgMsg('Error de red al enviar el aviso.')
+    } finally {
+      setPedidoTgLoading(false)
+    }
+  }
+
   const limpiarFirma = () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -390,6 +417,15 @@ const EntregaPage = () => {
             <p className="subtitle">{orden.cliente}</p>
           </div>
           <div className="header-actions">
+            <button
+              type="button"
+              className="btn-taller-grafico-request"
+              onClick={() => void handlePedirTallerGrafico()}
+              disabled={pedidoTgLoading || !orden.id}
+              title="Aviso inmediato al sector Taller Gráfico (modal en pantalla y sonido)"
+            >
+              {pedidoTgLoading ? '⏳ Enviando…' : '🖨️ Pedir a Taller Gráfico'}
+            </button>
             <a
               href={`/firma-cliente/${encodeURIComponent(orden.numero_op)}`}
               target="_blank"
@@ -410,6 +446,11 @@ const EntregaPage = () => {
       </header>
 
       <div className="entrega-content">
+        {pedidoTgMsg && (
+          <div className={`entrega-tg-feedback${pedidoTgMsg.includes('Error') || pedidoTgMsg.includes('No se') ? ' entrega-tg-feedback--error' : ''}`}>
+            {pedidoTgMsg}
+          </div>
+        )}
         {firmaCargadaDesdeTablet && (
           <div className="firma-tablet-banner">
             ✍️ La firma del cliente ya está cargada. Revisá los datos y confirmá la entrega.
