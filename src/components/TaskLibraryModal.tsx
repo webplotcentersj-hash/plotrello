@@ -199,15 +199,6 @@ const TaskLibraryModal = ({
         if (!Number.isNaN(hasta.getTime()) && taskDate > hasta) matchesFecha = false
       }
 
-      const isCompleted = task.status === 'almacen-entrega' || task.status === 'finalizado-taller'
-      // OP ya entregada/archivada: siempre listar en biblioteca (proceso de entrega / historial).
-      if (!incluirCompletadas && isCompleted && !task.entregado) {
-        const taskDate = new Date(task.updatedAt)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        if (taskDate < thirtyDaysAgo) return false
-      }
-
       return (
         matchesSearch &&
         matchesSector &&
@@ -259,19 +250,6 @@ const TaskLibraryModal = ({
       if (fechaHasta) {
         const hasta = endOfLocalDayYmd(fechaHasta)
         if (!Number.isNaN(hasta.getTime()) && rowDate > hasta) matchesFecha = false
-      }
-
-      const isCompleted = task.status === 'almacen-entrega' || task.status === 'finalizado-taller'
-      if (
-        !incluirCompletadas &&
-        isCompleted &&
-        !task.entregado &&
-        !task.ordenEliminada
-      ) {
-        const u = new Date(task.updatedAt)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        if (u < thirtyDaysAgo) return false
       }
 
       return (
