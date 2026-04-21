@@ -1,11 +1,13 @@
 import { memo, useState, useEffect, useMemo, useRef, type CSSProperties, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { Draggable } from '@hello-pangea/dnd'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import clsx from 'clsx'
 import type { ActivityEvent, Task, TaskStatus, TeamMember, ColumnConfig } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import apiService from '../services/api'
+import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import { useAuth } from '../hooks/useAuth'
 import { useTagColors } from '../hooks/useTagColors'
 import QRPrintView from './QRPrintView'
@@ -200,6 +202,7 @@ const TaskCardInner = ({
     window.addEventListener('board-dragging-changed', fn)
     return () => window.removeEventListener('board-dragging-changed', fn)
   }, [])
+  const navigate = useNavigate()
   const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
   const moveBlocked = Boolean(task.opBloqueada) && !isAdmin
   const etiquetaOrden = task.esFichaNoOP ? 'Ficha' : 'OP'
@@ -1079,8 +1082,8 @@ const TaskCardInner = ({
                 <strong className="people-name">{workerDisplay}</strong>
               </div>
             </div>
-            {/* Checkbox Entregado cuando está en Almacén de Entrega */}
-            {task.status === 'almacen-entrega' && onMarkDelivered && (
+            {/* Desde Almacén de Entrega: ir a procesar entrega (firma + confirmación); desmarcar = desarchivar */}
+            {task.status === 'almacen-entrega' && onMarkDelivered && !isReadOnly && (
               <div className="task-delivered-checkbox">
                 <label className="delivered-label" onClick={(e) => e.stopPropagation()}>
                   <input
@@ -1096,19 +1099,35 @@ const TaskCardInner = ({
                       }
                       
                       const nuevoValor = e.target.checked
+
+                      // Marcar como entregado → pantalla Procesar entrega (firma, PDF, etc.)
+                      if (nuevoValor) {
+                        const ordenId = parseTaskIdToOrdenId(task.id)
+                        if (!ordenId) {
+                          console.error('No se pudo obtener id de orden para procesar entrega:', task.id)
+                          return
+                        }
+                        navigate(`/mostrador/entrega/${ordenId}`)
+                        return
+                      }
+
                       setMarcandoEntregado(true)
-                      
                       try {
                         await onMarkDelivered(task.id, nuevoValor)
                       } catch (error) {
                         console.error('Error marcando como entregado:', error)
-                        // El estado se revertirá automáticamente si falla la actualización
                       } finally {
                         setMarcandoEntregado(false)
                       }
                     }}
                   />
-                  <span>{marcandoEntregado ? '⏳ Guardando...' : '✓ Entregado (Archivar)'}</span>
+                  <span>
+                    {marcandoEntregado
+                      ? '⏳ Guardando...'
+                      : task.entregado
+                        ? '✓ Entregado (desmarcar para desarchivar)'
+                        : '📋 Procesar entrega'}
+                  </span>
                 </label>
               </div>
             )}
