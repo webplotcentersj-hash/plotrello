@@ -1699,6 +1699,7 @@ class ApiService {
    * Biblioteca / administración: vuelve a mostrar la OP en el tablero general.
    * - Si estaba oculta (visible_en_tablero=false): la vuelve visible.
    * - Si estaba eliminada lógicamente: la desmarca y limpia motivo/fecha (sin pasar por updateOrden, que bloquea edits sobre eliminada=true).
+   * - Si estaba entregada/archivada: desmarca entregado y limpia fecha_entrega_efectiva para que vuelva al tablero.
    */
   async restartOrdenParaTablero(id: number): Promise<ApiResponse<OrdenTrabajo>> {
     if (!supabase) {
@@ -1709,24 +1710,35 @@ class ApiService {
         visible_en_tablero: true,
         eliminada: false,
         motivo_eliminacion: null,
-        fecha_eliminacion: null
+        fecha_eliminacion: null,
+        entregado: false,
+        fecha_entrega_efectiva: null
       }
       return { success: true, data: fallbackOrdenes[index] }
     }
 
     try {
-      const r0 = await supabase.from('ordenes_trabajo').select('id, eliminada').eq('id', id).maybeSingle()
+      const r0 = await supabase
+        .from('ordenes_trabajo')
+        .select('id, eliminada, entregado')
+        .eq('id', id)
+        .maybeSingle()
       if (r0.error) return { success: false, error: r0.error.message }
       if (!r0.data || !(r0.data as { id?: number }).id) {
         return { success: false, error: 'Orden no encontrada.' }
       }
 
+      const row = r0.data as { eliminada?: boolean | null; entregado?: boolean | null }
       const patch: Record<string, unknown> = { visible_en_tablero: true }
-      const eliminada = (r0.data as { eliminada?: boolean | null }).eliminada === true
+      const eliminada = row.eliminada === true
       if (eliminada) {
         patch.eliminada = false
         patch.motivo_eliminacion = null
         patch.fecha_eliminacion = null
+      }
+      if (row.entregado === true) {
+        patch.entregado = false
+        patch.fecha_entrega_efectiva = null
       }
 
       const { data, error } = await supabase.from('ordenes_trabajo').update(patch).eq('id', id).select('*').maybeSingle()
@@ -1739,13 +1751,32 @@ class ApiService {
             .update({
               visible_en_tablero: true,
               eliminada: false,
-              motivo_eliminacion: null
+              motivo_eliminacion: null,
+              ...(row.entregado === true
+                ? { entregado: false, fecha_entrega_efectiva: null }
+                : {})
             })
             .eq('id', id)
             .select('*')
             .maybeSingle()
           if (err2) return { success: false, error: err2.message }
           return { success: true, data: data2 as OrdenTrabajo }
+        }
+        if (row.entregado === true && msg.includes('fecha_entrega_efectiva')) {
+          const { data: data3, error: err3 } = await supabase
+            .from('ordenes_trabajo')
+            .update({
+              visible_en_tablero: true,
+              entregado: false,
+              ...(eliminada
+                ? { eliminada: false, motivo_eliminacion: null, fecha_eliminacion: null }
+                : {})
+            })
+            .eq('id', id)
+            .select('*')
+            .maybeSingle()
+          if (err3) return { success: false, error: err3.message }
+          return { success: true, data: data3 as OrdenTrabajo }
         }
         return { success: false, error: msg || 'No se pudo restaurar la OP.' }
       }

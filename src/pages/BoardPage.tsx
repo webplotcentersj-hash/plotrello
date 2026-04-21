@@ -792,6 +792,11 @@ const BoardPage = ({
           'Esta OP está marcada como eliminada. ¿Restaurarla en el tablero? Se quitará el estado eliminado y volverá a ser visible.'
         )
         if (!ok) return
+      } else if (task.entregado) {
+        const ok = window.confirm(
+          'Esta OP figura como entregada/archivada. ¿Volver a abrirla en el tablero general? Se desmarcará como entregada.'
+        )
+        if (!ok) return
       }
 
       const response = await apiService.restartOrdenParaTablero(ordenId)
@@ -818,8 +823,10 @@ const BoardPage = ({
 
       setActionSuccess(
         task.ordenEliminada
-          ? 'OP restaurada: volverá a figurar en el tablero general (si no está entregada).'
-          : 'La ficha volvió a estar visible en el tablero.'
+          ? 'OP restaurada: volverá a figurar en el tablero general.'
+          : task.entregado
+            ? 'OP desarchivada: vuelve al tablero general.'
+            : 'La ficha volvió a estar visible en el tablero.'
       )
 
       if (onReloadData) {

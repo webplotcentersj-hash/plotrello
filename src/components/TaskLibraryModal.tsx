@@ -934,7 +934,9 @@ const TaskLibraryModal = ({
         onRequestEdit={(t) => requestEditFromLibrary(t)}
         onRestartEnTablero={
           onRestartOrdenEnTablero &&
-          (libraryDetailTask.visibleEnTablero === false || libraryDetailTask.ordenEliminada)
+          (libraryDetailTask.visibleEnTablero === false ||
+            libraryDetailTask.ordenEliminada ||
+            libraryDetailTask.entregado === true)
             ? () => handleRestartFromLibrary(libraryDetailTask)
             : undefined
         }

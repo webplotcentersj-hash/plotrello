@@ -338,7 +338,7 @@ export default function TaskViewModal({
                     void Promise.resolve(onRestartEnTablero()).finally(() => setRestartBusy(false))
                   }}
                   aria-label="Restart — volver a mostrar en tablero"
-                  title="Marca la ficha como visible en el tablero general"
+                  title="Vuelve a mostrar la ficha en el tablero (visible, no eliminada, no entregada/archivada)"
                 >
                   {restartBusy ? '…' : 'Restart'}
                 </button>

@@ -62,6 +62,8 @@ export interface OrdenTrabajo {
   id_orden_original?: number | null // ID de la ficha original (si es duplicada)
   ubicacion_final?: string | null // Sector físico previo al pasar a Finalizado en Taller
   entregado?: boolean | null // Indica si la ficha fue entregada y está archivada
+  /** Fecha/hora en que se marcó entregada (firma / cierre de entrega) */
+  fecha_entrega_efectiva?: string | null
   etiquetas?: string[] | null // Etiquetas de colores
   metros_cuadrados?: number | null // Metros cuadrados para impresión (especialmente en Taller Gráfico)
   /** Tipo o familia de impresión en la OP (texto libre) */
