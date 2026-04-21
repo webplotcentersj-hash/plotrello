@@ -3,6 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PruebaPreguntaInput, PruebaPreguntaTipo, UsuarioRecord } from '../types/api'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts'
 import './RecursosHumanosPruebasPage.css'
 
 type PruebaRow = {
@@ -99,6 +112,16 @@ function fmtFecha(iso?: string | null): string {
   } catch {
     return iso
   }
+}
+
+function fmtPct(n?: number | null): string {
+  if (n == null || !Number.isFinite(n)) return '—'
+  return `${Math.round(n)}%`
+}
+
+function fmtDec(n?: number | null, decimals = 1): string {
+  if (n == null || !Number.isFinite(n)) return '—'
+  return n.toFixed(decimals)
 }
 
 function DarkSelect<T extends string>({
@@ -236,6 +259,67 @@ const RecursosHumanosPruebasPage = () => {
   const [calificarDraft, setCalificarDraft] = useState<Record<string, string>>({})
 
   const bloquearEdicionPreguntas = editAsignacionesCount > 0
+
+  const statsGlobales = useMemo(() => {
+    const pruebas = lista.length
+    const asignados = lista.reduce((acc, p) => acc + Number(p.asignados ?? 0), 0)
+    const finalizados = lista.reduce((acc, p) => acc + Number(p.finalizados ?? 0), 0)
+    const pendientes = Math.max(0, asignados - finalizados)
+    const completionPct = asignados > 0 ? (finalizados / asignados) * 100 : null
+
+    const avgPuntaje = (() => {
+      let sum = 0
+      let w = 0
+      for (const p of lista) {
+        if (p.promedio_puntaje == null) continue
+        const weight = Number(p.finalizados ?? 0) || 0
+        if (weight <= 0) continue
+        sum += Number(p.promedio_puntaje) * weight
+        w += weight
+      }
+      return w > 0 ? sum / w : null
+    })()
+
+    const avgAprobacionPct = (() => {
+      let sum = 0
+      let w = 0
+      for (const p of lista) {
+        if (p.tasa_aprobacion_pct == null) continue
+        const weight = Number(p.finalizados ?? 0) || 0
+        if (weight <= 0) continue
+        sum += Number(p.tasa_aprobacion_pct) * weight
+        w += weight
+      }
+      return w > 0 ? sum / w : null
+    })()
+
+    const topFinalizados = [...lista]
+      .sort((a, b) => Number(b.finalizados ?? 0) - Number(a.finalizados ?? 0))
+      .slice(0, 8)
+      .map((p) => ({
+        titulo: p.titulo.length > 26 ? `${p.titulo.slice(0, 26)}…` : p.titulo,
+        finalizados: Number(p.finalizados ?? 0),
+        pendientes: Math.max(0, Number(p.asignados ?? 0) - Number(p.finalizados ?? 0))
+      }))
+
+    return {
+      pruebas,
+      asignados,
+      finalizados,
+      pendientes,
+      completionPct,
+      avgPuntaje,
+      avgAprobacionPct,
+      topFinalizados
+    }
+  }, [lista])
+
+  const pieCompletitud = useMemo(() => {
+    return [
+      { name: 'Finalizados', value: statsGlobales.finalizados },
+      { name: 'Pendientes', value: statsGlobales.pendientes }
+    ].filter((x) => x.value > 0)
+  }, [statsGlobales.finalizados, statsGlobales.pendientes])
 
   const asignacionesModalFiltradas = useMemo(() => {
     const list = resultadoData?.asignaciones ?? []
@@ -901,6 +985,93 @@ const RecursosHumanosPruebasPage = () => {
 
       <section className="rrhh-pruebas-card">
         <h2>Pruebas y estadísticas</h2>
+
+        <div className="rrhh-pruebas-stats-grid">
+          <div className="rrhh-pruebas-kpi">
+            <span className="rrhh-pruebas-kpi-label">Pruebas</span>
+            <span className="rrhh-pruebas-kpi-value">{statsGlobales.pruebas}</span>
+          </div>
+          <div className="rrhh-pruebas-kpi">
+            <span className="rrhh-pruebas-kpi-label">Asignaciones</span>
+            <span className="rrhh-pruebas-kpi-value">{statsGlobales.asignados}</span>
+          </div>
+          <div className="rrhh-pruebas-kpi">
+            <span className="rrhh-pruebas-kpi-label">Finalizados</span>
+            <span className="rrhh-pruebas-kpi-value">{statsGlobales.finalizados}</span>
+          </div>
+          <div className="rrhh-pruebas-kpi">
+            <span className="rrhh-pruebas-kpi-label">Completitud</span>
+            <span className="rrhh-pruebas-kpi-value">{fmtPct(statsGlobales.completionPct)}</span>
+          </div>
+          <div className="rrhh-pruebas-kpi">
+            <span className="rrhh-pruebas-kpi-label">Prom. puntaje</span>
+            <span className="rrhh-pruebas-kpi-value">{fmtDec(statsGlobales.avgPuntaje)}</span>
+          </div>
+          <div className="rrhh-pruebas-kpi">
+            <span className="rrhh-pruebas-kpi-label">Prom. aprueba</span>
+            <span className="rrhh-pruebas-kpi-value">{fmtPct(statsGlobales.avgAprobacionPct)}</span>
+          </div>
+        </div>
+
+        <div className="rrhh-pruebas-charts-grid">
+          <div className="rrhh-pruebas-chart">
+            <div className="rrhh-pruebas-chart-head">
+              <h3>Completitud global</h3>
+              <span className="rrhh-pruebas-chart-sub">
+                Finalizados vs pendientes (sobre asignaciones)
+              </span>
+            </div>
+            <div className="rrhh-pruebas-chart-box">
+              {pieCompletitud.length === 0 ? (
+                <p className="rrhh-pruebas-chart-empty">Sin datos para graficar.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={pieCompletitud}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={62}
+                      outerRadius={92}
+                      paddingAngle={2}
+                    >
+                      {pieCompletitud.map((_, idx) => (
+                        <Cell key={idx} fill={idx === 0 ? '#22c55e' : '#f59e0b'} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="rrhh-pruebas-chart">
+            <div className="rrhh-pruebas-chart-head">
+              <h3>Top pruebas por finalizados</h3>
+              <span className="rrhh-pruebas-chart-sub">Incluye pendientes como barra apilada</span>
+            </div>
+            <div className="rrhh-pruebas-chart-box">
+              {statsGlobales.topFinalizados.length === 0 ? (
+                <p className="rrhh-pruebas-chart-empty">Sin datos para graficar.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={statsGlobales.topFinalizados} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey="titulo" tick={{ fill: '#94a3b8', fontSize: 11 }} interval={0} angle={-10} height={48} />
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="finalizados" stackId="a" fill="#38bdf8" name="Finalizados" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="pendientes" stackId="a" fill="rgba(245, 158, 11, 0.8)" name="Pendientes" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="rrhh-pruebas-table-wrap">
           <table className="rrhh-pruebas-table">
             <thead>
