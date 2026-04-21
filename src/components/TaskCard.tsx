@@ -563,6 +563,21 @@ const TaskCardInner = ({
               ) : null}
             </div>
           )}
+
+          {isReadOnly && (task.entregado || task.visibleEnTablero === false) && (
+            <div className="task-card-library-flags" aria-label="Estado en biblioteca">
+              {task.visibleEnTablero === false && (
+                <span className="task-card-libchip task-card-libchip--hidden" title="Oculta en tablero (visible_en_tablero=false)">
+                  Oculta
+                </span>
+              )}
+              {task.entregado && (
+                <span className="task-card-libchip task-card-libchip--delivered" title="Entregada / archivada">
+                  Entregada
+                </span>
+              )}
+            </div>
+          )}
           {(isMinimized || isDragLightMode) && (
             <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
               {task.photoUrl && (
@@ -571,6 +586,16 @@ const TaskCardInner = ({
                 </span>
               )}
               <span className="task-min-op">#{task.opNumber}</span>
+              {isReadOnly && task.visibleEnTablero === false && (
+                <span className="task-min-flag task-min-flag--hidden" title="Oculta en tablero (visible_en_tablero=false)">
+                  Oculta
+                </span>
+              )}
+              {isReadOnly && task.entregado && (
+                <span className="task-min-flag task-min-flag--delivered" title="Entregada / archivada">
+                  Entregada
+                </span>
+              )}
               <span className="task-min-sep">·</span>
               <span className="task-min-client">{task.title}</span>
               {task.enReclamo && !hideReclamoUI && (

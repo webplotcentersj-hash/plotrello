@@ -40,6 +40,14 @@ function endOfLocalDayYmd(ymd: string): Date {
 
 function matchesSearchQuery(task: Task, q: string): boolean {
   if (!q) return true
+  const qTrim = q.trim()
+  // Atajo: "#123" busca por ID de BD exacto
+  const mHash = qTrim.match(/^#(\d+)$/)
+  if (mHash) {
+    const qId = mHash[1]
+    const oid = parseTaskIdToOrdenId(task.id)
+    return oid != null && String(oid) === qId
+  }
   if (taskSearchBlob(task).includes(q)) return true
   if (/^\d+$/.test(q)) {
     const oid = parseTaskIdToOrdenId(task.id)
@@ -143,6 +151,10 @@ const TaskLibraryModal = ({
 }: TaskLibraryModalProps) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [idBdQuery, setIdBdQuery] = useState('')
+  const [selectedTableroEstado, setSelectedTableroEstado] = useState<
+    'todos' | 'visibles' | 'ocultas' | 'entregadas' | 'eliminadas'
+  >('todos')
+  const [sortBy, setSortBy] = useState<'updatedAt' | 'createdAt' | 'idBd'>('updatedAt')
   const [selectedSector, setSelectedSector] = useState<string>('todos')
   const [selectedOperario, setSelectedOperario] = useState<string>('todos')
   const [selectedEstado, setSelectedEstado] = useState<string>('todos')
@@ -164,10 +176,18 @@ const TaskLibraryModal = ({
     setLibraryDetailTask(t)
   }, [])
 
+  const counters = useMemo(() => {
+    const all = tasks.length
+    const ocultas = tasks.filter((t) => t.visibleEnTablero === false).length
+    const eliminadas = tasks.filter((t) => t.ordenEliminada).length
+    const entregadas = tasks.filter((t) => t.entregado).length
+    return { all, ocultas, eliminadas, entregadas }
+  }, [tasks])
+
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const qId = idBdQuery.trim()
-    return tasks.filter((task) => {
+    const filtered = tasks.filter((task) => {
       const matchesSearch = matchesSearchQuery(task, q)
       const matchesIdBd =
         qId === '' ? true : String(parseTaskIdToOrdenId(task.id) ?? task.id) === qId
@@ -190,6 +210,15 @@ const TaskLibraryModal = ({
         (selectedComplejidad === 'media' && impact === 'media') ||
         (selectedComplejidad === 'alta' && impact === 'alta')
 
+      const matchesTableroEstado = (() => {
+        if (selectedTableroEstado === 'todos') return true
+        if (selectedTableroEstado === 'visibles') return task.visibleEnTablero !== false && !task.ordenEliminada
+        if (selectedTableroEstado === 'ocultas') return task.visibleEnTablero === false
+        if (selectedTableroEstado === 'entregadas') return task.entregado === true
+        if (selectedTableroEstado === 'eliminadas') return task.ordenEliminada === true
+        return true
+      })()
+
       let matchesFecha = true
       if (fechaDesde) {
         const desde = startOfLocalDayYmd(fechaDesde)
@@ -210,13 +239,23 @@ const TaskLibraryModal = ({
         matchesEstado &&
         matchesPrioridad &&
         matchesComplejidad &&
+        matchesTableroEstado &&
         matchesFecha
       )
     })
+    const byId = (t: Task) => parseTaskIdToOrdenId(t.id) ?? Number(t.id) ?? 0
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'createdAt') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      if (sortBy === 'idBd') return byId(b) - byId(a)
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    })
+    return sorted
   }, [
     tasks,
     searchQuery,
     idBdQuery,
+    selectedTableroEstado,
+    sortBy,
     selectedSector,
     selectedOperario,
     selectedEstado,
@@ -248,6 +287,15 @@ const TaskLibraryModal = ({
         (selectedComplejidad === 'media' && impact === 'media') ||
         (selectedComplejidad === 'alta' && impact === 'alta')
 
+      const matchesTableroEstado = (() => {
+        if (selectedTableroEstado === 'todos') return true
+        if (selectedTableroEstado === 'visibles') return task.visibleEnTablero !== false && !task.ordenEliminada
+        if (selectedTableroEstado === 'ocultas') return task.visibleEnTablero === false
+        if (selectedTableroEstado === 'entregadas') return task.entregado === true
+        if (selectedTableroEstado === 'eliminadas') return task.ordenEliminada === true
+        return true
+      })()
+
       let matchesFecha = true
       const rowDate = taskDateForLibraryFechaFilter(task)
       if (fechaDesde) {
@@ -267,6 +315,7 @@ const TaskLibraryModal = ({
         matchesEstado &&
         matchesPrioridad &&
         matchesComplejidad &&
+        matchesTableroEstado &&
         matchesFecha
       )
     })
@@ -274,6 +323,7 @@ const TaskLibraryModal = ({
     eliminadasTasks,
     searchQuery,
     idBdQuery,
+    selectedTableroEstado,
     selectedSector,
     selectedOperario,
     selectedEstado,
@@ -361,6 +411,8 @@ const TaskLibraryModal = ({
   const handleLimpiar = () => {
     setSearchQuery('')
     setIdBdQuery('')
+    setSelectedTableroEstado('todos')
+    setSortBy('updatedAt')
     setSelectedSector('todos')
     setSelectedOperario('todos')
     setSelectedEstado('todos')
@@ -455,6 +507,31 @@ const TaskLibraryModal = ({
                 value={idBdQuery}
                 onChange={(e) => setIdBdQuery(e.target.value)}
               />
+            </div>
+            <div className="filter-field" style={{ maxWidth: 280 }}>
+              <label>Estado tablero</label>
+              <select
+                value={selectedTableroEstado}
+                onChange={(e) =>
+                  setSelectedTableroEstado(
+                    e.target.value as 'todos' | 'visibles' | 'ocultas' | 'entregadas' | 'eliminadas'
+                  )
+                }
+              >
+                <option value="todos">Todos</option>
+                <option value="visibles">Visibles en tablero</option>
+                <option value="ocultas">Ocultas en tablero</option>
+                <option value="entregadas">Entregadas / archivadas</option>
+                <option value="eliminadas">Eliminadas</option>
+              </select>
+            </div>
+            <div className="filter-field" style={{ maxWidth: 220 }}>
+              <label>Orden</label>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                <option value="updatedAt">Último movimiento</option>
+                <option value="createdAt">Fecha creación</option>
+                <option value="idBd">ID BD</option>
+              </select>
             </div>
           </div>
 
@@ -583,6 +660,10 @@ const TaskLibraryModal = ({
                 {viewMode === 'activas'
                   ? `${filteredTasks.length} fichas encontradas`
                   : `${filteredEliminadasTasks.length} fichas · ${filteredDeletedOps.length} filas auditoría`}
+              </span>
+              <span className="results-count" title="Totales globales (sin filtros)">
+                Total: {counters.all} · Ocultas: {counters.ocultas} · Entregadas: {counters.entregadas} · Eliminadas:{' '}
+                {counters.eliminadas}
               </span>
               {viewMode === 'activas' && filteredTasks.length > 0 && (
                 <div className="export-buttons">
