@@ -140,6 +140,10 @@ type TaskLibraryModalProps = {
   /** Si se pasa, no se vuelve a pedir a la API (p. ej. tests). Omitir en producción para cargar siempre al abrir. */
   deletedOpsRows?: DeletedOpRow[]
   onClose: () => void
+  /** Misma persistencia que el tablero (Supabase); obligatorio en producción para que Editar guarde. */
+  onPersistLibraryEdit?: (updatedTask: Task) => void | Promise<void>
+  /** Restaura visible_en_tablero y, si aplica, quita borrado lógico para que la OP vuelva al tablero. */
+  onRestartOrdenEnTablero?: (task: Task) => void | Promise<void>
 }
 
 const TaskLibraryModal = ({
@@ -148,7 +152,9 @@ const TaskLibraryModal = ({
   sectores,
   columns,
   deletedOpsRows,
-  onClose
+  onClose,
+  onPersistLibraryEdit,
+  onRestartOrdenEnTablero
 }: TaskLibraryModalProps) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [idBdQuery, setIdBdQuery] = useState('')
@@ -207,6 +213,37 @@ const TaskLibraryModal = ({
       }
     },
     [materiales.length, pinTaskId]
+  )
+
+  const refreshLibraryDetailFromServer = useCallback(async (taskId: string) => {
+    const ordenId = parseTaskIdToOrdenId(taskId)
+    if (!ordenId) return
+    const r = await apiService.getOrden(ordenId)
+    if (r.success && r.data) {
+      setLibraryDetailTask(ordenToTask(r.data))
+    }
+  }, [])
+
+  const handleRestartFromLibrary = useCallback(
+    async (t: Task) => {
+      if (!onRestartOrdenEnTablero) return
+      await onRestartOrdenEnTablero(t)
+      await refreshLibraryDetailFromServer(t.id)
+      setEliminadasTasks((prev) => prev.filter((x) => x.id !== t.id))
+    },
+    [onRestartOrdenEnTablero, refreshLibraryDetailFromServer]
+  )
+
+  const handleLibraryEditSave = useCallback(
+    async (updatedTask: Task) => {
+      if (onPersistLibraryEdit) {
+        await onPersistLibraryEdit(updatedTask)
+      }
+      await refreshLibraryDetailFromServer(updatedTask.id)
+      setLibraryEditTask(null)
+      unpinTaskId(updatedTask.id)
+    },
+    [onPersistLibraryEdit, refreshLibraryDetailFromServer, unpinTaskId]
   )
 
   const counters = useMemo(() => {
@@ -524,8 +561,8 @@ const TaskLibraryModal = ({
           <div>
             <h2>Bibliotecas de OPs - Filtros Avanzados</h2>
             <p className="task-library-readonly-hint">
-              Solo búsqueda y consulta: desde acá no se edita la OP (usá el tablero para cambios). Hacé clic en una
-              ficha para abrir el detalle completo en grande (movimientos, adjuntos, comentarios, trazados).
+              Búsqueda y consulta; desde el detalle podés editar y guardar como en el tablero. Hacé clic en una ficha
+              para abrir el detalle completo (movimientos, adjuntos, comentarios, trazados).
             </p>
           </div>
           <button type="button" className="task-library-close" onClick={onClose}>
@@ -895,6 +932,12 @@ const TaskLibraryModal = ({
         exhaustiveDetail
         allowEdit
         onRequestEdit={(t) => requestEditFromLibrary(t)}
+        onRestartEnTablero={
+          onRestartOrdenEnTablero &&
+          (libraryDetailTask.visibleEnTablero === false || libraryDetailTask.ordenEliminada)
+            ? () => handleRestartFromLibrary(libraryDetailTask)
+            : undefined
+        }
         onClose={() => setLibraryDetailTask(null)}
       />
     )}
@@ -909,11 +952,7 @@ const TaskLibraryModal = ({
           if (libraryEditTask) unpinTaskId(libraryEditTask.id)
           setLibraryEditTask(null)
         }}
-        onSave={(updatedTask) => {
-          setLibraryDetailTask(updatedTask)
-          setLibraryEditTask(null)
-          unpinTaskId(updatedTask.id)
-        }}
+        onSave={handleLibraryEditSave}
       />
     )}
     </Fragment>

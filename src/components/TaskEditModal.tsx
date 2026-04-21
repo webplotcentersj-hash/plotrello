@@ -34,7 +34,7 @@ type TaskEditModalProps = {
   materiales: MaterialRecord[]
   activity: ActivityEvent[]
   onClose: (taskId?: string) => void
-  onSave: (updatedTask: Task) => void
+  onSave: (updatedTask: Task) => void | Promise<void>
   onDelete?: (taskId: string) => void
   /** false en flujos que no son OP (ej. Asesor/Presupuestos): sin tipo/ítems m² ni tocar esos datos al guardar */
   showImpresionOpFields?: boolean
@@ -603,9 +603,9 @@ const TaskEditModal = ({
         }
       }, 500) // Pequeño delay para asegurar que el cambio se haya guardado
     }
-    
-    onSave(updated)
-    
+
+    await Promise.resolve(onSave(updated))
+
     onClose(task.id)
   }
 

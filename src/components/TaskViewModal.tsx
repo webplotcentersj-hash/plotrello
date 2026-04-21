@@ -35,6 +35,8 @@ type TaskViewModalProps = {
   /** Biblioteca: permitir editar desde esta vista */
   allowEdit?: boolean
   onRequestEdit?: (task: Task) => void
+  /** Biblioteca: restaurar OP oculta o eliminada lógicamente al tablero visible */
+  onRestartEnTablero?: () => void | Promise<void>
 }
 
 function formatCambiosJson(cd: unknown): string | null {
@@ -111,7 +113,8 @@ export default function TaskViewModal({
   onClose,
   exhaustiveDetail = false,
   allowEdit = false,
-  onRequestEdit
+  onRequestEdit,
+  onRestartEnTablero
 }: TaskViewModalProps) {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(() => new Map())
@@ -132,6 +135,7 @@ export default function TaskViewModal({
   const [relevSubLib, setRelevSubLib] = useState<RelevamientoSubitemRecord[]>([])
   const [revisionesLib, setRevisionesLib] = useState<RevisionOrden[]>([])
   const [tiempoLib, setTiempoLib] = useState<RegistroTiempo[]>([])
+  const [restartBusy, setRestartBusy] = useState(false)
 
   const viewTask = resolvedFromApi ?? task
   const ordenIdView = useMemo(() => parseTaskIdToOrdenId(viewTask.id), [viewTask.id])
@@ -324,6 +328,21 @@ export default function TaskViewModal({
               </p>
             </div>
             <div className="task-view-header-actions">
+              {onRestartEnTablero && (
+                <button
+                  type="button"
+                  className="task-view-close task-view-close--secondary task-view-restart-tablero"
+                  disabled={restartBusy}
+                  onClick={() => {
+                    setRestartBusy(true)
+                    void Promise.resolve(onRestartEnTablero()).finally(() => setRestartBusy(false))
+                  }}
+                  aria-label="Restart — volver a mostrar en tablero"
+                  title="Marca la ficha como visible en el tablero general"
+                >
+                  {restartBusy ? '…' : 'Restart'}
+                </button>
+              )}
               {allowEdit && onRequestEdit && (
                 <button
                   type="button"

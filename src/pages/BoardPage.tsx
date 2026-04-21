@@ -780,6 +780,55 @@ const BoardPage = ({
     }
   }
 
+  const handleRestartOrdenEnTablero = useCallback(
+    async (task: Task) => {
+      const ordenId = parseTaskIdToOrdenId(task.id)
+      if (!ordenId) {
+        setActionError('No se pudo identificar la orden.')
+        return
+      }
+      if (task.ordenEliminada) {
+        const ok = window.confirm(
+          'Esta OP está marcada como eliminada. ¿Restaurarla en el tablero? Se quitará el estado eliminado y volverá a ser visible.'
+        )
+        if (!ok) return
+      }
+
+      const response = await apiService.restartOrdenParaTablero(ordenId)
+      if (!response.success || !response.data) {
+        const msg = response.error || 'No se pudo restaurar la OP.'
+        setActionError(msg)
+        window.alert(msg)
+        return
+      }
+
+      const refreshed = ordenToTask(response.data)
+      const statusFinal = task.status
+      window.dispatchEvent(
+        new CustomEvent('user-edited-task', {
+          detail: { taskId: ordenId.toString(), status: statusFinal, timestamp: Date.now() }
+        })
+      )
+
+      setTasks((prev) => {
+        const idx = prev.findIndex((t) => t.id === task.id)
+        if (idx === -1) return [...prev, refreshed]
+        return prev.map((t) => (t.id === task.id ? refreshed : t))
+      })
+
+      setActionSuccess(
+        task.ordenEliminada
+          ? 'OP restaurada: volverá a figurar en el tablero general (si no está entregada).'
+          : 'La ficha volvió a estar visible en el tablero.'
+      )
+
+      if (onReloadData) {
+        await onReloadData({ silent: true })
+      }
+    },
+    [onReloadData, setTasks, setActionError, setActionSuccess]
+  )
+
   const handleDeleteTask = useCallback(async (taskId: string) => {
     const task = tasksRef.current.find((t) => t.id === taskId)
 
@@ -1330,6 +1379,8 @@ const BoardPage = ({
           sectores={sectores}
           columns={BOARD_COLUMNS}
           onClose={() => setIsLibraryModalOpen(false)}
+          onPersistLibraryEdit={handleSaveTask}
+          onRestartOrdenEnTablero={handleRestartOrdenEnTablero}
         />
       )}
     </div>

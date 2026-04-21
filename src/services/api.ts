@@ -1696,6 +1696,68 @@ class ApiService {
   }
 
   /**
+   * Biblioteca / administración: vuelve a mostrar la OP en el tablero general.
+   * - Si estaba oculta (visible_en_tablero=false): la vuelve visible.
+   * - Si estaba eliminada lógicamente: la desmarca y limpia motivo/fecha (sin pasar por updateOrden, que bloquea edits sobre eliminada=true).
+   */
+  async restartOrdenParaTablero(id: number): Promise<ApiResponse<OrdenTrabajo>> {
+    if (!supabase) {
+      const index = fallbackOrdenes.findIndex((o) => o.id === id)
+      if (index === -1) return { success: false, error: 'Orden no encontrada' }
+      fallbackOrdenes[index] = {
+        ...fallbackOrdenes[index],
+        visible_en_tablero: true,
+        eliminada: false,
+        motivo_eliminacion: null,
+        fecha_eliminacion: null
+      }
+      return { success: true, data: fallbackOrdenes[index] }
+    }
+
+    try {
+      const r0 = await supabase.from('ordenes_trabajo').select('id, eliminada').eq('id', id).maybeSingle()
+      if (r0.error) return { success: false, error: r0.error.message }
+      if (!r0.data || !(r0.data as { id?: number }).id) {
+        return { success: false, error: 'Orden no encontrada.' }
+      }
+
+      const patch: Record<string, unknown> = { visible_en_tablero: true }
+      const eliminada = (r0.data as { eliminada?: boolean | null }).eliminada === true
+      if (eliminada) {
+        patch.eliminada = false
+        patch.motivo_eliminacion = null
+        patch.fecha_eliminacion = null
+      }
+
+      const { data, error } = await supabase.from('ordenes_trabajo').update(patch).eq('id', id).select('*').maybeSingle()
+
+      if (error) {
+        const msg = error.message || ''
+        if (eliminada && msg.includes('fecha_eliminacion')) {
+          const { data: data2, error: err2 } = await supabase
+            .from('ordenes_trabajo')
+            .update({
+              visible_en_tablero: true,
+              eliminada: false,
+              motivo_eliminacion: null
+            })
+            .eq('id', id)
+            .select('*')
+            .maybeSingle()
+          if (err2) return { success: false, error: err2.message }
+          return { success: true, data: data2 as OrdenTrabajo }
+        }
+        return { success: false, error: msg || 'No se pudo restaurar la OP.' }
+      }
+      if (!data) return { success: false, error: 'No se devolvió la orden actualizada.' }
+      return { success: true, data: data as OrdenTrabajo }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al restaurar la OP.'
+      return { success: false, error: msg }
+    }
+  }
+
+  /**
    * Tras guardar el modal de edición con cambios en sectores[]: propaga el array a todo el grupo de la OP
    * y crea fichas duplicadas faltantes (misma idea que el trigger en INSERT). Requiere el RPC en Supabase.
    */
