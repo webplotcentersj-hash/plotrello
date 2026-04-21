@@ -301,6 +301,7 @@ const BoardPage = ({
 
     return tasks.filter((task) => {
       if (task.ordenEliminada) return false
+      if (task.visibleEnTablero === false) return false
       // Excluir fichas entregadas/archivadas del board principal
       if (task.entregado) return false
 

@@ -435,14 +435,9 @@ function App() {
         return
       }
       const taskId = orden.id!.toString()
-      // Fusión / unificación sin DELETE: la fila sigue en BD pero no debe verse en el tablero
-      if ((orden as { visible_en_tablero?: boolean | null }).visible_en_tablero === false) {
-        setTasks((prev) => prev.filter((task) => task.id !== taskId))
-        return
-      }
       if ((orden as { eliminada?: boolean | null }).eliminada === true) {
-        setTasks((prev) => prev.filter((task) => task.id !== taskId))
-        return
+        // Borrado lógico: la biblioteca debe poder verla, el tablero la filtra por `ordenEliminada`.
+        // Por eso la mantenemos en `tasks`.
       }
       // Las OP entregadas/archivadas siguen en `tasks` para biblioteca, búsquedas y reportes;
       // el tablero las oculta con filteredTasks (BoardPage).

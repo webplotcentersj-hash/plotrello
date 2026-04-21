@@ -142,6 +142,7 @@ const TaskLibraryModal = ({
   onClose
 }: TaskLibraryModalProps) => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [idBdQuery, setIdBdQuery] = useState('')
   const [selectedSector, setSelectedSector] = useState<string>('todos')
   const [selectedOperario, setSelectedOperario] = useState<string>('todos')
   const [selectedEstado, setSelectedEstado] = useState<string>('todos')
@@ -149,7 +150,6 @@ const TaskLibraryModal = ({
   const [selectedComplejidad, setSelectedComplejidad] = useState<string>('todas')
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
-  const [incluirCompletadas, setIncluirCompletadas] = useState(false)
   const [viewMode, setViewMode] = useState<'activas' | 'eliminadas'>('activas')
   const [elimAuditRows, setElimAuditRows] = useState<DeletedOpRow[]>([])
   const [eliminadasTasks, setEliminadasTasks] = useState<Task[]>([])
@@ -166,8 +166,11 @@ const TaskLibraryModal = ({
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
+    const qId = idBdQuery.trim()
     return tasks.filter((task) => {
       const matchesSearch = matchesSearchQuery(task, q)
+      const matchesIdBd =
+        qId === '' ? true : String(parseTaskIdToOrdenId(task.id) ?? task.id) === qId
 
       const matchesSector = selectedSector === 'todos' || task.assignedSector === selectedSector
 
@@ -201,6 +204,7 @@ const TaskLibraryModal = ({
 
       return (
         matchesSearch &&
+        matchesIdBd &&
         matchesSector &&
         matchesOperario &&
         matchesEstado &&
@@ -212,6 +216,7 @@ const TaskLibraryModal = ({
   }, [
     tasks,
     searchQuery,
+    idBdQuery,
     selectedSector,
     selectedOperario,
     selectedEstado,
@@ -219,14 +224,16 @@ const TaskLibraryModal = ({
     selectedComplejidad,
     fechaDesde,
     fechaHasta,
-    incluirCompletadas,
     columns
   ])
 
   const filteredEliminadasTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
+    const qId = idBdQuery.trim()
     return eliminadasTasks.filter((task) => {
       const matchesSearch = matchesSearchQuery(task, q)
+      const matchesIdBd =
+        qId === '' ? true : String(parseTaskIdToOrdenId(task.id) ?? task.id) === qId
       const matchesSector = selectedSector === 'todos' || task.assignedSector === selectedSector
       const matchesOperario = selectedOperario === 'todos' || task.ownerId === selectedOperario
       const matchesEstado =
@@ -254,6 +261,7 @@ const TaskLibraryModal = ({
 
       return (
         matchesSearch &&
+        matchesIdBd &&
         matchesSector &&
         matchesOperario &&
         matchesEstado &&
@@ -265,6 +273,7 @@ const TaskLibraryModal = ({
   }, [
     eliminadasTasks,
     searchQuery,
+    idBdQuery,
     selectedSector,
     selectedOperario,
     selectedEstado,
@@ -272,7 +281,6 @@ const TaskLibraryModal = ({
     selectedComplejidad,
     fechaDesde,
     fechaHasta,
-    incluirCompletadas,
     columns
   ])
 
@@ -352,6 +360,7 @@ const TaskLibraryModal = ({
 
   const handleLimpiar = () => {
     setSearchQuery('')
+    setIdBdQuery('')
     setSelectedSector('todos')
     setSelectedOperario('todos')
     setSelectedEstado('todos')
@@ -359,7 +368,6 @@ const TaskLibraryModal = ({
     setSelectedComplejidad('todas')
     setFechaDesde('')
     setFechaHasta('')
-    setIncluirCompletadas(false)
   }
 
   const deletedMotivoParts = (row: DeletedOpRow): { main: string; extra?: string } => {
@@ -436,6 +444,16 @@ const TaskLibraryModal = ({
                 placeholder="N° OP, id orden, cliente, descripción, etiquetas, materiales, contacto…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="filter-field" style={{ maxWidth: 220 }}>
+              <label>ID BD</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Ej. 1234"
+                value={idBdQuery}
+                onChange={(e) => setIdBdQuery(e.target.value)}
               />
             </div>
           </div>
@@ -534,16 +552,6 @@ const TaskLibraryModal = ({
               <input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
             </div>
 
-            <div className="filter-field checkbox-field">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={incluirCompletadas}
-                  onChange={(e) => setIncluirCompletadas(e.target.checked)}
-                />
-                Incluir fichas completadas antiguas
-              </label>
-            </div>
           </div>
 
           <div className="filter-actions">

@@ -126,6 +126,8 @@ export interface Task {
   reclamoMotivo?: string | null
   /** Borrado lógico: la fila sigue en BD; no se muestra en el tablero */
   ordenEliminada?: boolean
+  /** Visibilidad en tablero: false = no listar en tablero; la fila sigue en BD (biblioteca sí la muestra) */
+  visibleEnTablero?: boolean
   motivoEliminacion?: string | null
   /** Fecha de borrado lógico (BD); útil en biblioteca para filtrar por “cuándo se eliminó” */
   fechaEliminacion?: string | null

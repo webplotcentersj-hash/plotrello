@@ -264,6 +264,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     opBloqueada: orden.op_bloqueada === true,
     entregado: orden.entregado ?? false,
     ordenEliminada: orden.eliminada === true,
+    visibleEnTablero: orden.visible_en_tablero !== false,
     motivoEliminacion: orden.motivo_eliminacion ?? undefined,
     fechaEliminacion: orden.fecha_eliminacion ?? undefined,
     metrosCuadrados: orden.metros_cuadrados ?? undefined,

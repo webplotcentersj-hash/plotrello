@@ -597,13 +597,9 @@ class ApiService {
           return { success: false, error: error.message }
         }
 
-        // Ocultas del tablero (fusión / borrado lógico). Columnas ausentes → se muestran.
-        const visibles = (data || []).filter(
-          (orden: any) => orden.visible_en_tablero !== false && orden.eliminada !== true
-        )
-
+        // No filtrar acá: la biblioteca necesita ver todo. El tablero decide qué ocultar.
         // Si hay datos, asegurarse de que los campos opcionales estén definidos (aunque sean null)
-        const normalizedData = visibles.map((orden: any) => ({
+        const normalizedData = (data || []).map((orden: any) => ({
           ...orden,
           foto_url: orden.foto_url || null,
           telefono_cliente: orden.telefono_cliente || null,
