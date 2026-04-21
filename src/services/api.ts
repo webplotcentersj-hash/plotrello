@@ -121,6 +121,19 @@ async function attachLineasM2ToOrdenes(ordenes: any[]): Promise<void> {
   }
 }
 
+/**
+ * PostgREST cuando `ordenes_trabajo.eliminada` no existe (patch no aplicado en Supabase).
+ * Ejecutar: supabase/patches/2026-04-27_ordenes_soft_delete_eliminada.sql
+ */
+function isMissingElEliminadaColumnError(msg: string | null | undefined): boolean {
+  if (!msg) return false
+  const m = msg.toLowerCase()
+  return (
+    m.includes('eliminada') &&
+    (m.includes('schema cache') || m.includes('could not find') || m.includes('does not exist'))
+  )
+}
+
 const LEGACY_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const hasLegacyBackend = Boolean(LEGACY_API_BASE_URL)
 
@@ -1073,17 +1086,32 @@ class ApiService {
       // Capturar supabase en variable local para TypeScript
       const supabaseClient = supabase
       
-      // Obtener estado anterior antes de actualizar
-      const { data: ordenAnterior } = await supabaseClient
+      // Obtener estado anterior antes de actualizar (sin `eliminada` si la BD aún no tiene esa columna)
+      const colsOrdenUpdateBase =
+        'estado, operario_asignado, sector, sectores, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera, op_bloqueada, foto_url'
+      let ordenAnterior: OrdenTrabajo | null = null
+      const rAnt = await supabaseClient
         .from('ordenes_trabajo')
-        .select(
-          'estado, operario_asignado, sector, sectores, prioridad, descripcion, planilla_preliminar, ficha_tecnica_cargada, presupuesto_enviado_cliente, presupuesto_armado, presupuesto_en_espera, op_bloqueada, foto_url, eliminada'
-        )
+        .select(`${colsOrdenUpdateBase}, eliminada`)
         .eq('id', id)
         .maybeSingle()
-
-      if ((ordenAnterior as { eliminada?: boolean | null } | null)?.eliminada === true) {
-        return { success: false, error: 'Esta OP fue eliminada y no se puede editar.' }
+      if (rAnt.error && isMissingElEliminadaColumnError(rAnt.error.message)) {
+        const r2 = await supabaseClient
+          .from('ordenes_trabajo')
+          .select(colsOrdenUpdateBase)
+          .eq('id', id)
+          .maybeSingle()
+        if (r2.error) {
+          return { success: false, error: r2.error.message }
+        }
+        ordenAnterior = (r2.data as OrdenTrabajo) ?? null
+      } else if (rAnt.error) {
+        return { success: false, error: rAnt.error.message }
+      } else {
+        ordenAnterior = (rAnt.data as OrdenTrabajo) ?? null
+        if (ordenAnterior?.eliminada === true) {
+          return { success: false, error: 'Esta OP fue eliminada y no se puede editar.' }
+        }
       }
 
       const lockEval = this.evaluateOrdenOpLock(
@@ -1700,13 +1728,22 @@ class ApiService {
         const delGuard = await this.assertOpNotLockedForMutation(id)
         if (!delGuard.ok) return { success: false, error: delGuard.error }
 
-        const { data: rowEstado } = await supabase
-          .from('ordenes_trabajo')
-          .select('eliminada')
-          .eq('id', id)
-          .maybeSingle()
-        if ((rowEstado as { eliminada?: boolean } | null)?.eliminada === true) {
-          return { success: false, error: 'Esta OP ya está marcada como eliminada.' }
+        let rowEstado: { id?: number; eliminada?: boolean | null } | null = null
+        const rExist = await supabase.from('ordenes_trabajo').select('id, eliminada').eq('id', id).maybeSingle()
+        if (rExist.error && isMissingElEliminadaColumnError(rExist.error.message)) {
+          const rId = await supabase.from('ordenes_trabajo').select('id').eq('id', id).maybeSingle()
+          if (rId.error) return { success: false, error: rId.error.message }
+          rowEstado = (rId.data as { id?: number }) ?? null
+        } else if (rExist.error) {
+          return { success: false, error: rExist.error.message }
+        } else {
+          rowEstado = rExist.data as { id?: number; eliminada?: boolean | null }
+          if (rowEstado?.eliminada === true) {
+            return { success: false, error: 'Esta OP ya está marcada como eliminada.' }
+          }
+        }
+        if (!rowEstado?.id) {
+          return { success: false, error: 'Orden no encontrada.' }
         }
 
         // Registrar SIEMPRE la eliminación y si falla, NO marcar borrado (para no perder auditoría)
@@ -1762,6 +1799,17 @@ class ApiService {
             visible_en_tablero: false
           })
           .eq('id', id)
+        if (error && isMissingElEliminadaColumnError(error.message)) {
+          const { error: e2 } = await supabase
+            .from('ordenes_trabajo')
+            .update({ visible_en_tablero: false })
+            .eq('id', id)
+          if (e2) return { success: false, error: e2.message }
+          console.warn(
+            '[deleteOrden] La BD no tiene columna ordenes_trabajo.eliminada; se ocultó del tablero. Aplicá supabase/patches/2026-04-27_ordenes_soft_delete_eliminada.sql para borrado lógico completo.'
+          )
+          return { success: true }
+        }
         if (error) return { success: false, error: error.message }
         return { success: true }
       } catch (e: any) {
@@ -2650,7 +2698,11 @@ class ApiService {
           .select('id,numero_op,cliente,motivo_eliminacion,fecha_eliminacion,updated_at,estado')
           .eq('eliminada', true)
           .limit(2000)
-        if (ordErr || !ordRaw?.length) return auditRows
+        if (ordErr) {
+          if (isMissingElEliminadaColumnError(ordErr.message)) return auditRows
+          return auditRows
+        }
+        if (!ordRaw?.length) return auditRows
         const withAudit = new Set<number>()
         for (const r of auditRows) {
           const oid = r?.id_orden
@@ -2766,6 +2818,9 @@ class ApiService {
         .limit(1500)
 
       if (error) {
+        if (isMissingElEliminadaColumnError(error.message)) {
+          return { success: true, data: [] }
+        }
         return { success: false, error: error.message }
       }
       const rows = (data ?? []) as any[]
