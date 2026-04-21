@@ -1,3 +1,6 @@
+/** Volumen de pico del beep sintético (~0–1); más alto que antes para que se escuche bien en el taller. */
+const PEAK_GAIN = 0.52
+
 /** Alerta breve para pedido a Taller Gráfico (no depende de archivos externos). */
 export function playPedidoTallerAlertSound(): void {
   try {
@@ -10,7 +13,7 @@ export function playPedidoTallerAlertSound(): void {
       osc.type = 'sine'
       osc.frequency.setValueAtTime(freq, when)
       gain.gain.setValueAtTime(0.0001, when)
-      gain.gain.exponentialRampToValueAtTime(0.12, when + 0.02)
+      gain.gain.exponentialRampToValueAtTime(PEAK_GAIN, when + 0.02)
       gain.gain.exponentialRampToValueAtTime(0.0001, when + dur)
       osc.connect(gain)
       gain.connect(ctx.destination)

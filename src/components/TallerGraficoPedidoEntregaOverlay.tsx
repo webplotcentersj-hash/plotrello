@@ -10,6 +10,13 @@ import {
 import { playPedidoTallerAlertSound } from '../utils/playPedidoTallerAlertSound'
 import './TallerGraficoPedidoEntregaOverlay.css'
 
+/** Audio en `public/audio/` (WhatsApp export). */
+function pedidoOverlayAudioUrl(): string {
+  const base = import.meta.env.BASE_URL || '/'
+  const normalized = base.endsWith('/') ? base : `${base}/`
+  return `${normalized}audio/taller-grafico-pedido.mpeg`
+}
+
 function parseBroadcastPayload(raw: unknown): TallerGraficoPedidoEntregaPayload | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
@@ -40,6 +47,8 @@ export default function TallerGraficoPedidoEntregaOverlay() {
   const navigate = useNavigate()
   const [active, setActive] = useState<TallerGraficoPedidoEntregaPayload | null>(null)
   const lastNonceRef = useRef<string | null>(null)
+  const alarmAudioRef = useRef<HTMLAudioElement | null>(null)
+  const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const dismiss = useCallback(() => {
     setActive(null)
@@ -62,7 +71,6 @@ export default function TallerGraficoPedidoEntregaOverlay() {
         if (lastNonceRef.current === parsed.nonce) return
         lastNonceRef.current = parsed.nonce
         setActive(parsed)
-        playPedidoTallerAlertSound()
       })
 
     void channel.subscribe((status) => {
@@ -75,6 +83,45 @@ export default function TallerGraficoPedidoEntregaOverlay() {
       void sb.removeChannel(channel)
     }
   }, [isTallerGrafico])
+
+  /** Beep sintético cada ~2,4 s + audio en loop hasta Entendido / Ver OP / Escape / clic fuera. */
+  useEffect(() => {
+    const stopAlarm = () => {
+      const audio = alarmAudioRef.current
+      if (audio) {
+        audio.pause()
+        audio.removeAttribute('src')
+        audio.load()
+        alarmAudioRef.current = null
+      }
+      if (beepIntervalRef.current != null) {
+        clearInterval(beepIntervalRef.current)
+        beepIntervalRef.current = null
+      }
+    }
+
+    if (!active) {
+      stopAlarm()
+      return
+    }
+
+    const audio = new Audio(pedidoOverlayAudioUrl())
+    audio.loop = true
+    audio.volume = 1
+    alarmAudioRef.current = audio
+    void audio.play().catch(() => {
+      /* autoplay bloqueado: siguen los beeps */
+    })
+
+    playPedidoTallerAlertSound()
+    beepIntervalRef.current = setInterval(() => {
+      playPedidoTallerAlertSound()
+    }, 2400)
+
+    return () => {
+      stopAlarm()
+    }
+  }, [active])
 
   useEffect(() => {
     if (!active) return
