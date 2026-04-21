@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useCallback, Fragment } from 'react'
 import type { Task, TaskStatus, Priority, TeamMember } from '../types/board'
-import type { SectorRecord } from '../types/api'
+import type { MaterialRecord, SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
 import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import apiService from '../services/api'
 import { ordenToTask, parseTaskIdToOrdenId } from '../utils/dataMappers'
 import TaskViewModal from './TaskViewModal'
+import TaskEditModal from './TaskEditModal'
 import './TaskLibraryModal.css'
 
 type DeletedOpRow = {
@@ -171,10 +172,42 @@ const TaskLibraryModal = ({
   /** Escala visual de las fichas (solo biblioteca; no modifica datos). */
   const [cardScale, setCardScale] = useState(1)
   const [libraryDetailTask, setLibraryDetailTask] = useState<Task | null>(null)
+  const [libraryEditTask, setLibraryEditTask] = useState<Task | null>(null)
+  const [pinnedTaskIds, setPinnedTaskIds] = useState<Set<string>>(() => new Set())
+  const [materiales, setMateriales] = useState<MaterialRecord[]>([])
 
   const openLibraryDetail = useCallback((t: Task) => {
     setLibraryDetailTask(t)
   }, [])
+
+  const pinTaskId = useCallback((taskId: string) => {
+    setPinnedTaskIds((prev) => {
+      const next = new Set(prev)
+      next.add(taskId)
+      return next
+    })
+  }, [])
+
+  const unpinTaskId = useCallback((taskId: string) => {
+    setPinnedTaskIds((prev) => {
+      if (!prev.has(taskId)) return prev
+      const next = new Set(prev)
+      next.delete(taskId)
+      return next
+    })
+  }, [])
+
+  const requestEditFromLibrary = useCallback(
+    async (t: Task) => {
+      pinTaskId(t.id)
+      setLibraryEditTask(t)
+      if (materiales.length === 0) {
+        const r = await apiService.getMateriales()
+        if (r.success && r.data) setMateriales(r.data)
+      }
+    },
+    [materiales.length, pinTaskId]
+  )
 
   const counters = useMemo(() => {
     const all = tasks.length
@@ -243,6 +276,18 @@ const TaskLibraryModal = ({
         matchesFecha
       )
     })
+
+    // Evita “saltos/desapariciones” mientras la OP está abierta o editándose desde Biblioteca:
+    // si está pinneada, la incluimos aunque ya no cumpla filtros (por cambios propios o realtime).
+    if (pinnedTaskIds.size > 0) {
+      const existing = new Set(filtered.map((t) => t.id))
+      for (const id of pinnedTaskIds) {
+        if (existing.has(id)) continue
+        const t = tasks.find((x) => x.id === id)
+        if (t) filtered.push(t)
+      }
+    }
+
     const byId = (t: Task) => parseTaskIdToOrdenId(t.id) ?? Number(t.id) ?? 0
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === 'createdAt') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -263,7 +308,8 @@ const TaskLibraryModal = ({
     selectedComplejidad,
     fechaDesde,
     fechaHasta,
-    columns
+    columns,
+    pinnedTaskIds
   ])
 
   const filteredEliminadasTasks = useMemo(() => {
@@ -847,7 +893,27 @@ const TaskLibraryModal = ({
         teamMembers={teamMembers}
         sectores={sectores}
         exhaustiveDetail
+        allowEdit
+        onRequestEdit={(t) => requestEditFromLibrary(t)}
         onClose={() => setLibraryDetailTask(null)}
+      />
+    )}
+    {libraryEditTask && (
+      <TaskEditModal
+        task={libraryEditTask}
+        teamMembers={teamMembers}
+        sectores={sectores}
+        materiales={materiales}
+        activity={[]}
+        onClose={() => {
+          if (libraryEditTask) unpinTaskId(libraryEditTask.id)
+          setLibraryEditTask(null)
+        }}
+        onSave={(updatedTask) => {
+          setLibraryDetailTask(updatedTask)
+          setLibraryEditTask(null)
+          unpinTaskId(updatedTask.id)
+        }}
       />
     )}
     </Fragment>

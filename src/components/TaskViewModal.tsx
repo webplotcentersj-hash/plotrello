@@ -32,6 +32,9 @@ type TaskViewModalProps = {
   onClose: () => void
   /** Biblioteca: refrescar desde API y mostrar comentarios, adjuntos, trazados de etapas, checklist, etc. */
   exhaustiveDetail?: boolean
+  /** Biblioteca: permitir editar desde esta vista */
+  allowEdit?: boolean
+  onRequestEdit?: (task: Task) => void
 }
 
 function formatCambiosJson(cd: unknown): string | null {
@@ -106,7 +109,9 @@ export default function TaskViewModal({
   teamMembers,
   sectores,
   onClose,
-  exhaustiveDetail = false
+  exhaustiveDetail = false,
+  allowEdit = false,
+  onRequestEdit
 }: TaskViewModalProps) {
   const { getTagColor, loadTagColor } = useTagColors()
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(() => new Map())
@@ -318,9 +323,21 @@ export default function TaskViewModal({
                 {columnCfg?.description ? ` · ${columnCfg.description}` : ''}
               </p>
             </div>
-            <button type="button" className="task-view-close" onClick={onClose} aria-label="Cerrar">
-              Cerrar
-            </button>
+            <div className="task-view-header-actions">
+              {allowEdit && onRequestEdit && (
+                <button
+                  type="button"
+                  className="task-view-close task-view-close--secondary"
+                  onClick={() => onRequestEdit(viewTask)}
+                  aria-label="Editar"
+                >
+                  Editar
+                </button>
+              )}
+              <button type="button" className="task-view-close" onClick={onClose} aria-label="Cerrar">
+                Cerrar
+              </button>
+            </div>
           </div>
         </header>
 
@@ -364,7 +381,9 @@ export default function TaskViewModal({
               <strong>{exhaustiveDetail ? 'Biblioteca · detalle completo' : 'Vista expandida · solo lectura'}</strong>
               <p>
                 {exhaustiveDetail
-                  ? 'Todos los datos se cargan desde la base; no se puede editar desde aquí.'
+                  ? allowEdit
+                    ? 'Todos los datos se cargan desde la base. Podés editar desde esta vista.'
+                    : 'Todos los datos se cargan desde la base; no se puede editar desde aquí.'
                   : 'Para editar usá el botón ✏️ en la tarjeta del tablero.'}
               </p>
             </div>
