@@ -167,6 +167,7 @@ const TaskLibraryModal = ({
   const [selectedEstado, setSelectedEstado] = useState<string>('todos')
   const [selectedPrioridad, setSelectedPrioridad] = useState<Priority | 'todas'>('todas')
   const [selectedComplejidad, setSelectedComplejidad] = useState<string>('todas')
+  const [selectedReclamo, setSelectedReclamo] = useState<'todos' | 'solo' | 'sin'>('todos')
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
   const [viewMode, setViewMode] = useState<'activas' | 'eliminadas'>('activas')
@@ -280,6 +281,13 @@ const TaskLibraryModal = ({
         (selectedComplejidad === 'media' && impact === 'media') ||
         (selectedComplejidad === 'alta' && impact === 'alta')
 
+      const matchesReclamo =
+        selectedReclamo === 'todos'
+          ? true
+          : selectedReclamo === 'solo'
+            ? task.enReclamo === true
+            : task.enReclamo !== true
+
       const matchesTableroEstado = (() => {
         if (selectedTableroEstado === 'todos') return true
         if (selectedTableroEstado === 'visibles') return task.visibleEnTablero !== false && !task.ordenEliminada
@@ -309,6 +317,7 @@ const TaskLibraryModal = ({
         matchesEstado &&
         matchesPrioridad &&
         matchesComplejidad &&
+        matchesReclamo &&
         matchesTableroEstado &&
         matchesFecha
       )
@@ -343,6 +352,7 @@ const TaskLibraryModal = ({
     selectedEstado,
     selectedPrioridad,
     selectedComplejidad,
+    selectedReclamo,
     fechaDesde,
     fechaHasta,
     columns,
@@ -369,6 +379,13 @@ const TaskLibraryModal = ({
         (selectedComplejidad === 'baja' && impact === 'low') ||
         (selectedComplejidad === 'media' && impact === 'media') ||
         (selectedComplejidad === 'alta' && impact === 'alta')
+
+      const matchesReclamo =
+        selectedReclamo === 'todos'
+          ? true
+          : selectedReclamo === 'solo'
+            ? task.enReclamo === true
+            : task.enReclamo !== true
 
       const matchesTableroEstado = (() => {
         if (selectedTableroEstado === 'todos') return true
@@ -398,6 +415,7 @@ const TaskLibraryModal = ({
         matchesEstado &&
         matchesPrioridad &&
         matchesComplejidad &&
+        matchesReclamo &&
         matchesTableroEstado &&
         matchesFecha
       )
@@ -412,6 +430,7 @@ const TaskLibraryModal = ({
     selectedEstado,
     selectedPrioridad,
     selectedComplejidad,
+    selectedReclamo,
     fechaDesde,
     fechaHasta,
     columns
@@ -501,6 +520,7 @@ const TaskLibraryModal = ({
     setSelectedEstado('todos')
     setSelectedPrioridad('todas')
     setSelectedComplejidad('todas')
+    setSelectedReclamo('todos')
     setFechaDesde('')
     setFechaHasta('')
   }
@@ -697,6 +717,18 @@ const TaskLibraryModal = ({
                 <option value="alta">Alta</option>
                 <option value="media">Media</option>
                 <option value="baja">Baja</option>
+              </select>
+            </div>
+
+            <div className="filter-field">
+              <label>Reclamos</label>
+              <select
+                value={selectedReclamo}
+                onChange={(e) => setSelectedReclamo(e.target.value as typeof selectedReclamo)}
+              >
+                <option value="todos">Todos</option>
+                <option value="solo">Solo reclamos</option>
+                <option value="sin">Sin reclamos</option>
               </select>
             </div>
           </div>
