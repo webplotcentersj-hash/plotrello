@@ -8,7 +8,7 @@ import './PedidoClienteDetalleAdminPage.css'
 export default function PedidoClienteDetalleAdminPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [detalle, setDetalle] = useState<PedidoClienteDetalle | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -20,14 +20,14 @@ export default function PedidoClienteDetalleAdminPage() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isMostrador) {
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     if (id) {
       loadDetalle()
     }
-  }, [id, isAdmin, isMostrador, navigate, authLoading])
+  }, [id, canAccessMostradorViews, navigate, authLoading])
 
   const loadDetalle = async () => {
     if (!id) return

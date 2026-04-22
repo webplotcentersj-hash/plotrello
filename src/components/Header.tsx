@@ -35,7 +35,6 @@ type HeaderProps = {
   onNavigateToMensajeria?: () => void
   onLogout?: () => void
   isAdmin?: boolean
-  isMostrador?: boolean
   isDiseno?: boolean
 }
 
@@ -63,7 +62,6 @@ const Header = ({
   onNavigateToMensajeria,
   onLogout,
   isAdmin: isAdminProp = false,
-  isMostrador = false,
   isDiseno = false
 }: HeaderProps) => {
   const {
@@ -75,6 +73,7 @@ const Header = ({
     isAsesorTecnico,
     isPresupuestos,
     canAccessAtencionPublico,
+    canAccessMostradorViews,
     isTallerGrafico,
     isInstalaciones,
     isMetalurgica
@@ -184,12 +183,12 @@ const Header = ({
                 🛠️ Nueva Herramienta
               </button>
             )}
-            {(isMostrador || isAdmin || isPresupuestos) && onNavigateToMostrador && (
+            {canAccessMostradorViews && onNavigateToMostrador && (
               <button className="brand-button" onClick={onNavigateToMostrador}>
                 📋 Dashboard Mostrador
               </button>
             )}
-            {(isMostrador || isAdmin || isPresupuestos) && (
+            {canAccessMostradorViews && (
               <a
                 href="/crm-ventas"
                 className="brand-button"
@@ -232,7 +231,7 @@ const Header = ({
                 👥 Recursos Humanos
               </button>
             )}
-            {(isAdmin || isMostrador || isPresupuestos || canManageCaja) && onNavigateToClientesWeb && (
+            {canAccessMostradorViews && onNavigateToClientesWeb && (
               <button className="brand-button" onClick={onNavigateToClientesWeb}>
                 Clientes
               </button>

@@ -63,6 +63,9 @@ export function useAuth() {
   const isRecursosHumanos = usuario?.rol === 'recursos-humanos'
   const isAsesorTecnico = usuario?.rol === 'asesor-tecnico'
   const isPresupuestos = usuario?.rol === 'presupuestos'
+  /** Mostrador (dashboard, /mostrador/*, CRM ventas): mismo acceso operativo para rol caja. */
+  const canAccessMostradorViews =
+    !!usuario && (isMostrador || isCaja || isPresupuestos || isAdmin)
   // Puede administrar impresoras: taller-grafico o administracion
   const canManageImpresoras = !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
   // Puede gestionar compras: compras o administracion
@@ -113,6 +116,7 @@ export function useAuth() {
     canManageAsesorTecnico,
     canManagePresupuestos,
     canAccessAtencionPublico,
+    canAccessMostradorViews,
     loading,
     setUsuario
   }

@@ -129,7 +129,7 @@ function aplicarClienteAOportunidadForm(
 
 const CRMVentasPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, isPresupuestos, usuario, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas' | 'presupuestos'>(() => {
     try {
@@ -403,20 +403,17 @@ const CRMVentasPage = () => {
     }
   }, [formOportunidad, usuario?.nombre])
 
-  // Verificar permisos
+  // Verificar permisos (mostrador, caja, presupuestos, admin)
   useEffect(() => {
     if (authLoading) return // Esperar a que termine de cargar el usuario
-    
-    if (!isAdmin && !isMostrador && !isPresupuestos) {
+
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
-    
-    // Solo cargar datos si tiene permisos
-    if (isAdmin || isMostrador || isPresupuestos) {
-      loadData()
-    }
-  }, [isAdmin, isMostrador, isPresupuestos, navigate, authLoading])
+
+    loadData()
+  }, [canAccessMostradorViews, navigate, authLoading])
 
   // Escuchar eventos de venta creada desde otros componentes
   useEffect(() => {

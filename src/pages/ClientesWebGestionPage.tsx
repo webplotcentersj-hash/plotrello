@@ -9,7 +9,7 @@ type FiltroAcceso = 'todos' | 'con_acceso' | 'sin_acceso'
 
 const ClientesWebGestionPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, isCaja, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [clientes, setClientes] = useState<ClienteRecord[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -35,12 +35,12 @@ const ClientesWebGestionPage = () => {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isMostrador && !isCaja) {
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     loadClientes()
-  }, [navigate, isAdmin, isMostrador, isCaja, authLoading])
+  }, [navigate, canAccessMostradorViews, authLoading])
 
   const loadClientes = async () => {
     setLoading(true)

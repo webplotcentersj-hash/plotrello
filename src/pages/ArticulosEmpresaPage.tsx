@@ -7,7 +7,7 @@ import './ArticulosEmpresaPage.css'
 
 const ArticulosEmpresaPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, isCaja, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [articulos, setArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -45,13 +45,13 @@ const ArticulosEmpresaPage = () => {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isMostrador && !isCaja) {
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     loadArticulos()
     loadCategorias()
-  }, [navigate, isAdmin, isMostrador, isCaja, authLoading])
+  }, [navigate, canAccessMostradorViews, authLoading])
 
   useEffect(() => {
     if (formData.categoria) {

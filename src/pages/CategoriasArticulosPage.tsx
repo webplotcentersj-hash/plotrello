@@ -11,7 +11,7 @@ interface CategoriaConSubcategorias {
 
 const CategoriasArticulosPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [categorias, setCategorias] = useState<CategoriaConSubcategorias[]>([])
   const [editingCategoria, setEditingCategoria] = useState<string | null>(null)
@@ -24,12 +24,12 @@ const CategoriasArticulosPage = () => {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isMostrador) {
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     loadCategorias()
-  }, [navigate, isAdmin, isMostrador, authLoading])
+  }, [navigate, canAccessMostradorViews, authLoading])
 
   const loadCategorias = async () => {
     setLoading(true)

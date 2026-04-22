@@ -7,7 +7,7 @@ import './PresupuestosClientesAdminPage.css'
 
 export default function PresupuestosClientesAdminPage() {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, isPresupuestos, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [presupuestos, setPresupuestos] = useState<Array<PresupuestoClienteRecord & {
     cliente_nombre?: string
@@ -21,12 +21,12 @@ export default function PresupuestosClientesAdminPage() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isMostrador && !isPresupuestos) {
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     loadPresupuestos()
-  }, [navigate, isAdmin, isMostrador, isPresupuestos, authLoading])
+  }, [navigate, canAccessMostradorViews, authLoading])
 
   const loadPresupuestos = async () => {
     setLoading(true)

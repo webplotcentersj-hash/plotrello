@@ -7,7 +7,7 @@ import './ClientesWebDashboardPage.css'
 
 const ClientesWebDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, isPresupuestos, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedidosPendientes, setPedidosPendientes] = useState<PedidoClienteRecord[]>([])
   const [stats, setStats] = useState({
@@ -22,13 +22,13 @@ const ClientesWebDashboardPage = () => {
 
   useEffect(() => {
     if (authLoading) return
-    // Permitir acceso a admin, mostrador y presupuestos
-    if (!isAdmin && !isMostrador && !isPresupuestos) {
+    // Admin, mostrador, caja, presupuestos
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     loadDashboardData()
-  }, [navigate, isAdmin, isMostrador, isPresupuestos, authLoading])
+  }, [navigate, canAccessMostradorViews, authLoading])
 
   const loadDashboardData = async () => {
     setLoading(true)

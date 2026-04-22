@@ -13,7 +13,7 @@ interface PresupuestoDetalle {
 export default function PresupuestoClienteDetalleAdminPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [presupuestoDetalle, setPresupuestoDetalle] = useState<PresupuestoDetalle | null>(null)
@@ -22,14 +22,14 @@ export default function PresupuestoClienteDetalleAdminPage() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isMostrador) {
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     if (id) {
       loadPresupuesto()
     }
-  }, [id, isAdmin, isMostrador, navigate, authLoading])
+  }, [id, canAccessMostradorViews, navigate, authLoading])
 
   const loadPresupuesto = async () => {
     if (!id) return

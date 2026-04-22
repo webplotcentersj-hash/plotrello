@@ -8,7 +8,7 @@ import './ConvertirPedidoAOpPage.css'
 export default function ConvertirPedidoAOpPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, usuario, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, usuario, loading: authLoading } = useAuth()
   const [detalle, setDetalle] = useState<PedidoClienteDetalle | null>(null)
   const [loading, setLoading] = useState(true)
   const [convirtiendo, setConvirtiendo] = useState(false)
@@ -34,14 +34,14 @@ export default function ConvertirPedidoAOpPage() {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isMostrador) {
+    if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
     if (id) {
       loadDetalle()
     }
-  }, [id, isAdmin, isMostrador, navigate, authLoading])
+  }, [id, canAccessMostradorViews, navigate, authLoading])
 
   const loadDetalle = async () => {
     if (!id) return

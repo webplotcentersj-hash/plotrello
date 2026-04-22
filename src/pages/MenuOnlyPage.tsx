@@ -17,7 +17,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
   const {
     usuario,
     isAdmin,
-    isMostrador,
+    canAccessMostradorViews,
     canManageCaja,
     canManageCompras,
     canManageRecursosHumanos,
@@ -52,7 +52,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
         description: 'Entregas, ventas, clientes y reportes',
         icon: '🖥️',
         path: '/mostrador/dashboard',
-        enabled: isAdmin || isMostrador
+        enabled: canAccessMostradorViews
       },
       {
         id: 'caja',
@@ -104,7 +104,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
     canManagePresupuestos,
     canManageRecursosHumanos,
     isAdmin,
-    isMostrador,
+    canAccessMostradorViews,
     usuario
   ])
 

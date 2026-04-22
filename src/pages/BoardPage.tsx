@@ -110,7 +110,7 @@ const BoardPage = ({
   sectores,
   materialesCatalog
 }: BoardPageProps) => {
-  const { usuario, isAdmin, isMostrador, isDiseno } = useAuth()
+  const { usuario, isAdmin, isDiseno } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
@@ -1164,7 +1164,6 @@ const BoardPage = ({
         onSolicitarProductos={() => setIsSolicitarProductosOpen(true)}
         onLogout={onLogout}
         isAdmin={isAdmin}
-        isMostrador={isMostrador}
         isDiseno={isDiseno}
       />
       <FiltersBar

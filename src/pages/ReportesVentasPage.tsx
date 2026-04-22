@@ -9,7 +9,7 @@ import './ReportesVentasPage.css'
 
 const ReportesVentasPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isMostrador, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [ventas, setVentas] = useState<Venta[]>([])
   const [fechaDesde, setFechaDesde] = useState(() => {
@@ -25,21 +25,21 @@ const ReportesVentasPage = () => {
     // Esperar a que termine de cargar el usuario antes de verificar permisos
     if (authLoading) return
     
-    if (!isAdmin && !isMostrador) {
+    if (!canAccessMostradorViews) {
       console.log('Sin permisos para ver reportes, redirigiendo...')
       navigate('/crm-ventas')
       return
     }
-  }, [isAdmin, isMostrador, navigate, authLoading])
+  }, [canAccessMostradorViews, navigate, authLoading])
 
   useEffect(() => {
     // Solo cargar datos si tiene permisos y ya se cargó el usuario
     if (authLoading) return
-    
-    if (isAdmin || isMostrador) {
+
+    if (canAccessMostradorViews) {
       loadVentas()
     }
-  }, [isAdmin, isMostrador, fechaDesde, fechaHasta, authLoading])
+  }, [canAccessMostradorViews, fechaDesde, fechaHasta, authLoading])
 
   const loadVentas = async () => {
     setLoading(true)
