@@ -1,5 +1,6 @@
 -- RPC: borrar adjuntos (enlaces_adjuntos) por URL en todo el grupo OP (original + duplicadas).
 -- Motivo: con RLS, el cliente puede no poder borrar filas asociadas a otras fichas del mismo numero_op / id_orden_original.
+-- Nota: los operarios en Plot usan login_usuario; las llamadas REST siguen siendo rol Postgres `anon` (anon key). Esto no es el "usuario" humano.
 
 BEGIN;
 
@@ -55,8 +56,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.delete_enlaces_adjuntos_grupo(integer, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_enlaces_adjuntos_grupo(integer, text) TO anon;
 
--- La web usa login_usuario (sin sesión JWT): las llamadas REST van como rol `anon`.
--- Sin estos permisos, el fallback .delete() desde el cliente falla aunque el RPC exista (si PostgREST no puede ejecutar la función o no está desplegada).
+-- Plot usa login_usuario (sin JWT de Supabase Auth): las llamadas REST van como rol Postgres `anon`.
+-- Sin estos permisos, el fallback .delete() desde el cliente falla si el RPC no está desplegado o no tiene EXECUTE para anon.
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.enlaces_adjuntos TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.enlaces_adjuntos TO authenticated;
 

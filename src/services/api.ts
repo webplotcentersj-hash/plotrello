@@ -5074,14 +5074,22 @@ class ApiService {
         .in('id_orden', ids)
         .eq('url', cleanUrl)
       if (delErr) {
-        const hint =
-          rpcErr?.message &&
-          /permission denied|42501|no existe la función|does not exist/i.test(rpcErr.message)
-            ? ` (La app usa rol anon sin JWT: ejecutá supabase/patches/2026-04-23_rpc_delete_enlaces_adjuntos_grupo.sql en Supabase.)`
-            : ''
+        console.warn('[deleteArchivosGrupoByUrl]', { ordenId, rpcErr: rpcErr?.message, delErr: delErr.message })
+        const rpcMsg = rpcErr?.message ?? ''
+        const delMsg = delErr.message ?? ''
+        const looksLikeMissingPatch =
+          /permission denied|42501|no existe la función|does not exist|function .* does not exist/i.test(rpcMsg) ||
+          /permission denied|42501/i.test(delMsg)
+        if (looksLikeMissingPatch) {
+          return {
+            success: false,
+            error:
+              'No se pudo borrar el adjunto. Quien administra Plot debe aplicar en Supabase el parche de adjuntos del grupo OP (archivo supabase/patches/2026-04-23_rpc_delete_enlaces_adjuntos_grupo.sql).'
+          }
+        }
         return {
           success: false,
-          error: [rpcErr?.message, delErr.message + hint].filter(Boolean).join(' · ')
+          error: [rpcErr?.message, delErr.message].filter(Boolean).join(' · ')
         }
       }
       return { success: true, data: { eliminadas: count ?? 0 } }
