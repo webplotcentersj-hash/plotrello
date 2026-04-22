@@ -4884,6 +4884,18 @@ class ApiService {
       // Biblioteca / duplicadas: traer adjuntos del grupo completo (original + duplicadas).
       // Esto garantiza que "se vean tal cual" en todos los sectores, incluso en datos legacy.
       try {
+        // Preferir RPC (SECURITY DEFINER) para evitar bloqueos por RLS en ordenes_trabajo.
+        try {
+          const { data: rpcData, error: rpcErr } = await supabase.rpc('get_enlaces_adjuntos_grupo', {
+            p_orden_id: ordenId
+          })
+          if (!rpcErr) {
+            return { success: true, data: (rpcData as any[]) ?? [] }
+          }
+        } catch {
+          // ignore: fallback a método sin RPC
+        }
+
         const { data: oRow, error: oErr } = await supabase
           .from('ordenes_trabajo')
           .select('id, numero_op, es_duplicado, id_orden_original')
