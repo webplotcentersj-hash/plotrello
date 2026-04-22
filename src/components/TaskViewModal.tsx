@@ -279,6 +279,23 @@ export default function TaskViewModal({
     }
   }, [exhaustiveDetail, ordenIdView, viewTask.id])
 
+  // Modal solo lectura (tablero): también mostrar adjuntos del grupo.
+  useEffect(() => {
+    if (!ordenIdView || exhaustiveDetail) return
+    let cancelled = false
+    void apiService.getArchivosOrden(ordenIdView).then((archResp) => {
+      if (cancelled) return
+      if (archResp.success && archResp.data) {
+        setArchivosLib((archResp.data as Record<string, unknown>[]) ?? [])
+      } else {
+        setArchivosLib([])
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ordenIdView, exhaustiveDetail])
+
   const openPlotAIRecommendations = () => {
     setPlotAIRecoOpen(true)
     setPlotAIRecoError(null)
@@ -755,31 +772,35 @@ export default function TaskViewModal({
             </section>
           )}
 
-          {exhaustiveDetail && ordenIdView != null && (
+          {ordenIdView != null && (
             <>
-              <section className="task-view-panel task-view-panel--wide" aria-label="Checklist en vivo">
-                <h3 className="task-view-panel-title">Checklist (subtareas en BD)</h3>
-                <Subtasks ordenId={ordenIdView} readOnly />
-              </section>
+              {exhaustiveDetail && (
+                <>
+                  <section className="task-view-panel task-view-panel--wide" aria-label="Checklist en vivo">
+                    <h3 className="task-view-panel-title">Checklist (subtareas en BD)</h3>
+                    <Subtasks ordenId={ordenIdView} readOnly />
+                  </section>
 
-              <section className="task-view-panel task-view-panel--wide" aria-label="Comentarios">
-                <h3 className="task-view-panel-title">Comentarios en la OP</h3>
-                {comentariosLib.length === 0 ? (
-                  <p className="task-view-muted">Sin comentarios registrados.</p>
-                ) : (
-                  <ul className="task-view-comentarios-thread">
-                    {comentariosLib.map((c) => (
-                      <li key={c.id} className="task-view-comentario-item">
-                        <div className="task-view-historial-meta">
-                          <time dateTime={c.timestamp}>{formatDisplayDate(c.timestamp) ?? c.timestamp}</time>
-                          <span className="task-view-historial-user">{c.usuario_nombre}</span>
-                        </div>
-                        <p className="task-view-historial-body">{c.comentario}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+                  <section className="task-view-panel task-view-panel--wide" aria-label="Comentarios">
+                    <h3 className="task-view-panel-title">Comentarios en la OP</h3>
+                    {comentariosLib.length === 0 ? (
+                      <p className="task-view-muted">Sin comentarios registrados.</p>
+                    ) : (
+                      <ul className="task-view-comentarios-thread">
+                        {comentariosLib.map((c) => (
+                          <li key={c.id} className="task-view-comentario-item">
+                            <div className="task-view-historial-meta">
+                              <time dateTime={c.timestamp}>{formatDisplayDate(c.timestamp) ?? c.timestamp}</time>
+                              <span className="task-view-historial-user">{c.usuario_nombre}</span>
+                            </div>
+                            <p className="task-view-historial-body">{c.comentario}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </>
+              )}
 
               <section className="task-view-panel task-view-panel--wide" aria-label="Archivos y enlaces">
                 <h3 className="task-view-panel-title">Archivos, fotos y enlaces adjuntos</h3>
@@ -802,7 +823,9 @@ export default function TaskViewModal({
                             {creado ? (
                               <span className="task-view-muted">{formatDisplayDate(creado) ?? creado}</span>
                             ) : null}
-                            {evidencia ? <span className="task-view-chip task-view-chip--sector">Evidencia campo</span> : null}
+                            {evidencia ? (
+                              <span className="task-view-chip task-view-chip--sector">Evidencia campo</span>
+                            ) : null}
                             {relev ? <span className="task-view-chip">Relevamiento</span> : null}
                           </div>
                           {isImg ? (

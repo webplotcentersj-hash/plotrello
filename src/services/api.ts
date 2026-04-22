@@ -4881,15 +4881,51 @@ class ApiService {
 
   async getArchivosOrden(ordenId: number) {
     if (supabase) {
-      // Obtener archivos desde la tabla enlaces_adjuntos
-      const { data, error } = await supabase
-        .from('enlaces_adjuntos')
-        .select('*')
-        .eq('id_orden', ordenId)
-        .order('creado_en', { ascending: false })
+      // Biblioteca / duplicadas: traer adjuntos del grupo completo (original + duplicadas).
+      // Esto garantiza que "se vean tal cual" en todos los sectores, incluso en datos legacy.
+      try {
+        const { data: oRow, error: oErr } = await supabase
+          .from('ordenes_trabajo')
+          .select('id, numero_op, es_duplicado, id_orden_original')
+          .eq('id', ordenId)
+          .maybeSingle()
+        if (oErr) return { success: false, error: oErr.message }
+        if (!oRow) return { success: true, data: [] }
 
-      if (error) return { success: false, error: error.message }
-      return { success: true, data: (data as any[]) ?? [] }
+        const numeroOp = (oRow as any).numero_op as string | null
+        const esDuplicado = (oRow as any).es_duplicado === true
+        const idOrdenOriginal = (oRow as any).id_orden_original as number | null
+        const rootId = esDuplicado && idOrdenOriginal ? idOrdenOriginal : (oRow as any).id
+
+        // IDs del grupo por cadena (root + duplicadas) y fallback legacy por numero_op
+        const { data: grpRows, error: grpErr } = await supabase
+          .from('ordenes_trabajo')
+          .select('id')
+          .or(
+            [
+              `id.eq.${rootId}`,
+              `id_orden_original.eq.${rootId}`,
+              ...(numeroOp ? [`and(id_orden_original.is.null,numero_op.eq.${numeroOp})`] : [])
+            ].join(',')
+          )
+          .limit(200)
+        if (grpErr) return { success: false, error: grpErr.message }
+
+        const ids = ((grpRows as any[]) ?? []).map((r) => (r as any).id).filter(Boolean)
+        if (ids.length === 0) return { success: true, data: [] }
+
+        const { data, error } = await supabase
+          .from('enlaces_adjuntos')
+          .select('*')
+          .in('id_orden', ids)
+          .order('creado_en', { ascending: false })
+
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data as any[]) ?? [] }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'No se pudieron cargar adjuntos del grupo.'
+        return { success: false, error: msg }
+      }
     }
 
     if (hasLegacyBackend) {
