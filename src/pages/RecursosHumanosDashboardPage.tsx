@@ -157,6 +157,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/incidencias')}
+            >
+              <div className="rrhh-action-icon">⚠️</div>
+              <h3>Incidencias</h3>
+              <p>OP en reclamo: motivo, seguimiento RRHH y análisis con PlotAI</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/reportes')}
             >
               <div className="rrhh-action-icon">📊</div>

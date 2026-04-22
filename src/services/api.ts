@@ -5497,6 +5497,59 @@ class ApiService {
     return { success: true, data: full as OrdenTrabajo }
   }
 
+  /**
+   * Auditoría de reclamos: marcas y desmarcas en historial_movimientos.
+   * Útil para incidencias RRHH (incluye histórico aunque la OP ya no esté en reclamo).
+   */
+  async getHistorialReclamosIncidencias(limit = 8000): Promise<ApiResponse<HistorialMovimiento[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      let primary: HistorialMovimiento[] = []
+      const q1 = await supabase
+        .from('historial_movimientos')
+        .select('*')
+        .in('accion_tipo', ['reclamo', 'reclamo_resuelto'])
+        .order('timestamp', { ascending: true })
+        .limit(limit)
+
+      if (!q1.error && q1.data) {
+        primary = q1.data as HistorialMovimiento[]
+      }
+
+      let legacy: HistorialMovimiento[] = []
+      const q2 = await supabase
+        .from('historial_movimientos')
+        .select('*')
+        .ilike('comentario', '%[RECLAMO]%')
+        .order('timestamp', { ascending: true })
+        .limit(Math.min(limit, 6000))
+
+      if (!q2.error && q2.data) legacy = q2.data as HistorialMovimiento[]
+
+      if (primary.length === 0 && legacy.length === 0) {
+        const msg = q1.error?.message || q2.error?.message || 'Sin datos de historial'
+        return { success: false, error: msg }
+      }
+
+      const seen = new Set<string>()
+      const merged: HistorialMovimiento[] = []
+      for (const row of [...primary, ...legacy]) {
+        const id = (row as { id?: number }).id
+        const key =
+          typeof id === 'number' && Number.isFinite(id)
+            ? `id:${id}`
+            : `f:${(row as HistorialMovimiento).id_orden}-${(row as HistorialMovimiento).timestamp}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        merged.push(row as HistorialMovimiento)
+      }
+      merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      return { success: true, data: merged }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error historial reclamos' }
+    }
+  }
+
   // ========== IMPRESORAS ==========
   async getImpresoras(includeInactivas: boolean = false): Promise<ApiResponse<any[]>> {
     if (supabase) {
