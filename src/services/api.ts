@@ -5020,6 +5020,9 @@ class ApiService {
         const n = typeof rpcData === 'number' ? rpcData : Number(rpcData)
         return { success: true, data: { eliminadas: Number.isFinite(n) ? n : 0 } }
       }
+      if (rpcErr) {
+        console.warn('[deleteArchivosGrupoByUrl] RPC delete_enlaces_adjuntos_grupo:', rpcErr.message)
+      }
 
       // Root/group ids (mismo criterio que getArchivosOrden)
       const { data: oRow, error: oErr } = await supabase
@@ -5070,7 +5073,17 @@ class ApiService {
         .delete({ count: 'exact' })
         .in('id_orden', ids)
         .eq('url', cleanUrl)
-      if (delErr) return { success: false, error: delErr.message }
+      if (delErr) {
+        const hint =
+          rpcErr?.message &&
+          /permission denied|42501|no existe la función|does not exist/i.test(rpcErr.message)
+            ? ` (La app usa rol anon sin JWT: ejecutá supabase/patches/2026-04-23_rpc_delete_enlaces_adjuntos_grupo.sql en Supabase.)`
+            : ''
+        return {
+          success: false,
+          error: [rpcErr?.message, delErr.message + hint].filter(Boolean).join(' · ')
+        }
+      }
       return { success: true, data: { eliminadas: count ?? 0 } }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'No se pudo eliminar el adjunto del grupo.'

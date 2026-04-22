@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION public.delete_enlaces_adjuntos_grupo(p_orden_id integ
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   root_id integer;
@@ -53,5 +54,41 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.delete_enlaces_adjuntos_grupo(integer, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_enlaces_adjuntos_grupo(integer, text) TO anon;
+
+-- La web usa login_usuario (sin sesión JWT): las llamadas REST van como rol `anon`.
+-- Sin estos permisos, el fallback .delete() desde el cliente falla aunque el RPC exista (si PostgREST no puede ejecutar la función o no está desplegada).
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.enlaces_adjuntos TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.enlaces_adjuntos TO authenticated;
+
+-- Si la tabla tiene RLS activado, GRANT solo no alcanza: políticas permisivas para anon/authenticated.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_tables
+    WHERE schemaname = 'public'
+      AND tablename = 'enlaces_adjuntos'
+      AND rowsecurity = true
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public'
+        AND tablename = 'enlaces_adjuntos'
+        AND policyname = 'enlaces_adjuntos_anon_all'
+    ) THEN
+      CREATE POLICY "enlaces_adjuntos_anon_all" ON public.enlaces_adjuntos
+        FOR ALL TO anon USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public'
+        AND tablename = 'enlaces_adjuntos'
+        AND policyname = 'enlaces_adjuntos_authenticated_all'
+    ) THEN
+      CREATE POLICY "enlaces_adjuntos_authenticated_all" ON public.enlaces_adjuntos
+        FOR ALL TO authenticated USING (true) WITH CHECK (true);
+    END IF;
+  END IF;
+END $$;
 
 COMMIT;
