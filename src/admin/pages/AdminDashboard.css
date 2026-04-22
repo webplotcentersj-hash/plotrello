@@ -82,6 +82,39 @@
   background: rgba(255, 255, 255, 0.15);
 }
 
+.admin-btn-backup {
+  background: rgba(52, 211, 153, 0.2);
+  color: #ecfdf5;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
+
+.admin-btn-backup:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.32);
+}
+
+.admin-btn-fichas-pdf {
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.22) 0%, rgba(244, 63, 94, 0.18) 100%);
+  color: #fff5f7;
+  border: 1px solid rgba(251, 113, 133, 0.55);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.admin-btn-fichas-pdf:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.34) 0%, rgba(244, 63, 94, 0.28) 100%);
+  transform: translateY(-1px);
+}
+
+.admin-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-quick-action-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .admin-btn-icon {
   font-size: 18px;
 }
@@ -581,6 +614,25 @@
 .admin-quick-action-card:hover {
   background: rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
+}
+
+.admin-quick-action-card-pdf {
+  background: linear-gradient(
+    145deg,
+    rgba(251, 113, 133, 0.15) 0%,
+    rgba(244, 63, 94, 0.08) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border: 1px solid rgba(251, 113, 133, 0.35);
+}
+
+.admin-quick-action-card-pdf:hover:not(:disabled) {
+  background: linear-gradient(
+    145deg,
+    rgba(251, 113, 133, 0.22) 0%,
+    rgba(244, 63, 94, 0.14) 50%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
 }
 
 .admin-quick-action-icon {

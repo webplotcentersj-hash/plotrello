@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import type { Task, TeamMember, ActivityEvent } from '../../types/board'
 import PlotAIChat from '../../components/PlotAIChat'
 import { useAuth } from '../../hooks/useAuth'
+import apiService from '../../services/api'
+import { ordenToTask } from '../../utils/dataMappers'
+import { exportTableroFichasActivasPdf } from '../../utils/exportTableroFichasActivasPdf'
 import './AdminDashboard.css'
 
 interface AdminDashboardProps {
@@ -23,6 +26,8 @@ export default function AdminDashboard({
   const [isPlotAIOpen, setIsPlotAIOpen] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [isInstallable, setIsInstallable] = useState(false)
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [pdfFichasLoading, setPdfFichasLoading] = useState(false)
 
   // Manejar instalación PWA
   useEffect(() => {
@@ -43,6 +48,73 @@ export default function AdminDashboard({
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     }
   }, [])
+
+  const handleDescargarBackup = async () => {
+    setBackupLoading(true)
+    try {
+      const [ordRes, histRes, usrRes] = await Promise.all([
+        apiService.getOrdenes(),
+        apiService.getHistorialMovimientos({ limit: 50000 }),
+        apiService.getUsuarios()
+      ])
+
+      const payload = {
+        meta: {
+          exportadoEn: new Date().toISOString(),
+          aplicacion: 'Plot Lab Admin',
+          versionExport: 1,
+          aviso:
+            'Snapshot JSON (órdenes, historial de movimientos, usuarios) obtenido por la API del cliente. No sustituye un backup completo de la base PostgreSQL ni archivos en Storage.'
+        },
+        ordenes_trabajo: ordRes.success ? ordRes.data ?? [] : [],
+        historial_movimientos: histRes.success ? histRes.data ?? [] : [],
+        usuarios: usrRes.success ? usrRes.data ?? [] : [],
+        erroresCarga: {
+          ordenes: ordRes.success ? null : ordRes.error ?? 'desconocido',
+          historial: histRes.success ? null : histRes.error ?? 'desconocido',
+          usuarios: usrRes.success ? null : usrRes.error ?? 'desconocido'
+        }
+      }
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: 'application/json;charset=utf-8'
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const stamp = new Date().toISOString().replace(/:/g, '-').slice(0, 19)
+      a.href = url
+      a.download = `plotlab-backup-${stamp}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+
+      const errs = payload.erroresCarga
+      if (errs.ordenes || errs.historial || errs.usuarios) {
+        window.alert(
+          'Backup generado con advertencias: revisá el campo erroresCarga dentro del JSON si alguna sección quedó vacía.'
+        )
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo generar el backup.')
+    } finally {
+      setBackupLoading(false)
+    }
+  }
+
+  const handleDescargarFichasPdf = async () => {
+    setPdfFichasLoading(true)
+    try {
+      const ordRes = await apiService.getOrdenes()
+      if (!ordRes.success || !ordRes.data) {
+        window.alert(ordRes.error ?? 'No se pudieron cargar las órdenes.')
+        return
+      }
+      exportTableroFichasActivasPdf(ordRes.data.map((o) => ordenToTask(o)))
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'No se pudo generar el PDF.')
+    } finally {
+      setPdfFichasLoading(false)
+    }
+  }
 
   const handleInstallPWA = async () => {
     if (!deferredPrompt) return
@@ -98,6 +170,26 @@ export default function AdminDashboard({
             >
               <span className="admin-btn-icon">🤖</span>
               <span className="admin-btn-text">PlotAI</span>
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn-backup"
+              onClick={() => void handleDescargarBackup()}
+              disabled={backupLoading || pdfFichasLoading}
+              title="Descargar JSON con órdenes, historial y usuarios"
+            >
+              <span className="admin-btn-icon">💾</span>
+              <span className="admin-btn-text">{backupLoading ? 'Generando…' : 'Backup'}</span>
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn-fichas-pdf"
+              onClick={() => void handleDescargarFichasPdf()}
+              disabled={pdfFichasLoading || backupLoading}
+              title="PDF de todas las fichas activas del tablero principal (Kanban)"
+            >
+              <span className="admin-btn-icon">📄</span>
+              <span className="admin-btn-text">{pdfFichasLoading ? 'PDF…' : 'Fichas PDF'}</span>
             </button>
             <button
               className="admin-btn admin-btn-secondary"
@@ -209,6 +301,28 @@ export default function AdminDashboard({
           >
             <div className="admin-quick-action-icon">🔄</div>
             <div className="admin-quick-action-label">Actualizar</div>
+          </button>
+          <button
+            type="button"
+            className="admin-quick-action-card"
+            disabled={backupLoading || pdfFichasLoading}
+            onClick={() => void handleDescargarBackup()}
+          >
+            <div className="admin-quick-action-icon">💾</div>
+            <div className="admin-quick-action-label">
+              {backupLoading ? 'Generando backup…' : 'Descargar backup'}
+            </div>
+          </button>
+          <button
+            type="button"
+            className="admin-quick-action-card admin-quick-action-card-pdf"
+            disabled={pdfFichasLoading || backupLoading}
+            onClick={() => void handleDescargarFichasPdf()}
+          >
+            <div className="admin-quick-action-icon">📑</div>
+            <div className="admin-quick-action-label">
+              {pdfFichasLoading ? 'Generando PDF…' : 'Fichas activas (PDF)'}
+            </div>
           </button>
         </div>
       </section>
