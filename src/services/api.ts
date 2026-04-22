@@ -5012,6 +5012,15 @@ class ApiService {
     const cleanUrl = String(url ?? '').trim()
     if (!cleanUrl) return { success: false, error: 'URL inválida.' }
     try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('delete_enlaces_adjuntos_grupo', {
+        p_orden_id: ordenId,
+        p_url: cleanUrl
+      })
+      if (!rpcErr && rpcData != null) {
+        const n = typeof rpcData === 'number' ? rpcData : Number(rpcData)
+        return { success: true, data: { eliminadas: Number.isFinite(n) ? n : 0 } }
+      }
+
       // Root/group ids (mismo criterio que getArchivosOrden)
       const { data: oRow, error: oErr } = await supabase
         .from('ordenes_trabajo')

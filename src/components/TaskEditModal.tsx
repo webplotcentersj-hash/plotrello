@@ -2650,7 +2650,7 @@ const TaskEditModal = ({
                           className="delete-file"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleRemoveFile(file.id)
+                            void handleRemoveFile(file.id)
                           }}
                         >
                           Eliminar
