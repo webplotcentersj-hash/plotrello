@@ -1207,7 +1207,6 @@ const BoardPage = ({
           <Board
             columns={BOARD_COLUMNS}
             tasks={filteredTasks}
-            allTasks={tasks.filter((t) => !t.entregado)}
             onMoveTask={handleMoveTask}
             members={teamMembers}
             onEditTask={handleEditTask}

@@ -8,7 +8,6 @@ import './Board.css'
 type BoardProps = {
   columns: ColumnConfig[]
   tasks: Task[]
-  allTasks: Task[]
   /** `sourceColumn` = columna de origen (drag); útil en tableros con reglas por flujo (ej. asesor-presupuestos). */
   onMoveTask: (taskId: string, destination: TaskStatus, sourceColumn?: TaskStatus) => void
   members: TeamMember[]
@@ -27,7 +26,6 @@ type BoardProps = {
 const Board = ({
   columns,
   tasks,
-  allTasks,
   onMoveTask,
   members,
   onEditTask,
@@ -79,19 +77,6 @@ const Board = ({
 
     return emptyGroups
   }, [tasks, columns])
-
-  const totalByStatus = useMemo(() => {
-    const counts = columns.reduce<Record<string, number>>((acc, column) => {
-      acc[column.id] = 0
-      return acc
-    }, {})
-    for (const task of allTasks) {
-      if (typeof counts[task.status] === 'number') {
-        counts[task.status] += 1
-      }
-    }
-    return counts
-  }, [allTasks, columns])
 
   // Calcular el máximo de tareas en cualquier columna para normalizar la barra
   const maxTasksInColumn = useMemo(() => {
@@ -172,7 +157,6 @@ const Board = ({
                   column={column}
                   tasks={groupedByStatus[column.id] ?? []}
                   members={members}
-                  totalColumnTasks={totalByStatus[column.id] ?? 0}
                   maxTasksInColumn={maxTasksInColumn}
                   droppableProvided={provided}
                   isActive={snapshot.isDraggingOver}

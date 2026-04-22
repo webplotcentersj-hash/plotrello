@@ -12,7 +12,6 @@ type ColumnProps = {
   column: ColumnConfig
   tasks: Task[]
   members: TeamMember[]
-  totalColumnTasks: number
   maxTasksInColumn: number
   droppableProvided: DroppableProvided
   isActive: boolean
@@ -36,7 +35,6 @@ const Column = ({
   column,
   tasks,
   members,
-  totalColumnTasks,
   maxTasksInColumn,
   droppableProvided,
   isActive,
@@ -92,7 +90,7 @@ const Column = ({
           <h3>{column.description}</h3>
         </div>
         <span className="column-pill" style={{ background: column.accent }}>
-          {totalColumnTasks}
+          {tasks.length}
         </span>
       </header>
 

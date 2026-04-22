@@ -528,7 +528,6 @@ const AsesorPresupuestosPage = ({
             <div className="asesor-presupuestos-board-wrap">
               <Board
                 tasks={kanbanTasksForBoard}
-                allTasks={kanbanTasksForBoard}
                 onMoveTask={handleTaskMove}
                 members={teamMembers}
                 onEditTask={(task) => {
