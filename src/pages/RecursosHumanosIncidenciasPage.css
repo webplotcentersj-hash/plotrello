@@ -1,6 +1,8 @@
 .rrhh-inc-page {
   min-height: 100vh;
-  background: var(--bg-primary);
+  background: radial-gradient(1200px 600px at 18% -12%, rgba(124, 58, 237, 0.14), transparent),
+    radial-gradient(900px 500px at 92% 8%, rgba(14, 165, 233, 0.1), transparent),
+    var(--bg-primary);
   color: var(--text-primary);
   padding: 20px;
 }
@@ -16,6 +18,27 @@
 
 .rrhh-inc-header {
   margin-bottom: 24px;
+}
+
+.rrhh-inc-header--hero {
+  padding: 22px 22px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.16), rgba(59, 130, 246, 0.08));
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.25);
+}
+
+.rrhh-inc-hero-kicker {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #c4b5fd;
+}
+
+.rrhh-inc-back-btn {
+  flex-shrink: 0;
 }
 
 .rrhh-inc-header-row {
@@ -70,12 +93,27 @@
 }
 
 .rrhh-inc-sidebar {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.25);
   border-radius: 12px;
   padding: 16px;
   position: sticky;
   top: 16px;
+}
+
+.rrhh-inc-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+
+.rrhh-inc-checkbox-label input {
+  margin-top: 3px;
+  accent-color: #a78bfa;
 }
 
 .rrhh-inc-search {
@@ -319,6 +357,14 @@
   resize: vertical;
 }
 
+.rrhh-inc-plot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  align-items: center;
+}
+
 .rrhh-inc-focus textarea {
   width: 100%;
   margin-top: 6px;
@@ -503,11 +549,97 @@
   margin: 0 auto;
 }
 
+.rrhh-inc-scope-banner {
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(14, 165, 233, 0.08);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.rrhh-inc-cost-controls {
+  margin-bottom: 14px;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.07), rgba(251, 191, 36, 0.04));
+}
+
+.rrhh-inc-cost-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.rrhh-inc-cost-intro {
+  margin: 0 0 14px;
+}
+
+.rrhh-inc-cost-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.rrhh-inc-cost-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.rrhh-inc-cost-fields input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.28);
+  color: inherit;
+}
+
 .rrhh-inc-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 8px;
+}
+
+.rrhh-inc-kpis--accent {
+  border-color: rgba(236, 72, 153, 0.35);
+  background: linear-gradient(160deg, rgba(236, 72, 153, 0.1), rgba(147, 51, 234, 0.07));
+}
+
+.rrhh-inc-kpi--highlight {
+  border-color: rgba(236, 72, 153, 0.4);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.rrhh-inc-kpi--highlight strong {
+  font-size: 1.45rem;
+  background: linear-gradient(90deg, #f472b6, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rrhh-inc-impacto {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.09), rgba(59, 130, 246, 0.05));
+}
+
+.rrhh-inc-impacto h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.rrhh-inc-impacto-note {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+}
+
+.rrhh-inc-dl--impacto {
+  margin-bottom: 0;
 }
 
 .rrhh-inc-kpi {
@@ -593,4 +725,227 @@
 .rrhh-inc-chart-card h4 {
   margin: 0 0 12px;
   font-size: 1rem;
+}
+
+.rrhh-inc-metrics-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  background: rgba(88, 28, 135, 0.12);
+}
+
+.rrhh-inc-periodo-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rrhh-inc-toolbar-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: #c4b5fd;
+  margin-right: 4px;
+}
+
+.rrhh-inc-periodo-group button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rrhh-inc-periodo-group button.is-active {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.5), rgba(37, 99, 235, 0.4));
+  border-color: rgba(196, 181, 253, 0.5);
+}
+
+.rrhh-inc-solo-activos-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rrhh-inc-solo-activos-badge.is-on {
+  border-color: rgba(248, 113, 113, 0.85);
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.rrhh-inc-badge-dot {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  background: rgba(34, 197, 94, 0.25);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+}
+
+.rrhh-inc-toolbar-hint {
+  font-size: 0.82rem;
+  opacity: 0.85;
+  flex: 1 1 200px;
+}
+
+.rrhh-inc-kpi--grand strong {
+  font-size: 1.55rem;
+}
+
+.rrhh-inc-chart-tip {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.rrhh-inc-chart-tip-row {
+  margin-top: 4px;
+  opacity: 0.95;
+}
+
+.rrhh-inc-board-pct {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.rrhh-inc-detalle-mes {
+  margin-bottom: 18px;
+}
+
+.rrhh-inc-mes-table-wrap {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.rrhh-inc-mes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.rrhh-inc-mes-table th,
+.rrhh-inc-mes-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-inc-mes-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.rrhh-inc-rrhh-data {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.rrhh-inc-rrhh-data h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.rrhh-inc-rrhh-data-intro {
+  margin: 0 0 14px;
+}
+
+.rrhh-inc-costo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+  margin-bottom: 14px;
+}
+
+.rrhh-inc-costo-field input {
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+}
+
+.rrhh-inc-etiquetas-block {
+  margin-bottom: 14px;
+}
+
+.rrhh-inc-etiquetas-label {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  opacity: 0.85;
+}
+
+.rrhh-inc-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rrhh-inc-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.rrhh-inc-chip.is-on {
+  border-color: rgba(52, 211, 153, 0.65);
+  background: rgba(16, 185, 129, 0.18);
+}
+
+.rrhh-inc-etiqueta-libre {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rrhh-inc-etiqueta-libre input {
+  flex: 1 1 200px;
+  min-width: 160px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+}
+
+.rrhh-inc-etiquetas-activas {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }

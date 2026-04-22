@@ -130,6 +130,10 @@ export interface OrdenTrabajo {
   en_reclamo?: boolean | null
   /** Motivo del reclamo (texto libre; ver también comentarios_orden) */
   reclamo_motivo?: string | null
+  /** Costo monetario extra por reclamo (remake, materiales) — ARS */
+  reclamo_costo_monto?: number | null
+  /** Etiquetas de causa RRHH (clasificación) */
+  reclamo_etiquetas?: string[] | null
   /** Carrusel de imágenes con título (JSON en BD) */
   galeria_carrusel?: OpGaleriaSlide[] | null
 }

@@ -979,7 +979,13 @@ class ApiService {
             'ubicacion_link',
             'drive_link'
           ]
-          const allOptionalColumns = ['foto_url', 'reclamo_motivo', ...contactColumns]
+          const allOptionalColumns = [
+            'foto_url',
+            'reclamo_motivo',
+            'reclamo_costo_monto',
+            'reclamo_etiquetas',
+            ...contactColumns
+          ]
 
           // Detectar SOLO las columnas que específicamente están mencionadas en el error
           const missingColumns: string[] = []
@@ -1451,7 +1457,13 @@ class ApiService {
             'ubicacion_link',
             'drive_link'
           ]
-          const allOptionalColumns = ['foto_url', 'reclamo_motivo', ...contactColumns]
+          const allOptionalColumns = [
+            'foto_url',
+            'reclamo_motivo',
+            'reclamo_costo_monto',
+            'reclamo_etiquetas',
+            ...contactColumns
+          ]
 
           // Detectar SOLO las columnas que específicamente están mencionadas en el error
           const missingColumns: string[] = []
