@@ -45,6 +45,8 @@ type LocalAttachment = {
   name: string
   previewUrl: string
   remoteUrl?: string
+  /** id numérico en `enlaces_adjuntos` cuando el adjunto ya está guardado en BD */
+  dbEnlaceId?: number
   uploading: boolean
   type?: string // MIME type del archivo
   file?: File // Referencia al archivo original para descarga
@@ -268,13 +270,17 @@ const TaskEditModal = ({
                   seen.add(u)
                   return true
                 })
-                .map((archivo) => ({
+                .map((archivo) => {
+                  const nid = Number(archivo.id)
+                  return {
                 id: `existing-${archivo.id}`,
+                dbEnlaceId: Number.isFinite(nid) ? nid : undefined,
                 name: archivo.titulo || archivo.url.split('/').pop() || 'Archivo',
                 previewUrl: archivo.url,
                 remoteUrl: archivo.url,
                 uploading: false
-              }))
+                  }
+                })
               // Combinar con el photoUrl si existe y no está ya en los archivos
               const archivosCombinados = [...archivosExistentes]
               if (task.photoUrl && !archivosExistentes.some(a => a.remoteUrl === task.photoUrl)) {
@@ -919,13 +925,24 @@ const TaskEditModal = ({
     const ok = window.confirm('¿Eliminar este adjunto? Se va a quitar de todas las fichas duplicadas de la OP.')
     if (!ok) return
 
-    const delResp = await apiService.deleteArchivosGrupoByUrl(ordenId, remoteUrl)
+    const delResp =
+      toRemove.dbEnlaceId != null && Number.isFinite(toRemove.dbEnlaceId)
+        ? await apiService.deleteAdjuntosGrupoPorEnlaceId(ordenId, toRemove.dbEnlaceId)
+        : await apiService.deleteArchivosGrupoByUrl(ordenId, remoteUrl)
     if (!delResp.success) {
       alert(delResp.error || 'No se pudo eliminar el adjunto.')
       return
     }
 
-    setAttachments((prev) => prev.filter((item) => (item.remoteUrl || item.previewUrl) !== remoteUrl))
+    const eliminadas = delResp.data?.eliminadas ?? 0
+    if (eliminadas <= 0) {
+      alert(
+        'No se encontró el archivo en la base para borrarlo. Si ya lo quitaste antes, refrescá la página.'
+      )
+      return
+    }
+
+    setAttachments((prev) => prev.filter((item) => item.id !== attachmentId))
   }
 
   const addCarouselImage = async (file: File) => {

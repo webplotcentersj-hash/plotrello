@@ -208,6 +208,20 @@ function roomIdFromCanal(canal: string): number {
   return chatChannelToRoom[canal] ?? 1
 }
 
+/** Iguala URLs de adjuntos aunque difieran en ?query (público vs firmado) o espacios. */
+function normalizeAdjuntoUrlForMatch(url: string): string {
+  const s = String(url ?? '').trim()
+  if (!s) return ''
+  try {
+    const u = new URL(s)
+    u.search = ''
+    return u.toString()
+  } catch {
+    const q = s.indexOf('?')
+    return q === -1 ? s : s.slice(0, q)
+  }
+}
+
 class ApiService {
   // Helper para obtener usuario actual desde localStorage
   private getCurrentUser(): { id: number; nombre: string } {
@@ -5068,11 +5082,40 @@ class ApiService {
       const ids = [...idsSet]
       if (ids.length === 0) return { success: true, data: { eliminadas: 0 } }
 
+      const { data: linkRows, error: listErr } = await supabase
+        .from('enlaces_adjuntos')
+        .select('id,url')
+        .in('id_orden', ids)
+      if (listErr) {
+        console.warn('[deleteArchivosGrupoByUrl]', { ordenId, rpcErr: rpcErr?.message, listErr: listErr.message })
+        const rpcMsg = rpcErr?.message ?? ''
+        const looksLikeMissingPatch =
+          /permission denied|42501|no existe la función|does not exist|function .* does not exist/i.test(rpcMsg) ||
+          /permission denied|42501/i.test(listErr.message ?? '')
+        if (looksLikeMissingPatch) {
+          return {
+            success: false,
+            error:
+              'No se pudo borrar el adjunto. Quien administra Plot debe aplicar en Supabase los parches de adjuntos del grupo OP (2026-04-23 y 2026-04-28 en supabase/patches/).'
+          }
+        }
+        return { success: false, error: [rpcErr?.message, listErr.message].filter(Boolean).join(' · ') }
+      }
+
+      const targetNorm = normalizeAdjuntoUrlForMatch(cleanUrl)
+      const matchingIds = ((linkRows as any[]) ?? [])
+        .filter((r) => normalizeAdjuntoUrlForMatch(String(r?.url ?? '')) === targetNorm)
+        .map((r) => Number(r.id))
+        .filter((id) => Number.isFinite(id))
+
+      if (matchingIds.length === 0) {
+        return { success: true, data: { eliminadas: 0 } }
+      }
+
       const { error: delErr, count } = await supabase
         .from('enlaces_adjuntos')
         .delete({ count: 'exact' })
-        .in('id_orden', ids)
-        .eq('url', cleanUrl)
+        .in('id', matchingIds)
       if (delErr) {
         console.warn('[deleteArchivosGrupoByUrl]', { ordenId, rpcErr: rpcErr?.message, delErr: delErr.message })
         const rpcMsg = rpcErr?.message ?? ''
@@ -5084,7 +5127,7 @@ class ApiService {
           return {
             success: false,
             error:
-              'No se pudo borrar el adjunto. Quien administra Plot debe aplicar en Supabase el parche de adjuntos del grupo OP (archivo supabase/patches/2026-04-23_rpc_delete_enlaces_adjuntos_grupo.sql).'
+              'No se pudo borrar el adjunto. Quien administra Plot debe aplicar en Supabase los parches de adjuntos del grupo OP (2026-04-23 y 2026-04-28 en supabase/patches/).'
           }
         }
         return {
@@ -5092,9 +5135,52 @@ class ApiService {
           error: [rpcErr?.message, delErr.message].filter(Boolean).join(' · ')
         }
       }
-      return { success: true, data: { eliminadas: count ?? 0 } }
+      return { success: true, data: { eliminadas: count ?? matchingIds.length } }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'No se pudo eliminar el adjunto del grupo.'
+      return { success: false, error: msg }
+    }
+  }
+
+  /**
+   * Borra adjuntos del grupo OP usando el id de fila en enlaces_adjuntos (canónico en BD).
+   * Preferido cuando la URL mostrada puede no coincidir byte-a-byte con la guardada.
+   */
+  async deleteAdjuntosGrupoPorEnlaceId(
+    ordenId: number,
+    enlaceId: number
+  ): Promise<ApiResponse<{ eliminadas: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    if (!Number.isFinite(enlaceId) || enlaceId <= 0) {
+      return { success: false, error: 'Adjunto inválido.' }
+    }
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('delete_enlaces_adjuntos_grupo_por_enlace_id', {
+        p_orden_id: ordenId,
+        p_enlace_id: enlaceId
+      })
+      if (!rpcErr && rpcData != null) {
+        const n = typeof rpcData === 'number' ? rpcData : Number(rpcData)
+        return { success: true, data: { eliminadas: Number.isFinite(n) ? n : 0 } }
+      }
+      if (rpcErr) {
+        console.warn('[deleteAdjuntosGrupoPorEnlaceId] RPC:', rpcErr.message)
+      }
+
+      const { data: row, error: selErr } = await supabase
+        .from('enlaces_adjuntos')
+        .select('url')
+        .eq('id', enlaceId)
+        .maybeSingle()
+      if (selErr || !(row as { url?: string })?.url) {
+        return {
+          success: false,
+          error: selErr?.message || rpcErr?.message || 'No se encontró el adjunto.'
+        }
+      }
+      return this.deleteArchivosGrupoByUrl(ordenId, String((row as { url: string }).url))
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'No se pudo eliminar el adjunto.'
       return { success: false, error: msg }
     }
   }
