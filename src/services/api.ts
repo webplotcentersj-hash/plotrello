@@ -4989,6 +4989,86 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  /**
+   * Elimina un adjunto de enlaces_adjuntos.
+   * Nota: la UI de adjuntos del grupo puede mostrar filas repetidas (mismo url en distintas fichas);
+   * para borrado "real" y consistente, preferir deleteArchivosGrupoByUrl que borra en todo el grupo OP.
+   */
+  async deleteArchivoOrden(enlaceId: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { error } = await supabase.from('enlaces_adjuntos').delete().eq('id', enlaceId)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'No se pudo eliminar el adjunto.'
+      return { success: false, error: msg }
+    }
+  }
+
+  /** Borra un adjunto (por url) en todas las fichas del grupo OP (root+duplicadas+legacy). */
+  async deleteArchivosGrupoByUrl(ordenId: number, url: string): Promise<ApiResponse<{ eliminadas: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const cleanUrl = String(url ?? '').trim()
+    if (!cleanUrl) return { success: false, error: 'URL inválida.' }
+    try {
+      // Root/group ids (mismo criterio que getArchivosOrden)
+      const { data: oRow, error: oErr } = await supabase
+        .from('ordenes_trabajo')
+        .select('id, numero_op, es_duplicado, id_orden_original')
+        .eq('id', ordenId)
+        .maybeSingle()
+      if (oErr) return { success: false, error: oErr.message }
+      if (!oRow) return { success: false, error: 'Orden no encontrada.' }
+
+      const numeroOp = (oRow as any).numero_op as string | null
+      const esDuplicado = (oRow as any).es_duplicado === true
+      const idOrdenOriginal = (oRow as any).id_orden_original as number | null
+      const rootId = esDuplicado && idOrdenOriginal ? idOrdenOriginal : (oRow as any).id
+
+      const { data: chainRows, error: chainErr } = await supabase
+        .from('ordenes_trabajo')
+        .select('id')
+        .or(`id.eq.${rootId},id_orden_original.eq.${rootId}`)
+        .limit(200)
+      if (chainErr) return { success: false, error: chainErr.message }
+
+      const idsSet = new Set<number>(
+        (((chainRows as any[]) ?? []).map((r) => Number((r as any).id)) ?? []).filter((n) =>
+          Number.isFinite(n)
+        )
+      )
+
+      if (numeroOp && String(numeroOp).trim() !== '') {
+        const { data: legacyRows, error: legacyErr } = await supabase
+          .from('ordenes_trabajo')
+          .select('id')
+          .is('id_orden_original', null)
+          .eq('numero_op', numeroOp)
+          .limit(200)
+        if (legacyErr) return { success: false, error: legacyErr.message }
+        for (const r of (legacyRows as any[]) ?? []) {
+          const n = Number((r as any).id)
+          if (Number.isFinite(n)) idsSet.add(n)
+        }
+      }
+
+      const ids = [...idsSet]
+      if (ids.length === 0) return { success: true, data: { eliminadas: 0 } }
+
+      const { error: delErr, count } = await supabase
+        .from('enlaces_adjuntos')
+        .delete({ count: 'exact' })
+        .in('id_orden', ids)
+        .eq('url', cleanUrl)
+      if (delErr) return { success: false, error: delErr.message }
+      return { success: true, data: { eliminadas: count ?? 0 } }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'No se pudo eliminar el adjunto del grupo.'
+      return { success: false, error: msg }
+    }
+  }
+
   async getOrdenRelevamiento(ordenId: number): Promise<ApiResponse<OrdenRelevamientoRecord>> {
     if (supabase) {
       const { data, error } = await supabase

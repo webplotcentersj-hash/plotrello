@@ -257,7 +257,18 @@ const TaskEditModal = ({
             }
             // Cargar archivos adjuntos existentes
             if (archivosResp.success && archivosResp.data) {
-              const archivosExistentes: LocalAttachment[] = (archivosResp.data as any[]).map((archivo) => ({
+              // Dedup por URL: si la misma URL aparece en varias fichas del grupo, mostramos 1 sola.
+              const rows = (archivosResp.data as any[]) ?? []
+              const seen = new Set<string>()
+              const archivosExistentes: LocalAttachment[] = rows
+                .filter((archivo) => {
+                  const u = String(archivo?.url ?? '').trim()
+                  if (!u) return false
+                  if (seen.has(u)) return false
+                  seen.add(u)
+                  return true
+                })
+                .map((archivo) => ({
                 id: `existing-${archivo.id}`,
                 name: archivo.titulo || archivo.url.split('/').pop() || 'Archivo',
                 previewUrl: archivo.url,
@@ -884,14 +895,37 @@ const TaskEditModal = ({
     event.target.value = ''
   }
 
-  const handleRemoveFile = (attachmentId: string) => {
-    setAttachments((prev) => {
-      const toRemove = prev.find((item) => item.id === attachmentId)
-      if (toRemove?.previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(toRemove.previewUrl)
-      }
-      return prev.filter((item) => item.id !== attachmentId)
-    })
+  const handleRemoveFile = async (attachmentId: string) => {
+    const toRemove = attachmentsRef.current.find((item) => item.id === attachmentId)
+    if (!toRemove) return
+
+    // Si es un archivo nuevo (aún no guardado en DB), solo quitar de UI.
+    if (toRemove.previewUrl.startsWith('blob:') && !toRemove.remoteUrl) {
+      setAttachments((prev) => {
+        const local = prev.find((item) => item.id === attachmentId)
+        if (local?.previewUrl.startsWith('blob:')) URL.revokeObjectURL(local.previewUrl)
+        return prev.filter((item) => item.id !== attachmentId)
+      })
+      return
+    }
+
+    const ordenId = task ? parseTaskIdToOrdenId(task.id) : null
+    const remoteUrl = toRemove.remoteUrl || toRemove.previewUrl
+    if (!ordenId || !remoteUrl) {
+      setAttachments((prev) => prev.filter((item) => item.id !== attachmentId))
+      return
+    }
+
+    const ok = window.confirm('¿Eliminar este adjunto? Se va a quitar de todas las fichas duplicadas de la OP.')
+    if (!ok) return
+
+    const delResp = await apiService.deleteArchivosGrupoByUrl(ordenId, remoteUrl)
+    if (!delResp.success) {
+      alert(delResp.error || 'No se pudo eliminar el adjunto.')
+      return
+    }
+
+    setAttachments((prev) => prev.filter((item) => (item.remoteUrl || item.previewUrl) !== remoteUrl))
   }
 
   const addCarouselImage = async (file: File) => {

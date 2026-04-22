@@ -808,7 +808,17 @@ export default function TaskViewModal({
                   <p className="task-view-muted">Sin adjuntos en enlaces_adjuntos.</p>
                 ) : (
                   <ul className="task-view-archivos-grid">
-                    {archivosLib.map((a) => {
+                    {(() => {
+                      const seen = new Set<string>()
+                      const rows = archivosLib.filter((a) => {
+                        const u = String((a as any)?.url ?? '').trim()
+                        if (!u) return false
+                        if (seen.has(u)) return false
+                        seen.add(u)
+                        return true
+                      })
+                      return rows
+                    })().map((a) => {
                       const id = Number(a.id)
                       const titulo = (a.titulo != null ? String(a.titulo) : '') || 'Adjunto'
                       const url = String(a.url ?? '')
