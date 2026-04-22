@@ -4897,21 +4897,36 @@ class ApiService {
         const idOrdenOriginal = (oRow as any).id_orden_original as number | null
         const rootId = esDuplicado && idOrdenOriginal ? idOrdenOriginal : (oRow as any).id
 
-        // IDs del grupo por cadena (root + duplicadas) y fallback legacy por numero_op
-        const { data: grpRows, error: grpErr } = await supabase
+        // IDs del grupo (root + duplicadas por id_orden_original)
+        const { data: chainRows, error: chainErr } = await supabase
           .from('ordenes_trabajo')
           .select('id')
-          .or(
-            [
-              `id.eq.${rootId}`,
-              `id_orden_original.eq.${rootId}`,
-              ...(numeroOp ? [`and(id_orden_original.is.null,numero_op.eq.${numeroOp})`] : [])
-            ].join(',')
-          )
+          .or(`id.eq.${rootId},id_orden_original.eq.${rootId}`)
           .limit(200)
-        if (grpErr) return { success: false, error: grpErr.message }
+        if (chainErr) return { success: false, error: chainErr.message }
 
-        const ids = ((grpRows as any[]) ?? []).map((r) => (r as any).id).filter(Boolean)
+        const idsSet = new Set<number>(
+          (((chainRows as any[]) ?? []).map((r) => Number((r as any).id)) ?? []).filter((n) =>
+            Number.isFinite(n)
+          )
+        )
+
+        // Fallback legacy: fichas del mismo numero_op con id_orden_original NULL
+        if (numeroOp && String(numeroOp).trim() !== '') {
+          const { data: legacyRows, error: legacyErr } = await supabase
+            .from('ordenes_trabajo')
+            .select('id')
+            .is('id_orden_original', null)
+            .eq('numero_op', numeroOp)
+            .limit(200)
+          if (legacyErr) return { success: false, error: legacyErr.message }
+          for (const r of (legacyRows as any[]) ?? []) {
+            const n = Number((r as any).id)
+            if (Number.isFinite(n)) idsSet.add(n)
+          }
+        }
+
+        const ids = [...idsSet]
         if (ids.length === 0) return { success: true, data: [] }
 
         const { data, error } = await supabase
