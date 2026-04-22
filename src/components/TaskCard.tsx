@@ -1082,8 +1082,10 @@ const TaskCardInner = ({
                 <strong className="people-name">{workerDisplay}</strong>
               </div>
             </div>
-            {/* Desde Almacén de Entrega: ir a procesar entrega (firma + confirmación); desmarcar = desarchivar */}
-            {task.status === 'almacen-entrega' && onMarkDelivered && !isReadOnly && (
+            {/* Finalizado en Taller o Almacén de Entrega: misma acción que el dashboard mostrador/caja → procesar entrega */}
+            {(task.status === 'almacen-entrega' || task.status === 'finalizado-taller') &&
+              onMarkDelivered &&
+              !isReadOnly && (
               <div className="task-delivered-checkbox">
                 <label className="delivered-label" onClick={(e) => e.stopPropagation()}>
                   <input
