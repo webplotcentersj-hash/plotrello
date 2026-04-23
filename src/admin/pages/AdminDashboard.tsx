@@ -476,17 +476,6 @@ export default function AdminDashboard({
               <span className="admin-btn-icon">⏹️</span>
               <span className="admin-btn-text">Stop</span>
             </button>
-            <button
-              className="admin-btn admin-btn-secondary"
-              onClick={() => {
-                localStorage.removeItem('usuario')
-                localStorage.removeItem('auth_token')
-                window.location.href = '/'
-              }}
-            >
-              <span className="admin-btn-icon">🚪</span>
-              <span className="admin-btn-text">Salir</span>
-            </button>
           </div>
         </div>
         {usuario && (
