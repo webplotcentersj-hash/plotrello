@@ -656,6 +656,13 @@ export default function AdminDashboard({
           </button>
           <button
             className="admin-quick-action-card"
+            onClick={() => window.open('/metalurgica/inventario', '_blank')}
+          >
+            <div className="admin-quick-action-icon">🔧</div>
+            <div className="admin-quick-action-label">Inventario metalúrgica</div>
+          </button>
+          <button
+            className="admin-quick-action-card"
             onClick={onRefresh}
           >
             <div className="admin-quick-action-icon">🔄</div>

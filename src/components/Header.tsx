@@ -249,6 +249,11 @@ const Header = ({
                 🧴 Inventario Taller Gráfico
               </a>
             )}
+            {(isMetalurgica || isAdmin) && (
+              <a href="/metalurgica/inventario" className="brand-button">
+                🔧 Inventario Metalúrgica
+              </a>
+            )}
             {(isTallerGrafico || isAdmin) && (
               <a
                 href="/taller-grafico/dashboard"
