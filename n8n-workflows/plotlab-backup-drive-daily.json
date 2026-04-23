@@ -1,0 +1,198 @@
+{
+  "name": "PlotLab - Backup diario a Drive (JSON + PDF)",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 23,
+              "minute": 30
+            }
+          ]
+        }
+      },
+      "id": "Cron",
+      "name": "Cron Diario",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "baseUrl",
+              "value": "https://plotrello.vercel.app"
+            },
+            {
+              "name": "token",
+              "value": "={{$env.PLOT_LAB_BACKUP_TOKEN}}"
+            },
+            {
+              "name": "folderId",
+              "value": "={{$env.GDRIVE_PLOTLAB_BACKUP_FOLDER_ID}}"
+            }
+          ]
+        }
+      },
+      "id": "Vars",
+      "name": "Vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.baseUrl + '/api/admin/backup-json?limitHistorial=50000'}}",
+        "authentication": "none",
+        "responseFormat": "file",
+        "options": {
+          "headers": {
+            "Authorization": "={{'Bearer ' + $json.token}}"
+          }
+        }
+      },
+      "id": "GetJSON",
+      "name": "Descargar JSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.baseUrl + '/api/admin/fichas-activas-pdf'}}",
+        "authentication": "none",
+        "responseFormat": "file",
+        "options": {
+          "headers": {
+            "Authorization": "={{'Bearer ' + $json.token}}"
+          }
+        }
+      },
+      "id": "GetPDF",
+      "name": "Descargar PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        720,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "parentFolderId": "={{$json.folderId}}",
+        "name": "={{'plotlab-backup-' + $now.format('yyyy-LL-dd') + '.json'}}"
+      },
+      "id": "DriveJSON",
+      "name": "Drive - Subir JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [
+        980,
+        220
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REEMPLAZAR",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "parentFolderId": "={{$json.folderId}}",
+        "name": "={{'plotlab-fichas-activas-' + $now.format('yyyy-LL-dd') + '.pdf'}}"
+      },
+      "id": "DrivePDF",
+      "name": "Drive - Subir PDF",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [
+        980,
+        380
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REEMPLAZAR",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron Diario": {
+      "main": [
+        [
+          {
+            "node": "Vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vars": {
+      "main": [
+        [
+          {
+            "node": "Descargar JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Descargar PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar JSON": {
+      "main": [
+        [
+          {
+            "node": "Drive - Subir JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar PDF": {
+      "main": [
+        [
+          {
+            "node": "Drive - Subir PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionTimeout": 600
+  },
+  "versionId": "1"
+}
+
