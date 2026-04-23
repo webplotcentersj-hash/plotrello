@@ -120,17 +120,6 @@
   transform: translateY(-1px);
 }
 
-.admin-btn-convai {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22) 0%, rgba(16, 185, 129, 0.16) 100%);
-  color: #ecfeff;
-  border: 1px solid rgba(56, 189, 248, 0.45);
-}
-
-.admin-btn-convai:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.34) 0%, rgba(16, 185, 129, 0.26) 100%);
-  transform: translateY(-1px);
-}
-
 .admin-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -217,23 +206,6 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 12px;
-}
-
-.admin-hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.admin-chip {
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(226, 232, 240, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(15, 23, 42, 0.45);
-  padding: 6px 10px;
-  border-radius: 999px;
 }
 
 .admin-hero-btn {

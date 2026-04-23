@@ -10,7 +10,6 @@ import type { FacturaVentaRecord, HistorialMovimiento, PedidoClienteRecord } fro
 import type { StockMovimiento } from '../../types/pedidos'
 import { BOARD_COLUMNS } from '../../data/mockData'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { useConversation } from '@elevenlabs/react'
 import './AdminDashboard.css'
 
 interface AdminDashboardProps {
@@ -52,16 +51,6 @@ export default function AdminDashboard({
   const [ttsError, setTtsError] = useState<string | null>(null)
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
   const ttsObjectUrlRef = useRef<string | null>(null)
-
-  const conv = useConversation({
-    onConnect: () => console.log('[Admin ConvAI] Connected'),
-    onDisconnect: () => console.log('[Admin ConvAI] Disconnected'),
-    onMessage: (message) => console.log('[Admin ConvAI] Message:', message),
-    onError: (error) => console.error('[Admin ConvAI] Error:', error),
-    onModeChange: (mode) => console.log('[Admin ConvAI] Mode:', mode)
-  })
-
-  const AGENT_ID = 'agent_5801knma3fxyeaa99cdhj9qwvdkv'
 
   // Manejar instalación PWA
   useEffect(() => {
@@ -373,90 +362,43 @@ export default function AdminDashboard({
     setTtsLoading(true)
     stopTts()
     try {
-      const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
-      const urlTts = `${apiBase}/api/plotai/elevenlabs-tts`
-      const res = await fetch(urlTts, {
+      // Gemini para redactar una versión más “hablable” del resumen.
+      const prompt = [
+        'Generá un resumen hablado, muy claro y ejecutivo, en español rioplatense.',
+        'Debe durar 20 a 35 segundos.',
+        'Sin bullets, sin markdown, sin números de lista.',
+        'Mantené todos los números EXACTOS como aparecen (no inventes).',
+        'Texto base:',
+        clean
+      ].join('\\n')
+
+      const res = await fetch('/api/plotai/chat-public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: clean })
+        body: JSON.stringify({ message: prompt, modo: 'admin' })
       })
-      const ct = (res.headers.get('content-type') || '').toLowerCase()
-      if (res.ok && ct.includes('application/json')) {
-        const j = (await res.json().catch(() => null)) as { fallback?: boolean; error?: string } | null
-        const msg =
-          j?.fallback
-            ? 'ElevenLabs no está configurado en el servidor. Se requiere configurar variables en Vercel.'
-            : j?.error || 'El servidor respondió JSON en vez de audio.'
-        setTtsError(msg)
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel()
-          const u = new SpeechSynthesisUtterance(clean)
-          u.lang = 'es-AR'
-          u.rate = 0.92
-          window.speechSynthesis.speak(u)
-        }
+      const j = (await res.json().catch(() => null)) as { reply?: string; error?: string } | null
+      const spoken = String(j?.reply || clean).trim() || clean
+
+      if (!('speechSynthesis' in window)) {
+        setTtsError('Este navegador no soporta síntesis de voz.')
         return
       }
-      if (!res.ok) {
-        const errTxt = await res.text().catch(() => '')
-        setTtsError(`No se pudo generar audio (HTTP ${res.status}). ${errTxt.slice(0, 120)}`)
-        return
-      }
-      const blob = await res.blob()
-      if (blob.size < 80) {
-        setTtsError('Respuesta de audio inválida (muy chica).')
-        return
-      }
-      revokeTtsObjectUrl()
-      const url = URL.createObjectURL(blob)
-      ttsObjectUrlRef.current = url
-      const audio = new Audio(url)
-      ttsAudioRef.current = audio
-      audio.onended = () => {
-        stopTts()
-      }
-      audio.onerror = () => {
-        stopTts()
-        setTtsError('Error reproduciendo audio.')
-      }
-      await audio.play()
+      window.speechSynthesis.cancel()
+      const u = new SpeechSynthesisUtterance(spoken)
+      u.lang = 'es-AR'
+      u.rate = 0.92
+      u.onend = () => setTtsLoading(false)
+      u.onerror = () => setTtsLoading(false)
+      window.speechSynthesis.speak(u)
     } catch (e) {
       setTtsError(e instanceof Error ? e.message : 'No se pudo generar el audio.')
     } finally {
-      setTtsLoading(false)
+      // En speechSynthesis cerramos loading en onend/onerror
+      // Si falló antes de hablar, cerramos acá.
+      setTimeout(() => setTtsLoading(false), 400)
     }
-  }, [resumenEjecutivoTexto, revokeTtsObjectUrl, stopTts])
-
-  const startElevenConversation = useCallback(async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true })
-      const tokenRes = await fetch('/api/plotai/eleven-convai-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: AGENT_ID })
-      })
-      const j = (await tokenRes.json().catch(() => null)) as { token?: string; error?: string } | null
-      if (!tokenRes.ok || !j?.token) {
-        window.alert(j?.error || `No se pudo iniciar conversación (HTTP ${tokenRes.status}).`)
-        return
-      }
-
-      await conv.startSession({
-        conversationToken: j.token,
-        connectionType: 'webrtc'
-      })
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo iniciar la conversación.')
-    }
-  }, [conv])
-
-  const stopElevenConversation = useCallback(() => {
-    try {
-      conv.endSession()
-    } catch {
-      /* noop */
-    }
-  }, [conv])
+  }, [resumenEjecutivoTexto, stopTts])
 
   return (
     <div className="admin-dashboard">
@@ -520,32 +462,10 @@ export default function AdminDashboard({
               className="admin-btn admin-btn-voice"
               onClick={() => void handleSpeakResumen()}
               disabled={ttsLoading}
-              title="Escuchar resumen hablado (PlotAI)"
+              title="Escuchar resumen hablado (Gemini + voz del dispositivo)"
             >
               <span className="admin-btn-icon">🔊</span>
               <span className="admin-btn-text">{ttsLoading ? 'Audio…' : 'Audio resumen'}</span>
-            </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn-convai"
-              onClick={() => void startElevenConversation()}
-              disabled={conv.status === 'connected' || conv.status === 'connecting'}
-              title="Iniciar conversación de voz con PlotAI (ElevenLabs Agents)"
-            >
-              <span className="admin-btn-icon">🎙️</span>
-              <span className="admin-btn-text">
-                {conv.status === 'connecting' ? 'Conectando…' : conv.status === 'connected' ? 'Conectado' : 'Hablar'}
-              </span>
-            </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn-secondary"
-              onClick={stopElevenConversation}
-              disabled={conv.status !== 'connected'}
-              title="Finalizar conversación"
-            >
-              <span className="admin-btn-icon">🛑</span>
-              <span className="admin-btn-text">Cortar</span>
             </button>
             <button
               type="button"
@@ -590,11 +510,6 @@ export default function AdminDashboard({
         <div className="admin-hero-card">
           <div className="admin-hero-title">Resumen del momento</div>
           <div className="admin-hero-text">{resumenEjecutivoTexto}</div>
-          <div className="admin-hero-meta">
-            <span className="admin-chip">Agent: plotai</span>
-            <span className="admin-chip">ConvAI: {conv.status}</span>
-            <span className="admin-chip">{conv.isSpeaking ? 'Hablando' : 'Escuchando'}</span>
-          </div>
           <div className="admin-hero-actions">
             <button className="admin-hero-btn" onClick={onRefresh} disabled={loading}>
               {loading ? 'Actualizando…' : 'Actualizar ahora'}
@@ -605,16 +520,6 @@ export default function AdminDashboard({
               disabled={ttsLoading}
             >
               {ttsLoading ? 'Generando audio…' : 'Escuchar'}
-            </button>
-            <button
-              className="admin-hero-btn admin-hero-btn-ghost"
-              onClick={() => void startElevenConversation()}
-              disabled={conv.status === 'connected' || conv.status === 'connecting'}
-            >
-              {conv.status === 'connecting' ? 'Conectando…' : conv.status === 'connected' ? 'En llamada' : 'Hablar con PlotAI'}
-            </button>
-            <button className="admin-hero-btn admin-hero-btn-ghost" onClick={stopElevenConversation} disabled={conv.status !== 'connected'}>
-              Cortar
             </button>
           </div>
         </div>

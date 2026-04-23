@@ -16,7 +16,6 @@ import type { StockMovimiento } from '../types/pedidos'
 import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
 import { historialToActivity, ordenToTask } from '../utils/dataMappers'
-import { ConversationProvider } from '@elevenlabs/react'
 import '../app.css'
 import './App.css'
 
@@ -237,49 +236,47 @@ function AdminApp() {
   }
 
   return (
-    <ConversationProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <AdminProtectedRoute>
-                <AdminDashboard
-                  tasks={tasks}
-                  activity={activity}
-                  teamMembers={teamMembers}
-                  actividadReclamos={actividadReclamos}
-                  pedidosPendientes={pedidosPendientes}
-                  impresorasOcupacion={impresorasOcupacion}
-                  movimientosStock={movimientosStock}
-                  facturasVenta={facturasVenta}
-                  lastUpdatedAt={lastUpdatedAt}
-                  loading={dataLoading}
-                  onRefresh={loadRemoteData}
-                />
-              </AdminProtectedRoute>
-            }
-          />
-          <Route
-            path="/reportes"
-            element={
-              <AdminProtectedRoute>
-                <AdminReports tasks={tasks} activity={activity} teamMembers={teamMembers} />
-              </AdminProtectedRoute>
-            }
-          />
-          <Route
-            path="/op-eliminadas"
-            element={
-              <AdminProtectedRoute>
-                <AdminDeletedOpsPage />
-              </AdminProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </ConversationProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboard
+                tasks={tasks}
+                activity={activity}
+                teamMembers={teamMembers}
+                actividadReclamos={actividadReclamos}
+                pedidosPendientes={pedidosPendientes}
+                impresorasOcupacion={impresorasOcupacion}
+                movimientosStock={movimientosStock}
+                facturasVenta={facturasVenta}
+                lastUpdatedAt={lastUpdatedAt}
+                loading={dataLoading}
+                onRefresh={loadRemoteData}
+              />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/reportes"
+          element={
+            <AdminProtectedRoute>
+              <AdminReports tasks={tasks} activity={activity} teamMembers={teamMembers} />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/op-eliminadas"
+          element={
+            <AdminProtectedRoute>
+              <AdminDeletedOpsPage />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
