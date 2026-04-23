@@ -95,6 +95,33 @@
   gap: 16px;
 }
 
+@media (max-width: 520px) {
+  .admin-reports-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .admin-reports-metric-card {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .admin-reports-metric-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 28px;
+    border-radius: 14px;
+  }
+
+  .admin-reports-metric-value {
+    font-size: 20px;
+  }
+
+  .admin-reports-metric-label {
+    font-size: 12px;
+  }
+}
+
 .admin-reports-metric-card {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
   border: 2px solid rgba(255, 255, 255, 0.15);
@@ -253,6 +280,12 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .admin-reports-preview {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-reports-preview-item {

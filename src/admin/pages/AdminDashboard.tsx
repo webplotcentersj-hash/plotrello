@@ -623,12 +623,9 @@ export default function AdminDashboard({
       <section className="admin-quick-actions">
         <h2 className="admin-section-title">Accesos Rápidos</h2>
         <div className="admin-quick-actions-grid">
-          <button
-            className="admin-quick-action-card"
-            onClick={() => window.location.href = '/'}
-          >
-            <div className="admin-quick-action-icon">🏠</div>
-            <div className="admin-quick-action-label">App Principal</div>
+          <button className="admin-quick-action-card" onClick={() => window.open('/statistics', '_blank')}>
+            <div className="admin-quick-action-icon">📈</div>
+            <div className="admin-quick-action-label">Estadísticas</div>
           </button>
           <button
             className="admin-quick-action-card"
@@ -637,12 +634,9 @@ export default function AdminDashboard({
             <div className="admin-quick-action-icon">📊</div>
             <div className="admin-quick-action-label">Reportes</div>
           </button>
-          <button
-            className="admin-quick-action-card"
-            onClick={() => navigate('/admin/op-eliminadas')}
-          >
-            <div className="admin-quick-action-icon">🗑️</div>
-            <div className="admin-quick-action-label">OP eliminadas</div>
+          <button className="admin-quick-action-card" onClick={() => window.open('/menu-diario', '_blank')}>
+            <div className="admin-quick-action-icon">🍽️</div>
+            <div className="admin-quick-action-label">Menú diario</div>
           </button>
           <button
             className="admin-quick-action-card"
@@ -650,6 +644,26 @@ export default function AdminDashboard({
           >
             <div className="admin-quick-action-icon">🤖</div>
             <div className="admin-quick-action-label">PlotAI</div>
+          </button>
+          <button className="admin-quick-action-card" onClick={() => window.open('/crm-ventas', '_blank')}>
+            <div className="admin-quick-action-icon">🧾</div>
+            <div className="admin-quick-action-label">CRM ventas</div>
+          </button>
+          <button className="admin-quick-action-card" onClick={() => window.open('/caja/dashboard', '_blank')}>
+            <div className="admin-quick-action-icon">💳</div>
+            <div className="admin-quick-action-label">Caja</div>
+          </button>
+          <button className="admin-quick-action-card" onClick={() => window.open('/erp', '_blank')}>
+            <div className="admin-quick-action-icon">🏭</div>
+            <div className="admin-quick-action-label">ERP</div>
+          </button>
+          <button className="admin-quick-action-card" onClick={() => window.open('/rrhh/dashboard', '_blank')}>
+            <div className="admin-quick-action-icon">🧑‍💼</div>
+            <div className="admin-quick-action-label">RRHH</div>
+          </button>
+          <button className="admin-quick-action-card" onClick={() => window.open('/flota', '_blank')}>
+            <div className="admin-quick-action-icon">🚚</div>
+            <div className="admin-quick-action-label">Flota</div>
           </button>
           <button
             className="admin-quick-action-card"
