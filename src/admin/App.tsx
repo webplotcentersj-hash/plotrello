@@ -6,7 +6,13 @@ import AdminReports from './pages/AdminReports'
 import AdminDeletedOpsPage from './pages/AdminDeletedOpsPage'
 import { useAuth } from '../hooks/useAuth'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
-import type { UsuarioRecord } from '../types/api'
+import type {
+  FacturaVentaRecord,
+  HistorialMovimiento,
+  PedidoClienteRecord,
+  UsuarioRecord
+} from '../types/api'
+import type { StockMovimiento } from '../types/pedidos'
 import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
 import { historialToActivity, ordenToTask } from '../utils/dataMappers'
@@ -31,9 +37,15 @@ function AdminApp() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [actividadReclamos, setActividadReclamos] = useState<HistorialMovimiento[]>([])
+  const [pedidosPendientes, setPedidosPendientes] = useState<PedidoClienteRecord[]>([])
+  const [impresorasOcupacion, setImpresorasOcupacion] = useState<any[]>([])
+  const [movimientosStock, setMovimientosStock] = useState<StockMovimiento[]>([])
+  const [facturasVenta, setFacturasVenta] = useState<FacturaVentaRecord[]>([])
   const { usuario, loading: authLoading } = useAuth()
   const [dataLoading, setDataLoading] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
 
   const loadRemoteData = useCallback(async () => {
     setDataLoading(true)
@@ -57,8 +69,30 @@ function AdminApp() {
         throw new Error('Variables de entorno de Supabase no configuradas')
       }
 
-      // Cargar órdenes de trabajo
-      const ordenesResponse = await apiService.getOrdenes()
+      const fechaDesde30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+      const [
+        ordenesResponse,
+        historialResponse,
+        usuariosResponse,
+        reclamosHistResponse,
+        pedidosPendResponse,
+        impresorasOccResponse,
+        stockMovsResponse,
+        facturasResponse
+      ] =
+        await Promise.all([
+          apiService.getOrdenes(),
+          apiService.getHistorialMovimientos({ limit: 5000 }),
+          apiService.getUsuarios(),
+          apiService.getHistorialReclamosIncidencias(8000),
+          apiService.getPedidosPendientes(),
+          apiService.getImpresorasOcupacion()
+          ,
+          apiService.getMovimientosStock({ fecha_desde: fechaDesde30d, limit: 800 }),
+          apiService.getFacturas({ fechaDesde: fechaDesde30d })
+        ])
+
       if (ordenesResponse.success && ordenesResponse.data) {
         const mappedTasks = ordenesResponse.data.map(ordenToTask)
         setTasks(mappedTasks)
@@ -68,8 +102,6 @@ function AdminApp() {
         setTasks([])
       }
 
-      // Cargar historial de movimientos
-      const historialResponse = await apiService.getHistorialMovimientos()
       if (historialResponse.success && historialResponse.data) {
         const mappedActivity = historialResponse.data.map(historialToActivity)
         setActivity(mappedActivity)
@@ -79,8 +111,6 @@ function AdminApp() {
         setActivity([])
       }
 
-      // Cargar usuarios
-      const usuariosResponse = await apiService.getUsuarios()
       if (usuariosResponse.success && usuariosResponse.data) {
         const mappedMembers = mapUsuariosToTeamMembers(usuariosResponse.data)
         setTeamMembers(mappedMembers)
@@ -89,12 +119,50 @@ function AdminApp() {
         console.warn('⚠️ No se pudieron cargar usuarios:', usuariosResponse.error)
         setTeamMembers([])
       }
+
+      if (reclamosHistResponse.success && reclamosHistResponse.data) {
+        setActividadReclamos(reclamosHistResponse.data)
+      } else {
+        setActividadReclamos([])
+      }
+
+      if (pedidosPendResponse.success && pedidosPendResponse.data) {
+        setPedidosPendientes(pedidosPendResponse.data)
+      } else {
+        setPedidosPendientes([])
+      }
+
+      if (impresorasOccResponse.success && impresorasOccResponse.data) {
+        setImpresorasOcupacion(impresorasOccResponse.data)
+      } else {
+        setImpresorasOcupacion([])
+      }
+
+      if (stockMovsResponse.success && stockMovsResponse.data) {
+        setMovimientosStock(stockMovsResponse.data)
+      } else {
+        setMovimientosStock([])
+      }
+
+      if (facturasResponse.success && facturasResponse.data) {
+        setFacturasVenta(facturasResponse.data)
+      } else {
+        setFacturasVenta([])
+      }
+
+      setLastUpdatedAt(new Date().toISOString())
     } catch (error) {
       console.error('❌ Error cargando datos remotos:', error)
       setDataError(error instanceof Error ? error.message : 'Error desconocido')
       setTasks([])
       setActivity([])
       setTeamMembers([])
+      setActividadReclamos([])
+      setPedidosPendientes([])
+      setImpresorasOcupacion([])
+      setMovimientosStock([])
+      setFacturasVenta([])
+      setLastUpdatedAt(null)
     } finally {
       setDataLoading(false)
     }
@@ -106,15 +174,7 @@ function AdminApp() {
     }
   }, [authLoading, usuario, loadRemoteData])
 
-  // Recargar datos cada 30 segundos
-  useEffect(() => {
-    if (!authLoading && usuario) {
-      const interval = setInterval(() => {
-        loadRemoteData()
-      }, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [authLoading, usuario, loadRemoteData])
+  // Nota: no auto-refresh. El gerente controla el refresh manualmente.
 
   if (authLoading || dataLoading) {
     return (
@@ -186,6 +246,13 @@ function AdminApp() {
                 tasks={tasks}
                 activity={activity}
                 teamMembers={teamMembers}
+                actividadReclamos={actividadReclamos}
+                pedidosPendientes={pedidosPendientes}
+                impresorasOcupacion={impresorasOcupacion}
+                movimientosStock={movimientosStock}
+                facturasVenta={facturasVenta}
+                lastUpdatedAt={lastUpdatedAt}
+                loading={dataLoading}
                 onRefresh={loadRemoteData}
               />
             </AdminProtectedRoute>
