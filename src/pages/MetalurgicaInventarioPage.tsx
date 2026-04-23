@@ -685,6 +685,21 @@ export default function MetalurgicaInventarioPage() {
           </button>
         </div>
 
+        <section className="met-inv-catalog-search-block met-inv-panel met-inv-panel--flush" aria-label="Búsqueda en catálogo">
+          <label className="met-inv-catalog-search-label" htmlFor="met-inv-catalog-search-input">
+            Buscar en catálogo
+          </label>
+          <input
+            id="met-inv-catalog-search-input"
+            type="search"
+            className="met-inv-input met-inv-catalog-search-input"
+            placeholder="Código, herramienta, marca, observaciones…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoComplete="off"
+          />
+        </section>
+
         <section className="met-inv-filters met-inv-panel met-inv-panel--flush">
           <div className="met-inv-filters-row met-inv-filters-row--wrap">
             <label className="met-inv-filter-field">
@@ -706,21 +721,76 @@ export default function MetalurgicaInventarioPage() {
               <input type="checkbox" checked={soloConFoto} onChange={(e) => setSoloConFoto(e.target.checked)} />
               Solo con foto
             </label>
-            <label className="met-inv-filter-field met-inv-filter-search">
-              Buscar en catálogo
-              <input
-                className="met-inv-input"
-                placeholder="Código, herramienta, marca, observaciones…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
             <span className="met-inv-muted met-inv-filter-hint">
               Solo lectura: <code>?readonly=1</code>
             </span>
           </div>
         </section>
 
+        <section className="met-inv-panel met-inv-panel--pañol">
+        <div className="met-inv-pañol-head">
+          <h2 className="met-inv-h2">Pañol · cajones (semáforo)</h2>
+          <p className="met-inv-muted">
+            Verde OK · naranja bajo umbral · rojo sin stock. Doble clic en la foto para agrandar. Clic en celda para filtrar.
+          </p>
+        </div>
+        <div className="met-inv-pañol-grid" role="grid" aria-label="Pañol de herramientas">
+          {ALL_SLOTS.map((slot) => {
+            const it = slotMap.get(slot)
+            const selected = selectedSlot === slot
+            const thumb = it ? primaryPhoto(it) : null
+            const sem =
+              it && it.cantidad <= 0
+                ? 'danger'
+                : it && it.cantidad <= it.umbral_minimo
+                  ? 'warn'
+                  : 'ok'
+            return (
+              <button
+                key={slot}
+                type="button"
+                className={`met-inv-slot met-inv-slot--sem-${sem} ${it ? 'met-inv-slot--ocupado' : ''} ${selected ? 'met-inv-slot--selected' : ''}`}
+                onClick={() => setSelectedSlot((s) => (s === slot ? null : slot))}
+              >
+                <span className="met-inv-slot-label">{slot}</span>
+                {it ? (
+                  <>
+                    <div className="met-inv-slot-img-wrap">
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt=""
+                          className="met-inv-slot-img"
+                          title="Doble clic para agrandar"
+                          onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation()
+                            openGallery(it)
+                          }}
+                        />
+                      ) : (
+                        <span className="met-inv-slot-ph">🔧</span>
+                      )}
+                    </div>
+                    <span className="met-inv-slot-name">{it.herramienta}</span>
+                    <span className="met-inv-slot-qty">{it.cantidad} u.</span>
+                  </>
+                ) : (
+                  <span className="met-inv-slot-free">Libre</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="met-inv-inv-stats" aria-labelledby="met-inv-inv-stats-title">
+        <h2 id="met-inv-inv-stats-title" className="met-inv-inv-stats-title">
+          Estadísticas del catálogo
+        </h2>
+        <p className="met-inv-muted met-inv-inv-stats-desc">
+          Distribución por marca y estado operativo según el listado filtrado arriba.
+        </p>
         <section className="met-inv-hero-grid met-inv-hero-grid--dual">
           <div className="met-inv-panel met-inv-panel--charts">
             <h2 className="met-inv-h2">Por tipo / marca (catálogo)</h2>
@@ -780,62 +850,6 @@ export default function MetalurgicaInventarioPage() {
             </div>
           </div>
         </section>
-
-      <section className="met-inv-panel met-inv-panel--pañol">
-        <div className="met-inv-pañol-head">
-          <h2 className="met-inv-h2">Pañol · cajones (semáforo)</h2>
-          <p className="met-inv-muted">
-            Verde OK · naranja bajo umbral · rojo sin stock. Doble clic en la foto para agrandar. Clic en celda para filtrar.
-          </p>
-        </div>
-        <div className="met-inv-pañol-grid" role="grid" aria-label="Pañol de herramientas">
-          {ALL_SLOTS.map((slot) => {
-            const it = slotMap.get(slot)
-            const selected = selectedSlot === slot
-            const thumb = it ? primaryPhoto(it) : null
-            const sem =
-              it && it.cantidad <= 0
-                ? 'danger'
-                : it && it.cantidad <= it.umbral_minimo
-                  ? 'warn'
-                  : 'ok'
-            return (
-              <button
-                key={slot}
-                type="button"
-                className={`met-inv-slot met-inv-slot--sem-${sem} ${it ? 'met-inv-slot--ocupado' : ''} ${selected ? 'met-inv-slot--selected' : ''}`}
-                onClick={() => setSelectedSlot((s) => (s === slot ? null : slot))}
-              >
-                <span className="met-inv-slot-label">{slot}</span>
-                {it ? (
-                  <>
-                    <div className="met-inv-slot-img-wrap">
-                      {thumb ? (
-                        <img
-                          src={thumb}
-                          alt=""
-                          className="met-inv-slot-img"
-                          title="Doble clic para agrandar"
-                          onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                          onDoubleClick={(e) => {
-                            e.stopPropagation()
-                            openGallery(it)
-                          }}
-                        />
-                      ) : (
-                        <span className="met-inv-slot-ph">🔧</span>
-                      )}
-                    </div>
-                    <span className="met-inv-slot-name">{it.herramienta}</span>
-                    <span className="met-inv-slot-qty">{it.cantidad} u.</span>
-                  </>
-                ) : (
-                  <span className="met-inv-slot-free">Libre</span>
-                )}
-              </button>
-            )
-          })}
-        </div>
       </section>
 
       {!readonly && (
