@@ -370,7 +370,7 @@ export default function AdminDashboard({
         'Mantené todos los números EXACTOS como aparecen (no inventes).',
         'Texto base:',
         clean
-      ].join('\\n')
+      ].join('\n')
 
       const res = await fetch('/api/plotai/chat-public', {
         method: 'POST',
