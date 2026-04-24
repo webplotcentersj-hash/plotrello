@@ -48,6 +48,8 @@ function normalizarSlot(raw: string | null | undefined): string | null {
 
 function MetalInvQrThumb({ payload }: { payload: string }) {
   const [src, setSrc] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  const [bigSrc, setBigSrc] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
     QRCode.toDataURL(payload, { width: 56, margin: 1, errorCorrectionLevel: 'M' })
@@ -62,10 +64,129 @@ function MetalInvQrThumb({ payload }: { payload: string }) {
     }
   }, [payload])
   if (!src) return <span className="met-inv-qr-ph">…</span>
-  return <img src={src} alt="" className="met-inv-qr" title={payload} />
+
+  const filename = `qr-${payload
+    .normalize('NFKD')
+    .replace(/[^\w]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 70) || 'metal-inv'}.png`
+
+  return (
+    <>
+      <button
+        type="button"
+        className="met-inv-qr-btn"
+        title="Abrir QR"
+        onClick={() => {
+          setOpen(true)
+          setBigSrc(null)
+        }}
+      >
+        <img src={src} alt="" className="met-inv-qr" />
+      </button>
+
+      {open && (
+        <div className="met-inv-qr-modal" role="dialog" aria-modal="true" aria-label="QR de herramienta" onClick={() => setOpen(false)}>
+          <div
+            className="met-inv-qr-modal-inner"
+            onClick={(e) => {
+              e.stopPropagation()
+            }}
+          >
+            <button type="button" className="met-inv-qr-modal-close" onClick={() => setOpen(false)} aria-label="Cerrar">
+              ×
+            </button>
+            <div className="met-inv-qr-modal-head">
+              <div className="met-inv-qr-modal-title">QR</div>
+              <div className="met-inv-qr-modal-sub">{payload}</div>
+            </div>
+
+            <div className="met-inv-qr-modal-body">
+              <img
+                src={bigSrc || src}
+                alt=""
+                className="met-inv-qr-big"
+                onLoad={() => {
+                  // no-op
+                }}
+              />
+            </div>
+
+            <div className="met-inv-qr-modal-actions">
+              <button
+                type="button"
+                className="met-inv-btn met-inv-btn--ghost"
+                onClick={async () => {
+                  try {
+                    const u = await QRCode.toDataURL(payload, { width: 360, margin: 2, errorCorrectionLevel: 'M' })
+                    setBigSrc(u)
+                  } catch {
+                    setBigSrc(null)
+                  }
+                }}
+              >
+                Generar grande
+              </button>
+              <a href={bigSrc || src} download={filename} className="met-inv-btn met-inv-btn--primary">
+                Descargar PNG
+              </a>
+              <button type="button" className="met-inv-btn met-inv-btn--ghost" onClick={() => void navigator.clipboard?.writeText(payload)}>
+                Copiar texto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
 }
 
 type Item = MetalInvItemRow
+
+function humanizeKey(key: string) {
+  return key
+    .replace(/_/g, ' ')
+    .replace(/\b(id|ids)\b/gi, (m) => m.toUpperCase())
+    .replace(/\bqr\b/gi, (m) => m.toUpperCase())
+}
+
+function prettyValue(v: unknown): string {
+  if (v == null) return '—'
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (Array.isArray(v)) return v.map((x) => prettyValue(x)).join(', ')
+  if (typeof v === 'object') {
+    try {
+      return JSON.stringify(v)
+    } catch {
+      return '[obj]'
+    }
+  }
+  return String(v)
+}
+
+function formatMetadataNatural(meta: unknown): { label: string; value: string }[] {
+  if (!meta || typeof meta !== 'object') return []
+  const obj = meta as Record<string, unknown>
+  const out: { label: string; value: string }[] = []
+
+  for (const [k, v] of Object.entries(obj)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const vv = v as Record<string, unknown>
+      if ('de' in vv || 'a' in vv) {
+        out.push({
+          label: humanizeKey(k),
+          value: `${prettyValue(vv.de)} → ${prettyValue(vv.a)}`
+        })
+        continue
+      }
+    }
+    out.push({ label: humanizeKey(k), value: prettyValue(v) })
+  }
+
+  return out
+}
 
 export default function MetalurgicaInventarioPage() {
   const navigate = useNavigate()
@@ -92,6 +213,7 @@ export default function MetalurgicaInventarioPage() {
   const [browserNotify, setBrowserNotify] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ url: string; title: string; gallery?: string[] } | null>(null)
+  const [invDetails, setInvDetails] = useState<{ item: Item; slot: string | null } | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState<'new' | number | null>(null)
 
   const [newItem, setNewItem] = useState({
@@ -327,6 +449,11 @@ export default function MetalurgicaInventarioPage() {
     if (soloConFoto) list = list.filter((it) => parseFotosUrls(it).length > 0)
     return list
   }, [items, search, filterEstado, soloBajoStock, soloConFoto])
+
+  const quickResults = useMemo(() => {
+    if (!search.trim()) return []
+    return filtered.slice(0, 10)
+  }, [filtered, search])
 
   const slotMap = useMemo(() => {
     const m = new Map<string, Item>()
@@ -700,6 +827,68 @@ export default function MetalurgicaInventarioPage() {
           />
         </section>
 
+        {search.trim() && (
+          <section className="met-inv-quick-results met-inv-panel met-inv-panel--flush" aria-label="Resultados del buscador">
+            <div className="met-inv-quick-head">
+              <strong>Productos</strong>{' '}
+              <span className="met-inv-muted met-inv-quick-count">
+                ({filtered.length} resultado{filtered.length === 1 ? '' : 's'})
+              </span>
+            </div>
+            {quickResults.length === 0 ? (
+              <p className="met-inv-muted">Sin coincidencias.</p>
+            ) : (
+              <>
+                <div className="met-inv-quick-list">
+                  {quickResults.map((it) => {
+                    const thumb = primaryPhoto(it)
+                    const estadoLabel = slugEstado(it.estado as string)
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        className="met-inv-quick-item"
+                        onClick={() => setInvDetails({ item: it, slot: normalizarSlot(it.slot_pañol) })}
+                        title="Ver detalles"
+                      >
+                        <div className="met-inv-quick-thumb">{thumb ? <img src={thumb} alt="" /> : <span>🔧</span>}</div>
+                        <div className="met-inv-quick-main">
+                          <div className="met-inv-quick-title">
+                            {it.codigo_interno ? <span className="met-inv-quick-code">[{it.codigo_interno}]</span> : null}
+                            {it.herramienta}
+                          </div>
+                          <div className="met-inv-quick-sub">
+                            <span>{it.tipo_marca || '—'}</span>
+                            <span className="met-inv-dot">·</span>
+                            <span>{estadoLabel}</span>
+                            {it.slot_pañol ? (
+                              <>
+                                <span className="met-inv-dot">·</span>
+                                <span>Slot {normalizarSlot(it.slot_pañol)}</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="met-inv-quick-right">
+                          <div className={it.cantidad <= it.umbral_minimo ? 'met-inv-quick-qty met-inv-quick-qty--warn' : 'met-inv-quick-qty'}>
+                            {it.cantidad} u.
+                          </div>
+                          <div className="met-inv-quick-umb">min {it.umbral_minimo}</div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                {filtered.length > quickResults.length && (
+                  <p className="met-inv-muted met-inv-quick-foot">
+                    Mostrando {quickResults.length} de {filtered.length}. Usá la tabla al final para ver todo.
+                  </p>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
         <section className="met-inv-filters met-inv-panel met-inv-panel--flush">
           <div className="met-inv-filters-row met-inv-filters-row--wrap">
             <label className="met-inv-filter-field">
@@ -731,7 +920,7 @@ export default function MetalurgicaInventarioPage() {
         <div className="met-inv-pañol-head">
           <h2 className="met-inv-h2">Pañol · cajones (semáforo)</h2>
           <p className="met-inv-muted">
-            Verde OK · naranja bajo umbral · rojo sin stock. Doble clic en la foto para agrandar. Clic en celda para filtrar.
+            Verde OK · naranja bajo umbral · rojo sin stock. Tocá un cajón con herramienta para ver detalles (y desde ahí filtrar si querés).
           </p>
         </div>
         <div className="met-inv-pañol-grid" role="grid" aria-label="Pañol de herramientas">
@@ -750,7 +939,10 @@ export default function MetalurgicaInventarioPage() {
                 key={slot}
                 type="button"
                 className={`met-inv-slot met-inv-slot--sem-${sem} ${it ? 'met-inv-slot--ocupado' : ''} ${selected ? 'met-inv-slot--selected' : ''}`}
-                onClick={() => setSelectedSlot((s) => (s === slot ? null : slot))}
+                onClick={() => {
+                  if (it) setInvDetails({ item: it, slot })
+                  else setSelectedSlot((s) => (s === slot ? null : slot))
+                }}
               >
                 <span className="met-inv-slot-label">{slot}</span>
                 {it ? (
@@ -1134,7 +1326,17 @@ export default function MetalurgicaInventarioPage() {
                           : ''}
                       </div>
                       {m.metadata && Object.keys(m.metadata).length > 0 && (
-                        <pre className="met-inv-meta-pre">{JSON.stringify(m.metadata, null, 2)}</pre>
+                        <details className="met-inv-meta-details">
+                          <summary className="met-inv-meta-summary">Ver detalles</summary>
+                          <ul className="met-inv-meta-list">
+                            {formatMetadataNatural(m.metadata).map((row) => (
+                              <li key={row.label} className="met-inv-meta-li">
+                                <span className="met-inv-meta-k">{row.label}:</span>{' '}
+                                <span className="met-inv-meta-v">{row.value}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
                       )}
                     </div>
                   </li>
@@ -1180,7 +1382,7 @@ export default function MetalurgicaInventarioPage() {
                   const fotos = parseFotosUrls(it)
                   const main = primaryPhoto(it)
                   return (
-                    <tr key={it.id} className={bajo ? 'met-inv-tr--warn' : undefined}>
+                    <tr id={`met-inv-row-${it.id}`} key={it.id} className={bajo ? 'met-inv-tr--warn' : undefined}>
                       <td className="met-inv-td-qr">
                         <MetalInvQrThumb payload={qrPayloadForTool(it)} />
                       </td>
@@ -1537,6 +1739,109 @@ export default function MetalurgicaInventarioPage() {
               </div>
             )}
             <p className="met-inv-lightbox-caption">{lightbox.title}</p>
+          </div>
+        </div>
+      )}
+
+      {invDetails && (
+        <div className="met-inv-item-modal" role="dialog" aria-modal="true" aria-label="Detalle de herramienta" onClick={() => setInvDetails(null)}>
+          <div
+            className="met-inv-item-modal-inner"
+            onClick={(e) => {
+              e.stopPropagation()
+            }}
+          >
+            <button type="button" className="met-inv-item-modal-close" onClick={() => setInvDetails(null)} aria-label="Cerrar">
+              ×
+            </button>
+            <div className="met-inv-item-modal-head">
+              <div className="met-inv-item-modal-title">
+                {invDetails.item.codigo_interno ? `[${invDetails.item.codigo_interno}] ` : ''}
+                {invDetails.item.herramienta}
+              </div>
+              <div className="met-inv-item-modal-sub">
+                {invDetails.item.tipo_marca || '—'} <span className="met-inv-dot">·</span> {slugEstado(invDetails.item.estado as string)}
+                {invDetails.slot ? (
+                  <>
+                    {' '}
+                    <span className="met-inv-dot">·</span> Slot {invDetails.slot}
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="met-inv-item-modal-body">
+              <div className="met-inv-item-modal-kpis">
+                <div className="met-inv-item-kpi">
+                  <span className="met-inv-item-kpi-k">Cantidad</span>
+                  <span className="met-inv-item-kpi-v">{invDetails.item.cantidad} u.</span>
+                </div>
+                <div className="met-inv-item-kpi">
+                  <span className="met-inv-item-kpi-k">Umbral mínimo</span>
+                  <span className="met-inv-item-kpi-v">{invDetails.item.umbral_minimo}</span>
+                </div>
+                <div className="met-inv-item-kpi">
+                  <span className="met-inv-item-kpi-k">Prestado a</span>
+                  <span className="met-inv-item-kpi-v">{invDetails.item.prestado_a || '—'}</span>
+                </div>
+                <div className="met-inv-item-kpi">
+                  <span className="met-inv-item-kpi-k">Proveedor</span>
+                  <span className="met-inv-item-kpi-v">{invDetails.item.proveedor || '—'}</span>
+                </div>
+              </div>
+
+              {primaryPhoto(invDetails.item) ? (
+                <button type="button" className="met-inv-item-photo" onClick={() => openGallery(invDetails.item)}>
+                  <img src={primaryPhoto(invDetails.item) as string} alt="" />
+                </button>
+              ) : null}
+
+              {(invDetails.item.descripcion || invDetails.item.observaciones) && (
+                <div className="met-inv-item-modal-notes">
+                  {invDetails.item.descripcion ? (
+                    <div>
+                      <div className="met-inv-item-note-k">Descripción</div>
+                      <div className="met-inv-item-note-v">{invDetails.item.descripcion}</div>
+                    </div>
+                  ) : null}
+                  {invDetails.item.observaciones ? (
+                    <div>
+                      <div className="met-inv-item-note-k">Observaciones</div>
+                      <div className="met-inv-item-note-v">{invDetails.item.observaciones}</div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="met-inv-item-modal-actions">
+              {invDetails.slot ? (
+                <button
+                  type="button"
+                  className="met-inv-btn met-inv-btn--ghost"
+                  onClick={() => {
+                    setSelectedSlot(invDetails.slot)
+                    setInvDetails(null)
+                  }}
+                >
+                  Filtrar por slot
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="met-inv-btn met-inv-btn--ghost"
+                onClick={() => {
+                  const el = document.getElementById(`met-inv-row-${invDetails.item.id}`)
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  setInvDetails(null)
+                }}
+              >
+                Ir en tabla
+              </button>
+              <button type="button" className="met-inv-btn met-inv-btn--primary" onClick={() => setInvDetails(null)}>
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
