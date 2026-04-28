@@ -218,6 +218,12 @@ export default function ERPDashboardPage() {
           <p>Proveedores, pedidos, recepción, CxP</p>
         </div>
 
+        <div className="erp-module-card" onClick={() => navigate('/erp/gastos')}>
+          <div className="module-icon">🧾</div>
+          <h3>Gastos</h3>
+          <p>Gastos corrientes, tickets y estadísticas</p>
+        </div>
+
         <div className="erp-module-card" onClick={() => navigate('/erp/stock')}>
           <div className="module-icon">📦</div>
           <h3>Stock / Inventario</h3>

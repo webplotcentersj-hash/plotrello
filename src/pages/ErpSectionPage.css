@@ -154,3 +154,84 @@
   background: #3182ce;
 }
 
+.erp-input {
+  margin-top: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fff;
+  color: #2d3748;
+}
+
+.erp-input:focus {
+  outline: none;
+  border-color: rgba(66, 153, 225, 0.9);
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.18);
+}
+
+.erp-ticket-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.erp-ticket-upload input[type='file'] {
+  display: block;
+  margin-top: 6px;
+}
+
+.erp-ticket-preview {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f7fafc;
+}
+
+.erp-ticket-preview img {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  display: block;
+  background: #fff;
+}
+
+.erp-ticket-preview-pdf {
+  width: 100%;
+  height: 360px;
+  border: none;
+  display: block;
+  background: #fff;
+}
+
+.erp-ticket-confidence {
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: #4a5568;
+  border-top: 1px solid #e2e8f0;
+  background: #f7fafc;
+}
+
+.erp-chart-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  background: linear-gradient(180deg, #ffffff, #f7fafc);
+}
+
+.erp-chart-title {
+  margin: 0 0 10px;
+  color: #2d3748;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.erp-chart-wrap {
+  width: 100%;
+}
+

@@ -93,6 +93,7 @@ const ErpComprasPage = lazy(() => import('./pages/ErpComprasPage'))
 const ErpStockPage = lazy(() => import('./pages/ErpStockPage'))
 const ErpCrmPage = lazy(() => import('./pages/ErpCrmPage'))
 const ErpAdminPage = lazy(() => import('./pages/ErpAdminPage'))
+const ErpGastosPage = lazy(() => import('./pages/ErpGastosPage'))
 const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInventarioPage'))
 const MetalurgicaInventarioPage = lazy(() => import('./pages/MetalurgicaInventarioPage'))
 const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashboardPage'))
@@ -1270,6 +1271,10 @@ function AppRoutes({
       <Route
         path="/erp/crm"
         element={<ErpCrmPage />}
+      />
+      <Route
+        path="/erp/gastos"
+        element={<ErpGastosPage />}
       />
       <Route
         path="/erp/admin"
