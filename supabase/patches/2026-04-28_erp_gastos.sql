@@ -80,6 +80,36 @@ for delete
 to authenticated
 using (true);
 
+-- Si la app está usando ANON (sin login), habilitar también para rol anon.
+drop policy if exists "erp_gastos_select_anon" on public.erp_gastos;
+create policy "erp_gastos_select_anon"
+on public.erp_gastos
+for select
+to anon
+using (true);
+
+drop policy if exists "erp_gastos_insert_anon" on public.erp_gastos;
+create policy "erp_gastos_insert_anon"
+on public.erp_gastos
+for insert
+to anon
+with check (true);
+
+drop policy if exists "erp_gastos_update_anon" on public.erp_gastos;
+create policy "erp_gastos_update_anon"
+on public.erp_gastos
+for update
+to anon
+using (true)
+with check (true);
+
+drop policy if exists "erp_gastos_delete_anon" on public.erp_gastos;
+create policy "erp_gastos_delete_anon"
+on public.erp_gastos
+for delete
+to anon
+using (true);
+
 drop policy if exists "erp_gastos_cat_select_auth" on public.erp_gastos_categorias;
 create policy "erp_gastos_cat_select_auth"
 on public.erp_gastos_categorias
@@ -92,6 +122,20 @@ create policy "erp_gastos_cat_insert_auth"
 on public.erp_gastos_categorias
 for insert
 to authenticated
+with check (true);
+
+drop policy if exists "erp_gastos_cat_select_anon" on public.erp_gastos_categorias;
+create policy "erp_gastos_cat_select_anon"
+on public.erp_gastos_categorias
+for select
+to anon
+using (true);
+
+drop policy if exists "erp_gastos_cat_insert_anon" on public.erp_gastos_categorias;
+create policy "erp_gastos_cat_insert_anon"
+on public.erp_gastos_categorias
+for insert
+to anon
 with check (true);
 
 

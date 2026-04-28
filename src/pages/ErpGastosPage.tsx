@@ -347,10 +347,16 @@ export default function ErpGastosPage() {
               {error}
             </p>
           )}
-          {error && /relation .*erp_gastos.* does not exist|erp_gastos/i.test(error) && (
+          {error && /relation .*erp_gastos.* does not exist/i.test(error) && (
             <p className="erp-muted" style={{ marginTop: 8 }}>
               Parece que falta crear la tabla. Ejecutá el patch{' '}
               <code>supabase/patches/2026-04-28_erp_gastos.sql</code> en Supabase.
+            </p>
+          )}
+          {error && /row-level security|violates row-level security|rls/i.test(error) && (
+            <p className="erp-muted" style={{ marginTop: 8 }}>
+              Esto es RLS (permisos). Ejecutá/actualizá el patch <code>supabase/patches/2026-04-28_erp_gastos.sql</code> para habilitar insert/select
+              desde la app.
             </p>
           )}
 
