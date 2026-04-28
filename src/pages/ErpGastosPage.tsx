@@ -40,6 +40,7 @@ type TicketExtract = {
 }
 
 const PIE_COLORS = ['#f97316', '#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#94a3b8', '#e2e8f0']
+const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'] as const
 
 function ymdToday() {
   return new Date().toISOString().slice(0, 10)
@@ -69,6 +70,7 @@ export default function ErpGastosPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rows, setRows] = useState<ErpGastoRow[]>([])
+  const [catOptions, setCatOptions] = useState<string[]>([])
   const [ticketPreview, setTicketPreview] = useState<string | null>(null)
   const [ticketUploading, setTicketUploading] = useState(false)
   const [ticketExtracting, setTicketExtracting] = useState(false)
@@ -91,7 +93,7 @@ export default function ErpGastosPage() {
     iva: '',
     neto: '',
     moneda: 'ARS',
-    metodo_pago: '',
+    metodo_pago: 'Efectivo',
     ticket_url: ''
   })
 
@@ -116,8 +118,21 @@ export default function ErpGastosPage() {
     }
   }
 
+  const loadCategorias = async () => {
+    if (!supabase) return
+    try {
+      const { data, error: err } = await supabase.from('erp_gastos_categorias').select('nombre').order('nombre', { ascending: true })
+      if (err) return
+      const list = ((data as Array<{ nombre: string }>) || []).map((r) => r.nombre).filter(Boolean)
+      setCatOptions(list)
+    } catch {
+      setCatOptions([])
+    }
+  }
+
   useEffect(() => {
     void reload()
+    void loadCategorias()
   }, [])
 
   const subtitle = useMemo(() => {
@@ -136,11 +151,7 @@ export default function ErpGastosPage() {
     return list
   }, [rows, filter, fechaDesde, fechaHasta, categoriaFiltro])
 
-  const categorias = useMemo(() => {
-    return Array.from(new Set(rows.map((r) => (r.categoria || '').trim()).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b)
-    )
-  }, [rows])
+  const categorias = useMemo(() => catOptions, [catOptions])
 
   const kpis = useMemo(() => {
     const total = filteredRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
@@ -214,6 +225,11 @@ export default function ErpGastosPage() {
         moneda: j.data?.moneda ? String(j.data.moneda) : p.moneda,
         metodo_pago: j.data?.metodo_pago ? String(j.data.metodo_pago) : p.metodo_pago
       }))
+
+      if (j.data?.categoria) {
+        // Pre-cargar sugerencias para autocompletar.
+        await loadCategorias()
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error con ticket.')
     } finally {
@@ -236,10 +252,15 @@ export default function ErpGastosPage() {
     }
     setSaving(true)
     try {
+      const categoriaClean = form.categoria.trim()
+      if (categoriaClean) {
+        // Guardar categoría (si no existe) para autocomplete.
+        await supabase.from('erp_gastos_categorias').insert({ nombre: categoriaClean }).select().maybeSingle()
+      }
       const payload = {
         fecha_gasto: form.fecha_gasto,
         proveedor: form.proveedor.trim() || null,
-        categoria: form.categoria.trim() || null,
+        categoria: categoriaClean || null,
         descripcion: form.descripcion.trim() || null,
         total,
         iva: safeNumber(form.iva),
@@ -261,12 +282,13 @@ export default function ErpGastosPage() {
         iva: '',
         neto: '',
         moneda: 'ARS',
-        metodo_pago: '',
+        metodo_pago: 'Efectivo',
         ticket_url: ''
       })
       setTicketPreview(null)
       setTicketExtract(null)
       await reload()
+      await loadCategorias()
       alert('Gasto guardado.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error guardando gasto.')
@@ -290,7 +312,7 @@ export default function ErpGastosPage() {
       </div>
 
       <div className="erp-section-grid">
-        <div className="erp-panel">
+        <div className="erp-panel erp-gastos-form">
           <h2>Ingreso</h2>
           <p className="erp-muted">
             Cargá un gasto manual o subí un ticket y dejá que la IA te complete los datos. Después lo ajustás y guardás.
@@ -350,7 +372,18 @@ export default function ErpGastosPage() {
 
             <label>
               Categoría
-              <input className="erp-input" value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))} />
+              <input
+                className="erp-input"
+                list="erp-gastos-categorias"
+                value={form.categoria}
+                onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))}
+                placeholder="Ej. Combustible, Limpieza, Insumos…"
+              />
+              <datalist id="erp-gastos-categorias">
+                {categorias.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </label>
 
             <label>
@@ -385,12 +418,17 @@ export default function ErpGastosPage() {
               </label>
               <label>
                 Método de pago
-                <input
+                <select
                   className="erp-input"
                   value={form.metodo_pago}
                   onChange={(e) => setForm((p) => ({ ...p, metodo_pago: e.target.value }))}
-                  placeholder="Efectivo, Transferencia, Tarjeta…"
-                />
+                >
+                  {METODOS_PAGO.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 

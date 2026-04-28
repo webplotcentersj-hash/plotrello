@@ -235,3 +235,9 @@
   width: 100%;
 }
 
+/* Gastos: forzar títulos/labels negros solo en el formulario */
+.erp-gastos-form h2,
+.erp-gastos-form label {
+  color: #000;
+}
+
