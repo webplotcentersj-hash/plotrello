@@ -34,6 +34,17 @@ function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
   return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
 }
 
+/** Último día del mes calendario de `fechaDesde` (YYYY-MM-DD). */
+function fechaHastaFinMesDesde(fechaDesdeYmd: string): string {
+  try {
+    const d = parseISO(fechaDesdeYmd)
+    if (Number.isNaN(d.getTime())) return fechaDesdeYmd
+    return format(endOfMonth(d), 'yyyy-MM-dd')
+  } catch {
+    return fechaDesdeYmd
+  }
+}
+
 /** Primer nombre o apodo corto para el calendario (sin dominio si era email). */
 function nombreParaChipCalendario(nombreCompleto: string | undefined, maxLen = 11): string {
   const s = nombreSinDominioCorreo(nombreCompleto)
@@ -163,7 +174,10 @@ const RecursosHumanosNovedadesPage = () => {
       grupo: row.grupo as RrhhNovedadGrupo,
       codigo: row.codigo,
       fecha_desde: row.fecha_desde,
-      fecha_hasta: row.fecha_hasta,
+      fecha_hasta:
+        row.grupo === 'beneficio_comida'
+          ? fechaHastaFinMesDesde(row.fecha_desde)
+          : row.fecha_hasta,
       duracion_minutos: row.duracion_minutos ?? '',
       horas_extra_cantidad: row.horas_extra_cantidad ?? '',
       observaciones: row.observaciones ?? ''
@@ -191,6 +205,10 @@ const RecursosHumanosNovedadesPage = () => {
     }
     setSaving(true)
     try {
+      const fechaHastaGuardada =
+        form.grupo === 'beneficio_comida'
+          ? fechaHastaFinMesDesde(form.fecha_desde)
+          : form.fecha_hasta
       const common = {
         id_usuario: form.id_usuario,
         id_solicitud_permiso:
@@ -198,7 +216,7 @@ const RecursosHumanosNovedadesPage = () => {
         grupo: form.grupo,
         codigo: form.codigo,
         fecha_desde: form.fecha_desde,
-        fecha_hasta: form.fecha_hasta,
+        fecha_hasta: fechaHastaGuardada,
         duracion_minutos:
           form.grupo === 'tardanza_retiro' ? dm : null,
         horas_extra_cantidad: form.grupo === 'horas_extra' ? he : null,
@@ -215,6 +233,21 @@ const RecursosHumanosNovedadesPage = () => {
         })
       }
       if (res.success) {
+        if (
+          editId == null &&
+          form.grupo === 'beneficio_comida' &&
+          form.codigo === 'perdida_beneficio_comida'
+        ) {
+          const n = await apiService.createNotification({
+            user_id: form.id_usuario,
+            title: 'Pérdida del beneficio de comida',
+            description: `Se registró la pérdida de tu beneficio de comida desde el ${form.fecha_desde} hasta el ${fechaHastaGuardada}. Si tenés dudas, consultá con RRHH.`,
+            type: 'warning'
+          })
+          if (!n.success) {
+            console.warn('No se pudo enviar la notificación al empleado:', n.error)
+          }
+        }
         setModalOpen(false)
         await load()
       } else alert(res.error || 'Error al guardar')
@@ -371,7 +404,8 @@ const RecursosHumanosNovedadesPage = () => {
         <div>
           <h1>Novedades laborales</h1>
           <p className="rrhh-novedades-sub">
-            Faltas, tardanzas, licencias y horas extra — categorías cerradas para filtros y liquidación.
+            Faltas, tardanzas, licencias, horas extra y beneficio de comida — categorías cerradas para filtros y
+            liquidación.
           </p>
         </div>
         <button type="button" className="btn-back-rrhh" onClick={() => navigate('/rrhh/dashboard')}>
@@ -627,7 +661,17 @@ const RecursosHumanosNovedadesPage = () => {
                 onChange={(e) => {
                   const g = e.target.value as RrhhNovedadGrupo
                   const first = CODIGOS_POR_GRUPO[g][0]?.value ?? ''
-                  setForm((f) => ({ ...f, grupo: g, codigo: first }))
+                  setForm((f) => {
+                    if (g === 'beneficio_comida') {
+                      return {
+                        ...f,
+                        grupo: g,
+                        codigo: first,
+                        fecha_hasta: fechaHastaFinMesDesde(f.fecha_desde)
+                      }
+                    }
+                    return { ...f, grupo: g, codigo: first }
+                  })
                 }}
               >
                 {GRUPOS.map((g) => (
@@ -658,7 +702,15 @@ const RecursosHumanosNovedadesPage = () => {
                 <input
                   type="date"
                   value={form.fecha_desde}
-                  onChange={(e) => setForm((f) => ({ ...f, fecha_desde: e.target.value }))}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setForm((f) => {
+                      if (f.grupo === 'beneficio_comida') {
+                        return { ...f, fecha_desde: v, fecha_hasta: fechaHastaFinMesDesde(v) }
+                      }
+                      return { ...f, fecha_desde: v }
+                    })
+                  }}
                 />
               </label>
               <label>
@@ -666,10 +718,17 @@ const RecursosHumanosNovedadesPage = () => {
                 <input
                   type="date"
                   value={form.fecha_hasta}
+                  disabled={form.grupo === 'beneficio_comida'}
                   onChange={(e) => setForm((f) => ({ ...f, fecha_hasta: e.target.value }))}
                 />
               </label>
             </div>
+            {form.grupo === 'beneficio_comida' ? (
+              <p className="rrhh-novedades-beneficio-hint">
+                El período va desde la fecha inicial hasta el <strong>último día de ese mes</strong>. Al guardar una{' '}
+                <strong>nueva</strong> novedad de este tipo, el colaborador recibe una notificación en la app.
+              </p>
+            ) : null}
 
             {form.grupo === 'tardanza_retiro' && (
               <label>

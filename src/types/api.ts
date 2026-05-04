@@ -1011,10 +1011,16 @@ export interface Asistencia {
 }
 
 /** Grupo de categoría para novedades RRHH (liquidación / reportes). */
-export type RrhhNovedadGrupo = 'falta' | 'tardanza_retiro' | 'licencia' | 'horas_extra'
+export type RrhhNovedadGrupo =
+  | 'falta'
+  | 'tardanza_retiro'
+  | 'licencia'
+  | 'horas_extra'
+  | 'beneficio_comida'
 
 /** Código cerrado para filtros exactos. */
 export type RrhhNovedadCodigo =
+  | 'perdida_beneficio_comida'
   | 'falta_justificada_enfermedad'
   | 'falta_justificada_tramites'
   | 'falta_injustificada'

@@ -4,7 +4,8 @@ export const RRHH_NOVEDAD_GRUPOS: { value: RrhhNovedadGrupo; label: string }[] =
   { value: 'falta', label: 'Faltas' },
   { value: 'tardanza_retiro', label: 'Tardanzas / Retiros anticipados' },
   { value: 'licencia', label: 'Licencias' },
-  { value: 'horas_extra', label: 'Horas extra' }
+  { value: 'horas_extra', label: 'Horas extra' },
+  { value: 'beneficio_comida', label: 'Beneficio comida' }
 ]
 
 export const RRHH_NOVEDAD_CODIGOS_POR_GRUPO: Record<
@@ -31,7 +32,8 @@ export const RRHH_NOVEDAD_CODIGOS_POR_GRUPO: Record<
   horas_extra: [
     { value: 'horas_extra_50', label: 'Al 50 %' },
     { value: 'horas_extra_100', label: 'Al 100 %' }
-  ]
+  ],
+  beneficio_comida: [{ value: 'perdida_beneficio_comida', label: 'Pérdida del beneficio de comida' }]
 }
 
 export function etiquetaCodigoRrhhNovedad(codigo: string): string {
