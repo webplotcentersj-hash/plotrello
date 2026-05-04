@@ -10,7 +10,7 @@ import {
   etiquetaEstadoParque
 } from '../utils/flotaVehiculosCatalogo'
 import RegistroSalidaModal from '../components/RegistroSalidaModal'
-import MarcarLlegadaModal from '../components/MarcarLlegadaModal'
+import MarcarLlegadaModal, { type MarcarLlegadaPayload } from '../components/MarcarLlegadaModal'
 import FlotaMapa from '../components/FlotaMapa'
 import FlotaReservasPanel from '../components/FlotaReservasPanel'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
@@ -189,9 +189,9 @@ const FlotaPage = () => {
     setLlegadaRegistro(r)
   }
 
-  const confirmarLlegada = async (litros: number) => {
+  const confirmarLlegada = async (payload: MarcarLlegadaPayload) => {
     if (!llegadaRegistro) return
-    const res = await apiService.marcarLlegadaRegistroSalidaVehiculo(llegadaRegistro.id, litros)
+    const res = await apiService.marcarLlegadaRegistroSalidaVehiculo(llegadaRegistro.id, payload)
     if (res.success) {
       setLlegadaRegistro(null)
       await loadData({ quiet: true })
@@ -372,7 +372,7 @@ const FlotaPage = () => {
                     <th>Usuario</th>
                     <th>OP</th>
                     <th>Llegada est.</th>
-                    <th>Llegada / Litros</th>
+                    <th>Llegada / Comb.</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
@@ -404,7 +404,9 @@ const FlotaPage = () => {
                             <span className="flota-llegada-ok">
                               {new Date(r.hora_llegada_real).toLocaleTimeString('es-AR')}
                               {litros != null && (
-                                <span className="flota-litros-chip">{Number(litros)} L</span>
+                                <span className="flota-litros-chip" title="Combustible restante en tanque">
+                                  {Number(litros)} L
+                                </span>
                               )}
                             </span>
                           ) : (
@@ -448,7 +450,7 @@ const FlotaPage = () => {
           >
             <span className="flota-historial-toggle-title">Historial de viajes finalizados</span>
             <span className="flota-historial-toggle-meta">
-              {historial.length} registros · combustible y horarios guardados
+              {historial.length} registros · comb. restante, objetivo, observaciones y horarios
             </span>
             <span className="flota-historial-chevron">{historialAbierto ? '▼' : '▶'}</span>
           </button>
@@ -464,11 +466,12 @@ const FlotaPage = () => {
                         <th>Salida</th>
                         <th>Vehículo</th>
                         <th>Conductor</th>
-                        <th>KM salida</th>
+                        <th>Comb. restante</th>
                         <th>OP</th>
                         <th>Llegada real</th>
-                        <th>Combustible (L)</th>
-                        <th>Motivo</th>
+                        <th>Objetivo</th>
+                        <th>Observaciones</th>
+                        <th>Motivo salida</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -479,7 +482,11 @@ const FlotaPage = () => {
                           </td>
                           <td>{h.vehiculo?.nombre ?? '—'}</td>
                           <td>{etiquetaUsuarioNombre(h.nombre_usuario)}</td>
-                          <td>{h.km_aproximado ?? '—'}</td>
+                          <td>
+                            {h.litros_combustible_llegada != null
+                              ? `${Number(h.litros_combustible_llegada)} L`
+                              : '—'}
+                          </td>
                           <td>{h.numero_op ?? '—'}</td>
                           <td>
                             {h.hora_llegada_real
@@ -487,9 +494,17 @@ const FlotaPage = () => {
                               : '—'}
                           </td>
                           <td>
-                            {h.litros_combustible_llegada != null
-                              ? `${Number(h.litros_combustible_llegada)} L`
-                              : '—'}
+                            {h.objetivo_cumplido === true
+                              ? 'Sí'
+                              : h.objetivo_cumplido === false
+                                ? 'No'
+                                : '—'}
+                          </td>
+                          <td
+                            className="flota-cell-clip flota-cell-obs"
+                            title={h.observaciones_llegada?.trim() || undefined}
+                          >
+                            {h.observaciones_llegada?.trim() || '—'}
                           </td>
                           <td className="flota-cell-clip" title={h.motivo_salida}>
                             {h.motivo_salida}
@@ -596,7 +611,7 @@ const FlotaPage = () => {
                           <span className="info-value flota-llegada-ok">
                             {new Date(registro.hora_llegada_real).toLocaleTimeString('es-AR')}
                             {registro.litros_combustible_llegada != null && (
-                              <span className="flota-litros-chip">
+                              <span className="flota-litros-chip" title="Combustible restante">
                                 {Number(registro.litros_combustible_llegada)} L
                               </span>
                             )}
@@ -700,7 +715,7 @@ const FlotaPage = () => {
         <MarcarLlegadaModal
           registro={llegadaRegistro}
           onClose={() => setLlegadaRegistro(null)}
-          onConfirm={(litros) => confirmarLlegada(litros)}
+          onConfirm={(payload) => void confirmarLlegada(payload)}
         />
       )}
     </div>

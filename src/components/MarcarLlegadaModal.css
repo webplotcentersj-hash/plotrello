@@ -22,7 +22,7 @@
 
 .marcar-llegada-modal {
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   background: linear-gradient(160deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%);
   border: 1px solid rgba(56, 189, 248, 0.25);
   border-radius: 16px;
@@ -72,6 +72,89 @@
 }
 
 .marcar-llegada-input:focus {
+  outline: none;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+.marcar-llegada-motivo {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.marcar-llegada-motivo-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #38bdf8;
+  margin-bottom: 6px;
+}
+
+.marcar-llegada-motivo-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #e2e8f0;
+}
+
+.marcar-llegada-fieldset {
+  border: none;
+  margin: 0 0 16px 0;
+  padding: 0;
+}
+
+.marcar-llegada-fieldset .marcar-llegada-label {
+  margin-bottom: 10px;
+}
+
+.marcar-llegada-check-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.marcar-llegada-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.marcar-llegada-radio input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: #22c55e;
+}
+
+.marcar-llegada-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.8);
+  color: #ffffff;
+  color-scheme: dark;
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 80px;
+  margin-bottom: 4px;
+}
+
+.marcar-llegada-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.marcar-llegada-textarea:focus {
   outline: none;
   border-color: #38bdf8;
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);

@@ -1308,11 +1308,17 @@ export interface RegistroSalidaVehiculo {
   hora_salida: string
   hora_estimada_llegada?: string | null
   hora_llegada_real?: string | null
-  /** Litros de combustible informados al marcar llegada */
+  /** Combustible que queda en el tanque al marcar llegada (litros) */
   litros_combustible_llegada?: number | null
+  /** Indica si se cumplió el objetivo de la salida (conductor, al llegar) */
+  objetivo_cumplido?: boolean | null
+  /** Notas del conductor al marcar llegada */
+  observaciones_llegada?: string | null
   ubicacion_destino?: string | null
   latitud?: number | null
   longitud?: number | null
+  /** Pasajeros que acompañan (desde catálogo usuarios) */
+  acompanantes?: { id_usuario: number; nombre: string }[] | null
   estado: 'pendiente_autorizacion' | 'en_uso' | 'retrasado' | 'finalizado'
   llave_entregada: boolean
   id_usuario_caja_entrego_llave?: number | null

@@ -137,6 +137,10 @@
   margin-bottom: 15px;
 }
 
+.form-row.form-row--single {
+  grid-template-columns: 1fr;
+}
+
 .form-group {
   margin-bottom: 15px;
 }
@@ -417,5 +421,93 @@
 .btn-sm {
   padding: 8px 14px;
   font-size: 0.88rem;
+}
+
+.flota-form-hint-sm {
+  margin: 4px 0 8px 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.flota-op-cliente-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  font-size: 0.9rem;
+}
+
+.flota-op-cliente-nombre {
+  font-weight: 600;
+  color: #14532d;
+}
+
+.flota-op-cliente-tel {
+  color: #166534;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.flota-op-cliente-tel:hover {
+  text-decoration: underline;
+}
+
+.flota-op-cliente-sin-tel {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.flota-acompanantes-select {
+  width: 100%;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.flota-acompanantes-chips {
+  list-style: none;
+  margin: 10px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flota-acompanantes-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.flota-acompanantes-remove {
+  border: none;
+  background: #e2e8f0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #475569;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.flota-acompanantes-remove:hover {
+  background: #fecaca;
+  color: #991b1b;
 }
 

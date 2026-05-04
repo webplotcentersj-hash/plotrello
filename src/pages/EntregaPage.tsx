@@ -320,26 +320,6 @@ const EntregaPage = () => {
 
       setSuccess(true)
       window.dispatchEvent(new Event('plotrello-orden-entregada'))
-      // Descargar comprobante PDF automáticamente al entregar
-      try {
-        if (comprobanteRef.current && orden) {
-          const canvas = await html2canvas(comprobanteRef.current, {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            backgroundColor: '#ffffff'
-          })
-          const imgData = canvas.toDataURL('image/png')
-          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-          const pdfWidth = pdf.internal.pageSize.getWidth()
-          const pdfHeight = pdf.internal.pageSize.getHeight()
-          const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height)
-          pdf.addImage(imgData, 'PNG', 0, 0, canvas.width * ratio, canvas.height * ratio)
-          pdf.save(`Comprobante_Entrega_OP_${orden.numero_op}.pdf`)
-        }
-      } catch (e) {
-        console.warn('No se pudo generar PDF automático:', e)
-      }
     } catch (error) {
       console.error('Error marcando orden como entregada:', error)
       setErrors({ firma: 'Error inesperado al procesar la entrega' })
@@ -655,8 +635,16 @@ const EntregaPage = () => {
         {success && (
           <div className="success-banner success-banner-full">
             <h3>✅ Orden entregada</h3>
-            <p>El comprobante se descargó automáticamente. Podés notificar al cliente por WhatsApp si tiene número cargado.</p>
+            <p>Podés descargar el comprobante manualmente y notificar al cliente por WhatsApp si tiene número cargado.</p>
             <div className="success-actions">
+              <button
+                className="btn-secondary"
+                onClick={generarComprobantePDF}
+                disabled={!firmaDataUrl}
+                type="button"
+              >
+                💾 Descargar Comprobante PDF
+              </button>
               {(orden.whatsapp_link || orden.telefono_cliente) && (
                 <a
                   href={orden.whatsapp_link?.trim() || buildWhatsAppLink(orden.telefono_cliente)}

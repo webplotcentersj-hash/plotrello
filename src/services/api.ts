@@ -15020,18 +15020,46 @@ class ApiService {
       numero_op: string
       ubicacion_link: string | null
       direccion_cliente: string | null
+      cliente: string | null
+      telefono_cliente: string | null
     } | null>
   > {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     const raw = (numeroOp || '').trim()
     if (!raw) return { success: true, data: null }
     const normalized = raw.replace(/^OP-?/i, '').trim() || raw
+    const selectOp =
+      'id, numero_op, ubicacion_link, direccion_cliente, cliente, telefono_cliente'
     const candidates = normalized === raw ? [raw] : [raw, normalized]
     for (const num of candidates) {
       const { data, error } = await supabase
         .from('ordenes_trabajo')
-        .select('id, numero_op, ubicacion_link, direccion_cliente')
+        .select(selectOp)
         .eq('numero_op', num)
+        .limit(1)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message }
+      if (data) return { success: true, data: data as any }
+    }
+    if (/^\d+$/.test(normalized)) {
+      const id = parseInt(normalized, 10)
+      if (id > 0) {
+        const { data, error } = await supabase
+          .from('ordenes_trabajo')
+          .select(selectOp)
+          .eq('id', id)
+          .limit(1)
+          .maybeSingle()
+        if (error) return { success: false, error: error.message }
+        if (data) return { success: true, data: data as any }
+      }
+    }
+    if (normalized.length >= 3) {
+      const { data, error } = await supabase
+        .from('ordenes_trabajo')
+        .select(selectOp)
+        .ilike('numero_op', `%${normalized}%`)
+        .order('id', { ascending: false })
         .limit(1)
         .maybeSingle()
       if (error) return { success: false, error: error.message }
@@ -15186,21 +15214,29 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
-  /** Conductor: marca hora real de llegada y litros de combustible (sigue en uso hasta finalizar). */
+  /** Conductor: marca hora real de llegada, combustible restante, objetivo y observaciones (sigue en uso hasta finalizar). */
   async marcarLlegadaRegistroSalidaVehiculo(
     idRegistro: number,
-    litrosCombustible: number
+    params: {
+      combustibleRestanteLitros: number
+      objetivoCumplido: boolean
+      observacionesLlegada?: string | null
+    }
   ): Promise<ApiResponse<RegistroSalidaVehiculo>> {
     if (supabase) {
-      if (!Number.isFinite(litrosCombustible) || litrosCombustible < 0) {
-        return { success: false, error: 'Indicá los litros de combustible (número ≥ 0)' }
+      const litros = params.combustibleRestanteLitros
+      if (!Number.isFinite(litros) || litros < 0) {
+        return { success: false, error: 'Indicá el combustible que queda (litros, número ≥ 0)' }
       }
+      const obs = (params.observacionesLlegada ?? '').trim() || null
       const ahora = new Date().toISOString()
       const { data, error } = await supabase
         .from('registros_salidas_vehiculos')
         .update({
           hora_llegada_real: ahora,
-          litros_combustible_llegada: litrosCombustible,
+          litros_combustible_llegada: litros,
+          objetivo_cumplido: params.objetivoCumplido,
+          observaciones_llegada: obs,
           updated_at: ahora
         })
         .eq('id', idRegistro)

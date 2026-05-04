@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
-import type { Vehiculo, RegistroSalidaVehiculo } from '../types/api'
+import type { UsuarioRecord, Vehiculo, RegistroSalidaVehiculo } from '../types/api'
 import { sectorDesdeRolUsuario } from '../utils/flotaSector'
+import { geocodeFirstHitSanJuan } from '../utils/flotaGeocode'
 import { parseLatLngFromMapsUrl } from '../utils/mapsUrlParse'
 import SalidaMapPicker from './SalidaMapPicker'
 import './RegistroSalidaModal.css'
@@ -44,6 +45,10 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cargandoOp, setCargandoOp] = useState(false)
+  const [usuariosLista, setUsuariosLista] = useState<UsuarioRecord[]>([])
+  const [acompanantesSel, setAcompanantesSel] = useState<Array<{ id_usuario: number; nombre: string }>>([])
+  const [opClienteInfo, setOpClienteInfo] = useState<{ nombre: string; telefono: string | null } | null>(null)
+  const ubicacionDestinoRef = useRef('')
 
   useEffect(() => {
     const s = sectorDesdeRolUsuario(usuario?.rol ?? null)
@@ -56,6 +61,18 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
     d.setSeconds(0, 0)
     const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
     setHoraSalidaDeseada(isoLocal)
+  }, [])
+
+  useEffect(() => {
+    ubicacionDestinoRef.current = ubicacionDestino
+  }, [ubicacionDestino])
+
+  useEffect(() => {
+    void apiService.getUsuarios().then((r) => {
+      if (r.success && r.data?.length) {
+        setUsuariosLista([...r.data].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+      }
+    })
   }, [])
 
   const aplicarCoords = useCallback((lat: number, lng: number) => {
@@ -71,35 +88,55 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
     }
     setCargandoOp(true)
     setError(null)
+    setOpClienteInfo(null)
     try {
       const res = await apiService.getOrdenUbicacionPorNumeroOp(op)
       if (!res.success || !res.data) {
         setError(res.error || 'No se encontró la OP')
         return
       }
-      const link = res.data.ubicacion_link
+      const row = res.data
+      if (row.numero_op) setNumeroOp(row.numero_op)
+      const nom = (row.cliente ?? '').trim()
+      const tel = (row.telefono_cliente ?? '').trim()
+      if (nom || tel) {
+        setOpClienteInfo({ nombre: nom || '—', telefono: tel || null })
+      }
+
+      const link = row.ubicacion_link
       if (link) {
         const parsed = parseLatLngFromMapsUrl(link)
         if (parsed) {
           aplicarCoords(parsed.lat, parsed.lng)
-          if (!ubicacionDestino.trim() && res.data.direccion_cliente) {
-            setUbicacionDestino(res.data.direccion_cliente)
+          if (!ubicacionDestinoRef.current.trim() && row.direccion_cliente) {
+            setUbicacionDestino(row.direccion_cliente.trim())
           }
+          setError(null)
           return
         }
       }
-      if (res.data.direccion_cliente) {
-        setUbicacionDestino(res.data.direccion_cliente)
+
+      const dir = (row.direccion_cliente ?? '').trim()
+      if (dir) {
+        const geo = await geocodeFirstHitSanJuan(dir)
+        if (geo) {
+          aplicarCoords(geo.lat, geo.lon)
+          if (!ubicacionDestinoRef.current.trim()) setUbicacionDestino(dir)
+          setError(null)
+          return
+        }
+        setUbicacionDestino(dir)
         setError(
-          'La OP tiene dirección pero no coordenadas en el enlace. Buscá la dirección en el mapa de abajo.'
+          'La OP tiene dirección en la ficha pero no se pudo ubicar en el mapa automáticamente. Buscá la calle en el cuadro de abajo o tocá el mapa.'
         )
-      } else {
-        setError('La OP no tiene ubicación guardada. Marcá el punto en el mapa.')
+        return
       }
+
+      setError('La OP no tiene ubicación ni dirección cargada. Marcá el destino en el mapa.')
     } finally {
       setCargandoOp(false)
     }
-  }, [numeroOp, aplicarCoords, ubicacionDestino])
+  }, [numeroOp, aplicarCoords])
 
   const geolocalizarAqui = () => {
     if (!navigator.geolocation) {
@@ -156,7 +193,8 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
         llave_entregada: false,
         id_usuario_caja_entrego_llave: null,
         nombre_usuario_caja_entrego_llave: null,
-        observaciones: null
+        observaciones: null,
+        acompanantes: acompanantesSel.length > 0 ? acompanantesSel : null
       }
 
       const response = await apiService.crearRegistroSalidaVehiculo(registro)
@@ -250,7 +288,7 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
             </div>
           </div>
 
-          <div className="form-row">
+          <div className="form-row form-row--single">
             <div className="form-group flex-grow">
               <label>Nº OP del trabajo</label>
               <div className="inline-actions">
@@ -258,20 +296,29 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
                   type="text"
                   value={numeroOp}
                   onChange={(e) => setNumeroOp(e.target.value)}
-                  placeholder="Ej: 1234 o VENT-…"
+                  placeholder="Ej: 1234, ID de ficha o parte del número"
                 />
-                <button type="button" className="btn-secondary btn-sm" onClick={() => void buscarUbicacionOp()} disabled={cargandoOp}>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  onClick={() => void buscarUbicacionOp()}
+                  disabled={cargandoOp}
+                >
                   {cargandoOp ? '…' : 'Ubicación desde OP'}
                 </button>
               </div>
-            </div>
-            <div className="form-group">
-              <label>Hora estimada de llegada</label>
-              <input
-                type="datetime-local"
-                value={horaEstimadaLlegada}
-                onChange={(e) => setHoraEstimadaLlegada(e.target.value)}
-              />
+              {opClienteInfo && (
+                <div className="flota-op-cliente-card" role="status">
+                  <span className="flota-op-cliente-nombre">{opClienteInfo.nombre}</span>
+                  {opClienteInfo.telefono ? (
+                    <a className="flota-op-cliente-tel" href={`tel:${opClienteInfo.telefono.replace(/\s/g, '')}`}>
+                      {opClienteInfo.telefono}
+                    </a>
+                  ) : (
+                    <span className="flota-op-cliente-sin-tel">Sin teléfono en la OP</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -284,6 +331,55 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
               rows={3}
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label>Acompañantes (opcional)</label>
+            <p className="flota-form-hint-sm">Personas que van en el vehículo además del conductor.</p>
+            <select
+              className="flota-acompanantes-select"
+              value=""
+              aria-label="Agregar acompañante"
+              onChange={(e) => {
+                const id = parseInt(e.target.value, 10)
+                e.target.value = ''
+                if (!id) return
+                const u = usuariosLista.find((x) => x.id === id)
+                if (!u || u.id === usuario?.id) return
+                if (acompanantesSel.some((a) => a.id_usuario === id)) return
+                setAcompanantesSel((prev) => [...prev, { id_usuario: u.id, nombre: u.nombre }])
+              }}
+            >
+              <option value="">Agregar desde usuarios…</option>
+              {usuariosLista
+                .filter(
+                  (u) => u.id !== usuario?.id && !acompanantesSel.some((a) => a.id_usuario === u.id)
+                )
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nombre}
+                  </option>
+                ))}
+            </select>
+            {acompanantesSel.length > 0 && (
+              <ul className="flota-acompanantes-chips">
+                {acompanantesSel.map((a) => (
+                  <li key={a.id_usuario}>
+                    <span>{a.nombre}</span>
+                    <button
+                      type="button"
+                      className="flota-acompanantes-remove"
+                      aria-label={`Quitar ${a.nombre}`}
+                      onClick={() =>
+                        setAcompanantesSel((prev) => prev.filter((x) => x.id_usuario !== a.id_usuario))
+                      }
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="form-group">
