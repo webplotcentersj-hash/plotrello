@@ -238,6 +238,15 @@ function flotaFechaHastaInclusiveIso(fechaHasta: string): string {
   return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
 }
 
+function supabaseErrorMessage(e: unknown, fallback: string): string {
+  if (typeof e === 'object' && e !== null && 'message' in e) {
+    const m = (e as { message?: unknown }).message
+    if (typeof m === 'string' && m.trim()) return m
+  }
+  if (e instanceof Error) return e.message
+  return fallback
+}
+
 class ApiService {
   // Helper para obtener usuario actual desde localStorage
   private getCurrentUser(): { id: number; nombre: string } {
@@ -12935,7 +12944,7 @@ class ApiService {
     } catch (e) {
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Error al listar novedades'
+        error: supabaseErrorMessage(e, 'Error al listar novedades')
       }
     }
   }
@@ -12980,7 +12989,7 @@ class ApiService {
     } catch (e) {
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Error al crear novedad'
+        error: supabaseErrorMessage(e, 'Error al crear novedad')
       }
     }
   }
@@ -13019,7 +13028,7 @@ class ApiService {
     } catch (e) {
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Error al actualizar novedad'
+        error: supabaseErrorMessage(e, 'Error al actualizar novedad')
       }
     }
   }
@@ -13035,7 +13044,7 @@ class ApiService {
     } catch (e) {
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Error al eliminar novedad'
+        error: supabaseErrorMessage(e, 'Error al eliminar novedad')
       }
     }
   }
