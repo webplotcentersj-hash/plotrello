@@ -1,13 +1,20 @@
 import { useMemo, useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import apiService from '../services/api'
 import type {
   Capacitacion,
   Evaluacion,
   HistorialMovimiento,
   LegajoEmpleado,
+  RrhhNovedad,
   SolicitudPermiso,
   UsuarioRecord
 } from '../types/api'
+import RrhhNovedadDetailModal from './RrhhNovedadDetailModal'
+import {
+  RRHH_NOVEDAD_GRUPOS,
+  etiquetaCodigoRrhhNovedad
+} from '../utils/rrhhNovedadCatalog'
 import type { PedidoCompra } from '../types/pedidos'
 import { isoToArgentinaDateKey } from '../utils/dateUtils'
 import { jsPDF } from 'jspdf'
@@ -27,6 +34,7 @@ type LegajoTabId =
   | 'pedidos'
   | 'permisos'
   | 'evaluaciones'
+  | 'novedades'
 
 type PruebaRow = {
   id: string
@@ -92,9 +100,17 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
   const [pruebaResultadoLoadingById, setPruebaResultadoLoadingById] = useState<Record<string, boolean>>({})
   const [pruebaResultadoById, setPruebaResultadoById] = useState<Record<string, ResultadoPayload | null>>({})
 
+  const [novLoading, setNovLoading] = useState(false)
+  const [novError, setNovError] = useState<string | null>(null)
+  const [novedadesRRHH, setNovedadesRRHH] = useState<RrhhNovedad[]>([])
+  const [novedadDetail, setNovedadDetail] = useState<RrhhNovedad | null>(null)
+
   useEffect(() => {
     if (isOpen && usuario.id) {
       setTab('legajo')
+      setNovedadesRRHH([])
+      setNovedadDetail(null)
+      setNovError(null)
       loadLegajo()
     }
   }, [isOpen, usuario.id])
@@ -195,6 +211,20 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
     }
   }
 
+  const loadNovedadesRRHH = async () => {
+    setNovLoading(true)
+    setNovError(null)
+    try {
+      const r = await apiService.rrhhNovedadesListar({ idUsuario: usuario.id })
+      if (r.success && r.data) setNovedadesRRHH(r.data)
+      else setNovError(r.error || 'No se pudieron cargar las novedades laborales')
+    } catch (e) {
+      setNovError(e instanceof Error ? e.message : 'Error al cargar novedades')
+    } finally {
+      setNovLoading(false)
+    }
+  }
+
   const loadPruebas = async () => {
     setPrueLoading(true)
     setPrueError(null)
@@ -233,13 +263,14 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
     setPdfGenerating(true)
     setPdfError(null)
     try {
-      const [movR, capR, pedR, permR, evalR, pruebasR] = await Promise.all([
+      const [movR, capR, pedR, permR, evalR, pruebasR, novR] = await Promise.all([
         apiService.getHistorialMovimientos({ usuarioId: usuario.id, limit: 200 }),
         apiService.obtenerCapacitacionesUsuario(usuario.id, null),
         apiService.getPedidosCompra({ id_solicitante: usuario.id }),
         apiService.obtenerSolicitudesPermisos(usuario.id, null, null, null, null),
         apiService.obtenerEvaluaciones(usuario.id, null, null, null, null, null),
-        apiService.rrhhPruebasListar()
+        apiService.rrhhPruebasListar(),
+        apiService.rrhhNovedadesListar({ idUsuario: usuario.id })
       ])
 
       const pruebasList = Array.isArray(pruebasR.data) ? (pruebasR.data as PruebaRow[]) : []
@@ -268,6 +299,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
       const pedidosCount = pedR.success && pedR.data ? pedR.data.length : null
       const permisosCount = permR.success && permR.data ? permR.data.length : null
       const evaluacionesCount = evalR.success && evalR.data ? evalR.data.length : null
+      const novedadesPdfCount = novR.success && novR.data ? novR.data.length : null
 
       const doc = new jsPDF({ unit: 'pt', format: 'a4' })
       const pageW = doc.internal.pageSize.getWidth()
@@ -328,6 +360,10 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
       kv('Permisos solicitados', permisosCount == null ? 'No disponible' : String(permisosCount))
       kv('Evaluaciones RRHH', evaluacionesCount == null ? 'No disponible' : String(evaluacionesCount))
       kv(
+        'Novedades laborales (RRHH)',
+        novedadesPdfCount == null ? 'No disponible' : String(novedadesPdfCount)
+      )
+      kv(
         `Pruebas (muestra parcial ${subset.length}/${pruebasList.length})`,
         pruebasList.length === 0
           ? 'No disponible'
@@ -386,7 +422,8 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
     { id: 'pruebas', label: '📝 Pruebas' },
     { id: 'pedidos', label: '🧾 Pedidos' },
     { id: 'permisos', label: '🗓️ Permisos' },
-    { id: 'evaluaciones', label: '⭐ Evaluaciones' }
+    { id: 'evaluaciones', label: '⭐ Evaluaciones' },
+    { id: 'novedades', label: '📌 Novedades' }
   ]
 
   return (
@@ -436,6 +473,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
                     if (t.id === 'evaluaciones' && evaluaciones.length === 0 && !evalLoading) void loadEvaluaciones()
                     if (t.id === 'pedidos' && pedidos.length === 0 && !pedLoading) void loadPedidos()
                     if (t.id === 'pruebas' && pruebas.length === 0 && !prueLoading) void loadPruebas()
+                    if (t.id === 'novedades' && novedadesRRHH.length === 0 && !novLoading) void loadNovedadesRRHH()
                   }}
                 >
                   {t.label}
@@ -737,6 +775,60 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
               </div>
             )}
 
+            {tab === 'novedades' && (
+              <div className="ver-legajo-section">
+                <h3 className="ver-legajo-section-title">📌 Novedades laborales</h3>
+                <p className="ver-legajo-hint">
+                  Faltas, licencias, tardanzas y horas extra registradas en Plotrello.{' '}
+                  <Link to="/rrhh/novedades" className="ver-legajo-link" onClick={onClose}>
+                    Abrir módulo completo
+                  </Link>
+                </p>
+                {novError && <div className="ver-legajo-alert ver-legajo-alert--error">⚠️ {novError}</div>}
+                {novLoading ? (
+                  <div className="ver-legajo-subloading">Cargando novedades…</div>
+                ) : novedadesRRHH.length === 0 ? (
+                  <div className="ver-legajo-empty-small">No hay novedades registradas para este empleado.</div>
+                ) : (
+                  <div className="ver-legajo-table-wrap">
+                    <table className="ver-legajo-table ver-legajo-table--clickable">
+                      <thead>
+                        <tr>
+                          <th>Fechas</th>
+                          <th>Grupo</th>
+                          <th>Categoría</th>
+                          <th>Detalle</th>
+                          <th>Adj.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {novedadesRRHH.map((n) => (
+                          <tr key={n.id} onClick={() => setNovedadDetail(n)}>
+                            <td>
+                              {n.fecha_desde}
+                              {n.fecha_hasta !== n.fecha_desde ? ` → ${n.fecha_hasta}` : ''}
+                            </td>
+                            <td>{RRHH_NOVEDAD_GRUPOS.find((g) => g.value === n.grupo)?.label ?? n.grupo}</td>
+                            <td>{etiquetaCodigoRrhhNovedad(n.codigo)}</td>
+                            <td className="ver-legajo-cell-ellipsis">
+                              {n.grupo === 'tardanza_retiro' && n.duracion_minutos != null
+                                ? `${n.duracion_minutos} min · `
+                                : ''}
+                              {n.grupo === 'horas_extra' && n.horas_extra_cantidad != null
+                                ? `${n.horas_extra_cantidad} h · `
+                                : ''}
+                              {n.observaciones ?? '—'}
+                            </td>
+                            <td>{(n.adjuntos?.length ?? 0) || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             {tab === 'legajo' && (
               <>
             {/* Foto del empleado */}
@@ -911,6 +1003,14 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
                 Cerrar
               </button>
             </div>
+
+            {novedadDetail ? (
+              <RrhhNovedadDetailModal
+                novedad={novedadDetail}
+                empleadoNombre={usuario.nombre}
+                onClose={() => setNovedadDetail(null)}
+              />
+            ) : null}
           </div>
         )}
       </div>

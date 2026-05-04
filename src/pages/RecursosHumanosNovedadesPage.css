@@ -127,17 +127,6 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
-.rrhh-novedades-calendar-wrap--fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  max-width: none;
-  margin: 0;
-  border-radius: 0;
-  overflow: auto;
-  padding: 24px;
-}
-
 .rrhh-novedades-calendar-head {
   display: flex;
   align-items: center;
@@ -269,6 +258,15 @@
   font-weight: 600;
 }
 
+.rrhh-novedades-table-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.rrhh-novedades-table-row:hover {
+  background: rgba(249, 115, 22, 0.08);
+}
+
 .rrhh-novedades-obs {
   max-width: 280px;
   white-space: nowrap;
@@ -293,26 +291,133 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 20px;
   overflow-y: auto;
+}
+
+.rrhh-novedades-modal-overlay--detail {
+  /* Por encima del modal VerLegajo (10000) */
+  z-index: 10050;
 }
 
 .rrhh-novedades-modal {
   width: 100%;
   max-width: 520px;
-  margin-top: 40px;
-  margin-bottom: 40px;
-  padding: 24px;
-  border-radius: 12px;
-  background: var(--bg-secondary, #1e293b);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  max-height: min(92vh, 880px);
+  margin: auto;
+  padding: 0;
+  border-radius: 16px;
+  background: linear-gradient(
+    165deg,
+    rgba(30, 41, 59, 0.98) 0%,
+    rgba(15, 23, 42, 0.99) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(249, 115, 22, 0.12);
   display: flex;
   flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.rrhh-novedades-modal--form {
+  max-height: min(92vh, 880px);
+}
+
+.rrhh-novedades-modal-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.rrhh-novedades-modal-top h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.rrhh-novedades-modal-lead {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  line-height: 1.4;
+  max-width: 360px;
+}
+
+.rrhh-novedades-modal-close {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.rrhh-novedades-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.rrhh-novedades-modal--form > label,
+.rrhh-novedades-modal--form > .rrhh-novedades-modal-row,
+.rrhh-novedades-modal--form > .rrhh-novedades-upload,
+.rrhh-novedades-modal--form > .rrhh-novedades-modal-actions {
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+.rrhh-novedades-modal--form {
+  padding-bottom: 20px;
+  overflow-y: auto;
   gap: 14px;
+}
+
+.rrhh-novedades-modal--form > label:first-of-type,
+.rrhh-novedades-modal--form label {
+  margin-top: 0;
+}
+
+.rrhh-novedades-modal--form > label {
+  padding-top: 14px;
+}
+
+.rrhh-novedades-modal--form > .rrhh-novedades-modal-top + label {
+  padding-top: 18px;
+}
+
+.rrhh-novedades-section-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.rrhh-novedades-upload-hint {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  opacity: 0.75;
 }
 
 .rrhh-novedades-modal h3 {
@@ -345,7 +450,8 @@
 }
 
 .rrhh-novedades-upload {
-  padding-top: 8px;
+  padding-top: 18px;
+  margin-top: 4px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -377,11 +483,241 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+/* Vista detalle (solo lectura) */
+.rrhh-novedades-detail-card {
+  width: 100%;
+  max-width: 480px;
+  max-height: min(90vh, 720px);
+  margin: auto;
+  border-radius: 16px;
+  background: linear-gradient(
+    165deg,
+    rgba(30, 41, 59, 0.98) 0%,
+    rgba(15, 23, 42, 0.99) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(249, 115, 22, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rrhh-novedades-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.rrhh-novedades-detail-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.rrhh-novedades-detail-badge--falta {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fecaca;
+}
+
+.rrhh-novedades-detail-badge--tardanza_retiro {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+}
+
+.rrhh-novedades-detail-badge--licencia {
+  background: rgba(59, 130, 246, 0.28);
+  color: #bfdbfe;
+}
+
+.rrhh-novedades-detail-badge--horas_extra {
+  background: rgba(34, 197, 94, 0.22);
+  color: #bbf7d0;
+}
+
+.rrhh-novedades-detail-head h3 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.rrhh-novedades-detail-sub {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.88;
+}
+
+.rrhh-novedades-detail-dl {
+  margin: 0;
+  padding: 18px 22px;
+  display: grid;
+  gap: 12px 20px;
+  grid-template-columns: 1fr;
+  font-size: 0.9rem;
+}
+
+.rrhh-novedades-detail-dl div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.rrhh-novedades-detail-dl dt {
+  margin: 0;
+  font-weight: 600;
+  opacity: 0.55;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rrhh-novedades-detail-dl dd {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.rrhh-novedades-detail-obs {
+  margin: 0 22px 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rrhh-novedades-detail-obs-label,
+.rrhh-novedades-detail-adj > .rrhh-novedades-detail-obs-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.55;
+  margin-bottom: 8px;
+}
+
+.rrhh-novedades-detail-obs p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.rrhh-novedades-detail-adj {
+  padding: 0 22px 18px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.rrhh-novedades-detail-empty {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  opacity: 0.55;
+}
+
+.rrhh-novedades-detail-adj-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rrhh-novedades-detail-thumb-wrap {
+  display: block;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.25);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.rrhh-novedades-detail-thumb-wrap:hover {
+  border-color: rgba(249, 115, 22, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.rrhh-novedades-detail-thumb {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  background: #0f172a;
+}
+
+.rrhh-novedades-detail-file-name {
+  display: block;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  opacity: 0.9;
+}
+
+.rrhh-novedades-detail-file-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #7dd3fc;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.rrhh-novedades-detail-file-link:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.rrhh-novedades-detail-file-icon {
+  font-size: 1.25rem;
+}
+
+.rrhh-novedades-detail-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
 }
 
 @media (max-width: 640px) {
   .rrhh-novedades-modal-row {
     grid-template-columns: 1fr;
+  }
+
+  .rrhh-novedades-detail-dl div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

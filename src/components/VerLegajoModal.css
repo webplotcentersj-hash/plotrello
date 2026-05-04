@@ -471,3 +471,28 @@
   }
 }
 
+.ver-legajo-link {
+  color: #38bdf8;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.ver-legajo-link:hover {
+  color: #7dd3fc;
+}
+
+.ver-legajo-table--clickable tbody tr {
+  cursor: pointer;
+}
+
+.ver-legajo-table--clickable tbody tr:hover {
+  background: rgba(249, 115, 22, 0.12);
+}
+
+.ver-legajo-cell-ellipsis {
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

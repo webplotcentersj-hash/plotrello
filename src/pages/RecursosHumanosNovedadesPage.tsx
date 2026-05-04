@@ -21,49 +21,13 @@ import type {
   SolicitudPermiso,
   UsuarioRecord
 } from '../types/api'
+import RrhhNovedadDetailModal from '../components/RrhhNovedadDetailModal'
+import {
+  RRHH_NOVEDAD_CODIGOS_POR_GRUPO as CODIGOS_POR_GRUPO,
+  RRHH_NOVEDAD_GRUPOS as GRUPOS,
+  etiquetaCodigoRrhhNovedad as etiquetaCodigo
+} from '../utils/rrhhNovedadCatalog'
 import './RecursosHumanosNovedadesPage.css'
-
-const GRUPOS: { value: RrhhNovedadGrupo; label: string }[] = [
-  { value: 'falta', label: 'Faltas' },
-  { value: 'tardanza_retiro', label: 'Tardanzas / Retiros anticipados' },
-  { value: 'licencia', label: 'Licencias' },
-  { value: 'horas_extra', label: 'Horas extra' }
-]
-
-const CODIGOS_POR_GRUPO: Record<
-  RrhhNovedadGrupo,
-  { value: string; label: string }[]
-> = {
-  falta: [
-    { value: 'falta_justificada_enfermedad', label: 'Justificada — enfermedad' },
-    { value: 'falta_justificada_tramites', label: 'Justificada — trámites' },
-    { value: 'falta_injustificada', label: 'Injustificada' }
-  ],
-  tardanza_retiro: [
-    { value: 'tardanza', label: 'Tardanza' },
-    { value: 'retiro_anticipado', label: 'Retiro anticipado' }
-  ],
-  licencia: [
-    { value: 'licencia_vacaciones', label: 'Vacaciones' },
-    { value: 'licencia_examen', label: 'Examen' },
-    { value: 'licencia_maternidad', label: 'Maternidad' },
-    { value: 'licencia_paternidad', label: 'Paternidad' },
-    { value: 'licencia_casamiento', label: 'Casamiento' },
-    { value: 'licencia_otro', label: 'Otra licencia' }
-  ],
-  horas_extra: [
-    { value: 'horas_extra_50', label: 'Al 50 %' },
-    { value: 'horas_extra_100', label: 'Al 100 %' }
-  ]
-}
-
-function etiquetaCodigo(codigo: string): string {
-  for (const lista of Object.values(CODIGOS_POR_GRUPO)) {
-    const f = lista.find((x) => x.value === codigo)
-    if (f) return f.label
-  }
-  return codigo
-}
 
 function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
   return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
@@ -87,9 +51,9 @@ const RecursosHumanosNovedadesPage = () => {
   const [filtroHasta, setFiltroHasta] = useState(() => format(new Date(), 'yyyy-MM-dd'))
 
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
-  const [calendarFullscreen, setCalendarFullscreen] = useState(false)
 
   const [modalOpen, setModalOpen] = useState(false)
+  const [detailNovedad, setDetailNovedad] = useState<RrhhNovedad | null>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [iaLoading, setIaLoading] = useState(false)
@@ -149,6 +113,7 @@ const RecursosHumanosNovedadesPage = () => {
   }, [solicitudes, form.id_usuario])
 
   const openNew = () => {
+    setDetailNovedad(null)
     setEditId(null)
     setAdjuntos([])
     setForm({
@@ -166,6 +131,7 @@ const RecursosHumanosNovedadesPage = () => {
   }
 
   const openEdit = (row: RrhhNovedad) => {
+    setDetailNovedad(null)
     setEditId(row.id)
     setAdjuntos(row.adjuntos ?? [])
     setForm({
@@ -455,12 +421,7 @@ const RecursosHumanosNovedadesPage = () => {
         </div>
       </section>
 
-      <section
-        className={
-          'rrhh-novedades-calendar-wrap' +
-          (calendarFullscreen ? ' rrhh-novedades-calendar-wrap--fullscreen' : '')
-        }
-      >
+      <section className="rrhh-novedades-calendar-wrap">
         <div className="rrhh-novedades-calendar-head">
           <button type="button" onClick={() => setCalendarMonth((d) => addMonths(d, -1))}>
             ←
@@ -468,13 +429,6 @@ const RecursosHumanosNovedadesPage = () => {
           <h2>{format(calendarMonth, 'MMMM yyyy', { locale: es })}</h2>
           <button type="button" onClick={() => setCalendarMonth((d) => addMonths(d, 1))}>
             →
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setCalendarFullscreen((v) => !v)}
-          >
-            {calendarFullscreen ? 'Salir pantalla completa' : 'Calendario pantalla completa'}
           </button>
         </div>
         <div className="rrhh-novedades-calendar-weekdays">
@@ -533,7 +487,11 @@ const RecursosHumanosNovedadesPage = () => {
               </thead>
               <tbody>
                 {novedades.map((n) => (
-                  <tr key={n.id}>
+                  <tr
+                    key={n.id}
+                    className="rrhh-novedades-table-row"
+                    onClick={() => setDetailNovedad(n)}
+                  >
                     <td>
                       {n.fecha_desde}
                       {n.fecha_hasta !== n.fecha_desde ? ` → ${n.fecha_hasta}` : ''}
@@ -551,7 +509,7 @@ const RecursosHumanosNovedadesPage = () => {
                       {n.observaciones ?? '—'}
                     </td>
                     <td>{(n.adjuntos?.length ?? 0) || '—'}</td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <button type="button" className="linklike" onClick={() => openEdit(n)}>
                         Editar
                       </button>{' '}
@@ -567,10 +525,47 @@ const RecursosHumanosNovedadesPage = () => {
         )}
       </section>
 
+      {detailNovedad && (
+        <RrhhNovedadDetailModal
+          novedad={detailNovedad}
+          empleadoNombre={
+            nombreUsuario.get(detailNovedad.id_usuario) ?? `Usuario #${detailNovedad.id_usuario}`
+          }
+          onClose={() => setDetailNovedad(null)}
+          onEdit={() => {
+            const row = detailNovedad
+            setDetailNovedad(null)
+            openEdit(row)
+          }}
+        />
+      )}
+
       {modalOpen && (
-        <div className="rrhh-novedades-modal-overlay" role="dialog" aria-modal="true">
-          <div className="rrhh-novedades-modal">
-            <h3>{editId != null ? 'Editar novedad' : 'Nueva novedad'}</h3>
+        <div
+          className="rrhh-novedades-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalOpen(false)
+          }}
+        >
+          <div className="rrhh-novedades-modal rrhh-novedades-modal--form" onClick={(e) => e.stopPropagation()}>
+            <header className="rrhh-novedades-modal-top">
+              <div>
+                <h3>{editId != null ? 'Editar novedad' : 'Nueva novedad'}</h3>
+                <p className="rrhh-novedades-modal-lead">
+                  {editId != null ? 'Actualizá los datos y guardá los cambios.' : 'Completá los campos y adjuntá comprobantes si aplica.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rrhh-novedades-modal-close"
+                aria-label="Cerrar"
+                onClick={() => setModalOpen(false)}
+              >
+                ×
+              </button>
+            </header>
 
             <label>
               Empleado *
@@ -695,8 +690,9 @@ const RecursosHumanosNovedadesPage = () => {
             </label>
 
             <div className="rrhh-novedades-upload">
-              <p>
-                <strong>Comprobantes</strong> — fotos o PDF (certificado médico, constancia alumno, etc.)
+              <p className="rrhh-novedades-section-title">Comprobantes</p>
+              <p className="rrhh-novedades-upload-hint">
+                Fotos o PDF (certificado médico, constancia alumno, etc.)
               </p>
               <input
                 type="file"
