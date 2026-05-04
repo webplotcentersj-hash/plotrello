@@ -49,6 +49,9 @@ import type {
   Ausencia,
   Asistencia,
   SolicitudPermiso,
+  RrhhNovedad,
+  RrhhNovedadAdjunto,
+  RrhhNovedadGrupo,
   Evaluacion,
   CriterioEvaluacion,
   Capacitacion,
@@ -12874,6 +12877,217 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al eliminar solicitud'
+      }
+    }
+  }
+
+  // ============================================
+  // RRHH — NOVEDADES (faltas, tardanzas, licencias, horas extra)
+  // ============================================
+
+  private mapRrhhNovedadRow(row: Record<string, unknown>): RrhhNovedad {
+    const adj = row.adjuntos
+    return {
+      id: Number(row.id),
+      id_usuario: Number(row.id_usuario),
+      id_solicitud_permiso:
+        row.id_solicitud_permiso == null ? null : Number(row.id_solicitud_permiso),
+      grupo: row.grupo as RrhhNovedad['grupo'],
+      codigo: String(row.codigo),
+      fecha_desde: String(row.fecha_desde).slice(0, 10),
+      fecha_hasta: String(row.fecha_hasta).slice(0, 10),
+      duracion_minutos: row.duracion_minutos == null ? null : Number(row.duracion_minutos),
+      horas_extra_cantidad:
+        row.horas_extra_cantidad == null ? null : Number(row.horas_extra_cantidad),
+      observaciones: row.observaciones == null ? null : String(row.observaciones),
+      adjuntos: Array.isArray(adj) ? (adj as RrhhNovedadAdjunto[]) : [],
+      registrado_por: row.registrado_por == null ? null : Number(row.registrado_por),
+      created_at: String(row.created_at),
+      updated_at: String(row.updated_at)
+    }
+  }
+
+  async rrhhNovedadesListar(filters?: {
+    idUsuario?: number
+    grupo?: RrhhNovedadGrupo
+    codigo?: string
+    fechaDesde?: string
+    fechaHasta?: string
+  }): Promise<ApiResponse<RrhhNovedad[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      let q = supabase.from('rrhh_novedades').select('*').order('fecha_desde', { ascending: false })
+      if (filters?.idUsuario) q = q.eq('id_usuario', filters.idUsuario)
+      if (filters?.grupo) q = q.eq('grupo', filters.grupo)
+      if (filters?.codigo) q = q.eq('codigo', filters.codigo)
+      if (filters?.fechaDesde) {
+        q = q.gte('fecha_hasta', filters.fechaDesde)
+      }
+      if (filters?.fechaHasta) {
+        q = q.lte('fecha_desde', filters.fechaHasta)
+      }
+      const { data, error } = await q
+      if (error) throw error
+      const rows = (data ?? []) as Record<string, unknown>[]
+      return { success: true, data: rows.map((r) => this.mapRrhhNovedadRow(r)) }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al listar novedades'
+      }
+    }
+  }
+
+  async rrhhNovedadCrear(input: {
+    id_usuario: number
+    id_solicitud_permiso?: number | null
+    grupo: RrhhNovedadGrupo
+    codigo: string
+    fecha_desde: string
+    fecha_hasta: string
+    duracion_minutos?: number | null
+    horas_extra_cantidad?: number | null
+    observaciones?: string | null
+    adjuntos?: RrhhNovedadAdjunto[]
+    registrado_por: number
+  }): Promise<ApiResponse<RrhhNovedad>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_novedades')
+        .insert({
+          id_usuario: input.id_usuario,
+          id_solicitud_permiso: input.id_solicitud_permiso ?? null,
+          grupo: input.grupo,
+          codigo: input.codigo,
+          fecha_desde: input.fecha_desde,
+          fecha_hasta: input.fecha_hasta,
+          duracion_minutos: input.duracion_minutos ?? null,
+          horas_extra_cantidad: input.horas_extra_cantidad ?? null,
+          observaciones: input.observaciones ?? null,
+          adjuntos: input.adjuntos ?? [],
+          registrado_por: input.registrado_por,
+          updated_at: new Date().toISOString()
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhNovedadRow(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al crear novedad'
+      }
+    }
+  }
+
+  async rrhhNovedadActualizar(
+    id: number,
+    input: Partial<{
+      id_usuario: number
+      id_solicitud_permiso: number | null
+      grupo: RrhhNovedadGrupo
+      codigo: string
+      fecha_desde: string
+      fecha_hasta: string
+      duracion_minutos: number | null
+      horas_extra_cantidad: number | null
+      observaciones: string | null
+      adjuntos: RrhhNovedadAdjunto[]
+    }>
+  ): Promise<ApiResponse<RrhhNovedad>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const payload: Record<string, unknown> = {
+        ...input,
+        updated_at: new Date().toISOString()
+      }
+      const { data, error } = await supabase
+        .from('rrhh_novedades')
+        .update(payload)
+        .eq('id', id)
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhNovedadRow(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al actualizar novedad'
+      }
+    }
+  }
+
+  async rrhhNovedadEliminar(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { error } = await supabase.from('rrhh_novedades').delete().eq('id', id)
+      if (error) throw error
+      return { success: true, data: true }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al eliminar novedad'
+      }
+    }
+  }
+
+  /** Sube archivo al bucket `archivos` bajo `rrhh-novedades/`. */
+  async rrhhNovedadSubirAdjunto(
+    file: File,
+    idUsuarioEmpleado: number
+  ): Promise<ApiResponse<RrhhNovedadAdjunto>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    const maxBytes = 12 * 1024 * 1024
+    if (file.size > maxBytes) {
+      return { success: false, error: 'El archivo supera 12 MB' }
+    }
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const allowedExt = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic'])
+    if (!allowedExt.has(ext)) {
+      return { success: false, error: 'Formato no permitido (PDF o imagen).' }
+    }
+    const safeBase = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .slice(0, 80)
+    const path = `rrhh-novedades/${idUsuarioEmpleado}/${Date.now()}_${safeBase}.${ext}`
+    try {
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || `application/${ext === 'pdf' ? 'pdf' : 'octet-stream'}`
+      })
+      if (uploadError) {
+        return { success: false, error: uploadError.message }
+      }
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) {
+        return { success: false, error: 'No se pudo obtener la URL del archivo' }
+      }
+      return {
+        success: true,
+        data: {
+          url: publicUrl,
+          nombre: file.name,
+          mime: file.type || 'application/octet-stream'
+        }
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al subir archivo'
       }
     }
   }

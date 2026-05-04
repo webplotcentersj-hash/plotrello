@@ -1,0 +1,387 @@
+.rrhh-novedades-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+  padding-bottom: 48px;
+}
+
+.rrhh-novedades-loading {
+  padding: 48px;
+  text-align: center;
+}
+
+.rrhh-novedades-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.rrhh-novedades-header h1 {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+}
+
+.rrhh-novedades-sub {
+  margin: 0;
+  opacity: 0.85;
+  font-size: 0.95rem;
+  max-width: 640px;
+}
+
+.btn-back-rrhh {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-back-rrhh:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.rrhh-novedades-toolbar {
+  max-width: 1400px;
+  margin: 0 auto 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.rrhh-novedades-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.rrhh-novedades-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.rrhh-novedades-filters select,
+.rrhh-novedades-filters input[type='date'] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-primary);
+  min-width: 140px;
+}
+
+.rrhh-novedades-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rrhh-novedades-calendar-wrap {
+  max-width: 1400px;
+  margin: 0 auto 32px;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.rrhh-novedades-calendar-wrap--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  max-width: none;
+  margin: 0;
+  border-radius: 0;
+  overflow: auto;
+  padding: 24px;
+}
+
+.rrhh-novedades-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.rrhh-novedades-calendar-head h2 {
+  margin: 0;
+  min-width: 200px;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.rrhh-novedades-calendar-head button:first-of-type,
+.rrhh-novedades-calendar-head button:nth-of-type(2) {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.rrhh-novedades-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.rrhh-novedades-cal-wd {
+  text-align: center;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  font-weight: 600;
+}
+
+.rrhh-novedades-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.rrhh-novedades-cal-cell {
+  min-height: 72px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rrhh-novedades-cal-cell--empty {
+  border: none;
+  background: transparent;
+  min-height: 0;
+}
+
+.rrhh-novedades-cal-daynum {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.rrhh-novedades-cal-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+
+.rrhh-novedades-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.rrhh-novedades-dot--falta {
+  background: #ef4444;
+}
+.rrhh-novedades-dot--tardanza_retiro {
+  background: #f59e0b;
+}
+.rrhh-novedades-dot--licencia {
+  background: #3b82f6;
+}
+.rrhh-novedades-dot--horas_extra {
+  background: #22c55e;
+}
+
+.rrhh-novedades-dot-more {
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+
+.rrhh-novedades-table-section {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.rrhh-novedades-table-section h2 {
+  margin-bottom: 12px;
+}
+
+.rrhh-novedades-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rrhh-novedades-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.rrhh-novedades-table th,
+.rrhh-novedades-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rrhh-novedades-table th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+}
+
+.rrhh-novedades-obs {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.linklike {
+  background: none;
+  border: none;
+  color: #38bdf8;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+}
+
+.linklike.danger {
+  color: #f87171;
+}
+
+.rrhh-novedades-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.rrhh-novedades-modal {
+  width: 100%;
+  max-width: 520px;
+  margin-top: 40px;
+  margin-bottom: 40px;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--bg-secondary, #1e293b);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rrhh-novedades-modal h3 {
+  margin: 0 0 8px;
+}
+
+.rrhh-novedades-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+
+.rrhh-novedades-modal select,
+.rrhh-novedades-modal input[type='text'],
+.rrhh-novedades-modal input[type='number'],
+.rrhh-novedades-modal input[type='date'],
+.rrhh-novedades-modal textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+}
+
+.rrhh-novedades-modal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rrhh-novedades-upload {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-novedades-upload p {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+}
+
+.rrhh-novedades-ia-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
+.rrhh-novedades-ia-loading {
+  color: #fbbf24;
+}
+
+.rrhh-novedades-adj-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 0.88rem;
+}
+
+.rrhh-novedades-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .rrhh-novedades-modal-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -166,6 +166,17 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/novedades')}
+            >
+              <div className="rrhh-action-icon">📋</div>
+              <h3>Novedades</h3>
+              <p>
+                Faltas, tardanzas, licencias y horas extra — calendario, comprobantes y reportes
+              </p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/reportes')}
             >
               <div className="rrhh-action-icon">📊</div>

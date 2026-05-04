@@ -1010,6 +1010,48 @@ export interface Asistencia {
   updated_at: string
 }
 
+/** Grupo de categoría para novedades RRHH (liquidación / reportes). */
+export type RrhhNovedadGrupo = 'falta' | 'tardanza_retiro' | 'licencia' | 'horas_extra'
+
+/** Código cerrado para filtros exactos. */
+export type RrhhNovedadCodigo =
+  | 'falta_justificada_enfermedad'
+  | 'falta_justificada_tramites'
+  | 'falta_injustificada'
+  | 'tardanza'
+  | 'retiro_anticipado'
+  | 'licencia_vacaciones'
+  | 'licencia_examen'
+  | 'licencia_maternidad'
+  | 'licencia_paternidad'
+  | 'licencia_casamiento'
+  | 'licencia_otro'
+  | 'horas_extra_50'
+  | 'horas_extra_100'
+
+export interface RrhhNovedadAdjunto {
+  url: string
+  nombre: string
+  mime: string
+}
+
+export interface RrhhNovedad {
+  id: number
+  id_usuario: number
+  id_solicitud_permiso: number | null
+  grupo: RrhhNovedadGrupo
+  codigo: RrhhNovedadCodigo | string
+  fecha_desde: string
+  fecha_hasta: string
+  duracion_minutos: number | null
+  horas_extra_cantidad: number | null
+  observaciones: string | null
+  adjuntos: RrhhNovedadAdjunto[]
+  registrado_por: number | null
+  created_at: string
+  updated_at: string
+}
+
 export interface SolicitudPermiso {
   id: number
   id_usuario: number
