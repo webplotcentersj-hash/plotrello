@@ -20,6 +20,7 @@ import {
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
 import { pillColorFromString } from '../utils/pillColorFromString'
+import OpFichaGuiaModal from './OpFichaGuiaModal'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
 import BriefLinkSection from './BriefLinkSection'
@@ -120,6 +121,7 @@ const TaskEditModal = ({
   const [planillaPreliminar, setPlanillaPreliminar] = useState(false)
   const [fichaRelacionadaTienePlanillaPreliminar, setFichaRelacionadaTienePlanillaPreliminar] = useState(false)
   const [plotAiImprovingDescription, setPlotAiImprovingDescription] = useState(false)
+  const [guiaFichaOpen, setGuiaFichaOpen] = useState(false)
   const [lineasMetrosM2, setLineasMetrosM2] = useState<Array<{ tipo: string; metrosCuadrados: number }>>([])
   const [, setRecentTiposOp] = useState<string[]>([])
   const [lineaTipoSuggestionsByIdx, setLineaTipoSuggestionsByIdx] = useState<Record<number, string[]>>({})
@@ -529,6 +531,12 @@ const TaskEditModal = ({
   const handleSave = async () => {
     if (hasPendingUploads) {
       alert('Espera a que termine la subida de archivos antes de guardar.')
+      return
+    }
+    if (!(formData.summary || '').trim()) {
+      alert(
+        'La descripción del trabajo es obligatoria. Detallá qué hay que producir, materiales, cantidades y plazos. Usá el botón «Cómo llenar la ficha» junto a PlotAI si necesitás ayuda.'
+      )
       return
     }
     if (opLocked) {
@@ -1470,23 +1478,35 @@ const TaskEditModal = ({
 
           <div className="form-group">
             <div className="task-desc-toolbar">
-              <label htmlFor="task-edit-summary">Descripción</label>
-              <button
-                type="button"
-                className="task-desc-plotai-btn"
-                onClick={() => void handleImproveDescriptionPlotAI()}
-                disabled={plotAiImprovingDescription}
-                title="Reescribe la descripción con PlotAI (conserva datos; revisá antes de guardar)"
-              >
-                {plotAiImprovingDescription ? 'Mejorando…' : '✨ Mejorar con PlotAI'}
-              </button>
+              <label htmlFor="task-edit-summary">Descripción del trabajo *</label>
+              <div className="task-desc-toolbar-actions">
+                <button
+                  type="button"
+                  className="task-desc-guia-btn"
+                  onClick={() => setGuiaFichaOpen(true)}
+                  title="Recomendaciones para completar la ficha (énfasis en la descripción)"
+                >
+                  Cómo llenar la ficha
+                </button>
+                <button
+                  type="button"
+                  className="task-desc-plotai-btn"
+                  onClick={() => void handleImproveDescriptionPlotAI()}
+                  disabled={plotAiImprovingDescription}
+                  title="Reescribe la descripción con PlotAI (conserva datos; revisá antes de guardar)"
+                >
+                  {plotAiImprovingDescription ? 'Mejorando…' : '✨ Mejorar con PlotAI'}
+                </button>
+              </div>
             </div>
             <textarea
               id="task-edit-summary"
               rows={4}
               value={formData.summary || ''}
               onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-              placeholder="Sin descripción."
+              placeholder="Qué se produce, cantidades, medidas, materiales, plazos, instalación o entrega…"
+              required
+              aria-required
             />
           </div>
 
@@ -2821,6 +2841,8 @@ const TaskEditModal = ({
           </div>
         </div>
       )}
+
+      <OpFichaGuiaModal open={guiaFichaOpen} onClose={() => setGuiaFichaOpen(false)} />
     </div>
   )
 }

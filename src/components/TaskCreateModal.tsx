@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { filterOperariosBySector } from '../utils/dataMappers'
 import apiService from '../services/api'
 import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
+import OpFichaGuiaModal from './OpFichaGuiaModal'
 import { attachmentListHasReadySitePhoto, opSectoresRequierenFotosLugar } from '../utils/sectoresFotosLugar'
 import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
 import { pillColorFromString } from '../utils/pillColorFromString'
@@ -91,6 +92,7 @@ const TaskCreateModal = ({
   const [prioridad, setPrioridad] = useState<string>('Normal')
   const [descripcion, setDescripcion] = useState('')
   const [plotAiImprovingDesc, setPlotAiImprovingDesc] = useState(false)
+  const [guiaFichaOpen, setGuiaFichaOpen] = useState(false)
   const [briefPublico, setBriefPublico] = useState('')
   const [objetivoProyecto, setObjetivoProyecto] = useState('')
   const [publicoObjetivo, setPublicoObjetivo] = useState('')
@@ -467,6 +469,13 @@ const TaskCreateModal = ({
       return
     }
 
+    if (!descripcion.trim()) {
+      alert(
+        'La descripción del trabajo es obligatoria. Detallá qué hay que producir, materiales, cantidades y plazos. Usá el botón «Cómo llenar la ficha» junto a PlotAI si necesitás ayuda.'
+      )
+      return
+    }
+
     if (hasPendingUploads) {
       alert('Espera a que termine la subida de archivos antes de crear la orden.')
       return
@@ -545,7 +554,7 @@ const TaskCreateModal = ({
       opNumber,
       title: cliente,
       dniCuit: dniCuit.trim() || undefined,
-      summary: descripcion || 'Sin descripción.',
+      summary: descripcion.trim(),
       status: mapSectorToStatus(primerSector),
       priority: (prioridad.toLowerCase() === 'normal' ? 'media' : prioridad.toLowerCase()) as any,
       ownerId: operario || teamMembers[0]?.id || '',
@@ -1717,23 +1726,35 @@ const TaskCreateModal = ({
 
           <div className="form-group">
             <div className="task-desc-toolbar">
-              <label htmlFor="task-create-summary">Descripción</label>
-              <button
-                type="button"
-                className="task-desc-plotai-btn"
-                onClick={() => void handleImproveDescriptionPlotAI()}
-                disabled={plotAiImprovingDesc}
-                title="Reescribe la descripción con PlotAI (conserva datos; revisá antes de crear la OP)"
-              >
-                {plotAiImprovingDesc ? 'Mejorando…' : '✨ Mejorar con PlotAI'}
-              </button>
+              <label htmlFor="task-create-summary">Descripción del trabajo *</label>
+              <div className="task-desc-toolbar-actions">
+                <button
+                  type="button"
+                  className="task-desc-guia-btn"
+                  onClick={() => setGuiaFichaOpen(true)}
+                  title="Recomendaciones para completar la ficha (énfasis en la descripción)"
+                >
+                  Cómo llenar la ficha
+                </button>
+                <button
+                  type="button"
+                  className="task-desc-plotai-btn"
+                  onClick={() => void handleImproveDescriptionPlotAI()}
+                  disabled={plotAiImprovingDesc}
+                  title="Reescribe la descripción con PlotAI (conserva datos; revisá antes de crear la OP)"
+                >
+                  {plotAiImprovingDesc ? 'Mejorando…' : '✨ Mejorar con PlotAI'}
+                </button>
+              </div>
             </div>
             <textarea
               id="task-create-summary"
               rows={4}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              placeholder=""
+              placeholder="Qué se produce, cantidades, medidas, materiales, plazos, instalación o entrega…"
+              required
+              aria-required
             />
           </div>
 
@@ -2315,6 +2336,8 @@ const TaskCreateModal = ({
           </div>
         </div>
       )}
+
+      <OpFichaGuiaModal open={guiaFichaOpen} onClose={() => setGuiaFichaOpen(false)} />
     </div>
   )
 }
