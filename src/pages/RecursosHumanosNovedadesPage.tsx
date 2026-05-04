@@ -28,6 +28,7 @@ import {
   etiquetaCodigoRrhhNovedad as etiquetaCodigo
 } from '../utils/rrhhNovedadCatalog'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
+import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import './RecursosHumanosNovedadesPage.css'
 
 function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
@@ -246,6 +247,28 @@ const RecursosHumanosNovedadesPage = () => {
           })
           if (!n.success) {
             console.warn('No se pudo enviar la notificación al empleado:', n.error)
+          }
+
+          if (usuario.id !== form.id_usuario) {
+            const roomRes = await apiService.obtenerOCrearRoomDm(usuario.id, form.id_usuario)
+            if (roomRes.success && roomRes.data) {
+              const textoDm =
+                `📋 RRHH — Pérdida del beneficio de comida\n` +
+                `Período registrado: desde ${form.fecha_desde} hasta ${fechaHastaGuardada}.\n` +
+                `Podés ver el detalle en RRHH o responder por este chat si tenés consultas.`
+              const dmRes = await apiService.enviarMensajeDm({
+                roomId: roomRes.data.roomId,
+                contenido: textoDm,
+                usuarioId: usuario.id
+              })
+              if (!dmRes.success) {
+                console.warn('No se pudo enviar el mensaje a mensajería:', dmRes.error)
+              } else {
+                dispatchMensajeriaDmUnreadRefresh()
+              }
+            } else {
+              console.warn('No se pudo abrir sala DM para mensajería:', roomRes.error)
+            }
           }
         }
         setModalOpen(false)
@@ -726,7 +749,8 @@ const RecursosHumanosNovedadesPage = () => {
             {form.grupo === 'beneficio_comida' ? (
               <p className="rrhh-novedades-beneficio-hint">
                 El período va desde la fecha inicial hasta el <strong>último día de ese mes</strong>. Al guardar una{' '}
-                <strong>nueva</strong> novedad de este tipo, el colaborador recibe una notificación en la app.
+                <strong>nueva</strong> novedad, el colaborador recibe notificación en la app y un mensaje en{' '}
+                <strong>/mensajeria</strong> (conversación contigo).
               </p>
             ) : null}
 
