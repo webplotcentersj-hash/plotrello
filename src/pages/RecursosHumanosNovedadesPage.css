@@ -174,11 +174,14 @@
 }
 
 .rrhh-novedades-cal-cell {
-  min-height: 72px;
+  min-height: 92px;
   padding: 6px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .rrhh-novedades-cal-cell--empty {
@@ -193,36 +196,93 @@
   margin-bottom: 4px;
 }
 
-.rrhh-novedades-cal-dots {
+.rrhh-novedades-cal-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 3px;
+  flex: 1;
+  min-height: 0;
+}
+
+.rrhh-novedades-cal-chip {
+  display: flex;
   align-items: center;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+  padding: 3px 5px;
+  margin: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-primary);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 
-.rrhh-novedades-dot {
-  width: 8px;
-  height: 8px;
+.rrhh-novedades-cal-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.rrhh-novedades-cal-chip--falta {
+  border-left: 2px solid rgba(239, 68, 68, 0.9);
+}
+.rrhh-novedades-cal-chip--tardanza_retiro {
+  border-left: 2px solid rgba(245, 158, 11, 0.9);
+}
+.rrhh-novedades-cal-chip--licencia {
+  border-left: 2px solid rgba(59, 130, 246, 0.9);
+}
+.rrhh-novedades-cal-chip--horas_extra {
+  border-left: 2px solid rgba(34, 197, 94, 0.9);
+}
+
+.rrhh-novedades-cal-chip-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  display: inline-block;
+  flex-shrink: 0;
 }
 
-.rrhh-novedades-dot--falta {
+.rrhh-novedades-cal-chip-dot--falta {
   background: #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35);
 }
-.rrhh-novedades-dot--tardanza_retiro {
+.rrhh-novedades-cal-chip-dot--tardanza_retiro {
   background: #f59e0b;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
 }
-.rrhh-novedades-dot--licencia {
+.rrhh-novedades-cal-chip-dot--licencia {
   background: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
 }
-.rrhh-novedades-dot--horas_extra {
+.rrhh-novedades-cal-chip-dot--horas_extra {
   background: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
 }
 
-.rrhh-novedades-dot-more {
-  font-size: 0.65rem;
-  opacity: 0.8;
+.rrhh-novedades-cal-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  opacity: 0.95;
+}
+
+.rrhh-novedades-cal-more {
+  font-size: 0.62rem;
+  font-weight: 700;
+  opacity: 0.75;
+  padding: 1px 2px;
+  align-self: flex-start;
 }
 
 .rrhh-novedades-table-section {

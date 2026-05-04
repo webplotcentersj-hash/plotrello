@@ -27,10 +27,20 @@ import {
   RRHH_NOVEDAD_GRUPOS as GRUPOS,
   etiquetaCodigoRrhhNovedad as etiquetaCodigo
 } from '../utils/rrhhNovedadCatalog'
+import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import './RecursosHumanosNovedadesPage.css'
 
 function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
   return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
+}
+
+/** Primer nombre o apodo corto para el calendario (sin dominio si era email). */
+function nombreParaChipCalendario(nombreCompleto: string | undefined, maxLen = 11): string {
+  const s = nombreSinDominioCorreo(nombreCompleto)
+  if (!s) return '—'
+  const first = s.split(/\s+/)[0] ?? s
+  if (first.length <= maxLen) return first
+  return `${first.slice(0, Math.max(1, maxLen - 1))}…`
 }
 
 const RecursosHumanosNovedadesPage = () => {
@@ -106,6 +116,19 @@ const RecursosHumanosNovedadesPage = () => {
     usuarios.forEach((u) => m.set(u.id, u.nombre))
     return m
   }, [usuarios])
+
+  /** Nombre para mostrar: sin dominio si el dato es un email. */
+  const empleadoMostrar = useCallback(
+    (idUsuario: number, sinNombre: 'id' | 'usuario-hash' = 'id') => {
+      const raw = nombreUsuario.get(idUsuario)
+      if (raw == null || String(raw).trim() === '') {
+        return sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario)
+      }
+      const v = nombreSinDominioCorreo(raw)
+      return v || (sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario))
+    },
+    [nombreUsuario]
+  )
 
   const solicitudesEmpleado = useMemo(() => {
     if (!form.id_usuario) return []
@@ -279,7 +302,7 @@ const RecursosHumanosNovedadesPage = () => {
   const exportXlsx = () => {
     const rows = novedades.map((n) => ({
       id: n.id,
-      empleado: nombreUsuario.get(n.id_usuario) ?? n.id_usuario,
+      empleado: empleadoMostrar(n.id_usuario),
       grupo: n.grupo,
       categoria: etiquetaCodigo(n.codigo),
       desde: n.fecha_desde,
@@ -311,7 +334,7 @@ const RecursosHumanosNovedadesPage = () => {
     }
     for (const n of novedades) {
       line(
-        `${n.fecha_desde}→${n.fecha_hasta} | ${nombreUsuario.get(n.id_usuario) ?? n.id_usuario} | ${n.grupo} | ${etiquetaCodigo(n.codigo)} | ${n.observaciones ?? ''}`.slice(
+        `${n.fecha_desde}→${n.fecha_hasta} | ${empleadoMostrar(n.id_usuario)} | ${n.grupo} | ${etiquetaCodigo(n.codigo)} | ${n.observaciones ?? ''}`.slice(
           0,
           180
         )
@@ -451,15 +474,30 @@ const RecursosHumanosNovedadesPage = () => {
                 className="rrhh-novedades-cal-cell"
               >
                 <div className="rrhh-novedades-cal-daynum">{format(day, 'd')}</div>
-                <div className="rrhh-novedades-cal-dots">
+                <div className="rrhh-novedades-cal-chips">
                   {list.slice(0, 4).map((n) => (
-                    <span
-                      key={n.id}
-                      className={`rrhh-novedades-dot rrhh-novedades-dot--${n.grupo}`}
-                      title={`${etiquetaCodigo(n.codigo)} — ${nombreUsuario.get(n.id_usuario) ?? ''}`}
-                    />
+                      <button
+                        key={n.id}
+                        type="button"
+                        className={`rrhh-novedades-cal-chip rrhh-novedades-cal-chip--${n.grupo}`}
+                        title={`${empleadoMostrar(n.id_usuario, 'usuario-hash')} · ${etiquetaCodigo(n.codigo)}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDetailNovedad(n)
+                        }}
+                      >
+                        <span
+                          className={`rrhh-novedades-cal-chip-dot rrhh-novedades-cal-chip-dot--${n.grupo}`}
+                          aria-hidden
+                        />
+                        <span className="rrhh-novedades-cal-chip-name">
+                          {nombreParaChipCalendario(nombreUsuario.get(n.id_usuario))}
+                        </span>
+                      </button>
                   ))}
-                  {list.length > 4 ? <span className="rrhh-novedades-dot-more">+{list.length - 4}</span> : null}
+                  {list.length > 4 ? (
+                    <span className="rrhh-novedades-cal-more">+{list.length - 4}</span>
+                  ) : null}
                 </div>
               </div>
             )
@@ -496,7 +534,7 @@ const RecursosHumanosNovedadesPage = () => {
                       {n.fecha_desde}
                       {n.fecha_hasta !== n.fecha_desde ? ` → ${n.fecha_hasta}` : ''}
                     </td>
-                    <td>{nombreUsuario.get(n.id_usuario) ?? n.id_usuario}</td>
+                    <td>{empleadoMostrar(n.id_usuario)}</td>
                     <td>{GRUPOS.find((g) => g.value === n.grupo)?.label ?? n.grupo}</td>
                     <td>{etiquetaCodigo(n.codigo)}</td>
                     <td className="rrhh-novedades-obs">
@@ -528,9 +566,7 @@ const RecursosHumanosNovedadesPage = () => {
       {detailNovedad && (
         <RrhhNovedadDetailModal
           novedad={detailNovedad}
-          empleadoNombre={
-            nombreUsuario.get(detailNovedad.id_usuario) ?? `Usuario #${detailNovedad.id_usuario}`
-          }
+          empleadoNombre={empleadoMostrar(detailNovedad.id_usuario, 'usuario-hash')}
           onClose={() => setDetailNovedad(null)}
           onEdit={() => {
             const row = detailNovedad
