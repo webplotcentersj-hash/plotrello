@@ -118,17 +118,20 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     await loadIndex({ silent: true })
   }
 
-  const loadThread = async (roomId: number) => {
-    setLoadingThread(true)
-    setError(null)
+  const loadThread = async (roomId: number, opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false
+    if (!silent) {
+      setLoadingThread(true)
+      setError(null)
+    }
     const res = await apiService.getMensajesPorRoomId(roomId, 120)
     if (res.success && res.data) {
       setMessages(res.data as ThreadMsg[])
-    } else {
+    } else if (!silent) {
       setMessages([])
       setError(res.error || 'No se pudieron cargar los mensajes')
     }
-    setLoadingThread(false)
+    if (!silent) setLoadingThread(false)
   }
 
   useEffect(() => {
@@ -146,7 +149,7 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
 
   useEffect(() => {
     if (selectedRoomId == null) return
-    const t = window.setInterval(() => void loadThread(selectedRoomId), 12000)
+    const t = window.setInterval(() => void loadThread(selectedRoomId, { silent: true }), 12000)
     return () => window.clearInterval(t)
   }, [selectedRoomId])
 

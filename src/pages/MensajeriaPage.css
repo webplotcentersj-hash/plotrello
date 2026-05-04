@@ -31,7 +31,7 @@
 
 .mensajeria-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) 1fr;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   overflow: hidden;
@@ -48,6 +48,7 @@
   background: rgba(0, 0, 0, 0.2);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   padding: 12px;
+  min-width: 0;
 }
 
 .mensajeria-recipient-search {
@@ -118,6 +119,8 @@
   display: block;
   font-weight: 700;
   font-size: 0.86rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mensajeria-search-pick-meta {
@@ -151,6 +154,9 @@
 
 .mensajeria-peer {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   border-radius: 10px;
@@ -169,6 +175,8 @@
   display: block;
   font-weight: 700;
   font-size: 0.92rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mensajeria-peer-meta {
@@ -177,6 +185,8 @@
   font-size: 0.78rem;
   color: var(--text-muted);
   position: relative;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mensajeria-unread {
@@ -197,6 +207,7 @@
 .mensajeria-main {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   background: rgba(255, 255, 255, 0.02);
 }
@@ -207,6 +218,19 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mensajeria-thread-head > div {
+  min-width: 0;
+}
+
+.mensajeria-thread-head strong {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mensajeria-thread-meta {
@@ -214,6 +238,8 @@
   margin-top: 2px;
   font-size: 0.8rem;
   color: var(--text-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mensajeria-thread {
@@ -234,7 +260,8 @@
 }
 
 .mensajeria-bubble {
-  max-width: 88%;
+  max-width: min(92%, calc(100% - 12px));
+  min-width: 0;
   padding: 8px 12px;
   border-radius: 12px;
   display: flex;
@@ -256,11 +283,15 @@
   font-size: 0.74rem;
   font-weight: 700;
   color: #93c5fd;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mensajeria-text {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: break-word;
+  max-width: 100%;
 }
 
 .mensajeria-time {
@@ -275,10 +306,12 @@
   padding: 12px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   align-items: flex-end;
+  min-width: 0;
 }
 
 .mensajeria-input {
   flex: 1;
+  min-width: 0;
   resize: vertical;
   min-height: 44px;
   max-height: 120px;
