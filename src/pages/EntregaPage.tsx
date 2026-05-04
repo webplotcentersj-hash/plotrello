@@ -319,6 +319,7 @@ const EntregaPage = () => {
       }
 
       setSuccess(true)
+      // No descargar PDF aquí: solo el botón del banner de éxito (descarga manual).
       window.dispatchEvent(new Event('plotrello-orden-entregada'))
     } catch (error) {
       console.error('Error marcando orden como entregada:', error)
@@ -635,7 +636,10 @@ const EntregaPage = () => {
         {success && (
           <div className="success-banner success-banner-full">
             <h3>✅ Orden entregada</h3>
-            <p>Podés descargar el comprobante manualmente y notificar al cliente por WhatsApp si tiene número cargado.</p>
+            <p>
+              El comprobante PDF <strong>no</strong> se descarga solo. Si lo necesitás, tocá «Descargar Comprobante PDF» abajo.
+              Podés notificar al cliente por WhatsApp si tiene número cargado.
+            </p>
             <div className="success-actions">
               <button
                 className="btn-secondary"
@@ -668,24 +672,16 @@ const EntregaPage = () => {
 
         {/* Acciones */}
         {!success && (
-        <section className="acciones-section">
-          <button
-            className="btn-secondary"
-            onClick={generarComprobantePDF}
-            disabled={!firmaDataUrl || saving}
-            type="button"
-          >
-            💾 Descargar Comprobante PDF
-          </button>
-          <button
-            className="btn-primary"
-            onClick={handleMarcarEntregada}
-            disabled={saving}
-            type="button"
-          >
-            {saving ? '⏳ Guardando...' : '✅ Marcar como Entregada'}
-          </button>
-        </section>
+          <section className="acciones-section">
+            <button
+              className="btn-primary"
+              onClick={handleMarcarEntregada}
+              disabled={saving}
+              type="button"
+            >
+              {saving ? '⏳ Guardando...' : '✅ Marcar como Entregada'}
+            </button>
+          </section>
         )}
       </div>
     </div>
