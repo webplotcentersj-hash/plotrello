@@ -508,6 +508,75 @@
   animation: flota-fade-in 0.25s ease-out;
 }
 
+.flota-historial-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid var(--flota-border);
+}
+
+.flota-historial-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--flota-muted);
+}
+
+.flota-historial-filtro input[type='date'] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--flota-border);
+  background: rgba(30, 41, 59, 0.9);
+  color: #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.flota-historial-filtro-clear {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--flota-border);
+  background: rgba(51, 65, 85, 0.6);
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+}
+
+.flota-historial-filtro-clear:hover {
+  background: rgba(71, 85, 105, 0.75);
+}
+
+.flota-historial-filtro-hint {
+  flex: 1 1 200px;
+  font-size: 0.78rem;
+  color: var(--flota-muted);
+  align-self: center;
+  line-height: 1.35;
+}
+
+.flota-historial-row-click {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.flota-historial-row-click:hover,
+.flota-historial-row-click:focus-visible {
+  background: rgba(56, 189, 248, 0.08);
+  outline: none;
+}
+
+.flota-historial-row-click:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.45);
+}
+
 @keyframes flota-fade-in {
   from {
     opacity: 0;

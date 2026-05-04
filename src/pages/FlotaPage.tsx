@@ -11,12 +11,14 @@ import {
 } from '../utils/flotaVehiculosCatalogo'
 import RegistroSalidaModal from '../components/RegistroSalidaModal'
 import MarcarLlegadaModal, { type MarcarLlegadaPayload } from '../components/MarcarLlegadaModal'
+import FlotaHistorialDetalleModal from '../components/FlotaHistorialDetalleModal'
 import FlotaMapa from '../components/FlotaMapa'
 import FlotaReservasPanel from '../components/FlotaReservasPanel'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { dateInputToIsoEndLocal, dateInputToIsoStartLocal } from '../utils/flotaHistorialDate'
 import './FlotaPage.css'
 
-const HISTORIAL_LIMIT = 200
+const HISTORIAL_LIMIT = 500
 const POLL_MS = 15000
 
 function RetrasoLive({ hasta }: { hasta: string }) {
@@ -73,6 +75,9 @@ const FlotaPage = () => {
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState<Vehiculo | null>(null)
   const [llegadaRegistro, setLlegadaRegistro] = useState<RegistroSalidaVehiculo | null>(null)
   const [historialAbierto, setHistorialAbierto] = useState(false)
+  const [histDesde, setHistDesde] = useState('')
+  const [histHasta, setHistHasta] = useState('')
+  const [detalleHistorial, setDetalleHistorial] = useState<RegistroSalidaVehiculo | null>(null)
   /** Ayuda cuando la API devuelve vacío (típico: RLS solo para `authenticated` y la app usa rol `anon`). */
   const [vehiculosLoadHint, setVehiculosLoadHint] = useState<string | null>(null)
 
@@ -83,15 +88,21 @@ const FlotaPage = () => {
     try {
       await apiService.actualizarEstadosRetrasados()
 
+      const fd = dateInputToIsoStartLocal(histDesde)
+      const fh = dateInputToIsoEndLocal(histHasta)
+      const histFiltros = {
+        estado: 'finalizado' as const,
+        limit: HISTORIAL_LIMIT,
+        ...(fd ? { fecha_desde: fd } : {}),
+        ...(fh ? { fecha_hasta: fh } : {})
+      }
+
       const [vehiculosResp, activosResp, histResp] = await Promise.all([
         apiService.getVehiculos(),
         apiService.getRegistrosSalidasVehiculos({
           estados: ['en_uso', 'retrasado', 'pendiente_autorizacion']
         }),
-        apiService.getRegistrosSalidasVehiculos({
-          estado: 'finalizado',
-          limit: HISTORIAL_LIMIT
-        })
+        apiService.getRegistrosSalidasVehiculos(histFiltros)
       ])
 
       const rawVehiculos = vehiculosResp.success ? (vehiculosResp.data ?? []) : []
@@ -131,7 +142,7 @@ const FlotaPage = () => {
       if (quiet) setRefreshing(false)
       else setLoading(false)
     }
-  }, [])
+  }, [histDesde, histHasta])
 
   useEffect(() => {
     void loadData()
@@ -456,8 +467,41 @@ const FlotaPage = () => {
           </button>
           {historialAbierto && (
             <div className="flota-historial-body">
+              <div className="flota-historial-filtros">
+                <label className="flota-historial-filtro">
+                  <span>Desde</span>
+                  <input
+                    type="date"
+                    value={histDesde}
+                    onChange={(e) => setHistDesde(e.target.value)}
+                    aria-label="Filtrar desde fecha"
+                  />
+                </label>
+                <label className="flota-historial-filtro">
+                  <span>Hasta</span>
+                  <input
+                    type="date"
+                    value={histHasta}
+                    onChange={(e) => setHistHasta(e.target.value)}
+                    aria-label="Filtrar hasta fecha"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="flota-historial-filtro-clear"
+                  onClick={() => {
+                    setHistDesde('')
+                    setHistHasta('')
+                  }}
+                >
+                  Limpiar fechas
+                </button>
+                <span className="flota-historial-filtro-hint">
+                  Por fecha de salida · tocá una fila para ver todo el detalle o PDF
+                </span>
+              </div>
               {historial.length === 0 ? (
-                <p className="flota-sin-datos">Aún no hay viajes cerrados en el historial.</p>
+                <p className="flota-sin-datos">No hay viajes en este rango (o aún no hay viajes cerrados).</p>
               ) : (
                 <div className="flota-tabla-wrap">
                   <table className="flota-tabla flota-tabla-historial">
@@ -476,7 +520,20 @@ const FlotaPage = () => {
                     </thead>
                     <tbody>
                       {historial.map((h) => (
-                        <tr key={h.id}>
+                        <tr
+                          key={h.id}
+                          className="flota-historial-row-click"
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`Ver detalle del viaje ${h.id}`}
+                          onClick={() => setDetalleHistorial(h)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setDetalleHistorial(h)
+                            }
+                          }}
+                        >
                           <td className="flota-cell-muted">
                             {h.hora_salida ? new Date(h.hora_salida).toLocaleString('es-AR') : '—'}
                           </td>
@@ -717,6 +774,10 @@ const FlotaPage = () => {
           onClose={() => setLlegadaRegistro(null)}
           onConfirm={(payload) => void confirmarLlegada(payload)}
         />
+      )}
+
+      {detalleHistorial && (
+        <FlotaHistorialDetalleModal registro={detalleHistorial} onClose={() => setDetalleHistorial(null)} />
       )}
     </div>
   )
