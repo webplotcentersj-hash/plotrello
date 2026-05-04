@@ -222,6 +222,19 @@ function normalizeAdjuntoUrlForMatch(url: string): string {
   }
 }
 
+/** Rango inclusive para `hora_salida` (timestamptz) desde inputs `type="date"` (día local). */
+function flotaFechaDesdeInclusiveIso(fechaDesde: string): string {
+  const [y, m, d] = fechaDesde.split('-').map(Number)
+  if (!y || !m || !d) return `${fechaDesde}T00:00:00.000Z`
+  return new Date(y, m - 1, d, 0, 0, 0, 0).toISOString()
+}
+
+function flotaFechaHastaInclusiveIso(fechaHasta: string): string {
+  const [y, m, d] = fechaHasta.split('-').map(Number)
+  if (!y || !m || !d) return `${fechaHasta}T23:59:59.999Z`
+  return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
+}
+
 class ApiService {
   // Helper para obtener usuario actual desde localStorage
   private getCurrentUser(): { id: number; nombre: string } {
@@ -15354,12 +15367,13 @@ class ApiService {
         .from('registros_salidas_vehiculos')
         .select('*')
 
+      // Antes: lte(hora_salida, 'YYYY-MM-DD') ≈ solo hasta 00:00 de ese día → se perdía casi todo el último día.
       if (fechaDesde) {
-        query = query.gte('hora_salida', fechaDesde)
+        query = query.gte('hora_salida', flotaFechaDesdeInclusiveIso(fechaDesde))
       }
 
       if (fechaHasta) {
-        query = query.lte('hora_salida', fechaHasta)
+        query = query.lte('hora_salida', flotaFechaHastaInclusiveIso(fechaHasta))
       }
 
       const { data, error } = await query
@@ -15367,33 +15381,57 @@ class ApiService {
       if (error) return { success: false, error: error.message }
 
       const registros = (data as RegistroSalidaVehiculo[]) ?? []
-      const enUso = registros.filter(r => r.estado === 'en_uso')
-      const retrasados = registros.filter(r => r.estado === 'retrasado' || 
-        (r.estado === 'en_uso' && r.hora_estimada_llegada && new Date(r.hora_estimada_llegada) < new Date()))
 
-      const distanciaTotal = registros.reduce((sum, r) => sum + (r.km_aproximado || 0), 0)
+      // Estado actual de la flota (sin depender del rango de fechas).
+      const { data: activosData, error: errActivos } = await supabase
+        .from('registros_salidas_vehiculos')
+        .select('*')
+        .in('estado', ['en_uso', 'retrasado'])
 
-      const tiempos = registros
-        .filter(r => r.hora_llegada_real && r.hora_salida)
-        .map(r => {
+      if (errActivos) return { success: false, error: errActivos.message }
+
+      const activos = (activosData as RegistroSalidaVehiculo[]) ?? []
+      const ahora = new Date()
+      const retrasadosActuales = activos.filter(
+        (r) =>
+          r.estado === 'retrasado' ||
+          (r.estado === 'en_uso' &&
+            r.hora_estimada_llegada &&
+            new Date(r.hora_estimada_llegada) < ahora)
+      )
+
+      const vehiculos_en_uso = activos.filter((r) => r.estado === 'en_uso').length
+      const vehiculos_retrasados = retrasadosActuales.length
+
+      // Total salidas del período = registros con salida efectiva (excluye solicitudes sin salir).
+      const salidasPeriodo = registros.filter((r) => r.estado !== 'pendiente_autorizacion')
+
+      const finalizadosPeriodo = registros.filter((r) => r.estado === 'finalizado')
+      const distanciaTotal = finalizadosPeriodo.reduce(
+        (sum, r) => sum + (Number(r.km_aproximado) || 0),
+        0
+      )
+
+      const tiempos = finalizadosPeriodo
+        .filter((r) => r.hora_llegada_real && r.hora_salida)
+        .map((r) => {
           const salida = new Date(r.hora_salida).getTime()
           const llegada = new Date(r.hora_llegada_real!).getTime()
-          return (llegada - salida) / (1000 * 60 * 60) // Horas
+          return (llegada - salida) / (1000 * 60 * 60)
         })
 
-      const tiempoPromedio = tiempos.length > 0
-        ? tiempos.reduce((sum, t) => sum + t, 0) / tiempos.length
-        : 0
+      const tiempoPromedio =
+        tiempos.length > 0 ? tiempos.reduce((sum, t) => sum + t, 0) / tiempos.length : 0
 
       return {
         success: true,
         data: {
-          total_salidas: registros.length,
-          vehiculos_en_uso: enUso.length,
-          vehiculos_retrasados: retrasados.length,
+          total_salidas: salidasPeriodo.length,
+          vehiculos_en_uso,
+          vehiculos_retrasados,
           distancia_total_km: distanciaTotal,
           tiempo_promedio_horas: tiempoPromedio,
-          registros_retrasados: retrasados
+          registros_retrasados: retrasadosActuales
         }
       }
     }
