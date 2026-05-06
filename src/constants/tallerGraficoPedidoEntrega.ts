@@ -7,6 +7,8 @@ export type TallerGraficoPedidoEntregaPayload = {
   idOrden: number
   numeroOp: string
   cliente: string
+  /** Usuario que pidió el trabajo (Caja/Mostrador). */
+  solicitanteId?: number
   solicitanteNombre: string
   solicitanteRol?: string
   /** ISO */

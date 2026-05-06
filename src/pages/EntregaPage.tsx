@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import html2canvas from 'html2canvas'
@@ -240,6 +241,7 @@ const EntregaPage = () => {
         idOrden: orden.id!,
         numeroOp: String(orden.numero_op ?? '').trim(),
         cliente: String(orden.cliente ?? '').trim(),
+        solicitanteId: usuario.id,
         solicitanteNombre: usuario.nombre,
         solicitanteRol: usuario.rol
       })
@@ -248,6 +250,36 @@ const EntregaPage = () => {
       } else {
         setPedidoTgMsg('Aviso enviado: en Taller Gráfico se abre el aviso con sonido y luces.')
         window.setTimeout(() => setPedidoTgMsg(null), 6000)
+
+        // Además del broadcast (instantáneo), dejar un mensaje persistente en /mensajeria para Taller Gráfico.
+        try {
+          const uRes = await apiService.getUsuarios()
+          const usuariosTg =
+            uRes.success && uRes.data ? uRes.data.filter((u) => u.rol === 'taller-grafico') : []
+
+          const texto =
+            `🖨️ Pedido a Taller Gráfico\n` +
+            `OP #${String(orden.numero_op ?? '').trim()} · ${String(orden.cliente ?? '').trim()}\n` +
+            `Solicitante: ${usuario.nombre} (${usuario.rol})\n` +
+            `Acción: revisar pedido desde Entrega.`
+
+          let enviados = 0
+          for (const u of usuariosTg) {
+            if (!u?.id || u.id === usuario.id) continue
+            const roomRes = await apiService.obtenerOCrearRoomDm(usuario.id, u.id)
+            if (!roomRes.success || !roomRes.data) continue
+            const dmRes = await apiService.enviarMensajeDm({
+              roomId: roomRes.data.roomId,
+              contenido: texto,
+              usuarioId: usuario.id
+            })
+            if (dmRes.success) enviados++
+          }
+
+          if (enviados > 0) dispatchMensajeriaDmUnreadRefresh()
+        } catch (e) {
+          console.warn('No se pudo enviar el mensaje a /mensajeria (TG):', e)
+        }
       }
     } catch {
       setPedidoTgMsg('Error de red al enviar el aviso.')

@@ -225,6 +225,7 @@ export default function TabletFirmaPage() {
         idOrden: orden.id!,
         numeroOp: String(orden.numero_op ?? '').trim(),
         cliente: String(orden.cliente ?? '').trim(),
+        solicitanteId: 0,
         solicitanteNombre: nombre,
         solicitanteRol: rol
       })

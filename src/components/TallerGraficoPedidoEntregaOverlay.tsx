@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
+import apiService from '../services/api'
 import {
   TALLER_GRAFICO_PEDIDO_ENTREGA_CHANNEL,
   TALLER_GRAFICO_PEDIDO_ENTREGA_EVENT,
@@ -23,15 +24,18 @@ function parseBroadcastPayload(raw: unknown): TallerGraficoPedidoEntregaPayload 
   const idOrden = typeof o.idOrden === 'number' ? o.idOrden : Number(o.idOrden)
   const numeroOp = typeof o.numeroOp === 'string' ? o.numeroOp.trim() : ''
   const cliente = typeof o.cliente === 'string' ? o.cliente.trim() : ''
+  const solicitanteId = typeof o.solicitanteId === 'number' ? o.solicitanteId : Number(o.solicitanteId)
   const solicitanteNombre = typeof o.solicitanteNombre === 'string' ? o.solicitanteNombre.trim() : ''
   const solicitanteRol = typeof o.solicitanteRol === 'string' ? o.solicitanteRol.trim() : undefined
   const sentAt = typeof o.sentAt === 'string' ? o.sentAt : ''
   const nonce = typeof o.nonce === 'string' ? o.nonce : ''
-  if (!Number.isFinite(idOrden) || !numeroOp || !nonce) return null
+  if (!Number.isFinite(idOrden) || !numeroOp || !nonce)
+    return null
   return {
     idOrden,
     numeroOp,
     cliente: cliente || '—',
+    solicitanteId: Number.isFinite(solicitanteId) && solicitanteId > 0 ? solicitanteId : undefined,
     solicitanteNombre: solicitanteNombre || '—',
     solicitanteRol,
     sentAt: sentAt || new Date().toISOString(),
@@ -46,6 +50,7 @@ export default function TallerGraficoPedidoEntregaOverlay() {
   const { isTallerGrafico } = useAuth()
   const navigate = useNavigate()
   const [active, setActive] = useState<TallerGraficoPedidoEntregaPayload | null>(null)
+  const [ackLoading, setAckLoading] = useState(false)
   const lastNonceRef = useRef<string | null>(null)
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null)
   const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -53,6 +58,31 @@ export default function TallerGraficoPedidoEntregaOverlay() {
   const dismiss = useCallback(() => {
     setActive(null)
   }, [])
+
+  const marcarVisto = useCallback(async () => {
+    if (!active || ackLoading) return
+    if (!active.solicitanteId) {
+      // Compat: broadcast viejo o desde tablet sin usuario identificado
+      dismiss()
+      return
+    }
+    setAckLoading(true)
+    try {
+      const r = await apiService.createNotification({
+        user_id: active.solicitanteId,
+        title: `✅ Taller Gráfico tomó el pedido (OP #${active.numeroOp})`,
+        description: `Taller Gráfico confirmó que ya vio el pedido desde Entrega. OP #${active.numeroOp} · ${active.cliente}.`,
+        type: 'success'
+      })
+      if (!r.success) {
+        console.warn('TG visto: no se pudo crear la notificación:', r.error)
+      } else {
+        dismiss()
+      }
+    } finally {
+      setAckLoading(false)
+    }
+  }, [active, ackLoading, dismiss])
 
   useEffect(() => {
     if (!isTallerGrafico || !supabase) return
@@ -172,6 +202,16 @@ export default function TallerGraficoPedidoEntregaOverlay() {
           <button type="button" className="tg-pedido-btn-primary" onClick={dismiss}>
             Entendido
           </button>
+          {active.solicitanteId ? (
+            <button
+              type="button"
+              className="tg-pedido-btn-primary"
+              onClick={() => void marcarVisto()}
+              disabled={ackLoading}
+            >
+              {ackLoading ? 'Enviando…' : '✅ Visto'}
+            </button>
+          ) : null}
           <button
             type="button"
             className="tg-pedido-btn-ghost"
