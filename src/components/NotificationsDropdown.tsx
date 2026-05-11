@@ -290,8 +290,15 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
       }
       // Tótem / atención mostrador: iba a /chat como "mención" y caía en # General; abrimos el canal del sector del usuario
       if (notificationIsTotemAtencionMostrador(notification)) {
-        const canal = mapRolToChatCanal(usuario?.rol)
-        navigate(`/chat?canal=${encodeURIComponent(canal)}`)
+        const canalRaw = notification.chat_canal?.trim()
+        const canalValido =
+          canalRaw &&
+          ['general', 'diseno', 'recursos-humanos', 'metalurgica', 'mostrador', 'taller-grafico', 'random'].includes(
+            canalRaw
+          )
+            ? canalRaw
+            : mapRolToChatCanal(usuario?.rol)
+        navigate(`/chat?canal=${encodeURIComponent(canalValido)}`)
         return
       }
       // Menciones en el chat (@usuario)

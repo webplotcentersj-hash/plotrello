@@ -932,6 +932,8 @@ export interface Notification {
   oportunidad_id?: number | null
   venta_id?: number | null
   reclamo_id?: number | null
+  /** Canal del chat interno donde se publicó el aviso (ej. tótem / crear_atencion_mostrador). */
+  chat_canal?: string | null
   is_read: boolean
   timestamp: string
 }
