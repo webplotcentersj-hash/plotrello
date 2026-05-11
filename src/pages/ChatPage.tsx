@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { TeamMember, Task, ActivityEvent } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { apiService } from '../services/api'
@@ -75,6 +76,7 @@ const ChatPage = ({
   activity: ActivityEvent[]
 }) => {
   const { usuario } = useAuth()
+  const [searchParams] = useSearchParams()
   const resolvedMembers =
     teamMembers.length > 0
       ? teamMembers
@@ -87,7 +89,15 @@ const ChatPage = ({
             productivity: 0
           }
         ]
-  const [currentChannel, setCurrentChannel] = useState<string>('general')
+  const [currentChannel, setCurrentChannel] = useState<string>(() => {
+    try {
+      const c = new URLSearchParams(window.location.search).get('canal')?.trim()
+      if (c && CHANNELS.some((ch) => ch.id === c)) return c
+    } catch {
+      /* ignore */
+    }
+    return 'general'
+  })
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
@@ -127,6 +137,13 @@ const ChatPage = ({
     [messages, currentChannel]
   )
   const lastSeenDate = lastSeenOthers[currentChannel]
+
+  useEffect(() => {
+    const canal = searchParams.get('canal')?.trim()
+    if (canal && CHANNELS.some((ch) => ch.id === canal) && canal !== currentChannel) {
+      setCurrentChannel(canal)
+    }
+  }, [searchParams, currentChannel])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

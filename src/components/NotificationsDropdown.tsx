@@ -3,8 +3,39 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import type { Notification } from '../types/api'
+import type { Notification, UserRole } from '../types/api'
 import './NotificationsDropdown.css'
+
+/** Mismo título que `crear_atencion_mostrador` en SQL (tótem / mostrador). */
+function notificationIsTotemAtencionMostrador(n: Pick<Notification, 'title'>): boolean {
+  return (n.title ?? '').trim() === 'Cliente en tótem esperando atención'
+}
+
+/** Canal del chat interno (#) acorde al rol del usuario que recibe la notificación. */
+function mapRolToChatCanal(rol: UserRole | string | undefined): string {
+  switch (rol) {
+    case 'diseno':
+      return 'diseno'
+    case 'recursos-humanos':
+      return 'recursos-humanos'
+    case 'metalurgica':
+      return 'metalurgica'
+    case 'taller-grafico':
+    case 'imprenta':
+      return 'taller-grafico'
+    case 'mostrador':
+    case 'caja':
+    case 'presupuestos':
+    case 'instalaciones':
+    case 'compras':
+    case 'asesor-tecnico':
+    case 'administracion':
+    case 'gerencia':
+      return 'mostrador'
+    default:
+      return 'mostrador'
+  }
+}
 
 /** Coincide con títulos/textos insertados por solicitar/responder_intercambio_turno_menu (menú diario). */
 function notificationTargetsMenuDiario(n: Pick<Notification, 'title' | 'description'>): boolean {
@@ -257,7 +288,13 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         navigate('/menu-diario')
         return
       }
-      // Menciones en el chat
+      // Tótem / atención mostrador: iba a /chat como "mención" y caía en # General; abrimos el canal del sector del usuario
+      if (notificationIsTotemAtencionMostrador(notification)) {
+        const canal = mapRolToChatCanal(usuario?.rol)
+        navigate(`/chat?canal=${encodeURIComponent(canal)}`)
+        return
+      }
+      // Menciones en el chat (@usuario)
       if (notification.type === 'mention' || notification.description?.includes('te mencionó')) {
         navigate('/chat')
         return
