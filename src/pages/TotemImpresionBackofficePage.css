@@ -1,0 +1,150 @@
+.totem-bo-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #070a12 0%, #0b0d17 60%, #06070d 100%);
+  color: #e2e8f0;
+}
+
+.totem-bo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.totem-bo-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.totem-bo-header p {
+  margin: 4px 0 0;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.totem-bo-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.totem-bo-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(226, 232, 240, 0.92);
+  padding: 12px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 44px;
+}
+
+.totem-bo-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.totem-bo-btn--pay {
+  border-color: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.12);
+  color: #dcfce7;
+}
+
+.totem-bo-main {
+  padding: 16px 20px;
+}
+
+.totem-bo-error {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.6);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  margin-bottom: 12px;
+}
+
+.totem-bo-table-wrap {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.totem-bo-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+.totem-bo-table th,
+.totem-bo-table td {
+  text-align: left;
+  padding: 12px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+}
+
+.totem-bo-table th {
+  font-size: 0.85rem;
+  color: rgba(226, 232, 240, 0.7);
+  background: rgba(0, 0, 0, 0.14);
+  position: sticky;
+  top: 0;
+}
+
+.totem-bo-muted {
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.9rem;
+}
+
+.totem-bo-client {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.totem-bo-file a {
+  color: #93c5fd;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.totem-bo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.totem-bo-badge.ok {
+  border-color: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.12);
+  color: #dcfce7;
+}
+
+.totem-bo-badge.pending {
+  border-color: rgba(234, 179, 8, 0.25);
+  background: rgba(234, 179, 8, 0.12);
+  color: #fef9c3;
+}
+
+.totem-bo-empty {
+  padding: 18px;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.totem-bo-card {
+  margin: 40px auto;
+  width: min(720px, 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 18px;
+}
+

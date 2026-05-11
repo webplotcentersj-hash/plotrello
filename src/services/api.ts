@@ -8261,6 +8261,60 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async crearSolicitudImpresionTotem(data: {
+    cliente_nombre: string
+    cliente_dni: string
+    cliente_telefono: string
+    cantidad_hojas: number
+    tipo_impresion: string
+    origen_archivo: string
+    archivo_url: string
+    archivo_nombre: string
+    orden_id?: number | null
+    numero_op?: string | null
+    valor_total?: number | null
+    id_vendedor?: number
+    nombre_vendedor?: string
+  }): Promise<ApiResponse<{ id: number; id_venta?: number | null; numero_venta?: string | null }>> {
+    if (supabase) {
+      try {
+        const { data: out, error } = await supabase.rpc('crear_solicitud_impresion_totem', {
+          p_cliente_nombre: data.cliente_nombre,
+          p_cliente_dni: data.cliente_dni,
+          p_cliente_telefono: data.cliente_telefono,
+          p_cantidad_hojas: data.cantidad_hojas,
+          p_tipo_impresion: data.tipo_impresion,
+          p_origen_archivo: data.origen_archivo,
+          p_archivo_url: data.archivo_url,
+          p_archivo_nombre: data.archivo_nombre,
+          p_orden_id: data.orden_id ?? null,
+          p_numero_op: data.numero_op ?? null,
+          p_valor_total: data.valor_total ?? null,
+          p_id_vendedor: data.id_vendedor ?? 1,
+          p_nombre_vendedor: data.nombre_vendedor ?? 'Totem autoservicio'
+        })
+        if (error) return { success: false, error: error.message }
+        // La función retorna json; intentamos normalizar campos principales.
+        const result = (out ?? null) as any
+        const id = typeof result?.id === 'number' ? (result.id as number) : typeof result?.solicitud_id === 'number' ? (result.solicitud_id as number) : NaN
+        if (!Number.isFinite(id)) {
+          return { success: false, error: 'Respuesta inesperada al crear solicitud de impresión.' }
+        }
+        return {
+          success: true,
+          data: {
+            id,
+            id_venta: typeof result?.id_venta === 'number' ? result.id_venta : null,
+            numero_venta: typeof result?.numero_venta === 'string' ? result.numero_venta : null
+          }
+        }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async marcarPagoSolicitudImpresionTotem(
     solicitudId: number,
     usuarioId: number

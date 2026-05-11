@@ -11,6 +11,7 @@ const ClienteConsultaPage = lazy(() => import('./pages/ClienteConsultaPage'))
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage'))
 const DashboardPantallasPage = lazy(() => import('./pages/DashboardPantallasPage'))
 const ImpresorasPage = lazy(() => import('./pages/ImpresorasPage'))
+const TotemImpresionBackofficePage = lazy(() => import('./pages/TotemImpresionBackofficePage'))
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const GanttPage = lazy(() => import('./pages/GanttPage'))
 const OpViewPage = lazy(() => import('./pages/OpViewPage'))
@@ -35,6 +36,10 @@ const AtencionPublicoDashboardPage = lazy(() => import('./pages/AtencionPublicoD
 const EmbedChatPage = lazy(() => import('./pages/EmbedChatPage'))
 const EmbedChatWidgetPage = lazy(() => import('./pages/EmbedChatWidgetPage'))
 const TotemChatPage = lazy(() => import('./pages/TotemChatPage'))
+const TotemAutogestionHomePage = lazy(() => import('./pages/TotemAutogestionHomePage'))
+const TotemAutogestionCatalogoPage = lazy(() => import('./pages/TotemAutogestionCatalogoPage'))
+const TotemAutogestionCheckoutPage = lazy(() => import('./pages/TotemAutogestionCheckoutPage'))
+const TotemAutogestionImprimirPage = lazy(() => import('./pages/TotemAutogestionImprimirPage'))
 const ComprasDashboardPage = lazy(() => import('./pages/ComprasDashboardPage'))
 const PedidoCompraDetallePage = lazy(() => import('./pages/PedidoCompraDetallePage'))
 const ReportesStockPage = lazy(() => import('./pages/ReportesStockPage'))
@@ -609,6 +614,11 @@ function App() {
           <Route path="/embed/chat" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando chat...</div>}><EmbedChatPage /></Suspense>} />
           <Route path="/embed/chat-widget" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}><EmbedChatWidgetPage /></Suspense>} />
           <Route path="/totem" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemChatPage /></Suspense>} />
+          <Route path="/totem/autogestion" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemAutogestionHomePage /></Suspense>} />
+          <Route path="/totem/autogestion/op" element={<Navigate to="/totem/consulta-cliente" replace />} />
+          <Route path="/totem/autogestion/catalogo" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemAutogestionCatalogoPage /></Suspense>} />
+          <Route path="/totem/autogestion/checkout" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemAutogestionCheckoutPage /></Suspense>} />
+          <Route path="/totem/autogestion/imprimir" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemAutogestionImprimirPage /></Suspense>} />
           {/* Versión para pantalla de autoservicio: búsqueda de trabajos en modo tótem */}
           <Route path="/totem/consulta-cliente" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemConsultaClientePage /></Suspense>} />
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
@@ -907,6 +917,14 @@ function AppRoutes({
       <Route
         path="/impresoras"
         element={<ImpresorasPage />}
+      />
+      <Route
+        path="/impresoras/totem"
+        element={
+          <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
+            <TotemImpresionBackofficePage />
+          </Suspense>
+        }
       />
       <Route
         path="/taller-grafico/inventario"
