@@ -21,6 +21,8 @@ type BoardProps = {
   onViewTask?: (task: Task) => void
   /** Ocultar UI de reclamo en tarjetas (tablero asesor/presupuestos) */
   hideReclamoUI?: boolean
+  /** Teléfono: desactiva arrastre (las fichas no se mueven con el dedo). */
+  disableDrag?: boolean
 }
 
 const Board = ({
@@ -36,7 +38,8 @@ const Board = ({
   selectedTaskId,
   onSelectTask,
   onViewTask,
-  hideReclamoUI
+  hideReclamoUI,
+  disableDrag = false
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
   /** Evita que un endDragUi diferido pise un drag nuevo (setTimeout tras soltar). */
@@ -140,7 +143,9 @@ const Board = ({
   }, [])
 
   return (
-    <div className={`board-wrapper ${isDragging ? 'is-dragging' : ''}`}>
+    <div
+      className={`board-wrapper ${isDragging ? 'is-dragging' : ''}${disableDrag ? ' board-wrapper--no-drag' : ''}`}
+    >
       <DragDropContext
         onDragStart={() => {
           dragSessionRef.current += 1
@@ -173,6 +178,7 @@ const Board = ({
                   onSelectTask={onSelectTask}
                   onViewTask={onViewTask}
                   hideReclamoUI={hideReclamoUI}
+                  disableDrag={disableDrag}
                 />
               )}
             </Droppable>

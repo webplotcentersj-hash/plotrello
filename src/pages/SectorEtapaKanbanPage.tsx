@@ -12,6 +12,7 @@ import {
   type SectorEtapaKanbanConfig
 } from '../data/sectorEtapaKanban'
 import { useAuth } from '../hooks/useAuth'
+import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import apiService from '../services/api'
 import { ordenToTask, parseTaskIdToOrdenId } from '../utils/dataMappers'
 import './SectorEtapaKanbanPage.css'
@@ -34,6 +35,7 @@ export default function SectorEtapaKanbanPage({
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { usuario, isAdmin } = useAuth()
+  const isPhoneBoard = usePhoneBoardLayout()
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
   const [campoOrdenIds, setCampoOrdenIds] = useState<Set<number>>(new Set())
@@ -275,6 +277,7 @@ export default function SectorEtapaKanbanPage({
         activity={activityScoped}
         sectores={sectores}
         onEtapaMove={handleEtapaMove}
+        disableDrag={isPhoneBoard}
       />
       <p className="sector-etapa-footnote">
         {filtered.length} ficha{filtered.length === 1 ? '' : 's'} en este sector (no entregadas).

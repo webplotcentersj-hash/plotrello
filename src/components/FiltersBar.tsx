@@ -30,6 +30,8 @@ type FiltersBarProps = {
   onOpenEtapaKanban?: () => void
   /** Placeholder del buscador (ej. asesor-presupuestos: fichas FICHA-*, no OP de taller) */
   searchPlaceholder?: string
+  /** Teléfono: solo buscador + sector (si aplica) + alta ficha; sin chips ni prioridad. */
+  compactPhone?: boolean
 }
 
 const FiltersBar = ({
@@ -53,7 +55,8 @@ const FiltersBar = ({
   onOptimizeSprint,
   showEtapaKanbanButton = false,
   onOpenEtapaKanban,
-  searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…'
+  searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…',
+  compactPhone = false
 }: FiltersBarProps) => {
   const { isAdmin, isDiseno, usuario } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
@@ -79,6 +82,49 @@ const FiltersBar = ({
     } finally {
       setCopiandoBrief(false)
     }
+  }
+
+  if (compactPhone) {
+    return (
+      <section className="filters-bar filters-bar--phone" aria-label="Filtros del tablero">
+        <div className="filters-bar-phone-row search-filter">
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            ref={searchInputRef}
+          />
+        </div>
+        {onSectorChange && availableSectors.length > 0 && (
+          <div className="filters-bar-phone-row">
+            <label className="filters-bar-phone-label" htmlFor="filters-bar-phone-sector">
+              Sector
+            </label>
+            <select
+              id="filters-bar-phone-sector"
+              value={sectorFilter}
+              onChange={(e) => onSectorChange(e.target.value)}
+              className="sector-select filters-bar-phone-select"
+            >
+              <option value="todos">Todos</option>
+              {availableSectors.map((sector) => (
+                <option key={sector} value={sector}>
+                  {sector}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {onAddNewOrder && (
+          <div className="filters-bar-phone-row">
+            <button type="button" className="brand-button filters-bar-phone-add" onClick={onAddNewOrder}>
+              + Agregar ficha
+            </button>
+          </div>
+        )}
+      </section>
+    )
   }
 
   return (

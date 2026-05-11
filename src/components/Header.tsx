@@ -36,6 +36,8 @@ type HeaderProps = {
   onLogout?: () => void
   isAdmin?: boolean
   isDiseno?: boolean
+  /** Teléfono en tablero: sin reloj, clima ni tarjeta spotlight. */
+  compactPhone?: boolean
 }
 
 const Header = ({
@@ -62,7 +64,8 @@ const Header = ({
   onNavigateToMensajeria,
   onLogout,
   isAdmin: isAdminProp = false,
-  isDiseno = false
+  isDiseno = false,
+  compactPhone = false
 }: HeaderProps) => {
   const {
     usuario,
@@ -98,8 +101,12 @@ const Header = ({
           <h1>Plot Lab</h1>
         </div>
         <div className="header-actions">
-          <ClockWidget />
-          <WeatherWidget />
+          {!compactPhone && (
+            <>
+              <ClockWidget />
+              <WeatherWidget />
+            </>
+          )}
           <PwaUpdateButton className="ghost-button pwa-update-button" />
           <NotificationsDropdown onNotificationClick={(notification) => {
             // Si es una notificación de mención del chat, navegar al chat
@@ -378,11 +385,13 @@ const Header = ({
         </div>
       </div>
 
-      <div className="header-stats header-stats--single">
-        <div className="header-stat-card header-stat-card--spotlight">
-          <HeaderSpotlightCard userId={usuario?.id} />
+      {!compactPhone && (
+        <div className="header-stats header-stats--single">
+          <div className="header-stat-card header-stat-card--spotlight">
+            <HeaderSpotlightCard userId={usuario?.id} />
+          </div>
         </div>
-      </div>
+      )}
     </header>
   )
 }

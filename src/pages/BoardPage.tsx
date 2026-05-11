@@ -19,6 +19,7 @@ import { BOARD_COLUMNS } from '../data/mockData'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
+import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import apiService from '../services/api'
 import {
   ordenToTask,
@@ -135,6 +136,7 @@ const BoardPage = ({
   /** Movimientos recientes: ocultos por defecto para dar más ancho al tablero */
   const [activityFeedOpen, setActivityFeedOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const isPhoneBoard = usePhoneBoardLayout()
 
   const sidebarCompact =
     isAdmin ? !statsPanelOpen && !activityFeedOpen : !activityFeedOpen
@@ -142,6 +144,10 @@ const BoardPage = ({
   useEffect(() => {
     tasksRef.current = tasks
   }, [tasks])
+
+  useEffect(() => {
+    if (isPhoneBoard) setIsChatAIOpen(false)
+  }, [isPhoneBoard])
 
   useEffect(() => {
     if (actionError || actionSuccess) {
@@ -1099,7 +1105,7 @@ const BoardPage = ({
   }
 
   return (
-    <div className="trello-plot-app">
+    <div className={`trello-plot-app${isPhoneBoard ? ' trello-plot-app--phone' : ''}`}>
       {(isSyncing || syncError || actionError || actionSuccess) && (
         <div className="sync-banner-container" style={{ marginBottom: '12px' }}>
           {isSyncing && (
@@ -1141,6 +1147,7 @@ const BoardPage = ({
         </div>
       )}
       <Header
+        compactPhone={isPhoneBoard}
         teamMembers={teamMembers}
         activity={activity}
         currentUserName={resolveCurrentUserName()}
@@ -1167,6 +1174,7 @@ const BoardPage = ({
         isDiseno={isDiseno}
       />
       <FiltersBar
+        compactPhone={isPhoneBoard}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         searchInputRef={searchInputRef}
@@ -1216,6 +1224,7 @@ const BoardPage = ({
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
             onViewTask={handleViewTask}
+            disableDrag={isPhoneBoard}
           />
         </section>
 
@@ -1310,24 +1319,26 @@ const BoardPage = ({
         />
       )}
 
-      <ChatFloatingButton
-        onNavigateToChat={onNavigateToChat || (() => {})}
-      />
+      {!isPhoneBoard && (
+        <>
+          <ChatFloatingButton onNavigateToChat={onNavigateToChat || (() => {})} />
 
-      <PlotAIFloatingButton
-        onClick={() => setIsChatAIOpen(!isChatAIOpen)}
-        isOpen={isChatAIOpen}
-        hasUnreadMessages={false}
-      />
+          <PlotAIFloatingButton
+            onClick={() => setIsChatAIOpen(!isChatAIOpen)}
+            isOpen={isChatAIOpen}
+            hasUnreadMessages={false}
+          />
 
-      {isChatAIOpen && (
-        <PlotAIChat
-          tasks={tasks}
-          teamMembers={teamMembers}
-          activity={activity}
-          onCreateTask={handleCreateTask}
-          onClose={() => setIsChatAIOpen(false)}
-        />
+          {isChatAIOpen && (
+            <PlotAIChat
+              tasks={tasks}
+              teamMembers={teamMembers}
+              activity={activity}
+              onCreateTask={handleCreateTask}
+              onClose={() => setIsChatAIOpen(false)}
+            />
+          )}
+        </>
       )}
 
       {checklistTask && (

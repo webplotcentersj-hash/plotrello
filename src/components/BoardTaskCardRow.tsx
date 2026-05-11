@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import clsx from 'clsx'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import type { ActivityEvent, ColumnConfig, Task, TaskStatus, TeamMember } from '../types/board'
@@ -25,6 +26,8 @@ export type BoardTaskCardRowProps = {
   onSelect?: (taskId: string | null) => void
   onViewTask?: (task: Task) => void
   hideReclamoUI?: boolean
+  /** Tablero en teléfono: panel «Mover a…» en la ficha. */
+  touchColumnMove?: boolean
 }
 
 /**
@@ -50,8 +53,19 @@ export default function BoardTaskCardRow(props: BoardTaskCardRowProps) {
     isSelected,
     onSelect,
     onViewTask,
-    hideReclamoUI
+    hideReclamoUI,
+    touchColumnMove = false
   } = props
+
+  const explicitMoveSheet = useMemo(() => {
+    if (!touchColumnMove || !onMoveTask || !columns?.length) return undefined
+    const targets = columns.filter((c) => c.id !== task.status).map((c) => ({ id: c.id, label: c.label }))
+    if (targets.length === 0) return undefined
+    return {
+      targets,
+      onPick: (destinationId: string) => onMoveTask(task.id, destinationId as TaskStatus, task.status)
+    }
+  }, [touchColumnMove, onMoveTask, columns, task.id, task.status])
 
   const lite = isBoardDragging && !snapshot.isDragging
 
@@ -110,6 +124,7 @@ export default function BoardTaskCardRow(props: BoardTaskCardRowProps) {
       isDraggable={false}
       boardDnD={{ provided, snapshot }}
       hideReclamoUI={hideReclamoUI}
+      explicitMoveSheet={explicitMoveSheet}
     />
   )
 }

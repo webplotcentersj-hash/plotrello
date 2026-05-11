@@ -78,6 +78,16 @@ type TaskCardProps = {
   boardDnD?: TaskCardBoardDnD | null
   /** Ocultar marca/indicadores y acciones de reclamo (ej. tablero asesor/presupuestos) */
   hideReclamoUI?: boolean
+  /** Fuerza desactivar arrastre (ej. kanban de etapas en teléfono). Solo aplica al `Draggable` interno. */
+  dragDisabled?: boolean
+  /**
+   * Teléfono / sin DnD: botón «Mover» que abre hoja con columnas destino.
+   * `onPick` recibe el id de columna (estado de OP o id de etapa según el tablero).
+   */
+  explicitMoveSheet?: {
+    targets: ReadonlyArray<{ id: string; label: string }>
+    onPick: (destinationId: string) => void
+  } | null
   /** Biblioteca u otras vistas: solo lectura, sin cambiar etapas, checklist, reclamo, etc. */
   readOnly?: boolean
   /** Con `readOnly`: abre vista detallada solo consulta (p. ej. biblioteca de OPs) */
@@ -145,6 +155,8 @@ const TaskCardInner = ({
   onViewTask,
   boardDnD = null,
   hideReclamoUI = false,
+  dragDisabled = false,
+  explicitMoveSheet = null,
   readOnly = false,
   onInspectReadOnly
 }: TaskCardProps) => {
@@ -193,6 +205,7 @@ const TaskCardInner = ({
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
   const [marcandoReclamo, setMarcandoReclamo] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
+  const [moveSheetOpen, setMoveSheetOpen] = useState(false)
   const boardDragJustEndedAt = useRef(0)
   useEffect(() => {
     const fn = (e: Event) => {
@@ -255,6 +268,20 @@ const TaskCardInner = ({
       document.removeEventListener('click', close)
     }
   }, [contextMenu])
+
+  useEffect(() => {
+    if (!explicitMoveSheet?.targets.length) setMoveSheetOpen(false)
+  }, [explicitMoveSheet])
+
+  useEffect(() => {
+    if (!moveSheetOpen) return undefined
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoveSheetOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [moveSheetOpen])
+
   const ordenId = Number(task.id)
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
@@ -707,6 +734,25 @@ const TaskCardInner = ({
           {!isMinimized && !isDragLightMode && (
             <div className={clsx('task-toolbar', !onEdit && 'task-toolbar--no-edit')}>
               <div className="task-actions-extra" aria-label="Acciones secundarias">
+            {explicitMoveSheet &&
+              explicitMoveSheet.targets.length > 0 &&
+              !moveBlocked &&
+              !isReadOnly && (
+                <button
+                  type="button"
+                  className="task-action-btn task-explicit-move-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setContextMenu(null)
+                    setMoveSheetOpen(true)
+                  }}
+                  title="Elegir columna destino"
+                  aria-haspopup="dialog"
+                  aria-expanded={moveSheetOpen}
+                >
+                  Mover
+                </button>
+              )}
             {task.status === 'presupuestos' && task.fichaTecnicaPdfUrl && (
               <button
                 type="button"
@@ -1789,7 +1835,7 @@ const TaskCardInner = ({
         boardDnD.snapshot.isDragging
       )
     ) : isDraggable ? (
-      <Draggable draggableId={task.id} index={index} isDragDisabled={moveBlocked}>
+      <Draggable draggableId={task.id} index={index} isDragDisabled={moveBlocked || dragDisabled}>
         {(provided, snapshot) =>
           renderCardContent(
             {
@@ -1842,6 +1888,53 @@ const TaskCardInner = ({
                   {col.label}
                 </button>
               ))}
+          </div>,
+          document.body
+        )}
+      {moveSheetOpen &&
+        explicitMoveSheet &&
+        explicitMoveSheet.targets.length > 0 &&
+        createPortal(
+          <div
+            className="task-move-sheet-backdrop"
+            role="presentation"
+            onClick={() => setMoveSheetOpen(false)}
+          >
+            <div
+              className="task-move-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="task-move-sheet-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="task-move-sheet-handle" aria-hidden />
+              <h2 id="task-move-sheet-title" className="task-move-sheet-title">
+                Mover ficha
+              </h2>
+              <p className="task-move-sheet-meta">
+                {etiquetaOrden} #{displayNumeroOrden}
+                {task.title ? ` · ${task.title}` : ''}
+              </p>
+              <div className="task-move-sheet-list" role="listbox" aria-label="Columna destino">
+                {explicitMoveSheet.targets.map((col) => (
+                  <button
+                    key={col.id}
+                    type="button"
+                    className="task-move-sheet-item"
+                    role="option"
+                    onClick={() => {
+                      explicitMoveSheet.onPick(col.id)
+                      setMoveSheetOpen(false)
+                    }}
+                  >
+                    {col.label}
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="task-move-sheet-cancel" onClick={() => setMoveSheetOpen(false)}>
+                Cancelar
+              </button>
+            </div>
           </div>,
           document.body
         )}
@@ -2200,6 +2293,21 @@ function draggableInlineStylesEqual(
   return true
 }
 
+function explicitMoveSheetsEqual(
+  a: TaskCardProps['explicitMoveSheet'],
+  b: TaskCardProps['explicitMoveSheet']
+): boolean {
+  if (a === b) return true
+  if (!a && !b) return true
+  if (!a || !b) return false
+  if (a.onPick !== b.onPick) return false
+  if (a.targets.length !== b.targets.length) return false
+  for (let i = 0; i < a.targets.length; i++) {
+    if (a.targets[i].id !== b.targets[i].id || a.targets[i].label !== b.targets[i].label) return false
+  }
+  return true
+}
+
 function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolean {
   if (prev.boardDnD == null && next.boardDnD == null) {
     if (prev.isDraggable || next.isDraggable) return false
@@ -2217,7 +2325,9 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       prev.onViewTask === next.onViewTask &&
       prev.hideReclamoUI === next.hideReclamoUI &&
       prev.readOnly === next.readOnly &&
-      prev.onInspectReadOnly === next.onInspectReadOnly
+      prev.onInspectReadOnly === next.onInspectReadOnly &&
+      prev.dragDisabled === next.dragDisabled &&
+      explicitMoveSheetsEqual(prev.explicitMoveSheet, next.explicitMoveSheet)
     )
   }
   if ((prev.boardDnD == null) !== (next.boardDnD == null)) return false
@@ -2281,6 +2391,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   if (prev.hideReclamoUI !== next.hideReclamoUI) return false
   if (prev.readOnly !== next.readOnly) return false
   if (prev.onInspectReadOnly !== next.onInspectReadOnly) return false
+  if (prev.dragDisabled !== next.dragDisabled) return false
+  if (!explicitMoveSheetsEqual(prev.explicitMoveSheet, next.explicitMoveSheet)) return false
   return true
 }
 

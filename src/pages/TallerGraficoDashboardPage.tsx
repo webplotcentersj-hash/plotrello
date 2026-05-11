@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import EtapaKanbanBoard from '../components/EtapaKanbanBoard'
@@ -41,6 +42,7 @@ type BgPref =
 export default function TallerGraficoDashboardPage({ tasks, setTasks, teamMembers, activity, sectores }: Props) {
   const { isAdmin, isTallerGrafico, usuario } = useAuth()
   const navigate = useNavigate()
+  const isPhoneBoard = usePhoneBoardLayout()
 
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
@@ -250,6 +252,7 @@ export default function TallerGraficoDashboardPage({ tasks, setTasks, teamMember
         sectores={sectores}
         onEtapaMove={handleEtapaMove}
         onViewTask={(t) => setViewTask(t)}
+        disableDrag={isPhoneBoard}
       />
 
       {viewTask && (

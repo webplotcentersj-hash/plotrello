@@ -80,4 +80,36 @@
   .insights-toggle-row {
     justify-content: center;
   }
+
+  /* Tablero principal con clase `trello-plot-app--phone`: sin estadísticas/actividad lateral */
+  .trello-plot-app--phone .insights-panel {
+    display: none;
+  }
+
+  .trello-plot-app--phone .app-layout {
+    margin-top: 12px;
+    gap: 10px;
+  }
+
+  /* Respaldo si el overlay de IA quedara montado al rotar el dispositivo */
+  .trello-plot-app--phone .plotai-overlay {
+    display: none !important;
+  }
+
+  /* Sin arrastre: menos animación y mejor toque (scroll vertical vs “tirar” la ficha) */
+  .board-wrapper--no-drag .task-card,
+  .board-wrapper--no-drag .task-card.is-drag-surface {
+    transition: none !important;
+    animation: none !important;
+    touch-action: manipulation;
+  }
+
+  .board-wrapper--no-drag .board-column {
+    transition: border-color 0.12s ease, background 0.12s ease;
+  }
+
+  /* Botón flotante de permisos: mismo criterio que chat/IA en pantalla chica */
+  .solicitudes-floating-button {
+    display: none !important;
+  }
 }

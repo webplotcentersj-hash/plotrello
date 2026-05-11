@@ -29,6 +29,8 @@ type ColumnProps = {
   hideReclamoUI?: boolean
   /** True mientras se arrastra en el tablero: filas no arrastradas usan shell ligero (sin TaskCard completo). */
   isBoardDragging?: boolean
+  /** Teléfono: sin arrastre de fichas. */
+  disableDrag?: boolean
 }
 
 const Column = ({
@@ -50,7 +52,8 @@ const Column = ({
   onSelectTask,
   onViewTask,
   hideReclamoUI,
-  isBoardDragging = false
+  isBoardDragging = false,
+  disableDrag = false
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
   const INITIAL_VISIBLE_TASKS = 5
@@ -100,7 +103,7 @@ const Column = ({
             key={task.id}
             draggableId={task.id}
             index={index}
-            isDragDisabled={Boolean(task.opBloqueada) && !isAdmin}
+            isDragDisabled={disableDrag || (Boolean(task.opBloqueada) && !isAdmin)}
           >
             {(provided, snapshot) => (
               <BoardTaskCardRow
@@ -122,6 +125,7 @@ const Column = ({
                 onSelect={onSelectTask}
                 onViewTask={onViewTask}
                 hideReclamoUI={hideReclamoUI}
+                touchColumnMove={disableDrag}
               />
             )}
           </Draggable>

@@ -11,6 +11,7 @@ import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
+import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import apiService from '../services/api'
 import {
   mapStatusToEstado,
@@ -112,6 +113,7 @@ const AsesorPresupuestosPage = ({
   const [activeTab, setActiveTab] = useState<'kanban' | 'agenda' | 'historial'>('kanban')
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const isPhoneBoard = usePhoneBoardLayout()
 
   // Verificar permisos
   const canAccess = isAdmin || isAsesorTecnico || isPresupuestos
@@ -416,6 +418,7 @@ const AsesorPresupuestosPage = ({
     <div className="asesor-presupuestos-page">
       <div className="asesor-presupuestos-ambient" aria-hidden />
       <Header
+        compactPhone={isPhoneBoard}
         teamMembers={teamMembers}
         activity={activity}
         onNavigateToStats={onNavigateToStats}
@@ -503,6 +506,7 @@ const AsesorPresupuestosPage = ({
         {activeTab === 'kanban' ? (
           <>
             <FiltersBar
+              compactPhone={isPhoneBoard}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               searchInputRef={searchInputRef}
@@ -528,6 +532,7 @@ const AsesorPresupuestosPage = ({
             <div className="asesor-presupuestos-board-wrap">
               <Board
                 tasks={kanbanTasksForBoard}
+                disableDrag={isPhoneBoard}
                 onMoveTask={handleTaskMove}
                 members={teamMembers}
                 onEditTask={(task) => {

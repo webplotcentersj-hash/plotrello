@@ -24,6 +24,8 @@ type EtapaKanbanBoardProps = {
   onEtapaMove: (taskId: string, destinationColumnId: string) => Promise<void>
   /** Si se define, clic en tarjeta abre vista (solo lectura) */
   onViewTask?: (task: Task) => void
+  /** Teléfono: sin arrastre entre columnas de etapa. */
+  disableDrag?: boolean
 }
 
 const EtapaColumn = memo(function EtapaColumn({
@@ -36,7 +38,10 @@ const EtapaColumn = memo(function EtapaColumn({
   activityByTaskId,
   membersById,
   sectores,
-  onViewTask
+  onViewTask,
+  disableDrag = false,
+  boardColumns,
+  onEtapaMove
 }: {
   column: EtapaKanbanColumnModel
   tasks: Task[]
@@ -48,6 +53,9 @@ const EtapaColumn = memo(function EtapaColumn({
   membersById: Map<string, TeamMember>
   sectores?: SectorRecord[]
   onViewTask?: (task: Task) => void
+  disableDrag?: boolean
+  boardColumns: EtapaKanbanColumnModel[]
+  onEtapaMove: (taskId: string, destinationColumnId: string) => Promise<void>
 }) {
   const INITIAL_VISIBLE = 8
   const [showAll, setShowAll] = useState(false)
@@ -73,19 +81,38 @@ const EtapaColumn = memo(function EtapaColumn({
         {...droppableProvided.droppableProps}
         style={{ minHeight: 120 }}
       >
-        {visible.map((task, index) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            index={index}
-            owner={membersById.get(task.ownerId)}
-            sectores={sectores}
-            activity={activityByTaskId.get(task.id) ?? EMPTY_ACTIVITY}
-            members={members}
-            columns={[]}
-            onViewTask={onViewTask}
-          />
-        ))}
+        {visible.map((task, index) => {
+          const moveTargets =
+            disableDrag && boardColumns.length > 0
+              ? boardColumns
+                  .filter((c) => c.id !== column.id && c.id !== SIN_ETAPA_COLUMN_ID)
+                  .map((c) => ({ id: c.id, label: c.label }))
+              : []
+          const explicitMoveSheet =
+            disableDrag && moveTargets.length > 0
+              ? {
+                  targets: moveTargets,
+                  onPick: (destinationId: string) => {
+                    void onEtapaMove(task.id, destinationId)
+                  }
+                }
+              : null
+          return (
+            <TaskCard
+              key={task.id}
+              task={task}
+              index={index}
+              owner={membersById.get(task.ownerId)}
+              sectores={sectores}
+              activity={activityByTaskId.get(task.id) ?? EMPTY_ACTIVITY}
+              members={members}
+              columns={[]}
+              onViewTask={onViewTask}
+              dragDisabled={disableDrag}
+              explicitMoveSheet={explicitMoveSheet}
+            />
+          )
+        })}
         {droppableProvided.placeholder}
         {tasks.length === 0 && <div className="column-empty">Sin fichas</div>}
         {tasks.length > INITIAL_VISIBLE && (
@@ -105,7 +132,8 @@ const EtapaKanbanBoard = ({
   activity = [],
   sectores,
   onEtapaMove,
-  onViewTask
+  onViewTask,
+  disableDrag = false
 }: EtapaKanbanBoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
 
@@ -145,7 +173,9 @@ const EtapaKanbanBoard = ({
   }
 
   return (
-    <div className={`board-wrapper ${isDragging ? 'is-dragging' : ''}`}>
+    <div
+      className={`board-wrapper ${isDragging ? 'is-dragging' : ''}${disableDrag ? ' board-wrapper--no-drag' : ''}`}
+    >
       <DragDropContext
         onDragStart={() => {
           setIsDragging(true)
@@ -172,6 +202,9 @@ const EtapaKanbanBoard = ({
                   membersById={membersById}
                   sectores={sectores}
                   onViewTask={onViewTask}
+                  disableDrag={disableDrag}
+                  boardColumns={columns}
+                  onEtapaMove={onEtapaMove}
                 />
               )}
             </Droppable>
