@@ -86,9 +86,30 @@
     display: none;
   }
 
+  /* Una sola columna: si no, `app-layout--sidebar-compact` deja ~96px de hueco aunque el panel lateral esté oculto */
   .trello-plot-app--phone .app-layout {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     margin-top: 12px;
     gap: 10px;
+  }
+
+  .trello-plot-app--phone .board-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .trello-plot-app--phone .filters-bar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   /* Respaldo si el overlay de IA quedara montado al rotar el dispositivo */

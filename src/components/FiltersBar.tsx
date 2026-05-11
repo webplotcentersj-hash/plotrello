@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
@@ -60,6 +60,27 @@ const FiltersBar = ({
 }: FiltersBarProps) => {
   const { isAdmin, isDiseno, usuario } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
+  const [sectorPickerOpen, setSectorPickerOpen] = useState(false)
+  const sectorPickerWrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!compactPhone) setSectorPickerOpen(false)
+  }, [compactPhone])
+
+  useEffect(() => {
+    if (!sectorPickerOpen) return undefined
+    const close = (e: MouseEvent | TouchEvent) => {
+      const el = sectorPickerWrapRef.current
+      const t = e.target
+      if (el && t instanceof Node && !el.contains(t)) setSectorPickerOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('touchstart', close, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('touchstart', close)
+    }
+  }, [sectorPickerOpen])
 
   const handleGenerarBriefLink = async () => {
     setCopiandoBrief(true)
@@ -97,23 +118,60 @@ const FiltersBar = ({
           />
         </div>
         {onSectorChange && availableSectors.length > 0 && (
-          <div className="filters-bar-phone-row">
-            <label className="filters-bar-phone-label" htmlFor="filters-bar-phone-sector">
-              Sector
-            </label>
-            <select
-              id="filters-bar-phone-sector"
-              value={sectorFilter}
-              onChange={(e) => onSectorChange(e.target.value)}
-              className="sector-select filters-bar-phone-select"
+          <div className="filters-bar-phone-row filters-bar-phone-sector-wrap" ref={sectorPickerWrapRef}>
+            <button
+              type="button"
+              className="filters-bar-phone-sector-trigger"
+              id="filters-bar-phone-sector-trigger"
+              aria-expanded={sectorPickerOpen}
+              aria-haspopup="listbox"
+              aria-controls="filters-bar-phone-sector-list"
+              onClick={() => setSectorPickerOpen((o) => !o)}
             >
-              <option value="todos">Todos</option>
-              {availableSectors.map((sector) => (
-                <option key={sector} value={sector}>
-                  {sector}
-                </option>
-              ))}
-            </select>
+              <span className="filters-bar-phone-sector-trigger-label">Sector</span>
+              <span className="filters-bar-phone-sector-trigger-value">
+                {sectorFilter === 'todos' ? 'Todos los sectores' : sectorFilter}
+              </span>
+              <span className="filters-bar-phone-sector-trigger-chevron" aria-hidden>
+                {sectorPickerOpen ? '▲' : '▼'}
+              </span>
+            </button>
+            {sectorPickerOpen && (
+              <div
+                className="filters-bar-phone-sector-panel"
+                id="filters-bar-phone-sector-list"
+                role="listbox"
+                aria-labelledby="filters-bar-phone-sector-trigger"
+              >
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={sectorFilter === 'todos'}
+                  className={`filters-bar-phone-sector-option${sectorFilter === 'todos' ? ' is-active' : ''}`}
+                  onClick={() => {
+                    onSectorChange('todos')
+                    setSectorPickerOpen(false)
+                  }}
+                >
+                  Todos los sectores
+                </button>
+                {availableSectors.map((sector) => (
+                  <button
+                    key={sector}
+                    type="button"
+                    role="option"
+                    aria-selected={sectorFilter === sector}
+                    className={`filters-bar-phone-sector-option${sectorFilter === sector ? ' is-active' : ''}`}
+                    onClick={() => {
+                      onSectorChange(sector)
+                      setSectorPickerOpen(false)
+                    }}
+                  >
+                    {sector}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {onAddNewOrder && (

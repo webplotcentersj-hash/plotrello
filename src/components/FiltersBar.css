@@ -280,6 +280,20 @@
 
 .filters-bar--phone .filters-bar-phone-row {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.filters-bar--phone .search-filter {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.filters-bar--phone .search-filter input {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .filters-bar--phone .filters-bar-phone-label {
@@ -289,9 +303,92 @@
   margin-bottom: 4px;
 }
 
-.filters-bar--phone .filters-bar-phone-select {
+/* Sector en móvil: lista táctil en lugar de <select> nativo (evita ancho raro y picker incómodo) */
+.filters-bar-phone-sector-wrap {
+  position: relative;
+}
+
+.filters-bar-phone-sector-trigger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
   width: 100%;
-  min-height: 44px;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(11, 13, 23, 0.85);
+  color: var(--text-primary, #f1f5f9);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.filters-bar-phone-sector-trigger-label {
+  flex: 0 0 100%;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #94a3b8);
+}
+
+.filters-bar-phone-sector-trigger-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filters-bar-phone-sector-trigger-chevron {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+
+.filters-bar-phone-sector-panel {
+  margin-top: 8px;
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 16, 27, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  -webkit-overflow-scrolling: touch;
+}
+
+.filters-bar-phone-sector-option {
+  display: block;
+  width: 100%;
+  padding: 14px 14px;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: rgba(248, 250, 252, 0.95);
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.filters-bar-phone-sector-option:last-child {
+  border-bottom: none;
+}
+
+.filters-bar-phone-sector-option.is-active {
+  background: rgba(99, 102, 241, 0.22);
+  font-weight: 700;
+}
+
+.filters-bar-phone-sector-option:active {
+  background: rgba(99, 102, 241, 0.35);
 }
 
 .filters-bar--phone .filters-bar-phone-add {
