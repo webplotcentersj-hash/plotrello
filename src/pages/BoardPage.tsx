@@ -332,6 +332,62 @@ const BoardPage = ({
     isTaskAssignedToMe
   ])
 
+  const statusFocusKey = useMemo(() => [...statusFocus].sort().join('|'), [statusFocus])
+
+  const phoneFilterChips = useMemo(() => {
+    const chips: { key: string; text: string }[] = []
+    if (sectorFilter !== 'todos') chips.push({ key: 'sector', text: `Sector: ${sectorFilter}` })
+    const q = searchQuery.trim()
+    if (q) {
+      const short = q.length > 36 ? `${q.slice(0, 34)}…` : q
+      chips.push({ key: 'search', text: `Búsqueda: «${short}»` })
+    }
+    if (priorityFilter !== 'todas') chips.push({ key: 'prio', text: `Prioridad: ${priorityFilter}` })
+    if (misTrabajosFilter) chips.push({ key: 'mis', text: 'Mis trabajos' })
+    if (statusFocus.length > 0) {
+      const labels = statusFocus
+        .map((id) => BOARD_COLUMNS.find((c) => c.id === id)?.label ?? id)
+        .join(', ')
+      chips.push({ key: 'cols', text: `Columnas: ${labels}` })
+    }
+    return chips
+  }, [sectorFilter, searchQuery, priorityFilter, misTrabajosFilter, statusFocus])
+
+  const boardPanelRef = useRef<HTMLElement | null>(null)
+  const skipInitialPhoneBoardScrollRef = useRef(true)
+  const wasPhoneBoardRef = useRef(false)
+
+  useEffect(() => {
+    if (isPhoneBoard && !wasPhoneBoardRef.current) {
+      skipInitialPhoneBoardScrollRef.current = true
+    }
+    wasPhoneBoardRef.current = isPhoneBoard
+  }, [isPhoneBoard])
+
+  useEffect(() => {
+    if (!isPhoneBoard) return
+    const el = boardPanelRef.current
+    if (!el) return
+    if (skipInitialPhoneBoardScrollRef.current) {
+      skipInitialPhoneBoardScrollRef.current = false
+      return
+    }
+    const id = window.requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [isPhoneBoard, sectorFilter, priorityFilter, misTrabajosFilter, statusFocusKey])
+
+  useEffect(() => {
+    if (!isPhoneBoard) return
+    const q = searchQuery.trim()
+    if (q.length === 0) return
+    const t = window.setTimeout(() => {
+      boardPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 550)
+    return () => window.clearTimeout(t)
+  }, [isPhoneBoard, searchQuery])
+
   const taskToView = useMemo(
     () => (taskViewId ? tasks.find((t) => t.id === taskViewId) ?? null : null),
     [tasks, taskViewId]
@@ -1210,7 +1266,26 @@ const BoardPage = ({
       <main
         className={`app-layout${sidebarCompact ? ' app-layout--sidebar-compact' : ''}`}
       >
-        <section className="board-panel">
+        <section ref={boardPanelRef} className="board-panel" id="board-main-panel">
+          {isPhoneBoard && (
+            <div className="board-phone-filter-strip" aria-live="polite">
+              <div className="board-phone-filter-strip-count">
+                <strong>{filteredTasks.length}</strong>
+                <span> fichas visibles</span>
+              </div>
+              {phoneFilterChips.length > 0 ? (
+                <ul className="board-phone-filter-chips">
+                  {phoneFilterChips.map((c) => (
+                    <li key={c.key} className="board-phone-filter-chip">
+                      {c.text}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="board-phone-filter-strip-hint">Mostrando el tablero completo (sin filtros).</p>
+              )}
+            </div>
+          )}
           <Board
             columns={BOARD_COLUMNS}
             tasks={filteredTasks}
