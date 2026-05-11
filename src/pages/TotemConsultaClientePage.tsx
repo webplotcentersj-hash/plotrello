@@ -30,7 +30,6 @@ const TOTEM_SECTORS_QUEHACER: Array<{
 
 const TotemConsultaClientePage = () => {
   const [searchOp, setSearchOp] = useState('')
-  const [searchDni, setSearchDni] = useState('')
   const [loading, setLoading] = useState(false)
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
   const [historial, setHistorial] = useState<Record<number, HistorialMovimiento[]>>({})
@@ -39,6 +38,9 @@ const TotemConsultaClientePage = () => {
   const [sectorDestino, setSectorDestino] = useState<string>('Mostrador')
   const [step, setStep] = useState<'idle' | 'welcome' | 'search'>('idle')
   const [selectedQueHacer, setSelectedQueHacer] = useState<string | null>(null)
+  const [avisoVoyNombre, setAvisoVoyNombre] = useState('')
+  const [avisoVoyMotivo, setAvisoVoyMotivo] = useState('')
+  const [enviandoAvisoVoy, setEnviandoAvisoVoy] = useState(false)
   const [lastInteraction, setLastInteraction] = useState<number>(() => Date.now())
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
@@ -49,17 +51,18 @@ const TotemConsultaClientePage = () => {
       if (step === 'idle') return
       if (elapsed > INACTIVITY_MS || elapsed > IDLE_MS) {
         setSearchOp('')
-        setSearchDni('')
         setOrdenes([])
         setHistorial({})
         setError(null)
         setMensaje(null)
         setSelectedQueHacer(null)
+        setAvisoVoyNombre('')
+        setAvisoVoyMotivo('')
         setStep('idle')
       }
     }, 5000)
     return () => clearInterval(id)
-  }, [lastInteraction, ordenes.length, searchOp, searchDni, step, selectedQueHacer])
+  }, [lastInteraction, ordenes.length, searchOp, step, selectedQueHacer])
 
   const buscarOrdenes = async (filtro: (orden: OrdenTrabajo) => boolean, mensajeError: string) => {
     registrarInteraccion()
@@ -125,24 +128,6 @@ const TotemConsultaClientePage = () => {
     await buscarOrdenes(
       (orden) => digitsOnly(orden.numero_op ?? '') === searchDigits,
       'No se encontraron trabajos con ese número de OP.'
-    )
-  }
-
-  const handleSearchDni = async () => {
-    const term = searchDni.trim()
-    if (!term) {
-      setError('Ingresá un DNI o CUIT para buscar.')
-      return
-    }
-    const searchDigits = digitsOnly(term)
-    if (searchDigits.length < 6) {
-      setError('Ingresá al menos 6 dígitos de DNI/CUIT.')
-      return
-    }
-
-    await buscarOrdenes(
-      (orden) => digitsOnly(orden.dni_cuit ?? '') === searchDigits,
-      'No se encontraron trabajos con ese DNI/CUIT.'
     )
   }
 
@@ -236,14 +221,30 @@ const TotemConsultaClientePage = () => {
     registrarInteraccion()
     const sector = selectedQueHacer ? TOTEM_SECTORS_QUEHACER.find((s) => s.id === selectedQueHacer) : null
     if (!sector) return
+
+    const nombre = avisoVoyNombre.trim()
+    const motivo = avisoVoyMotivo.trim()
+    if (!nombre) {
+      setError('Ingresá tu nombre.')
+      setMensaje(null)
+      return
+    }
+    if (!motivo) {
+      setError('Contanos el motivo de tu visita.')
+      setMensaje(null)
+      return
+    }
+
     try {
       setError(null)
+      setMensaje(null)
+      setEnviandoAvisoVoy(true)
       const res = await apiService.crearAtencionMostrador({
-        cliente_nombre: 'Cliente tótem',
+        cliente_nombre: nombre,
         tipo: 'consulta',
         usuario_id: 1,
         usuario_nombre: 'Totem autoservicio',
-        notas: `Cliente se dirige a ${sector.label} (desde tótem).`,
+        notas: `Cliente se dirige a ${sector.label} (desde tótem). Motivo: ${motivo}`,
         sector_destino: sector.sectorDestino
       })
       if (!res.success) {
@@ -254,6 +255,8 @@ const TotemConsultaClientePage = () => {
     } catch (err) {
       console.error('Error avisando desde tótem:', err)
       setError('No se pudo enviar el aviso.')
+    } finally {
+      setEnviandoAvisoVoy(false)
     }
   }
 
@@ -372,9 +375,7 @@ const TotemConsultaClientePage = () => {
               >
                 🔍 Buscar mi trabajo
               </button>
-              <p className="totem-welcome-hint">
-                Vas a necesitar tu número de OP o tu DNI/CUIT.
-              </p>
+              <p className="totem-welcome-hint">Vas a necesitar tu número de OP.</p>
 
               <div className="totem-senaletica-block">
                 <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
@@ -395,6 +396,8 @@ const TotemConsultaClientePage = () => {
                         setSelectedQueHacer(sector.id)
                         setError(null)
                         setMensaje(null)
+                        setAvisoVoyNombre('')
+                        setAvisoVoyMotivo('')
                       }}
                     >
                       <span className="totem-strip-text">{sector.label}</span>
@@ -416,13 +419,15 @@ const TotemConsultaClientePage = () => {
                         setSelectedQueHacer(null)
                         setMensaje(null)
                         setError(null)
+                        setAvisoVoyNombre('')
+                        setAvisoVoyMotivo('')
                       }
                     }}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="totem-modal-title"
                   >
-                    <div className="totem-direccion-modal">
+                    <div className="totem-direccion-modal" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className="totem-direccion-modal-close"
@@ -431,6 +436,8 @@ const TotemConsultaClientePage = () => {
                           setSelectedQueHacer(null)
                           setMensaje(null)
                           setError(null)
+                          setAvisoVoyNombre('')
+                          setAvisoVoyMotivo('')
                         }}
                         aria-label="Cerrar"
                       >
@@ -450,6 +457,39 @@ const TotemConsultaClientePage = () => {
                         <p className="totem-direccion-modal-seguir">
                           Seguí las flechas en el piso hasta llegar a tu destino.
                         </p>
+                        <div className="totem-direccion-aviso-form">
+                          <div className="totem-direccion-field">
+                            <label htmlFor="totem-aviso-nombre">Tu nombre</label>
+                            <input
+                              id="totem-aviso-nombre"
+                              type="text"
+                              className="dni-input totem-input totem-direccion-input"
+                              value={avisoVoyNombre}
+                              onChange={(e) => {
+                                registrarInteraccion()
+                                setAvisoVoyNombre(e.target.value)
+                              }}
+                              placeholder="Nombre y apellido"
+                              autoComplete="name"
+                              disabled={enviandoAvisoVoy}
+                            />
+                          </div>
+                          <div className="totem-direccion-field">
+                            <label htmlFor="totem-aviso-motivo">Motivo de la visita</label>
+                            <textarea
+                              id="totem-aviso-motivo"
+                              className="dni-input totem-input totem-direccion-textarea"
+                              value={avisoVoyMotivo}
+                              onChange={(e) => {
+                                registrarInteraccion()
+                                setAvisoVoyMotivo(e.target.value)
+                              }}
+                              placeholder="Ej: retirar un pedido, consultar un presupuesto…"
+                              rows={3}
+                              disabled={enviandoAvisoVoy}
+                            />
+                          </div>
+                        </div>
                         <div className="totem-direccion-actions">
                           <button
                             type="button"
@@ -459,6 +499,8 @@ const TotemConsultaClientePage = () => {
                               setSelectedQueHacer(null)
                               setMensaje(null)
                               setError(null)
+                              setAvisoVoyNombre('')
+                              setAvisoVoyMotivo('')
                             }}
                           >
                             ← Volver
@@ -467,9 +509,9 @@ const TotemConsultaClientePage = () => {
                             type="button"
                             className="totem-cta-button totem-cta-small"
                             onClick={handleAvisarQueVoy}
-                            disabled={loading}
+                            disabled={enviandoAvisoVoy}
                           >
-                            Avisar que voy
+                            {enviandoAvisoVoy ? 'Enviando…' : 'Avisar que voy'}
                           </button>
                         </div>
                         {mensaje && (
@@ -499,8 +541,8 @@ const TotemConsultaClientePage = () => {
                 <div className="header-text">
                   <h1>Buscá tu trabajo</h1>
                   <p>
-                    Ingresá tu número de OP o DNI/CUIT y te mostramos en qué estado está. Más abajo podés
-                    enviar un archivo para imprimir en mostrador.
+                    Ingresá tu número de OP y te mostramos en qué estado está. Más abajo podés enviar un
+                    archivo para imprimir en mostrador.
                   </p>
                 </div>
               </div>
@@ -534,36 +576,6 @@ const TotemConsultaClientePage = () => {
                   className="search-button totem-button"
                 >
                   {loading ? 'Buscando...' : 'Buscar por OP'}
-                </button>
-              </div>
-
-              <div className="search-box secondary-search-box totem-search-box">
-                <div className="input-group">
-                  <label htmlFor="consulta-dni">Buscar por DNI / CUIT</label>
-                  <input
-                    id="consulta-dni"
-                    type="text"
-                    value={searchDni}
-                    onChange={(e) => {
-                      registrarInteraccion()
-                      setSearchDni(e.target.value)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSearchDni()
-                    }}
-                    placeholder="Solo números de DNI o CUIT"
-                    className="dni-input totem-input"
-                    disabled={loading}
-                    autoComplete="off"
-                    inputMode="numeric"
-                  />
-                </div>
-                <button
-                  onClick={handleSearchDni}
-                  disabled={loading || !searchDni.trim()}
-                  className="search-button totem-button"
-                >
-                  {loading ? 'Buscando...' : 'Buscar por DNI/CUIT'}
                 </button>
               </div>
 

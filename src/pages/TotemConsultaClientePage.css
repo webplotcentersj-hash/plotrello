@@ -320,6 +320,42 @@
   line-height: 1.4;
 }
 
+.totem-direccion-aviso-form {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-self: stretch;
+}
+
+.totem-direccion-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.totem-direccion-field label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-align: left;
+}
+
+.totem-direccion-input,
+.totem-direccion-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.totem-direccion-textarea {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.35;
+}
+
 .totem-direccion-actions {
   display: flex;
   gap: 12px;
