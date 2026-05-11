@@ -1,4 +1,12 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
 import Header from '../components/Header'
@@ -332,8 +340,6 @@ const BoardPage = ({
     isTaskAssignedToMe
   ])
 
-  const statusFocusKey = useMemo(() => [...statusFocus].sort().join('|'), [statusFocus])
-
   const phoneFilterChips = useMemo(() => {
     const chips: { key: string; text: string }[] = []
     if (sectorFilter !== 'todos') chips.push({ key: 'sector', text: `Sector: ${sectorFilter}` })
@@ -353,40 +359,71 @@ const BoardPage = ({
     return chips
   }, [sectorFilter, searchQuery, priorityFilter, misTrabajosFilter, statusFocus])
 
-  const boardPanelRef = useRef<HTMLElement | null>(null)
-  const skipInitialPhoneBoardScrollRef = useRef(true)
-  const wasPhoneBoardRef = useRef(false)
+  const statusFocusKey = useMemo(() => [...statusFocus].sort().join('|'), [statusFocus])
+  const filteredTasksRef = useRef(filteredTasks)
+  filteredTasksRef.current = filteredTasks
 
-  useEffect(() => {
-    if (isPhoneBoard && !wasPhoneBoardRef.current) {
-      skipInitialPhoneBoardScrollRef.current = true
-    }
-    wasPhoneBoardRef.current = isPhoneBoard
-  }, [isPhoneBoard])
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isPhoneBoard) return
-    const el = boardPanelRef.current
-    if (!el) return
-    if (skipInitialPhoneBoardScrollRef.current) {
-      skipInitialPhoneBoardScrollRef.current = false
+    const panel = document.getElementById('board-main-panel')
+    const wrap = panel?.querySelector('.board-wrapper') as HTMLElement | null
+    const grid = wrap?.querySelector('.columns-grid') as HTMLElement | null
+    if (!wrap || !grid) return
+
+    const noFilters =
+      sectorFilter === 'todos' &&
+      !searchQuery.trim() &&
+      priorityFilter === 'todas' &&
+      !misTrabajosFilter &&
+      statusFocus.length === 0
+
+    if (noFilters) {
+      wrap.scrollLeft = 0
       return
     }
-    const id = window.requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [isPhoneBoard, sectorFilter, priorityFilter, misTrabajosFilter, statusFocusKey])
 
-  useEffect(() => {
-    if (!isPhoneBoard) return
-    const q = searchQuery.trim()
-    if (q.length === 0) return
-    const t = window.setTimeout(() => {
-      boardPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 550)
-    return () => window.clearTimeout(t)
-  }, [isPhoneBoard, searchQuery])
+    const colDivs = grid.querySelectorAll('.board-column')
+    if (!colDivs.length) return
+
+    const ft = filteredTasksRef.current
+    let targetIdx = -1
+
+    if (sectorFilter !== 'todos') {
+      const byLabel = BOARD_COLUMNS.findIndex(
+        (c) => c.label.trim().toLowerCase() === sectorFilter.trim().toLowerCase()
+      )
+      if (byLabel >= 0) {
+        const colId = BOARD_COLUMNS[byLabel].id
+        const hasInThatCol = ft.some((t) => t.status === colId)
+        targetIdx = hasInThatCol
+          ? byLabel
+          : BOARD_COLUMNS.findIndex((c) => ft.some((t) => t.status === c.id))
+        if (targetIdx < 0) targetIdx = byLabel
+      }
+    }
+
+    if (targetIdx < 0) {
+      targetIdx = BOARD_COLUMNS.findIndex((c) => ft.some((t) => t.status === c.id))
+    }
+
+    if (targetIdx < 0 || targetIdx >= colDivs.length) {
+      wrap.scrollLeft = 0
+      return
+    }
+
+    ;(colDivs[targetIdx] as HTMLElement).scrollIntoView({
+      inline: 'start',
+      block: 'nearest',
+      behavior: 'auto'
+    })
+  }, [
+    isPhoneBoard,
+    sectorFilter,
+    searchQuery,
+    priorityFilter,
+    misTrabajosFilter,
+    statusFocusKey
+  ])
 
   const taskToView = useMemo(
     () => (taskViewId ? tasks.find((t) => t.id === taskViewId) ?? null : null),
@@ -1266,7 +1303,7 @@ const BoardPage = ({
       <main
         className={`app-layout${sidebarCompact ? ' app-layout--sidebar-compact' : ''}`}
       >
-        <section ref={boardPanelRef} className="board-panel" id="board-main-panel">
+        <section className="board-panel" id="board-main-panel">
           {isPhoneBoard && (
             <div className="board-phone-filter-strip" aria-live="polite">
               <div className="board-phone-filter-strip-count">
