@@ -131,6 +131,7 @@ import EnvDebug from './components/EnvDebug'
 import SolicitudesPermisosFloatingButton from './components/SolicitudesPermisosFloatingButton'
 import TallerGraficoPedidoEntregaOverlay from './components/TallerGraficoPedidoEntregaOverlay'
 import { useAuth } from './hooks/useAuth'
+import { usePhoneBoardLayout } from './hooks/usePhoneBoardLayout'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
 import type {
   HistorialMovimiento,
@@ -735,8 +736,13 @@ function AppRoutes({
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const hideCampoFloaters = pathname === '/app-campo'
+  const isPhoneLayout = usePhoneBoardLayout()
   const hideImpresorasButton =
-    pathname === '/menu-diario' && window.matchMedia && window.matchMedia('(max-width: 720px)').matches
+    isPhoneLayout ||
+    (pathname === '/menu-diario' &&
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 720px)').matches)
   const { isAdmin, isPresupuestos } = useAuth()
 
   // Los movimientos de asesor técnico/presupuestos solo los ven admin y presupuestos
