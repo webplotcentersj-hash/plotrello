@@ -140,6 +140,7 @@ import type {
   UsuarioRecord
 } from './types/api'
 import './app.css'
+import './plotlab-mobile.css'
 import apiService from './services/api'
 import { historialToActivity, ordenToTask } from './utils/dataMappers'
 import { supabase } from './services/supabaseClient'

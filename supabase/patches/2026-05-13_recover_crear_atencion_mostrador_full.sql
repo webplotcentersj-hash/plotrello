@@ -1,5 +1,5 @@
--- Tótem / mostrador: mensaje visible en el canal de chat interno correcto + chat_canal en la notificación
--- Requiere usuario id=1 (Totem autoservicio) y rooms de chat 1–7 alineados con la app.
+-- Recuperación: si corriste el DROP del patch 2026-05-11 y el CREATE falló, no queda ninguna función.
+-- Ejecutá este archivo entero en el SQL Editor de Supabase (una sola vez).
 
 DO $$
 BEGIN
@@ -13,26 +13,28 @@ BEGIN
   END IF;
 END$$;
 
--- Varias migraciones definieron firmas distintas (7 vs 9 args); hay que borrar todas antes de recrear.
-DO $$
-DECLARE
-  r RECORD;
-BEGIN
-  FOR r IN
-    SELECT format(
-      'DROP FUNCTION IF EXISTS %I.%I(%s) CASCADE',
-      n.nspname,
-      p.proname,
-      pg_catalog.pg_get_function_identity_arguments(p.oid)
-    ) AS drop_stmt
-    FROM pg_catalog.pg_proc p
-    JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname = 'crear_atencion_mostrador'
-  LOOP
-    EXECUTE r.drop_stmt;
-  END LOOP;
-END$$;
+-- Firmas históricas en el repo (7 y 9 argumentos)
+DROP FUNCTION IF EXISTS public.crear_atencion_mostrador(
+  character varying,
+  text,
+  integer,
+  character varying,
+  integer,
+  integer,
+  text,
+  text,
+  text
+) CASCADE;
+
+DROP FUNCTION IF EXISTS public.crear_atencion_mostrador(
+  character varying,
+  text,
+  integer,
+  character varying,
+  integer,
+  integer,
+  text
+) CASCADE;
 
 CREATE OR REPLACE FUNCTION public.crear_atencion_mostrador(
   p_cliente_nombre varchar(255),
@@ -100,7 +102,6 @@ BEGIN
 
   v_key := btrim(coalesce(p_sector_destino, ''));
 
-  -- room_id alineado con src/services/api.ts chatChannelToRoom y ChatPage
   v_room_id := CASE v_key
     WHEN 'Diseño' THEN 2
     WHEN 'Diseño gráfico' THEN 2
@@ -134,7 +135,6 @@ BEGIN
     ELSE 'mostrador'
   END;
 
-  -- Rol en tabla usuarios para filtrar destinatarios (incluye textos del tótem)
   v_rol_sector := CASE v_key
     WHEN 'Diseño' THEN 'diseno'
     WHEN 'Diseño gráfico' THEN 'diseno'
@@ -157,7 +157,6 @@ BEGIN
       END
   END;
 
-  -- Un solo mensaje en el canal que corresponde al sector elegido
   INSERT INTO public.chat_messages (
     room_id,
     id_usuario,
@@ -227,8 +226,6 @@ BEGIN
 END;
 $$;
 
--- Tras DROP/CREATE el OID nuevo no hereda permisos: sin esto PostgREST responde
--- "Could not find the function ... in the schema cache" para anon/authenticated.
 DO $$
 DECLARE
   fn text;
@@ -241,9 +238,10 @@ BEGIN
     AND p.proname = 'crear_atencion_mostrador'
   ORDER BY p.oid DESC
   LIMIT 1;
-  IF fn IS NOT NULL THEN
-    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO anon, authenticated, service_role', fn);
+  IF fn IS NULL THEN
+    RAISE EXCEPTION 'La función no se creó; revisá errores arriba (FK usuario 1, columnas chat_messages, etc.).';
   END IF;
+  EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO anon, authenticated, service_role', fn);
 END$$;
 
 NOTIFY pgrst, 'reload schema';

@@ -1,0 +1,83 @@
+/**
+ * Plot Lab — refuerzos móvil (viewport ≤768px).
+ * Las reglas por defecto de escritorio viven en app.css / Board.css / Header.css;
+ * aquí solo se anula o complementa bajo este breakpoint.
+ */
+
+@media (max-width: 768px) {
+  .trello-plot-app {
+    padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    box-sizing: border-box;
+  }
+
+  .tp-header {
+    padding: 14px 12px;
+    border-radius: 18px;
+  }
+
+  .tp-header h1 {
+    font-size: clamp(1.25rem, 5vw, 1.75rem);
+  }
+
+  .board-panel {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .filters-bar {
+    padding: 14px;
+    margin-top: 16px;
+    border-radius: 16px;
+  }
+
+  .library-button-container .brand-button,
+  .library-button-container .library-button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* board-wrapper: en escritorio overflow:hidden evita saltos; en móvil permitimos scroll horizontal del kanban */
+  .board-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Carril horizontal tipo “Trello móvil”: columnas anchas y snap */
+  .columns-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 12px;
+    overflow-x: visible;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 10px;
+    grid-template-columns: unset;
+    min-height: 0;
+  }
+
+  .board-column {
+    flex: 0 0 min(88vw, 300px);
+    width: min(88vw, 300px);
+    min-width: min(88vw, 300px);
+    max-width: min(88vw, 300px);
+    min-height: 300px;
+    max-height: min(68vh, 520px);
+    padding: 14px;
+    border-radius: 14px;
+    scroll-snap-align: start;
+  }
+
+  .app-layout {
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .insights-toggle-row {
+    justify-content: center;
+  }
+}
