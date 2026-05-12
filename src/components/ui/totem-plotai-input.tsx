@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea'
 import styles from './totem-plotai-input.module.css'
 
 export type TotemPlotAiInputProps = {
-  onSendToTotem: (text: string) => void
+  onSend: (text: string) => void | Promise<void>
+  disabled?: boolean
   className?: string
 }
 
@@ -70,7 +71,7 @@ function AnimatedPlaceholder({ showSearch }: { showSearch: boolean }) {
   )
 }
 
-export function TotemPlotAiInput({ onSendToTotem, className }: TotemPlotAiInputProps) {
+export function TotemPlotAiInput({ onSend, disabled, className }: TotemPlotAiInputProps) {
   const [value, setValue] = useState('')
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: MIN_HEIGHT,
@@ -101,21 +102,24 @@ export function TotemPlotAiInput({ onSendToTotem, className }: TotemPlotAiInputP
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     let line = value.trim()
     if (attachedFile) {
       const note = `(Adjunto: ${attachedFile.name})`
       line = line ? `${line}\n\n${note}` : note
     }
-    if (!line) return
+    if (!line || disabled) return
     const prefix = showSearch ? '(Quiero información actualizada de la web)\n\n' : ''
-    onSendToTotem(prefix + line)
-    setValue('')
-    adjustHeight(true)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    if (imagePreview) URL.revokeObjectURL(imagePreview)
-    setImagePreview(null)
-    setAttachedFile(null)
+    try {
+      await Promise.resolve(onSend(prefix + line))
+    } finally {
+      setValue('')
+      adjustHeight(true)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (imagePreview) URL.revokeObjectURL(imagePreview)
+      setImagePreview(null)
+      setAttachedFile(null)
+    }
   }
 
   useEffect(() => {
@@ -136,10 +140,12 @@ export function TotemPlotAiInput({ onSendToTotem, className }: TotemPlotAiInputP
                 placeholder=""
                 className={styles.textarea}
                 ref={textareaRef}
+                disabled={disabled}
                 onKeyDown={(e) => {
+                  if (disabled) return
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
-                    handleSubmit()
+                    void handleSubmit()
                   }
                 }}
                 onChange={(e) => {
@@ -157,7 +163,8 @@ export function TotemPlotAiInput({ onSendToTotem, className }: TotemPlotAiInputP
                 className={cn(
                   styles.iconBtn,
                   styles.clipLabel,
-                  (imagePreview || attachedFile) && styles.iconBtnActive
+                  (imagePreview || attachedFile) && styles.iconBtnActive,
+                  disabled && styles.iconBtnDisabled
                 )}
               >
                 <input
@@ -166,6 +173,7 @@ export function TotemPlotAiInput({ onSendToTotem, className }: TotemPlotAiInputP
                   onChange={handleFileChange}
                   className={styles.clipInput}
                   accept="image/*,.pdf"
+                  disabled={disabled}
                 />
                 <Paperclip className={styles.iconSm} aria-hidden />
                 {imagePreview && (
@@ -181,6 +189,7 @@ export function TotemPlotAiInput({ onSendToTotem, className }: TotemPlotAiInputP
               <button
                 type="button"
                 onClick={() => setShowSearch((v) => !v)}
+                disabled={disabled}
                 className={cn(styles.globeBtn, showSearch && styles.globeBtnActive)}
               >
                 <motion.span
@@ -209,9 +218,10 @@ export function TotemPlotAiInput({ onSendToTotem, className }: TotemPlotAiInputP
 
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
+              disabled={disabled}
               className={cn(styles.iconBtn, (value.trim() || attachedFile) && styles.iconBtnActive)}
-              aria-label="Enviar a PlotAI"
+              aria-label="Enviar mensaje"
             >
               <Send className={styles.iconSm} aria-hidden />
             </button>

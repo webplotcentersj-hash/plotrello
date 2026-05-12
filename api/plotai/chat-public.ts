@@ -601,8 +601,10 @@ SALIDA:
       modo === 'cliente_portal'
         ? ' Estás atendiendo desde el PORTAL DE CLIENTES: asumí que hablás con un cliente ya registrado, que consulta principalmente por sus pedidos y OP asociadas a su cuenta.'
         : modo === 'totem'
-        ? ' Estás en un TÓTEM con voz en el MOSTRADOR del local Plot Center: sos la primera cara de atención al público que entra o espera en recepción.'
-        : ' Estás atendiendo desde el CHAT PÚBLICO de la web para cualquier visitante (potenciales clientes y clientes actuales).'
+          ? ' Estás en un TÓTEM con voz en el MOSTRADOR del local Plot Center: sos la primera cara de atención al público que entra o espera en recepción.'
+          : modo === 'totem_autogestion'
+            ? ' Estás en el TÓTEM DE AUTOGESTIÓN en el local Plot Center (pantalla táctil en mostrador): la persona escribe sobre OP, productos del catálogo o impresión. Este canal es solo texto (sin voz): respondé para leer en pantalla.'
+            : ' Estás atendiendo desde el CHAT PÚBLICO de la web para cualquier visitante (potenciales clientes y clientes actuales).'
 
     const totemMostradorBloque =
       modo === 'totem'
@@ -616,7 +618,16 @@ ATENCIÓN EN MOSTRADOR (TÓTEM CON VOZ) — OBLIGATORIO:
 - Priorizá estado de trabajos retiros horarios y ubicación del local según el contexto que tengas.
 - Tu texto será LEÍDO EN VOZ ALTA: no uses asteriscos ni markdown ni negritas; no uses comas ni puntos (uní ideas con "y" o con frases seguidas); no hagas listas con guiones ni numeraciones; no digas en voz alta el nombre de signos de puntuación.
 `
-        : ''
+        : modo === 'totem_autogestion'
+          ? `
+
+ATENCIÓN TÓTEM AUTOGESTIÓN (solo texto en pantalla) — OBLIGATORIO:
+- Tono de mostrador: cordial, claro y servicial; frases cortas que se lean bien a un metro de la pantalla.
+- Explicá cómo usar el propio tótem cuando corresponda: "Averiguar OP", elegir productos del catálogo, solicitud de impresión en cola y pago en caja.
+- Orientá con pasos concretos (sector, documento a llevar, número de OP).
+- Podés usar párrafos breves y listas con guiones si ayudan a escanear la respuesta en pantalla.
+`
+          : ''
 
     const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente.${canalPrompt} Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${totemMostradorBloque}${notaSolicitud}
 

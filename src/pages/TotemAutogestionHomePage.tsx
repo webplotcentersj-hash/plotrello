@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TotemPlotAiInput } from '@/components/ui/totem-plotai-input'
-import { setTotemSeedMessage } from '../utils/totemSeedMessage'
+import { TotemAutogestionPlotAiChat } from '@/components/ui/TotemAutogestionPlotAiChat'
 import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import './TotemAutogestionHomePage.css'
 
@@ -10,13 +9,6 @@ const IDLE_MS = 90_000
 export default function TotemAutogestionHomePage() {
   const navigate = useNavigate()
   const [lastInteraction, setLastInteraction] = useState(() => Date.now())
-
-  const sendToPlotAiTotem = (text: string) => {
-    const t = text.trim()
-    if (!t) return
-    setTotemSeedMessage(t)
-    navigate('/totem')
-  }
 
   const touch = () => setLastInteraction(Date.now())
 
@@ -92,7 +84,7 @@ export default function TotemAutogestionHomePage() {
         </main>
 
         <footer className="totem-auto-footer">
-          <TotemPlotAiInput onSendToTotem={sendToPlotAiTotem} />
+          <TotemAutogestionPlotAiChat />
         </footer>
       </div>
     </TotemAutogestionKioskShell>

@@ -202,8 +202,15 @@
 .totem-auto-footer {
   width: 100%;
   margin-top: clamp(24px, 4vw, 36px);
-  padding-top: 4px;
+  padding: clamp(18px, 3vw, 26px) clamp(12px, 2vw, 8px) clamp(8px, 1.5vw, 12px);
   box-sizing: border-box;
+  border-radius: var(--totem-radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    radial-gradient(ellipse 90% 120% at 50% 100%, rgba(251, 146, 60, 0.09), transparent 55%),
+    radial-gradient(ellipse 70% 80% at 20% 0%, rgba(56, 189, 248, 0.06), transparent 50%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.12) 100%);
+  box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 900px) {
