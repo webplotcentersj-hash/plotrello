@@ -1,7 +1,6 @@
 @import './totemAutogestionTheme.css';
 
 .totem-bo-page {
-  min-height: 100vh;
   background: radial-gradient(700px 420px at 50% -10%, rgba(99, 102, 241, 0.15), transparent 55%),
     linear-gradient(168deg, var(--totem-bg-top) 0%, var(--totem-bg-mid) 50%, var(--totem-bg-deep) 100%);
   color: var(--totem-text);

@@ -1,7 +1,6 @@
 @import './totemAutogestionTheme.css';
 
 .totem-print-page {
-  min-height: 100vh;
   background: radial-gradient(820px 520px at 100% 0%, rgba(244, 114, 182, 0.16), transparent 52%),
     radial-gradient(640px 440px at 0% 80%, rgba(56, 189, 248, 0.1), transparent 50%),
     linear-gradient(168deg, var(--totem-bg-top) 0%, var(--totem-bg-mid) 48%, var(--totem-bg-deep) 100%);

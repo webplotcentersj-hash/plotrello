@@ -1,0 +1,48 @@
+/* Kiosko / pantalla grande: contenedor sobre fondo animado */
+.totem-kiosk-shell {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.totem-kiosk-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: min(1920px, 100%);
+  margin: 0 auto;
+  box-sizing: border-box;
+  min-height: 0;
+  background: radial-gradient(1200px 640px at 10% -5%, rgba(56, 189, 248, 0.14), transparent 52%),
+    radial-gradient(900px 520px at 95% 15%, rgba(167, 139, 250, 0.1), transparent 48%),
+    radial-gradient(800px 480px at 50% 105%, rgba(244, 114, 182, 0.08), transparent 45%),
+    linear-gradient(168deg, rgba(16, 19, 35, 0.88) 0%, rgba(6, 8, 16, 0.93) 100%);
+}
+
+.totem-kiosk-inner > .totem-auto-page,
+.totem-kiosk-inner > .totem-cat-page,
+.totem-kiosk-inner > .totem-checkout-page,
+.totem-kiosk-inner > .totem-print-page,
+.totem-kiosk-inner > .totem-bo-page {
+  background: transparent !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+@media (min-width: 1400px) {
+  .totem-kiosk-inner {
+    max-width: min(1760px, 96vw);
+    padding-left: clamp(12px, 2vw, 28px);
+    padding-right: clamp(12px, 2vw, 28px);
+  }
+}
+
+@media (min-width: 1920px) {
+  .totem-kiosk-inner {
+    font-size: 106%;
+    max-width: min(1840px, 94vw);
+  }
+}

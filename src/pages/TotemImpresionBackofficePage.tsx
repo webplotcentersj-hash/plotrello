@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import './TotemImpresionBackofficePage.css'
 
 type Row = {
@@ -70,16 +71,19 @@ export default function TotemImpresionBackofficePage() {
 
   if (!isAdmin) {
     return (
+      <TotemAutogestionKioskShell>
       <div className="totem-bo-page">
         <div className="totem-bo-card">
           <h1>Cola impresión (tótem)</h1>
           <p>Acceso restringido.</p>
         </div>
       </div>
+      </TotemAutogestionKioskShell>
     )
   }
 
   return (
+    <TotemAutogestionKioskShell>
     <div className="totem-bo-page">
       <header className="totem-bo-header">
         <div>
@@ -166,6 +170,7 @@ export default function TotemImpresionBackofficePage() {
         </div>
       </main>
     </div>
+    </TotemAutogestionKioskShell>
   )
 }
 

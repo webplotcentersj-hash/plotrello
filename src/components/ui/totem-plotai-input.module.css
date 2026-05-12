@@ -1,0 +1,208 @@
+.wrap {
+  width: 100%;
+  padding: clamp(12px, 2vw, 20px) 0;
+  box-sizing: border-box;
+}
+
+.cardOuter {
+  position: relative;
+  width: 100%;
+  max-width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 4px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.cardInner {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 22, 0.75);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+
+.growArea {
+  max-height: 164px;
+  overflow-y: auto;
+}
+
+.taWrap {
+  position: relative;
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 18px 18px 0 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  font-size: 1rem;
+  line-height: 1.25;
+  resize: none;
+  font-family: inherit;
+}
+
+.textarea::placeholder {
+  color: transparent;
+}
+
+.textarea:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.35);
+}
+
+.placeholderOverlay {
+  pointer-events: none;
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  width: min(280px, 75%);
+  font-size: 0.92rem;
+  color: rgba(226, 232, 240, 0.55);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(248, 250, 252, 0.55);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.iconBtn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.iconBtnActive {
+  background: rgba(251, 146, 60, 0.18);
+  border-color: rgba(251, 146, 60, 0.45);
+  color: #fdba74;
+}
+
+.clipLabel {
+  position: relative;
+  cursor: pointer;
+}
+
+.clipInput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.globeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(248, 250, 252, 0.55);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.globeBtn:hover {
+  color: #f8fafc;
+}
+
+.globeBtnActive {
+  background: rgba(251, 146, 60, 0.18);
+  border-color: rgba(251, 146, 60, 0.45);
+  color: #fdba74;
+}
+
+.globeLabel {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.previewWrap {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  top: 44px;
+  left: -8px;
+  z-index: 5;
+}
+
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.previewClose {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: #e8e8e8;
+  color: #464646;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transform: rotate(45deg);
+}
+
+.previewClose:hover {
+  filter: brightness(1.05);
+}
+
+.iconSm {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import './TotemAutogestionImprimirPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
@@ -78,6 +79,7 @@ export default function TotemAutogestionImprimirPage() {
   }
 
   return (
+    <TotemAutogestionKioskShell>
     <div className="totem-print-page">
       <header className="totem-print-header">
         <button type="button" className="totem-print-back" onClick={() => navigate('/totem/autogestion')}>
@@ -179,6 +181,7 @@ export default function TotemAutogestionImprimirPage() {
         )}
       </main>
     </div>
+    </TotemAutogestionKioskShell>
   )
 }
 

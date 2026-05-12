@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import { cartItemCount, cartTotal, clearTotemCart, readTotemCart } from './totemAutogestionCart'
+import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import './TotemAutogestionCheckoutPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
@@ -118,6 +119,7 @@ export default function TotemAutogestionCheckoutPage() {
   }
 
   return (
+    <TotemAutogestionKioskShell>
     <div className="totem-checkout-page">
       <header className="totem-checkout-header">
         <button type="button" className="totem-checkout-back" onClick={() => navigate('/totem/autogestion/catalogo')}>
@@ -227,6 +229,7 @@ export default function TotemAutogestionCheckoutPage() {
         )}
       </main>
     </div>
+    </TotemAutogestionKioskShell>
   )
 }
 

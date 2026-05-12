@@ -11,6 +11,7 @@ import {
   setItemCantidad,
   writeTotemCart
 } from './totemAutogestionCart'
+import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import './TotemAutogestionCatalogoPage.css'
 
 export default function TotemAutogestionCatalogoPage() {
@@ -73,6 +74,7 @@ export default function TotemAutogestionCatalogoPage() {
   }
 
   return (
+    <TotemAutogestionKioskShell>
     <div className="totem-cat-page">
       <header className="totem-cat-header">
         <div className="totem-cat-title">
@@ -256,6 +258,7 @@ export default function TotemAutogestionCatalogoPage() {
         </div>
       )}
     </div>
+    </TotemAutogestionKioskShell>
   )
 }
 

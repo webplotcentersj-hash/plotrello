@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import './TotemChatPage.css'
+import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
 
 /** Saludo de mostrador: claro al leer en voz alta (sin comas/puntos por formatTotemVoiceText). */
 const GREETING_SPEECH =
@@ -63,10 +64,17 @@ export default function TotemChatPage() {
   /** Un solo aviso si ElevenLabs no está configurado y caemos a voz del navegador. */
   const ttsElevenLabsFallbackWarnedRef = useRef(false)
   const idleResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSeedRef = useRef<string | null>(null)
+  const seedDispatchedRef = useRef(false)
 
   historyRef.current = history
   conversationIdRef.current = conversationId
   stateRef.current = state
+
+  useEffect(() => {
+    const msg = consumeTotemSeedMessage()
+    if (msg) pendingSeedRef.current = msg
+  }, [])
 
   const safeRecStart = useCallback(() => {
     try {
@@ -381,6 +389,18 @@ export default function TotemChatPage() {
   useEffect(() => {
     processUserTurnRef.current = processUserTurn
   }, [processUserTurn])
+
+  useEffect(() => {
+    if (state !== 'listening') return
+    const seed = pendingSeedRef.current
+    if (!seed || seedDispatchedRef.current) return
+    seedDispatchedRef.current = true
+    pendingSeedRef.current = null
+    const id = window.setTimeout(() => {
+      void processUserTurnRef.current(seed)
+    }, 480)
+    return () => clearTimeout(id)
+  }, [state])
 
   const startListening = useCallback(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition

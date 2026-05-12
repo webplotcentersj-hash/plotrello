@@ -17,7 +17,8 @@
     "clean": "node scripts/clear-cache.js && npm run build",
     "clean-all": "node scripts/clear-cache.js --clean-node && npm run build",
     "manual:pdf": "node scripts/build-manual-pdf.mjs",
-    "manual:pdf:op-sectores": "node scripts/build-manual-pdf.mjs MANUAL_OP_SECTORES_MULTIPLES.md"
+    "manual:pdf:op-sectores": "node scripts/build-manual-pdf.mjs MANUAL_OP_SECTORES_MULTIPLES.md",
+    "pdf:mejoras-usuarios": "node scripts/build-manual-pdf.mjs docs/MEJORAS_USUARIOS.md docs/MEJORAS_USUARIOS.pdf"
   },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
@@ -47,7 +48,9 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.14.0",
     "marked": "^17.0.0",
+    "motion": "^12.38.0",
     "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.3",
     "react": "^19.2.0",
