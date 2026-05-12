@@ -71,7 +71,7 @@ function normalizarVentaDashboard(row: unknown): Venta | null {
 
 const MostradorDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, usuario } = useAuth()
+  const { isAdmin, usuario, canAccessTotemImpresionPanel } = useAuth()
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [registrandoRapido, setRegistrandoRapido] = useState(false)
@@ -1003,6 +1003,23 @@ const MostradorDashboardPage = () => {
             <div className="accion-icon">📞</div>
             <div className="accion-label">Atención al público</div>
           </button>
+          <button
+            className="accion-card"
+            onClick={() => navigate('/crm-ventas')}
+          >
+            <div className="accion-icon">💼</div>
+            <div className="accion-label">CRM Ventas</div>
+          </button>
+          {canAccessTotemImpresionPanel && (
+            <button
+              type="button"
+              className="accion-card"
+              onClick={() => navigate('/impresoras/totem')}
+            >
+              <div className="accion-icon">🖨️</div>
+              <div className="accion-label">Pedidos tótem (impresión)</div>
+            </button>
+          )}
           {isAdmin && (
             <button 
               className="accion-card"

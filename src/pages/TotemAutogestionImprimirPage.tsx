@@ -24,8 +24,8 @@ export default function TotemAutogestionImprimirPage() {
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [cantidadHojas, setCantidadHojas] = useState(1)
   const [tipoImpresion, setTipoImpresion] = useState('A4 - Color')
-  const [origenArchivo, setOrigenArchivo] = useState<OrigenArchivo>('WhatsApp')
-  const [archivoUrl, setArchivoUrl] = useState(WA_CHAT_URL)
+  const [origenArchivo, setOrigenArchivo] = useState<OrigenArchivo>('CelularQR')
+  const [archivoUrl, setArchivoUrl] = useState('')
   const [archivoNombre, setArchivoNombre] = useState('')
   const [valorTotal, setValorTotal] = useState<string>('0')
 
@@ -344,7 +344,7 @@ export default function TotemAutogestionImprimirPage() {
           </button>
           <div>
             <h1>Impresión (cola)</h1>
-            <p>Dejá la solicitud. Se paga en caja/mostrador.</p>
+            <p>Dejá la solicitud. Por defecto: escaneá el QR con el celular para subir el archivo. Se paga en caja/mostrador.</p>
           </div>
         </header>
 
@@ -421,11 +421,11 @@ export default function TotemAutogestionImprimirPage() {
                       onChange={(e) => setOrigenArchivo(e.target.value as OrigenArchivo)}
                       aria-label="Origen del archivo"
                     >
+                      <option value="CelularQR">Celular (código QR)</option>
                       <option value="WhatsApp">WhatsApp</option>
                       <option value="Drive">Drive</option>
                       <option value="Email">Email</option>
                       <option value="Pendrive">Pendrive (archivo en esta PC)</option>
-                      <option value="CelularQR">Celular (código QR)</option>
                     </select>
                   </label>
                   {showWaBlock && (

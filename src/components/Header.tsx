@@ -79,7 +79,8 @@ const Header = ({
     canAccessMostradorViews,
     isTallerGrafico,
     isInstalaciones,
-    isMetalurgica
+    isMetalurgica,
+    canAccessTotemImpresionPanel
   } = useAuth()
   const location = useLocation()
   const dmMensajeriaUnread = useDmMensajeriaUnread(usuario?.id)
@@ -202,6 +203,15 @@ const Header = ({
               >
                 💼 CRM Ventas
               </a>
+            )}
+            {canAccessTotemImpresionPanel && (
+              <Link
+                to="/impresoras/totem"
+                className="brand-button"
+                onClick={() => setActionsOpen(false)}
+              >
+                🖨️ Pedidos tótem (impresión)
+              </Link>
             )}
             {canManageCompras && onNavigateToCompras && (
               <button className="brand-button" onClick={onNavigateToCompras}>

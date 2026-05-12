@@ -22,7 +22,8 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
     canManageCompras,
     canManageRecursosHumanos,
     canManagePresupuestos,
-    canAccessAtencionPublico
+    canAccessAtencionPublico,
+    canAccessTotemImpresionPanel
   } = useAuth()
 
   const items = useMemo<MenuItem[]>(() => {
@@ -46,6 +47,14 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
     ] satisfies MenuItem[]
 
     const byRole: MenuItem[] = [
+      {
+        id: 'totem-impresion',
+        title: 'Pedidos tótem (impresión)',
+        description: 'Cola de solicitudes del kiosco y marcar impreso',
+        icon: '🖨️',
+        path: '/impresoras/totem',
+        enabled: canAccessTotemImpresionPanel
+      },
       {
         id: 'mostrador',
         title: 'Mostrador',
@@ -105,7 +114,8 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
     canManageRecursosHumanos,
     isAdmin,
     canAccessMostradorViews,
-    usuario
+    usuario,
+    canAccessTotemImpresionPanel
   ])
 
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null)

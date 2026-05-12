@@ -14,7 +14,7 @@ import './CajaDashboardPage.css'
 
 const CajaDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja } = useAuth()
+  const { isAdmin, isCaja, canAccessTotemImpresionPanel } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -282,6 +282,15 @@ const CajaDashboardPage = () => {
             >
               CRM de ventas
             </button>
+            {canAccessTotemImpresionPanel && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => navigate('/impresoras/totem')}
+              >
+                Pedidos tótem
+              </button>
+            )}
             <button 
               className="btn-primary"
               onClick={() => navigate('/erp')}

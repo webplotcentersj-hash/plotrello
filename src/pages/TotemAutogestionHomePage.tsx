@@ -35,7 +35,7 @@ export default function TotemAutogestionHomePage() {
             <div>
               <p className="totem-auto-kicker">Plot Center · Totem</p>
               <h1>Autogestión</h1>
-              <p>Consultá tu OP, elegí productos y dejá tu solicitud en cola.</p>
+              <p>Consultá tu OP, elegí productos o imprimir escaneando el código con el celular.</p>
             </div>
           </div>
           <div className="totem-auto-idle" title="Auto reinicio por inactividad">
@@ -45,6 +45,18 @@ export default function TotemAutogestionHomePage() {
 
         <main className="totem-auto-main" role="main">
           <div className="totem-auto-grid">
+            <button
+              type="button"
+              className="totem-auto-tile totem-auto-tile--print"
+              onClick={() => navigate('/totem/autogestion/imprimir')}
+            >
+              <span className="totem-auto-ico-ring totem-auto-ico-ring--pink" aria-hidden>
+                <span className="totem-auto-ico">🖨️</span>
+              </span>
+              <span className="totem-auto-title">Imprimir</span>
+              <span className="totem-auto-desc">Escanear código con el celular para subir el archivo; se paga en caja.</span>
+            </button>
+
             <button
               type="button"
               className="totem-auto-tile totem-auto-tile--op"
@@ -67,18 +79,6 @@ export default function TotemAutogestionHomePage() {
               </span>
               <span className="totem-auto-title">Elegir productos</span>
               <span className="totem-auto-desc">Seleccioná del catálogo del Portal de Clientes.</span>
-            </button>
-
-            <button
-              type="button"
-              className="totem-auto-tile totem-auto-tile--print"
-              onClick={() => navigate('/totem/autogestion/imprimir')}
-            >
-              <span className="totem-auto-ico-ring totem-auto-ico-ring--pink" aria-hidden>
-                <span className="totem-auto-ico">🖨️</span>
-              </span>
-              <span className="totem-auto-title">Imprimir</span>
-              <span className="totem-auto-desc">Dejá una solicitud de impresión en cola (se paga en caja).</span>
             </button>
           </div>
         </main>
