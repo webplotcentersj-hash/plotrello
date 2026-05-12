@@ -89,6 +89,16 @@ export function useAuth() {
   const canManagePresupuestos = !!usuario && (usuario.rol === 'presupuestos' || usuario.rol === 'asesor-tecnico' || usuario.rol === 'administracion')
   // Atención al público: todos los sectores (cualquier usuario logueado)
   const canAccessAtencionPublico = !!usuario
+  /** Cola / panel de solicitudes de impresión del tótem (listar + marcar impreso). Incluye admin (gerencia/administración) y taller gráfico. */
+  const canAccessTotemImpresionPanel =
+    !!usuario &&
+    (isAdmin ||
+      usuario.rol === 'imprenta' ||
+      usuario.rol === 'mostrador' ||
+      usuario.rol === 'caja' ||
+      usuario.rol === 'taller-grafico')
+  /** Marcar pago en caja (RPC acotada a caja / administración / gerencia). */
+  const canMarcarPagoTotemImpresion = !!usuario && (usuario.rol === 'caja' || isAdmin)
 
   return {
     usuario,
@@ -116,6 +126,8 @@ export function useAuth() {
     canManageAsesorTecnico,
     canManagePresupuestos,
     canAccessAtencionPublico,
+    canAccessTotemImpresionPanel,
+    canMarcarPagoTotemImpresion,
     canAccessMostradorViews,
     loading,
     setUsuario

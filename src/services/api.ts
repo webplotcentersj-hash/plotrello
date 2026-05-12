@@ -8243,6 +8243,8 @@ class ApiService {
         numero_venta_crm?: string | null
         valor_venta?: number | null
         estado_pago_venta?: string | null
+        impreso_at?: string | null
+        impreso_por_usuario_id?: number | null
       }>
     >
   > {
@@ -8254,6 +8256,25 @@ class ApiService {
         })
         if (error) return { success: false, error: error.message }
         return { success: true, data: (data || []) as any[] }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async marcarImpresoSolicitudImpresionTotem(
+    solicitudId: number,
+    usuarioId: number
+  ): Promise<ApiResponse<boolean>> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.rpc('marcar_impreso_solicitud_impresion_totem', {
+          p_solicitud_id: solicitudId,
+          p_usuario_id: usuarioId
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: true }
       } catch (e) {
         return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
       }

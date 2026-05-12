@@ -87,7 +87,7 @@ type TrabajoActivo = {
 
 const ImpresorasPage = () => {
   const navigate = useNavigate()
-  const { loading: authLoading, usuario, canManageImpresoras } = useAuth()
+  const { loading: authLoading, usuario, canManageImpresoras, canAccessTotemImpresionPanel } = useAuth()
   const [impresoras, setImpresoras] = useState<ImpresoraOcupacion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -511,6 +511,20 @@ const ImpresorasPage = () => {
                     🔧 Modo Administración
                   </div>
                 </>
+              )}
+              {canAccessTotemImpresionPanel && (
+                <button
+                  type="button"
+                  className="refresh-button"
+                  onClick={() => navigate('/impresoras/totem')}
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.2)',
+                    borderColor: 'rgba(139, 92, 246, 0.55)',
+                    color: '#c4b5fd'
+                  }}
+                >
+                  🖨️ Pedidos tótem
+                </button>
               )}
               <button
                 className="refresh-button"
