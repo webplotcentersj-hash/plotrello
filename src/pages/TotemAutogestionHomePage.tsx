@@ -24,10 +24,14 @@ export default function TotemAutogestionHomePage() {
 
   return (
     <div className="totem-auto-page" onClick={touch} onTouchStart={touch}>
+      <div className="totem-auto-ambient" aria-hidden />
       <header className="totem-auto-header">
         <div className="totem-auto-brand">
-          <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" />
+          <div className="totem-auto-logo-ring">
+            <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" />
+          </div>
           <div>
+            <p className="totem-auto-kicker">Plot Center · Totem</p>
             <h1>Autogestión</h1>
             <p>Consultá tu OP, elegí productos y dejá tu solicitud en cola.</p>
           </div>
@@ -44,8 +48,8 @@ export default function TotemAutogestionHomePage() {
             className="totem-auto-tile totem-auto-tile--op"
             onClick={() => navigate('/totem/consulta-cliente')}
           >
-            <span className="totem-auto-ico" aria-hidden>
-              🔎
+            <span className="totem-auto-ico-ring totem-auto-ico-ring--blue" aria-hidden>
+              <span className="totem-auto-ico">🔎</span>
             </span>
             <span className="totem-auto-title">Averiguar OP</span>
             <span className="totem-auto-desc">Ver el estado de tu pedido con número de OP o DNI/CUIT.</span>
@@ -56,8 +60,8 @@ export default function TotemAutogestionHomePage() {
             className="totem-auto-tile totem-auto-tile--catalogo"
             onClick={() => navigate('/totem/autogestion/catalogo')}
           >
-            <span className="totem-auto-ico" aria-hidden>
-              🛒
+            <span className="totem-auto-ico-ring totem-auto-ico-ring--emerald" aria-hidden>
+              <span className="totem-auto-ico">🛒</span>
             </span>
             <span className="totem-auto-title">Elegir productos</span>
             <span className="totem-auto-desc">Seleccioná del catálogo del Portal de Clientes.</span>
@@ -68,8 +72,8 @@ export default function TotemAutogestionHomePage() {
             className="totem-auto-tile totem-auto-tile--print"
             onClick={() => navigate('/totem/autogestion/imprimir')}
           >
-            <span className="totem-auto-ico" aria-hidden>
-              🖨️
+            <span className="totem-auto-ico-ring totem-auto-ico-ring--pink" aria-hidden>
+              <span className="totem-auto-ico">🖨️</span>
             </span>
             <span className="totem-auto-title">Imprimir</span>
             <span className="totem-auto-desc">Dejá una solicitud de impresión en cola (se paga en caja).</span>

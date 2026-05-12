@@ -1,0 +1,54 @@
+/* Shared visual system: autogestión + cola impresión (tótem) */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap');
+
+:root {
+  --totem-font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --totem-bg-deep: #020308;
+  --totem-bg-mid: #0a0d1a;
+  --totem-bg-top: #101528;
+  --totem-text: #f1f5ff;
+  --totem-text-soft: rgba(241, 245, 255, 0.78);
+  --totem-text-muted: rgba(241, 245, 255, 0.55);
+  --totem-line: rgba(255, 255, 255, 0.09);
+  --totem-line-bright: rgba(255, 255, 255, 0.16);
+  --totem-glass: rgba(255, 255, 255, 0.04);
+  --totem-glass-hover: rgba(255, 255, 255, 0.07);
+  --totem-orange: #fb923c;
+  --totem-orange-hot: #f97316;
+  --totem-orange-deep: #c2410c;
+  --totem-cta-text: #0c0a09;
+  --totem-blue: #38bdf8;
+  --totem-violet: #a78bfa;
+  --totem-emerald: #34d399;
+  --totem-pink: #f472b6;
+  --totem-radius-xl: 26px;
+  --totem-radius-lg: 20px;
+  --totem-radius-md: 14px;
+  --totem-shadow-drop: 0 28px 90px rgba(0, 0, 0, 0.55);
+  --totem-focus: 0 0 0 3px rgba(251, 146, 60, 0.45);
+}
+
+.totem-auto-page,
+.totem-cat-page,
+.totem-checkout-page,
+.totem-print-page,
+.totem-bo-page {
+  font-family: var(--totem-font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.totem-auto-page :where(button, a):focus-visible,
+.totem-cat-page :where(button, a, input, select):focus-visible,
+.totem-checkout-page :where(button, a, input):focus-visible,
+.totem-print-page :where(button, a, input, select):focus-visible,
+.totem-bo-page :where(button, a):focus-visible {
+  outline: none;
+  box-shadow: var(--totem-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .totem-auto-ambient {
+    animation: none !important;
+  }
+}
