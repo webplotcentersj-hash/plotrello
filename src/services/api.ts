@@ -8315,6 +8315,90 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  /** Sesión temporal para subir archivo al tótem desde el celular (QR). Requiere RPC en BD (ver patch totem_qr_upload_sessions). */
+  async crearSesionQrUploadTotem(): Promise<ApiResponse<{ session_id: string; expires_at: string }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('crear_sesion_qr_upload_totem')
+      if (error) return { success: false, error: error.message }
+      const row = (data ?? null) as { session_id?: string; expires_at?: string } | null
+      if (!row?.session_id) return { success: false, error: 'No se pudo crear la sesión (¿migración aplicada?)' }
+      return {
+        success: true,
+        data: { session_id: String(row.session_id), expires_at: String(row.expires_at ?? '') }
+      }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al crear sesión QR' }
+    }
+  }
+
+  async obtenerSesionQrUploadTotem(sessionId: string): Promise<
+    ApiResponse<{
+      ok: boolean
+      error?: string
+      session_id?: string
+      expires_at?: string
+      archivo_url?: string | null
+      archivo_nombre?: string | null
+      archivo_bytes?: number | null
+      estado?: string
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('obtener_sesion_qr_upload_totem', { p_session_id: sessionId })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data ?? { ok: false }) as any }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al leer sesión' }
+    }
+  }
+
+  /** Sube archivo al bucket `archivos` y registra la URL en la sesión QR (una sola vez por sesión). */
+  async subirArchivoSesionTotemQr(file: File, sessionId: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const maxBytes = 12 * 1024 * 1024
+    if (file.size > maxBytes) {
+      return { success: false, error: `El archivo supera ${maxBytes / (1024 * 1024)} MB` }
+    }
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const allowedExt = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic'])
+    if (!allowedExt.has(ext)) {
+      return { success: false, error: 'Formato no permitido (PDF o imagen).' }
+    }
+    const safeBase = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .slice(0, 80)
+    const path = `totem-qr-uploads/${sessionId}/${Date.now()}_${safeBase}.${ext}`
+    try {
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || `application/${ext === 'pdf' ? 'pdf' : 'octet-stream'}`
+      })
+      if (uploadError) return { success: false, error: uploadError.message }
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) return { success: false, error: 'No se pudo obtener la URL pública del archivo' }
+
+      const { data: reg, error: regErr } = await supabase.rpc('registrar_archivo_sesion_qr_totem', {
+        p_session_id: sessionId,
+        p_archivo_url: publicUrl,
+        p_archivo_nombre: file.name.slice(0, 500),
+        p_archivo_bytes: file.size
+      })
+      if (regErr) return { success: false, error: regErr.message }
+      const out = (reg ?? null) as { ok?: boolean; error?: string } | null
+      if (out && out.ok === false) {
+        return { success: false, error: out.error || 'No se pudo registrar en la sesión' }
+      }
+      return { success: true, data: true }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al subir archivo' }
+    }
+  }
+
   async marcarPagoSolicitudImpresionTotem(
     solicitudId: number,
     usuarioId: number

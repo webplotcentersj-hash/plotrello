@@ -40,6 +40,7 @@ const TotemAutogestionHomePage = lazy(() => import('./pages/TotemAutogestionHome
 const TotemAutogestionCatalogoPage = lazy(() => import('./pages/TotemAutogestionCatalogoPage'))
 const TotemAutogestionCheckoutPage = lazy(() => import('./pages/TotemAutogestionCheckoutPage'))
 const TotemAutogestionImprimirPage = lazy(() => import('./pages/TotemAutogestionImprimirPage'))
+const TotemSubirArchivoQrPage = lazy(() => import('./pages/TotemSubirArchivoQrPage'))
 const ComprasDashboardPage = lazy(() => import('./pages/ComprasDashboardPage'))
 const PedidoCompraDetallePage = lazy(() => import('./pages/PedidoCompraDetallePage'))
 const ReportesStockPage = lazy(() => import('./pages/ReportesStockPage'))
@@ -619,6 +620,7 @@ function App() {
           <Route path="/totem/autogestion/catalogo" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemAutogestionCatalogoPage /></Suspense>} />
           <Route path="/totem/autogestion/checkout" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemAutogestionCheckoutPage /></Suspense>} />
           <Route path="/totem/autogestion/imprimir" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemAutogestionImprimirPage /></Suspense>} />
+          <Route path="/totem/subir-archivo/:sessionId" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>}><TotemSubirArchivoQrPage /></Suspense>} />
           {/* Versión para pantalla de autoservicio: búsqueda de trabajos en modo tótem */}
           <Route path="/totem/consulta-cliente" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemConsultaClientePage /></Suspense>} />
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
