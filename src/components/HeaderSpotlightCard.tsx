@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import apiService from '../services/api'
 import type { FechaPlotHoyItem, Notification } from '../types/api'
 import {
@@ -55,29 +56,49 @@ function formatEquipoLinea(row: FechaPlotHoyItem): string {
 }
 
 /** Miniatura legajo en lista “Hoy en Plot” (cumple y/o aniversario empresa). */
-function EquipoLegajoAvatar({ nombreMostrar, fotoUrl }: { nombreMostrar: string; fotoUrl?: string | null }) {
+function EquipoLegajoAvatar({
+  nombreMostrar,
+  fotoUrl,
+  onOpenZoom
+}: {
+  nombreMostrar: string
+  fotoUrl?: string | null
+  onOpenZoom?: (src: string, label: string) => void
+}) {
   const [imgErr, setImgErr] = useState(false)
   const trimmed = (fotoUrl ?? '').trim()
   const initialMatch = nombreMostrar.trim().match(/[\p{L}\p{N}]/u)
   const initial = (initialMatch?.[0] ?? '?').toUpperCase()
   const showImg = Boolean(trimmed) && !imgErr
 
-  return (
-    <div className="header-spotlight-equipo-avatar" title={nombreMostrar}>
-      {showImg ? (
-        <img
-          src={trimmed}
-          alt=""
-          className="header-spotlight-equipo-avatar-img"
-          loading="lazy"
-          decoding="async"
-          onError={() => setImgErr(true)}
-        />
-      ) : (
-        <span className="header-spotlight-equipo-avatar-letter">{initial}</span>
-      )}
-    </div>
+  const inner = showImg ? (
+    <img
+      src={trimmed}
+      alt=""
+      className="header-spotlight-equipo-avatar-img"
+      loading="lazy"
+      decoding="async"
+      onError={() => setImgErr(true)}
+    />
+  ) : (
+    <span className="header-spotlight-equipo-avatar-letter">{initial}</span>
   )
+
+  if (showImg && onOpenZoom) {
+    return (
+      <button
+        type="button"
+        className="header-spotlight-equipo-avatar header-spotlight-equipo-avatar--clickable"
+        title={`${nombreMostrar} — clic para ampliar`}
+        aria-label={`Ampliar foto de ${nombreMostrar}`}
+        onClick={() => onOpenZoom(trimmed, nombreMostrar)}
+      >
+        {inner}
+      </button>
+    )
+  }
+
+  return <div className="header-spotlight-equipo-avatar">{inner}</div>
 }
 
 function comunicadoAccentClass(type: Notification['type']): string {
@@ -108,12 +129,22 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
   const [miFotoLegajoUrl, setMiFotoLegajoUrl] = useState<string | null>(null)
   const [celebrateFotoBlocked, setCelebrateFotoBlocked] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [fotoZoom, setFotoZoom] = useState<{ src: string; label: string } | null>(null)
 
   const resolvedId = resolveSessionUserId(userId)
 
   useEffect(() => {
     setCelebrateFotoBlocked(false)
   }, [miFotoLegajoUrl])
+
+  useEffect(() => {
+    if (!fotoZoom) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFotoZoom(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [fotoZoom])
 
   useEffect(() => {
     let cancelled = false
@@ -227,7 +258,11 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                     <ul className="header-spotlight-equipo-list">
                       {equipoHoy.map((row) => (
                         <li key={row.id_usuario} className="header-spotlight-equipo-item">
-                          <EquipoLegajoAvatar nombreMostrar={row.nombre_mostrar} fotoUrl={row.foto_url} />
+                          <EquipoLegajoAvatar
+                            nombreMostrar={row.nombre_mostrar}
+                            fotoUrl={row.foto_url}
+                            onOpenZoom={(src, label) => setFotoZoom({ src, label })}
+                          />
                           <span className="header-spotlight-equipo-line">{formatEquipoLinea(row)}</span>
                         </li>
                       ))}
@@ -261,7 +296,18 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                 {(cumple || aniversario) && (
                   <div className="header-spotlight-celebrate" role="status">
                     {miFotoLegajoUrl && !celebrateFotoBlocked ? (
-                      <div className="header-spotlight-celebrate-avatar" title="Tu foto del legajo">
+                      <button
+                        type="button"
+                        className="header-spotlight-celebrate-avatar header-spotlight-celebrate-avatar--clickable"
+                        title="Tu foto del legajo — clic para ampliar"
+                        aria-label="Ampliar tu foto del legajo"
+                        onClick={() =>
+                          setFotoZoom({
+                            src: miFotoLegajoUrl,
+                            label: 'Tu foto del legajo'
+                          })
+                        }
+                      >
                         <img
                           src={miFotoLegajoUrl}
                           alt=""
@@ -270,7 +316,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                           decoding="async"
                           onError={() => setCelebrateFotoBlocked(true)}
                         />
-                      </div>
+                      </button>
                     ) : null}
                     <div className="header-spotlight-badges">
                       {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
@@ -322,6 +368,36 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
           </div>
         </div>
       </div>
+      {fotoZoom &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="header-spotlight-foto-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={fotoZoom.label}
+          >
+            <button
+              type="button"
+              className="header-spotlight-foto-modal-backdrop"
+              aria-label="Cerrar"
+              onClick={() => setFotoZoom(null)}
+            />
+            <div className="header-spotlight-foto-modal-panel">
+              <button
+                type="button"
+                className="header-spotlight-foto-modal-close"
+                aria-label="Cerrar"
+                onClick={() => setFotoZoom(null)}
+              >
+                ×
+              </button>
+              <img src={fotoZoom.src} alt={fotoZoom.label} className="header-spotlight-foto-modal-img" />
+              <p className="header-spotlight-foto-modal-caption">{fotoZoom.label}</p>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
