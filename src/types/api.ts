@@ -317,6 +317,8 @@ export interface FechaPlotHoyItem {
   cumple_hoy: boolean
   aniversario_empresa_hoy: boolean
   anios_en_empresa: number | null
+  /** Foto subida al legajo (RRHH); opcional. */
+  foto_url?: string | null
 }
 
 export interface ClienteRecord {

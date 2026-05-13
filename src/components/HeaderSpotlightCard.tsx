@@ -54,6 +54,32 @@ function formatEquipoLinea(row: FechaPlotHoyItem): string {
   return bits.length ? `${row.nombre_mostrar} — ${bits.join(' · ')}` : row.nombre_mostrar
 }
 
+/** Miniatura legajo en lista “Hoy en Plot” (cumple y/o aniversario empresa). */
+function EquipoLegajoAvatar({ nombreMostrar, fotoUrl }: { nombreMostrar: string; fotoUrl?: string | null }) {
+  const [imgErr, setImgErr] = useState(false)
+  const trimmed = (fotoUrl ?? '').trim()
+  const initialMatch = nombreMostrar.trim().match(/[\p{L}\p{N}]/u)
+  const initial = (initialMatch?.[0] ?? '?').toUpperCase()
+  const showImg = Boolean(trimmed) && !imgErr
+
+  return (
+    <div className="header-spotlight-equipo-avatar" title={nombreMostrar}>
+      {showImg ? (
+        <img
+          src={trimmed}
+          alt=""
+          className="header-spotlight-equipo-avatar-img"
+          loading="lazy"
+          decoding="async"
+          onError={() => setImgErr(true)}
+        />
+      ) : (
+        <span className="header-spotlight-equipo-avatar-letter">{initial}</span>
+      )}
+    </div>
+  )
+}
+
 function comunicadoAccentClass(type: Notification['type']): string {
   switch (type) {
     case 'success':
@@ -79,9 +105,15 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
   const [aniosEnEmpresaSiempre, setAniosEnEmpresaSiempre] = useState<number | null>(null)
   const [notifs, setNotifs] = useState<Notification[]>([])
   const [equipoHoy, setEquipoHoy] = useState<FechaPlotHoyItem[]>([])
+  const [miFotoLegajoUrl, setMiFotoLegajoUrl] = useState<string | null>(null)
+  const [celebrateFotoBlocked, setCelebrateFotoBlocked] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const resolvedId = resolveSessionUserId(userId)
+
+  useEffect(() => {
+    setCelebrateFotoBlocked(false)
+  }, [miFotoLegajoUrl])
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +125,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
         setIngresoDdMmYyyy(null)
         setNotifs([])
         setEquipoHoy([])
+        setMiFotoLegajoUrl(null)
         setLoading(false)
         return
       }
@@ -110,6 +143,8 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
         setEquipoHoy([])
       }
       if (legRes.success && legRes.data) {
+        const foto = (legRes.data.foto_url ?? '').trim()
+        setMiFotoLegajoUrl(foto || null)
         const fn = legRes.data.fecha_nacimiento
         const fi = legRes.data.fecha_ingreso
         const fnKey = fn ? legajoCalendarDateKey(String(fn)) : ''
@@ -137,6 +172,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
           setAniosEmpresa(null)
         }
       } else {
+        setMiFotoLegajoUrl(null)
         setTieneLegajoFechas(false)
         setNacimientoDdMm(null)
         setIngresoDdMmYyyy(null)
@@ -190,8 +226,9 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                     <p className="header-spotlight-equipo-title">Hoy en Plot (equipo)</p>
                     <ul className="header-spotlight-equipo-list">
                       {equipoHoy.map((row) => (
-                        <li key={row.id_usuario} className="header-spotlight-equipo-line">
-                          {formatEquipoLinea(row)}
+                        <li key={row.id_usuario} className="header-spotlight-equipo-item">
+                          <EquipoLegajoAvatar nombreMostrar={row.nombre_mostrar} fotoUrl={row.foto_url} />
+                          <span className="header-spotlight-equipo-line">{formatEquipoLinea(row)}</span>
                         </li>
                       ))}
                     </ul>
@@ -222,15 +259,29 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                   </div>
                 )}
                 {(cumple || aniversario) && (
-                  <div className="header-spotlight-badges" role="status">
-                    {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
-                    {aniversario && (
-                      <span className="header-spotlight-badge">
-                        {aniosEmpresa != null && aniosEmpresa > 0
-                          ? `🎉 Aniversario en la empresa · ${formatAnosEnEmpresa(aniosEmpresa)}`
-                          : '🎉 ¡Hoy empezás en Plot!'}
-                      </span>
-                    )}
+                  <div className="header-spotlight-celebrate" role="status">
+                    {miFotoLegajoUrl && !celebrateFotoBlocked ? (
+                      <div className="header-spotlight-celebrate-avatar" title="Tu foto del legajo">
+                        <img
+                          src={miFotoLegajoUrl}
+                          alt=""
+                          className="header-spotlight-celebrate-img"
+                          loading="lazy"
+                          decoding="async"
+                          onError={() => setCelebrateFotoBlocked(true)}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="header-spotlight-badges">
+                      {cumple && <span className="header-spotlight-badge">🎂 ¡Feliz cumple!</span>}
+                      {aniversario && (
+                        <span className="header-spotlight-badge">
+                          {aniosEmpresa != null && aniosEmpresa > 0
+                            ? `🎉 Aniversario en la empresa · ${formatAnosEnEmpresa(aniosEmpresa)}`
+                            : '🎉 ¡Hoy empezás en Plot!'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </>

@@ -17,9 +17,9 @@
 
 /* Plot: columna angosta; Comunicados: se queda con todo el ancho restante */
 .header-spotlight-split-col--plot {
-  flex: 0 0 220px;
+  flex: 0 0 240px;
   min-width: 0;
-  max-width: 260px;
+  max-width: 280px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -130,6 +130,72 @@
   line-height: 1.35;
   color: var(--text-secondary);
   word-break: break-word;
+  flex: 1;
+  min-width: 0;
+}
+
+.header-spotlight-equipo-item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.header-spotlight-equipo-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(129, 140, 248, 0.2);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.header-spotlight-equipo-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.header-spotlight-equipo-avatar-letter {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #c7d2fe;
+  line-height: 1;
+}
+
+.header-spotlight-celebrate {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.header-spotlight-celebrate-avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
+}
+
+.header-spotlight-celebrate-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.header-spotlight-celebrate .header-spotlight-badges {
+  flex: 1;
+  min-width: 0;
 }
 
 .header-spotlight-meta {
@@ -396,6 +462,25 @@
 
 .header-spotlight-card--compact .header-spotlight-equipo-line {
   font-size: 0.68rem;
+}
+
+.header-spotlight-card--compact .header-spotlight-equipo-avatar {
+  width: 26px;
+  height: 26px;
+}
+
+.header-spotlight-card--compact .header-spotlight-equipo-avatar-letter {
+  font-size: 0.62rem;
+}
+
+.header-spotlight-card--compact .header-spotlight-celebrate-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.header-spotlight-card--compact .header-spotlight-celebrate {
+  gap: 6px;
 }
 
 .header-spotlight-card--compact .header-spotlight-equipo-list {
