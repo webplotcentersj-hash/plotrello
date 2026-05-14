@@ -198,18 +198,6 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
   const locationUrl = orden.ubicacion_link?.trim() || undefined
   const driveUrl = orden.drive_link?.trim() || undefined
 
-  // Debug: log si hay datos de contacto
-  if (clientPhone || clientEmail || clientAddress || locationUrl || driveUrl) {
-    console.log(`📞 Orden ${orden.numero_op} tiene datos de contacto:`, {
-      telefono: clientPhone || 'no',
-      email: clientEmail || 'no',
-      direccion: clientAddress || 'no',
-      ubicacion: locationUrl || 'no',
-      drive: driveUrl || 'no',
-      whatsapp: whatsappUrl || 'no'
-    })
-  }
-
   // ⚠️ IMPORTANTE: Para fichas duplicadas, usar el sector para determinar la columna
   // El backend ya asegura que estado = sector al crear fichas duplicadas
   // Pero si hay discrepancia, priorizar el sector (donde debe aparecer la ficha)
@@ -332,6 +320,7 @@ export const historialToActivity = (registro: HistorialMovimiento): ActivityEven
   from: mapEstadoToStatus(registro.estado_anterior || ''),
   to: mapEstadoToStatus(registro.estado_nuevo || ''),
   actorId: registro.id_usuario.toString(),
+  actorName: registro.nombre_usuario?.trim() || null,
   timestamp: registro.timestamp,
   note: registro.comentario ?? 'Cambio de estado'
 })
@@ -449,23 +438,6 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
       ? { reclamo_motivo: task.reclamoMotivo?.trim() || null }
       : {})
   }
-  
-  console.log('🏷️ [taskToOrdenPayload] task.tags:', task.tags)
-  console.log('🏷️ [taskToOrdenPayload] payload.etiquetas:', payload.etiquetas)
-
-  // Debug: log datos de sectores y contacto
-  console.log('📋 taskToOrdenPayload - Datos completos:', {
-    numero_op: payload.numero_op,
-    sectores: payload.sectores,
-    sector_inicial: payload.sector_inicial,
-    sector: payload.sector,
-    telefono: payload.telefono_cliente || 'null',
-    ubicacion: payload.ubicacion_link || 'null',
-    direccion: payload.direccion_cliente || 'null',
-    email: payload.email_cliente || 'null',
-    whatsapp: payload.whatsapp_link || 'null',
-    drive: payload.drive_link || 'null'
-  })
 
   return payload
 }

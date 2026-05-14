@@ -153,7 +153,10 @@ export interface ActivityEvent {
   taskId: string
   from: TaskStatus
   to: TaskStatus
+  /** id de usuario de sesión (tabla `usuarios`) cuando se conoce; para eventos locales o historial. */
   actorId: string
+  /** Nombre legible quien hizo el cambio (historial BD o sesión); si falta, la UI puede resolver por `actorId`. */
+  actorName?: string | null
   timestamp: string
   note: string
 }

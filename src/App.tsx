@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, startTransition } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom'
 import type { TaskStatus } from './types/board'
-import BoardPage from './pages/BoardPage'
+const BoardPage = lazy(() => import('./pages/BoardPage'))
 import GlobalAlertScreen from './components/GlobalAlertScreen'
 // Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage'))
@@ -210,21 +210,28 @@ function App() {
     }
   }, [usuario, loading])
 
-  // Precargar manual de usuario al inicio
+  // Manual PlotAI: no bloquear primer paint (idle o timeout corto).
   useEffect(() => {
-    initializeManual().catch((error) => {
-      console.warn('Error precargando manual:', error)
-    })
+    const run = () => {
+      void initializeManual().catch((error) => {
+        console.warn('Error precargando manual:', error)
+      })
+    }
+    const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback(run, { timeout: 4000 }) : null
+    const tid = ric == null ? window.setTimeout(run, 1) : null
+    return () => {
+      if (ric != null && typeof cancelIdleCallback === 'function') cancelIdleCallback(ric as number)
+      if (tid != null) window.clearTimeout(tid)
+    }
   }, [])
 
-  // Debug: Mostrar variables de entorno
   useEffect(() => {
+    if (!import.meta.env.DEV) return
     console.log('🔍 Variables de Entorno:')
     console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? '✅ Configurada' : '❌ NO CONFIGURADA')
     console.log('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ NO CONFIGURADA')
     console.log('VITE_SUPABASE_SCHEMA:', import.meta.env.VITE_SUPABASE_SCHEMA || 'NO CONFIGURADA')
     console.log('VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL || 'NO CONFIGURADA')
-    
     if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
       console.warn('⚠️ Supabase no está configurado. La app usará datos mock o fallback.')
     }
@@ -296,10 +303,15 @@ function App() {
         try {
           const ordenesResp = await apiService.getOrdenes()
           if (ordenesResp.success && ordenesResp.data) {
-            setTasks(ordenesResp.data.map((orden) => ordenToTask(orden)))
-            setDataError(null)
+            const mapped = ordenesResp.data.map((orden) => ordenToTask(orden))
+            startTransition(() => {
+              setTasks(mapped)
+              setDataError(null)
+            })
           } else if (!ordenesResp.success) {
-            console.warn('🔄 Actualización silenciosa: órdenes no disponibles', ordenesResp.error)
+            if (import.meta.env.DEV) {
+              console.warn('🔄 Actualización silenciosa: órdenes no disponibles', ordenesResp.error)
+            }
           }
         } finally {
           silentReloadBusyRef.current = false
@@ -311,42 +323,51 @@ function App() {
         return
       }
 
-      console.log('🔄 Intentando cargar datos de Supabase...')
-      
-      const [ordenesResp, historialResp] = await Promise.all([
+      if (import.meta.env.DEV) {
+        console.log('🔄 Intentando cargar datos de Supabase...')
+      }
+
+      const [ordenesResp, historialResp, usuariosResp, sectoresResp, materialesResp] = await Promise.all([
         apiService.getOrdenes(),
-        apiService.getHistorialMovimientos({ limit: 100 })
+        apiService.getHistorialMovimientos({ limit: 80 }),
+        apiService.getUsuarios(),
+        apiService.getSectores(),
+        apiService.getMateriales()
       ])
 
       if (ordenesResp.success && ordenesResp.data) {
-        // Solo fichas principales: las sub-tareas no se muestran en el tablero
         const tasksWithCorrectStatus = ordenesResp.data.map((orden) => ordenToTask(orden))
-        setTasks(tasksWithCorrectStatus)
-        console.log('✅ Órdenes cargadas:', tasksWithCorrectStatus.length)
+        startTransition(() => {
+          setTasks(tasksWithCorrectStatus)
+        })
+        if (import.meta.env.DEV) {
+          console.log('✅ Órdenes cargadas:', tasksWithCorrectStatus.length)
+        }
       } else {
         const errorMsg = formatSupabaseStatementTimeoutError(
           ordenesResp.error || 'No se pudieron cargar las órdenes'
         )
         setDataError(errorMsg)
-        console.error('❌ Error cargando órdenes:', errorMsg)
+        if (import.meta.env.DEV) {
+          console.error('❌ Error cargando órdenes:', errorMsg)
+        }
       }
 
       if (historialResp.success && historialResp.data) {
-        setActivity(historialResp.data.map((registro) => historialToActivity(registro)))
-        console.log('✅ Historial cargado:', historialResp.data.length, 'movimientos')
+        const act = historialResp.data.map((registro) => historialToActivity(registro))
+        startTransition(() => setActivity(act))
+        if (import.meta.env.DEV) {
+          console.log('✅ Historial cargado:', historialResp.data.length, 'movimientos')
+        }
       } else {
         const errorMsg = formatSupabaseStatementTimeoutError(
           historialResp.error ?? 'No se pudo cargar el historial'
         )
         setDataError((prev) => prev ?? errorMsg)
-        console.error('❌ Error cargando historial:', errorMsg)
+        if (import.meta.env.DEV) {
+          console.error('❌ Error cargando historial:', errorMsg)
+        }
       }
-
-      const [usuariosResp, sectoresResp, materialesResp] = await Promise.all([
-        apiService.getUsuarios(),
-        apiService.getSectores(),
-        apiService.getMateriales()
-      ])
 
       if (usuariosResp.success && usuariosResp.data) {
         setTeamMembers(mapUsuariosToTeamMembers(usuariosResp.data))
@@ -445,7 +466,9 @@ function App() {
       const customEvent = event as CustomEvent<{ taskId: string; estado: string; timestamp: number }>
       const { taskId, estado, timestamp } = customEvent.detail
       recentUserMoves.set(taskId, { estado, timestamp })
-      console.log(`📝 Registrado movimiento del usuario: ${taskId} → ${estado}`)
+      if (import.meta.env.DEV) {
+        console.log(`📝 Registrado movimiento del usuario: ${taskId} → ${estado}`)
+      }
     }
 
     // Escuchar eventos de edición del usuario desde BoardPage
@@ -453,7 +476,9 @@ function App() {
       const customEvent = event as CustomEvent<{ taskId: string; status: TaskStatus; timestamp: number }>
       const { taskId, status, timestamp } = customEvent.detail
       recentUserEdits.set(taskId, { status, timestamp })
-      console.log(`✏️ Registrada edición del usuario: ${taskId} → status: ${status}`)
+      if (import.meta.env.DEV) {
+        console.log(`✏️ Registrada edición del usuario: ${taskId} → status: ${status}`)
+      }
     }
 
     const handleBoardDraggingChanged = (event: Event) => {
@@ -502,7 +527,11 @@ function App() {
         // Si el movimiento fue hace menos de 3 segundos y el estado del realtime
         // es diferente al estado que el usuario movió, ignorar (efecto espejo)
         if (timeSinceMove < 3000 && orden.estado !== recentMove.estado) {
-          console.log(`⏭️ Ignorando actualización realtime (efecto espejo) para ${taskId}: realtime=${orden.estado}, usuario movió a=${recentMove.estado}`)
+          if (import.meta.env.DEV) {
+            console.log(
+              `⏭️ Ignorando actualización realtime (efecto espejo) para ${taskId}: realtime=${orden.estado}, usuario movió a=${recentMove.estado}`
+            )
+          }
           return
         }
         // Si pasaron más de 3 segundos, limpiar el tracking
@@ -523,7 +552,11 @@ function App() {
             // Si la edición fue hace menos de 5 segundos, preservar el status
             if (timeSinceEdit < 5000) {
               mapped.status = recentEdit.status
-              console.log(`🔒 Preservando status de edición (${recentEdit.status}) para ${taskId} - editado hace ${timeSinceEdit}ms`)
+              if (import.meta.env.DEV) {
+                console.log(
+                  `🔒 Preservando status de edición (${recentEdit.status}) para ${taskId} - editado hace ${timeSinceEdit}ms`
+                )
+              }
             } else {
               // Si pasaron más de 5 segundos, limpiar el tracking
               recentUserEdits.delete(taskId)
@@ -588,13 +621,13 @@ function App() {
       )
 
     ordenesChannel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
+      if (import.meta.env.DEV && status === 'SUBSCRIBED') {
         console.log('✅ Realtime conectado: ordenes_trabajo')
       }
     })
 
     historialChannel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
+      if (import.meta.env.DEV && status === 'SUBSCRIBED') {
         console.log('✅ Realtime conectado: historial_movimientos')
       }
     })
@@ -847,7 +880,21 @@ function AppRoutes({
           <SolicitudesPermisosFloatingButton />
         </>
       )}
-      <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
+      <Suspense
+        fallback={
+          <div
+            style={{
+              padding: 32,
+              textAlign: 'center',
+              color: '#94a3b8',
+              fontSize: 14,
+              contain: 'strict'
+            }}
+          >
+            Cargando tablero…
+          </div>
+        }
+      >
       <Routes>
       <Route
         path="/"

@@ -69,7 +69,8 @@ export function useApiData() {
             taskId: String(mov.id_orden),
             from: mapEstadoToStatus(mov.estado_anterior),
             to: mapEstadoToStatus(mov.estado_nuevo),
-            actorId: `user-${mov.id_usuario}`,
+            actorId: String(mov.id_usuario ?? ''),
+            actorName: typeof mov.nombre_usuario === 'string' ? mov.nombre_usuario.trim() || null : null,
             timestamp: mov.timestamp,
             note: mov.comentario || ''
           }))

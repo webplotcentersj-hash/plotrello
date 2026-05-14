@@ -5,7 +5,9 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState
+  useState,
+  lazy,
+  Suspense
 } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
@@ -17,8 +19,8 @@ import TaskEditModal from '../components/TaskEditModal'
 import TaskViewModal from '../components/TaskViewModal'
 import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
-import PlotAIChat from '../components/PlotAIChat'
 import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
+const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 import ChatFloatingButton from '../components/ChatFloatingButton'
 import TaskLibraryModal from '../components/TaskLibraryModal'
 import QRPrintView from '../components/QRPrintView'
@@ -146,6 +148,15 @@ const BoardPage = ({
   const [activityFeedOpen, setActivityFeedOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const isPhoneBoard = usePhoneBoardLayout()
+
+  /** Usuario de sesión: la bitácora local debe mostrar quién hizo el cambio, no el operario asignado a la ficha. */
+  const sessionActor = useMemo(
+    () => ({
+      id: usuario?.id != null ? String(usuario.id) : '',
+      name: usuario?.nombre?.trim() || null
+    }),
+    [usuario?.id, usuario?.nombre]
+  )
 
   const sidebarCompact =
     isAdmin ? !statsPanelOpen && !activityFeedOpen : !activityFeedOpen
@@ -519,7 +530,8 @@ const BoardPage = ({
           taskId,
           from: taskSnapshot.status,
           to: destination,
-          actorId: taskSnapshot.ownerId,
+          actorId: sessionActor.id || taskSnapshot.ownerId,
+          actorName: sessionActor.name,
           timestamp: new Date().toISOString(),
           note: `Movimiento rápido hacia ${destination}`
         },
@@ -624,7 +636,7 @@ const BoardPage = ({
         })
       )
     }
-  }, [setTasks, setActivity, setActionError, setActionSuccess, isAdmin])
+  }, [setTasks, setActivity, setActionError, setActionSuccess, isAdmin, sessionActor])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -889,7 +901,8 @@ const BoardPage = ({
             taskId: updatedTask.id,
             from: taskOriginal?.status || updatedTask.status,
             to: statusFinal,
-            actorId: updatedTask.ownerId,
+            actorId: sessionActor.id || updatedTask.ownerId,
+            actorName: sessionActor.name,
             timestamp: new Date().toISOString(),
             note: sectorCambio ? `Sector cambiado a ${updatedTask.assignedSector}` : 'Tarea actualizada'
           },
@@ -1149,7 +1162,8 @@ const BoardPage = ({
             taskId: createdTask.id,
             from: createdTask.status,
             to: createdTask.status,
-            actorId: createdTask.ownerId,
+            actorId: sessionActor.id || createdTask.ownerId,
+            actorName: sessionActor.name,
             timestamp: new Date().toISOString(),
             note: `Nueva orden creada: ${createdTask.opNumber}`
           },
@@ -1225,7 +1239,8 @@ const BoardPage = ({
             taskId: task.id,
             from: task.status,
             to: updatedTask.status,
-            actorId: updatedTask.ownerId,
+            actorId: sessionActor.id || updatedTask.ownerId,
+            actorName: sessionActor.name,
             timestamp: new Date().toISOString(),
             note: `Optimización aplicada: ${suggestion.reason}`
           },
@@ -1484,13 +1499,15 @@ const BoardPage = ({
           />
 
           {isChatAIOpen && (
-            <PlotAIChat
-              tasks={tasks}
-              teamMembers={teamMembers}
-              activity={activity}
-              onCreateTask={handleCreateTask}
-              onClose={() => setIsChatAIOpen(false)}
-            />
+            <Suspense fallback={null}>
+              <PlotAIChat
+                tasks={tasks}
+                teamMembers={teamMembers}
+                activity={activity}
+                onCreateTask={handleCreateTask}
+                onClose={() => setIsChatAIOpen(false)}
+              />
+            </Suspense>
           )}
         </>
       )}

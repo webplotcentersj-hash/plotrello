@@ -139,7 +139,8 @@ const TaskEditModal = ({
         id_orden: parseTaskIdToOrdenId(task.id) || 0,
         estado_anterior: evt.from,
         estado_nuevo: evt.to,
-        id_usuario: parseInt(evt.actorId),
+        id_usuario: Number.parseInt(evt.actorId, 10) || 0,
+        nombre_usuario: evt.actorName?.trim() || null,
         timestamp: evt.timestamp,
         comentario: evt.note
       }))
@@ -1447,21 +1448,12 @@ const TaskEditModal = ({
               </small>
             </div>
             {(selectedSectors.length >= 2 || (task.sectores?.length ?? 0) >= 2) && (
-              <label
-                className="task-edit-espejo-sectores"
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 10,
-                  marginTop: 12,
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  lineHeight: 1.35
-                }}
-              >
+              <label className="task-edit-espejo-card">
                 <input
                   type="checkbox"
+                  className="task-edit-espejo-input"
                   checked={espejoSectores}
+                  aria-label="Modo espejo: replicar datos comunes en todas las fichas de esta OP con varios sectores"
                   onChange={(e) => {
                     void (async () => {
                       const v = e.target.checked
@@ -1476,14 +1468,26 @@ const TaskEditModal = ({
                       onEspejoSectoresOpSynced?.(task.opNumber, v)
                     })()
                   }}
-                  style={{ marginTop: 3 }}
                 />
-                <span>
-                  <strong>Modo espejo</strong> (misma OP, varios sectores): se guarda en la base de datos en todas las fichas
-                  de esta OP. Al guardar desde cualquier ficha, los datos comunes (resumen, materiales, brief, checklist, líneas
-                  m², etc.) se aplican también a las demás. No se copia la columna del tablero ni las etapas internas de cada
-                  sector.
-                </span>
+                <div className="task-edit-espejo-layout">
+                  <div className="task-edit-espejo-toggle-col">
+                    <span className="task-edit-espejo-switch-track">
+                      <span className="task-edit-espejo-switch-thumb" />
+                    </span>
+                    <span className={`task-edit-espejo-pill ${espejoSectores ? 'is-on' : ''}`}>
+                      {espejoSectores ? 'Activo' : 'Apagado'}
+                    </span>
+                  </div>
+                  <div className="task-edit-espejo-copy">
+                    <span className="task-edit-espejo-eyebrow">Multi-sector · misma OP</span>
+                    <strong className="task-edit-espejo-title">Modo espejo</strong>
+                    <p className="task-edit-espejo-desc">
+                      Se guarda en la base en <strong>todas las fichas</strong> de esta OP. Al guardar desde cualquier ficha,
+                      los datos comunes (resumen, materiales, brief, checklist, líneas m², etc.) se replican en las demás. No
+                      se copia la columna del tablero ni las etapas internas de cada sector.
+                    </p>
+                  </div>
+                </div>
               </label>
             )}
             {requiereFotosLugarEdit && (

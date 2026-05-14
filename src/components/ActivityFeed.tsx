@@ -24,11 +24,19 @@ const ActivityFeed = ({ activity, teamMembers }: ActivityFeedProps) => {
       <ul>
         {activity.slice(0, 6).map((event) => {
           const member = getMember(event.actorId)
+          const displayName =
+            member?.name?.trim() ||
+            (event.actorName && event.actorName.trim()) ||
+            (event.actorId && event.actorId !== '0' ? `Usuario #${event.actorId}` : null) ||
+            'Equipo'
+          const avatar =
+            member?.avatar ??
+            (displayName.length >= 2 ? displayName.slice(0, 2).toUpperCase() : 'TP')
           return (
             <li key={event.id}>
-              <div className="feed-avatar">{member?.avatar ?? 'TP'}</div>
+              <div className="feed-avatar">{avatar}</div>
               <div className="feed-body">
-                <strong>{member?.name ?? 'Equipo'}</strong>
+                <strong>{displayName}</strong>
                 <p>
                   movió <span>{event.taskId}</span> de {event.from} a {event.to}
                 </p>

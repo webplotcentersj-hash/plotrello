@@ -108,30 +108,42 @@ export function formatSupabaseStatementTimeoutError(raw: string): string {
   return raw
 }
 
-/** Anexa `orden_lineas_m2` a cada orden (si la tabla existe en Supabase). */
+/** Anexa `orden_lineas_m2` a cada orden (si la tabla existe en Supabase). Consultas en paralelo por chunks. */
 async function attachLineasM2ToOrdenes(ordenes: any[]): Promise<void> {
   if (!supabase || ordenes.length === 0) return
+  const sb = supabase
   const ids = ordenes.map((o) => o.id).filter((id: unknown) => typeof id === 'number')
   if (ids.length === 0) return
   const CHUNK = 180
+  const PARALLEL = 4
+  const slices: number[][] = []
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    slices.push(ids.slice(i, i + CHUNK))
+  }
   try {
     const map = new Map<number, OrdenLineaM2[]>()
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const slice = ids.slice(i, i + CHUNK)
-      const { data: allLineas, error } = await supabase
-        .from('orden_lineas_m2')
-        .select('id, id_orden, tipo, metros_cuadrados, sort_order, created_at')
-        .in('id_orden', slice)
-        .order('sort_order', { ascending: true })
-      if (error) {
-        console.warn('[attachLineasM2ToOrdenes] chunk', i, error.message)
-        continue
-      }
-      if (!allLineas) continue
-      for (const row of allLineas as OrdenLineaM2[]) {
-        const list = map.get(row.id_orden) ?? []
-        list.push(row)
-        map.set(row.id_orden, list)
+    for (let i = 0; i < slices.length; i += PARALLEL) {
+      const group = slices.slice(i, i + PARALLEL)
+      const results = await Promise.all(
+        group.map((slice) =>
+          sb
+            .from('orden_lineas_m2')
+            .select('id, id_orden, tipo, metros_cuadrados, sort_order, created_at')
+            .in('id_orden', slice)
+            .order('sort_order', { ascending: true })
+        )
+      )
+      for (const { data: allLineas, error } of results) {
+        if (error) {
+          console.warn('[attachLineasM2ToOrdenes]', error.message)
+          continue
+        }
+        if (!allLineas) continue
+        for (const row of allLineas as OrdenLineaM2[]) {
+          const list = map.get(row.id_orden) ?? []
+          list.push(row)
+          map.set(row.id_orden, list)
+        }
       }
     }
     for (const o of ordenes) {
