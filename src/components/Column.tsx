@@ -1,4 +1,12 @@
-import { memo, useMemo, useState, type CSSProperties, type Ref } from 'react'
+import {
+  memo,
+  startTransition,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type Ref
+} from 'react'
 import { Draggable, type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -57,7 +65,16 @@ const Column = ({
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
   const INITIAL_VISIBLE_TASKS = 5
-  const [showAllTasks, setShowAllTasks] = useState(false)
+  const LOAD_MORE_STEP = 12
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_TASKS)
+
+  useEffect(() => {
+    setVisibleLimit((prev) => {
+      if (tasks.length === 0) return INITIAL_VISIBLE_TASKS
+      if (prev > tasks.length) return tasks.length
+      return prev
+    })
+  }, [tasks.length])
 
   // Calcular el porcentaje de carga de la columna
   const loadPercentage = maxTasksInColumn > 0 ? (tasks.length / maxTasksInColumn) * 100 : 0
@@ -67,17 +84,50 @@ const Column = ({
     return map
   }, [members])
 
+  const visibleEnd = Math.min(visibleLimit, tasks.length)
+
+  const visibleIdKey = useMemo(
+    () => (visibleEnd <= 0 ? '' : tasks.slice(0, visibleEnd).map((t) => t.id).join('|')),
+    [tasks, visibleEnd]
+  )
+
+  const visibleRowsKey = useMemo(
+    () => (visibleEnd <= 0 ? '' : tasks.slice(0, visibleEnd).map((t) => `${t.id}:${t.updatedAt}`).join('|')),
+    [tasks, visibleEnd]
+  )
+
+  const visibleTasks = useMemo(
+    () => (visibleEnd <= 0 ? [] : tasks.slice(0, visibleEnd)),
+    [tasks, visibleEnd, visibleRowsKey]
+  )
+
+  const visibleTaskIdSet = useMemo(() => {
+    const s = new Set<string>()
+    if (!visibleIdKey) return s
+    for (const id of visibleIdKey.split('|')) s.add(id)
+    return s
+  }, [visibleIdKey])
+
+  const activityForVisibleTasks = useMemo(() => {
+    const a = activity ?? []
+    if (a.length === 0 || visibleTaskIdSet.size === 0) return EMPTY_ACTIVITY
+    const filtered: ActivityEvent[] = []
+    for (const e of a) {
+      if (visibleTaskIdSet.has(e.taskId)) filtered.push(e)
+    }
+    return filtered.length > 0 ? filtered : EMPTY_ACTIVITY
+  }, [activity, visibleTaskIdSet])
+
   const activityByTaskId = useMemo(() => {
     const map = new Map<string, ActivityEvent[]>()
-    for (const event of activity ?? []) {
+    for (const event of activityForVisibleTasks) {
       const current = map.get(event.taskId)
       if (current) current.push(event)
       else map.set(event.taskId, [event])
     }
     return map
-  }, [activity])
+  }, [activityForVisibleTasks])
 
-  const visibleTasks = showAllTasks ? tasks : tasks.slice(0, INITIAL_VISIBLE_TASKS)
   const hiddenTasksCount = Math.max(0, tasks.length - visibleTasks.length)
 
   return (
@@ -133,13 +183,30 @@ const Column = ({
         {droppableProvided.placeholder}
 
         {tasks.length === 0 && <div className="column-empty">Aún no hay tarjetas aquí</div>}
-        {tasks.length > INITIAL_VISIBLE_TASKS && (
+        {hiddenTasksCount > 0 && (
           <button
             type="button"
             className="column-show-more-btn"
-            onClick={() => setShowAllTasks((prev) => !prev)}
+            onClick={() =>
+              startTransition(() => {
+                setVisibleLimit((v) => Math.min(v + LOAD_MORE_STEP, tasks.length))
+              })
+            }
           >
-            {showAllTasks ? 'Ver menos' : `Ver más (${hiddenTasksCount})`}
+            Cargar más ({hiddenTasksCount})
+          </button>
+        )}
+        {visibleLimit > INITIAL_VISIBLE_TASKS && tasks.length > INITIAL_VISIBLE_TASKS && (
+          <button
+            type="button"
+            className="column-show-more-btn"
+            onClick={() =>
+              startTransition(() => {
+                setVisibleLimit(INITIAL_VISIBLE_TASKS)
+              })
+            }
+          >
+            Ver menos
           </button>
         )}
       </div>

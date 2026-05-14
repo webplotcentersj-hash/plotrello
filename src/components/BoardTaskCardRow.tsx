@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import clsx from 'clsx'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import type { ActivityEvent, ColumnConfig, Task, TaskStatus, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
+import { activityEventsEqual, draggableInlineStylesEqual } from './boardRbdMemo'
 
 const NEW_MOVE_MS = 60 * 60 * 1000
 
@@ -34,7 +35,7 @@ export type BoardTaskCardRowProps = {
  * Mientras hay drag en el tablero, las fichas que no se arrastran se pintan en modo mínimo
  * (sin montar TaskCard: evita decenas de hooks y efectos en cada frame de hello-pangea/dnd).
  */
-export default function BoardTaskCardRow(props: BoardTaskCardRowProps) {
+function BoardTaskCardRowInner(props: BoardTaskCardRowProps) {
   const {
     isBoardDragging,
     provided,
@@ -128,3 +129,75 @@ export default function BoardTaskCardRow(props: BoardTaskCardRowProps) {
     />
   )
 }
+
+function boardTaskCardRowPropsAreEqual(
+  prev: BoardTaskCardRowProps,
+  next: BoardTaskCardRowProps
+): boolean {
+  if (prev.isBoardDragging !== next.isBoardDragging) return false
+  if (prev.touchColumnMove !== next.touchColumnMove) return false
+
+  const ps = prev.snapshot
+  const ns = next.snapshot
+  if (ps.isDragging || ns.isDragging) return false
+  if (
+    ps.isDropAnimating !== ns.isDropAnimating ||
+    ps.combineWith !== ns.combineWith ||
+    ps.combineTargetFor !== ns.combineTargetFor ||
+    ps.mode !== ns.mode ||
+    ps.isClone !== ns.isClone
+  ) {
+    return false
+  }
+
+  if (!draggableInlineStylesEqual(prev.provided.draggableProps.style, next.provided.draggableProps.style)) {
+    return false
+  }
+
+  if (prev.task !== next.task) {
+    if (prev.task.id !== next.task.id) return false
+    const keys = [
+      'status',
+      'title',
+      'opNumber',
+      'priority',
+      'updatedAt',
+      'workingUser',
+      'entregado',
+      'assignedSector',
+      'uiMovedAt',
+      'summary',
+      'opBloqueada',
+      'enReclamo',
+      'reclamoMotivo',
+      'planillaPreliminar',
+      'fichaTecnicaIncompleta',
+      'fichaTecnicaCargada',
+      'presupuestoEnviadoCliente',
+      'presupuestoArmado',
+      'presupuestoEnEspera'
+    ] as const
+    for (const k of keys) {
+      if (prev.task[k] !== next.task[k]) return false
+    }
+  }
+
+  if (prev.index !== next.index) return false
+  if (prev.isSelected !== next.isSelected) return false
+  if (prev.owner !== next.owner) return false
+  if (!activityEventsEqual(prev.activity, next.activity)) return false
+  if (prev.members !== next.members) return false
+  if (prev.sectores !== next.sectores) return false
+  if (prev.columns !== next.columns) return false
+  if (prev.onEdit !== next.onEdit) return false
+  if (prev.onDelete !== next.onDelete) return false
+  if (prev.onMarkDelivered !== next.onMarkDelivered) return false
+  if (prev.onMoveTask !== next.onMoveTask) return false
+  if (prev.onSelect !== next.onSelect) return false
+  if (prev.onViewTask !== next.onViewTask) return false
+  if (prev.hideReclamoUI !== next.hideReclamoUI) return false
+
+  return true
+}
+
+export default memo(BoardTaskCardRowInner, boardTaskCardRowPropsAreEqual)

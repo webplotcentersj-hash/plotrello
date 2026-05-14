@@ -1104,6 +1104,34 @@ const BoardPage = ({
       if (response.success && response.data) {
         let createdTask = ordenToTask(response.data)
         const ordenId = parseTaskIdToOrdenId(createdTask.id)
+        const taskSnapshotForInstantUi = createdTask
+
+        // Kanban: mostrar la ficha al instante (no esperar líneas m², adjuntos, brief, etc.)
+        if (!variosSectores) {
+          startTransition(() => {
+            setTasks((prev) => {
+              if (prev.some((t) => t.id === taskSnapshotForInstantUi.id)) {
+                return prev.map((t) => (t.id === taskSnapshotForInstantUi.id ? taskSnapshotForInstantUi : t))
+              }
+              return [taskSnapshotForInstantUi, ...prev]
+            })
+          })
+          setActivity((prev) =>
+            [
+              {
+                id: `create-${taskSnapshotForInstantUi.id}-${Date.now()}`,
+                taskId: taskSnapshotForInstantUi.id,
+                from: taskSnapshotForInstantUi.status,
+                to: taskSnapshotForInstantUi.status,
+                actorId: sessionActor.id || taskSnapshotForInstantUi.ownerId,
+                actorName: sessionActor.name,
+                timestamp: new Date().toISOString(),
+                note: `Nueva orden creada: ${taskSnapshotForInstantUi.opNumber}`
+              },
+              ...prev
+            ].slice(0, 300)
+          )
+        }
 
         if (ordenId) {
           const lineasRes = await apiService.replaceOrdenLineasM2(
@@ -1150,25 +1178,18 @@ const BoardPage = ({
             }
           }
         }
-        
-        // Con varios sectores el trigger crea filas extra: sin prepend; realtime de esa OP va
-        // silenciado en App hasta el refetch (plotrello-op-multi-sector-settle).
+
         if (!variosSectores) {
-          setTasks((prev) => [createdTask, ...prev])
+          startTransition(() => {
+            setTasks((prev) => {
+              const i = prev.findIndex((t) => t.id === createdTask.id)
+              if (i < 0) return [createdTask, ...prev]
+              const next = [...prev]
+              next[i] = createdTask
+              return next
+            })
+          })
         }
-        setActivity((prev) => [
-          {
-            id: `create-${Date.now()}`,
-            taskId: createdTask.id,
-            from: createdTask.status,
-            to: createdTask.status,
-            actorId: sessionActor.id || createdTask.ownerId,
-            actorName: sessionActor.name,
-            timestamp: new Date().toISOString(),
-            note: `Nueva orden creada: ${createdTask.opNumber}`
-          },
-          ...prev
-        ])
         setActionSuccess('Orden creada en Supabase.')
         
         // Mostrar modal de QR para impresión
@@ -1184,7 +1205,7 @@ const BoardPage = ({
         }
         if (onReloadData) {
           if (variosSectores) {
-            await new Promise((r) => setTimeout(r, 1100))
+            await new Promise((r) => setTimeout(r, 750))
           }
           await onReloadData({ silent: true })
         }

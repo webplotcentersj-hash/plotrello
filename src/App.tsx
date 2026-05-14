@@ -543,7 +543,8 @@ function App() {
 
       // Verificar si hay un movimiento reciente del usuario para esta ficha
       const recentMove = recentUserMoves.get(taskId)
-      if (recentMove) {
+      const incomingEliminada = (orden as { eliminada?: boolean | null }).eliminada === true
+      if (recentMove && !incomingEliminada) {
         const timeSinceMove = Date.now() - recentMove.timestamp
         if (timeSinceMove >= 3000) {
           recentUserMoves.delete(taskId)

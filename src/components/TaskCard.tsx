@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo, useRef, type CSSProperties, type MouseEvent } from 'react'
+import { memo, useState, useEffect, useMemo, useRef, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Draggable } from '@hello-pangea/dnd'
@@ -23,6 +23,7 @@ import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
+import { activityEventsEqual, draggableInlineStylesEqual } from './boardRbdMemo'
 const CONTEXT_MENU_MIN_WIDTH = 200
 const CONTEXT_MENU_TITLE_H = 40
 const CONTEXT_MENU_ITEM_H = 44
@@ -2258,41 +2259,6 @@ const TaskCardInner = ({
   )
 }
 
-/** Estilos inline que suele inyectar hello-pangea/dnd; comparar sin JSON.stringify (más barato con muchas fichas). */
-const RBD_DRAG_STYLE_KEYS: (keyof CSSProperties)[] = [
-  'transform',
-  'transition',
-  'opacity',
-  'pointerEvents',
-  'left',
-  'top',
-  'right',
-  'bottom',
-  'width',
-  'height',
-  'position',
-  'zIndex',
-  'userSelect',
-  'margin',
-  'marginTop',
-  'marginRight',
-  'marginBottom',
-  'marginLeft'
-]
-
-function draggableInlineStylesEqual(
-  a: CSSProperties | null | undefined,
-  b: CSSProperties | null | undefined
-): boolean {
-  if (a === b) return true
-  if (!a && !b) return true
-  if (!a || !b) return false
-  for (const k of RBD_DRAG_STYLE_KEYS) {
-    if (a[k] !== b[k]) return false
-  }
-  return true
-}
-
 function explicitMoveSheetsEqual(
   a: TaskCardProps['explicitMoveSheet'],
   b: TaskCardProps['explicitMoveSheet']
@@ -2327,7 +2293,8 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
       prev.readOnly === next.readOnly &&
       prev.onInspectReadOnly === next.onInspectReadOnly &&
       prev.dragDisabled === next.dragDisabled &&
-      explicitMoveSheetsEqual(prev.explicitMoveSheet, next.explicitMoveSheet)
+      explicitMoveSheetsEqual(prev.explicitMoveSheet, next.explicitMoveSheet) &&
+      activityEventsEqual(prev.activity, next.activity)
     )
   }
   if ((prev.boardDnD == null) !== (next.boardDnD == null)) return false
@@ -2378,7 +2345,7 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   if (prev.index !== next.index) return false
   if (prev.isSelected !== next.isSelected) return false
   if (prev.owner !== next.owner) return false
-  if (prev.activity !== next.activity) return false
+  if (!activityEventsEqual(prev.activity, next.activity)) return false
   if (prev.members !== next.members) return false
   if (prev.sectores !== next.sectores) return false
   if (prev.columns !== next.columns) return false

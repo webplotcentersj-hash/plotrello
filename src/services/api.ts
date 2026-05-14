@@ -769,8 +769,13 @@ class ApiService {
 
   async createOrden(orden: Partial<OrdenTrabajo>): Promise<ApiResponse<OrdenTrabajo>> {
     const createdNotifyBoard = (row: OrdenTrabajo): ApiResponse<OrdenTrabajo> => {
-      // No broadcast aquí: dispara refetch en otras pestañas y puede competir con getOrdenes dedupe
-      // y pisar la ficha recién insertada. El INSERT en Realtime y el prepend local bastan en la misma sesión.
+      // Otras pestañas / ventanas: Supabase Realtime a veces no entrega el INSERT a tiempo; mismo patrón que deleteOrden.
+      // El refetch silencioso usa getOrdenes({ skipInFlightDedupe: true }) y no compite con promesas viejas deduplicadas.
+      try {
+        broadcastOrdenesChanged()
+      } catch {
+        /* sin BroadcastChannel */
+      }
       return { success: true, data: row }
     }
     if (supabase) {
