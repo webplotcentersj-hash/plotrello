@@ -674,13 +674,17 @@ class ApiService {
     }
   }
 
-  async getOrdenes(): Promise<ApiResponse<OrdenTrabajo[]>> {
-    if (this.getOrdenesInFlight) return this.getOrdenesInFlight
+  async getOrdenes(options?: { skipInFlightDedupe?: boolean }): Promise<ApiResponse<OrdenTrabajo[]>> {
+    const skip = options?.skipInFlightDedupe === true
+    if (!skip && this.getOrdenesInFlight) return this.getOrdenesInFlight
     const run = this.fetchOrdenesOnce()
-    this.getOrdenesInFlight = run.finally(() => {
-      if (this.getOrdenesInFlight === run) this.getOrdenesInFlight = null
-    })
-    return this.getOrdenesInFlight
+    if (!skip) {
+      this.getOrdenesInFlight = run.finally(() => {
+        if (this.getOrdenesInFlight === run) this.getOrdenesInFlight = null
+      })
+      return this.getOrdenesInFlight
+    }
+    return run
   }
 
   private async fetchOrdenesOnce(): Promise<ApiResponse<OrdenTrabajo[]>> {
@@ -765,11 +769,8 @@ class ApiService {
 
   async createOrden(orden: Partial<OrdenTrabajo>): Promise<ApiResponse<OrdenTrabajo>> {
     const createdNotifyBoard = (row: OrdenTrabajo): ApiResponse<OrdenTrabajo> => {
-      try {
-        broadcastOrdenesChanged()
-      } catch {
-        /* sin BroadcastChannel */
-      }
+      // No broadcast aquí: dispara refetch en otras pestañas y puede competir con getOrdenes dedupe
+      // y pisar la ficha recién insertada. El INSERT en Realtime y el prepend local bastan en la misma sesión.
       return { success: true, data: row }
     }
     if (supabase) {

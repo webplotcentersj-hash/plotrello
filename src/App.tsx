@@ -303,7 +303,7 @@ function App() {
         }
         silentReloadBusyRef.current = true
         try {
-          const ordenesResp = await apiService.getOrdenes()
+          const ordenesResp = await apiService.getOrdenes({ skipInFlightDedupe: true })
           if (ordenesResp.success && ordenesResp.data) {
             const mapped = ordenesResp.data.map((orden) => ordenToTask(orden))
             startTransition(() => {
