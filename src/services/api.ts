@@ -10,6 +10,7 @@ import {
 import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
+import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
 import type {
   ClienteRecord,
@@ -763,6 +764,14 @@ class ApiService {
   }
 
   async createOrden(orden: Partial<OrdenTrabajo>): Promise<ApiResponse<OrdenTrabajo>> {
+    const createdNotifyBoard = (row: OrdenTrabajo): ApiResponse<OrdenTrabajo> => {
+      try {
+        broadcastOrdenesChanged()
+      } catch {
+        /* sin BroadcastChannel */
+      }
+      return { success: true, data: row }
+    }
     if (supabase) {
       // Capturar supabase en variable local para TypeScript
       const supabaseClient = supabase
@@ -948,7 +957,7 @@ class ApiService {
                 // Descontar stock si hay materiales asociados
                 await this.descontarStockDeOrden(fullOrden.id, fullOrden.numero_op || '')
                 console.log('✅ Orden completa obtenida:', fullOrden)
-                return { success: true, data: fullOrden as OrdenTrabajo }
+                return createdNotifyBoard(fullOrden as OrdenTrabajo)
               }
               
               return { success: false, error: 'No se pudo obtener la orden creada' }
@@ -1101,12 +1110,12 @@ class ApiService {
                 return { success: false, error: finalAttempt.error.message }
               }
               console.log('✅ Orden creada sin algunas columnas opcionales')
-              return { success: true, data: finalAttempt.data as OrdenTrabajo }
+              return createdNotifyBoard(finalAttempt.data as OrdenTrabajo)
             }
 
             // Éxito después de eliminar columnas faltantes
             console.log(`✅ Orden creada. Columnas eliminadas: ${missingColumns.join(', ')}`)
-            return { success: true, data: fallback.data as OrdenTrabajo }
+            return createdNotifyBoard(fallback.data as OrdenTrabajo)
           } else {
             // El error menciona "column" pero no menciona ninguna columna específica de contacto
             // Esto podría ser un error de otra columna. Intentar de todas formas.
@@ -1122,7 +1131,7 @@ class ApiService {
               return { success: false, error: finalAttempt.error.message }
             }
             console.log('✅ Orden creada sin columnas de contacto (fallback)')
-            return { success: true, data: finalAttempt.data as OrdenTrabajo }
+            return createdNotifyBoard(finalAttempt.data as OrdenTrabajo)
           }
         }
 
@@ -1143,7 +1152,7 @@ class ApiService {
         })
       }
 
-      return { success: true, data: data as OrdenTrabajo }
+      return createdNotifyBoard(data as OrdenTrabajo)
     }
 
     if (hasLegacyBackend) {
@@ -1152,7 +1161,7 @@ class ApiService {
 
     const nuevo = { ...orden, id: fallbackOrdenes.length + 1 } as OrdenTrabajo
     fallbackOrdenes.push(nuevo)
-    return { success: true, data: nuevo }
+    return createdNotifyBoard(nuevo)
   }
 
   /** Dispara en segundo plano el envío de email al cliente cuando la orden pasa a Almacén de Entrega. */
@@ -2075,9 +2084,19 @@ class ApiService {
           console.warn(
             '[deleteOrden] La BD no tiene columna ordenes_trabajo.eliminada; se ocultó del tablero. Aplicá supabase/patches/2026-04-27_ordenes_soft_delete_eliminada.sql para borrado lógico completo.'
           )
+          try {
+            broadcastOrdenesChanged()
+          } catch {
+            /* sin BroadcastChannel */
+          }
           return { success: true }
         }
         if (error) return { success: false, error: error.message }
+        try {
+          broadcastOrdenesChanged()
+        } catch {
+          /* sin BroadcastChannel */
+        }
         return { success: true }
       } catch (e: any) {
         console.error('Error eliminando orden con auditoría:', e)

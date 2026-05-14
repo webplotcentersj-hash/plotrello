@@ -18,7 +18,8 @@
     "clean-all": "node scripts/clear-cache.js --clean-node && npm run build",
     "manual:pdf": "node scripts/build-manual-pdf.mjs",
     "manual:pdf:op-sectores": "node scripts/build-manual-pdf.mjs MANUAL_OP_SECTORES_MULTIPLES.md",
-    "pdf:mejoras-usuarios": "node scripts/build-manual-pdf.mjs docs/MEJORAS_USUARIOS.md docs/MEJORAS_USUARIOS.pdf"
+    "pdf:mejoras-usuarios": "node scripts/build-manual-pdf.mjs docs/MEJORAS_USUARIOS.md docs/MEJORAS_USUARIOS.pdf",
+    "manual:pdf:espejo": "node scripts/print-manual-espejo-pdf.mjs"
   },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",

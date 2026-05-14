@@ -149,7 +149,8 @@ import type {
 import './app.css'
 import './plotlab-mobile.css'
 import apiService, { formatSupabaseStatementTimeoutError } from './services/api'
-import { historialToActivity, ordenToTask } from './utils/dataMappers'
+import { historialToActivity, ordenToTask, taskFromRealtimeOrdenUpdate } from './utils/dataMappers'
+import { subscribeOrdenesBroadcast } from './utils/ordenesBroadcast'
 import { supabase } from './services/supabaseClient'
 import { initializeManual } from './services/plotAIManualService'
 
@@ -203,6 +204,7 @@ function App() {
   /** Encola refrescos silenciosos del tablero para no disparar varios getOrdenes a la vez. */
   const silentReloadBusyRef = useRef(false)
   const silentReloadAgainRef = useRef(false)
+  const ordenBroadcastRefreshTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!loading) {
@@ -436,6 +438,27 @@ function App() {
     return () => window.removeEventListener('plotrello-orden-entregada', onOrdenEntregada)
   }, [isAuthenticated, loadRemoteData])
 
+  /** Otra pestaña creó/borró OP: Supabase Realtime puede no llegar; BroadcastChannel + refetch silencioso. */
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const unsub = subscribeOrdenesBroadcast(() => {
+      if (ordenBroadcastRefreshTimerRef.current != null) {
+        window.clearTimeout(ordenBroadcastRefreshTimerRef.current)
+      }
+      ordenBroadcastRefreshTimerRef.current = window.setTimeout(() => {
+        ordenBroadcastRefreshTimerRef.current = null
+        void loadRemoteData({ silent: true })
+      }, 220)
+    })
+    return () => {
+      unsub()
+      if (ordenBroadcastRefreshTimerRef.current != null) {
+        window.clearTimeout(ordenBroadcastRefreshTimerRef.current)
+        ordenBroadcastRefreshTimerRef.current = null
+      }
+    }
+  }, [isAuthenticated, loadRemoteData])
+
   useEffect(() => {
     const onSettle = (event: Event) => {
       const d = (event as CustomEvent<{ numeroOp: string }>).detail
@@ -518,15 +541,18 @@ function App() {
         return
       }
 
-      const mapped = ordenToTask(orden)
-      
       // Verificar si hay un movimiento reciente del usuario para esta ficha
       const recentMove = recentUserMoves.get(taskId)
       if (recentMove) {
         const timeSinceMove = Date.now() - recentMove.timestamp
-        // Si el movimiento fue hace menos de 3 segundos y el estado del realtime
-        // es diferente al estado que el usuario movió, ignorar (efecto espejo)
-        if (timeSinceMove < 3000 && orden.estado !== recentMove.estado) {
+        if (timeSinceMove >= 3000) {
+          recentUserMoves.delete(taskId)
+        } else if (
+          orden.estado != null &&
+          String(orden.estado).trim() !== '' &&
+          timeSinceMove < 3000 &&
+          String(orden.estado) !== String(recentMove.estado)
+        ) {
           if (import.meta.env.DEV) {
             console.log(
               `⏭️ Ignorando actualización realtime (efecto espejo) para ${taskId}: realtime=${orden.estado}, usuario movió a=${recentMove.estado}`
@@ -534,15 +560,14 @@ function App() {
           }
           return
         }
-        // Si pasaron más de 3 segundos, limpiar el tracking
-        if (timeSinceMove >= 3000) {
-          recentUserMoves.delete(taskId)
-        }
       }
       
       setTasks((prev) => {
         const next = [...prev]
         const idx = next.findIndex((task) => task.id === taskId)
+        const mapped =
+          idx >= 0 ? taskFromRealtimeOrdenUpdate(next[idx], orden) : ordenToTask(orden)
+
         if (idx >= 0) {
           // ⚠️ CRÍTICO: Preservar el status actual si la tarea fue editada recientemente
           // Esto evita que la ficha se mueva cuando solo se actualiza la etapa u otros campos
@@ -569,7 +594,7 @@ function App() {
         } else {
           next.unshift(mapped)
         }
-        
+
         return next
       })
     }

@@ -519,6 +519,63 @@ export const parseTaskIdToOrdenId = (taskId: string): number | null => {
   return match ? Number(match[1]) : null
 }
 
+function countDefinedRealtimeOrdenFields(o: Partial<OrdenTrabajo>): number {
+  let n = 0
+  for (const v of Object.values(o)) {
+    if (v !== undefined) n++
+  }
+  return n
+}
+
+function pickDefinedOrden(o: Partial<OrdenTrabajo>): Partial<OrdenTrabajo> {
+  const out: Partial<OrdenTrabajo> = {}
+  for (const [k, v] of Object.entries(o)) {
+    if (v !== undefined) (out as Record<string, unknown>)[k] = v
+  }
+  return out
+}
+
+/**
+ * Realtime `UPDATE` suele traer solo PK + columnas modificadas (replica identity DEFAULT).
+ * Aplicar `ordenToTask` solo a ese trozo pisaba cliente/descripcion; si no venía `estado`,
+ * el anti-rebote de `recentUserMoves` descartaba el evento entero (p. ej. borrado lógico sin reflejo al instante).
+ */
+export function taskFromRealtimeOrdenUpdate(prev: Task, incoming: OrdenTrabajo): Task {
+  const sameId = String(incoming.id) === prev.id
+  const defined = countDefinedRealtimeOrdenFields(incoming as Partial<OrdenTrabajo>)
+  const looksSparse = sameId && defined > 0 && defined < 18
+
+  if (!looksSparse) {
+    return ordenToTask(incoming)
+  }
+
+  const idNum = parseTaskIdToOrdenId(prev.id) ?? incoming.id
+  const base = taskToOrdenPayload(prev) as Partial<OrdenTrabajo>
+  const merged: Partial<OrdenTrabajo> = {
+    ...base,
+    id: idNum,
+    numero_op: prev.opNumber,
+    entregado: prev.entregado,
+    eliminada: prev.ordenEliminada,
+    visible_en_tablero: prev.visibleEnTablero !== false,
+    motivo_eliminacion: prev.motivoEliminacion ?? null,
+    fecha_eliminacion: prev.fechaEliminacion ?? null,
+    es_duplicado: prev.esDuplicado ?? false,
+    id_orden_original: prev.idOrdenOriginal ?? null
+  }
+  if (!('orden_lineas_m2' in (incoming as object)) && prev.lineasMetrosM2?.length) {
+    merged.orden_lineas_m2 = prev.lineasMetrosM2.map((r, i) => ({
+      id: r.id ?? i,
+      id_orden: idNum,
+      tipo: r.tipo,
+      metros_cuadrados: r.metrosCuadrados,
+      sort_order: i
+    }))
+  }
+  Object.assign(merged, pickDefinedOrden(incoming as Partial<OrdenTrabajo>))
+  return ordenToTask(merged as OrdenTrabajo)
+}
+
 // Mapeo de sectores a roles permitidos
 const SECTOR_TO_ROLES: Record<string, string[]> = {
   'Diseño Gráfico': ['diseno', 'administracion'],

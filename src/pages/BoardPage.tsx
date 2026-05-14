@@ -1031,7 +1031,7 @@ const BoardPage = ({
     setTaskToEdit(null)
 
     if (onReloadData) {
-      await onReloadData()
+      await onReloadData({ silent: true })
     }
   }, [usuario, onReloadData, persistWorkingUser, setTasks, setTaskToEdit, setActionError])
 

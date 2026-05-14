@@ -25,6 +25,10 @@ import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskEditModal.css'
 import './TaskViewModal.css'
 
+/** Vista tablero: menos filas = menos DOM y scroll fluido. Biblioteca: más contexto sin pedir miles. */
+const HISTORIAL_LIMIT_VISTA_RAPIDA = 120
+const HISTORIAL_LIMIT_BIBLIOTECA = 900
+
 type TaskViewModalProps = {
   task: Task
   teamMembers: TeamMember[]
@@ -125,6 +129,7 @@ export default function TaskViewModal({
   const [historial, setHistorial] = useState<HistorialMovimiento[]>([])
   const [historialLoading, setHistorialLoading] = useState(false)
   const [historialError, setHistorialError] = useState<string | null>(null)
+  const [fichaPdfEmbedOpen, setFichaPdfEmbedOpen] = useState(false)
 
   const [resolvedFromApi, setResolvedFromApi] = useState<Task | null>(null)
   const [exhaustiveLoading, setExhaustiveLoading] = useState(false)
@@ -140,6 +145,11 @@ export default function TaskViewModal({
   const viewTask = resolvedFromApi ?? task
   const ordenIdView = useMemo(() => parseTaskIdToOrdenId(viewTask.id), [viewTask.id])
 
+  const tagsKey = useMemo(
+    () => (viewTask.tags ?? []).map((t) => t.trim()).sort().join('\u0001'),
+    [viewTask.tags]
+  )
+
   const owner = teamMembers.find((m) => m.id === viewTask.ownerId)
   const createdByMember = teamMembers.find((m) => m.id === viewTask.createdBy)
   const columnCfg = BOARD_COLUMNS.find((c) => c.id === viewTask.status)
@@ -152,6 +162,38 @@ export default function TaskViewModal({
     if (i === 'media') return 'Media'
     return 'Baja'
   }, [viewTask.impact])
+
+  useEffect(() => {
+    setFichaPdfEmbedOpen(false)
+  }, [ordenIdView])
+
+  /** Colores de etiquetas: antes se llamaba `loadTagColor` en cada render → re-renders en cascada y tildado. */
+  useEffect(() => {
+    const tags = viewTask.tags ?? []
+    if (!tags.length) return
+    let cancelled = false
+    void (async () => {
+      const pairs: Array<{ key: string; color: string }> = []
+      const seen = new Set<string>()
+      for (const tag of tags) {
+        const key = tag.trim().toLowerCase()
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        pairs.push({ key, color: await loadTagColor(tag) })
+      }
+      if (cancelled || !pairs.length) return
+      setTagColorsCache((prev) => {
+        const next = new Map(prev)
+        for (const { key, color } of pairs) {
+          if (!next.has(key)) next.set(key, color)
+        }
+        return next
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tagsKey])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -177,7 +219,9 @@ export default function TaskViewModal({
     let cancelled = false
     setHistorialLoading(true)
     setHistorialError(null)
-    void apiService.getHistorialMovimientos({ ordenId: ordenIdView, limit: 500 }).then((r) => {
+    void apiService
+      .getHistorialMovimientos({ ordenId: ordenIdView, limit: HISTORIAL_LIMIT_VISTA_RAPIDA })
+      .then((r) => {
       if (cancelled) return
       setHistorialLoading(false)
       if (r.success && r.data) {
@@ -230,7 +274,7 @@ export default function TaskViewModal({
           apiService.getRelevamientoSubitems(ordenIdView),
           apiService.obtenerRevisionesOrden(ordenIdView),
           apiService.obtenerTiempoTrabajoOrden(ordenIdView),
-          apiService.getHistorialMovimientos({ ordenId: ordenIdView, limit: 2000 })
+          apiService.getHistorialMovimientos({ ordenId: ordenIdView, limit: HISTORIAL_LIMIT_BIBLIOTECA })
         ])
         if (cancelled) return
         if (ordResp.success && ordResp.data) {
@@ -277,7 +321,7 @@ export default function TaskViewModal({
     return () => {
       cancelled = true
     }
-  }, [exhaustiveDetail, ordenIdView, viewTask.id])
+  }, [exhaustiveDetail, ordenIdView])
 
   // Modal solo lectura (tablero): también mostrar adjuntos del grupo.
   useEffect(() => {
@@ -312,6 +356,16 @@ export default function TaskViewModal({
         setPlotAIRecoLoading(false)
       })
   }
+
+  const plotAIRecoHtml = useMemo(() => {
+    const t = plotAIRecoText.trim()
+    if (!t) return ''
+    try {
+      return marked.parse(t, { async: false }) as string
+    } catch {
+      return ''
+    }
+  }, [plotAIRecoText])
 
   const opLabel = viewTask.esFichaNoOP ? 'Ficha' : 'OP'
   const progress = Math.min(100, Math.max(0, viewTask.progress))
@@ -443,15 +497,6 @@ export default function TaskViewModal({
                   <div className="task-view-tags-hero-row" role="list">
                     {viewTask.tags.map((tag) => {
                       const color = tagColorsCache.get(tag.toLowerCase()) || getTagColor(tag)
-                      if (!tagColorsCache.has(tag.toLowerCase())) {
-                        void loadTagColor(tag).then((loadedColor) => {
-                          setTagColorsCache((prev) => {
-                            const next = new Map(prev)
-                            next.set(tag.toLowerCase(), loadedColor)
-                            return next
-                          })
-                        })
-                      }
                       return (
                         <span
                           key={tag}
@@ -576,18 +621,28 @@ export default function TaskViewModal({
                 >
                   Descargar
                 </a>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setFichaPdfEmbedOpen((o) => !o)}
+                  aria-expanded={fichaPdfEmbedOpen}
+                >
+                  {fichaPdfEmbedOpen ? 'Ocultar vista embebida' : 'Mostrar PDF aquí (más pesado)'}
+                </button>
               </div>
-              <iframe
-                src={viewTask.fichaTecnicaPdfUrl as string}
-                title={`Ficha técnica ${viewTask.opNumber || ''}`}
-                style={{
-                  width: '100%',
-                  height: 520,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: 12,
-                  background: '#0b1020'
-                }}
-              />
+              {fichaPdfEmbedOpen ? (
+                <iframe
+                  src={viewTask.fichaTecnicaPdfUrl as string}
+                  title={`Ficha técnica ${viewTask.opNumber || ''}`}
+                  style={{
+                    width: '100%',
+                    height: 520,
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: 12,
+                    background: '#0b1020'
+                  }}
+                />
+              ) : null}
             </section>
           ) : null}
 
@@ -953,6 +1008,16 @@ export default function TaskViewModal({
           {ordenIdView != null && (
             <section className="task-view-panel task-view-panel--wide task-view-historial" aria-label="Historial de cambios">
               <h3 className="task-view-panel-title">Historial de cambios</h3>
+              {exhaustiveDetail && (
+                <p className="task-view-muted task-view-historial-cap-hint">
+                  Hasta {HISTORIAL_LIMIT_BIBLIOTECA} movimientos recientes (detalle biblioteca).
+                </p>
+              )}
+              {!exhaustiveDetail && (
+                <p className="task-view-muted task-view-historial-cap-hint">
+                  Mostrando hasta los últimos {HISTORIAL_LIMIT_VISTA_RAPIDA} movimientos (vista rápida).
+                </p>
+              )}
               {historialLoading && <p className="task-view-muted">Cargando historial…</p>}
               {historialError && (
                 <p className="task-view-historial-error" role="alert">
@@ -1039,12 +1104,12 @@ export default function TaskViewModal({
                   {plotAIRecoError}
                 </p>
               )}
-              {!plotAIRecoLoading && plotAIRecoText && (
+              {!plotAIRecoLoading && plotAIRecoHtml ? (
                 <div
                   className="task-view-reco-content markdown-body"
-                  dangerouslySetInnerHTML={{ __html: marked.parse(plotAIRecoText, { async: false }) as string }}
+                  dangerouslySetInnerHTML={{ __html: plotAIRecoHtml }}
                 />
-              )}
+              ) : null}
             </div>
           </div>
         </div>

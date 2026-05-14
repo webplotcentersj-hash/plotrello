@@ -101,6 +101,7 @@
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  overflow-anchor: none;
 }
 
 .board-column {
@@ -119,6 +120,7 @@
   position: relative;
   overflow: hidden;
   height: fit-content;
+  isolation: isolate;
 }
 
 .column-load-indicator {
@@ -189,6 +191,8 @@
   contain: layout;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  scroll-behavior: auto;
 }
 
 /*
@@ -201,6 +205,7 @@
   -webkit-backdrop-filter: none;
   background: rgba(8, 10, 22, 0.995);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42);
+  contain: layout;
 }
 
 .column-body .task-card:hover {

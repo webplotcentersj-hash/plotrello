@@ -43,6 +43,7 @@
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
+    overflow-anchor: none;
   }
 
   /* Carril horizontal tipo “Trello móvil”: columnas anchas y snap */
