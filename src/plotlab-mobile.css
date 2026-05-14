@@ -37,25 +37,25 @@
     width: 100%;
   }
 
-  /* board-wrapper: en escritorio overflow:hidden evita saltos; en móvil permitimos scroll horizontal del kanban */
+  /* Un solo scroll horizontal: el carril es `.columns-grid`. Si el scroll vive en `.board-wrapper`
+   * pero el snap en el hijo, el gesto se siente “desfasado” (snap sin scrollport). */
   .board-wrapper {
-    overflow-x: auto;
+    overflow-x: visible;
     overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    overflow-anchor: none;
   }
 
-  /* Carril horizontal tipo “Trello móvil”: columnas anchas y snap */
   .columns-grid {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: stretch;
     gap: 12px;
-    overflow-x: visible;
-    overflow-y: visible;
-    scroll-snap-type: x mandatory;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
     padding-bottom: 10px;
     grid-template-columns: unset;
     min-height: 0;

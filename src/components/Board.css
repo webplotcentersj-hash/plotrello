@@ -97,11 +97,10 @@
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 18px;
   overflow-x: auto;
-  scroll-snap-type: x proximity;
+  /* Sin scroll-snap horizontal: con scroll vertical dentro de cada columna el snap desincroniza el gesto en trackpad/táctil. */
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  overflow-anchor: none;
 }
 
 .board-column {
@@ -115,12 +114,11 @@
   flex-direction: column;
   max-height: 85vh;
   min-height: 420px;
-  transition: border 120ms ease, transform 120ms ease;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
   scroll-snap-align: start;
   position: relative;
   overflow: hidden;
   height: fit-content;
-  isolation: isolate;
 }
 
 .column-load-indicator {
@@ -188,11 +186,10 @@
   padding-right: 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(235, 103, 27, 0.5) transparent;
-  contain: layout;
+  /* Evitar `contain: layout` aquí: en Chromium suele empeorar el scroll anidado (columna dentro de carril horizontal). */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   touch-action: pan-y;
-  scroll-behavior: auto;
 }
 
 /*
@@ -205,7 +202,6 @@
   -webkit-backdrop-filter: none;
   background: rgba(8, 10, 22, 0.995);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42);
-  contain: layout;
 }
 
 .column-body .task-card:hover {
@@ -275,6 +271,7 @@
 
 .column-active {
   border-color: var(--brand);
-  transform: translateY(-2px);
+  /* Sin translateY: evita capa composited extra y “saltos” al cruzar columnas con scroll activo */
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 55%, transparent), 0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
