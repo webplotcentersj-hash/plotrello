@@ -39,6 +39,8 @@ type TaskEditModalProps = {
   onDelete?: (taskId: string) => void
   /** false en flujos que no son OP (ej. Asesor/Presupuestos): sin tipo/ítems m² ni tocar esos datos al guardar */
   showImpresionOpFields?: boolean
+  /** Tras persistir modo espejo en BD (todas las filas del mismo `numero_op`): actualizar tablero / ficha abierta */
+  onEspejoSectoresOpSynced?: (numeroOp: string, enabled: boolean) => void
 }
 
 type LocalAttachment = {
@@ -67,7 +69,8 @@ const TaskEditModal = ({
   onClose,
   onSave,
   onDelete,
-  showImpresionOpFields = true
+  showImpresionOpFields = true,
+  onEspejoSectoresOpSynced
 }: TaskEditModalProps) => {
   const { isAdmin, isDiseno, usuario } = useAuth()
   const [formData, setFormData] = useState<Partial<Task>>({})
@@ -125,6 +128,7 @@ const TaskEditModal = ({
   const [lineasMetrosM2, setLineasMetrosM2] = useState<Array<{ tipo: string; metrosCuadrados: number }>>([])
   const [, setRecentTiposOp] = useState<string[]>([])
   const [lineaTipoSuggestionsByIdx, setLineaTipoSuggestionsByIdx] = useState<Record<number, string[]>>({})
+  const [espejoSectores, setEspejoSectores] = useState(false)
 
   const taskHistory = useMemo(() => {
     if (!task) return []
@@ -176,6 +180,7 @@ const TaskEditModal = ({
       } else {
         setSelectedSectors(task.assignedSector ? [task.assignedSector] : [])
       }
+      setEspejoSectores(task.espejoSectoresOp === true)
       setTags(task.tags || [])
       // Cargar colores de las etiquetas existentes
       if (task.tags && task.tags.length > 0) {
@@ -590,6 +595,7 @@ const TaskEditModal = ({
       // Asegurar que ownerId se preserve correctamente
       ownerId: formData.ownerId || task.ownerId || 'sin-asignar',
       opBloqueada: formData.opBloqueada ?? task.opBloqueada,
+      espejoSectoresOp: espejoSectores,
       tipoImpresion: task.tipoImpresion,
       lineasMetrosM2: showImpresionOpFields
         ? lineasMetrosM2
@@ -1440,6 +1446,46 @@ const TaskEditModal = ({
                 queda en la ficha visible.
               </small>
             </div>
+            {(selectedSectors.length >= 2 || (task.sectores?.length ?? 0) >= 2) && (
+              <label
+                className="task-edit-espejo-sectores"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  marginTop: 12,
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  lineHeight: 1.35
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={espejoSectores}
+                  onChange={(e) => {
+                    void (async () => {
+                      const v = e.target.checked
+                      if (!task?.opNumber) return
+                      setEspejoSectores(v)
+                      const res = await apiService.setEspejoSectoresOpGrupo(task.opNumber, v)
+                      if (!res.success) {
+                        setEspejoSectores(!v)
+                        window.alert(res.error || 'No se pudo guardar el modo espejo en la base de datos.')
+                        return
+                      }
+                      onEspejoSectoresOpSynced?.(task.opNumber, v)
+                    })()
+                  }}
+                  style={{ marginTop: 3 }}
+                />
+                <span>
+                  <strong>Modo espejo</strong> (misma OP, varios sectores): se guarda en la base de datos en todas las fichas
+                  de esta OP. Al guardar desde cualquier ficha, los datos comunes (resumen, materiales, brief, checklist, líneas
+                  m², etc.) se aplican también a las demás. No se copia la columna del tablero ni las etapas internas de cada
+                  sector.
+                </span>
+              </label>
+            )}
             {requiereFotosLugarEdit && (
               <div
                 className="fotos-lugar-requerido-box"

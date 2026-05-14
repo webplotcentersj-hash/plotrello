@@ -37,6 +37,7 @@ import {
   mapEstadoToStatus
 } from '../utils/dataMappers'
 import { recordTiposImpresionUsados } from '../utils/opImpresionRecientes'
+import { mergeEspejoSiblingTask } from '../utils/opEspejoSectores'
 import Subtasks from '../components/Subtasks'
 import {
   getSectorEtapaKanbanBySectorName,
@@ -763,6 +764,15 @@ const BoardPage = ({
     setTaskToEdit(null)
   }
 
+  const handleEspejoSectoresOpSynced = useCallback((numeroOp: string, enabled: boolean) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.opNumber === numeroOp ? { ...t, espejoSectoresOp: enabled } : t))
+    )
+    setTaskToEdit((prev) =>
+      prev && prev.opNumber === numeroOp ? { ...prev, espejoSectoresOp: enabled } : prev
+    )
+  }, [setTasks])
+
   const handleSaveTask = async (updatedTask: Task) => {
     const ordenId = parseTaskIdToOrdenId(updatedTask.id)
     
@@ -838,10 +848,41 @@ const BoardPage = ({
           status: statusFinal, // SIEMPRE usar el status preservado (columna actual)
           id: updatedTask.id, // Mantener el ID original
           lineasMetrosM2: updatedTask.lineasMetrosM2,
-          tipoImpresion: updatedTask.tipoImpresion
+          tipoImpresion: updatedTask.tipoImpresion,
+          espejoSectoresOp: updatedTask.espejoSectoresOp === true
         }
-        
-        setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? taskFinal : task)))
+
+        const sectLenEspejo =
+          (updatedTask.sectores?.length ?? 0) > 0
+            ? (updatedTask.sectores?.length ?? 0)
+            : (taskFinal.sectores?.length ?? 0)
+        const espejoOn = updatedTask.espejoSectoresOp === true && sectLenEspejo >= 2
+        let propagatedSiblingOrdenIds: number[] = []
+        if (espejoOn) {
+          const esp = await apiService.propagateEspejoGrupoOrden(ordenId, updatedTask.opNumber, payload)
+          if (!esp.success && esp.error) {
+            console.warn('Modo espejo:', esp.error)
+          }
+          propagatedSiblingOrdenIds = esp.propagatedIds
+          for (const sid of propagatedSiblingOrdenIds) {
+            const lrEspejo = await apiService.replaceOrdenLineasM2(sid, updatedTask.lineasMetrosM2 ?? [])
+            if (!lrEspejo.success) {
+              console.warn('No se pudieron guardar las líneas m² (espejo):', sid, lrEspejo.error)
+            }
+          }
+        }
+
+        setTasks((prev) =>
+          prev.map((task) => {
+            if (task.id === updatedTask.id) return taskFinal
+            if (!espejoOn || propagatedSiblingOrdenIds.length === 0) return task
+            const oid = parseTaskIdToOrdenId(task.id)
+            if (oid != null && propagatedSiblingOrdenIds.includes(oid)) {
+              return mergeEspejoSiblingTask(task, taskFinal)
+            }
+            return task
+          })
+        )
         setActivity((prev) => [
           {
             id: `edit-${Date.now()}`,
@@ -1409,6 +1450,7 @@ const BoardPage = ({
           onClose={handleCloseEditModal}
           onSave={handleSaveTask}
           onDelete={handleDeleteTask}
+          onEspejoSectoresOpSynced={handleEspejoSectoresOpSynced}
         />
       )}
 

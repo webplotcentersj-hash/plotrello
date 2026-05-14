@@ -118,6 +118,8 @@ export interface OrdenTrabajo {
   presupuesto_en_espera?: boolean | null
   /** Si true, la ficha no debe editarse ni moverse (operario asignado puede destablar; admin/gerencia omiten) */
   op_bloqueada?: boolean | null
+  /** OP multi-sector: replicar datos comunes entre fichas del mismo `numero_op` al guardar (todas las filas del grupo comparten el mismo valor). */
+  espejo_sectores_op?: boolean | null
   /** false = no listar en tablero; la fila sigue en BD (fusión / unificación sin DELETE) */
   visible_en_tablero?: boolean | null
   /** true = borrado lógico; la fila sigue en BD con motivo_eliminacion */

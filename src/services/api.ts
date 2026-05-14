@@ -10,6 +10,7 @@ import {
 import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
+import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
 import type {
   ClienteRecord,
   FichaHistorialItem,
@@ -98,23 +99,40 @@ import {
   type TallerGraficoPedidoEntregaInput
 } from '../constants/tallerGraficoPedidoEntrega'
 
+/** Mensaje para la UI cuando Postgres cancela por tiempo (tablero / getOrdenes). */
+export function formatSupabaseStatementTimeoutError(raw: string): string {
+  const m = (raw || '').toLowerCase()
+  if (m.includes('statement timeout') || m.includes('canceling statement')) {
+    return 'La base de datos tardó demasiado (consulta pesada o muchas fichas). Esperá unos segundos y tocá «Actualizar app» o recargá. Si se repite seguido, en Supabase conviene revisar índices en `ordenes_trabajo` y `orden_lineas_m2` o archivar OP viejas.'
+  }
+  return raw
+}
+
 /** Anexa `orden_lineas_m2` a cada orden (si la tabla existe en Supabase). */
 async function attachLineasM2ToOrdenes(ordenes: any[]): Promise<void> {
   if (!supabase || ordenes.length === 0) return
   const ids = ordenes.map((o) => o.id).filter((id: unknown) => typeof id === 'number')
   if (ids.length === 0) return
+  const CHUNK = 180
   try {
-    const { data: allLineas, error } = await supabase
-      .from('orden_lineas_m2')
-      .select('id, id_orden, tipo, metros_cuadrados, sort_order, created_at')
-      .in('id_orden', ids)
-      .order('sort_order', { ascending: true })
-    if (error || !allLineas) return
     const map = new Map<number, OrdenLineaM2[]>()
-    for (const row of allLineas as OrdenLineaM2[]) {
-      const list = map.get(row.id_orden) ?? []
-      list.push(row)
-      map.set(row.id_orden, list)
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK)
+      const { data: allLineas, error } = await supabase
+        .from('orden_lineas_m2')
+        .select('id, id_orden, tipo, metros_cuadrados, sort_order, created_at')
+        .in('id_orden', slice)
+        .order('sort_order', { ascending: true })
+      if (error) {
+        console.warn('[attachLineasM2ToOrdenes] chunk', i, error.message)
+        continue
+      }
+      if (!allLineas) continue
+      for (const row of allLineas as OrdenLineaM2[]) {
+        const list = map.get(row.id_orden) ?? []
+        list.push(row)
+        map.set(row.id_orden, list)
+      }
     }
     for (const o of ordenes) {
       o.orden_lineas_m2 = map.get(o.id) ?? []
@@ -248,6 +266,9 @@ function supabaseErrorMessage(e: unknown, fallback: string): string {
 }
 
 class ApiService {
+  /** Evita disparar varias lecturas completas del tablero a la vez (timeout en Supabase). */
+  private getOrdenesInFlight: Promise<ApiResponse<OrdenTrabajo[]>> | null = null
+
   // Helper para obtener usuario actual desde localStorage
   private getCurrentUser(): { id: number; nombre: string } {
     const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
@@ -641,6 +662,15 @@ class ApiService {
   }
 
   async getOrdenes(): Promise<ApiResponse<OrdenTrabajo[]>> {
+    if (this.getOrdenesInFlight) return this.getOrdenesInFlight
+    const run = this.fetchOrdenesOnce()
+    this.getOrdenesInFlight = run.finally(() => {
+      if (this.getOrdenesInFlight === run) this.getOrdenesInFlight = null
+    })
+    return this.getOrdenesInFlight
+  }
+
+  private async fetchOrdenesOnce(): Promise<ApiResponse<OrdenTrabajo[]>> {
     if (supabase) {
       try {
         // Usar select('*') para obtener todas las columnas disponibles automáticamente
@@ -674,15 +704,16 @@ class ApiService {
         // Capturar errores de red (Failed to fetch, CORS, etc.)
         console.error('Error de conexión en getOrdenes:', err)
         const errorMessage = err?.message || 'Error de conexión con la base de datos'
-        
+
         // Verificar si es un error de red
         if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
-          return { 
-            success: false, 
-            error: 'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración de VITE_SUPABASE_URL.' 
+          return {
+            success: false,
+            error:
+              'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración de VITE_SUPABASE_URL.'
           }
         }
-        
+
         return { success: false, error: errorMessage }
       }
     }
@@ -1856,6 +1887,86 @@ class ApiService {
       const msg = e instanceof Error ? e.message : 'Error al sincronizar sectores del grupo OP'
       return { success: false, error: msg }
     }
+  }
+
+  /**
+   * Todas las filas `ordenes_trabajo` con el mismo `numero_op` quedan con el mismo flag (persistido en BD).
+   */
+  async setEspejoSectoresOpGrupo(
+    numeroOp: string,
+    enabled: boolean
+  ): Promise<ApiResponse<{ updated: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    const op = String(numeroOp ?? '').trim()
+    if (!op) return { success: false, error: 'Número de OP vacío' }
+    try {
+      const { data, error } = await supabase
+        .from('ordenes_trabajo')
+        .update({ espejo_sectores_op: enabled })
+        .eq('numero_op', op)
+        .select('id')
+      if (error) return { success: false, error: error.message }
+      const rows = (data as Array<{ id: number }> | null) ?? []
+      return { success: true, data: { updated: rows.length } }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al guardar modo espejo'
+      return { success: false, error: msg }
+    }
+  }
+
+  /**
+   * Modo espejo (multi-sector): aplica el mismo payload de datos comunes de la OP al resto de filas
+   * con el mismo `numero_op` (excluye la fila origen). No toca estado Kanban ni etapas por sector.
+   */
+  async propagateEspejoGrupoOrden(
+    sourceOrdenId: number,
+    numeroOp: string,
+    payloadAfterSave: Partial<OrdenTrabajo>
+  ): Promise<{ success: boolean; error?: string; propagatedIds: number[] }> {
+    if (!supabase) return { success: true, propagatedIds: [] }
+    const op = String(numeroOp ?? '').trim()
+    if (!op) return { success: true, propagatedIds: [] }
+
+    const mirror = stripPayloadForEspejoGrupo(payloadAfterSave)
+    const keys = Object.keys(mirror).filter((k) => (mirror as Record<string, unknown>)[k] !== undefined)
+    if (keys.length === 0) return { success: true, propagatedIds: [] }
+
+    const minimalMirror: Partial<OrdenTrabajo> = {}
+    for (const k of keys) {
+      ;(minimalMirror as Record<string, unknown>)[k] = (mirror as Record<string, unknown>)[k]
+    }
+
+    let q = supabase.from('ordenes_trabajo').select('id, eliminada, visible_en_tablero').eq('numero_op', op).neq('id', sourceOrdenId)
+
+    const { data: rows, error } = await q
+    if (error) {
+      return { success: false, error: error.message, propagatedIds: [] }
+    }
+
+    const list = (rows as Array<{ id: number; eliminada?: boolean | null; visible_en_tablero?: boolean | null }>) ?? []
+    const targets = list.filter(
+      (r) => r?.id && r.eliminada !== true && r.visible_en_tablero !== false
+    )
+    if (targets.length === 0) return { success: true, propagatedIds: [] }
+
+    const propagatedIds: number[] = []
+    const errors: string[] = []
+    for (const t of targets) {
+      const r = await this.updateOrden(t.id, minimalMirror)
+      if (r.success) {
+        propagatedIds.push(t.id)
+      } else if (r.error) {
+        errors.push(`#${t.id}: ${r.error}`)
+      }
+    }
+
+    if (errors.length > 0 && propagatedIds.length === 0) {
+      return { success: false, error: errors.join(' · '), propagatedIds: [] }
+    }
+    if (errors.length > 0) {
+      console.warn('[propagateEspejoGrupoOrden] parcial:', errors.join(' · '))
+    }
+    return { success: true, propagatedIds }
   }
 
   async deleteOrden(

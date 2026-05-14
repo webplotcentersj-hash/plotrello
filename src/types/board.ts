@@ -64,6 +64,8 @@ export interface Task {
   driveUrl?: string
   /** Si true, la OP está trabada: no se mueve ni se edita salvo por admin/gerencia o destaque del operario asignado */
   opBloqueada?: boolean
+  /** Misma OP con varios sectores: al guardar, datos comunes se replican en las demás fichas del grupo (viene de BD `espejo_sectores_op`). */
+  espejoSectoresOp?: boolean
   entregado?: boolean // Indica si la ficha fue entregada y está archivada
   subtasks?: Subtask[]
   subtaskProgress?: number // porcentaje completado

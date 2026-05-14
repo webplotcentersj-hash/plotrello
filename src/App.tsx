@@ -148,7 +148,7 @@ import type {
 } from './types/api'
 import './app.css'
 import './plotlab-mobile.css'
-import apiService from './services/api'
+import apiService, { formatSupabaseStatementTimeoutError } from './services/api'
 import { historialToActivity, ordenToTask } from './utils/dataMappers'
 import { supabase } from './services/supabaseClient'
 import { initializeManual } from './services/plotAIManualService'
@@ -200,6 +200,9 @@ function App() {
   const needsSyncAfterDragRef = useRef(false)
   /** Durante creación OP multi-sector: ignorar realtime de esa OP para evitar parpadeo/rebote antes del refetch. */
   const multiSectorSettleRef = useRef<{ numeroOpNorm: string } | null>(null)
+  /** Encola refrescos silenciosos del tablero para no disparar varios getOrdenes a la vez. */
+  const silentReloadBusyRef = useRef(false)
+  const silentReloadAgainRef = useRef(false)
 
   useEffect(() => {
     if (!loading) {
@@ -285,11 +288,25 @@ function App() {
 
       // Refresco ligero: solo órdenes (Kanban compartido / realtime ausente o RLS en eventos)
       if (silent) {
-        const ordenesResp = await apiService.getOrdenes()
-        if (ordenesResp.success && ordenesResp.data) {
-          setTasks(ordenesResp.data.map((orden) => ordenToTask(orden)))
-        } else if (!ordenesResp.success) {
-          console.warn('🔄 Actualización silenciosa: órdenes no disponibles', ordenesResp.error)
+        if (silentReloadBusyRef.current) {
+          silentReloadAgainRef.current = true
+          return
+        }
+        silentReloadBusyRef.current = true
+        try {
+          const ordenesResp = await apiService.getOrdenes()
+          if (ordenesResp.success && ordenesResp.data) {
+            setTasks(ordenesResp.data.map((orden) => ordenToTask(orden)))
+            setDataError(null)
+          } else if (!ordenesResp.success) {
+            console.warn('🔄 Actualización silenciosa: órdenes no disponibles', ordenesResp.error)
+          }
+        } finally {
+          silentReloadBusyRef.current = false
+          if (silentReloadAgainRef.current) {
+            silentReloadAgainRef.current = false
+            void loadRemoteData({ silent: true })
+          }
         }
         return
       }
@@ -307,7 +324,9 @@ function App() {
         setTasks(tasksWithCorrectStatus)
         console.log('✅ Órdenes cargadas:', tasksWithCorrectStatus.length)
       } else {
-        const errorMsg = ordenesResp.error || 'No se pudieron cargar las órdenes'
+        const errorMsg = formatSupabaseStatementTimeoutError(
+          ordenesResp.error || 'No se pudieron cargar las órdenes'
+        )
         setDataError(errorMsg)
         console.error('❌ Error cargando órdenes:', errorMsg)
       }
@@ -316,7 +335,9 @@ function App() {
         setActivity(historialResp.data.map((registro) => historialToActivity(registro)))
         console.log('✅ Historial cargado:', historialResp.data.length, 'movimientos')
       } else {
-        const errorMsg = historialResp.error ?? 'No se pudo cargar el historial'
+        const errorMsg = formatSupabaseStatementTimeoutError(
+          historialResp.error ?? 'No se pudo cargar el historial'
+        )
         setDataError((prev) => prev ?? errorMsg)
         console.error('❌ Error cargando historial:', errorMsg)
       }
@@ -331,33 +352,45 @@ function App() {
         setTeamMembers(mapUsuariosToTeamMembers(usuariosResp.data))
       } else {
         setTeamMembers([])
-        setDataError((prev) => prev ?? usuariosResp.error ?? 'No se pudieron cargar los usuarios')
+        setDataError((prev) =>
+          prev ?? formatSupabaseStatementTimeoutError(usuariosResp.error ?? 'No se pudieron cargar los usuarios')
+        )
       }
 
       if (sectoresResp.success && sectoresResp.data && sectoresResp.data.length > 0) {
         setSectores(sectoresResp.data)
       } else {
         setSectores(DEFAULT_SECTORES)
-        setDataError((prev) => prev ?? sectoresResp.error ?? 'No se pudieron cargar los sectores')
+        setDataError((prev) =>
+          prev ?? formatSupabaseStatementTimeoutError(sectoresResp.error ?? 'No se pudieron cargar los sectores')
+        )
       }
 
       if (materialesResp.success && materialesResp.data) {
         setMateriales(materialesResp.data)
       } else {
         setMateriales([])
-        setDataError((prev) => prev ?? materialesResp.error ?? 'No se pudieron cargar los materiales')
+        setDataError((prev) =>
+          prev ?? formatSupabaseStatementTimeoutError(materialesResp.error ?? 'No se pudieron cargar los materiales')
+        )
       }
     } catch (error: any) {
       console.error('❌ Error cargando datos desde Supabase:', error)
       const errorMessage = error?.message || 'Error desconocido'
-      
+
       // Detectar errores específicos
       if (errorMessage.includes('Failed to fetch') || error?.name === 'TypeError') {
-        setDataError('Error de conexión: No se pudo conectar con Supabase. Verifica tu conexión a internet y que las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY estén correctamente configuradas.')
+        setDataError(
+          'Error de conexión: No se pudo conectar con Supabase. Verifica tu conexión a internet y que las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY estén correctamente configuradas.'
+        )
       } else if (errorMessage.includes('CORS')) {
         setDataError('Error de CORS: Verifica la configuración de Supabase y que el dominio esté permitido.')
       } else {
-        setDataError(`No se pudieron sincronizar los datos con Supabase: ${errorMessage}`)
+        setDataError(
+          formatSupabaseStatementTimeoutError(
+            `No se pudieron sincronizar los datos con Supabase: ${errorMessage}`
+          )
+        )
       }
     } finally {
       if (!silent) {

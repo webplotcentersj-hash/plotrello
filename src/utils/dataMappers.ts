@@ -262,6 +262,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     locationUrl,
     driveUrl,
     opBloqueada: orden.op_bloqueada === true,
+    espejoSectoresOp: orden.espejo_sectores_op === true,
     entregado: orden.entregado ?? false,
     ordenEliminada: orden.eliminada === true,
     visibleEnTablero: orden.visible_en_tablero !== false,
@@ -442,6 +443,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     presupuesto_en_espera: task.presupuestoEnEspera ?? false,
     galeria_carrusel: normalizeGaleriaCarrusel(task.galeriaCarrusel as unknown),
     ...(task.opBloqueada !== undefined ? { op_bloqueada: task.opBloqueada } : {}),
+    espejo_sectores_op: task.espejoSectoresOp === true,
     ...(task.enReclamo !== undefined ? { en_reclamo: task.enReclamo } : {}),
     ...(task.reclamoMotivo !== undefined
       ? { reclamo_motivo: task.reclamoMotivo?.trim() || null }
