@@ -151,6 +151,7 @@ import './plotlab-mobile.css'
 import apiService, { formatSupabaseStatementTimeoutError } from './services/api'
 import { historialToActivity, ordenToTask, taskFromRealtimeOrdenUpdate } from './utils/dataMappers'
 import { subscribeOrdenesBroadcast } from './utils/ordenesBroadcast'
+import { readOrdenesTableroCache, writeOrdenesTableroCache } from './utils/ordenesTableroCache'
 import { supabase } from './services/supabaseClient'
 import { initializeManual } from './services/plotAIManualService'
 
@@ -303,8 +304,12 @@ function App() {
         }
         silentReloadBusyRef.current = true
         try {
-          const ordenesResp = await apiService.getOrdenes({ skipInFlightDedupe: true })
-          if (ordenesResp.success && ordenesResp.data) {
+          const ordenesResp = await apiService.getOrdenes({
+            skipInFlightDedupe: true,
+            attachLineasM2: false
+          })
+          if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
+            writeOrdenesTableroCache(ordenesResp.data)
             const mapped = ordenesResp.data.map((orden) => ordenToTask(orden))
             startTransition(() => {
               setTasks(mapped)
@@ -329,31 +334,50 @@ function App() {
         console.log('🔄 Intentando cargar datos de Supabase...')
       }
 
-      const [ordenesResp, historialResp, usuariosResp, sectoresResp, materialesResp] = await Promise.all([
-        apiService.getOrdenes(),
-        apiService.getHistorialMovimientos({ limit: 80 }),
-        apiService.getUsuarios(),
-        apiService.getSectores(),
-        apiService.getMateriales()
-      ])
+      const cached = readOrdenesTableroCache()
+      if (cached?.length) {
+        startTransition(() => setTasks(cached.map((orden) => ordenToTask(orden))))
+      }
 
-      if (ordenesResp.success && ordenesResp.data) {
+      const ordenesResp = await apiService.getOrdenes({ attachLineasM2: false })
+
+      if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
+        writeOrdenesTableroCache(ordenesResp.data)
         const tasksWithCorrectStatus = ordenesResp.data.map((orden) => ordenToTask(orden))
         startTransition(() => {
           setTasks(tasksWithCorrectStatus)
+          setDataError(null)
         })
         if (import.meta.env.DEV) {
           console.log('✅ Órdenes cargadas:', tasksWithCorrectStatus.length)
         }
-      } else {
+      } else if (!cached?.length) {
         const errorMsg = formatSupabaseStatementTimeoutError(
-          ordenesResp.error || 'No se pudieron cargar las órdenes'
+          ordenesResp.error || 'No se pudieron cargar las órdenes (Supabase no respondió)'
         )
         setDataError(errorMsg)
         if (import.meta.env.DEV) {
           console.error('❌ Error cargando órdenes:', errorMsg)
         }
+      } else {
+        setDataError(
+          formatSupabaseStatementTimeoutError(
+            ordenesResp.error ||
+              'No se pudo actualizar desde Supabase; mostrando la última copia guardada en este navegador.'
+          )
+        )
       }
+
+      if (!silent) {
+        setDataLoading(false)
+      }
+
+      const [historialResp, usuariosResp, sectoresResp, materialesResp] = await Promise.all([
+        apiService.getHistorialMovimientos({ limit: 80 }),
+        apiService.getUsuarios(),
+        apiService.getSectores(),
+        apiService.getMateriales()
+      ])
 
       if (historialResp.success && historialResp.data) {
         const act = historialResp.data.map((registro) => historialToActivity(registro))

@@ -103,10 +103,40 @@ import {
 /** Mensaje para la UI cuando Postgres cancela por tiempo (tablero / getOrdenes). */
 export function formatSupabaseStatementTimeoutError(raw: string): string {
   const m = (raw || '').toLowerCase()
-  if (m.includes('statement timeout') || m.includes('canceling statement')) {
-    return 'La base de datos tardó demasiado (consulta pesada o muchas fichas). Esperá unos segundos y tocá «Actualizar app» o recargá. Si se repite seguido, en Supabase conviene revisar índices en `ordenes_trabajo` y `orden_lineas_m2` o archivar OP viejas.'
+  if (
+    m.includes('statement timeout') ||
+    m.includes('canceling statement') ||
+    m.includes('tardó demasiado') ||
+    m.includes('timeout') ||
+    m.includes('aborted')
+  ) {
+    return 'Supabase no responde (plan NANO saturado o spend cap). En dashboard.supabase.com: reiniciá el proyecto, subí Compute o desactivá spend cap. Luego recargá Plotrello.'
   }
   return raw
+}
+
+/** Columnas para listado del tablero (sin `*` ni JSON pesado). */
+const ORDENES_TABLERO_SELECT =
+  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final'
+
+const ORDENES_TABLERO_LIMIT = 800
+const ORDENES_FETCH_TIMEOUT_MS = 25_000
+
+function withQueryTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label}: tardó más de ${ORDENES_FETCH_TIMEOUT_MS / 1000}s`))
+    }, ORDENES_FETCH_TIMEOUT_MS)
+    Promise.resolve(promise)
+      .then((v) => {
+        window.clearTimeout(timer)
+        resolve(v)
+      })
+      .catch((e) => {
+        window.clearTimeout(timer)
+        reject(e)
+      })
+  })
 }
 
 /** Anexa `orden_lineas_m2` a cada orden (si la tabla existe en Supabase). Consultas en paralelo por chunks. */
@@ -674,10 +704,14 @@ class ApiService {
     }
   }
 
-  async getOrdenes(options?: { skipInFlightDedupe?: boolean }): Promise<ApiResponse<OrdenTrabajo[]>> {
+  async getOrdenes(options?: {
+    skipInFlightDedupe?: boolean
+    /** false en listado masivo del tablero (evita N consultas a orden_lineas_m2). */
+    attachLineasM2?: boolean
+  }): Promise<ApiResponse<OrdenTrabajo[]>> {
     const skip = options?.skipInFlightDedupe === true
     if (!skip && this.getOrdenesInFlight) return this.getOrdenesInFlight
-    const run = this.fetchOrdenesOnce()
+    const run = this.fetchOrdenesOnce(options)
     if (!skip) {
       this.getOrdenesInFlight = run.finally(() => {
         if (this.getOrdenesInFlight === run) this.getOrdenesInFlight = null
@@ -687,22 +721,24 @@ class ApiService {
     return run
   }
 
-  private async fetchOrdenesOnce(): Promise<ApiResponse<OrdenTrabajo[]>> {
+  private async fetchOrdenesOnce(options?: {
+    attachLineasM2?: boolean
+  }): Promise<ApiResponse<OrdenTrabajo[]>> {
     if (supabase) {
       try {
-        // Usar select('*') para obtener todas las columnas disponibles automáticamente
-        const { data, error } = await supabase
+        const query = supabase
           .from('ordenes_trabajo')
-          .select('*')
-          .order('fecha_creacion', { ascending: false })
+          .select(ORDENES_TABLERO_SELECT)
+          .order('id', { ascending: false })
+          .limit(ORDENES_TABLERO_LIMIT)
+
+        const { data, error } = await withQueryTimeout(Promise.resolve(query), 'getOrdenes')
 
         if (error) {
           console.error('Supabase getOrdenes error:', error)
-          return { success: false, error: error.message }
+          return { success: false, error: formatSupabaseStatementTimeoutError(error.message) }
         }
 
-        // No filtrar acá: la biblioteca necesita ver todo. El tablero decide qué ocultar.
-        // Si hay datos, asegurarse de que los campos opcionales estén definidos (aunque sean null)
         const normalizedData = (data || []).map((orden: any) => ({
           ...orden,
           foto_url: orden.foto_url || null,
@@ -714,7 +750,9 @@ class ApiService {
           drive_link: orden.drive_link || null
         }))
 
-        await attachLineasM2ToOrdenes(normalizedData)
+        if (options?.attachLineasM2 === true) {
+          await attachLineasM2ToOrdenes(normalizedData)
+        }
 
         return { success: true, data: normalizedData as OrdenTrabajo[] }
       } catch (err: any) {
