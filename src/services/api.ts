@@ -117,7 +117,7 @@ export function formatSupabaseStatementTimeoutError(raw: string): string {
 
 /** Columnas para listado del tablero (sin `*` ni JSON pesado). */
 const ORDENES_TABLERO_SELECT =
-  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final'
+  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
 
 const ORDENES_TABLERO_LIMIT = 800
 /** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */

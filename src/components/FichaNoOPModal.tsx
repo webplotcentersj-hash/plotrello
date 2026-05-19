@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
@@ -48,6 +48,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [qrPrintData, setQrPrintData] = useState<{ opNumber: string; cliente: string } | null>(null)
+  /** URL de ficha técnica hidratada al abrir (getOrden) si el listado liviano no la trajo. */
+  const [hydratedFichaPdfUrl, setHydratedFichaPdfUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const clienteInputRef = useRef<HTMLInputElement>(null)
 
@@ -109,12 +111,17 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setPresupuestoArmado(editTask.presupuestoArmado ?? false)
       setPresupuestoEnviado(editTask.presupuestoEnviadoCliente ?? false)
       setPresupuestoEnEspera(editTask.presupuestoEnEspera ?? false)
+      setHydratedFichaPdfUrl(editTask.fichaTecnicaPdfUrl?.trim() || null)
       setAdjuntos([])
       const ordenId = parseTaskIdToOrdenId(editTask.id)
       if (ordenId) {
         void (async () => {
-          const res = await apiService.getArchivosOrden(ordenId)
-          const archivos = res.success && Array.isArray(res.data) ? res.data : []
+          const needsOrden = !editTask.fichaTecnicaPdfUrl?.trim()
+          const [archRes, ordenRes] = await Promise.all([
+            apiService.getArchivosOrden(ordenId),
+            needsOrden ? apiService.getOrden(ordenId) : Promise.resolve(null)
+          ])
+          const archivos = archRes.success && Array.isArray(archRes.data) ? archRes.data : []
           if (archivos.length > 0) {
             setAdjuntos(
               archivos.map((row: { id?: number; titulo?: string; url?: string }) => ({
@@ -122,9 +129,25 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                 name: String(row.titulo || 'Archivo'),
                 remoteUrl: String(row.url || ''),
                 uploading: false,
+                type: String(row.titulo || '').toLowerCase().endsWith('.pdf')
+                  ? 'application/pdf'
+                  : undefined,
                 dbId: typeof row.id === 'number' ? row.id : undefined
               }))
             )
+          }
+          if (ordenRes?.success && ordenRes.data) {
+            const o = ordenRes.data
+            const pdf = o.ficha_tecnica_pdf_url?.trim()
+            if (pdf) setHydratedFichaPdfUrl(pdf)
+            if (o.planilla_preliminar != null) setPlanillaPreliminar(Boolean(o.planilla_preliminar))
+            if (o.presupuesto_armado != null) setPresupuestoArmado(Boolean(o.presupuesto_armado))
+            if (o.presupuesto_enviado_cliente != null) {
+              setPresupuestoEnviado(Boolean(o.presupuesto_enviado_cliente))
+            }
+            if (o.presupuesto_en_espera != null) {
+              setPresupuestoEnEspera(Boolean(o.presupuesto_en_espera))
+            }
           }
         })()
       }
@@ -142,8 +165,24 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setPresupuestoEnviado(false)
       setPresupuestoEnEspera(false)
       setAdjuntos([])
+      setHydratedFichaPdfUrl(null)
     }
   }, [editTask, canShowMotivos])
+
+  const pdfPreviewUrl = useMemo(() => {
+    if (!isEditMode) return null
+    const fromHydrated = hydratedFichaPdfUrl?.trim()
+    if (fromHydrated) return fromHydrated
+    const fromTask = editTask?.fichaTecnicaPdfUrl?.trim()
+    if (fromTask) return fromTask
+    const pdfAdj = adjuntos.find(
+      (a) =>
+        a.remoteUrl &&
+        ((a.type || '').toLowerCase().includes('pdf') ||
+          a.name.toLowerCase().endsWith('.pdf'))
+    )
+    return pdfAdj?.remoteUrl?.trim() || null
+  }, [isEditMode, hydratedFichaPdfUrl, editTask?.fichaTecnicaPdfUrl, adjuntos])
 
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
@@ -472,21 +511,21 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         </div>
 
         <div className="ficha-no-op-modal-body">
-          {isEditMode && editTask?.fichaTecnicaPdfUrl && (
+          {isEditMode && pdfPreviewUrl && (
             <div className="form-group">
               <label>Ficha técnica (PDF)</label>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => window.open(editTask.fichaTecnicaPdfUrl as string, '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(pdfPreviewUrl, '_blank', 'noopener,noreferrer')}
                 >
                   Ver
                 </button>
                 <a
                   className="btn-secondary"
-                  href={editTask.fichaTecnicaPdfUrl as string}
-                  download={`Ficha-Tecnica-${editTask.opNumber || 'sin-op'}.pdf`}
+                  href={pdfPreviewUrl}
+                  download={`Ficha-Tecnica-${editTask?.opNumber || 'sin-op'}.pdf`}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -494,8 +533,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                 </a>
               </div>
               <iframe
-                src={editTask.fichaTecnicaPdfUrl as string}
-                title={`Ficha técnica ${editTask.opNumber || ''}`}
+                src={pdfPreviewUrl}
+                title={`Ficha técnica ${editTask?.opNumber || ''}`}
                 style={{
                   width: '100%',
                   height: 420,
