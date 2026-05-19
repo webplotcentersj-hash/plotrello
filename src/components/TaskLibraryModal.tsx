@@ -5,6 +5,10 @@ import TaskCard from './TaskCard'
 import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import apiService from '../services/api'
 import { ordenToTask, parseTaskIdToOrdenId } from '../utils/dataMappers'
+import {
+  readOrdenesBibliotecaCache,
+  writeOrdenesBibliotecaCache
+} from '../utils/ordenesBibliotecaCache'
 import TaskViewModal from './TaskViewModal'
 import TaskEditModal from './TaskEditModal'
 import './TaskLibraryModal.css'
@@ -132,6 +136,9 @@ function deletedRowSearchBlob(row: DeletedOpRow): string {
   return parts.join(' ')
 }
 
+/** Fichas visibles en grilla por tanda (evita 2000 nodos DOM de golpe). */
+const LIBRARY_GRID_BATCH = 120
+
 type TaskLibraryModalProps = {
   tasks: Task[]
   teamMembers: TeamMember[]
@@ -182,6 +189,14 @@ const TaskLibraryModal = ({
   const [libraryEditTask, setLibraryEditTask] = useState<Task | null>(null)
   const [pinnedTaskIds, setPinnedTaskIds] = useState<Set<string>>(() => new Set())
   const [materiales, setMateriales] = useState<MaterialRecord[]>([])
+  /** null = solo las OP ya cargadas en el tablero (~800); tras “catálogo completo” incluye todas. */
+  const [catalogTasks, setCatalogTasks] = useState<Task[] | null>(null)
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
+  const [catalogProgress, setCatalogProgress] = useState<number | null>(null)
+  const [gridVisibleCount, setGridVisibleCount] = useState(LIBRARY_GRID_BATCH)
+
+  const libraryTasks = catalogTasks ?? tasks
 
   const openLibraryDetail = useCallback((t: Task) => {
     setLibraryDetailTask(t)
@@ -248,17 +263,17 @@ const TaskLibraryModal = ({
   )
 
   const counters = useMemo(() => {
-    const all = tasks.length
-    const ocultas = tasks.filter((t) => t.visibleEnTablero === false).length
-    const eliminadas = tasks.filter((t) => t.ordenEliminada).length
-    const entregadas = tasks.filter((t) => t.entregado).length
+    const all = libraryTasks.length
+    const ocultas = libraryTasks.filter((t) => t.visibleEnTablero === false).length
+    const eliminadas = libraryTasks.filter((t) => t.ordenEliminada).length
+    const entregadas = libraryTasks.filter((t) => t.entregado).length
     return { all, ocultas, eliminadas, entregadas }
-  }, [tasks])
+  }, [libraryTasks])
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const qId = idBdQuery.trim()
-    const filtered = tasks.filter((task) => {
+    const filtered = libraryTasks.filter((task) => {
       const matchesSearch = matchesSearchQuery(task, q)
       const matchesIdBd =
         qId === '' ? true : String(parseTaskIdToOrdenId(task.id) ?? task.id) === qId
@@ -329,7 +344,7 @@ const TaskLibraryModal = ({
       const existing = new Set(filtered.map((t) => t.id))
       for (const id of pinnedTaskIds) {
         if (existing.has(id)) continue
-        const t = tasks.find((x) => x.id === id)
+        const t = libraryTasks.find((x) => x.id === id)
         if (t) filtered.push(t)
       }
     }
@@ -342,7 +357,7 @@ const TaskLibraryModal = ({
     })
     return sorted
   }, [
-    tasks,
+    libraryTasks,
     searchQuery,
     idBdQuery,
     selectedTableroEstado,
@@ -358,6 +373,67 @@ const TaskLibraryModal = ({
     columns,
     pinnedTaskIds
   ])
+
+  const visibleFilteredTasks = useMemo(
+    () => filteredTasks.slice(0, gridVisibleCount),
+    [filteredTasks, gridVisibleCount]
+  )
+
+  const hasMoreGridRows = filteredTasks.length > visibleFilteredTasks.length
+
+  useEffect(() => {
+    setGridVisibleCount(LIBRARY_GRID_BATCH)
+  }, [
+    searchQuery,
+    idBdQuery,
+    selectedTableroEstado,
+    sortBy,
+    selectedSector,
+    selectedOperario,
+    selectedEstado,
+    selectedPrioridad,
+    selectedComplejidad,
+    selectedReclamo,
+    fechaDesde,
+    fechaHasta,
+    viewMode,
+    catalogTasks
+  ])
+
+  const handleRefreshCatalog = useCallback(async () => {
+    setCatalogError(null)
+    const cached = readOrdenesBibliotecaCache()
+    if (cached?.length) {
+      setCatalogTasks(cached.map((o) => ordenToTask(o)))
+    }
+    setCatalogLoading(true)
+    setCatalogProgress(cached?.length ?? 0)
+    try {
+      const resp = await apiService.getOrdenesBibliotecaCatalogo({
+        onProgress: (n) => setCatalogProgress(n)
+      })
+      if (resp.success && resp.data) {
+        writeOrdenesBibliotecaCache(resp.data)
+        setCatalogTasks(resp.data.map((o) => ordenToTask(o)))
+        setCatalogError(null)
+      } else if (!cached?.length) {
+        setCatalogError(resp.error || 'No se pudo cargar el catálogo completo.')
+      } else {
+        setCatalogError(
+          resp.error
+            ? `${resp.error} (se muestra la copia en caché de ${cached.length} OP.)`
+            : null
+        )
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al cargar catálogo'
+      if (!cached?.length) setCatalogError(msg)
+      else setCatalogError(`${msg} (se muestra la copia en caché.)`)
+    } finally {
+      setCatalogLoading(false)
+      setCatalogProgress(null)
+    }
+  }, [])
 
   const filteredEliminadasTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -748,7 +824,20 @@ const TaskLibraryModal = ({
 
           <div className="filter-actions">
             <button type="button" className="btn-limpiar" onClick={handleLimpiar}>
-              Limpiar
+              Limpiar filtros
+            </button>
+            <button
+              type="button"
+              className="btn-limpiar btn-catalogo-completo"
+              onClick={() => void handleRefreshCatalog()}
+              disabled={catalogLoading}
+              title="Descarga todas las OP en páginas livianas (sin m²). No afecta la carga del tablero."
+            >
+              {catalogLoading
+                ? catalogProgress != null
+                  ? `Cargando catálogo… ${catalogProgress}`
+                  : 'Cargando catálogo…'
+                : 'Actualizar catálogo completo'}
             </button>
           </div>
         </div>
@@ -777,9 +866,15 @@ const TaskLibraryModal = ({
                   : `${filteredEliminadasTasks.length} fichas · ${filteredDeletedOps.length} filas auditoría`}
               </span>
               <span className="results-count" title="Totales globales (sin filtros)">
-                Total: {counters.all} · Ocultas: {counters.ocultas} · Entregadas: {counters.entregadas} · Eliminadas:{' '}
-                {counters.eliminadas}
+                Total: {counters.all}
+                {catalogTasks == null ? ` (tablero, máx. ${tasks.length})` : ' (catálogo completo)'} · Ocultas:{' '}
+                {counters.ocultas} · Entregadas: {counters.entregadas} · Eliminadas: {counters.eliminadas}
               </span>
+              {catalogError ? (
+                <span className="task-library-catalog-error" role="alert">
+                  {catalogError}
+                </span>
+              ) : null}
               {viewMode === 'activas' && filteredTasks.length > 0 && (
                 <div className="export-buttons">
                   <button
@@ -839,7 +934,7 @@ const TaskLibraryModal = ({
                   }}
                 >
                   <div className="task-library-grid">
-                    {filteredTasks.map((task, index) => {
+                    {visibleFilteredTasks.map((task, index) => {
                       const owner = teamMembers.find((m) => m.id === task.ownerId)
                       return (
                         <TaskCard
@@ -857,6 +952,33 @@ const TaskLibraryModal = ({
                   </div>
                 </div>
               </div>
+
+              {hasMoreGridRows && (
+                <div className="task-library-load-more">
+                  <p>
+                    Mostrando {visibleFilteredTasks.length} de {filteredTasks.length} fichas filtradas.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-limpiar"
+                    onClick={() =>
+                      setGridVisibleCount((n) =>
+                        Math.min(n + LIBRARY_GRID_BATCH, filteredTasks.length)
+                      )
+                    }
+                  >
+                    Mostrar más fichas (
+                    {Math.min(LIBRARY_GRID_BATCH, filteredTasks.length - visibleFilteredTasks.length)})
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-limpiar btn-catalogo-completo"
+                    onClick={() => setGridVisibleCount(filteredTasks.length)}
+                  >
+                    Mostrar todas ({filteredTasks.length})
+                  </button>
+                </div>
+              )}
 
               {filteredTasks.length === 0 && (
                 <div className="no-results">

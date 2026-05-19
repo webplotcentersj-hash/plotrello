@@ -120,6 +120,9 @@ const ORDENES_TABLERO_SELECT =
   'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final'
 
 const ORDENES_TABLERO_LIMIT = 800
+/** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */
+const ORDENES_BIBLIOTECA_PAGE_SIZE = 400
+const ORDENES_BIBLIOTECA_MAX_ROWS = 2200
 const ORDENES_FETCH_TIMEOUT_MS = 25_000
 
 function withQueryTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
@@ -311,6 +314,7 @@ function supabaseErrorMessage(e: unknown, fallback: string): string {
 class ApiService {
   /** Evita disparar varias lecturas completas del tablero a la vez (timeout en Supabase). */
   private getOrdenesInFlight: Promise<ApiResponse<OrdenTrabajo[]>> | null = null
+  private getOrdenesBibliotecaInFlight: Promise<ApiResponse<OrdenTrabajo[]>> | null = null
 
   // Helper para obtener usuario actual desde localStorage
   private getCurrentUser(): { id: number; nombre: string } {
@@ -778,6 +782,82 @@ class ApiService {
     }
 
     return this.handleFallback(fallbackOrdenes)
+  }
+
+  /**
+   * Catálogo completo para biblioteca: columnas livianas, páginas secuenciales (sin m2).
+   * Solo debe llamarse por acción explícita del usuario (no en carga del tablero).
+   */
+  async getOrdenesBibliotecaCatalogo(options?: {
+    onProgress?: (loaded: number) => void
+  }): Promise<ApiResponse<OrdenTrabajo[]>> {
+    if (this.getOrdenesBibliotecaInFlight) return this.getOrdenesBibliotecaInFlight
+    const run = this.fetchOrdenesBibliotecaCatalogoOnce(options)
+    this.getOrdenesBibliotecaInFlight = run.finally(() => {
+      if (this.getOrdenesBibliotecaInFlight === run) this.getOrdenesBibliotecaInFlight = null
+    })
+    return this.getOrdenesBibliotecaInFlight
+  }
+
+  private async fetchOrdenesBibliotecaCatalogoOnce(options?: {
+    onProgress?: (loaded: number) => void
+  }): Promise<ApiResponse<OrdenTrabajo[]>> {
+    if (!supabase) {
+      if (hasLegacyBackend) return this.legacyRequest('/ordenes.php')
+      return this.handleFallback(fallbackOrdenes)
+    }
+    try {
+      const all: OrdenTrabajo[] = []
+      let offset = 0
+      while (all.length < ORDENES_BIBLIOTECA_MAX_ROWS) {
+        const from = offset
+        const to = offset + ORDENES_BIBLIOTECA_PAGE_SIZE - 1
+        const query = supabase
+          .from('ordenes_trabajo')
+          .select(ORDENES_TABLERO_SELECT)
+          .order('id', { ascending: false })
+          .range(from, to)
+
+        const { data, error } = await withQueryTimeout(
+          Promise.resolve(query),
+          `getOrdenesBiblioteca(${from}-${to})`
+        )
+
+        if (error) {
+          console.error('Supabase getOrdenesBibliotecaCatalogo error:', error)
+          if (all.length > 0) {
+            return { success: true, data: all }
+          }
+          return { success: false, error: formatSupabaseStatementTimeoutError(error.message) }
+        }
+
+        const page = (data ?? []) as OrdenTrabajo[]
+        if (page.length === 0) break
+
+        for (const orden of page as any[]) {
+          all.push({
+            ...orden,
+            foto_url: orden.foto_url || null,
+            telefono_cliente: orden.telefono_cliente || null,
+            email_cliente: orden.email_cliente || null,
+            direccion_cliente: orden.direccion_cliente || null,
+            whatsapp_link: orden.whatsapp_link || null,
+            ubicacion_link: orden.ubicacion_link || null,
+            drive_link: orden.drive_link || null
+          } as OrdenTrabajo)
+        }
+
+        options?.onProgress?.(all.length)
+        offset += page.length
+        if (page.length < ORDENES_BIBLIOTECA_PAGE_SIZE) break
+      }
+
+      return { success: true, data: all }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error de conexión con la base de datos'
+      console.error('Error en getOrdenesBibliotecaCatalogo:', err)
+      return { success: false, error: errorMessage }
+    }
   }
 
   async getOrden(id: number): Promise<ApiResponse<OrdenTrabajo>> {
