@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
+import { TotemAutogestionPlotAiChat } from '@/components/ui/TotemAutogestionPlotAiChat'
 import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
 
@@ -12,23 +14,90 @@ const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 const INACTIVITY_MS = 90000
 const IDLE_MS = 60000 // Tras este tiempo sin tocar, se muestra pantalla en espera (modo kiosk)
 
-// Señalética tal cual la foto: franjas horizontales, colores y textos para orientar
+type SectorDirection = 'planta-baja' | 'primer-piso'
+
+// Señalética: franjas horizontales; Diseño y Marketing → 1° piso (flecha arriba)
 const TOTEM_SECTORS_QUEHACER: Array<{
   id: string
   label: string
   sectorDestino: string
   bg: string
   textColor: string
+  direction: SectorDirection
 }> = [
-  { id: 'presupuestos', label: 'PRESUPUESTOS Y ASESORAMIENTO', sectorDestino: 'Presupuestos y asesoramiento', bg: '#7dd3fc', textColor: '#0f172a' },
-  { id: 'recepcion', label: 'RECEPCIÓN DE PEDIDOS', sectorDestino: 'Recepción de pedidos', bg: '#facc15', textColor: '#0f172a' },
-  { id: 'diseno', label: 'DISEÑO GRÁFICO', sectorDestino: 'Diseño gráfico', bg: '#ec4899', textColor: '#fff' },
-  { id: 'caja', label: 'CAJA / ENTREGA DE PEDIDOS', sectorDestino: 'Caja / Entrega de pedidos', bg: '#1f2937', textColor: '#fff' },
-  { id: 'base_operaciones', label: 'BASE DE OPERACIONES', sectorDestino: 'Base de operaciones', bg: '#f97316', textColor: '#0f172a' },
-  { id: 'marketing', label: 'MARKETING Y COMUNICACIÓN', sectorDestino: 'Marketing y comunicación', bg: '#ffffff', textColor: '#0f172a' }
+  {
+    id: 'presupuestos',
+    label: 'PRESUPUESTOS Y ASESORAMIENTO',
+    sectorDestino: 'Presupuestos y asesoramiento',
+    bg: '#7dd3fc',
+    textColor: '#0f172a',
+    direction: 'planta-baja'
+  },
+  {
+    id: 'recepcion',
+    label: 'RECEPCIÓN DE PEDIDOS',
+    sectorDestino: 'Recepción de pedidos',
+    bg: '#facc15',
+    textColor: '#0f172a',
+    direction: 'planta-baja'
+  },
+  {
+    id: 'diseno',
+    label: 'DISEÑO GRÁFICO',
+    sectorDestino: 'Diseño gráfico',
+    bg: '#ec4899',
+    textColor: '#fff',
+    direction: 'primer-piso'
+  },
+  {
+    id: 'caja',
+    label: 'CAJA / ENTREGA DE PEDIDOS',
+    sectorDestino: 'Caja / Entrega de pedidos',
+    bg: '#1f2937',
+    textColor: '#fff',
+    direction: 'planta-baja'
+  },
+  {
+    id: 'base_operaciones',
+    label: 'BASE DE OPERACIONES',
+    sectorDestino: 'Base de operaciones',
+    bg: '#f97316',
+    textColor: '#0f172a',
+    direction: 'planta-baja'
+  },
+  {
+    id: 'marketing',
+    label: 'MARKETING Y COMUNICACIÓN',
+    sectorDestino: 'Marketing y comunicación',
+    bg: '#ffffff',
+    textColor: '#0f172a',
+    direction: 'primer-piso'
+  }
 ]
 
+function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
+  if (direction === 'primer-piso') {
+    return (
+      <span className="totem-strip-direction totem-strip-direction--up" aria-label="Subir al primer piso">
+        <span className="totem-strip-floor-badge">1° piso</span>
+        <span className="totem-strip-arrows-up" aria-hidden>
+          ↑
+          <br />
+          ↑
+          <br />↑
+        </span>
+      </span>
+    )
+  }
+  return (
+    <span className="totem-strip-direction totem-strip-direction--ahead" aria-hidden>
+      <span className="totem-strip-arrows">&gt;&gt;&gt;</span>
+    </span>
+  )
+}
+
 const TotemConsultaClientePage = () => {
+  const navigate = useNavigate()
   const [searchOp, setSearchOp] = useState('')
   const [loading, setLoading] = useState(false)
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
@@ -365,27 +434,45 @@ const TotemConsultaClientePage = () => {
             </header>
 
             <div className="totem-welcome">
-              <button
-                className="totem-welcome-button"
-                type="button"
-                onClick={() => {
-                  registrarInteraccion()
-                  setStep('search')
-                }}
-              >
-                🔍 Buscar mi trabajo
-              </button>
-              <p className="totem-welcome-hint">Vas a necesitar tu número de OP.</p>
+              <div className="totem-welcome-actions">
+                <button
+                  className="totem-welcome-button"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    registrarInteraccion()
+                    setStep('search')
+                  }}
+                >
+                  🔍 Buscar mi trabajo
+                </button>
+                <button
+                  className="totem-welcome-button totem-welcome-button--print"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    registrarInteraccion()
+                    navigate('/totem/autogestion/imprimir')
+                  }}
+                >
+                  🖨️ Imprimir
+                </button>
+              </div>
+              <p className="totem-welcome-hint">
+                Para buscar tu OP necesitás el número. Para imprimir, escaneá el código con tu celular.
+              </p>
 
               <div className="totem-senaletica-block">
                 <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
-                <p className="totem-senaletica-subtitle">Tocá la franja del sector que necesitás</p>
+                <p className="totem-senaletica-subtitle">
+                  Tocá la franja del sector · Diseño y Marketing están en 1° piso (↑)
+                </p>
                 <div className="totem-senaletica-strips">
                   {TOTEM_SECTORS_QUEHACER.map((sector) => (
                     <button
                       key={sector.id}
                       type="button"
-                      className="totem-senaletica-strip"
+                      className={`totem-senaletica-strip${sector.direction === 'primer-piso' ? ' totem-senaletica-strip--upstairs' : ''}`}
                       style={{
                         backgroundColor: sector.bg,
                         color: sector.textColor,
@@ -401,10 +488,25 @@ const TotemConsultaClientePage = () => {
                       }}
                     >
                       <span className="totem-strip-text">{sector.label}</span>
-                      <span className="totem-strip-arrows">&gt;&gt;&gt;</span>
+                      <SectorDirectionArrows direction={sector.direction} />
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="totem-consulta-chat-block">
+                <h2 className="totem-senaletica-title">¿Qué servicios ofrecemos?</h2>
+                <p className="totem-senaletica-subtitle">
+                  Preguntale a PlotAI: impresión, diseño, marketing, instalaciones y más.
+                </p>
+                <TotemAutogestionPlotAiChat
+                  className="totem-consulta-plotai"
+                  modo="totem_consulta_cliente"
+                  conversationStorageKey="plotrello_totem_consulta_cliente_plotai_conv"
+                  title="PlotAI"
+                  titleSub="Consultá nuestros servicios en pantalla"
+                  emptyHint="Ej: ¿Hacen vinilos? ¿Dónde está diseño gráfico? ¿Cuáles son los horarios?"
+                />
               </div>
 
               {selectedQueHacer && (() => {
@@ -448,14 +550,16 @@ const TotemConsultaClientePage = () => {
                           Dirigite por la franja
                         </p>
                         <div
-                          className="totem-direccion-strip-grande totem-modal-strip"
+                          className={`totem-direccion-strip-grande totem-modal-strip${sector.direction === 'primer-piso' ? ' totem-modal-strip--upstairs' : ''}`}
                           style={{ backgroundColor: sector.bg, color: sector.textColor }}
                         >
                           <span className="totem-direccion-strip-text">{sector.label}</span>
-                          <span className="totem-direccion-strip-arrows">&gt;&gt;&gt;</span>
+                          <SectorDirectionArrows direction={sector.direction} />
                         </div>
                         <p className="totem-direccion-modal-seguir">
-                          Seguí las flechas en el piso hasta llegar a tu destino.
+                          {sector.direction === 'primer-piso'
+                            ? 'Subí al 1° piso por las escaleras y seguí las flechas en el piso hasta llegar a tu destino.'
+                            : 'Seguí las flechas en el piso hasta llegar a tu destino.'}
                         </p>
                         <div className="totem-direccion-aviso-form">
                           <div className="totem-direccion-field">

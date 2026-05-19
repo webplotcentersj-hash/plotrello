@@ -4,8 +4,17 @@ import { TotemPlotAiInput } from '@/components/ui/totem-plotai-input'
 import styles from './TotemAutogestionPlotAiChat.module.css'
 
 const CHAT_API = '/api/plotai/chat-public'
-const MODO = 'totem_autogestion'
-const LS_CONV = 'plotrello_totem_autogestion_plotai_conv'
+const DEFAULT_MODO = 'totem_autogestion'
+const DEFAULT_LS_CONV = 'plotrello_totem_autogestion_plotai_conv'
+
+export type TotemPlotAiChatProps = {
+  modo?: string
+  conversationStorageKey?: string
+  title?: string
+  titleSub?: string
+  emptyHint?: string
+  className?: string
+}
 
 type ChatPart = { text: string }
 type ChatMessage = { role: 'user' | 'model'; parts: ChatPart[] }
@@ -31,12 +40,19 @@ function renderMessageLinks(text: string, apiBase: string): ReactNode {
   return parts.length ? parts : text
 }
 
-export function TotemAutogestionPlotAiChat() {
+export function TotemAutogestionPlotAiChat({
+  modo = DEFAULT_MODO,
+  conversationStorageKey = DEFAULT_LS_CONV,
+  title = 'PlotAI',
+  titleSub = 'Chat en pantalla · distinto al asistente por voz',
+  emptyHint = 'Escribí abajo para hablar con PlotAI. Tus mensajes quedan en esta sesión del tótem.',
+  className
+}: TotemPlotAiChatProps = {}) {
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
-      const s = localStorage.getItem(LS_CONV)
+      const s = localStorage.getItem(conversationStorageKey)
       const n = s ? parseInt(s, 10) : NaN
       return Number.isInteger(n) ? n : null
     } catch {
@@ -50,12 +66,12 @@ export function TotemAutogestionPlotAiChat() {
   useEffect(() => {
     if (conversationId != null) {
       try {
-        localStorage.setItem(LS_CONV, String(conversationId))
+        localStorage.setItem(conversationStorageKey, String(conversationId))
       } catch {
         /* noop */
       }
     }
-  }, [conversationId])
+  }, [conversationId, conversationStorageKey])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -67,11 +83,11 @@ export function TotemAutogestionPlotAiChat() {
     setError(null)
     setLoading(false)
     try {
-      localStorage.removeItem(LS_CONV)
+      localStorage.removeItem(conversationStorageKey)
     } catch {
       /* noop */
     }
-  }, [])
+  }, [conversationStorageKey])
 
   const sendMessage = useCallback(
     async (rawText: string) => {
@@ -89,7 +105,7 @@ export function TotemAutogestionPlotAiChat() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: text,
-            modo: MODO,
+            modo,
             conversation_id: conversationId ?? undefined,
             history: historyForApi
           })
@@ -110,11 +126,13 @@ export function TotemAutogestionPlotAiChat() {
         setLoading(false)
       }
     },
-    [apiBase, conversationId, loading, messages]
+    [apiBase, conversationId, loading, messages, modo]
   )
 
+  const rootClass = className ? `${styles.root} ${className}` : styles.root
+
   return (
-    <section className={styles.root} aria-label="Chat PlotAI autogestión">
+    <section className={rootClass} aria-label="Chat PlotAI">
       <div className={styles.shell}>
         <div className={styles.shellInner}>
           <div className={styles.head}>
@@ -123,8 +141,8 @@ export function TotemAutogestionPlotAiChat() {
                 AI
               </div>
               <h2 className={styles.title}>
-                <span className={styles.titleBrand}>PlotAI</span> — consultas
-                <span className={styles.titleSub}>Chat en pantalla · distinto al asistente por voz</span>
+                <span className={styles.titleBrand}>{title}</span> — consultas
+                <span className={styles.titleSub}>{titleSub}</span>
               </h2>
             </div>
             <button type="button" className={styles.newChat} onClick={resetChat} disabled={loading}>
@@ -133,11 +151,7 @@ export function TotemAutogestionPlotAiChat() {
           </div>
 
           <div className={styles.messages} role="log" aria-live="polite">
-            {messages.length === 0 && !loading && (
-              <p className={styles.emptyHint}>
-                Escribí abajo para hablar con PlotAI. Tus mensajes quedan en esta sesión del tótem.
-              </p>
-            )}
+            {messages.length === 0 && !loading && <p className={styles.emptyHint}>{emptyHint}</p>}
             {messages.map((m, i) => {
               const t = m.parts[0]?.text ?? ''
               const isUser = m.role === 'user'

@@ -604,7 +604,9 @@ SALIDA:
           ? ' Estás en un TÓTEM con voz en el MOSTRADOR del local Plot Center: sos la primera cara de atención al público que entra o espera en recepción.'
           : modo === 'totem_autogestion'
             ? ' Estás en el TÓTEM DE AUTOGESTIÓN en el local Plot Center (pantalla táctil en mostrador): la persona escribe sobre OP, productos del catálogo o impresión. Este canal es solo texto (sin voz): respondé para leer en pantalla.'
-            : ' Estás atendiendo desde el CHAT PÚBLICO de la web para cualquier visitante (potenciales clientes y clientes actuales).'
+            : modo === 'totem_consulta_cliente'
+              ? ' Estás en el TÓTEM DE CONSULTA AL CLIENTE en la planta baja de Plot Center: la persona busca su OP, se orienta por sectores (Diseño gráfico y Marketing están en 1° piso) o pregunta por servicios. Solo texto en pantalla.'
+              : ' Estás atendiendo desde el CHAT PÚBLICO de la web para cualquier visitante (potenciales clientes y clientes actuales).'
 
     const totemMostradorBloque =
       modo === 'totem'
@@ -627,7 +629,17 @@ ATENCIÓN TÓTEM AUTOGESTIÓN (solo texto en pantalla) — OBLIGATORIO:
 - Orientá con pasos concretos (sector, documento a llevar, número de OP).
 - Podés usar párrafos breves y listas con guiones si ayudan a escanear la respuesta en pantalla.
 `
-          : ''
+          : modo === 'totem_consulta_cliente'
+            ? `
+
+ATENCIÓN TÓTEM CONSULTA CLIENTE (planta baja, solo texto) — OBLIGATORIO:
+- Tono de mostrador: cordial, claro y servicial; frases cortas legibles en pantalla táctil.
+- Respondé sobre servicios de Plot Center: impresión, diseño gráfico, marketing, instalaciones, metalúrgica, presupuestos, horarios y sectores del local.
+- Si preguntan por Diseño gráfico o Marketing: indicá que están en el 1° piso (subir escaleras; flechas en el piso).
+- Si preguntan por imprimir: orientá al botón "Imprimir" del tótem (/totem/autogestion/imprimir) o a mostrador/caja según corresponda.
+- Podés usar párrafos breves y listas con guiones si ayudan a escanear la respuesta.
+`
+            : ''
 
     const systemPrompt = `Eres el asistente virtual de Plot Center, experto en atención al cliente.${canalPrompt} Tu objetivo es que cada persona se sienta bien atendida: escuchada, con respuestas claras y con un trato cercano y profesional.${totemMostradorBloque}${notaSolicitud}
 
