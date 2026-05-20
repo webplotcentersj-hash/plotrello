@@ -1,9 +1,10 @@
 .totem-consulta-page {
-  padding: 32px 24px;
+  padding: 16px 12px;
 }
 
-.totem-container {
-  max-width: 1080px;
+.totem-consulta-page .consulta-container.totem-container {
+  width: 100%;
+  max-width: none;
 }
 
 /* ——— Pantalla en espera / modo kiosk ——— */
@@ -82,11 +83,13 @@
 }
 
 .totem-welcome {
-  padding: 40px;
+  padding: 28px 20px 32px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
   background: radial-gradient(circle at top, rgba(235, 103, 27, 0.2), transparent 55%),
               radial-gradient(circle at bottom, rgba(59, 130, 246, 0.18), transparent 55%),
               rgba(15, 23, 42, 0.95);
@@ -119,7 +122,6 @@
   gap: 16px;
   justify-content: center;
   width: 100%;
-  max-width: 720px;
 }
 
 .totem-welcome-button--print {
@@ -131,13 +133,20 @@
   margin: 0;
   color: rgba(226, 232, 240, 0.85);
   font-size: 1rem;
+  text-align: center;
+}
+
+.totem-welcome-actions .totem-welcome-button {
+  flex: 1 1 220px;
+  justify-content: center;
+  max-width: 360px;
 }
 
 /* ——— Señalética: franjas horizontales tal cual la foto ——— */
 .totem-senaletica-block {
   width: 100%;
-  max-width: 720px;
   margin-top: 28px;
+  box-sizing: border-box;
 }
 
 .totem-senaletica-title {
@@ -172,7 +181,9 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 18px 24px;
+  min-height: 72px;
+  padding: 16px 20px;
+  box-sizing: border-box;
   border: none;
   border-top: 2px solid rgba(0, 0, 0, 0.08);
   border-bottom: 2px solid rgba(0, 0, 0, 0.06);
@@ -181,7 +192,7 @@
   letter-spacing: 0.06em;
   text-align: left;
   cursor: pointer;
-  transition: filter 0.15s ease, transform 0.12s ease;
+  transition: filter 0.15s ease;
 }
 
 .totem-senaletica-strip:first-child {
@@ -190,7 +201,6 @@
 
 .totem-senaletica-strip:hover {
   filter: brightness(1.08);
-  transform: scale(1.01);
 }
 
 .totem-senaletica-strip:active {
@@ -216,9 +226,9 @@
 }
 
 .totem-strip-direction--up {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 
 .totem-strip-floor-badge {
@@ -240,15 +250,15 @@
 }
 
 .totem-strip-arrows-up {
-  font-size: 1.35rem;
+  font-size: 1.1rem;
   font-weight: 900;
-  line-height: 0.85;
-  letter-spacing: 0.08em;
-  text-align: center;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
 }
 
 .totem-senaletica-strip--upstairs {
-  box-shadow: inset 0 -4px 0 rgba(15, 23, 42, 0.12);
+  min-height: 72px;
 }
 
 .totem-modal-strip--upstairs .totem-strip-arrows-up {
@@ -257,9 +267,13 @@
 
 .totem-consulta-chat-block {
   width: 100%;
-  max-width: 920px;
   margin-top: 32px;
   padding-top: 8px;
+  box-sizing: border-box;
+}
+
+.totem-consulta-chat-block .totem-consulta-plotai {
+  max-width: none;
 }
 
 .totem-consulta-plotai {

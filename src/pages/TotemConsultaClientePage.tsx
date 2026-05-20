@@ -81,10 +81,7 @@ function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
       <span className="totem-strip-direction totem-strip-direction--up" aria-label="Subir al primer piso">
         <span className="totem-strip-floor-badge">1° piso</span>
         <span className="totem-strip-arrows-up" aria-hidden>
-          ↑
-          <br />
-          ↑
-          <br />↑
+          ↑ ↑ ↑
         </span>
       </span>
     )
@@ -411,8 +408,8 @@ const TotemConsultaClientePage = () => {
             <p className="totem-idle-cta">Tocá la pantalla para comenzar</p>
             <div className="totem-idle-horarios">
               <p className="totem-idle-horarios-title">Horarios de atención</p>
-              <p className="totem-idle-horario">Lunes a Viernes: 9 a 17 hs</p>
-              <p className="totem-idle-horario">Sábado: 9:00 a 14:00 hs</p>
+              <p className="totem-idle-horario">Lunes a Viernes: 7:00 a 21:30 hs</p>
+              <p className="totem-idle-horario">Sábado: 8:00 a 20:00 hs</p>
             </div>
           </div>
         )}

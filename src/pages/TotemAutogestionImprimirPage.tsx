@@ -339,7 +339,7 @@ export default function TotemAutogestionImprimirPage() {
     <TotemAutogestionKioskShell>
       <div className="totem-print-page">
         <header className="totem-print-header">
-          <button type="button" className="totem-print-back" onClick={() => navigate('/totem/autogestion')}>
+          <button type="button" className="totem-print-back" onClick={() => navigate('/totem/consulta-cliente')}>
             ← Inicio
           </button>
           <div>
