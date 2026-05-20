@@ -1,22 +1,179 @@
 .totem-consulta-page {
-  padding: 16px 12px;
+  padding: 0;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: #0a0e1a;
 }
 
 .totem-consulta-page .consulta-container.totem-container {
   width: 100%;
   max-width: none;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0;
+  margin: 0;
+}
+
+.totem-consulta-page--fs {
+  padding: 0;
+  background: #0b0d17;
+}
+
+.totem-consulta-page--fs .consulta-container.totem-container {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  min-height: 100dvh;
+}
+
+/* ——— Ambiente animado (orbes + brillo) ——— */
+.totem-ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.totem-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(48px);
+  opacity: 0.55;
+  animation: totem-orb-float 14s ease-in-out infinite;
+}
+
+.totem-orb--1 {
+  width: min(42vw, 420px);
+  height: min(42vw, 420px);
+  top: -12%;
+  left: -8%;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.55) 0%, transparent 68%);
+  animation-duration: 16s;
+}
+
+.totem-orb--2 {
+  width: min(36vw, 360px);
+  height: min(36vw, 360px);
+  bottom: -8%;
+  right: -6%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, transparent 70%);
+  animation-duration: 18s;
+  animation-delay: -4s;
+}
+
+.totem-orb--3 {
+  width: min(28vw, 280px);
+  height: min(28vw, 280px);
+  top: 38%;
+  left: 42%;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.45) 0%, transparent 72%);
+  animation-duration: 12s;
+  animation-delay: -7s;
+}
+
+.totem-shine {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    rgba(255, 255, 255, 0.04) 40deg,
+    transparent 80deg,
+    rgba(251, 146, 60, 0.06) 120deg,
+    transparent 200deg
+  );
+  animation: totem-shine-spin 28s linear infinite;
+}
+
+@keyframes totem-orb-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(3%, 4%) scale(1.06);
+  }
+  66% {
+    transform: translate(-2%, 2%) scale(0.96);
+  }
+}
+
+@keyframes totem-shine-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.totem-screen-enter {
+  animation: totem-screen-fade-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes totem-screen-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.totem-animate-in {
+  opacity: 0;
+  animation: totem-slide-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.totem-strip-animate-in {
+  opacity: 0;
+  animation: totem-strip-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes totem-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes totem-strip-reveal {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* ——— Pantalla en espera / modo kiosk ——— */
 .totem-idle {
-  min-height: 70vh;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 32px;
-  padding: 48px 24px;
-  background: radial-gradient(ellipse at center, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%);
+  gap: clamp(16px, 3vh, 32px);
+  padding: clamp(16px, 3vh, 48px) 24px;
+  background: radial-gradient(ellipse at center, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.92) 100%);
   border-radius: 16px;
   cursor: pointer;
 }
@@ -24,15 +181,53 @@
 .totem-idle-logo {
   height: 100px;
   width: auto;
+  position: relative;
+  z-index: 1;
+  animation: totem-logo-float 4s ease-in-out infinite;
+  filter: drop-shadow(0 12px 32px rgba(249, 115, 22, 0.35));
+}
+
+@keyframes totem-logo-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 .totem-idle-cta {
   margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.totem-idle-cta-text {
+  display: inline-block;
   font-size: 1.5rem;
   font-weight: 700;
   color: rgba(248, 250, 252, 0.95);
   text-align: center;
   letter-spacing: 0.02em;
+  padding: 12px 28px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(236, 72, 153, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
+  animation: totem-cta-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes totem-cta-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.35);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 28px 6px rgba(249, 115, 22, 0.25);
+    transform: scale(1.03);
+  }
 }
 
 .totem-idle-horarios {
@@ -41,6 +236,13 @@
   background: rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  z-index: 1;
+  animation: totem-slide-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+}
+
+.totem-idle-horarios--glow {
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.12);
 }
 
 .totem-idle-horarios-title {
@@ -82,6 +284,112 @@
   padding: 32px 40px;
 }
 
+/* ——— Pantalla principal: todo en una vista (sin scroll de página) ——— */
+.totem-welcome-screen {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: radial-gradient(circle at top, rgba(235, 103, 27, 0.14), transparent 50%),
+    radial-gradient(circle at bottom, rgba(59, 130, 246, 0.12), transparent 50%),
+    rgba(15, 23, 42, 0.88);
+}
+
+.totem-welcome-screen > *:not(.totem-ambient) {
+  position: relative;
+  z-index: 1;
+}
+
+.totem-welcome-top {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: clamp(8px, 1.2vh, 14px) clamp(12px, 2vw, 20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.totem-welcome-top-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.totem-welcome-top-logo {
+  height: clamp(40px, 6vh, 56px);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.totem-welcome-top-title {
+  margin: 0;
+  font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+}
+
+.totem-welcome-top-lead {
+  margin: 2px 0 0;
+  font-size: clamp(0.78rem, 1.4vw, 0.92rem);
+  color: rgba(226, 232, 240, 0.78);
+  line-height: 1.25;
+}
+
+.totem-fullscreen-btn {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.12));
+  color: #7dd3fc;
+  font-size: clamp(0.78rem, 1.3vw, 0.9rem);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.totem-fullscreen-btn:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.32), rgba(99, 102, 241, 0.22));
+  transform: scale(1.04);
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25);
+}
+
+.totem-fullscreen-btn:active {
+  transform: scale(0.98);
+}
+
+.totem-welcome-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(8px, 1.2vw, 14px);
+  padding: clamp(8px, 1.2vh, 12px) clamp(10px, 1.5vw, 16px) clamp(10px, 1.5vh, 14px);
+  overflow: hidden;
+}
+
+.totem-welcome-main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vh, 10px);
+  overflow: hidden;
+}
+
+.totem-welcome-aside {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .totem-welcome {
   padding: 28px 20px 32px;
   display: flex;
@@ -95,25 +403,88 @@
               rgba(15, 23, 42, 0.95);
 }
 
+.totem-welcome-screen .totem-welcome-actions {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.totem-welcome-screen .totem-welcome-button {
+  padding: clamp(12px, 1.8vh, 18px) clamp(20px, 3vw, 32px);
+  font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
 .totem-welcome-button {
+  position: relative;
+  overflow: hidden;
   padding: 20px 48px;
   border-radius: 999px;
   border: none;
   font-size: 1.3rem;
   font-weight: 800;
   cursor: pointer;
-  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  background: linear-gradient(120deg, #f97316 0%, #ec4899 45%, #f97316 90%);
+  background-size: 200% 100%;
   color: #0b1120;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 12px 36px rgba(236, 72, 153, 0.45);
   display: inline-flex;
   align-items: center;
   gap: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
+  animation: totem-btn-shimmer 4s ease-in-out infinite;
+}
+
+.totem-welcome-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 65%
+  );
+  transform: translateX(-120%);
+  animation: totem-btn-gleam 3.5s ease-in-out infinite;
+}
+
+@keyframes totem-btn-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes totem-btn-gleam {
+  0%,
+  70%,
+  100% {
+    transform: translateX(-120%);
+  }
+  85% {
+    transform: translateX(120%);
+  }
 }
 
 .totem-welcome-button:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 18px 44px rgba(236, 72, 153, 0.55);
+}
+
+.totem-welcome-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.totem-welcome-button--print {
+  background: linear-gradient(120deg, #38bdf8 0%, #6366f1 45%, #38bdf8 90%);
+  background-size: 200% 100%;
+  box-shadow: 0 12px 36px rgba(56, 189, 248, 0.4);
+  animation: totem-btn-shimmer 4.5s ease-in-out infinite;
 }
 
 .totem-welcome-actions {
@@ -124,10 +495,6 @@
   width: 100%;
 }
 
-.totem-welcome-button--print {
-  background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
-  color: #0b1120;
-}
 
 .totem-welcome-hint {
   margin: 0;
@@ -147,6 +514,32 @@
   width: 100%;
   margin-top: 28px;
   box-sizing: border-box;
+}
+
+.totem-senaletica-block--compact {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.totem-senaletica-block--compact .totem-senaletica-strips {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.totem-welcome-screen .totem-senaletica-title {
+  margin: 0 0 2px;
+  font-size: clamp(0.85rem, 1.6vw, 1.1rem);
+}
+
+.totem-welcome-screen .totem-senaletica-subtitle {
+  margin: 0 0 clamp(4px, 0.8vh, 8px);
+  font-size: clamp(0.72rem, 1.2vw, 0.85rem);
 }
 
 .totem-senaletica-title {
@@ -171,9 +564,19 @@
   flex-direction: column;
   gap: 0;
   width: 100%;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(255, 255, 255, 0.06),
+    0 0 60px rgba(249, 115, 22, 0.08);
+}
+
+.totem-welcome-screen .totem-senaletica-strip {
+  min-height: 0;
+  flex: 1 1 0;
+  padding: clamp(6px, 1vh, 12px) clamp(10px, 1.5vw, 16px);
+  font-size: clamp(0.72rem, 1.35vw, 0.92rem);
 }
 
 .totem-senaletica-strip {
@@ -192,7 +595,10 @@
   letter-spacing: 0.06em;
   text-align: left;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition:
+    filter 0.2s ease,
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease;
 }
 
 .totem-senaletica-strip:first-child {
@@ -200,11 +606,61 @@
 }
 
 .totem-senaletica-strip:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.1);
+  transform: scale(1.015);
+  z-index: 2;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
 .totem-senaletica-strip:active {
-  filter: brightness(0.98);
+  filter: brightness(0.96);
+  transform: scale(0.99);
+}
+
+.totem-arrows-ahead-motion {
+  display: inline-block;
+  animation: totem-arrows-slide 1.4s ease-in-out infinite;
+}
+
+.totem-arrows-up-motion {
+  display: inline-block;
+  animation: totem-arrows-bounce-up 1.2s ease-in-out infinite;
+}
+
+@keyframes totem-arrows-slide {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateX(6px);
+    opacity: 1;
+  }
+}
+
+@keyframes totem-arrows-bounce-up {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.totem-chat-glow {
+  animation: totem-chat-border-pulse 3s ease-in-out infinite;
+}
+
+@keyframes totem-chat-border-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 146, 60, 0);
+  }
+  50% {
+    box-shadow: 0 0 24px 2px rgba(251, 146, 60, 0.15);
+  }
 }
 
 .totem-strip-text {
@@ -272,15 +728,110 @@
   box-sizing: border-box;
 }
 
+.totem-consulta-chat-block--compact {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.totem-consulta-chat-block--compact .totem-senaletica-title {
+  flex-shrink: 0;
+}
+
 .totem-consulta-chat-block .totem-consulta-plotai {
   max-width: none;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai > section,
+.totem-consulta-chat-block--compact .totem-consulta-plotai section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  height: 100%;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='shell'] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='shellInner'] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='head'] {
+  padding: 8px 12px 6px;
+  flex-shrink: 0;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='messages'] {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin: 0 8px 6px;
+  padding: 8px 10px;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='inputSlot'] {
+  flex-shrink: 0;
+  padding: 0 8px 8px;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='title'] {
+  font-size: 0.88rem;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='titleSub'] {
+  display: none;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='titleIcon'] {
+  width: 32px;
+  height: 32px;
+  font-size: 0.85rem;
 }
 
 .totem-consulta-plotai {
   margin-top: 12px;
 }
 
+.totem-consulta-page--fs .totem-welcome-top-logo {
+  height: clamp(48px, 7vh, 72px);
+}
+
+.totem-consulta-page--fs .totem-welcome-screen .totem-senaletica-strip {
+  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  padding: clamp(10px, 1.4vh, 14px) clamp(14px, 2vw, 20px);
+}
+
+.totem-consulta-page--fs .totem-welcome-screen .totem-welcome-button {
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+}
+
 /* ——— Modal "Dirigite": overlay + contenido atractivo ——— */
+.totem-modal-overlay-enter {
+  animation: totem-modal-fadeIn 0.35s ease-out both;
+}
+
 .totem-direccion-modal-overlay {
   position: fixed;
   inset: 0;
@@ -289,18 +840,23 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  animation: totem-modal-fadeIn 0.25s ease-out;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(14px);
 }
 
 @keyframes totem-modal-fadeIn {
   from {
     opacity: 0;
+    backdrop-filter: blur(0);
   }
   to {
     opacity: 1;
+    backdrop-filter: blur(14px);
   }
+}
+
+.totem-modal-enter {
+  animation: totem-modal_scaleIn 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) both;
 }
 
 .totem-direccion-modal {
@@ -309,19 +865,21 @@
   max-width: 520px;
   background: linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%);
   border-radius: 20px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 80px rgba(125, 211, 252, 0.08);
-  animation: totem-modal_scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 80px rgba(125, 211, 252, 0.15);
   overflow: hidden;
 }
 
 @keyframes totem-modal_scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.92);
+    transform: scale(0.88) translateY(12px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -591,9 +1149,30 @@
   color: #000000 !important;
 }
 
+@media (max-width: 960px), (max-height: 720px) {
+  .totem-welcome-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 32%);
+  }
+
+  .totem-welcome-aside {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .totem-consulta-page *,
+  .totem-consulta-page *::before,
+  .totem-consulta-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media (max-width: 768px) {
   .totem-consulta-page {
-    padding: 16px 8px;
+    padding: 0;
   }
 
   .totem-form {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
@@ -75,12 +75,23 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   }
 ]
 
+function TotemAmbientBackdrop() {
+  return (
+    <div className="totem-ambient" aria-hidden>
+      <span className="totem-orb totem-orb--1" />
+      <span className="totem-orb totem-orb--2" />
+      <span className="totem-orb totem-orb--3" />
+      <span className="totem-shine" />
+    </div>
+  )
+}
+
 function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
   if (direction === 'primer-piso') {
     return (
       <span className="totem-strip-direction totem-strip-direction--up" aria-label="Subir al primer piso">
         <span className="totem-strip-floor-badge">1° piso</span>
-        <span className="totem-strip-arrows-up" aria-hidden>
+        <span className="totem-strip-arrows-up totem-arrows-up-motion" aria-hidden>
           ↑ ↑ ↑
         </span>
       </span>
@@ -88,7 +99,7 @@ function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
   }
   return (
     <span className="totem-strip-direction totem-strip-direction--ahead" aria-hidden>
-      <span className="totem-strip-arrows">&gt;&gt;&gt;</span>
+      <span className="totem-strip-arrows totem-arrows-ahead-motion">&gt;&gt;&gt;</span>
     </span>
   )
 }
@@ -108,8 +119,31 @@ const TotemConsultaClientePage = () => {
   const [avisoVoyMotivo, setAvisoVoyMotivo] = useState('')
   const [enviandoAvisoVoy, setEnviandoAvisoVoy] = useState(false)
   const [lastInteraction, setLastInteraction] = useState<number>(() => Date.now())
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const pageRef = useRef<HTMLDivElement>(null)
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
+
+  const toggleFullscreen = async () => {
+    registrarInteraccion()
+    const el = pageRef.current
+    if (!el) return
+    try {
+      if (!document.fullscreenElement) {
+        await el.requestFullscreen()
+      } else {
+        await document.exitFullscreen()
+      }
+    } catch {
+      /* navegador sin soporte o bloqueado */
+    }
+  }
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -388,7 +422,8 @@ const TotemConsultaClientePage = () => {
 
   return (
     <div
-      className="cliente-consulta-page totem-consulta-page"
+      ref={pageRef}
+      className={`cliente-consulta-page totem-consulta-page${isFullscreen ? ' totem-consulta-page--fs' : ''}`}
       onClick={() => {
         if (step === 'idle') {
           setStep('welcome')
@@ -397,16 +432,19 @@ const TotemConsultaClientePage = () => {
       }}
       onKeyDown={registrarInteraccion}
     >
-      <div className="consulta-container totem-container">
+      <div className={`consulta-container totem-container totem-step-${step}`}>
         {step === 'idle' && (
-          <div className="totem-idle">
+          <div className="totem-idle totem-screen-enter">
+            <TotemAmbientBackdrop />
             <img
               src="https://trello.plotcenter.com.ar/Group%20187.png"
               alt="Plot Center"
               className="totem-idle-logo"
             />
-            <p className="totem-idle-cta">Tocá la pantalla para comenzar</p>
-            <div className="totem-idle-horarios">
+            <p className="totem-idle-cta">
+              <span className="totem-idle-cta-text">Tocá la pantalla para comenzar</span>
+            </p>
+            <div className="totem-idle-horarios totem-idle-horarios--glow">
               <p className="totem-idle-horarios-title">Horarios de atención</p>
               <p className="totem-idle-horario">Lunes a Viernes: 7:00 a 21:30 hs</p>
               <p className="totem-idle-horario">Sábado: 8:00 a 20:00 hs</p>
@@ -415,103 +453,119 @@ const TotemConsultaClientePage = () => {
         )}
 
         {step === 'welcome' && (
-          <>
-            <header className="consulta-header totem-header">
-              <div className="header-content totem-header-content">
+          <div className="totem-welcome-screen totem-screen-enter" onClick={(e) => e.stopPropagation()}>
+            <TotemAmbientBackdrop />
+            <header className="totem-welcome-top totem-animate-in" style={{ animationDelay: '0.05s' }}>
+              <div className="totem-welcome-top-brand">
                 <img
                   src="https://trello.plotcenter.com.ar/Group%20187.png"
-                  alt="Plot Center Logo"
-                  className="consulta-logo totem-logo"
+                  alt="Plot Center"
+                  className="totem-welcome-top-logo"
                 />
-                <div className="header-text">
-                  <h1>Bienvenido al tótem de Plot Center</h1>
-                  <p>Desde aquí podés ver el estado de tus trabajos y avisar que ya llegaste.</p>
+                <div>
+                  <h1 className="totem-welcome-top-title">Plot Center</h1>
+                  <p className="totem-welcome-top-lead">Consultá tu OP, imprimí o preguntá por nuestros servicios</p>
                 </div>
               </div>
+              <button
+                type="button"
+                className="totem-fullscreen-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void toggleFullscreen()
+                }}
+                title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              >
+                {isFullscreen ? '⊡ Salir pantalla grande' : '⛶ Pantalla grande'}
+              </button>
             </header>
 
-            <div className="totem-welcome">
-              <div className="totem-welcome-actions">
-                <button
-                  className="totem-welcome-button"
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    registrarInteraccion()
-                    setStep('search')
-                  }}
-                >
-                  🔍 Buscar mi trabajo
-                </button>
-                <button
-                  className="totem-welcome-button totem-welcome-button--print"
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    registrarInteraccion()
-                    navigate('/totem/autogestion/imprimir')
-                  }}
-                >
-                  🖨️ Imprimir
-                </button>
-              </div>
-              <p className="totem-welcome-hint">
-                Para buscar tu OP necesitás el número. Para imprimir, escaneá el código con tu celular.
-              </p>
+            <div className="totem-welcome-grid totem-animate-in" style={{ animationDelay: '0.12s' }}>
+              <div className="totem-welcome-main">
+                <div className="totem-welcome-actions totem-animate-in" style={{ animationDelay: '0.18s' }}>
+                  <button
+                    className="totem-welcome-button"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      registrarInteraccion()
+                      setStep('search')
+                    }}
+                  >
+                    🔍 Buscar mi trabajo
+                  </button>
+                  <button
+                    className="totem-welcome-button totem-welcome-button--print"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      registrarInteraccion()
+                      navigate('/totem/autogestion/imprimir')
+                    }}
+                  >
+                    🖨️ Imprimir
+                  </button>
+                </div>
 
-              <div className="totem-senaletica-block">
-                <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
-                <p className="totem-senaletica-subtitle">
-                  Tocá la franja del sector · Diseño y Marketing están en 1° piso (↑)
-                </p>
-                <div className="totem-senaletica-strips">
-                  {TOTEM_SECTORS_QUEHACER.map((sector) => (
-                    <button
-                      key={sector.id}
-                      type="button"
-                      className={`totem-senaletica-strip${sector.direction === 'primer-piso' ? ' totem-senaletica-strip--upstairs' : ''}`}
-                      style={{
-                        backgroundColor: sector.bg,
-                        color: sector.textColor,
-                        borderColor: sector.textColor === '#fff' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.15)'
-                      }}
-                      onClick={() => {
-                        registrarInteraccion()
-                        setSelectedQueHacer(sector.id)
-                        setError(null)
-                        setMensaje(null)
-                        setAvisoVoyNombre('')
-                        setAvisoVoyMotivo('')
-                      }}
-                    >
-                      <span className="totem-strip-text">{sector.label}</span>
-                      <SectorDirectionArrows direction={sector.direction} />
-                    </button>
-                  ))}
+                <div
+                  className="totem-senaletica-block totem-senaletica-block--compact totem-animate-in"
+                  style={{ animationDelay: '0.24s' }}
+                >
+                  <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
+                  <p className="totem-senaletica-subtitle">Diseño y Marketing → 1° piso (↑)</p>
+                  <div className="totem-senaletica-strips">
+                    {TOTEM_SECTORS_QUEHACER.map((sector, index) => (
+                      <button
+                        key={sector.id}
+                        type="button"
+                        className={`totem-senaletica-strip totem-strip-animate-in${sector.direction === 'primer-piso' ? ' totem-senaletica-strip--upstairs' : ''}`}
+                        style={{
+                          backgroundColor: sector.bg,
+                          color: sector.textColor,
+                          borderColor:
+                            sector.textColor === '#fff'
+                              ? 'rgba(255,255,255,0.4)'
+                              : 'rgba(0,0,0,0.15)',
+                          animationDelay: `${0.32 + index * 0.07}s`
+                        }}
+                        onClick={() => {
+                          registrarInteraccion()
+                          setSelectedQueHacer(sector.id)
+                          setError(null)
+                          setMensaje(null)
+                          setAvisoVoyNombre('')
+                          setAvisoVoyMotivo('')
+                        }}
+                      >
+                        <span className="totem-strip-text">{sector.label}</span>
+                        <SectorDirectionArrows direction={sector.direction} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="totem-consulta-chat-block">
-                <h2 className="totem-senaletica-title">¿Qué servicios ofrecemos?</h2>
-                <p className="totem-senaletica-subtitle">
-                  Preguntale a PlotAI: impresión, diseño, marketing, instalaciones y más.
-                </p>
-                <TotemAutogestionPlotAiChat
-                  className="totem-consulta-plotai"
-                  modo="totem_consulta_cliente"
-                  conversationStorageKey="plotrello_totem_consulta_cliente_plotai_conv"
-                  title="PlotAI"
-                  titleSub="Consultá nuestros servicios en pantalla"
-                  emptyHint="Ej: ¿Hacen vinilos? ¿Dónde está diseño gráfico? ¿Cuáles son los horarios?"
-                />
-              </div>
+              <aside className="totem-welcome-aside totem-animate-in" style={{ animationDelay: '0.55s' }}>
+                <div className="totem-consulta-chat-block totem-consulta-chat-block--compact totem-chat-glow">
+                  <h2 className="totem-senaletica-title">¿Qué servicios ofrecemos?</h2>
+                  <TotemAutogestionPlotAiChat
+                    className="totem-consulta-plotai"
+                    modo="totem_consulta_cliente"
+                    conversationStorageKey="plotrello_totem_consulta_cliente_plotai_conv"
+                    title="PlotAI"
+                    titleSub="Consultá en pantalla"
+                    emptyHint="Ej: ¿Hacen vinilos? ¿Horarios?"
+                  />
+                </div>
+              </aside>
+            </div>
 
               {selectedQueHacer && (() => {
                 const sector = TOTEM_SECTORS_QUEHACER.find((s) => s.id === selectedQueHacer)
                 if (!sector) return null
                 return (
                   <div
-                    className="totem-direccion-modal-overlay"
+                    className="totem-direccion-modal-overlay totem-modal-overlay-enter"
                     onClick={(e) => {
                       if (e.target === e.currentTarget) {
                         registrarInteraccion()
@@ -526,7 +580,7 @@ const TotemConsultaClientePage = () => {
                     aria-modal="true"
                     aria-labelledby="totem-modal-title"
                   >
-                    <div className="totem-direccion-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="totem-direccion-modal totem-modal-enter" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className="totem-direccion-modal-close"
@@ -626,8 +680,7 @@ const TotemConsultaClientePage = () => {
                   </div>
                 )
               })()}
-            </div>
-          </>
+          </div>
         )}
 
         {step === 'search' && (
