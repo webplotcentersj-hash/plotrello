@@ -105,6 +105,7 @@ const TallerGraficoInventarioPage = lazy(() => import('./pages/TallerGraficoInve
 const MetalurgicaInventarioPage = lazy(() => import('./pages/MetalurgicaInventarioPage'))
 const TallerGraficoDashboardPage = lazy(() => import('./pages/TallerGraficoDashboardPage'))
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
+const TotemPantallaPage = lazy(() => import('./pages/TotemPantallaPage'))
 const OpEliminadasPage = lazy(() => import('./pages/OpEliminadasPage'))
 const SectorEtapaKanbanPage = lazy(() => import('./pages/SectorEtapaKanbanPage'))
 const InstalacionesMetalurgicaCampoPage = lazy(() => import('./pages/InstalacionesMetalurgicaCampoPage'))
@@ -739,6 +740,7 @@ function App() {
           <Route path="/totem/subir-archivo/:sessionId" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>}><TotemSubirArchivoQrPage /></Suspense>} />
           {/* Versión para pantalla de autoservicio: búsqueda de trabajos en modo tótem */}
           <Route path="/totem/consulta-cliente" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><TotemConsultaClientePage /></Suspense>} />
+          <Route path="/totem/pantalla" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando pantalla...</div>}><TotemPantallaPage /></Suspense>} />
           <Route path="/consulta-cliente" element={<ClienteConsultaPage />} />
           <Route path="/dashboard-pantallas" element={<DashboardPantallasPage />} />
           <Route path="/op-public/:opNumber" element={<OpPublicPage />} />

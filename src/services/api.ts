@@ -8705,6 +8705,75 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async listarPantallaTotemPublica(
+    horas = 48,
+    limiteVisitas = 30,
+    limiteImpresiones = 30
+  ): Promise<
+    ApiResponse<{
+      visitas: Array<{
+        id: number
+        cliente_nombre: string
+        notas: string | null
+        fecha_atencion: string
+        tipo: string
+      }>
+      impresiones: Array<{
+        id: number
+        cliente_nombre: string
+        cantidad_hojas: number
+        tipo_impresion: string
+        estado_pago: string
+        numero_op: string | null
+        created_at: string
+        impreso_at: string | null
+      }>
+      generado_en?: string
+    }>
+  > {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_pantalla_totem_publica', {
+          p_horas: horas,
+          p_limite_visitas: limiteVisitas,
+          p_limite_impresiones: limiteImpresiones
+        })
+        if (error) return { success: false, error: error.message }
+        const raw = (data ?? {}) as {
+          visitas?: unknown[]
+          impresiones?: unknown[]
+          generado_en?: string
+        }
+        return {
+          success: true,
+          data: {
+            visitas: (raw.visitas ?? []) as Array<{
+              id: number
+              cliente_nombre: string
+              notas: string | null
+              fecha_atencion: string
+              tipo: string
+            }>,
+            impresiones: (raw.impresiones ?? []) as Array<{
+              id: number
+              cliente_nombre: string
+              cantidad_hojas: number
+              tipo_impresion: string
+              estado_pago: string
+              numero_op: string | null
+              created_at: string
+              impreso_at: string | null
+            }>,
+            generado_en: raw.generado_en
+          }
+        }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async obtenerAtencionesMostrador(fechaInicio?: string, fechaFin?: string): Promise<ApiResponse<Array<{
     id: number
     cliente_id: number | null

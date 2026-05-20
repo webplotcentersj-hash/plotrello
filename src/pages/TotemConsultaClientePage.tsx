@@ -124,6 +124,17 @@ const TotemConsultaClientePage = () => {
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
 
+  const volverAWelcome = () => {
+    registrarInteraccion()
+    setSearchOp('')
+    setOrdenes([])
+    setHistorial({})
+    setError(null)
+    setMensaje(null)
+    setLoading(false)
+    setStep('welcome')
+  }
+
   const toggleFullscreen = async () => {
     registrarInteraccion()
     const el = pageRef.current
@@ -686,6 +697,13 @@ const TotemConsultaClientePage = () => {
         {step === 'search' && (
           <>
             <header className="consulta-header totem-header">
+              <button
+                type="button"
+                className="totem-search-back"
+                onClick={volverAWelcome}
+              >
+                ← Volver
+              </button>
               <div className="header-content totem-header-content">
                 <img
                   src="https://trello.plotcenter.com.ar/Group%20187.png"
