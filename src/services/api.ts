@@ -4176,7 +4176,7 @@ class ApiService {
       const rows = (data || []).map((row: Record<string, unknown>) => {
         const { cliente, ...cc } = row
         return {
-          ...(cc as ClienteCuentaCorrienteRecord),
+          ...(cc as unknown as ClienteCuentaCorrienteRecord),
           estado:
             (cc.estado as ClienteCuentaCorrienteRecord['estado']) ??
             ((cc.alta_completa ? 'aprobada' : 'pendiente') as ClienteCuentaCorrienteRecord['estado']),
