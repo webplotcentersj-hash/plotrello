@@ -1,0 +1,2 @@
+-- Resolver CC: estado efectivo (null + alta_completa), sync ventas y scoring al aprobar
+-- Aplicado remoto: cc_resolver_estado_efectivo_sync

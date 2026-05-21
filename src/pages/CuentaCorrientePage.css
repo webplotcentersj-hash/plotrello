@@ -109,6 +109,20 @@
   color: #a7f3d0;
 }
 
+.cc-deuda-total-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-right: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: rgba(249, 115, 22, 0.2);
+  border: 1px solid rgba(251, 146, 60, 0.5);
+  color: #fdba74;
+}
+
 .cc-admin-badge {
   display: inline-flex;
   margin-top: 8px;
@@ -497,6 +511,17 @@
   background: rgba(59, 130, 246, 0.25);
   border-color: rgba(96, 165, 250, 0.5);
   color: #e2e8f0;
+}
+
+.cc-estado-tab--ok:not(.cc-estado-tab--active) {
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+}
+
+.cc-estado-tab--active.cc-estado-tab--ok {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #d1fae5;
 }
 
 .cc-estado-tab--alert:not(.cc-estado-tab--active) {

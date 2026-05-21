@@ -4175,11 +4175,22 @@ class ApiService {
       if (error) return { success: false, error: error.message }
       const rows = (data || []).map((row: Record<string, unknown>) => {
         const { cliente, ...cc } = row
+        const base = cc as unknown as ClienteCuentaCorrienteRecord
+        const estadoRaw = cc.estado as ClienteCuentaCorrienteRecord['estado'] | null | undefined
+        const altaCompleta = Boolean(cc.alta_completa)
+        const estado: ClienteCuentaCorrienteRecord['estado'] =
+          estadoRaw === 'aprobada' || estadoRaw === 'pendiente' || estadoRaw === 'rechazada'
+            ? estadoRaw
+            : altaCompleta
+              ? 'aprobada'
+              : 'pendiente'
         return {
-          ...(cc as unknown as ClienteCuentaCorrienteRecord),
-          estado:
-            (cc.estado as ClienteCuentaCorrienteRecord['estado']) ??
-            ((cc.alta_completa ? 'aprobada' : 'pendiente') as ClienteCuentaCorrienteRecord['estado']),
+          ...base,
+          estado,
+          alta_completa: altaCompleta,
+          saldo_actual: cc.saldo_actual != null ? Number(cc.saldo_actual) : base.saldo_actual,
+          total_cargos: cc.total_cargos != null ? Number(cc.total_cargos) : base.total_cargos,
+          total_pagos: cc.total_pagos != null ? Number(cc.total_pagos) : base.total_pagos,
           cliente: cliente as ClienteRecord | undefined
         }
       })

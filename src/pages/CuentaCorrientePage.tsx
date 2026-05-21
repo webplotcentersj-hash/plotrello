@@ -5,15 +5,18 @@ import apiService from '../services/api'
 import CuentaCorrienteAltaForm from '../components/CuentaCorrienteAltaForm'
 import CuentaCorrienteScoringPanel from '../components/CuentaCorrienteScoringPanel'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
+import CuentaCorrienteDashboard from '../components/CuentaCorrienteDashboard'
+import { calcCarteraStatsCuentaCorriente } from '../utils/cuentaCorrienteStats'
+import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
 import type { CcScoreNivel } from '../constants/cuentaCorrienteScoring'
 import {
   ESTADO_CC_LABELS,
   TIPO_CLIENTE_CC_LABELS,
   labelCondicionIva,
+  normalizeEstadoCc,
   type EstadoCuentaCorriente
 } from '../constants/cuentaCorriente'
-import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
 import './CuentaCorrientePage.css'
 
 type CuentaCorrienteRow = ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }
@@ -88,7 +91,7 @@ const CuentaCorrientePage = () => {
   const registrosFiltrados = useMemo(() => {
     let list = registros
     if (filtroEstado !== 'todos') {
-      list = list.filter((r) => (r.estado ?? 'pendiente') === filtroEstado)
+      list = list.filter((r) => normalizeEstadoCc(r) === filtroEstado)
     }
     const q = filtroLista.trim().toLowerCase()
     if (!q) return list
@@ -112,7 +115,12 @@ const CuentaCorrientePage = () => {
   }, [registros, filtroLista, filtroEstado])
 
   const pendientes = useMemo(
-    () => registros.filter((r) => (r.estado ?? 'pendiente') === 'pendiente'),
+    () => registros.filter((r) => normalizeEstadoCc(r) === 'pendiente'),
+    [registros]
+  )
+
+  const aprobados = useMemo(
+    () => registros.filter((r) => normalizeEstadoCc(r) === 'aprobada'),
     [registros]
   )
 
@@ -268,7 +276,8 @@ const CuentaCorrientePage = () => {
     }
   }
 
-  const habilitadosCount = registros.filter((r) => r.estado === 'aprobada').length
+  const habilitadosCount = aprobados.length
+  const carteraStats = useMemo(() => calcCarteraStatsCuentaCorriente(registros), [registros])
 
   if (loading) {
     return (
@@ -296,6 +305,9 @@ const CuentaCorrientePage = () => {
               </p>
               <span className="cc-count-pill">
                 {habilitadosCount} aprobados · {pendientes.length} pendientes
+              </span>
+              <span className="cc-deuda-total-pill" title="Suma de saldos positivos de clientes aprobados">
+                Deuda total: {formatMontoArs(carteraStats.deudaTotal)}
               </span>
               {isAdmin && <span className="cc-admin-badge">Acceso administración</span>}
             </div>
@@ -361,6 +373,16 @@ const CuentaCorrientePage = () => {
             ✕
           </button>
         </div>
+      )}
+
+      {modoForm === 'cerrado' && (
+        <CuentaCorrienteDashboard
+          registros={registros}
+          isAdmin={isAdmin}
+          onAprobar={(id) => void resolverSolicitud(id, 'aprobar')}
+          onScoring={setScoringCliente}
+          resolviendoId={resolviendoId}
+        />
       )}
 
       {modoForm === 'vincular' && !clienteVincular && (
@@ -431,21 +453,27 @@ const CuentaCorrientePage = () => {
           <h2>Clientes registrados</h2>
           <div className="cc-lista-toolbar__filters">
             <div className="cc-estado-tabs" role="tablist" aria-label="Filtrar por estado">
-              {(['todos', 'pendiente', 'aprobada', 'rechazada'] as const).map((est) => (
+              {(['todos', 'pendiente', 'aprobada', 'rechazada'] as const).map((est) => {
+                const count =
+                  est === 'todos'
+                    ? registros.length
+                    : est === 'pendiente'
+                      ? pendientes.length
+                      : est === 'aprobada'
+                        ? aprobados.length
+                        : registros.filter((r) => normalizeEstadoCc(r) === 'rechazada').length
+                return (
                 <button
                   key={est}
                   type="button"
                   role="tab"
                   aria-selected={filtroEstado === est}
-                  className={`cc-estado-tab${filtroEstado === est ? ' cc-estado-tab--active' : ''}${est === 'pendiente' && pendientes.length > 0 ? ' cc-estado-tab--alert' : ''}`}
+                  className={`cc-estado-tab${filtroEstado === est ? ' cc-estado-tab--active' : ''}${est === 'pendiente' && pendientes.length > 0 ? ' cc-estado-tab--alert' : ''}${est === 'aprobada' ? ' cc-estado-tab--ok' : ''}`}
                   onClick={() => setFiltroEstado(est)}
                 >
-                  {est === 'todos' ? 'Todos' : ESTADO_CC_LABELS[est]}
-                  {est === 'pendiente' && pendientes.length > 0 && (
-                    <span className="cc-estado-tab__count">{pendientes.length}</span>
-                  )}
+                  {est === 'todos' ? `Todos (${count})` : `${ESTADO_CC_LABELS[est]} (${count})`}
                 </button>
-              ))}
+              )})}
             </div>
             {registros.length > 0 && (
               <div className="cc-filtro-wrap">
@@ -475,7 +503,7 @@ const CuentaCorrientePage = () => {
           <ul className="cuenta-corriente-cards">
             {registrosFiltrados.map((r) => {
               const nombre = r.razon_social || r.cliente?.nombre || 'Sin nombre'
-              const estado = (r.estado ?? 'pendiente') as EstadoCuentaCorriente
+              const estado = normalizeEstadoCc(r)
               return (
                 <li
                   key={r.id}

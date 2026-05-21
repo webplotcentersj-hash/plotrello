@@ -22,6 +22,24 @@ export const ESTADO_CC_LABELS: Record<EstadoCuentaCorriente, string> = {
   rechazada: 'Rechazada'
 }
 
+/** Estado efectivo (DB puede traer null en registros viejos). */
+export function normalizeEstadoCc(row: {
+  estado?: string | null
+  alta_completa?: boolean | null
+}): EstadoCuentaCorriente {
+  const e = row.estado
+  if (e === 'aprobada' || e === 'pendiente' || e === 'rechazada') return e
+  if (row.alta_completa) return 'aprobada'
+  return 'pendiente'
+}
+
+export function isClienteCcOperativo(row: {
+  estado?: string | null
+  alta_completa?: boolean | null
+}): boolean {
+  return normalizeEstadoCc(row) === 'aprobada'
+}
+
 export type TipoClienteCuentaCorriente = 'empresa' | 'persona_fisica'
 
 export const TIPO_CLIENTE_CC_LABELS: Record<TipoClienteCuentaCorriente, string> = {

@@ -1,0 +1,200 @@
+.cc-dash {
+  margin-bottom: 24px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.cc-dash__head h2 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  color: #f1f5f9;
+}
+
+.cc-dash__head p {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.cc-dash-deuda-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.18) 0%, rgba(127, 29, 29, 0.12) 100%);
+  border: 1px solid rgba(251, 146, 60, 0.45);
+}
+
+.cc-dash-deuda-total__label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fdba74;
+  margin-bottom: 4px;
+}
+
+.cc-dash-deuda-total__monto {
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  font-weight: 800;
+  color: #ffedd5;
+  line-height: 1.1;
+}
+
+.cc-dash-deuda-total__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  max-width: 280px;
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .cc-dash-deuda-total__hint {
+    text-align: left;
+    max-width: none;
+  }
+}
+
+.cc-dash__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.cc-dash-kpi {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.cc-dash-kpi__label {
+  display: block;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.cc-dash-kpi strong {
+  font-size: 1.25rem;
+  color: #f8fafc;
+}
+
+.cc-dash-kpi--ok {
+  border-color: rgba(52, 211, 153, 0.35);
+}
+.cc-dash-kpi--ok strong {
+  color: #6ee7b7;
+}
+
+.cc-dash-kpi--warn {
+  border-color: rgba(251, 191, 36, 0.4);
+}
+.cc-dash-kpi--warn strong {
+  color: #fde68a;
+}
+
+.cc-dash-kpi--deuda {
+  border-color: rgba(249, 115, 22, 0.4);
+}
+.cc-dash-kpi--deuda strong {
+  color: #fdba74;
+}
+
+.cc-dash__block {
+  margin-bottom: 16px;
+}
+
+.cc-dash__block h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.cc-dash__block--alert {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.cc-dash-table-wrap {
+  overflow-x: auto;
+}
+
+.cc-dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.cc-dash-table th,
+.cc-dash-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.cc-dash-table th.num,
+.cc-dash-table td.num {
+  text-align: right;
+}
+
+.cc-dash-table th {
+  color: #94a3b8;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.cc-dash-estado {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.cc-dash-estado--aprobada {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+.cc-dash-estado--pendiente {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+}
+.cc-dash-estado--rechazada {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.cc-dash-saldo--deuda {
+  color: #fdba74;
+  font-weight: 700;
+}
+
+.cc-dash-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cc-dash__empty,
+.cc-dash__foot {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.cc-dash__foot {
+  margin: 12px 0 0;
+}
