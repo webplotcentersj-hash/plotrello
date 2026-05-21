@@ -4163,23 +4163,49 @@ class ApiService {
   }
 
   // ========== CUENTA CORRIENTE (MOSTRADOR) ==========
+  private mapClienteCuentaCorrienteRow(
+    row: Record<string, unknown>
+  ): ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord } {
+    const { cliente, ...cc } = row
+    const base = cc as unknown as ClienteCuentaCorrienteRecord
+    const estadoRaw = cc.estado as ClienteCuentaCorrienteRecord['estado'] | null | undefined
+    const altaCompleta = Boolean(cc.alta_completa)
+    const estado: ClienteCuentaCorrienteRecord['estado'] =
+      estadoRaw === 'aprobada' || estadoRaw === 'pendiente' || estadoRaw === 'rechazada'
+        ? estadoRaw
+        : altaCompleta
+          ? 'aprobada'
+          : 'pendiente'
+    return {
+      ...base,
+      estado,
+      alta_completa: altaCompleta,
+      saldo_actual: cc.saldo_actual != null ? Number(cc.saldo_actual) : base.saldo_actual,
+      total_cargos: cc.total_cargos != null ? Number(cc.total_cargos) : base.total_cargos,
+      total_pagos: cc.total_pagos != null ? Number(cc.total_pagos) : base.total_pagos,
+      cliente: cliente as ClienteRecord | undefined
+    }
+  }
+
   async listClientesCuentaCorriente(): Promise<
     ApiResponse<Array<ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }>>
   > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     const sb = supabase
+    const ccSelect =
+      '*, cliente:clientes!clientes_cuenta_corriente_id_cliente_fkey(id, nombre, telefono, email, dni_cuit, empresa, activo)'
     try {
       let data: Record<string, unknown>[] | null = null
       let error: { message: string } | null = null
 
       const res = await sb
         .from('clientes_cuenta_corriente')
-        .select('*, cliente:clientes(id, nombre, telefono, email, dni_cuit, empresa, activo)')
+        .select(ccSelect)
         .order('created_at', { ascending: false })
       data = res.data as Record<string, unknown>[] | null
       error = res.error
 
-      if (error?.message?.toLowerCase().includes('ambiguous')) {
+      if (error) {
         const fallback = await sb
           .from('clientes_cuenta_corriente')
           .select('*')
@@ -4189,30 +4215,39 @@ class ApiService {
       }
 
       if (error) return { success: false, error: error.message }
-      const rows = (data || []).map((row: Record<string, unknown>) => {
-        const { cliente, ...cc } = row
-        const base = cc as unknown as ClienteCuentaCorrienteRecord
-        const estadoRaw = cc.estado as ClienteCuentaCorrienteRecord['estado'] | null | undefined
-        const altaCompleta = Boolean(cc.alta_completa)
-        const estado: ClienteCuentaCorrienteRecord['estado'] =
-          estadoRaw === 'aprobada' || estadoRaw === 'pendiente' || estadoRaw === 'rechazada'
-            ? estadoRaw
-            : altaCompleta
-              ? 'aprobada'
-              : 'pendiente'
-        return {
-          ...base,
-          estado,
-          alta_completa: altaCompleta,
-          saldo_actual: cc.saldo_actual != null ? Number(cc.saldo_actual) : base.saldo_actual,
-          total_cargos: cc.total_cargos != null ? Number(cc.total_cargos) : base.total_cargos,
-          total_pagos: cc.total_pagos != null ? Number(cc.total_pagos) : base.total_pagos,
-          cliente: cliente as ClienteRecord | undefined
-        }
-      })
+      const rows = (data || []).map((row) => this.mapClienteCuentaCorrienteRow(row))
       return { success: true, data: rows }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al listar clientes con cuenta corriente' }
+    }
+  }
+
+  async getCuentaCorrientePorCliente(
+    idCliente: number
+  ): Promise<ApiResponse<(ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }) | null>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const sb = supabase
+    try {
+      const res = await sb
+        .from('clientes_cuenta_corriente')
+        .select(
+          '*, cliente:clientes!clientes_cuenta_corriente_id_cliente_fkey(id, nombre, telefono, email, dni_cuit, empresa, activo)'
+        )
+        .eq('id_cliente', idCliente)
+        .maybeSingle()
+      if (res.error) {
+        const fb = await sb.from('clientes_cuenta_corriente').select('*').eq('id_cliente', idCliente).maybeSingle()
+        if (fb.error) return { success: false, error: fb.error.message }
+        if (!fb.data) return { success: true, data: null }
+        return { success: true, data: this.mapClienteCuentaCorrienteRow(fb.data as Record<string, unknown>) }
+      }
+      if (!res.data) return { success: true, data: null }
+      return {
+        success: true,
+        data: this.mapClienteCuentaCorrienteRow(res.data as Record<string, unknown>)
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al obtener cuenta corriente' }
     }
   }
 
@@ -4263,12 +4298,21 @@ class ApiService {
         p_url_documento_dni: payload.url_documento_dni ?? null,
         p_url_pagare: payload.url_pagare ?? null
       })
-      if (error) return { success: false, error: error.message }
+      if (error) {
+        const raw = error.message || ''
+        const friendly = /could not choose|function.*not unique/i.test(raw)
+          ? 'No se pudo registrar la cuenta corriente (conflicto en el servidor). Recargá la página e intentá de nuevo.'
+          : raw
+        return { success: false, error: friendly }
+      }
       const parsed = data as {
         id_cliente: number
         razon_social: string
         alta_completa: boolean
         estado: 'pendiente' | 'aprobada' | 'rechazada'
+      }
+      if (!parsed?.id_cliente) {
+        return { success: false, error: 'El servidor no devolvió el cliente registrado' }
       }
       return { success: true, data: parsed }
     } catch (e: any) {

@@ -187,12 +187,27 @@ const CuentaCorrientePage = () => {
     if (!res.success) {
       throw new Error(res.error || 'No se pudo registrar')
     }
-    await loadRegistros({ silent: true })
     const idCc = res.data?.id_cliente ?? payload.id_cliente
-    if (idCc && res.data?.estado === 'aprobada') {
+    if (!idCc) {
+      throw new Error('No se recibió el identificador del cliente')
+    }
+
+    await loadRegistros({ silent: true })
+
+    const rowRes = await apiService.getCuentaCorrientePorCliente(idCc)
+    if (rowRes.success && rowRes.data) {
+      setRegistros((prev) => {
+        const rest = prev.filter((r) => r.id_cliente !== idCc)
+        return [rowRes.data!, ...rest]
+      })
+    }
+
+    if (res.data?.estado === 'aprobada') {
       await apiService.calcularScoringCuentaCorriente(idCc, usuario.id)
       await loadRegistros({ silent: true })
     }
+
+    setFiltroEstado('todos')
     cerrarForm()
     if (res.data?.estado === 'aprobada') {
       setMensajeOk(`Alta aprobada: ${res.data.razon_social} ya puede operar en cuenta corriente.`)

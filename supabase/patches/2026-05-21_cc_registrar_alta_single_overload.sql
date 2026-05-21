@@ -1,0 +1,2 @@
+-- Una sola firma de registrar_alta_cuenta_corriente (evita PGRST203 / Could not choose function)
+-- Aplicado remoto: cc_registrar_alta_single_overload
