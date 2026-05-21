@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -59,8 +60,32 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [panelStyle, setPanelStyle] = useState({ top: 0, right: 12 })
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
+
+  const updatePanelPosition = () => {
+    const btn = buttonRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    setPanelStyle({
+      top: rect.bottom + 12,
+      right: Math.max(12, window.innerWidth - rect.right)
+    })
+  }
+
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    updatePanelPosition()
+    window.addEventListener('resize', updatePanelPosition)
+    window.addEventListener('scroll', updatePanelPosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition)
+      window.removeEventListener('scroll', updatePanelPosition, true)
+    }
+  }, [isOpen])
 
   // Cargar notificaciones
   const loadNotifications = async () => {
@@ -205,21 +230,23 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     }
   }, [usuario?.id])
 
-  // Cerrar dropdown al hacer click fuera
+  // Cerrar al clic fuera (panel en portal: incluir panelRef)
   useEffect(() => {
+    if (!isOpen) return
+
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+      const target = event.target as Node
+      if (
+        dropdownRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
+      ) {
+        return
       }
+      setIsOpen(false)
     }
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    document.addEventListener('click', handleClickOutside, true)
+    return () => document.removeEventListener('click', handleClickOutside, true)
   }, [isOpen])
 
   // Solicitar permiso para notificaciones del navegador
@@ -349,60 +376,86 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     }
   }
 
+  const panelContent = (
+    <>
+      <div className="notifications-header">
+        <h3>Notificaciones</h3>
+        {unreadCount > 0 && (
+          <button type="button" className="mark-all-read-btn" onClick={markAllAsRead}>
+            Marcar todas como leídas
+          </button>
+        )}
+      </div>
+
+      <div className="notifications-list">
+        {loading ? (
+          <div className="notifications-loading">Cargando...</div>
+        ) : notifications.length === 0 ? (
+          <div className="notifications-empty">No hay notificaciones</div>
+        ) : (
+          notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`notification-item ${!notification.is_read ? 'unread' : ''} ${notification.type}`}
+              onClick={() => handleNotificationClick(notification)}
+            >
+              <div className="notification-icon">{getNotificationIcon(notification.type)}</div>
+              <div className="notification-content">
+                <div className="notification-title">{notification.title}</div>
+                {notification.description && (
+                  <div className="notification-description">{notification.description}</div>
+                )}
+                <div className="notification-time">{formatTimeAgo(notification.timestamp)}</div>
+              </div>
+              {!notification.is_read && <div className="notification-dot"></div>}
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  )
+
+  const panelEl = isOpen ? (
+    <div
+      ref={panelRef}
+      className="notifications-panel notifications-panel--portal"
+      style={{ top: panelStyle.top, right: panelStyle.right }}
+      role="dialog"
+      aria-label="Notificaciones"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {panelContent}
+    </div>
+  ) : null
+
   return (
     <div className="notifications-dropdown" ref={dropdownRef}>
       <button
+        ref={buttonRef}
+        type="button"
         className="notifications-button"
-        onClick={() => {
-          setIsOpen(!isOpen)
-          if (!isOpen) {
-            loadNotifications()
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          const next = !isOpen
+          setIsOpen(next)
+          if (next) {
+            updatePanelPosition()
+            void loadNotifications()
           }
         }}
         title="Notificaciones"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
       >
         🔔
         {unreadCount > 0 && <span className="notifications-badge">{unreadCount}</span>}
       </button>
 
-      {isOpen && (
-        <div className="notifications-panel">
-          <div className="notifications-header">
-            <h3>Notificaciones</h3>
-            {unreadCount > 0 && (
-              <button className="mark-all-read-btn" onClick={markAllAsRead}>
-                Marcar todas como leídas
-              </button>
-            )}
-          </div>
-
-          <div className="notifications-list">
-            {loading ? (
-              <div className="notifications-loading">Cargando...</div>
-            ) : notifications.length === 0 ? (
-              <div className="notifications-empty">No hay notificaciones</div>
-            ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`notification-item ${!notification.is_read ? 'unread' : ''} ${notification.type}`}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="notification-icon">{getNotificationIcon(notification.type)}</div>
-                  <div className="notification-content">
-                    <div className="notification-title">{notification.title}</div>
-                    {notification.description && (
-                      <div className="notification-description">{notification.description}</div>
-                    )}
-                    <div className="notification-time">{formatTimeAgo(notification.timestamp)}</div>
-                  </div>
-                  {!notification.is_read && <div className="notification-dot"></div>}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+      {typeof document !== 'undefined' && panelEl
+        ? createPortal(panelEl, document.body)
+        : null}
     </div>
   )
 }
