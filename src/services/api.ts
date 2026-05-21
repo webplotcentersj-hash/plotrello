@@ -4167,11 +4167,27 @@ class ApiService {
     ApiResponse<Array<ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }>>
   > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const sb = supabase
     try {
-      const { data, error } = await supabase
+      let data: Record<string, unknown>[] | null = null
+      let error: { message: string } | null = null
+
+      const res = await sb
         .from('clientes_cuenta_corriente')
-        .select('*, cliente:clientes(*)')
-        .order('id', { ascending: false })
+        .select('*, cliente:clientes(id, nombre, telefono, email, dni_cuit, empresa, activo)')
+        .order('created_at', { ascending: false })
+      data = res.data as Record<string, unknown>[] | null
+      error = res.error
+
+      if (error?.message?.toLowerCase().includes('ambiguous')) {
+        const fallback = await sb
+          .from('clientes_cuenta_corriente')
+          .select('*')
+          .order('created_at', { ascending: false })
+        data = fallback.data as Record<string, unknown>[] | null
+        error = fallback.error
+      }
+
       if (error) return { success: false, error: error.message }
       const rows = (data || []).map((row: Record<string, unknown>) => {
         const { cliente, ...cc } = row

@@ -48,17 +48,20 @@ const CuentaCorrientePage = () => {
   const [scoringCliente, setScoringCliente] = useState<CuentaCorrienteRow | null>(null)
   const [recalculandoTodos, setRecalculandoTodos] = useState(false)
 
-  const loadRegistros = async () => {
-    setLoading(true)
+  const loadRegistros = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     setError(null)
     try {
       const res = await apiService.listClientesCuentaCorriente()
-      if (res.success && res.data) setRegistros(res.data)
-      else setError(res.error || 'Error al cargar')
+      if (res.success && res.data) {
+        setRegistros(res.data)
+      } else {
+        setError(res.error || 'Error al cargar el listado de cuenta corriente')
+      }
     } catch {
-      setError('Error de conexión')
+      setError('Error de conexión al cargar cuenta corriente')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }
 
@@ -184,11 +187,11 @@ const CuentaCorrientePage = () => {
     if (!res.success) {
       throw new Error(res.error || 'No se pudo registrar')
     }
-    await loadRegistros()
+    await loadRegistros({ silent: true })
     const idCc = res.data?.id_cliente ?? payload.id_cliente
     if (idCc && res.data?.estado === 'aprobada') {
       await apiService.calcularScoringCuentaCorriente(idCc, usuario.id)
-      await loadRegistros()
+      await loadRegistros({ silent: true })
     }
     cerrarForm()
     if (res.data?.estado === 'aprobada') {
