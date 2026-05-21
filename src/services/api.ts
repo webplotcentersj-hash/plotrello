@@ -13,6 +13,13 @@ import { ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
 import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
 import type {
+  AltaCuentaCorrientePayload,
+  CcCuentaMovimiento,
+  CcInteresesDevengados,
+  CcPerfilCliente,
+  CcPerfilResumen,
+  CcVentaResumen,
+  ClienteCuentaCorrienteRecord,
   ClienteRecord,
   FichaHistorialItem,
   HistorialMovimiento,
@@ -4156,29 +4163,440 @@ class ApiService {
   }
 
   // ========== CUENTA CORRIENTE (MOSTRADOR) ==========
-  async listClientesCuentaCorriente(): Promise<ApiResponse<ClienteRecord[]>> {
+  async listClientesCuentaCorriente(): Promise<
+    ApiResponse<Array<ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }>>
+  > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data: rows, error: err1 } = await supabase
+      const { data, error } = await supabase
         .from('clientes_cuenta_corriente')
-        .select('id_cliente')
+        .select('*, cliente:clientes(*)')
         .order('id', { ascending: false })
-      if (err1) return { success: false, error: err1.message }
-      const ids = (rows || []).map((r: { id_cliente: number }) => r.id_cliente).filter(Boolean)
-      if (ids.length === 0) return { success: true, data: [] }
-      const { data: clientes, error: err2 } = await supabase
-        .from('clientes')
-        .select('*')
-        .in('id', ids)
-      if (err2) return { success: false, error: err2.message }
-      const order = ids as number[]
-      const ordered = (clientes || []).slice().sort((a: ClienteRecord, b: ClienteRecord) => order.indexOf(a.id) - order.indexOf(b.id))
-      return { success: true, data: ordered as ClienteRecord[] }
+      if (error) return { success: false, error: error.message }
+      const rows = (data || []).map((row: Record<string, unknown>) => {
+        const { cliente, ...cc } = row
+        return {
+          ...(cc as ClienteCuentaCorrienteRecord),
+          estado:
+            (cc.estado as ClienteCuentaCorrienteRecord['estado']) ??
+            ((cc.alta_completa ? 'aprobada' : 'pendiente') as ClienteCuentaCorrienteRecord['estado']),
+          cliente: cliente as ClienteRecord | undefined
+        }
+      })
+      return { success: true, data: rows }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al listar clientes con cuenta corriente' }
     }
   }
 
+  async clienteHabilitadoCuentaCorriente(idCliente: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('cliente_habilitado_cuenta_corriente', {
+        p_id_cliente: idCliente
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: !!data }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al verificar cuenta corriente' }
+    }
+  }
+
+  async registrarAltaCuentaCorriente(
+    payload: AltaCuentaCorrientePayload
+  ): Promise<
+    ApiResponse<{
+      id_cliente: number
+      razon_social: string
+      alta_completa: boolean
+      estado: 'pendiente' | 'aprobada' | 'rechazada'
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('registrar_alta_cuenta_corriente', {
+        p_cuit: payload.cuit,
+        p_razon_social: payload.razon_social,
+        p_condicion_iva: payload.condicion_iva,
+        p_email: payload.email,
+        p_whatsapp: payload.whatsapp,
+        p_persona_contacto: payload.persona_contacto,
+        p_domicilio: payload.domicilio,
+        p_localidad: payload.localidad,
+        p_provincia: payload.provincia,
+        p_codigo_postal: payload.codigo_postal,
+        p_url_constancia_afip: payload.url_constancia_afip,
+        p_url_estatuto: payload.url_estatuto ?? '',
+        p_url_comprobante_domicilio: payload.url_comprobante_domicilio,
+        p_id_cliente: payload.id_cliente ?? null,
+        p_id_usuario_solicita: payload.id_usuario_solicita,
+        p_tipo_cliente: payload.tipo_cliente ?? 'empresa',
+        p_nombre: payload.nombre ?? null,
+        p_apellido: payload.apellido ?? null,
+        p_url_documento_dni: payload.url_documento_dni ?? null,
+        p_url_pagare: payload.url_pagare ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      const parsed = data as {
+        id_cliente: number
+        razon_social: string
+        alta_completa: boolean
+        estado: 'pendiente' | 'aprobada' | 'rechazada'
+      }
+      return { success: true, data: parsed }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al registrar alta de cuenta corriente' }
+    }
+  }
+
+  async resolverSolicitudCuentaCorriente(
+    idCliente: number,
+    accion: 'aprobar' | 'rechazar',
+    idUsuarioRevisor: number,
+    motivoRechazo?: string
+  ): Promise<
+    ApiResponse<{ id_cliente: number; estado: 'aprobada' | 'rechazada'; razon_social: string }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('resolver_solicitud_cuenta_corriente', {
+        p_id_cliente: idCliente,
+        p_accion: accion,
+        p_id_usuario_revisor: idUsuarioRevisor,
+        p_motivo_rechazo: motivoRechazo ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as { id_cliente: number; estado: 'aprobada' | 'rechazada'; razon_social: string } }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al resolver solicitud' }
+    }
+  }
+
+  async getScoringResumenCuentaCorriente(idCliente: number): Promise<
+    ApiResponse<{
+      score: number | null
+      score_nivel: string | null
+      limite_credito: number | null
+      limite_credito_sugerido: number | null
+    } | null>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('clientes_cuenta_corriente')
+        .select('score, score_nivel, limite_credito, limite_credito_sugerido')
+        .eq('id_cliente', idCliente)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message }
+      if (!data) return { success: true, data: null }
+      return {
+        success: true,
+        data: {
+          score: data.score as number | null,
+          score_nivel: data.score_nivel as string | null,
+          limite_credito: data.limite_credito != null ? Number(data.limite_credito) : null,
+          limite_credito_sugerido:
+            data.limite_credito_sugerido != null ? Number(data.limite_credito_sugerido) : null
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al obtener scoring' }
+    }
+  }
+
+  async calcularScoringCuentaCorriente(
+    idCliente: number,
+    idUsuario?: number | null
+  ): Promise<
+    ApiResponse<{
+      id_cliente: number
+      score: number
+      score_nivel: string
+      score_detalle: Record<string, unknown>
+      limite_credito_sugerido: number
+      limite_credito?: number | null
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('calcular_scoring_cuenta_corriente', {
+        p_id_cliente: idCliente,
+        p_id_usuario: idUsuario ?? null,
+        p_origen: 'automatico'
+      })
+      if (error) return { success: false, error: error.message }
+      const row = data as Record<string, unknown>
+      return {
+        success: true,
+        data: {
+          id_cliente: row.id_cliente as number,
+          score: row.score as number,
+          score_nivel: row.score_nivel as string,
+          score_detalle: (row.score_detalle as Record<string, unknown>) ?? {},
+          limite_credito_sugerido: Number(row.limite_credito_sugerido),
+          limite_credito: row.limite_credito != null ? Number(row.limite_credito) : null
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al calcular scoring' }
+    }
+  }
+
+  async actualizarScoringCuentaCorriente(payload: {
+    id_cliente: number
+    id_usuario: number
+    ajuste_manual?: number
+    limite_credito?: number | null
+    notas?: string | null
+  }): Promise<
+    ApiResponse<{
+      id_cliente: number
+      score: number
+      score_nivel: string
+      score_detalle: Record<string, unknown>
+      limite_credito_sugerido: number
+      limite_credito?: number | null
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('actualizar_scoring_cc', {
+        p_id_cliente: payload.id_cliente,
+        p_id_usuario: payload.id_usuario,
+        p_ajuste_manual: payload.ajuste_manual ?? null,
+        p_limite_credito: payload.limite_credito ?? null,
+        p_notas: payload.notas ?? null,
+        p_recalcular: true
+      })
+      if (error) return { success: false, error: error.message }
+      const row = data as Record<string, unknown>
+      return {
+        success: true,
+        data: {
+          id_cliente: row.id_cliente as number,
+          score: row.score as number,
+          score_nivel: row.score_nivel as string,
+          score_detalle: (row.score_detalle as Record<string, unknown>) ?? {},
+          limite_credito_sugerido: Number(row.limite_credito_sugerido),
+          limite_credito: row.limite_credito != null ? Number(row.limite_credito) : null
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al actualizar scoring' }
+    }
+  }
+
+  async sincronizarVentasCuentaCorriente(
+    idCliente: number
+  ): Promise<ApiResponse<{ sincronizadas: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('cc_sincronizar_ventas_cliente', {
+        p_id_cliente: idCliente
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { sincronizadas: Number(data) || 0 } }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al sincronizar ventas' }
+    }
+  }
+
+  async getPerfilCuentaCorriente(idCliente: number): Promise<ApiResponse<CcPerfilCliente | null>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('cc_obtener_perfil_cliente', {
+        p_id_cliente: idCliente
+      })
+      if (error) return { success: false, error: error.message }
+      if (!data) return { success: true, data: null }
+      const raw = data as Record<string, unknown>
+      const movs = (Array.isArray(raw.movimientos) ? raw.movimientos : []) as CcCuentaMovimiento[]
+      const ventas = (Array.isArray(raw.ventas_cc) ? raw.ventas_cc : []) as CcVentaResumen[]
+      const resumen = raw.resumen as CcPerfilResumen & { intereses_devengados?: CcInteresesDevengados }
+      const ficha = raw.ficha as ClienteCuentaCorrienteRecord
+      const interesesRaw = resumen.intereses_devengados
+      const intereses: CcInteresesDevengados | null = interesesRaw
+        ? {
+            tasa_mora_mensual: Number(interesesRaw.tasa_mora_mensual) || 0,
+            dias_gracia: Number(interesesRaw.dias_gracia) || 0,
+            periodo: String(interesesRaw.periodo ?? ''),
+            total_devengado: Number(interesesRaw.total_devengado) || 0,
+            items: Array.isArray(interesesRaw.items)
+              ? (interesesRaw.items as CcInteresesDevengados['items']).map((it) => ({
+                  ...it,
+                  interes_calculado: Number(it.interes_calculado) || 0,
+                  debe: it.debe != null ? Number(it.debe) : undefined,
+                  dias_mora: it.dias_mora != null ? Number(it.dias_mora) : undefined,
+                  tasa_mensual: it.tasa_mensual != null ? Number(it.tasa_mensual) : undefined
+                }))
+              : []
+          }
+        : null
+      return {
+        success: true,
+        data: {
+          ficha: {
+            ...ficha,
+            porcentaje_interes_mensual:
+              ficha.porcentaje_interes_mensual != null
+                ? Number(ficha.porcentaje_interes_mensual)
+                : null,
+            porcentaje_interes_mora_mensual:
+              ficha.porcentaje_interes_mora_mensual != null
+                ? Number(ficha.porcentaje_interes_mora_mensual)
+                : null,
+            dias_gracia: ficha.dias_gracia != null ? Number(ficha.dias_gracia) : 0
+          },
+          resumen: {
+            ...resumen,
+            saldo_actual: Number(resumen.saldo_actual) || 0,
+            total_cargos: Number(resumen.total_cargos) || 0,
+            total_pagos: Number(resumen.total_pagos) || 0,
+            monto_pendiente_ventas: Number(resumen.monto_pendiente_ventas) || 0,
+            porcentaje_interes_mensual:
+              resumen.porcentaje_interes_mensual != null
+                ? Number(resumen.porcentaje_interes_mensual)
+                : null,
+            porcentaje_interes_mora_mensual:
+              resumen.porcentaje_interes_mora_mensual != null
+                ? Number(resumen.porcentaje_interes_mora_mensual)
+                : null,
+            dias_gracia: resumen.dias_gracia != null ? Number(resumen.dias_gracia) : 0,
+            tasa_mora_vigente:
+              resumen.tasa_mora_vigente != null ? Number(resumen.tasa_mora_vigente) : null,
+            intereses_devengados: intereses
+          },
+          movimientos: movs.map((m) => ({
+            ...m,
+            debe: Number(m.debe) || 0,
+            haber: Number(m.haber) || 0,
+            saldo_acumulado: m.saldo_acumulado != null ? Number(m.saldo_acumulado) : undefined
+          })),
+          ventas_cc: ventas.map((v) => ({ ...v, valor_total: Number(v.valor_total) || 0 }))
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al cargar perfil' }
+    }
+  }
+
+  async actualizarCondicionesCreditoCc(payload: {
+    id_cliente: number
+    id_usuario: number
+    porcentaje_interes_mensual?: number | null
+    porcentaje_interes_mora_mensual?: number | null
+    dias_gracia?: number | null
+    limite_credito?: number | null
+    ajuste_manual?: number
+    notas?: string | null
+  }): Promise<
+    ApiResponse<{
+      id_cliente: number
+      score: number
+      score_nivel: string
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('actualizar_condiciones_credito_cc', {
+        p_id_cliente: payload.id_cliente,
+        p_id_usuario: payload.id_usuario,
+        p_porcentaje_interes_mensual: payload.porcentaje_interes_mensual ?? null,
+        p_porcentaje_interes_mora_mensual: payload.porcentaje_interes_mora_mensual ?? null,
+        p_dias_gracia: payload.dias_gracia ?? null,
+        p_limite_credito: payload.limite_credito ?? null,
+        p_ajuste_manual: payload.ajuste_manual ?? null,
+        p_notas: payload.notas ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      const row = data as Record<string, unknown>
+      return {
+        success: true,
+        data: {
+          id_cliente: row.id_cliente as number,
+          score: row.score as number,
+          score_nivel: row.score_nivel as string
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al guardar condiciones' }
+    }
+  }
+
+  async registrarInteresesDevengadosCc(
+    idCliente: number,
+    idUsuario: number
+  ): Promise<ApiResponse<{ registrados: number; monto_total: number; periodo: string }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('cc_registrar_intereses_devengados', {
+        p_id_cliente: idCliente,
+        p_id_usuario: idUsuario
+      })
+      if (error) return { success: false, error: error.message }
+      const row = data as { registrados?: number; monto_total?: number; periodo?: string }
+      return {
+        success: true,
+        data: {
+          registrados: row.registrados ?? 0,
+          monto_total: Number(row.monto_total) || 0,
+          periodo: row.periodo ?? ''
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al registrar intereses' }
+    }
+  }
+
+  async registrarPagoCuentaCorriente(payload: {
+    id_cliente: number
+    monto: number
+    fecha_pago: string
+    metodo_pago?: string
+    url_comprobante: string
+    id_usuario: number
+    referencia?: string
+    notas?: string
+    id_venta?: number | null
+  }): Promise<ApiResponse<{ id_movimiento: number; id_cliente: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('cc_registrar_pago', {
+        p_id_cliente: payload.id_cliente,
+        p_monto: payload.monto,
+        p_fecha_pago: payload.fecha_pago,
+        p_metodo_pago: payload.metodo_pago ?? null,
+        p_url_comprobante: payload.url_comprobante,
+        p_id_usuario: payload.id_usuario,
+        p_referencia: payload.referencia ?? null,
+        p_notas: payload.notas ?? null,
+        p_id_venta: payload.id_venta ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      const row = data as { id_movimiento: number; id_cliente: number }
+      return { success: true, data: row }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al registrar pago' }
+    }
+  }
+
+  async recalcularScoringCuentaCorrienteTodos(
+    idUsuario: number
+  ): Promise<ApiResponse<{ recalculados: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('recalcular_scoring_cc_todos', {
+        p_id_usuario: idUsuario
+      })
+      if (error) return { success: false, error: error.message }
+      const row = data as { recalculados?: number }
+      return { success: true, data: { recalculados: row.recalculados ?? 0 } }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al recalcular scoring' }
+    }
+  }
+
+  /** @deprecated Usar registrarAltaCuentaCorriente con requisitos completos */
   async agregarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {

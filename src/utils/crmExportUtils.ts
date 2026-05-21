@@ -569,7 +569,7 @@ export function generarFacturaRemitoPDF(venta: Venta, tipo: 'factura' | 'remito'
 /**
  * Convierte un número a texto en español argentino
  */
-function numeroALetras(numero: number): string {
+export function numeroALetras(numero: number): string {
   const unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve']
   const decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
   const especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve']

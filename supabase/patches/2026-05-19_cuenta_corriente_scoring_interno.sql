@@ -1,0 +1,2 @@
+-- Scoring interno cuenta corriente (columnas + historial + RPCs)
+-- Aplicado vía MCP: cuenta_corriente_scoring_interno

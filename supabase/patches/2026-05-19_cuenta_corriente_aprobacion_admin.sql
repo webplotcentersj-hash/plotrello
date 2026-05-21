@@ -1,0 +1,2 @@
+-- Flujo aprobación cuenta corriente (aplicado vía MCP)
+-- Ver: resolver_solicitud_cuenta_corriente, estado pendiente|aprobada|rechazada

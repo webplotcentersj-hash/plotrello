@@ -1,0 +1,2 @@
+-- Alta de cuenta corriente con requisitos fiscales y documentación (ver migración aplicada vía MCP)
+-- Ref: registrar_alta_cuenta_corriente, cliente_habilitado_cuenta_corriente

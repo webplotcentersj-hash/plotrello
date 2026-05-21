@@ -198,6 +198,65 @@
   line-height: 1.35;
 }
 
+.venta-cc-hint {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #bfdbfe;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.venta-cc-hint--ok {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+}
+
+.venta-cc-hint--error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+.venta-cc-hint__link {
+  align-self: flex-start;
+  font-weight: 700;
+}
+
+.venta-cc-scoring {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.venta-cc-scoring__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.venta-cc-scoring__limite {
+  font-size: 0.78rem;
+  opacity: 0.95;
+}
+
+.venta-cc-scoring__alert {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  color: #fed7aa;
+  font-size: 0.78rem;
+}
+
 .form-input-file {
   width: 100%;
   padding: 10px 12px;

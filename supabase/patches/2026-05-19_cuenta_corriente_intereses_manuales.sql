@@ -1,0 +1,2 @@
+-- Intereses manuales por cliente (% mensual, mora, días gracia)
+-- MCP: cuenta_corriente_intereses_manuales + cc_perfil_incluye_intereses

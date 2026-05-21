@@ -32,6 +32,7 @@ const CalendarioEntregasPage = lazy(() => import('./pages/CalendarioEntregasPage
 const ReportesMostradorPage = lazy(() => import('./pages/ReportesMostradorPage'))
 const ClientesFrecuentesPage = lazy(() => import('./pages/ClientesFrecuentesPage'))
 const CuentaCorrientePage = lazy(() => import('./pages/CuentaCorrientePage'))
+const CuentaCorrientePerfilPage = lazy(() => import('./pages/CuentaCorrientePerfilPage'))
 const AtencionPublicoDashboardPage = lazy(() => import('./pages/AtencionPublicoDashboardPage'))
 const EmbedChatPage = lazy(() => import('./pages/EmbedChatPage'))
 const EmbedChatWidgetPage = lazy(() => import('./pages/EmbedChatWidgetPage'))
@@ -867,6 +868,8 @@ function AppRoutes({
   const { pathname } = useLocation()
   const hideCampoFloaters = pathname === '/app-campo'
   const isBoardRoute = pathname === '/' || pathname === ''
+  const hideGlobalFloaters =
+    hideCampoFloaters || isBoardRoute || pathname.startsWith('/mostrador')
   const isPhoneLayout = usePhoneBoardLayout()
   const hideImpresorasButton =
     isPhoneLayout ||
@@ -889,7 +892,7 @@ function AppRoutes({
   return (
     <>
       <TallerGraficoPedidoEntregaOverlay />
-      {!hideCampoFloaters && !isBoardRoute && (
+      {!hideGlobalFloaters && (
         <>
           {/* Botón flotante para acceder a impresoras */}
           {!hideImpresorasButton && (
@@ -1128,6 +1131,10 @@ function AppRoutes({
       <Route
         path="/mostrador/cuenta-corriente"
         element={<CuentaCorrientePage />}
+      />
+      <Route
+        path="/mostrador/cuenta-corriente/cliente/:idCliente"
+        element={<CuentaCorrientePerfilPage />}
       />
       <Route
         path="/atencion-publico"

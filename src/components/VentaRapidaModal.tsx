@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { ClienteRecord, Venta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
 import { getArgentinaDateString } from '../utils/dateUtils'
+import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
+import {
+  formatLimiteCredito,
+  requiereAlertaScoring,
+  type CcScoreNivel
+} from '../constants/cuentaCorrienteScoring'
 import './VentaRapidaModal.css'
 
 interface VentaRapidaModalProps {
@@ -32,6 +39,7 @@ const VentaRapidaModal = ({
   usuarioNombre,
   uiVariant = 'default'
 }: VentaRapidaModalProps) => {
+  const navigate = useNavigate()
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -47,6 +55,14 @@ const VentaRapidaModal = ({
 
   const [condicionVenta, setCondicionVenta] = useState<'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'>('Efectivo')
   const [esCuentaCorriente, setEsCuentaCorriente] = useState(false)
+  const [clienteCcHabilitado, setClienteCcHabilitado] = useState<boolean | null>(null)
+  const [validandoCc, setValidandoCc] = useState(false)
+  const [clienteCcScoring, setClienteCcScoring] = useState<{
+    score: number | null
+    score_nivel: string | null
+    limite_credito: number | null
+    limite_credito_sugerido: number | null
+  } | null>(null)
   const [fechaVenta, setFechaVenta] = useState(() => getArgentinaDateString())
   const [prioridad, setPrioridad] = useState<'Baja' | 'Normal' | 'Alta' | 'Urgente'>('Normal')
   const [observaciones, setObservaciones] = useState('')
@@ -133,7 +149,34 @@ const VentaRapidaModal = ({
     setBusquedaCliente(cliente.nombre)
     setClientesEncontrados([])
     setCrearNuevoCliente(false)
+    setClienteCcHabilitado(null)
+    setClienteCcScoring(null)
   }
+
+  useEffect(() => {
+    if (!esCuentaCorriente || !clienteSeleccionado?.id) {
+      setClienteCcHabilitado(null)
+      setClienteCcScoring(null)
+      return
+    }
+    let cancelled = false
+    const run = async () => {
+      setValidandoCc(true)
+      const [habRes, scoreRes] = await Promise.all([
+        apiService.clienteHabilitadoCuentaCorriente(clienteSeleccionado.id),
+        apiService.getScoringResumenCuentaCorriente(clienteSeleccionado.id)
+      ])
+      if (!cancelled) {
+        setClienteCcHabilitado(habRes.success ? !!habRes.data : false)
+        setClienteCcScoring(scoreRes.success ? scoreRes.data ?? null : null)
+        setValidandoCc(false)
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [esCuentaCorriente, clienteSeleccionado?.id])
 
   const agregarArticulo = (articulo: ArticuloStock) => {
     if (itemsVenta.some(item => item.id_articulo_stock === articulo.id)) {
@@ -219,6 +262,17 @@ const VentaRapidaModal = ({
         throw new Error('No se pudo obtener el cliente')
       }
 
+      if (esCuentaCorriente) {
+        const ccRes = await apiService.clienteHabilitadoCuentaCorriente(clienteFinal.id)
+        if (!ccRes.success || !ccRes.data) {
+          alert(
+            'Este cliente no está habilitado para cuenta corriente. Completá el alta con CUIT, razón social, condición IVA, contacto, domicilio y documentación en Mostrador → Cuenta corriente.'
+          )
+          setGuardando(false)
+          return
+        }
+      }
+
       // Calcular total
       const valorTotal = calcularSubtotal()
 
@@ -243,6 +297,10 @@ const VentaRapidaModal = ({
 
       if (!ventaResponse.success || !ventaResponse.data) {
         throw new Error(ventaResponse.error || 'Error al crear venta')
+      }
+
+      if (esCuentaCorriente && clienteFinal.id) {
+        void apiService.calcularScoringCuentaCorriente(clienteFinal.id, usuarioId)
       }
 
       const ventaData = ventaResponse.data
@@ -688,11 +746,78 @@ const VentaRapidaModal = ({
                   setEsCuentaCorriente(e.target.checked)
                   if (e.target.checked) {
                     setCondicionVenta('Cuenta Corriente')
+                  } else {
+                    setClienteCcHabilitado(null)
                   }
                 }}
               />
               <span>Es Cuenta Corriente</span>
             </label>
+            {esCuentaCorriente && clienteSeleccionado && (
+              <div
+                className={`venta-cc-hint${clienteCcHabilitado === false ? ' venta-cc-hint--error' : ''}${clienteCcHabilitado === true ? ' venta-cc-hint--ok' : ''}`}
+              >
+                {validandoCc ? (
+                  <span>Verificando habilitación en cuenta corriente…</span>
+                ) : clienteCcHabilitado === true ? (
+                  <div className="venta-cc-scoring">
+                    <span>✓ Cliente habilitado para cuenta corriente</span>
+                    {clienteCcScoring?.score != null && (
+                      <div className="venta-cc-scoring__row">
+                        <CuentaCorrienteScoreBadge
+                          score={clienteCcScoring.score}
+                          nivel={clienteCcScoring.score_nivel as CcScoreNivel | undefined}
+                          compact
+                        />
+                        <span className="venta-cc-scoring__limite">
+                          Límite:{' '}
+                          {formatLimiteCredito(
+                            clienteCcScoring.limite_credito ??
+                              clienteCcScoring.limite_credito_sugerido
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-link venta-cc-hint__link"
+                          onClick={() => {
+                            onClose()
+                            navigate(`/mostrador/cuenta-corriente/cliente/${clienteSeleccionado!.id}`)
+                          }}
+                        >
+                          Ver perfil y cuenta
+                        </button>
+                      </div>
+                    )}
+                    {requiereAlertaScoring(clienteCcScoring?.score_nivel as CcScoreNivel) && (
+                      <p className="venta-cc-scoring__alert" role="alert">
+                        Scoring bajo ({clienteCcScoring?.score ?? '—'}). Revisá con administración antes
+                        de ampliar deuda.
+                      </p>
+                    )}
+                  </div>
+                ) : clienteCcHabilitado === false ? (
+                  <>
+                    <span>
+                      El cliente no está habilitado: falta el alta completo o la solicitud sigue pendiente /
+                      fue rechazada por administración.
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-link venta-cc-hint__link"
+                      onClick={() => {
+                        onClose()
+                        navigate('/mostrador/cuenta-corriente')
+                      }}
+                    >
+                      Ir a Cuenta corriente
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            )}
+            {esCuentaCorriente && !clienteSeleccionado && !crearNuevoCliente && (
+              <p className="form-hint-comprobante">Seleccioná un cliente para validar cuenta corriente.</p>
+            )}
           </div>
 
           <div className="form-group">

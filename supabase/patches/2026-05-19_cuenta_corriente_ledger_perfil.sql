@@ -1,0 +1,3 @@
+-- Libro de cuenta corriente: movimientos, saldos, perfil, pagos con comprobante
+-- MCP: cuenta_corriente_ledger_perfil + cuenta_corriente_ledger_rpc + cc_recalcular_incluye_sync
+-- Tabla cc_cuenta_movimientos, trigger ventas CC, RPC cc_obtener_perfil_cliente, cc_registrar_pago

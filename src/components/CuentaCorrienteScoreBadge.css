@@ -1,0 +1,62 @@
+.cc-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: default;
+  background: transparent;
+}
+
+button.cc-score-badge {
+  cursor: pointer;
+}
+
+button.cc-score-badge:hover {
+  filter: brightness(1.1);
+}
+
+.cc-score-badge--compact {
+  padding: 2px 8px;
+}
+
+.cc-score-badge__num {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.cc-score-badge--excelente {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.12);
+}
+.cc-score-badge--bueno {
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.12);
+}
+.cc-score-badge--regular {
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.12);
+}
+.cc-score-badge--riesgo {
+  border-color: rgba(251, 146, 60, 0.5);
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.12);
+}
+.cc-score-badge--critico {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.cc-score-badge__lbl {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.62rem;
+  opacity: 0.9;
+}

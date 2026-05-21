@@ -769,19 +769,28 @@ const MostradorDashboardPage = () => {
     <div className="mostrador-dashboard-page">
       <header className="dashboard-header">
         <div className="header-content">
-          <h1>📋 Dashboard de Mostrador</h1>
-          <div className="header-actions">
-            <button 
-              className="btn-primary"
-              onClick={() => navigate('/')}
-            >
-              Ver Tablero
+          <div className="md-page-title">
+            <span className="md-page-title__icon" aria-hidden>📋</span>
+            <div>
+              <h1>Dashboard de mostrador</h1>
+              <p>Panel operativo y accesos del sector</p>
+            </div>
+          </div>
+          <div className="md-header-actions">
+            <button type="button" className="md-header-btn md-header-btn--board" onClick={() => navigate('/')}>
+              <span className="md-header-btn__icon" aria-hidden>📊</span>
+              <span className="md-header-btn__text">Ver tablero</span>
             </button>
-            <button 
-              className="btn-secondary"
+            <button
+              type="button"
+              className="md-header-btn md-header-btn--ready"
               onClick={() => navigate('/mostrador/ordenes-listas')}
             >
-              Órdenes Listas
+              <span className="md-header-btn__icon" aria-hidden>📦</span>
+              <span className="md-header-btn__text">Órdenes listas</span>
+              {ordenesListas.length > 0 && (
+                <span className="md-header-btn__badge">{ordenesListas.length}</span>
+              )}
             </button>
           </div>
         </div>
@@ -790,48 +799,54 @@ const MostradorDashboardPage = () => {
       {/* Métricas (solo admin) */}
       {isAdmin && (
         <section className="metricas-section">
-          <h2>📊 Métricas del Día</h2>
+          <header className="md-section-head">
+            <span className="md-section-head__icon" aria-hidden>📊</span>
+            <div>
+              <h2>Métricas del día</h2>
+              <p>Actividad de mostrador en tiempo real</p>
+            </div>
+          </header>
           <div className="metricas-grid">
-            <div className="metrica-card">
-              <div className="metrica-icon">👥</div>
+            <div className="metrica-card metrica-card--personas">
+              <div className="metrica-icon-wrap"><span className="metrica-icon">👥</span></div>
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.totalAtenciones}</div>
-                <div className="metrica-label">Personas Atendidas</div>
+                <div className="metrica-label">Personas atendidas</div>
               </div>
             </div>
-            <div className="metrica-card virtual">
-              <div className="metrica-icon">💻</div>
+            <div className="metrica-card metrica-card--virtual">
+              <div className="metrica-icon-wrap"><span className="metrica-icon">💻</span></div>
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.atencionesVirtuales}</div>
-                <div className="metrica-label">Atenciones Virtuales</div>
+                <div className="metrica-label">Atenciones virtuales</div>
               </div>
             </div>
-            <div className="metrica-card consulta">
-              <div className="metrica-icon">❓</div>
+            <div className="metrica-card metrica-card--consulta">
+              <div className="metrica-icon-wrap"><span className="metrica-icon">❓</span></div>
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.consultas}</div>
-                <div className="metrica-label">Solo Consultas</div>
+                <div className="metrica-label">Solo consultas</div>
               </div>
             </div>
-            <div className="metrica-card venta">
-              <div className="metrica-icon">💰</div>
+            <div className="metrica-card metrica-card--venta">
+              <div className="metrica-icon-wrap"><span className="metrica-icon">💰</span></div>
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.ventasConcretadas}</div>
-                <div className="metrica-label">Ventas Concretadas</div>
+                <div className="metrica-label">Ventas concretadas</div>
               </div>
             </div>
-            <div className="metrica-card">
-              <div className="metrica-icon">📝</div>
+            <div className="metrica-card metrica-card--creadas">
+              <div className="metrica-icon-wrap"><span className="metrica-icon">📝</span></div>
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.ordenesCreadas}</div>
-                <div className="metrica-label">Órdenes Creadas</div>
+                <div className="metrica-label">Órdenes creadas</div>
               </div>
             </div>
-            <div className="metrica-card">
-              <div className="metrica-icon">✅</div>
+            <div className="metrica-card metrica-card--entregadas">
+              <div className="metrica-icon-wrap"><span className="metrica-icon">✅</span></div>
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.ordenesEntregadas}</div>
-                <div className="metrica-label">Órdenes Entregadas</div>
+                <div className="metrica-label">Órdenes entregadas</div>
               </div>
             </div>
           </div>
@@ -922,111 +937,82 @@ const MostradorDashboardPage = () => {
 
       {/* Acciones Rápidas */}
       <section className="acciones-rapidas-section">
-        <h2>⚡ Acciones Rápidas</h2>
+        <header className="md-section-head">
+          <span className="md-section-head__icon" aria-hidden>⚡</span>
+          <div>
+            <h2>Acciones rápidas</h2>
+            <p>Accesos directos a las tareas del mostrador</p>
+          </div>
+        </header>
         <div className="acciones-grid">
-          <button 
-            className="accion-card"
-            onClick={() => navigate('/')}
-          >
-            <div className="accion-icon">➕</div>
-            <div className="accion-label">Crear Nueva Orden</div>
+          <button type="button" className="accion-card accion-card--primary" onClick={() => navigate('/')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">➕</span></span>
+            <span className="accion-label">Crear nueva orden</span>
+            <span className="accion-hint">Ir al tablero</span>
           </button>
-          <button 
-            className="accion-card"
+          <button
+            type="button"
+            className="accion-card accion-card--success"
             onClick={() => navigate('/mostrador/ordenes-listas')}
           >
-            <div className="accion-icon">📦</div>
-            <div className="accion-label">Órdenes Listas para Retirar</div>
-            {ordenesListas.length > 0 && (
-              <span className="badge">{ordenesListas.length}</span>
-            )}
+            <span className="accion-icon-wrap"><span className="accion-icon">📦</span></span>
+            <span className="accion-label">Órdenes listas para retirar</span>
+            {ordenesListas.length > 0 && <span className="accion-badge">{ordenesListas.length}</span>}
           </button>
-          <button 
-            className="accion-card"
+          <button
+            type="button"
+            className="accion-card accion-card--info"
             onClick={() => navigate('/mostrador/buscar-cliente')}
           >
-            <div className="accion-icon">🔍</div>
-            <div className="accion-label">Buscar Cliente</div>
+            <span className="accion-icon-wrap"><span className="accion-icon">🔍</span></span>
+            <span className="accion-label">Buscar cliente</span>
             {ordenesActivas.length > 0 && (
-              <span className="badge">{ordenesActivas.length} activas</span>
+              <span className="accion-badge accion-badge--muted">{ordenesActivas.length} activas</span>
             )}
           </button>
-          <button 
-            className="accion-card"
-            onClick={() => navigate('/mostrador/calendario')}
-          >
-            <div className="accion-icon">📅</div>
-            <div className="accion-label">Calendario de Entregas</div>
+          <button type="button" className="accion-card" onClick={() => navigate('/mostrador/calendario')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">📅</span></span>
+            <span className="accion-label">Calendario de entregas</span>
           </button>
-          <button 
-            className="accion-card"
-            onClick={() => navigate('/mostrador/clientes-frecuentes')}
-          >
-            <div className="accion-icon">⭐</div>
-            <div className="accion-label">Clientes Frecuentes</div>
+          <button type="button" className="accion-card" onClick={() => navigate('/mostrador/clientes-frecuentes')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">⭐</span></span>
+            <span className="accion-label">Clientes frecuentes</span>
           </button>
-          <button 
-            className="accion-card"
-            onClick={() => navigate('/mostrador/cuenta-corriente')}
-          >
-            <div className="accion-icon">📒</div>
-            <div className="accion-label">Cuenta Corriente</div>
+          <button type="button" className="accion-card" onClick={() => navigate('/mostrador/cuenta-corriente')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">📒</span></span>
+            <span className="accion-label">Cuenta corriente</span>
           </button>
-          <button 
-            className="accion-card"
-            onClick={() => navigate('/clientes-web/pedidos')}
-          >
-            <div className="accion-icon">💬</div>
-            <div className="accion-label">Pedidos y Mensajes del Portal</div>
-            {pedidosClientes.length > 0 && (
-              <span className="badge">{pedidosClientes.length}</span>
-            )}
+          <button type="button" className="accion-card accion-card--portal" onClick={() => navigate('/clientes-web/pedidos')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">💬</span></span>
+            <span className="accion-label">Pedidos y mensajes del portal</span>
+            {pedidosClientes.length > 0 && <span className="accion-badge">{pedidosClientes.length}</span>}
           </button>
-          <button 
-            className="accion-card"
-            onClick={() => navigate('/clientes-web/gestion')}
-          >
-            <div className="accion-icon">👤</div>
-            <div className="accion-label">Gestión de Clientes</div>
+          <button type="button" className="accion-card" onClick={() => navigate('/clientes-web/gestion')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">👤</span></span>
+            <span className="accion-label">Gestión de clientes</span>
           </button>
-          <button 
-            className="accion-card"
-            onClick={() => navigate('/clientes-web/articulos')}
-          >
-            <div className="accion-icon">📦</div>
-            <div className="accion-label">Artículos de Empresa</div>
+          <button type="button" className="accion-card" onClick={() => navigate('/clientes-web/articulos')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">📦</span></span>
+            <span className="accion-label">Artículos de empresa</span>
           </button>
-          <button
-            className="accion-card"
-            onClick={() => navigate('/atencion-publico')}
-          >
-            <div className="accion-icon">📞</div>
-            <div className="accion-label">Atención al público</div>
+          <button type="button" className="accion-card accion-card--call" onClick={() => navigate('/atencion-publico')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">📞</span></span>
+            <span className="accion-label">Atención al público</span>
           </button>
-          <button
-            className="accion-card"
-            onClick={() => navigate('/crm-ventas')}
-          >
-            <div className="accion-icon">💼</div>
-            <div className="accion-label">CRM Ventas</div>
+          <button type="button" className="accion-card accion-card--crm" onClick={() => navigate('/crm-ventas')}>
+            <span className="accion-icon-wrap"><span className="accion-icon">💼</span></span>
+            <span className="accion-label">CRM ventas</span>
           </button>
           {canAccessTotemImpresionPanel && (
-            <button
-              type="button"
-              className="accion-card"
-              onClick={() => navigate('/impresoras/totem')}
-            >
-              <div className="accion-icon">🖨️</div>
-              <div className="accion-label">Pedidos tótem (impresión)</div>
+            <button type="button" className="accion-card accion-card--print" onClick={() => navigate('/impresoras/totem')}>
+              <span className="accion-icon-wrap"><span className="accion-icon">🖨️</span></span>
+              <span className="accion-label">Pedidos tótem (impresión)</span>
             </button>
           )}
           {isAdmin && (
-            <button 
-              className="accion-card"
-              onClick={() => navigate('/mostrador/reportes')}
-            >
-              <div className="accion-icon">📊</div>
-              <div className="accion-label">Reportes</div>
+            <button type="button" className="accion-card accion-card--report" onClick={() => navigate('/mostrador/reportes')}>
+              <span className="accion-icon-wrap"><span className="accion-icon">📊</span></span>
+              <span className="accion-label">Reportes</span>
             </button>
           )}
         </div>
@@ -1307,28 +1293,36 @@ const MostradorDashboardPage = () => {
         />
       )}
 
-      {/* Botones flotantes */}
+      {/* Acciones flotantes compactas */}
       <div className="fab-container">
-        {/* Botón principal de venta rápida */}
-        <button
-          className="fab-button fab-venta"
-          onClick={() => setShowVentaRapida(true)}
-          title="Venta Rápida (tecla V)"
-        >
-          💰
-        </button>
-        
-        {/* Botón secundario para registrar atención */}
-        <button
-          className="fab-button fab-secondary"
-          onClick={() => setShowFabMenu((prev) => !prev)}
-          title="Registrar Atención (Alt+1 Virtual, Alt+2 Consulta, Alt+3 Venta)"
-        >
-          {registrandoRapido ? '...' : '📝'}
-        </button>
+        <div className="fab-stack">
+          <button
+            type="button"
+            className="fab-button fab-venta"
+            onClick={() => setShowVentaRapida(true)}
+            title="Venta rápida (tecla V)"
+            aria-label="Venta rápida"
+          >
+            <span className="fab-button__icon" aria-hidden>💰</span>
+            <span className="fab-button__label">Venta rápida</span>
+            <kbd className="fab-button__kbd">V</kbd>
+          </button>
+          <button
+            type="button"
+            className={`fab-button fab-secondary${showFabMenu ? ' fab-button--open' : ''}`}
+            onClick={() => setShowFabMenu((prev) => !prev)}
+            title="Registrar atención (Alt+1 Virtual, Alt+2 Consulta, Alt+3 Venta)"
+            aria-expanded={showFabMenu}
+            aria-haspopup="menu"
+            aria-label="Registrar atención"
+          >
+            <span className="fab-button__icon" aria-hidden>{registrandoRapido ? '⏳' : '📝'}</span>
+            <span className="fab-button__label">Atención</span>
+          </button>
+        </div>
         {showFabMenu && (
-          <div className="fab-menu" onMouseLeave={() => setShowFabMenu(false)}>
-            <p className="fab-hint">Venta rápida: V · Atención: Alt+1 / Alt+2 / Alt+3</p>
+          <div className="fab-menu" role="menu" onMouseLeave={() => setShowFabMenu(false)}>
+            <p className="fab-hint">Atajos: Alt+1 virtual · Alt+2 consulta · Alt+3 venta</p>
             <button
               className="fab-option virtual"
               onClick={() => registrarAtencionRapida('virtual')}

@@ -1,0 +1,320 @@
+.cc-alta-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cc-alta-tipo {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cc-alta-tipo__btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.6);
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.cc-alta-tipo__btn:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #e2e8f0;
+}
+
+.cc-alta-tipo__btn--active {
+  border-color: rgba(59, 130, 246, 0.7);
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.cc-alta-pagare {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.cc-alta-pagare__title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.cc-alta-pagare__hint {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.cc-alta-pagare__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cc-btn--pagare {
+  align-self: flex-start;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cc-btn--pagare:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.cc-btn--pagare:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cc-alta-pagare__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.cc-alta-pagare__ok {
+  font-size: 0.85rem;
+  color: #6ee7b7;
+}
+
+.cc-alta-pagare__ok a {
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
+.cc-alta-form__cliente {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+
+.cc-alta-form__cliente strong {
+  color: #e2e8f0;
+}
+
+.cc-alta-form__error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 0.85rem;
+}
+
+.cc-alta-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.cc-alta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cc-alta-field--wide {
+  grid-column: 1 / -1;
+}
+
+.cc-alta-field span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cc-alta-field input,
+.cc-alta-field select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.65);
+  color: #f1f5f9;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.cc-alta-field input:focus,
+.cc-alta-field select:focus {
+  outline: none;
+  border-color: rgba(96, 165, 250, 0.55);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.cc-alta-docs__title {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cc-alta-docs__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cc-alta-doc-row {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(96, 165, 250, 0.4);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.cc-alta-doc-row--ok {
+  border-style: solid;
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.cc-alta-doc-row--error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.cc-alta-doc-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cc-alta-doc-row__icon {
+  font-size: 1rem;
+}
+
+.cc-alta-doc-row__title {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.cc-alta-doc-row__badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6ee7b7;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.cc-alta-doc-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cc-alta-doc-file-btn {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.85), rgba(29, 78, 216, 0.8));
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cc-alta-doc-file-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
+.cc-alta-doc-file-btn__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cc-alta-doc-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #93c5fd;
+  text-decoration: none;
+}
+
+.cc-alta-doc-link:hover {
+  text-decoration: underline;
+}
+
+.cc-alta-doc-quitar {
+  border: none;
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.cc-alta-doc-quitar:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.28);
+}
+
+.cc-alta-doc-quitar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cc-alta-doc-row__filename {
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  color: #94a3b8;
+  word-break: break-all;
+}
+
+.cc-alta-doc-row__error {
+  margin: 6px 0 0;
+  font-size: 0.76rem;
+  color: #fca5a5;
+}
+
+.cc-alta-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}

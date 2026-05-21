@@ -340,6 +340,156 @@ export interface ClienteRecord {
   es_cliente_web?: boolean | null
 }
 
+/** Ficha de alta en `clientes_cuenta_corriente` (requisitos fiscales + documentos). */
+export interface ClienteCuentaCorrienteRecord {
+  id: number
+  id_cliente: number
+  tipo_cliente?: 'empresa' | 'persona_fisica' | null
+  cuit: string | null
+  nombre?: string | null
+  apellido?: string | null
+  razon_social: string | null
+  condicion_iva: string | null
+  email: string | null
+  whatsapp: string | null
+  persona_contacto: string | null
+  domicilio: string | null
+  localidad: string | null
+  provincia: string | null
+  codigo_postal: string | null
+  url_constancia_afip: string | null
+  url_estatuto: string | null
+  url_comprobante_domicilio: string | null
+  url_documento_dni?: string | null
+  url_pagare?: string | null
+  score?: number | null
+  score_nivel?: 'excelente' | 'bueno' | 'regular' | 'riesgo' | 'critico' | null
+  score_detalle?: Record<string, unknown> | null
+  score_actualizado_at?: string | null
+  limite_credito?: number | null
+  limite_credito_sugerido?: number | null
+  score_ajuste_manual?: number | null
+  score_notas_internas?: string | null
+  alta_completa: boolean
+  estado: 'pendiente' | 'aprobada' | 'rechazada'
+  id_usuario_solicita?: number | null
+  id_usuario_revisor?: number | null
+  revisado_at?: string | null
+  motivo_rechazo?: string | null
+  saldo_actual?: number | null
+  total_cargos?: number | null
+  total_pagos?: number | null
+  ultimo_pago_at?: string | null
+  ultimo_movimiento_at?: string | null
+  porcentaje_interes_mensual?: number | null
+  porcentaje_interes_mora_mensual?: number | null
+  dias_gracia?: number | null
+  created_at?: string
+  updated_at?: string | null
+}
+
+export type CcMovimientoTipo = 'venta' | 'pago' | 'ajuste' | 'interes'
+
+export interface CcInteresDevengadoItem {
+  id_movimiento?: number
+  id_venta?: number | null
+  numero_venta?: string
+  concepto?: string
+  debe?: number
+  fecha_vencimiento?: string
+  dias_mora?: number
+  tasa_mensual?: number
+  interes_calculado?: number
+  ya_registrado?: boolean
+}
+
+export interface CcInteresesDevengados {
+  tasa_mora_mensual: number
+  dias_gracia: number
+  periodo: string
+  total_devengado: number
+  items: CcInteresDevengadoItem[]
+}
+
+export interface CcCuentaMovimiento {
+  id: number
+  id_cliente: number
+  tipo: CcMovimientoTipo
+  id_venta?: number | null
+  fecha: string
+  fecha_vencimiento?: string | null
+  concepto: string
+  debe: number
+  haber: number
+  saldo_acumulado?: number
+  url_comprobante?: string | null
+  metodo_pago?: string | null
+  referencia?: string | null
+  notas?: string | null
+  id_usuario?: number | null
+  metadata?: Record<string, unknown>
+  created_at?: string
+}
+
+export interface CcVentaResumen {
+  id: number
+  numero_venta: string
+  valor_total: number
+  estado_pago: string
+  metodo_pago: string | null
+  fecha_venta: string
+  comprobante_pago_url?: string | null
+  observaciones?: string | null
+}
+
+export interface CcPerfilResumen {
+  saldo_actual: number
+  total_cargos: number
+  total_pagos: number
+  ultimo_pago_at?: string | null
+  limite_credito?: number | null
+  limite_credito_sugerido?: number | null
+  score?: number | null
+  score_nivel?: string | null
+  porcentaje_interes_mensual?: number | null
+  porcentaje_interes_mora_mensual?: number | null
+  dias_gracia?: number | null
+  tasa_mora_vigente?: number | null
+  intereses_devengados?: CcInteresesDevengados | null
+  ventas_pendientes: number
+  monto_pendiente_ventas: number
+}
+
+export interface CcPerfilCliente {
+  ficha: ClienteCuentaCorrienteRecord
+  resumen: CcPerfilResumen
+  movimientos: CcCuentaMovimiento[]
+  ventas_cc: CcVentaResumen[]
+}
+
+export type AltaCuentaCorrientePayload = {
+  tipo_cliente?: 'empresa' | 'persona_fisica'
+  nombre?: string
+  apellido?: string
+  cuit: string
+  razon_social: string
+  condicion_iva: string
+  email: string
+  whatsapp: string
+  persona_contacto: string
+  domicilio: string
+  localidad: string
+  provincia: string
+  codigo_postal: string
+  url_constancia_afip: string
+  url_estatuto: string
+  url_comprobante_domicilio: string
+  url_documento_dni?: string
+  url_pagare?: string
+  id_cliente?: number | null
+  id_usuario_solicita: number
+}
+
 // ============================================
 // SISTEMA DE PEDIDOS WEB
 // ============================================
