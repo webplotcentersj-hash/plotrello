@@ -19,9 +19,8 @@ import TaskEditModal from '../components/TaskEditModal'
 import TaskViewModal from '../components/TaskViewModal'
 import TaskCreateModal from '../components/TaskCreateModal'
 import SprintOptimizerModal from '../components/SprintOptimizerModal'
-import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
-import ChatFloatingButton from '../components/ChatFloatingButton'
+import InsightsToolsMenu from '../components/InsightsToolsMenu'
 import TaskLibraryModal from '../components/TaskLibraryModal'
 import QRPrintView from '../components/QRPrintView'
 import SolicitarProductosModal from '../components/SolicitarProductosModal'
@@ -1453,6 +1452,14 @@ const BoardPage = ({
                 {activityFeedOpen ? '📋' : '🕐'}
               </span>
             </button>
+            {!isPhoneBoard && (
+              <InsightsToolsMenu
+                onNavigateToChat={onNavigateToChat || (() => {})}
+                onTogglePlotAI={() => setIsChatAIOpen((v) => !v)}
+                isPlotAIOpen={isChatAIOpen}
+                showImpresoras
+              />
+            )}
           </div>
           {isAdmin && statsPanelOpen && (
             <div id="board-stats-panel" role="region" aria-labelledby="board-stats-toggle">
@@ -1509,28 +1516,16 @@ const BoardPage = ({
         />
       )}
 
-      {!isPhoneBoard && (
-        <>
-          <ChatFloatingButton onNavigateToChat={onNavigateToChat || (() => {})} />
-
-          <PlotAIFloatingButton
-            onClick={() => setIsChatAIOpen(!isChatAIOpen)}
-            isOpen={isChatAIOpen}
-            hasUnreadMessages={false}
+      {!isPhoneBoard && isChatAIOpen && (
+        <Suspense fallback={null}>
+          <PlotAIChat
+            tasks={tasks}
+            teamMembers={teamMembers}
+            activity={activity}
+            onCreateTask={handleCreateTask}
+            onClose={() => setIsChatAIOpen(false)}
           />
-
-          {isChatAIOpen && (
-            <Suspense fallback={null}>
-              <PlotAIChat
-                tasks={tasks}
-                teamMembers={teamMembers}
-                activity={activity}
-                onCreateTask={handleCreateTask}
-                onClose={() => setIsChatAIOpen(false)}
-              />
-            </Suspense>
-          )}
-        </>
+        </Suspense>
       )}
 
       {checklistTask && (

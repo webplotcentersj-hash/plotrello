@@ -5,18 +5,41 @@ import apiService from '../services/api'
 import type { Notification } from '../types/api'
 import './ChatFloatingButton.css'
 
-type ChatFloatingButtonProps = {
+type ChatFloatingButtonBaseProps = {
   onNavigateToChat: () => void
+  onUnreadChange?: (count: number) => void
 }
 
-const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
+type ChatFloatingButtonFloatingProps = ChatFloatingButtonBaseProps & {
+  variant?: 'floating'
+}
+
+type ChatFloatingButtonInsightsProps = ChatFloatingButtonBaseProps & {
+  variant: 'insights'
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+type ChatFloatingButtonProps = ChatFloatingButtonFloatingProps | ChatFloatingButtonInsightsProps
+
+function isInsightsVariant(
+  props: ChatFloatingButtonProps
+): props is ChatFloatingButtonInsightsProps {
+  return props.variant === 'insights'
+}
+
+const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
+  const { onNavigateToChat, onUnreadChange } = props
+  const insights = isInsightsVariant(props)
   const { usuario } = useAuth()
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isOpen = insights ? props.isOpen : internalOpen
+  const setIsOpen = insights ? props.onOpenChange : setInternalOpen
+
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
 
-  // Cargar notificaciones del chat
   useEffect(() => {
     if (!usuario?.id) return
 
@@ -24,7 +47,6 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
       try {
         const response = await apiService.getUserNotifications(usuario.id)
         if (response.success && response.data) {
-          // Filtrar solo notificaciones relacionadas con chat (menciones, alertas, etc.)
           const chatNotifications = response.data.filter(
             (n) =>
               n.type === 'mention' ||
@@ -39,12 +61,11 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
     }
 
     loadNotifications()
-    const interval = setInterval(loadNotifications, 30000) // Actualizar cada 30 segundos
+    const interval = setInterval(loadNotifications, 30000)
 
     return () => clearInterval(interval)
   }, [usuario?.id])
 
-  // Suscripción a notificaciones en tiempo real
   useEffect(() => {
     if (!supabase || !usuario?.id) return
 
@@ -59,7 +80,6 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
           filter: `user_id=eq.${usuario.id}`
         },
         () => {
-          // Recargar notificaciones cuando hay una nueva
           apiService.getUserNotifications(usuario.id).then((response) => {
             if (response.success && response.data) {
               const chatNotifications = response.data.filter(
@@ -82,32 +102,44 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
     }
   }, [usuario?.id])
 
-  // Calcular mensajes no leídos del chat
   useEffect(() => {
     if (!supabase || !usuario?.id) return
 
     const calculateUnread = async () => {
       if (!supabase || !usuario?.id) return
-      
+
       try {
-        // Obtener todos los canales
-        const channels = ['general', 'diseno', 'recursos-humanos', 'metalurgica', 'mostrador', 'taller-grafico', 'random']
+        const channels = [
+          'general',
+          'diseno',
+          'recursos-humanos',
+          'metalurgica',
+          'mostrador',
+          'taller-grafico',
+          'random'
+        ]
         let totalUnread = 0
 
         for (const channel of channels) {
-          const roomId = channel === 'general' ? 1 : 
-                         channel === 'diseno' ? 2 :
-                         channel === 'recursos-humanos' ? 3 :
-                         channel === 'metalurgica' ? 4 :
-                         channel === 'mostrador' ? 5 :
-                         channel === 'taller-grafico' ? 6 : 7
+          const roomId =
+            channel === 'general'
+              ? 1
+              : channel === 'diseno'
+                ? 2
+                : channel === 'recursos-humanos'
+                  ? 3
+                  : channel === 'metalurgica'
+                    ? 4
+                    : channel === 'mostrador'
+                      ? 5
+                      : channel === 'taller-grafico'
+                        ? 6
+                        : 7
 
-          // Obtener última lectura del usuario
           const lastSeenResp = await apiService.obtenerLastSeenOtros(channel, usuario.id)
           if (lastSeenResp.success && lastSeenResp.data) {
             const lastSeen = new Date(lastSeenResp.data)
-            
-            // Contar mensajes después de la última lectura
+
             const { data: unreadMessages, error } = await supabase
               .from('chat_messages')
               .select('id', { count: 'exact' })
@@ -128,12 +160,16 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
     }
 
     calculateUnread()
-    const interval = setInterval(calculateUnread, 60000) // Actualizar cada minuto
+    const interval = setInterval(calculateUnread, 60000)
 
     return () => clearInterval(interval)
   }, [usuario?.id])
 
   const totalUnread = unreadCount + chatUnreadCount
+
+  useEffect(() => {
+    onUnreadChange?.(totalUnread)
+  }, [totalUnread, onUnreadChange])
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
@@ -146,9 +182,93 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
     setIsOpen(false)
   }
 
+  const menuPanel = isOpen ? (
+    <div className={`chat-floating-menu${insights ? ' chat-floating-menu--insights' : ''}`}>
+      <div className="chat-menu-header">
+        <h3>Chat y Notificaciones</h3>
+        <button type="button" className="close-menu-btn" onClick={() => setIsOpen(false)}>
+          ×
+        </button>
+      </div>
+
+      <div className="chat-menu-actions">
+        <button
+          type="button"
+          className="chat-menu-action"
+          onClick={() => {
+            onNavigateToChat()
+            setIsOpen(false)
+          }}
+        >
+          <span className="action-icon">💬</span>
+          <div className="action-content">
+            <div className="action-title">Abrir Chat</div>
+            <div className="action-subtitle">Ver todos los canales</div>
+          </div>
+          {chatUnreadCount > 0 && <div className="action-badge">{chatUnreadCount}</div>}
+        </button>
+      </div>
+
+      {notifications.length > 0 ? (
+        <div className="chat-notifications-section">
+          <div className="section-header">
+            <span>Notificaciones del Chat</span>
+            {unreadCount > 0 && <span className="section-badge">{unreadCount}</span>}
+          </div>
+          <div className="notifications-list">
+            {notifications.slice(0, 5).map((notification) => (
+              <div
+                key={notification.id}
+                className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
+                onClick={() => handleNotificationClick(notification)}
+              >
+                <div className="notification-icon">
+                  {notification.type === 'mention' ? '👤' : '🔔'}
+                </div>
+                <div className="notification-content">
+                  <div className="notification-title">{notification.title}</div>
+                  {notification.description && (
+                    <div className="notification-description">{notification.description}</div>
+                  )}
+                </div>
+                {!notification.is_read && <div className="notification-dot"></div>}
+              </div>
+            ))}
+            {notifications.length > 5 && (
+              <button
+                type="button"
+                className="view-all-btn"
+                onClick={() => {
+                  onNavigateToChat()
+                  setIsOpen(false)
+                }}
+              >
+                Ver todas las notificaciones
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="chat-menu-empty">
+          <p>No hay notificaciones del chat</p>
+        </div>
+      )}
+    </div>
+  ) : null
+
+  if (insights) {
+    if (!menuPanel) return null
+    return (
+      <div className="chat-floating-button-container chat-floating-button-container--insights">
+        {menuPanel}
+      </div>
+    )
+  }
+
   return (
     <div className="chat-floating-button-container">
       <button
+        type="button"
         className={`chat-floating-button ${isOpen ? 'open' : ''} ${totalUnread > 0 ? 'has-unread' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
         title="Chat y Notificaciones"
@@ -158,85 +278,9 @@ const ChatFloatingButton = ({ onNavigateToChat }: ChatFloatingButtonProps) => {
           <div className="chat-unread-badge">{totalUnread > 99 ? '99+' : totalUnread}</div>
         )}
       </button>
-
-      {isOpen && (
-        <div className="chat-floating-menu">
-          <div className="chat-menu-header">
-            <h3>Chat y Notificaciones</h3>
-            <button className="close-menu-btn" onClick={() => setIsOpen(false)}>×</button>
-          </div>
-
-          <div className="chat-menu-actions">
-            <button
-              className="chat-menu-action"
-              onClick={() => {
-                onNavigateToChat()
-                setIsOpen(false)
-              }}
-            >
-              <span className="action-icon">💬</span>
-              <div className="action-content">
-                <div className="action-title">Abrir Chat</div>
-                <div className="action-subtitle">Ver todos los canales</div>
-              </div>
-              {chatUnreadCount > 0 && (
-                <div className="action-badge">{chatUnreadCount}</div>
-              )}
-            </button>
-          </div>
-
-          {notifications.length > 0 && (
-            <div className="chat-notifications-section">
-              <div className="section-header">
-                <span>Notificaciones del Chat</span>
-                {unreadCount > 0 && (
-                  <span className="section-badge">{unreadCount}</span>
-                )}
-              </div>
-              <div className="notifications-list">
-                {notifications.slice(0, 5).map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="notification-icon">
-                      {notification.type === 'mention' ? '👤' : '🔔'}
-                    </div>
-                    <div className="notification-content">
-                      <div className="notification-title">{notification.title}</div>
-                      {notification.description && (
-                        <div className="notification-description">{notification.description}</div>
-                      )}
-                    </div>
-                    {!notification.is_read && <div className="notification-dot"></div>}
-                  </div>
-                ))}
-                {notifications.length > 5 && (
-                  <button
-                    className="view-all-btn"
-                    onClick={() => {
-                      onNavigateToChat()
-                      setIsOpen(false)
-                    }}
-                  >
-                    Ver todas las notificaciones
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {notifications.length === 0 && (
-            <div className="chat-menu-empty">
-              <p>No hay notificaciones del chat</p>
-            </div>
-          )}
-        </div>
-      )}
+      {menuPanel}
     </div>
   )
 }
 
 export default ChatFloatingButton
-

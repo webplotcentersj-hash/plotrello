@@ -5,6 +5,23 @@
   z-index: 1000;
 }
 
+.chat-floating-button-container--insights {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  z-index: 1200;
+}
+
+.chat-floating-menu--insights {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  right: 0;
+  width: min(360px, calc(100vw - 24px));
+}
+
 .chat-floating-button {
   width: 64px;
   height: 64px;

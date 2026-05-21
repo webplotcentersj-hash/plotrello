@@ -866,6 +866,7 @@ function AppRoutes({
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const hideCampoFloaters = pathname === '/app-campo'
+  const isBoardRoute = pathname === '/' || pathname === ''
   const isPhoneLayout = usePhoneBoardLayout()
   const hideImpresorasButton =
     isPhoneLayout ||
@@ -888,7 +889,7 @@ function AppRoutes({
   return (
     <>
       <TallerGraficoPedidoEntregaOverlay />
-      {!hideCampoFloaters && (
+      {!hideCampoFloaters && !isBoardRoute && (
         <>
           {/* Botón flotante para acceder a impresoras */}
           {!hideImpresorasButton && (

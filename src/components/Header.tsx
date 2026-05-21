@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { buildHeaderQuickNavItems } from '../utils/headerQuickNav'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { useDmMensajeriaUnread } from '../hooks/useDmMensajeriaUnread'
@@ -90,6 +91,46 @@ const Header = ({
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const [actionsOpen, setActionsOpen] = useState(false)
 
+  const quickNavItems = useMemo(
+    () =>
+      buildHeaderQuickNavItems({
+        usuario,
+        isAdmin,
+        canAccessMostradorViews,
+        canAccessAsesorPresupuestos,
+        canManageCompras,
+        canManageCaja,
+        canManageRecursosHumanos,
+        onNavigateToStats,
+        onNavigateToMostrador,
+        onNavigateToCompras,
+        onNavigateToCaja,
+        onNavigateToDiseno,
+        onNavigateToRecursosHumanos,
+        onNavigateToAsesorPresupuestos,
+        onNavigateToFlota,
+        onNavigateToERP
+      }),
+    [
+      usuario,
+      isAdmin,
+      canAccessMostradorViews,
+      canAccessAsesorPresupuestos,
+      canManageCompras,
+      canManageCaja,
+      canManageRecursosHumanos,
+      onNavigateToStats,
+      onNavigateToMostrador,
+      onNavigateToCompras,
+      onNavigateToCaja,
+      onNavigateToDiseno,
+      onNavigateToRecursosHumanos,
+      onNavigateToAsesorPresupuestos,
+      onNavigateToFlota,
+      onNavigateToERP
+    ]
+  )
+
   return (
     <header className="tp-header">
       <div className="header-line">
@@ -101,38 +142,91 @@ const Header = ({
           />
           <h1>Plot Lab</h1>
         </div>
+        <div className="header-line-aside">
+          {quickNavItems.length > 0 && (
+            <nav className="header-quick-nav" aria-label="Accesos de tu sector">
+              {quickNavItems.map((item) => {
+                const btnClass = `header-quick-nav-btn${
+                  item.id.startsWith('dashboard-') ? ' header-quick-nav-btn--primary' : ''
+                }`
+                return item.href ? (
+                  <Link
+                    key={item.id}
+                    to={item.href}
+                    className={btnClass}
+                    title={item.title ?? item.label}
+                  >
+                    <span className="header-quick-nav-icon" aria-hidden>
+                      {item.icon}
+                    </span>
+                    <span className="header-quick-nav-label">{item.label}</span>
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={btnClass}
+                    title={item.title ?? item.label}
+                    onClick={() => item.onClick?.()}
+                  >
+                    <span className="header-quick-nav-icon" aria-hidden>
+                      {item.icon}
+                    </span>
+                    <span className="header-quick-nav-label">{item.label}</span>
+                  </button>
+                )
+              })}
+            </nav>
+          )}
         <div className="header-actions">
           {!compactPhone && (
-            <>
-              <ClockWidget />
+            <div className="header-status-card" aria-label="Hora y clima">
+              <ClockWidget compact />
+              <div className="header-status-divider" aria-hidden />
               <WeatherWidget />
-            </>
+            </div>
           )}
-          <PwaUpdateButton className="ghost-button pwa-update-button" />
-          <NotificationsDropdown onNotificationClick={(notification) => {
-            // Si es una notificación de mención del chat, navegar al chat
-            if (notification.type === 'mention' && notification.description?.includes('te mencionó en')) {
-              onNavigateToChat?.()
-            }
-          }} />
-          {isAdmin && (
-            <AdminAlertButton />
-          )}
-          <button
-            className={`ghost-button actions-toggle ${showMensajeriaUnreadBadge ? 'has-mensajeria-unread' : ''}`}
-            type="button"
-            onClick={() => setActionsOpen((prev) => !prev)}
-            aria-expanded={actionsOpen}
-            aria-label={
-              showMensajeriaUnreadBadge
-                ? `Abrir menú de acciones. Mensajes sin leer en mensajería: ${dmMensajeriaUnread}`
-                : 'Abrir menú de acciones'
-            }
-          >
-          {actionsOpen ? '✕' : '☰'}
-          </button>
+
+          <div className="header-util-bar" role="toolbar" aria-label="Acciones rápidas">
+            <PwaUpdateButton className="header-util-btn header-util-btn--pwa" />
+            <span className="header-util-divider" aria-hidden />
+            <NotificationsDropdown
+              onNotificationClick={(notification) => {
+                if (
+                  notification.type === 'mention' &&
+                  notification.description?.includes('te mencionó en')
+                ) {
+                  onNavigateToChat?.()
+                }
+              }}
+            />
+            {isAdmin && (
+              <>
+                <span className="header-util-divider" aria-hidden />
+                <AdminAlertButton />
+              </>
+            )}
+            <span className="header-util-divider" aria-hidden />
+            <button
+              className={`header-util-btn actions-toggle${showMensajeriaUnreadBadge ? ' has-mensajeria-unread' : ''}${actionsOpen ? ' actions-toggle--open' : ''}`}
+              type="button"
+              onClick={() => setActionsOpen((prev) => !prev)}
+              aria-expanded={actionsOpen}
+              aria-label={
+                showMensajeriaUnreadBadge
+                  ? `Menú de navegación. Mensajes sin leer: ${dmMensajeriaUnread}`
+                  : 'Menú de navegación'
+              }
+              title={actionsOpen ? 'Cerrar menú' : 'Abrir menú'}
+            >
+              <span className="actions-toggle-icon" aria-hidden>
+                {actionsOpen ? '✕' : '☰'}
+              </span>
+              <span className="actions-toggle-label">Menú</span>
+            </button>
+          </div>
+
           <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
-            <PwaUpdateButton className="ghost-button pwa-update-button" />
             {onNavigateToMensajeria && (
               <span className="header-mensajeria-btn-wrap">
                 <button
@@ -382,7 +476,7 @@ const Header = ({
             )}
           </div>
           {currentUserName && (
-            <div className="user-chip" title="Usuario conectado">
+            <div className="user-chip header-user-chip" title="Usuario conectado">
               <div className="user-avatar">
                 {currentUserName.slice(0, 1).toUpperCase()}
               </div>
@@ -392,6 +486,7 @@ const Header = ({
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
 

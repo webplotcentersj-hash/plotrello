@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import './ClockWidget.css'
 
-const ClockWidget = () => {
+type ClockWidgetProps = {
+  /** En header compacto: fecha corta (ej. jue 21 may). */
+  compact?: boolean
+}
+
+const ClockWidget = ({ compact = false }: ClockWidgetProps) => {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
@@ -22,6 +27,13 @@ const ClockWidget = () => {
   }
 
   const formatDate = (date: Date) => {
+    if (compact) {
+      return date.toLocaleDateString('es-AR', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
+      })
+    }
     return date.toLocaleDateString('es-AR', {
       weekday: 'long',
       year: 'numeric',
@@ -31,7 +43,7 @@ const ClockWidget = () => {
   }
 
   return (
-    <div className="clock-widget">
+    <div className={`clock-widget${compact ? ' clock-widget--compact' : ''}`}>
       <div className="clock-time">{formatTime(time)}</div>
       <div className="clock-date">{formatDate(time)}</div>
     </div>
