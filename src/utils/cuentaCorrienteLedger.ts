@@ -24,3 +24,26 @@ export function formatMontoArs(value: number | null | undefined): string {
     maximumFractionDigits: 2
   }).format(value)
 }
+
+/** Monto para KPIs: compacto si es muy largo, siempre con 2 decimales en tooltip vía caller. */
+export function formatMontoArsKpi(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—'
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000) {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 2
+    }).format(value)
+  }
+  if (abs >= 100_000) {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 0
+    }).format(value)
+  }
+  return formatMontoArs(value)
+}

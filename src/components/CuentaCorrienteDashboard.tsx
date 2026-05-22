@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
 import { ESTADO_CC_LABELS, normalizeEstadoCc } from '../constants/cuentaCorriente'
-import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
+import { formatMontoArs, formatMontoArsKpi } from '../utils/cuentaCorrienteLedger'
 import { calcCarteraStatsCuentaCorriente } from '../utils/cuentaCorrienteStats'
 import './CuentaCorrienteDashboard.css'
 
@@ -38,8 +38,11 @@ export default function CuentaCorrienteDashboard({
       <div className="cc-dash-deuda-total" role="status">
         <div className="cc-dash-deuda-total__main">
           <span className="cc-dash-deuda-total__label">Deuda total</span>
-          <strong className="cc-dash-deuda-total__monto">
-            {formatMontoArs(stats.deudaTotal)}
+          <strong
+            className="cc-dash-deuda-total__monto"
+            title={formatMontoArs(stats.deudaTotal)}
+          >
+            {formatMontoArsKpi(stats.deudaTotal)}
           </strong>
         </div>
         <p className="cc-dash-deuda-total__hint">
@@ -50,29 +53,41 @@ export default function CuentaCorrienteDashboard({
       </div>
 
       <div className="cc-dash__kpis">
-        <article className="cc-dash-kpi">
+        <article className="cc-dash-kpi cc-dash-kpi--count">
           <span className="cc-dash-kpi__label">Total clientes</span>
-          <strong>{stats.total}</strong>
+          <span className="cc-dash-kpi__value">{stats.total}</span>
         </article>
-        <article className="cc-dash-kpi cc-dash-kpi--ok">
+        <article className="cc-dash-kpi cc-dash-kpi--ok cc-dash-kpi--count">
           <span className="cc-dash-kpi__label">Aprobados</span>
-          <strong>{stats.aprobada}</strong>
+          <span className="cc-dash-kpi__value">{stats.aprobada}</span>
         </article>
-        <article className="cc-dash-kpi cc-dash-kpi--warn">
+        <article className="cc-dash-kpi cc-dash-kpi--warn cc-dash-kpi--count">
           <span className="cc-dash-kpi__label">Pendientes</span>
-          <strong>{stats.pendiente}</strong>
+          <span className="cc-dash-kpi__value">{stats.pendiente}</span>
         </article>
-        <article className="cc-dash-kpi cc-dash-kpi--deuda">
+        <article className="cc-dash-kpi cc-dash-kpi--deuda cc-dash-kpi--money">
           <span className="cc-dash-kpi__label">Deuda total</span>
-          <strong>{formatMontoArs(stats.deudaTotal)}</strong>
+          <span
+            className="cc-dash-kpi__value"
+            title={formatMontoArs(stats.deudaTotal)}
+          >
+            {formatMontoArsKpi(stats.deudaTotal)}
+          </span>
         </article>
-        <article className="cc-dash-kpi">
-          <span className="cc-dash-kpi__label">Saldo neto</span>
-          <strong>{formatMontoArs(stats.saldoCartera)}</strong>
+        <article
+          className={`cc-dash-kpi cc-dash-kpi--money${stats.saldoCartera < 0 ? ' cc-dash-kpi--negativo' : ''}`}
+        >
+          <span className="cc-dash-kpi__label">Saldo neto cartera</span>
+          <span
+            className="cc-dash-kpi__value"
+            title={formatMontoArs(stats.saldoCartera)}
+          >
+            {formatMontoArsKpi(stats.saldoCartera)}
+          </span>
         </article>
-        <article className="cc-dash-kpi">
+        <article className="cc-dash-kpi cc-dash-kpi--count">
           <span className="cc-dash-kpi__label">Rechazados</span>
-          <strong>{stats.rechazada}</strong>
+          <span className="cc-dash-kpi__value">{stats.rechazada}</span>
         </article>
       </div>
 
