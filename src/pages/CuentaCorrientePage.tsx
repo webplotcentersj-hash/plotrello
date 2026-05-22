@@ -4,29 +4,15 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import CuentaCorrienteAltaForm from '../components/CuentaCorrienteAltaForm'
 import CuentaCorrienteScoringPanel from '../components/CuentaCorrienteScoringPanel'
-import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
 import CuentaCorrienteDashboard from '../components/CuentaCorrienteDashboard'
+import CuentaCorrienteRegistry from '../components/CuentaCorrienteRegistry'
 import { calcCarteraStatsCuentaCorriente } from '../utils/cuentaCorrienteStats'
 import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
-import type { CcScoreNivel } from '../constants/cuentaCorrienteScoring'
-import {
-  ESTADO_CC_LABELS,
-  TIPO_CLIENTE_CC_LABELS,
-  labelCondicionIva,
-  normalizeEstadoCc,
-  type EstadoCuentaCorriente
-} from '../constants/cuentaCorriente'
+import { normalizeEstadoCc, type EstadoCuentaCorriente } from '../constants/cuentaCorriente'
 import './CuentaCorrientePage.css'
 
 type CuentaCorrienteRow = ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }
-
-function iniciales(nombre: string): string {
-  const parts = nombre.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
-}
 
 const CuentaCorrientePage = () => {
   const navigate = useNavigate()
@@ -313,7 +299,7 @@ const CuentaCorrientePage = () => {
       <header className="cc-dashboard-header">
         <div className="cc-header-content">
           <div className="cc-page-title">
-            <span className="cc-page-title__icon" aria-hidden>📒</span>
+            <span className="cc-page-title__icon" aria-hidden>CC</span>
             <div>
               <h1>Cuenta corriente</h1>
               <p>
@@ -398,7 +384,6 @@ const CuentaCorrientePage = () => {
           registros={registros}
           isAdmin={isAdmin}
           onAprobar={(id) => void resolverSolicitud(id, 'aprobar')}
-          onScoring={setScoringCliente}
           resolviendoId={resolviendoId}
         />
       )}
@@ -466,196 +451,28 @@ const CuentaCorrientePage = () => {
         </section>
       )}
 
-      <section className="cuenta-corriente-lista">
-        <div className="cc-lista-toolbar">
-          <h2>Clientes registrados</h2>
-          <div className="cc-lista-toolbar__filters">
-            <div className="cc-estado-tabs" role="tablist" aria-label="Filtrar por estado">
-              {(['todos', 'pendiente', 'aprobada', 'rechazada'] as const).map((est) => {
-                const count =
-                  est === 'todos'
-                    ? registros.length
-                    : est === 'pendiente'
-                      ? pendientes.length
-                      : est === 'aprobada'
-                        ? aprobados.length
-                        : registros.filter((r) => normalizeEstadoCc(r) === 'rechazada').length
-                return (
-                <button
-                  key={est}
-                  type="button"
-                  role="tab"
-                  aria-selected={filtroEstado === est}
-                  className={`cc-estado-tab${filtroEstado === est ? ' cc-estado-tab--active' : ''}${est === 'pendiente' && pendientes.length > 0 ? ' cc-estado-tab--alert' : ''}${est === 'aprobada' ? ' cc-estado-tab--ok' : ''}`}
-                  onClick={() => setFiltroEstado(est)}
-                >
-                  {est === 'todos' ? `Todos (${count})` : `${ESTADO_CC_LABELS[est]} (${count})`}
-                </button>
-              )})}
-            </div>
-            {registros.length > 0 && (
-              <div className="cc-filtro-wrap">
-                <input
-                  type="search"
-                  className="cuenta-corriente-input"
-                  placeholder="Filtrar por nombre, CUIT…"
-                  value={filtroLista}
-                  onChange={(e) => setFiltroLista(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {registros.length === 0 ? (
-          <div className="cuenta-corriente-empty">
-            <div className="cuenta-corriente-empty__icon" aria-hidden>📒</div>
-            <p>No hay clientes en cuenta corriente.</p>
-            <p>Usá <strong>Nuevo alta</strong> para cargar requisitos y documentación.</p>
-          </div>
-        ) : registrosFiltrados.length === 0 ? (
-          <div className="cuenta-corriente-empty">
-            <p>Sin coincidencias para «{filtroLista}».</p>
-          </div>
-        ) : (
-          <ul className="cuenta-corriente-cards">
-            {registrosFiltrados.map((r) => {
-              const nombre = r.razon_social || r.cliente?.nombre || 'Sin nombre'
-              const estado = normalizeEstadoCc(r)
-              return (
-                <li
-                  key={r.id}
-                  className={`cuenta-corriente-card cuenta-corriente-card--${estado}${!r.alta_completa ? ' cuenta-corriente-card--incompleto' : ''}`}
-                >
-                  <span className="cc-card-avatar" aria-hidden>
-                    {iniciales(nombre)}
-                  </span>
-                  <div className="cuenta-corriente-card-body">
-                    <div className="cc-card-top">
-                      <strong className="cuenta-corriente-card-nombre">{nombre}</strong>
-                      <div className="cc-card-top__badges">
-                        {estado === 'aprobada' && (
-                          <CuentaCorrienteScoreBadge
-                            score={r.score}
-                            nivel={r.score_nivel as CcScoreNivel | undefined}
-                            compact
-                            onClick={() => setScoringCliente(r)}
-                          />
-                        )}
-                        <span className={`cc-status cc-status--${estado}`}>
-                          {ESTADO_CC_LABELS[estado]}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="cc-card-meta">
-                      {r.tipo_cliente && (
-                        <span className="cc-tipo-badge">
-                          {TIPO_CLIENTE_CC_LABELS[
-                            r.tipo_cliente === 'persona_fisica' ? 'persona_fisica' : 'empresa'
-                          ]}
-                        </span>
-                      )}
-                      {estado === 'aprobada' && r.saldo_actual != null && (
-                        <span
-                          className={`cc-saldo-badge${Number(r.saldo_actual) > 0 ? ' cc-saldo-badge--deuda' : ''}`}
-                        >
-                          Saldo {formatMontoArs(Number(r.saldo_actual))}
-                        </span>
-                      )}
-                      {r.cuit && <span>CUIT {r.cuit}</span>}
-                      {r.condicion_iva && <span>{labelCondicionIva(r.condicion_iva)}</span>}
-                      {r.email && <span>✉️ {r.email}</span>}
-                      {r.whatsapp && <span>📱 {r.whatsapp}</span>}
-                      {r.url_pagare && (
-                        <a
-                          href={r.url_pagare}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cc-pagare-link"
-                        >
-                          🧾 Pagaré
-                        </a>
-                      )}
-                    </div>
-                    {(r.localidad || r.provincia) && (
-                      <span className="cc-card-domicilio">
-                        📍 {[r.domicilio, r.localidad, r.provincia, r.codigo_postal]
-                          .filter(Boolean)
-                          .join(', ')}
-                      </span>
-                    )}
-                    {estado === 'rechazada' && r.motivo_rechazo && (
-                      <p className="cc-card-rechazo">Motivo: {r.motivo_rechazo}</p>
-                    )}
-                  </div>
-                  <div className="cc-card-actions">
-                    {isAdmin && estado === 'pendiente' && (
-                      <>
-                        <button
-                          type="button"
-                          className="cc-btn cc-btn--primary cc-btn--sm"
-                          disabled={resolviendoId === r.id_cliente}
-                          onClick={() => void resolverSolicitud(r.id_cliente, 'aprobar')}
-                        >
-                          {resolviendoId === r.id_cliente ? '…' : 'Aprobar'}
-                        </button>
-                        <button
-                          type="button"
-                          className="cc-btn cc-btn--danger cc-btn--sm"
-                          disabled={resolviendoId === r.id_cliente}
-                          onClick={() => void resolverSolicitud(r.id_cliente, 'rechazar')}
-                        >
-                          Rechazar
-                        </button>
-                      </>
-                    )}
-                    {estado === 'aprobada' && (
-                      <>
-                        <button
-                          type="button"
-                          className="cc-btn cc-btn--primary cc-btn--sm"
-                          onClick={() => navigate(`/mostrador/cuenta-corriente/cliente/${r.id_cliente}`)}
-                        >
-                          Ver cuenta
-                        </button>
-                        <button
-                          type="button"
-                          className="cc-btn cc-btn--secondary cc-btn--sm"
-                          onClick={() => setScoringCliente(r)}
-                        >
-                          Scoring
-                        </button>
-                      </>
-                    )}
-                    {(isAdmin || estado !== 'aprobada') && (
-                      <button
-                        type="button"
-                        className="cc-btn cc-btn--secondary cc-btn--sm"
-                        onClick={() => {
-                          setEditando(r)
-                          setModoForm('editar')
-                        }}
-                      >
-                        {estado === 'rechazada' ? 'Reenviar' : r.alta_completa ? 'Editar' : 'Completar'}
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        className="cc-btn cc-btn--danger cc-btn--sm"
-                        onClick={() => void quitar(r.id_cliente)}
-                        disabled={quitandoId === r.id_cliente}
-                      >
-                        {quitandoId === r.id_cliente ? '…' : 'Quitar'}
-                      </button>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
+      <CuentaCorrienteRegistry
+        registros={registros}
+        registrosFiltrados={registrosFiltrados}
+        filtroEstado={filtroEstado}
+        filtroLista={filtroLista}
+        pendientes={pendientes}
+        aprobados={aprobados}
+        totalRegistros={registros.length}
+        isAdmin={isAdmin}
+        resolviendoId={resolviendoId}
+        quitandoId={quitandoId}
+        onFiltroEstado={setFiltroEstado}
+        onFiltroLista={setFiltroLista}
+        onAprobar={(id) => void resolverSolicitud(id, 'aprobar')}
+        onRechazar={(id) => void resolverSolicitud(id, 'rechazar')}
+        onEditar={(r) => {
+          setEditando(r)
+          setModoForm('editar')
+        }}
+        onQuitar={(id) => void quitar(id)}
+        onScoring={setScoringCliente}
+      />
 
       {scoringCliente && usuario?.id && (
         <CuentaCorrienteScoringPanel

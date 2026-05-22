@@ -1,0 +1,338 @@
+.cc-registry {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.cc-registry__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.cc-registry__toolbar h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f1f5f9;
+}
+
+.cc-registry__subtitle {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.cc-registry__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.cc-registry__search {
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.cc-registry__empty {
+  padding: 40px 20px;
+  text-align: center;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.35);
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.cc-registry__empty p {
+  margin: 0 0 6px;
+}
+
+.cc-registry__empty-hint {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.cc-registry__table-wrap {
+  overflow-x: auto;
+}
+
+.cc-registry__thead,
+.cc-registry-row__summary {
+  display: grid;
+  grid-template-columns:
+    36px
+    minmax(180px, 1.4fr)
+    minmax(100px, 0.75fr)
+    minmax(88px, 0.55fr)
+    minmax(100px, 0.65fr)
+    minmax(110px, 0.7fr)
+    minmax(72px, 0.5fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 720px;
+}
+
+.cc-registry__thead {
+  padding: 8px 12px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.cc-registry__col.num {
+  text-align: right;
+  justify-self: end;
+}
+
+.cc-registry__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cc-registry-row {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.cc-registry-row:last-child {
+  border-bottom: none;
+}
+
+.cc-registry-row--pendiente {
+  border-left: 3px solid rgba(245, 158, 11, 0.55);
+}
+
+.cc-registry-row--aprobada {
+  border-left: 3px solid rgba(52, 211, 153, 0.45);
+}
+
+.cc-registry-row--rechazada {
+  border-left: 3px solid rgba(248, 113, 113, 0.45);
+}
+
+.cc-registry-row__summary {
+  width: 100%;
+  min-width: 720px;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cc-registry-row__summary:hover {
+  background: rgba(30, 41, 59, 0.55);
+}
+
+.cc-registry-row--open .cc-registry-row__summary {
+  background: rgba(30, 41, 59, 0.65);
+}
+
+.cc-registry-row__chevron {
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: 0 auto;
+  border-right: 2px solid #94a3b8;
+  border-bottom: 2px solid #94a3b8;
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.cc-registry-row--open .cc-registry-row__chevron {
+  transform: rotate(45deg);
+  margin-top: 4px;
+}
+
+.cc-registry__col--cliente {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cc-registry-row__avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  background: rgba(51, 65, 85, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.cc-registry-row__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-registry-estado {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.cc-registry-estado--aprobada {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+.cc-registry-estado--pendiente {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
+.cc-registry-estado--rechazada {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}
+
+.cc-registry-saldo {
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
+}
+
+.cc-registry-saldo--deuda {
+  color: #fdba74;
+}
+
+.cc-registry-muted {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.cc-registry-row__detail {
+  padding: 0 12px 14px 48px;
+  animation: cc-registry-expand 0.2s ease;
+}
+
+@keyframes cc-registry-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cc-registry-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px 20px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.cc-registry-detail-grid dt {
+  margin: 0 0 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.cc-registry-detail-grid dd {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+.cc-registry-detail-grid--wide {
+  grid-column: 1 / -1;
+}
+
+.cc-registry-rechazo {
+  color: #fca5a5;
+}
+
+.cc-registry-link {
+  color: #93c5fd;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.cc-registry-link:hover {
+  text-decoration: underline;
+}
+
+.cc-registry-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .cc-registry__thead {
+    display: none;
+  }
+
+  .cc-registry-row__summary {
+    grid-template-columns: 32px 1fr;
+    grid-template-rows: auto auto;
+    min-width: 0;
+    gap: 6px 10px;
+  }
+
+  .cc-registry__col--toggle {
+    grid-row: 1 / 3;
+  }
+
+  .cc-registry__col--cliente {
+    grid-column: 2;
+  }
+
+  .cc-registry__col--estado,
+  .cc-registry__col--tipo,
+  .cc-registry__col--saldo,
+  .cc-registry__col--cuit,
+  .cc-registry__col--score {
+    grid-column: 2;
+    display: inline-flex;
+    margin-right: 10px;
+    font-size: 0.8rem;
+  }
+
+  .cc-registry-row__detail {
+    padding-left: 12px;
+  }
+}
