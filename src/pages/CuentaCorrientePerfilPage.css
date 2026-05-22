@@ -71,6 +71,59 @@
   align-items: center;
 }
 
+.cc-perfil-docs {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+}
+
+.cc-perfil-docs__title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.cc-perfil-docs__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+
+.cc-perfil-docs__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.cc-perfil-comprobante-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.cc-perfil-link--btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
+.cc-perfil-link--btn:hover {
+  color: #bfdbfe;
+}
+
 .cc-perfil-alert {
   display: flex;
   justify-content: space-between;

@@ -12,7 +12,21 @@ import {
   type CcScoreNivel
 } from '../constants/cuentaCorrienteScoring'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
-import { formatMontoArs, movimientosConSaldoCorrido } from '../utils/cuentaCorrienteLedger'
+import {
+  formatMontoArs,
+  movimientosConSaldoCorrido,
+  parseMontoArsInput
+} from '../utils/cuentaCorrienteLedger'
+import {
+  buildInteresesCsvRows,
+  buildMovimientosCsvRows,
+  buildVentasCcCsvRows,
+  descargarArchivoUrl,
+  downloadCsv,
+  downloadEstadoCuentaPdf,
+  downloadPerfilCsvPack
+} from '../utils/cuentaCorrienteExport'
+import CcExportMenu from '../components/CcExportMenu'
 import './CuentaCorrientePerfilPage.css'
 
 type TabId = 'cuenta' | 'ventas' | 'pago'
@@ -113,10 +127,20 @@ export default function CuentaCorrientePerfilPage() {
   const registrarPago = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!usuario?.id || !perfil) return
-    const monto = parseFloat(pagoMonto.replace(',', '.'))
-    if (!Number.isFinite(monto) || monto <= 0) {
+    const monto = parseMontoArsInput(pagoMonto)
+    if (monto == null || monto <= 0) {
       setError('Indicá un monto válido')
       return
+    }
+    if (pagoVentaId) {
+      const venta = perfil.ventas_cc.find((v) => String(v.id) === pagoVentaId)
+      if (venta && monto < venta.valor_total) {
+        const ok = window.confirm(
+          `El pago (${formatMontoArs(monto)}) es menor que la venta (${formatMontoArs(venta.valor_total)}). ` +
+            'La venta seguirá pendiente hasta cubrir el total. ¿Continuar?'
+        )
+        if (!ok) return
+      }
     }
     if (!pagoComprobanteUrl) {
       setError('Subí el comprobante del pago (transferencia, depósito, etc.)')
@@ -201,6 +225,51 @@ export default function CuentaCorrientePerfilPage() {
             </p>
           </div>
           <div className="cc-perfil-header__actions">
+            <CcExportMenu
+              label="Descargar"
+              items={[
+                {
+                  id: 'todo',
+                  label: 'Todo (CSV + PDF estado de cuenta)',
+                  onClick: () => {
+                    downloadPerfilCsvPack(perfil, nombre)
+                    downloadEstadoCuentaPdf(perfil, nombre)
+                  }
+                },
+                {
+                  id: 'pdf',
+                  label: 'Estado de cuenta — PDF',
+                  onClick: () => downloadEstadoCuentaPdf(perfil, nombre)
+                },
+                {
+                  id: 'libro',
+                  label: 'Libro de movimientos — CSV',
+                  onClick: () =>
+                    downloadCsv(
+                      `${nombre.replace(/\s+/g, '-').slice(0, 40)}-libro.csv`,
+                      buildMovimientosCsvRows(perfil.movimientos)
+                    )
+                },
+                {
+                  id: 'ventas',
+                  label: 'Ventas CC — CSV',
+                  onClick: () =>
+                    downloadCsv(
+                      `${nombre.replace(/\s+/g, '-').slice(0, 40)}-ventas.csv`,
+                      buildVentasCcCsvRows(perfil.ventas_cc)
+                    )
+                },
+                {
+                  id: 'intereses',
+                  label: 'Intereses devengados — CSV',
+                  onClick: () =>
+                    downloadCsv(
+                      `${nombre.replace(/\s+/g, '-').slice(0, 40)}-intereses.csv`,
+                      buildInteresesCsvRows(res.intereses_devengados)
+                    )
+                }
+              ]}
+            />
             <CuentaCorrienteScoreBadge
               score={res.score}
               nivel={res.score_nivel as CcScoreNivel | undefined}
@@ -280,6 +349,17 @@ export default function CuentaCorrientePerfilPage() {
             </span>
           </article>
         )}
+      </section>
+
+      <section className="cc-perfil-docs">
+        <h2 className="cc-perfil-docs__title">Documentación y comprobantes</h2>
+        <ul className="cc-perfil-docs__list">
+          <CcDocDownload label="Constancia AFIP" url={ficha.url_constancia_afip} />
+          <CcDocDownload label="Estatuto" url={ficha.url_estatuto} />
+          <CcDocDownload label="Comprobante domicilio" url={ficha.url_comprobante_domicilio} />
+          <CcDocDownload label="DNI" url={ficha.url_documento_dni} />
+          <CcDocDownload label="Pagaré" url={ficha.url_pagare} />
+        </ul>
       </section>
 
       {usuario?.id && (
@@ -514,6 +594,27 @@ export default function CuentaCorrientePerfilPage() {
   )
 }
 
+function CcDocDownload({ label, url }: { label: string; url?: string | null }) {
+  if (!url) return null
+  return (
+    <li>
+      <span>{label}</span>
+      <span className="cc-perfil-comprobante-actions">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="cc-perfil-link">
+          Ver
+        </a>
+        <button
+          type="button"
+          className="cc-perfil-link cc-perfil-link--btn"
+          onClick={() => descargarArchivoUrl(url, label)}
+        >
+          Descargar
+        </button>
+      </span>
+    </li>
+  )
+}
+
 function MovimientoRow({ mov }: { mov: CcCuentaMovimiento }) {
   const tipoLabel =
     mov.tipo === 'venta'
@@ -542,9 +643,18 @@ function MovimientoRow({ mov }: { mov: CcCuentaMovimiento }) {
       </td>
       <td>
         {mov.url_comprobante && (
-          <a href={mov.url_comprobante} target="_blank" rel="noopener noreferrer" className="cc-perfil-link">
-            📎
-          </a>
+          <span className="cc-perfil-comprobante-actions">
+            <a href={mov.url_comprobante} target="_blank" rel="noopener noreferrer" className="cc-perfil-link">
+              Ver
+            </a>
+            <button
+              type="button"
+              className="cc-perfil-link cc-perfil-link--btn"
+              onClick={() => descargarArchivoUrl(mov.url_comprobante!, `comprobante-mov-${mov.id}`)}
+            >
+              Descargar
+            </button>
+          </span>
         )}
       </td>
     </tr>
@@ -585,14 +695,25 @@ function VentaRow({
           </button>
         )}
         {venta.comprobante_pago_url && (
-          <a
-            href={venta.comprobante_pago_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="cc-perfil-link"
-          >
-            Comprobante
-          </a>
+          <span className="cc-perfil-comprobante-actions">
+            <a
+              href={venta.comprobante_pago_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cc-perfil-link"
+            >
+              Ver
+            </a>
+            <button
+              type="button"
+              className="cc-perfil-link cc-perfil-link--btn"
+              onClick={() =>
+                descargarArchivoUrl(venta.comprobante_pago_url!, `venta-${venta.numero_venta}`)
+              }
+            >
+              Descargar
+            </button>
+          </span>
         )}
       </td>
     </tr>

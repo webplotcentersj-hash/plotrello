@@ -295,6 +295,21 @@
   text-decoration: underline;
 }
 
+.cc-registry-doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.cc-registry-link--btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
 .cc-registry-row__actions {
   display: flex;
   flex-wrap: wrap;

@@ -15,6 +15,34 @@ export function movimientosConSaldoCorrido(movs: CcCuentaMovimiento[]): CcCuenta
   })
 }
 
+/**
+ * Parsea entrada de monto (AR): 78.000,50 · 78000,50 · 78000.5
+ * Evita que parseFloat('78.000') devuelva 78 por el separador de miles.
+ */
+export function parseMontoArsInput(raw: string): number | null {
+  const s = raw.trim().replace(/\s/g, '')
+  if (!s) return null
+
+  const lastComma = s.lastIndexOf(',')
+  const lastDot = s.lastIndexOf('.')
+
+  if (lastComma > -1 && (lastDot < 0 || lastComma > lastDot)) {
+    const n = parseFloat(s.replace(/\./g, '').replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+  }
+
+  if (lastDot > -1 && lastComma < 0) {
+    const after = s.slice(lastDot + 1)
+    if (/^\d{3}$/.test(after) && !/\.\d{1,2}$/.test(s)) {
+      const n = parseFloat(s.replace(/\./g, ''))
+      return Number.isFinite(n) ? n : null
+    }
+  }
+
+  const n = parseFloat(s.replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
 export function formatMontoArs(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '—'
   return new Intl.NumberFormat('es-AR', {

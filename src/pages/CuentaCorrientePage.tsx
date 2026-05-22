@@ -8,6 +8,8 @@ import CuentaCorrienteDashboard from '../components/CuentaCorrienteDashboard'
 import CuentaCorrienteRegistry from '../components/CuentaCorrienteRegistry'
 import { calcCarteraStatsCuentaCorriente } from '../utils/cuentaCorrienteStats'
 import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
+import { downloadCarteraCsv } from '../utils/cuentaCorrienteExport'
+import CcExportMenu from '../components/CcExportMenu'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
 import { normalizeEstadoCc, type EstadoCuentaCorriente } from '../constants/cuentaCorriente'
 import './CuentaCorrientePage.css'
@@ -356,6 +358,24 @@ const CuentaCorrientePage = () => {
                 <span className="cc-header-btn__icon" aria-hidden>📊</span>
                 <span>{recalculandoTodos ? 'Calculando…' : 'Recalcular scoring'}</span>
               </button>
+            )}
+            {modoForm === 'cerrado' && registros.length > 0 && (
+              <CcExportMenu
+                className="cc-header-export"
+                items={[
+                  {
+                    id: 'cartera-filtro',
+                    label: 'Cartera (vista actual) — CSV',
+                    onClick: () =>
+                      downloadCarteraCsv(registrosFiltrados, carteraStats, undefined)
+                  },
+                  {
+                    id: 'cartera-total',
+                    label: 'Cartera completa — CSV',
+                    onClick: () => downloadCarteraCsv(registros, carteraStats, undefined)
+                  }
+                ]}
+              />
             )}
           </div>
         </div>

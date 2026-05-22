@@ -11,6 +11,7 @@ import {
 import type { CcScoreNivel } from '../constants/cuentaCorrienteScoring'
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
 import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
+import { descargarArchivoUrl } from '../utils/cuentaCorrienteExport'
 import './CuentaCorrienteRegistry.css'
 
 export type CuentaCorrienteRegistryRow = ClienteCuentaCorrienteRecord & {
@@ -35,6 +36,36 @@ type Props = {
   onEditar: (row: CuentaCorrienteRegistryRow) => void
   onQuitar: (idCliente: number) => void
   onScoring: (row: CuentaCorrienteRegistryRow) => void
+}
+
+function CcRegistryDoc({ label, url }: { label: string; url?: string | null }) {
+  if (!url) return null
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd className="cc-registry-doc-actions">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="cc-registry-link"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Ver
+        </a>
+        <button
+          type="button"
+          className="cc-registry-link cc-registry-link--btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            descargarArchivoUrl(url, label)
+          }}
+        >
+          Descargar
+        </button>
+      </dd>
+    </div>
+  )
 }
 
 function iniciales(nombre: string): string {
@@ -234,22 +265,11 @@ export default function CuentaCorrienteRegistry({
                               .join(', ') || '—'}
                           </dd>
                         </div>
-                        {r.url_pagare && (
-                          <div>
-                            <dt>Pagaré</dt>
-                            <dd>
-                              <a
-                                href={r.url_pagare}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="cc-registry-link"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Ver documento
-                              </a>
-                            </dd>
-                          </div>
-                        )}
+                        <CcRegistryDoc label="Constancia AFIP" url={r.url_constancia_afip} />
+                        <CcRegistryDoc label="Estatuto" url={r.url_estatuto} />
+                        <CcRegistryDoc label="Domicilio" url={r.url_comprobante_domicilio} />
+                        <CcRegistryDoc label="DNI" url={r.url_documento_dni} />
+                        <CcRegistryDoc label="Pagaré" url={r.url_pagare} />
                         {estado === 'rechazada' && r.motivo_rechazo && (
                           <div className="cc-registry-detail-grid--wide">
                             <dt>Motivo de rechazo</dt>

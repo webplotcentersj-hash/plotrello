@@ -1,0 +1,48 @@
+.cc-export-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.cc-export-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cc-export-menu__caret::after {
+  content: '▾';
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.cc-export-menu__list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  min-width: 220px;
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.cc-export-menu__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: #e2e8f0;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.cc-export-menu__item:hover {
+  background: rgba(96, 165, 250, 0.15);
+  color: #fff;
+}
