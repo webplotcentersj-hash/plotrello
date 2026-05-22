@@ -1,0 +1,3 @@
+-- Plotrello usa login localStorage → rol anon en Supabase.
+-- Sin políticas SELECT para anon, cuenta corriente guarda pero el listado muestra 0.
+-- Aplicado remoto: cc_rls_anon_plotrello
