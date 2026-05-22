@@ -247,7 +247,7 @@ export function buildFichaResumenCsvRows(
     ['cuit', ficha.cuit ?? ''],
     ['tipo_cliente', TIPO_CLIENTE_CC_LABELS[ficha.tipo_cliente === 'persona_fisica' ? 'persona_fisica' : 'empresa']],
     ['condicion_iva', labelCondicionIva(ficha.condicion_iva)],
-    ['estado', ESTADO_CC_LABELS[normalizeEstadoCc(ficha)],
+    ['estado', ESTADO_CC_LABELS[normalizeEstadoCc(ficha)]],
     ['email', ficha.email ?? ''],
     ['whatsapp', ficha.whatsapp ?? ''],
     ['domicilio', ficha.domicilio ?? ''],
