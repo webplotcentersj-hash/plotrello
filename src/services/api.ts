@@ -4116,10 +4116,41 @@ class ApiService {
     return (data as ClienteRecord[]) ?? []
   }
 
-  async buscarClientes(query: string): Promise<ApiResponse<ClienteRecord[]>> {
+  /** Totales reales en BD (sin límite de 1000 filas de PostgREST). */
+  async contarClientesResumen(): Promise<
+    ApiResponse<{ total: number; conPortal: number; sinPortal: number }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const [totalRes, portalRes] = await Promise.all([
+        supabase.from('clientes').select('*', { count: 'exact', head: true }),
+        supabase
+          .from('clientes')
+          .select('*', { count: 'exact', head: true })
+          .eq('es_cliente_web', true)
+      ])
+      if (totalRes.error) return { success: false, error: totalRes.error.message }
+      if (portalRes.error) return { success: false, error: portalRes.error.message }
+      const total = totalRes.count ?? 0
+      const conPortal = portalRes.count ?? 0
+      return {
+        success: true,
+        data: { total, conPortal, sinPortal: Math.max(0, total - conPortal) }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al contar clientes' }
+    }
+  }
+
+  async buscarClientes(
+    query: string,
+    options?: { limit?: number }
+  ): Promise<ApiResponse<ClienteRecord[]>> {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
     }
+
+    const maxResultados = Math.min(Math.max(options?.limit ?? 50, 1), 150)
 
     try {
       const { tokenizarBusquedaCliente, clienteCoincideBusqueda } = await import(
@@ -4131,14 +4162,15 @@ class ApiService {
       }
 
       const tokens = tokenizarBusquedaCliente(queryTrimmed)
+      const limiteToken = Math.min(maxResultados + 40, 150)
       let candidatos: ClienteRecord[]
 
       if (tokens.length <= 1) {
-        candidatos = await this.buscarClientesPorToken(queryTrimmed, 50)
+        candidatos = await this.buscarClientesPorToken(queryTrimmed, limiteToken)
       } else {
         let map: Map<number, ClienteRecord> | null = null
         for (const token of tokens) {
-          const list = await this.buscarClientesPorToken(token, 80)
+          const list = await this.buscarClientesPorToken(token, limiteToken)
           const tokenMap = new Map(list.map((c) => [c.id, c]))
           if (map === null) {
             map = tokenMap
@@ -4157,7 +4189,7 @@ class ApiService {
         .filter((c) => clienteCoincideBusqueda(c, queryTrimmed))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
 
-      return { success: true, data: filtrados.slice(0, 50) }
+      return { success: true, data: filtrados.slice(0, maxResultados) }
     } catch (error: any) {
       console.error('Error en buscarClientes:', error)
       return { success: false, error: error.message || 'Error al buscar clientes' }

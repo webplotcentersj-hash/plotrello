@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -7,12 +7,18 @@ import './ClientesWebGestionPage.css'
 
 type FiltroAcceso = 'todos' | 'con_acceso' | 'sin_acceso'
 
+const MIN_BUSQUEDA = 1
+const LIMITE_BUSQUEDA = 100
+
 const ClientesWebGestionPage = () => {
   const navigate = useNavigate()
   const { canAccessMostradorViews, loading: authLoading } = useAuth()
-  const [loading, setLoading] = useState(true)
+  const [loadingStats, setLoadingStats] = useState(true)
+  const [buscando, setBuscando] = useState(false)
+  const [stats, setStats] = useState({ total: 0, conPortal: 0, sinPortal: 0 })
   const [clientes, setClientes] = useState<ClienteRecord[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedTerm, setDebouncedTerm] = useState('')
   const [filtroAcceso, setFiltroAcceso] = useState<FiltroAcceso>('todos')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [crearConAcceso, setCrearConAcceso] = useState(true)
@@ -33,30 +39,87 @@ const ClientesWebGestionPage = () => {
     direccion: ''
   })
 
+  const refreshStats = useCallback(async () => {
+    const res = await apiService.contarClientesResumen()
+    if (res.success && res.data) setStats(res.data)
+  }, [])
+
+  const ejecutarBusqueda = useCallback(async (term: string) => {
+    setBuscando(true)
+    try {
+      const response = await apiService.buscarClientes(term, { limit: LIMITE_BUSQUEDA })
+      if (response.success && response.data) {
+        setClientes(response.data)
+      } else {
+        setClientes([])
+        if (response.error) console.error(response.error)
+      }
+    } catch (error) {
+      console.error(error)
+      setClientes([])
+    } finally {
+      setBuscando(false)
+    }
+  }, [])
+
+  const cargarListaPortal = useCallback(async () => {
+    setBuscando(true)
+    try {
+      const response = await apiService.getClientes(false)
+      if (response.success && response.data) setClientes(response.data)
+      else setClientes([])
+    } catch {
+      setClientes([])
+    } finally {
+      setBuscando(false)
+    }
+  }, [])
+
+  const refreshLista = useCallback(async () => {
+    if (debouncedTerm.length >= MIN_BUSQUEDA) {
+      await ejecutarBusqueda(debouncedTerm)
+    } else if (filtroAcceso === 'con_acceso') {
+      await cargarListaPortal()
+    } else {
+      setClientes([])
+    }
+  }, [debouncedTerm, filtroAcceso, ejecutarBusqueda, cargarListaPortal])
+
   useEffect(() => {
     if (authLoading) return
     if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
-    loadClientes()
-  }, [navigate, canAccessMostradorViews, authLoading])
-
-  const loadClientes = async () => {
-    setLoading(true)
-    try {
-      const response = await apiService.getClientes(true)
-      if (response.success && response.data) {
-        setClientes(response.data)
-      } else {
-        alert(response.error || 'Error al cargar clientes')
-      }
-    } catch (error) {
-      alert('Error de conexión al cargar clientes')
-    } finally {
-      setLoading(false)
+    const run = async () => {
+      setLoadingStats(true)
+      await refreshStats()
+      setLoadingStats(false)
     }
-  }
+    void run()
+  }, [navigate, canAccessMostradorViews, authLoading, refreshStats])
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTerm(searchQuery.trim()), 280)
+    return () => clearTimeout(t)
+  }, [searchQuery])
+
+  useEffect(() => {
+    if (loadingStats) return
+
+    if (debouncedTerm.length >= MIN_BUSQUEDA) {
+      void ejecutarBusqueda(debouncedTerm)
+      return
+    }
+
+    if (filtroAcceso === 'con_acceso') {
+      void cargarListaPortal()
+      return
+    }
+
+    setClientes([])
+    setBuscando(false)
+  }, [debouncedTerm, filtroAcceso, loadingStats, ejecutarBusqueda, cargarListaPortal])
 
   const handleCreate = async (e?: React.FormEvent) => {
     if (e) {
@@ -130,7 +193,8 @@ const ClientesWebGestionPage = () => {
       if (response.success) {
         setShowCreateModal(false)
         resetForm()
-        await loadClientes()
+        await refreshStats()
+        await refreshLista()
       } else {
         alert(response.error || `Error al ${editingCliente ? 'actualizar' : 'crear'} cliente`)
       }
@@ -159,7 +223,8 @@ const ClientesWebGestionPage = () => {
       if (response.success) {
         setDarAccesoCliente(null)
         setDarAccesoForm({ usuario: '', password: '' })
-        await loadClientes()
+        await refreshStats()
+        await refreshLista()
       } else {
         alert(response.error || 'Error al habilitar acceso')
       }
@@ -172,7 +237,10 @@ const ClientesWebGestionPage = () => {
     if (!confirm(`¿Quitar acceso al portal a ${cliente.nombre}? El cliente no podrá ingresar pero se conservan sus datos.`)) return
     try {
       const response = await apiService.quitarAccesoCliente(cliente.id)
-      if (response.success) await loadClientes()
+      if (response.success) {
+        await refreshStats()
+        await refreshLista()
+      }
       else alert(response.error || 'Error al quitar acceso')
     } catch (error) {
       alert(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`)
@@ -183,7 +251,10 @@ const ClientesWebGestionPage = () => {
     if (!cliente.es_cliente_web) return
     try {
       const response = await apiService.actualizarClienteWeb(cliente.id, { activo: !cliente.activo })
-      if (response.success) await loadClientes()
+      if (response.success) {
+        await refreshStats()
+        await refreshLista()
+      }
       else alert(response.error || 'Error al actualizar estado')
     } catch (error) {
       alert('Error al actualizar estado')
@@ -215,45 +286,29 @@ const ClientesWebGestionPage = () => {
     }
   }
 
-  const filteredClientes = clientes
-    .filter((c) => {
-      if (filtroAcceso === 'con_acceso') return !!c.es_cliente_web
-      if (filtroAcceso === 'sin_acceso') return !c.es_cliente_web
-      return true
-    })
-    .filter((c) => {
-      const q = searchQuery.toLowerCase()
-      if (!q) return true
-      return (
-        (c.usuario || '').toLowerCase().includes(q) ||
-        (c.nombre || '').toLowerCase().includes(q) ||
-        (c.apellido || '').toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.empresa || '').toLowerCase().includes(q) ||
-        (c.telefono || '').toLowerCase().includes(q)
-      )
-    })
-    .sort((a, b) => {
-      if (!sortField) return 0
-      const aVal = a[sortField as keyof ClienteRecord]
-      const bVal = b[sortField as keyof ClienteRecord]
-      if (aVal == null && bVal == null) return 0
-      if (aVal == null) return sortDirection === 'asc' ? 1 : -1
-      if (bVal == null) return sortDirection === 'asc' ? -1 : 1
-      const cmp = String(aVal).localeCompare(String(bVal), 'es', { sensitivity: 'base' })
-      return sortDirection === 'asc' ? cmp : -cmp
-    })
+  const buscandoActivo = debouncedTerm.length >= MIN_BUSQUEDA
+  const puedeListarSinBuscar = filtroAcceso === 'con_acceso'
 
-  const stats = useMemo(
-    () => ({
-      total: clientes.length,
-      conAcceso: clientes.filter((c) => c.es_cliente_web).length,
-      sinAcceso: clientes.filter((c) => !c.es_cliente_web).length
-    }),
-    [clientes]
-  )
+  const filteredClientes = useMemo(() => {
+    return clientes
+      .filter((c) => {
+        if (filtroAcceso === 'con_acceso') return !!c.es_cliente_web
+        if (filtroAcceso === 'sin_acceso') return !c.es_cliente_web
+        return true
+      })
+      .sort((a, b) => {
+        if (!sortField) return 0
+        const aVal = a[sortField as keyof ClienteRecord]
+        const bVal = b[sortField as keyof ClienteRecord]
+        if (aVal == null && bVal == null) return 0
+        if (aVal == null) return sortDirection === 'asc' ? 1 : -1
+        if (bVal == null) return sortDirection === 'asc' ? -1 : 1
+        const cmp = String(aVal).localeCompare(String(bVal), 'es', { sensitivity: 'base' })
+        return sortDirection === 'asc' ? cmp : -cmp
+      })
+  }, [clientes, filtroAcceso, sortField, sortDirection])
 
-  if (loading) {
+  if (loadingStats) {
     return (
       <div className="cwg-page cwg-loading">
         <div className="cwg-spinner" />
@@ -273,7 +328,7 @@ const ClientesWebGestionPage = () => {
             <div>
               <h1>Gestión de clientes</h1>
               <p className="cwg-header__sub">
-                {stats.total} en total · {stats.conAcceso} con portal · {stats.sinAcceso} solo ficha
+                {stats.total} en total · {stats.conPortal} con portal · {stats.sinPortal} solo ficha
               </p>
             </div>
           </div>
@@ -309,44 +364,59 @@ const ClientesWebGestionPage = () => {
           </div>
         </header>
 
+        <section className="cwg-search-hero" aria-label="Buscar clientes">
+          <label className="cwg-search-hero__wrap">
+            <span className="cwg-search-hero__label">Buscar en toda la base</span>
+            <input
+              type="search"
+              placeholder="Nombre, DNI, usuario, email, empresa… (varias palabras con espacio)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="cwg-search-hero__input"
+              autoComplete="off"
+              autoFocus
+            />
+            {buscando && <span className="cwg-search-hero__loading">Buscando…</span>}
+          </label>
+          <p className="cwg-search-hero__hint">
+            La búsqueda consulta los {stats.total} clientes en la base (no solo los primeros 1000).
+            {buscandoActivo && ` Hasta ${LIMITE_BUSQUEDA} resultados por búsqueda.`}
+          </p>
+        </section>
+
         <div className="cwg-toolbar">
           <div className="cwg-filters">
-            <span className="cwg-filters__label">Ver</span>
+            <span className="cwg-filters__label">Filtrar resultados</span>
             <button
               type="button"
               className={`cwg-pill${filtroAcceso === 'todos' ? ' cwg-pill--active' : ''}`}
               onClick={() => setFiltroAcceso('todos')}
             >
-              Todos ({stats.total})
+              Todos
             </button>
             <button
               type="button"
               className={`cwg-pill${filtroAcceso === 'con_acceso' ? ' cwg-pill--active' : ''}`}
               onClick={() => setFiltroAcceso('con_acceso')}
             >
-              Portal ({stats.conAcceso})
+              Portal ({stats.conPortal})
             </button>
             <button
               type="button"
               className={`cwg-pill${filtroAcceso === 'sin_acceso' ? ' cwg-pill--active' : ''}`}
               onClick={() => setFiltroAcceso('sin_acceso')}
             >
-              Sin portal ({stats.sinAcceso})
+              Sin portal ({stats.sinPortal})
             </button>
           </div>
-          <label className="cwg-search">
-            <span className="sr-only">Buscar clientes</span>
-            <input
-              type="search"
-              placeholder="Nombre, usuario, email, empresa…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoComplete="off"
-            />
-          </label>
-          <span className="cwg-meta">
-            {filteredClientes.length} mostrado{filteredClientes.length === 1 ? '' : 's'}
-          </span>
+          {(buscandoActivo || puedeListarSinBuscar) && (
+            <span className="cwg-meta">
+              {filteredClientes.length} en pantalla
+              {buscandoActivo && clientes.length >= LIMITE_BUSQUEDA
+                ? ` (máx. ${LIMITE_BUSQUEDA}; refiná la búsqueda)`
+                : ''}
+            </span>
+          )}
         </div>
 
         <div className="cwg-table-wrap">
@@ -383,9 +453,13 @@ const ClientesWebGestionPage = () => {
               {filteredClientes.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="cwg-empty">
-                    {searchQuery || filtroAcceso !== 'todos'
-                      ? 'No hay clientes con ese criterio'
-                      : 'No hay clientes registrados'}
+                    {buscando
+                      ? 'Buscando…'
+                      : buscandoActivo
+                        ? 'No hay clientes con ese criterio'
+                        : puedeListarSinBuscar
+                          ? 'No hay clientes con acceso al portal'
+                          : 'Escribí en el buscador para ver clientes (hay más de 1000 fichas)'}
                   </td>
                 </tr>
               ) : (

@@ -19,6 +19,27 @@ type AdjuntoItem = {
   file?: File
   /** Si viene de enlaces_adjuntos (edición) */
   dbId?: number
+  /** PDF principal guardado en ordenes_trabajo.ficha_tecnica_pdf_url */
+  isPrincipalPdf?: boolean
+}
+
+const FICHA_PRINCIPAL_PDF_ID = 'ficha-principal-pdf'
+
+function isPdfAdjunto(a: { name: string; type?: string; remoteUrl?: string }): boolean {
+  const t = (a.type || '').toLowerCase()
+  const n = a.name.toLowerCase()
+  const u = (a.remoteUrl || '').toLowerCase()
+  return t.includes('pdf') || n.endsWith('.pdf') || u.includes('.pdf')
+}
+
+function isImageAdjunto(a: { name: string; type?: string; remoteUrl?: string }): boolean {
+  const t = (a.type || '').toLowerCase()
+  const n = a.name.toLowerCase()
+  return (
+    t.startsWith('image/') ||
+    /\.(jpe?g|png|gif|webp|heic|bmp)(\?|$)/i.test(n) ||
+    /\.(jpe?g|png|gif|webp|heic|bmp)(\?|$)/i.test(a.remoteUrl || '')
+  )
 }
 
 type FichaNoOPModalProps = {
@@ -52,6 +73,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   const [hydratedFichaPdfUrl, setHydratedFichaPdfUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const clienteInputRef = useRef<HTMLInputElement>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     adjuntosRef.current = adjuntos
@@ -169,20 +192,39 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     }
   }, [editTask, canShowMotivos])
 
-  const pdfPreviewUrl = useMemo(() => {
-    if (!isEditMode) return null
-    const fromHydrated = hydratedFichaPdfUrl?.trim()
-    if (fromHydrated) return fromHydrated
-    const fromTask = editTask?.fichaTecnicaPdfUrl?.trim()
-    if (fromTask) return fromTask
-    const pdfAdj = adjuntos.find(
-      (a) =>
-        a.remoteUrl &&
-        ((a.type || '').toLowerCase().includes('pdf') ||
-          a.name.toLowerCase().endsWith('.pdf'))
-    )
-    return pdfAdj?.remoteUrl?.trim() || null
-  }, [isEditMode, hydratedFichaPdfUrl, editTask?.fichaTecnicaPdfUrl, adjuntos])
+  /** Todos los archivos visibles: adjuntos + PDF principal de la orden (sin duplicar URL). */
+  const archivosVisibles = useMemo(() => {
+    const urlsVistas = new Set<string>()
+    const lista: AdjuntoItem[] = []
+
+    const agregar = (item: AdjuntoItem) => {
+      const url = item.remoteUrl?.trim()
+      if (url) {
+        if (urlsVistas.has(url)) return
+        urlsVistas.add(url)
+      }
+      lista.push(item)
+    }
+
+    const principal =
+      hydratedFichaPdfUrl?.trim() || editTask?.fichaTecnicaPdfUrl?.trim() || ''
+    if (principal) {
+      agregar({
+        id: FICHA_PRINCIPAL_PDF_ID,
+        name: `Ficha técnica · ${editTask?.opNumber || 'PDF'}`,
+        remoteUrl: principal,
+        uploading: false,
+        type: 'application/pdf',
+        isPrincipalPdf: true
+      })
+    }
+
+    for (const a of adjuntos) {
+      agregar(a)
+    }
+
+    return lista
+  }, [adjuntos, hydratedFichaPdfUrl, editTask?.fichaTecnicaPdfUrl, editTask?.opNumber])
 
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
@@ -280,6 +322,20 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   }
 
   const handleRemoveAdjunto = async (id: string) => {
+    if (id === FICHA_PRINCIPAL_PDF_ID) {
+      if (!editTask) return
+      const ordenId = parseTaskIdToOrdenId(editTask.id)
+      if (!ordenId) return
+      if (!window.confirm('¿Quitar el PDF de ficha técnica principal de esta ficha?')) return
+      const res = await apiService.updateOrden(ordenId, { ficha_tecnica_pdf_url: null })
+      if (!res.success) {
+        alert(res.error || 'No se pudo quitar el PDF principal')
+        return
+      }
+      setHydratedFichaPdfUrl(null)
+      return
+    }
+
     const row = adjuntosRef.current.find((a) => a.id === id)
     if (row?.dbId) {
       const res = await apiService.eliminarArchivoOrden(row.dbId)
@@ -289,6 +345,53 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       }
     }
     setAdjuntos((prev) => prev.filter((a) => a.id !== id))
+  }
+
+  const handleEliminarFicha = async () => {
+    if (!editTask) return
+    const ordenId = parseTaskIdToOrdenId(editTask.id)
+    if (!ordenId) {
+      alert('No se pudo identificar la ficha')
+      return
+    }
+
+    const motivo = window.prompt(
+      `Motivo para eliminar la ficha ${editTask.opNumber || ordenId}:\n\n(Quedará oculta del tablero; administración puede auditar el motivo.)`
+    )
+    if (motivo === null) return
+    if (!motivo.trim()) {
+      alert('Tenés que indicar un motivo para eliminar la ficha.')
+      return
+    }
+    if (
+      !window.confirm(
+        `¿Eliminar la ficha ${editTask.opNumber || ordenId}?\n\nEsta acción no se puede deshacer desde el tablero.`
+      )
+    ) {
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const response = await apiService.deleteOrden(ordenId, {
+        motivo: motivo.trim(),
+        usuarioId: usuario?.id ?? null,
+        usuarioNombre: usuario?.nombre || null,
+        estadoAnterior: editTask.status ?? null
+      })
+      if (!response.success) {
+        alert(response.error || 'No se pudo eliminar la ficha')
+        return
+      }
+      broadcastOrdenesChanged()
+      onSuccess()
+      onClose()
+    } catch (err) {
+      console.error(err)
+      alert('Error al eliminar la ficha')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const uploadAdjuntosPendientes = async (): Promise<
@@ -312,6 +415,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       return
     }
 
+    setSaving(true)
+    try {
     // Subir adjuntos antes de crear (para no perder archivos)
     let adjuntosSubidos: Array<{ id: string; name: string; remoteUrl: string; type?: string }> = []
     try {
@@ -379,7 +484,6 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         null
     }
 
-    try {
       const response = await apiService.createOrden(payload as any)
       if (!response.success) {
         const err = response.error || 'Error al crear la ficha'
@@ -399,7 +503,6 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       const created = response.data
       const ordenId = created?.id
       if (ordenId && adjuntosSubidos.length > 0) {
-        // Guardar adjuntos en la ficha (enlaces_adjuntos)
         await Promise.all(
           adjuntosSubidos.map((a) => apiService.guardarArchivoOrden(ordenId, a.name, a.remoteUrl))
         )
@@ -413,6 +516,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     } catch (error) {
       console.error('Error creando ficha:', error)
       alert('Error al crear la ficha')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -428,50 +533,55 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       return
     }
 
+    setSaving(true)
     try {
-      await uploadAdjuntosPendientes()
-    } catch (error) {
-      console.error('Error subiendo adjuntos:', error)
-      alert('Error al subir los archivos. Intenta nuevamente.')
-      return
-    }
-
-    const adjSubidos = adjuntosRef.current.filter((a) => a.remoteUrl)
-    const firstPdf = adjSubidos.find((a) => (a.type || '').toLowerCase() === 'application/pdf')
-
-    const descripcionFinal = buildDescripcionConMotivos(observaciones, canShowMotivos ? motivos : '')
-    const merged: Task = {
-      ...editTask,
-      title: nombreCliente.trim(),
-      summary: descripcionFinal || 'Sin descripción',
-      clientPhone: datosContacto.trim() || undefined,
-      clientAddress: ubicacionTexto.trim() || undefined,
-      driveUrl: driveLink.trim() || undefined,
-      locationUrl: ubicacionLink.trim() || undefined,
-      priority: prioridad === 'Alta' ? 'alta' : 'media',
-      planillaPreliminar,
-      fichaTecnicaPdfUrl: firstPdf?.remoteUrl ?? editTask.fichaTecnicaPdfUrl ?? undefined,
-      presupuestoArmado,
-      presupuestoEnviadoCliente: presupuestoEnviado,
-      presupuestoEnEspera
-    }
-
-    const payload = taskToOrdenPayload(merged)
-    const response = await apiService.updateOrden(ordenId, payload)
-    if (!response.success) {
-      alert(response.error || 'Error al guardar la ficha')
-      return
-    }
-
-    for (const a of adjuntosRef.current) {
-      if (a.file && a.remoteUrl && !a.dbId) {
-        await apiService.guardarArchivoOrden(ordenId, a.name, a.remoteUrl)
+      try {
+        await uploadAdjuntosPendientes()
+      } catch (error) {
+        console.error('Error subiendo adjuntos:', error)
+        alert('Error al subir los archivos. Intenta nuevamente.')
+        return
       }
-    }
 
-    broadcastOrdenesChanged()
-    onSuccess()
-    onClose()
+      const adjSubidos = adjuntosRef.current.filter((a) => a.remoteUrl)
+      const firstPdf = adjSubidos.find((a) => (a.type || '').toLowerCase() === 'application/pdf')
+
+      const descripcionFinal = buildDescripcionConMotivos(observaciones, canShowMotivos ? motivos : '')
+      const merged: Task = {
+        ...editTask,
+        title: nombreCliente.trim(),
+        summary: descripcionFinal || 'Sin descripción',
+        clientPhone: datosContacto.trim() || undefined,
+        clientAddress: ubicacionTexto.trim() || undefined,
+        driveUrl: driveLink.trim() || undefined,
+        locationUrl: ubicacionLink.trim() || undefined,
+        priority: prioridad === 'Alta' ? 'alta' : 'media',
+        planillaPreliminar,
+        fichaTecnicaPdfUrl: firstPdf?.remoteUrl ?? editTask.fichaTecnicaPdfUrl ?? undefined,
+        presupuestoArmado,
+        presupuestoEnviadoCliente: presupuestoEnviado,
+        presupuestoEnEspera
+      }
+
+      const payload = taskToOrdenPayload(merged)
+      const response = await apiService.updateOrden(ordenId, payload)
+      if (!response.success) {
+        alert(response.error || 'Error al guardar la ficha')
+        return
+      }
+
+      for (const a of adjuntosRef.current) {
+        if (a.file && a.remoteUrl && !a.dbId) {
+          await apiService.guardarArchivoOrden(ordenId, a.name, a.remoteUrl)
+        }
+      }
+
+      broadcastOrdenesChanged()
+      onSuccess()
+      onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handlePrimaryAction = () => {
@@ -511,41 +621,6 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         </div>
 
         <div className="ficha-no-op-modal-body">
-          {isEditMode && pdfPreviewUrl && (
-            <div className="form-group">
-              <label>Ficha técnica (PDF)</label>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => window.open(pdfPreviewUrl, '_blank', 'noopener,noreferrer')}
-                >
-                  Ver
-                </button>
-                <a
-                  className="btn-secondary"
-                  href={pdfPreviewUrl}
-                  download={`Ficha-Tecnica-${editTask?.opNumber || 'sin-op'}.pdf`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Descargar
-                </a>
-              </div>
-              <iframe
-                src={pdfPreviewUrl}
-                title={`Ficha técnica ${editTask?.opNumber || ''}`}
-                style={{
-                  width: '100%',
-                  height: 420,
-                  border: '1px solid rgba(0,0,0,0.15)',
-                  borderRadius: 10,
-                  background: '#fff'
-                }}
-              />
-            </div>
-          )}
-
           {isEditMode && (
             <div className="form-group">
               <label>Checklist (Presupuestos)</label>
@@ -758,15 +833,18 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
             </select>
           </div>
 
-          <div className="form-group">
-          <label>Archivos (se pueden subir varios)</label>
+          <div className="form-group ficha-archivos-block">
+            <label>Archivos y PDFs de la ficha</label>
+            <p className="ficha-archivos-hint">
+              Podés subir varios PDF e imágenes. Todos quedan listados abajo con vista previa.
+            </p>
             <div className="file-upload-section">
               <input
                 ref={fileInputRef}
                 type="file"
-              accept="application/pdf,image/*"
-              multiple
-              onChange={handleFilesSelect}
+                accept="application/pdf,image/*,.pdf"
+                multiple
+                onChange={handleFilesSelect}
                 style={{ display: 'none' }}
               />
               <button
@@ -774,40 +852,93 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                 className="select-file-button"
                 onClick={() => fileInputRef.current?.click()}
               >
-              Seleccionar archivos
+                + Subir archivos
               </button>
+            </div>
 
-            {adjuntos.length === 0 ? (
-              <span className="file-name">Ningún archivo seleccionado</span>
+            {archivosVisibles.length === 0 ? (
+              <p className="file-name">Sin archivos todavía</p>
             ) : (
-              <div className="ficha-adjunto-list">
-                {adjuntos.map((a) => (
-                  <div key={a.id} className="ficha-adjunto-row">
-                    <div style={{ minWidth: 0 }}>
-                      <div className="ficha-adjunto-name">{a.name}</div>
-                      <div className="ficha-adjunto-status">
-                        {a.uploading
-                          ? 'Subiendo…'
-                          : a.remoteUrl
-                            ? 'Listo'
-                            : a.error
-                              ? a.error
-                              : 'Pendiente'}
+              <div className="ficha-archivos-grid">
+                {archivosVisibles.map((a) => {
+                  const esPdf = isPdfAdjunto(a)
+                  const esImg = !esPdf && isImageAdjunto(a)
+                  const url = a.remoteUrl?.trim()
+                  return (
+                    <div key={a.id} className="ficha-archivo-card">
+                      <div className="ficha-archivo-card__head">
+                        <div className="ficha-archivo-card__meta">
+                          <span className={`ficha-archivo-tipo${esPdf ? ' ficha-archivo-tipo--pdf' : ''}`}>
+                            {esPdf ? 'PDF' : esImg ? 'Imagen' : 'Archivo'}
+                          </span>
+                          <div className="ficha-adjunto-name" title={a.name}>
+                            {a.name}
+                          </div>
+                          <div className="ficha-adjunto-status">
+                            {a.uploading
+                              ? 'Subiendo…'
+                              : a.remoteUrl
+                                ? a.isPrincipalPdf
+                                  ? 'PDF principal'
+                                  : 'Guardado'
+                                : a.error
+                                  ? a.error
+                                  : 'Pendiente de subir'}
+                          </div>
+                        </div>
+                        <div className="ficha-archivo-card__actions">
+                          {url && (
+                            <>
+                              <button
+                                type="button"
+                                className="ficha-archivo-btn"
+                                onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                              >
+                                Ver
+                              </button>
+                              <a
+                                className="ficha-archivo-btn ficha-archivo-btn--link"
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                download={a.name}
+                              >
+                                Descargar
+                              </a>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="ficha-adjunto-eliminar"
+                            onClick={() => void handleRemoveAdjunto(a.id)}
+                            disabled={a.uploading || deleting}
+                          >
+                            Quitar
+                          </button>
+                        </div>
                       </div>
+                      {url && esPdf && (
+                        <iframe
+                          className="ficha-archivo-preview ficha-archivo-preview--pdf"
+                          src={url}
+                          title={a.name}
+                        />
+                      )}
+                      {url && esImg && (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ficha-archivo-preview ficha-archivo-preview--img-wrap"
+                        >
+                          <img className="ficha-archivo-preview--img" src={url} alt={a.name} loading="lazy" />
+                        </a>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      className="ficha-adjunto-eliminar"
-                      onClick={() => void handleRemoveAdjunto(a.id)}
-                      disabled={a.uploading}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
-            </div>
           </div>
 
           <div className="form-group checkbox-group checkbox-relevos">
@@ -830,12 +961,29 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         </div>
 
         <div className="ficha-no-op-modal-footer">
-          <button className="cancel-button" onClick={onClose}>
-            Cancelar
-          </button>
-          <button className="create-button" onClick={handlePrimaryAction}>
-            {isEditMode ? 'Guardar cambios' : 'Crear'}
-          </button>
+          {isEditMode && (
+            <button
+              type="button"
+              className="ficha-eliminar-ficha-btn"
+              onClick={() => void handleEliminarFicha()}
+              disabled={saving || deleting}
+            >
+              {deleting ? 'Eliminando…' : 'Eliminar ficha'}
+            </button>
+          )}
+          <div className="ficha-no-op-modal-footer__right">
+            <button type="button" className="cancel-button" onClick={onClose} disabled={deleting}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="create-button"
+              onClick={handlePrimaryAction}
+              disabled={saving || deleting}
+            >
+              {saving ? 'Guardando…' : isEditMode ? 'Guardar cambios' : 'Crear'}
+            </button>
+          </div>
         </div>
         </div>
       </div>

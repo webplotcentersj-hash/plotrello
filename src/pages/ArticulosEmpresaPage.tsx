@@ -1,9 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { ArticuloEmpresaRecord, ArticuloEmpresaImagenRecord } from '../types/api'
 import './ArticulosEmpresaPage.css'
+
+type FiltroCatalogo = 'todos' | 'activos' | 'inactivos' | 'visibles' | 'ocultos'
+
+function articuloCoincideBusqueda(articulo: ArticuloEmpresaRecord, term: string): boolean {
+  const tokens = term.toLowerCase().split(/\s+/).filter(Boolean)
+  if (!tokens.length) return true
+  const haystack = [
+    articulo.codigo,
+    articulo.nombre,
+    articulo.descripcion,
+    articulo.categoria,
+    articulo.subcategoria
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return tokens.every((t) => haystack.includes(t))
+}
 
 const ArticulosEmpresaPage = () => {
   const navigate = useNavigate()
@@ -11,7 +29,9 @@ const ArticulosEmpresaPage = () => {
   const [loading, setLoading] = useState(true)
   const [articulos, setArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedTerm, setDebouncedTerm] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('')
+  const [filtroCatalogo, setFiltroCatalogo] = useState<FiltroCatalogo>('activos')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingArticulo, setEditingArticulo] = useState<ArticuloEmpresaRecord | null>(null)
   const [formData, setFormData] = useState({
@@ -43,15 +63,37 @@ const ArticulosEmpresaPage = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const loadArticulos = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await apiService.getArticulosEmpresa(undefined, true)
+      if (response.success && response.data) {
+        setArticulos(response.data)
+        setError('')
+      } else {
+        setError(response.error || 'Error al cargar artículos')
+      }
+    } catch {
+      setError('Error de conexión al cargar artículos')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (authLoading) return
     if (!canAccessMostradorViews) {
       navigate('/')
       return
     }
-    loadArticulos()
-    loadCategorias()
-  }, [navigate, canAccessMostradorViews, authLoading])
+    void loadArticulos()
+    void loadCategorias()
+  }, [navigate, canAccessMostradorViews, authLoading, loadArticulos])
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTerm(searchQuery.trim()), 220)
+    return () => clearTimeout(t)
+  }, [searchQuery])
 
   useEffect(() => {
     if (formData.categoria) {
@@ -60,34 +102,6 @@ const ArticulosEmpresaPage = () => {
       setSubcategoriasDisponibles([])
     }
   }, [formData.categoria])
-
-  const loadArticulos = async () => {
-    setLoading(true)
-    try {
-      const response = await apiService.getArticulosEmpresa(undefined, true) // Incluir inactivos
-      if (response.success && response.data) {
-        // Cargar imágenes de galería para cada artículo
-        const articulosConImagenes = await Promise.all(
-          response.data.map(async (articulo) => {
-            const imagenesResponse = await apiService.obtenerImagenesArticuloEmpresa(articulo.id)
-            return {
-              ...articulo,
-              imagenesGaleria: imagenesResponse.success && imagenesResponse.data 
-                ? imagenesResponse.data 
-                : []
-            }
-          })
-        )
-        setArticulos(articulosConImagenes)
-      } else {
-        setError(response.error || 'Error al cargar artículos')
-      }
-    } catch (err) {
-      setError('Error de conexión al cargar artículos')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadCategorias = async () => {
     try {
@@ -111,8 +125,23 @@ const ArticulosEmpresaPage = () => {
     }
   }
 
-  const categorias = Array.from(new Set(articulos.map(a => a.categoria).filter(Boolean))) as string[]
-  
+  const stats = useMemo(
+    () => ({
+      total: articulos.length,
+      activos: articulos.filter((a) => a.activo).length,
+      inactivos: articulos.filter((a) => !a.activo).length,
+      visibles: articulos.filter((a) => a.visible_clientes && a.activo).length
+    }),
+    [articulos]
+  )
+
+  const categorias = useMemo(() => {
+    const deArticulos = articulos.map((a) => a.categoria).filter(Boolean) as string[]
+    return [...new Set([...categoriasDisponibles, ...deArticulos])].sort((a, b) =>
+      a.localeCompare(b, 'es', { sensitivity: 'base' })
+    )
+  }, [articulos, categoriasDisponibles])
+
   // Actualizar categorías disponibles cuando cambian los artículos
   useEffect(() => {
     const categoriasArticulos = Array.from(new Set(articulos.map(a => a.categoria).filter(Boolean))) as string[]
@@ -131,40 +160,37 @@ const ArticulosEmpresaPage = () => {
     }
   }
 
-  const articulosFiltradosYOrdenados = articulos
-    .filter(articulo => {
-      const matchBusqueda = !searchQuery || 
-        articulo.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        articulo.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        articulo.descripcion?.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchCategoria = !categoriaFiltro || articulo.categoria === categoriaFiltro
-      return matchBusqueda && matchCategoria
-    })
-    .sort((a, b) => {
-      if (!sortField) return 0
-      
-      const aValue = a[sortField]
-      const bValue = b[sortField]
-      
-      // Manejar valores null/undefined
-      if (aValue == null && bValue == null) return 0
-      if (aValue == null) return sortDirection === 'asc' ? 1 : -1
-      if (bValue == null) return sortDirection === 'asc' ? -1 : 1
-      
-      // Comparar valores
-      let comparison = 0
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' })
-      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-        comparison = aValue - bValue
-      } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
-        comparison = aValue === bValue ? 0 : aValue ? 1 : -1
-      } else {
-        comparison = String(aValue).localeCompare(String(bValue), 'es', { sensitivity: 'base' })
-      }
-      
-      return sortDirection === 'asc' ? comparison : -comparison
-    })
+  const articulosFiltradosYOrdenados = useMemo(() => {
+    return articulos
+      .filter((articulo) => {
+        if (!articuloCoincideBusqueda(articulo, debouncedTerm)) return false
+        if (categoriaFiltro && articulo.categoria !== categoriaFiltro) return false
+        if (filtroCatalogo === 'activos' && !articulo.activo) return false
+        if (filtroCatalogo === 'inactivos' && articulo.activo) return false
+        if (filtroCatalogo === 'visibles' && (!articulo.visible_clientes || !articulo.activo)) return false
+        if (filtroCatalogo === 'ocultos' && (articulo.visible_clientes || !articulo.activo)) return false
+        return true
+      })
+      .sort((a, b) => {
+        if (!sortField) return 0
+        const aValue = a[sortField]
+        const bValue = b[sortField]
+        if (aValue == null && bValue == null) return 0
+        if (aValue == null) return sortDirection === 'asc' ? 1 : -1
+        if (bValue == null) return sortDirection === 'asc' ? -1 : 1
+        let comparison = 0
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue, 'es', { sensitivity: 'base' })
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          comparison = aValue - bValue
+        } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+          comparison = aValue === bValue ? 0 : aValue ? 1 : -1
+        } else {
+          comparison = String(aValue).localeCompare(String(bValue), 'es', { sensitivity: 'base' })
+        }
+        return sortDirection === 'asc' ? comparison : -comparison
+      })
+  }, [articulos, debouncedTerm, categoriaFiltro, filtroCatalogo, sortField, sortDirection])
 
   const abrirModalNuevo = async () => {
     setEditingArticulo(null)
@@ -570,229 +596,216 @@ const ArticulosEmpresaPage = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="articulos-empresa-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
+      <div className="cae-page cae-loading">
+        <div className="cae-spinner" />
+        <p>Cargando catálogo…</p>
       </div>
     )
   }
 
   return (
-    <div className="articulos-empresa-page">
-      <header className="articulos-empresa-header">
-        <div className="header-content">
-          <div>
-            <h1>Gestión de Artículos de Empresa</h1>
-            <p>Administra el catálogo de productos disponibles para clientes</p>
+    <div className="cae-page">
+      <div className="cae-shell">
+        <header className="cae-header">
+          <div className="cae-header__title">
+            <span className="cae-header__icon" aria-hidden>
+              CAT
+            </span>
+            <div>
+              <h1>Artículos de empresa</h1>
+              <p className="cae-header__sub">
+                {stats.total} en catálogo · {stats.activos} activos · {stats.visibles} visibles en portal
+                {stats.inactivos > 0 ? ` · ${stats.inactivos} inactivos` : ''}
+              </p>
+            </div>
           </div>
-          <div className="header-actions">
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/clientes-web/dashboard')}
-            >
-              ← Volver
+          <div className="cae-header__actions">
+            <button type="button" className="cae-btn cae-btn--ghost cae-btn--xs" onClick={() => navigate('/clientes-web/dashboard')}>
+              Volver
             </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/clientes-web/categorias')}
-            >
-              📁 Categorías
+            <button type="button" className="cae-btn cae-btn--ghost cae-btn--xs" onClick={() => navigate('/clientes-web/categorias')}>
+              Categorías
             </button>
-            <button 
-              className="btn-primary"
-              onClick={abrirModalNuevo}
-            >
-              + Nuevo Artículo
+            <button type="button" className="cae-btn cae-btn--primary cae-btn--xs" onClick={abrirModalNuevo}>
+              + Artículo
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="articulos-empresa-main">
-        {error && !showCreateModal && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && !showCreateModal && <div className="cae-alert">{error}</div>}
 
-        {/* Filtros */}
-        <div className="filtros-section">
-          <div className="search-bar">
+        <section className="cae-search-hero" aria-label="Buscar artículos">
+          <label className="cae-search-hero__wrap">
+            <span className="cae-search-hero__label">Buscar en el catálogo</span>
             <input
-              type="text"
-              className="search-input"
-              placeholder="🔍 Buscar por código, nombre o descripción..."
+              type="search"
+              className="cae-search-hero__input"
+              placeholder="Código, nombre, descripción, categoría… (varias palabras con espacio)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
             />
+          </label>
+          <p className="cae-search-hero__hint">
+            Filtrá entre los {stats.total} artículos cargados. Las imágenes de galería se ven al editar.
+          </p>
+        </section>
+
+        <div className="cae-toolbar">
+          <div className="cae-filters">
+            <span className="cae-filters__label">Estado</span>
+            {(
+              [
+                ['activos', `Activos (${stats.activos})`],
+                ['visibles', `En portal (${stats.visibles})`],
+                ['ocultos', 'Ocultos'],
+                ['inactivos', `Inactivos (${stats.inactivos})`],
+                ['todos', 'Todos']
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={`cae-pill${filtroCatalogo === key ? ' cae-pill--active' : ''}`}
+                onClick={() => setFiltroCatalogo(key)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <div className="filtros-y-ordenamiento">
-            {categorias.length > 0 && (
-              <div className="categorias-filtros">
-                <button
-                  className={`categoria-btn ${!categoriaFiltro ? 'active' : ''}`}
-                  onClick={() => setCategoriaFiltro('')}
-                >
-                  Todas
-                </button>
-                {categorias.map((categoria) => (
-                  <button
-                    key={categoria}
-                    className={`categoria-btn ${categoriaFiltro === categoria ? 'active' : ''}`}
-                    onClick={() => setCategoriaFiltro(categoria)}
-                  >
-                    {categoria}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="ordenamiento-controls">
-              <label>Ordenar por:</label>
+          <div className="cae-toolbar__right">
+            <label className="cae-sort">
+              <span className="cae-sort__label">Orden</span>
               <select
                 value={sortField}
                 onChange={(e) => {
                   const field = e.target.value as keyof ArticuloEmpresaRecord | ''
-                  if (field) {
-                    handleSort(field)
-                  } else {
-                    setSortField('')
-                  }
+                  if (field) handleSort(field)
+                  else setSortField('')
                 }}
-                className="sort-select"
+                className="cae-sort__select"
               >
-                <option value="">Sin ordenar</option>
+                <option value="">Por defecto</option>
                 <option value="codigo">Código</option>
                 <option value="nombre">Nombre</option>
                 <option value="categoria">Categoría</option>
                 <option value="precio_base">Precio</option>
-                <option value="activo">Estado</option>
               </select>
               {sortField && (
                 <button
-                  className="sort-direction-btn"
+                  type="button"
+                  className="cae-btn cae-btn--ghost cae-btn--xs"
                   onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-                  title={`Orden ${sortDirection === 'asc' ? 'ascendente' : 'descendente'}`}
+                  title={sortDirection === 'asc' ? 'Ascendente' : 'Descendente'}
                 >
                   {sortDirection === 'asc' ? '↑' : '↓'}
                 </button>
               )}
-            </div>
+            </label>
+            <span className="cae-meta">{articulosFiltradosYOrdenados.length} en pantalla</span>
           </div>
         </div>
 
-        {/* Lista de Artículos */}
-        <div className="articulos-grid">
-          {articulosFiltradosYOrdenados.map((articulo: ArticuloEmpresaRecord & { imagenesGaleria?: ArticuloEmpresaImagenRecord[] }) => (
-            <div key={articulo.id} className={`articulo-card ${!articulo.activo ? 'inactivo' : ''}`}>
-              <div className="articulo-imagen">
-                {((articulo as any).imagenesGaleria && (articulo as any).imagenesGaleria.length > 0) ? (
-                  <>
-                    <img 
-                      src={(articulo as any).imagenesGaleria[0].imagen_url} 
-                      alt={articulo.nombre}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        // Si falla la primera imagen de galería, intentar con imagen_url
-                        if (articulo.imagen_url && target.src !== articulo.imagen_url) {
-                          target.src = articulo.imagen_url
-                        } else {
-                          // Si también falla imagen_url, ocultar
-                          target.style.display = 'none'
-                        }
-                      }}
-                    />
-                    {(articulo as any).imagenesGaleria.length > 1 && (
-                      <div className="imagen-count-badge">
-                        +{(articulo as any).imagenesGaleria.length - 1}
-                      </div>
-                    )}
-                  </>
-                ) : articulo.imagen_url ? (
-                  <img 
-                    src={articulo.imagen_url} 
-                    alt={articulo.nombre}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                    }}
-                  />
-                ) : (
-                  <div className="no-imagen-placeholder">
-                    <span>📷</span>
-                    <span>Sin imagen</span>
-                  </div>
-                )}
-              </div>
-              <div className="articulo-content">
-                <div className="articulo-header">
-                  <div>
-                    <h3>{articulo.nombre}</h3>
-                    <p className="articulo-codigo">Código: {articulo.codigo}</p>
-                  </div>
-                  <div className="articulo-badges">
-                    {!articulo.activo && <span className="badge badge-inactivo">Inactivo</span>}
-                    {articulo.visible_clientes && <span className="badge badge-visible">Visible</span>}
-                    {articulo.requiere_archivos && <span className="badge badge-archivos">Requiere Archivos</span>}
-                  </div>
-                </div>
-                {articulo.descripcion && (
-                  <p className="articulo-descripcion">{articulo.descripcion}</p>
-                )}
-                {(articulo.categoria || articulo.subcategoria) && (
-                  <p className="articulo-categoria">
-                    {articulo.categoria}
-                    {articulo.subcategoria && ` → ${articulo.subcategoria}`}
-                  </p>
-                )}
-                <div className="articulo-info">
-                  {articulo.precio_base && (
-                    <div className="info-item">
-                      <span className="info-label">Precio:</span>
-                      <span className="info-value">${articulo.precio_base.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {articulo.tiempo_estimado_dias && (
-                    <div className="info-item">
-                      <span className="info-label">Tiempo:</span>
-                      <span className="info-value">{articulo.tiempo_estimado_dias} días</span>
-                    </div>
-                  )}
-                </div>
-                <div className="articulo-actions">
-                  <button
-                    className="btn-edit"
-                    onClick={() => abrirModalEditar(articulo)}
-                  >
-                    ✏️ Editar
-                  </button>
-                  {articulo.activo && (
-                    <button
-                      className="btn-delete"
-                      onClick={() => handleEliminar(articulo.id)}
-                    >
-                      🗑️ Desactivar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {articulosFiltradosYOrdenados.length === 0 && (
-          <div className="empty-state">
-            <p>No se encontraron artículos</p>
-            <button className="btn-primary" onClick={abrirModalNuevo}>
-              Crear Primer Artículo
+        {categorias.length > 0 && (
+          <div className="cae-cats">
+            <span className="cae-cats__label">Categoría</span>
+            <button
+              type="button"
+              className={`cae-pill cae-pill--sm${!categoriaFiltro ? ' cae-pill--active' : ''}`}
+              onClick={() => setCategoriaFiltro('')}
+            >
+              Todas
             </button>
+            {categorias.map((categoria) => (
+              <button
+                key={categoria}
+                type="button"
+                className={`cae-pill cae-pill--sm${categoriaFiltro === categoria ? ' cae-pill--active' : ''}`}
+                onClick={() => setCategoriaFiltro(categoria)}
+              >
+                {categoria}
+              </button>
+            ))}
           </div>
         )}
-      </main>
+
+        {articulosFiltradosYOrdenados.length === 0 ? (
+          <div className="cae-empty">
+            <p>No hay artículos con estos filtros.</p>
+            <button type="button" className="cae-btn cae-btn--primary cae-btn--xs" onClick={abrirModalNuevo}>
+              + Crear artículo
+            </button>
+          </div>
+        ) : (
+          <div className="cae-grid">
+            {articulosFiltradosYOrdenados.map((articulo) => (
+              <article key={articulo.id} className={`cae-card${!articulo.activo ? ' cae-card--inactive' : ''}`}>
+                <div className="cae-card__media">
+                  {articulo.imagen_url ? (
+                    <img
+                      src={articulo.imagen_url}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                  ) : (
+                    <div className="cae-card__placeholder" aria-hidden>
+                      Sin foto
+                    </div>
+                  )}
+                </div>
+                <div className="cae-card__body">
+                  <div className="cae-card__head">
+                    <div className="cae-card__titles">
+                      <h3 className="cae-card__name">{articulo.nombre}</h3>
+                      <p className="cae-card__code">{articulo.codigo}</p>
+                    </div>
+                    <div className="cae-card__badges">
+                      {!articulo.activo && <span className="cae-badge cae-badge--muted">Inactivo</span>}
+                      {articulo.visible_clientes && articulo.activo && (
+                        <span className="cae-badge cae-badge--ok">Portal</span>
+                      )}
+                      {articulo.requiere_archivos && <span className="cae-badge">Archivos</span>}
+                    </div>
+                  </div>
+                  {articulo.descripcion && <p className="cae-card__desc">{articulo.descripcion}</p>}
+                  {(articulo.categoria || articulo.subcategoria) && (
+                    <p className="cae-card__cat">
+                      {articulo.categoria}
+                      {articulo.subcategoria ? ` · ${articulo.subcategoria}` : ''}
+                    </p>
+                  )}
+                  <div className="cae-card__meta">
+                    {articulo.precio_base != null && (
+                      <span className="cae-card__price">${articulo.precio_base.toFixed(2)}</span>
+                    )}
+                    {articulo.tiempo_estimado_dias != null && (
+                      <span className="cae-card__days">{articulo.tiempo_estimado_dias} d</span>
+                    )}
+                  </div>
+                  <div className="cae-card__actions">
+                    <button type="button" className="cae-btn cae-btn--ghost cae-btn--xs" onClick={() => abrirModalEditar(articulo)}>
+                      Editar
+                    </button>
+                    {articulo.activo && (
+                      <button type="button" className="cae-btn cae-btn--danger cae-btn--xs" onClick={() => handleEliminar(articulo.id)}>
+                        Desactivar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Modal de Crear/Editar */}
       {showCreateModal && (
         <div
-          className="modal-overlay"
+          className="cae-modal-overlay modal-overlay"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) cerrarModal()
           }}
@@ -800,10 +813,12 @@ const ArticulosEmpresaPage = () => {
             if (e.target === e.currentTarget) cerrarModal()
           }}
         >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingArticulo ? 'Editar Artículo' : 'Nuevo Artículo'}</h2>
-              <button className="btn-close" onClick={cerrarModal}>✕</button>
+          <div className="cae-modal modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="cae-modal__header modal-header">
+              <h2>{editingArticulo ? 'Editar artículo' : 'Nuevo artículo'}</h2>
+              <button type="button" className="cae-modal__close btn-close" onClick={cerrarModal} aria-label="Cerrar">
+                ✕
+              </button>
             </div>
 
             <div className="modal-body">
@@ -1110,12 +1125,12 @@ const ArticulosEmpresaPage = () => {
               </div>
             </div>
 
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={cerrarModal}>
+            <div className="cae-modal__footer modal-footer">
+              <button type="button" className="cae-btn cae-btn--ghost cae-btn--xs" onClick={cerrarModal}>
                 Cancelar
               </button>
-              <button className="btn-primary" onClick={handleGuardar} disabled={saving}>
-                {saving ? 'Guardando...' : 'Guardar'}
+              <button type="button" className="cae-btn cae-btn--primary cae-btn--xs" onClick={handleGuardar} disabled={saving}>
+                {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
           </div>
