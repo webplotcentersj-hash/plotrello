@@ -265,6 +265,17 @@
   flex: 1;
 }
 
+.totem-cat-stock {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: var(--totem-accent, #34d399);
+}
+
+.totem-cat-error--hint {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
 .totem-cat-card-bottom {
   display: flex;
   align-items: center;

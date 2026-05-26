@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
+import { cantidadMaximaVendible } from '../services/commerceCatalogService'
 import type { ArticuloEmpresaRecord } from '../types/api'
 import './ClienteCatalogoPage.css'
 
@@ -11,8 +12,17 @@ export default function ClienteCatalogoPage() {
   const [articulos, setArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [cartMsg, setCartMsg] = useState('')
+  const [cartCount, setCartCount] = useState(0)
+  const [addingId, setAddingId] = useState<number | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('')
+
+  const refreshCartCount = useCallback(async () => {
+    if (!cliente) return
+    const r = await apiService.getCarritoCliente(cliente.id)
+    if (r.success && r.data) setCartCount(r.data.cantidad_items)
+  }, [cliente])
 
   useEffect(() => {
     if (authLoading) return
@@ -21,14 +31,34 @@ export default function ClienteCatalogoPage() {
       return
     }
     loadArticulos()
-  }, [cliente, authLoading, navigate])
+    void refreshCartCount()
+  }, [cliente, authLoading, navigate, refreshCartCount])
+
+  const agregarAlCarrito = async (articulo: ArticuloEmpresaRecord) => {
+    if (!cliente) return
+    setAddingId(articulo.id)
+    setCartMsg('')
+    setError('')
+    const carrito = await apiService.getCarritoCliente(cliente.id)
+    const enCarrito = carrito.data?.items.find((i) => i.id_articulo === articulo.id)
+    const nuevaCantidad = (enCarrito?.cantidad || 0) + 1
+    const r = await apiService.setCarritoItemCliente(cliente.id, articulo.id, nuevaCantidad)
+    setAddingId(null)
+    if (r.success && r.data) {
+      setCartCount(r.data.cantidad_items)
+      setCartMsg(`${articulo.nombre} agregado al carrito`)
+      setTimeout(() => setCartMsg(''), 2500)
+    } else {
+      setError(r.error || 'No se pudo agregar')
+    }
+  }
 
   const loadArticulos = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getArticulosEmpresa(true)
+      const response = await apiService.getCatalogoComercial({ canal: 'portal', limite: 500 })
       if (response.success && response.data) {
-        setArticulos(response.data)
+        setArticulos(response.data.items)
       } else {
         setError('Error al cargar catálogo')
       }
@@ -77,22 +107,23 @@ export default function ClienteCatalogoPage() {
             >
               ← Volver
             </button>
-            <button 
-              className="btn-primary"
-              onClick={() => navigate('/cliente/nuevo-pedido')}
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate('/cliente/carrito')}
             >
-              + Crear Pedido
+              🛒 Carrito{cartCount > 0 ? ` (${cartCount})` : ''}
+            </button>
+            <button type="button" className="btn-primary" onClick={() => navigate('/cliente/nuevo-pedido')}>
+              Pedido con brief
             </button>
           </div>
         </div>
       </header>
 
       <main className="cliente-catalogo-main">
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="error-message">{error}</div>}
+        {cartMsg && <div className="cart-toast">{cartMsg}</div>}
 
         {/* Filtros y Búsqueda */}
         <div className="filtros-section">
@@ -172,11 +203,23 @@ export default function ClienteCatalogoPage() {
                         </div>
                       )}
                     </div>
+                    {cantidadMaximaVendible(articulo) != null && (
+                      <p className="articulo-stock-hint">
+                        {cantidadMaximaVendible(articulo) === 0
+                          ? 'Sin stock'
+                          : `Disponible: hasta ${cantidadMaximaVendible(articulo)} u.`}
+                      </p>
+                    )}
                     <button
+                      type="button"
                       className="btn-agregar"
-                      onClick={() => navigate('/cliente/nuevo-pedido')}
+                      disabled={
+                        addingId === articulo.id ||
+                        cantidadMaximaVendible(articulo) === 0
+                      }
+                      onClick={() => void agregarAlCarrito(articulo)}
                     >
-                      Agregar al Pedido
+                      {addingId === articulo.id ? 'Agregando…' : 'Agregar al carrito'}
                     </button>
                   </div>
                 </div>

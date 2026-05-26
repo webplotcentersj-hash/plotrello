@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import {
+  cantidadMaximaVendible,
+  validarCantidadVentaComercial
+} from '../services/commerceCatalogService'
 import type { ArticuloEmpresaRecord } from '../types/api'
 import {
   addArticuloToCart,
@@ -19,6 +23,7 @@ export default function TotemAutogestionCatalogoPage() {
   const [articulos, setArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
+  const [cartHint, setCartHint] = useState<string>('')
 
   const [busqueda, setBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('')
@@ -30,9 +35,9 @@ export default function TotemAutogestionCatalogoPage() {
     setLoading(true)
     setError('')
     void (async () => {
-      const r = await apiService.getArticulosEmpresa(true)
+      const r = await apiService.getCatalogoComercial({ canal: 'totem', limite: 500 })
       if (r.success && r.data) {
-        setArticulos(r.data)
+        setArticulos(r.data.items)
       } else {
         setError(r.error || 'Error al cargar catálogo')
       }
@@ -64,7 +69,37 @@ export default function TotemAutogestionCatalogoPage() {
   const itemsCount = cartItemCount(cart.items)
   const total = cartTotal(cart.items)
 
+  const articuloById = useMemo(() => {
+    const m = new Map<number, ArticuloEmpresaRecord>()
+    for (const a of articulos) m.set(a.id, a)
+    return m
+  }, [articulos])
+
+  const trySetCantidad = (id_articulo: number, cantidad: number) => {
+    const articulo = articuloById.get(id_articulo)
+    if (!articulo) return false
+    const v = validarCantidadVentaComercial(articulo, cantidad)
+    if (!v.ok) {
+      setCartHint(v.error)
+      return false
+    }
+    setCartHint('')
+    setCart((prev) => ({
+      items: setItemCantidad(prev.items, id_articulo, cantidad),
+      updatedAt: Date.now()
+    }))
+    return true
+  }
+
   const handleAdd = (articulo: ArticuloEmpresaRecord) => {
+    const enCarrito = cart.items.find((i) => i.id_articulo === articulo.id)
+    const nuevaCantidad = (enCarrito?.cantidad || 0) + 1
+    const v = validarCantidadVentaComercial(articulo, nuevaCantidad)
+    if (!v.ok) {
+      setCartHint(v.error)
+      return
+    }
+    setCartHint('')
     setCart((prev) => ({ items: addArticuloToCart(prev.items, articulo), updatedAt: Date.now() }))
   }
 
@@ -98,6 +133,7 @@ export default function TotemAutogestionCatalogoPage() {
 
       <main className="totem-cat-main">
         {error && <div className="totem-cat-error">{error}</div>}
+        {cartHint && <div className="totem-cat-error totem-cat-error--hint">{cartHint}</div>}
 
         <div className="totem-cat-filters">
           <input
@@ -159,9 +195,19 @@ export default function TotemAutogestionCatalogoPage() {
                     {a.categoria && <span className="totem-cat-pill">{a.categoria}</span>}
                   </div>
                   {a.descripcion && <p className="totem-cat-desc">{a.descripcion}</p>}
+                  {cantidadMaximaVendible(a) != null && (
+                    <p className="totem-cat-stock">
+                      Stock: {cantidadMaximaVendible(a) === 0 ? 'agotado' : `hasta ${cantidadMaximaVendible(a)} u.`}
+                    </p>
+                  )}
                   <div className="totem-cat-card-bottom">
                     <div className="totem-cat-price">${a.precio_base?.toFixed(2) || '0.00'}</div>
-                    <button type="button" className="totem-cat-add" onClick={() => handleAdd(a)}>
+                    <button
+                      type="button"
+                      className="totem-cat-add"
+                      onClick={() => handleAdd(a)}
+                      disabled={cantidadMaximaVendible(a) === 0}
+                    >
                       Agregar
                     </button>
                   </div>
@@ -207,12 +253,7 @@ export default function TotemAutogestionCatalogoPage() {
                       <button
                         type="button"
                         className="totem-cat-qty-btn"
-                        onClick={() =>
-                          setCart((prev) => ({
-                            items: setItemCantidad(prev.items, it.id_articulo, (it.cantidad || 1) - 1),
-                            updatedAt: Date.now()
-                          }))
-                        }
+                        onClick={() => trySetCantidad(it.id_articulo, (it.cantidad || 1) - 1)}
                         disabled={(it.cantidad || 1) <= 1}
                       >
                         −
@@ -221,12 +262,7 @@ export default function TotemAutogestionCatalogoPage() {
                       <button
                         type="button"
                         className="totem-cat-qty-btn"
-                        onClick={() =>
-                          setCart((prev) => ({
-                            items: setItemCantidad(prev.items, it.id_articulo, (it.cantidad || 1) + 1),
-                            updatedAt: Date.now()
-                          }))
-                        }
+                        onClick={() => trySetCantidad(it.id_articulo, (it.cantidad || 1) + 1)}
                       >
                         +
                       </button>

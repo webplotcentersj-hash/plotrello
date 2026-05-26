@@ -118,6 +118,8 @@ import ClienteMensajesPage from './pages/ClienteMensajesPage'
 import ClienteNuevoPedidoPage from './pages/ClienteNuevoPedidoPage'
 import ClientePedidoDetallePage from './pages/ClientePedidoDetallePage'
 import ClienteCatalogoPage from './pages/ClienteCatalogoPage'
+import ClienteCarritoPage from './pages/ClienteCarritoPage'
+import ClienteCheckoutPage from './pages/ClienteCheckoutPage'
 import ClientePresupuestosPage from './pages/ClientePresupuestosPage'
 import ClientePresupuestoFormPage from './pages/ClientePresupuestoFormPage'
 import ClientePresupuestoDetallePage from './pages/ClientePresupuestoDetallePage'
@@ -785,6 +787,8 @@ function App() {
                 <Routes>
                   <Route path="dashboard" element={<ClienteDashboardPage />} />
                   <Route path="catalogo" element={<ClienteCatalogoPage />} />
+                  <Route path="carrito" element={<ClienteCarritoPage />} />
+                  <Route path="checkout" element={<ClienteCheckoutPage />} />
                   <Route path="nuevo-pedido" element={<ClienteNuevoPedidoPage />} />
                   <Route path="pedido/:id" element={<ClientePedidoDetallePage />} />
                   <Route path="presupuestos" element={<ClientePresupuestosPage />} />

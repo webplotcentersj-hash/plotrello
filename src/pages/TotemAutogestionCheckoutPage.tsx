@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import { validarCantidadVentaComercial } from '../services/commerceCatalogService'
 import { cartItemCount, cartTotal, clearTotemCart, readTotemCart } from './totemAutogestionCart'
 import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import './TotemAutogestionCheckoutPage.css'
@@ -23,7 +24,7 @@ export default function TotemAutogestionCheckoutPage() {
   const [needsDetails, setNeedsDetails] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [result, setResult] = useState<{ pedidoId: number } | null>(null)
+  const [result, setResult] = useState<{ pedidoId: number; stockWarning?: string } | null>(null)
 
   useEffect(() => {
     if (itemsCount === 0) {
@@ -52,6 +53,28 @@ export default function TotemAutogestionCheckoutPage() {
     setStep('creating')
 
     try {
+      const catalogo = await apiService.getCatalogoComercial({ canal: 'totem', limite: 500 })
+      if (!catalogo.success || !catalogo.data) {
+        setStep('identify')
+        setError(catalogo.error || 'No se pudo validar el catálogo.')
+        return
+      }
+      const porId = new Map(catalogo.data.items.map((a) => [a.id, a]))
+      for (const it of cart.items) {
+        const art = porId.get(it.id_articulo)
+        if (!art) {
+          setStep('identify')
+          setError('Hay productos en el carrito que ya no están disponibles.')
+          return
+        }
+        const v = validarCantidadVentaComercial(art, it.cantidad || 1)
+        if (!v.ok) {
+          setStep('identify')
+          setError(v.error)
+          return
+        }
+      }
+
       // 1) Intentar resolver cliente existente por DNI/CUIT exacto
       const search = await apiService.buscarClientes(dniDigits)
       let clienteId: number | null = null
@@ -109,7 +132,16 @@ export default function TotemAutogestionCheckoutPage() {
         return
       }
 
-      setResult({ pedidoId: (resp.data as any).id as number })
+      const pedidoId = (resp.data as { id: number }).id
+      const stockResp = await apiService.aplicarStockPedidoCliente(pedidoId, 'totem')
+      const stockWarning =
+        !stockResp.success
+          ? stockResp.error
+          : stockResp.data?.errores?.length
+            ? stockResp.data.errores.join('; ')
+            : undefined
+
+      setResult({ pedidoId, stockWarning })
       clearTotemCart()
       setStep('done')
     } catch (e) {
@@ -219,6 +251,11 @@ export default function TotemAutogestionCheckoutPage() {
             <p className="totem-checkout-success">
               Pedido creado. Número interno: <strong>#{result.pedidoId}</strong>
             </p>
+            {result.stockWarning && (
+              <p className="totem-checkout-stock-warn" role="alert">
+                Aviso stock: {result.stockWarning}. Mostrador revisará el pedido.
+              </p>
+            )}
             <p className="totem-checkout-hint">Acercate a caja/mostrador para pagar y coordinar.</p>
             <div className="totem-checkout-actions">
               <button type="button" className="totem-checkout-primary" onClick={() => navigate('/totem/autogestion')}>

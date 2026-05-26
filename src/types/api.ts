@@ -509,6 +509,12 @@ export interface ClienteWebRecord {
   updated_at?: string
 }
 
+export type ModoVentaArticulo = 'compra' | 'cotizacion' | 'ambos'
+
+export type TipoIntencionPedido = 'compra' | 'cotizacion'
+
+export type CanalComercialCatalogo = 'portal' | 'web_publica' | 'totem' | 'stickers'
+
 export interface ArticuloEmpresaRecord {
   id: number
   codigo: string
@@ -521,9 +527,32 @@ export interface ArticuloEmpresaRecord {
   imagen_url?: string | null
   tiempo_estimado_dias?: number | null
   requiere_archivos: boolean
+  /** Compatibilidad: sincronizar con visible_portal al guardar */
   visible_clientes: boolean
+  id_articulo_stock?: number | null
+  modo_venta?: ModoVentaArticulo | null
+  controla_stock?: boolean | null
+  unidades_por_venta?: number | null
+  visible_portal?: boolean | null
+  visible_web_publica?: boolean | null
+  visible_totem?: boolean | null
+  visible_stickers?: boolean | null
+  /** Solo lectura en listados: stock disponible si hay enlace */
+  stock_disponible?: number | null
   created_at?: string
   updated_at?: string
+}
+
+export interface CamposComercioArticuloEmpresa {
+  id_articulo_stock?: number | null
+  modo_venta?: ModoVentaArticulo
+  controla_stock?: boolean
+  unidades_por_venta?: number
+  visible_portal?: boolean
+  visible_web_publica?: boolean
+  visible_totem?: boolean
+  visible_stickers?: boolean
+  visible_clientes?: boolean
 }
 
 export interface ArticuloEmpresaImagenRecord {
@@ -547,6 +576,7 @@ export interface PedidoClienteRecord {
   observaciones_cliente?: string | null
   observaciones_internas?: string | null
   precio_total: number
+  tipo_intencion?: TipoIntencionPedido | null
   es_urgente?: boolean
   requiere_delivery?: boolean
   direccion_delivery?: string | null

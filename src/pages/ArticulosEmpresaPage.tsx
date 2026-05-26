@@ -2,7 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ArticuloEmpresaRecord, ArticuloEmpresaImagenRecord } from '../types/api'
+import type {
+  ArticuloEmpresaRecord,
+  ArticuloEmpresaImagenRecord,
+  ModoVentaArticulo
+} from '../types/api'
+import type { ArticuloStock } from '../types/pedidos'
 import './ArticulosEmpresaPage.css'
 
 type FiltroCatalogo = 'todos' | 'activos' | 'inactivos' | 'visibles' | 'ocultos'
@@ -45,8 +50,17 @@ const ArticulosEmpresaPage = () => {
     tiempo_estimado_dias: '',
     requiere_archivos: false,
     visible_clientes: true,
-    activo: true
+    activo: true,
+    id_articulo_stock: '' as string | number,
+    modo_venta: 'ambos' as ModoVentaArticulo,
+    controla_stock: false,
+    unidades_por_venta: '1',
+    visible_portal: true,
+    visible_web_publica: false,
+    visible_totem: false,
+    visible_stickers: false
   })
+  const [stockArticulos, setStockArticulos] = useState<ArticuloStock[]>([])
   const [categoriasDisponibles, setCategoriasDisponibles] = useState<string[]>([])
   const [subcategoriasDisponibles, setSubcategoriasDisponibles] = useState<string[]>([])
   const [categoriaInputValue, setCategoriaInputValue] = useState('')
@@ -89,6 +103,14 @@ const ArticulosEmpresaPage = () => {
     void loadArticulos()
     void loadCategorias()
   }, [navigate, canAccessMostradorViews, authLoading, loadArticulos])
+
+  useEffect(() => {
+    if (!showCreateModal) return
+    void (async () => {
+      const r = await apiService.getArticulosStock()
+      if (r.success && r.data) setStockArticulos(r.data)
+    })()
+  }, [showCreateModal])
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(searchQuery.trim()), 220)
@@ -210,7 +232,15 @@ const ArticulosEmpresaPage = () => {
       tiempo_estimado_dias: '',
       requiere_archivos: false,
       visible_clientes: true,
-      activo: true
+      activo: true,
+      id_articulo_stock: '',
+      modo_venta: 'ambos',
+      controla_stock: false,
+      unidades_por_venta: '1',
+      visible_portal: true,
+      visible_web_publica: false,
+      visible_totem: false,
+      visible_stickers: false
     })
     setCategoriaInputValue('')
     setSubcategoriaInputValue('')
@@ -222,6 +252,7 @@ const ArticulosEmpresaPage = () => {
 
   const abrirModalEditar = async (articulo: ArticuloEmpresaRecord) => {
     setEditingArticulo(articulo)
+    const visiblePortal = articulo.visible_portal ?? articulo.visible_clientes
     setFormData({
       codigo: articulo.codigo,
       nombre: articulo.nombre,
@@ -232,8 +263,16 @@ const ArticulosEmpresaPage = () => {
       imagen_url: articulo.imagen_url || '',
       tiempo_estimado_dias: articulo.tiempo_estimado_dias?.toString() || '',
       requiere_archivos: articulo.requiere_archivos,
-      visible_clientes: articulo.visible_clientes,
-      activo: articulo.activo
+      visible_clientes: visiblePortal,
+      activo: articulo.activo,
+      id_articulo_stock: articulo.id_articulo_stock ?? '',
+      modo_venta: articulo.modo_venta ?? 'ambos',
+      controla_stock: articulo.controla_stock ?? false,
+      unidades_por_venta: String(articulo.unidades_por_venta ?? 1),
+      visible_portal: visiblePortal,
+      visible_web_publica: articulo.visible_web_publica ?? false,
+      visible_totem: articulo.visible_totem ?? false,
+      visible_stickers: articulo.visible_stickers ?? false
     })
     setCategoriaInputValue(articulo.categoria || '')
     setSubcategoriaInputValue(articulo.subcategoria || '')
@@ -567,6 +606,32 @@ const ArticulosEmpresaPage = () => {
       }
 
       if (response.success) {
+        const articuloId = editingArticulo?.id ?? response.data?.id
+        if (articuloId) {
+          const stockId =
+            formData.id_articulo_stock === '' || formData.id_articulo_stock == null
+              ? null
+              : Number(formData.id_articulo_stock)
+          const comResp = await apiService.actualizarCamposComercioArticuloEmpresa(articuloId, {
+            id_articulo_stock: stockId,
+            modo_venta: formData.modo_venta,
+            controla_stock: formData.controla_stock,
+            unidades_por_venta: parseFloat(formData.unidades_por_venta) || 1,
+            visible_portal: formData.visible_portal,
+            visible_web_publica: formData.visible_web_publica,
+            visible_totem: formData.visible_totem,
+            visible_stickers: formData.visible_stickers,
+            visible_clientes: formData.visible_portal
+          })
+          if (!comResp.success) {
+            setError(
+              comResp.error ||
+                'Artículo guardado; aplicá la migración SQL de comercio omnicanal para stock y canales.'
+            )
+            loadArticulos()
+            return
+          }
+        }
         cerrarModal()
         loadArticulos()
       } else {
@@ -1099,15 +1164,119 @@ const ArticulosEmpresaPage = () => {
                   </label>
                 </div>
 
-                <div className="form-group full-width">
+                <div className="cae-form__commerce form-group full-width">
+                  <h3 className="cae-form__commerce-title">Comercio omnicanal</h3>
+                  <div className="cae-form__commerce-grid">
+                    <div className="form-group">
+                      <label>Vínculo stock (insumo)</label>
+                      <select
+                        value={formData.id_articulo_stock === '' ? '' : String(formData.id_articulo_stock)}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            id_articulo_stock: e.target.value === '' ? '' : Number(e.target.value)
+                          })
+                        }
+                      >
+                        <option value="">Sin vínculo</option>
+                        {stockArticulos.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.codigo ? `${s.codigo} · ` : ''}
+                            {s.descripcion || `ID ${s.id}`}
+                            {s.stock != null ? ` (stock: ${s.stock})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Modo de venta</label>
+                      <select
+                        value={formData.modo_venta}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            modo_venta: e.target.value as ModoVentaArticulo
+                          })
+                        }
+                      >
+                        <option value="compra">Solo compra</option>
+                        <option value="cotizacion">Solo cotización</option>
+                        <option value="ambos">Compra y cotización</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Unidades por venta</label>
+                      <input
+                        type="number"
+                        min="0.0001"
+                        step="any"
+                        value={formData.unidades_por_venta}
+                        onChange={(e) =>
+                          setFormData({ ...formData, unidades_por_venta: e.target.value })
+                        }
+                        title="Cuántas unidades de stock se descuentan por cada unidad vendida"
+                      />
+                    </div>
+                  </div>
                   <label className="checkbox-label">
                     <input
                       type="checkbox"
-                      checked={formData.visible_clientes}
-                      onChange={(e) => setFormData({ ...formData, visible_clientes: e.target.checked })}
+                      checked={formData.controla_stock}
+                      onChange={(e) =>
+                        setFormData({ ...formData, controla_stock: e.target.checked })
+                      }
+                      disabled={!formData.id_articulo_stock}
                     />
-                    <span>Visible para clientes en el catálogo</span>
+                    <span>Descontar stock al confirmar venta (requiere vínculo)</span>
                   </label>
+                  <p className="cae-form__commerce-hint">Canales de publicación</p>
+                  <div className="cae-form__commerce-channels">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={formData.visible_portal}
+                        onChange={(e) => {
+                          const v = e.target.checked
+                          setFormData({
+                            ...formData,
+                            visible_portal: v,
+                            visible_clientes: v
+                          })
+                        }}
+                      />
+                      <span>Portal cliente</span>
+                    </label>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={formData.visible_totem}
+                        onChange={(e) =>
+                          setFormData({ ...formData, visible_totem: e.target.checked })
+                        }
+                      />
+                      <span>Tótem</span>
+                    </label>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={formData.visible_web_publica}
+                        onChange={(e) =>
+                          setFormData({ ...formData, visible_web_publica: e.target.checked })
+                        }
+                      />
+                      <span>Web pública</span>
+                    </label>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={formData.visible_stickers}
+                        onChange={(e) =>
+                          setFormData({ ...formData, visible_stickers: e.target.checked })
+                        }
+                      />
+                      <span>Stickers</span>
+                    </label>
+                  </div>
                 </div>
 
                 {editingArticulo && (

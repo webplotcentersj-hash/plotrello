@@ -247,6 +247,13 @@ export default function ClienteDashboardPage() {
             >
               Ver Catálogo
             </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate('/cliente/carrito')}
+            >
+              🛒 Carrito
+            </button>
             <button 
               className="btn-secondary"
               onClick={() => navigate('/cliente/presupuestos')}

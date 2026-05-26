@@ -44,6 +44,8 @@ import type {
   ClienteWebRecord,
   ArticuloEmpresaRecord,
   ArticuloEmpresaImagenRecord,
+  CamposComercioArticuloEmpresa,
+  CanalComercialCatalogo,
   PedidoClienteRecord,
   PedidoClienteDetalle,
   MensajePedidoClienteRecord,
@@ -101,6 +103,20 @@ import type {
 } from '../types/pedidos'
 import type { ConciliacionMpAiRun, ConciliacionMpSession } from '../types/conciliacionMp'
 import { supabase, stockSupabase } from './supabaseClient'
+import {
+  aplicarStockDesdePedidoCliente,
+  COLUMNA_VISIBILIDAD_POR_CANAL,
+  descontarStockComercial,
+  obtenerStockArticulo,
+  type CanalComercial
+} from './commerceStockService'
+import { validarCantidadVentaComercial } from './commerceCatalogService'
+import {
+  obtenerCarritoCliente,
+  setCarritoItemCliente,
+  vaciarCarritoCliente,
+  type CarritoClientePayload
+} from './commerceCartService'
 import {
   TALLER_GRAFICO_PEDIDO_ENTREGA_CHANNEL,
   TALLER_GRAFICO_PEDIDO_ENTREGA_EVENT,
@@ -11952,7 +11968,11 @@ class ApiService {
   /**
    * Obtener artículos de empresa (catálogo)
    */
-  async getArticulosEmpresa(visibleClientes?: boolean, incluirInactivos?: boolean): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
+  async getArticulosEmpresa(
+    visibleClientes?: boolean,
+    incluirInactivos?: boolean,
+    canal?: CanalComercialCatalogo
+  ): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
     if (supabase) {
       try {
         let query = supabase
@@ -11964,19 +11984,182 @@ class ApiService {
           query = query.eq('activo', true)
         }
 
-        if (visibleClientes !== undefined) {
+        if (canal && COLUMNA_VISIBILIDAD_POR_CANAL[canal]) {
+          query = query.eq(COLUMNA_VISIBILIDAD_POR_CANAL[canal], true)
+        } else if (visibleClientes !== undefined) {
           query = query.eq('visible_clientes', visibleClientes)
         }
 
         const { data, error } = await query
 
         if (error) return { success: false, error: error.message }
-        return { success: true, data: data as ArticuloEmpresaRecord[] }
+
+        const rows = (data || []) as ArticuloEmpresaRecord[]
+        if (stockSupabase && rows.some((r) => r.id_articulo_stock)) {
+          const enriched = await Promise.all(
+            rows.map(async (row) => {
+              if (!row.id_articulo_stock) return row
+              const st = await obtenerStockArticulo(row.id_articulo_stock)
+              return {
+                ...row,
+                stock_disponible: st.success && st.data ? st.data.stock : null
+              }
+            })
+          )
+          return { success: true, data: enriched }
+        }
+
+        return { success: true, data: rows }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Catálogo comercial por canal con stock disponible y búsqueda opcional.
+   */
+  async getCatalogoComercial(params: {
+    canal: CanalComercialCatalogo
+    busqueda?: string
+    pagina?: number
+    limite?: number
+    categoria?: string
+  }): Promise<ApiResponse<{ items: ArticuloEmpresaRecord[]; total: number }>> {
+    const { canal, busqueda, categoria } = params
+    const pagina = Math.max(1, params.pagina ?? 1)
+    const limite = Math.min(500, Math.max(1, params.limite ?? 200))
+
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+
+    try {
+      const colCanal = COLUMNA_VISIBILIDAD_POR_CANAL[canal]
+      let query = supabase
+        .from('articulos_empresa')
+        .select('*', { count: 'exact' })
+        .eq('activo', true)
+        .eq(colCanal, true)
+        .order('nombre', { ascending: true })
+
+      const q = busqueda?.trim()
+      if (q) {
+        const term = this.escapeIlikeCliente(q)
+        query = query.or(
+          `nombre.ilike.%${term}%,descripcion.ilike.%${term}%,codigo.ilike.%${term}%`
+        )
+      }
+      if (categoria?.trim()) {
+        query = query.eq('categoria', categoria.trim())
+      }
+
+      const from = (pagina - 1) * limite
+      const to = from + limite - 1
+      const { data, error, count } = await query.range(from, to)
+
+      if (error) return { success: false, error: error.message }
+
+      const rows = (data || []) as ArticuloEmpresaRecord[]
+      let items = rows
+
+      if (stockSupabase && rows.some((r) => r.id_articulo_stock)) {
+        items = await Promise.all(
+          rows.map(async (row) => {
+            if (!row.id_articulo_stock) return row
+            const st = await obtenerStockArticulo(row.id_articulo_stock)
+            return {
+              ...row,
+              stock_disponible: st.success && st.data ? st.data.stock : null
+            }
+          })
+        )
+      }
+
+      return { success: true, data: { items, total: count ?? items.length } }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al cargar catálogo comercial'
+      }
+    }
+  }
+
+  /** Valida cantidad contra stock del catálogo (usa helpers de commerceCatalogService). */
+  validarStockCatalogoComercial(articulo: ArticuloEmpresaRecord, cantidad: number) {
+    return validarCantidadVentaComercial(articulo, cantidad)
+  }
+
+  async getCarritoCliente(idCliente: number): Promise<ApiResponse<CarritoClientePayload>> {
+    const r = await obtenerCarritoCliente(idCliente)
+    return r.success && r.data
+      ? { success: true, data: r.data }
+      : { success: false, error: r.error || 'Error al cargar carrito' }
+  }
+
+  async setCarritoItemCliente(
+    idCliente: number,
+    idArticulo: number,
+    cantidad: number
+  ): Promise<ApiResponse<CarritoClientePayload>> {
+    const r = await setCarritoItemCliente(idCliente, idArticulo, cantidad)
+    return r.success && r.data
+      ? { success: true, data: r.data }
+      : { success: false, error: r.error || 'Error al actualizar carrito' }
+  }
+
+  async vaciarCarritoCliente(idCliente: number): Promise<ApiResponse<void>> {
+    const r = await vaciarCarritoCliente(idCliente)
+    return r.success ? { success: true } : { success: false, error: r.error }
+  }
+
+  /**
+   * Campos comercio omnicanal (stock, canales, modo venta).
+   * Requiere migración 2026-05-26_comercio_omnicanal_fase0_articulos_empresa.sql
+   */
+  async actualizarCamposComercioArticuloEmpresa(
+    id: number,
+    campos: CamposComercioArticuloEmpresa
+  ): Promise<ApiResponse<ArticuloEmpresaRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const payload: Record<string, unknown> = { ...campos }
+      if (campos.visible_portal !== undefined) {
+        payload.visible_clientes = campos.visible_clientes ?? campos.visible_portal
+      }
+      const { data, error } = await supabase
+        .from('articulos_empresa')
+        .update(payload)
+        .eq('id', id)
+        .select('*')
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as ArticuloEmpresaRecord }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al actualizar comercio'
+      }
+    }
+  }
+
+  /** Descuenta stock de todos los ítems de un pedido que apliquen (compra + controla_stock). */
+  async aplicarStockPedidoCliente(
+    idPedido: number,
+    canal: CanalComercial = 'sistema',
+    options?: { permitirStockNegativo?: boolean }
+  ): Promise<ApiResponse<{ descontados: number; errores: string[] }>> {
+    const r = await aplicarStockDesdePedidoCliente(idPedido, canal, options)
+    return {
+      success: r.success,
+      data: { descontados: r.descontados, errores: r.errores },
+      error: r.errores.length ? r.errores.join('; ') : undefined
+    }
+  }
+
+  async descontarStockComercialArticulo(
+    input: Parameters<typeof descontarStockComercial>[0]
+  ) {
+    return descontarStockComercial(input)
   }
 
   /**
@@ -12448,6 +12631,7 @@ class ApiService {
     brief_publico?: string
     estilo_diseno?: string
     referencias?: string
+    tipo_intencion?: 'compra' | 'cotizacion'
   }): Promise<ApiResponse<PedidoClienteRecord>> {
     if (supabase) {
       try {
@@ -12481,7 +12665,8 @@ class ApiService {
           p_referencias_links: pedido.referencias_links || null,
           p_brief_publico: pedido.brief_publico || null,
           p_estilo_diseno: pedido.estilo_diseno || null,
-          p_referencias: pedido.referencias || null
+          p_referencias: pedido.referencias || null,
+          p_tipo_intencion: pedido.tipo_intencion || 'compra'
         })
 
         if (error) return { success: false, error: error.message }
@@ -12495,6 +12680,55 @@ class ApiService {
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Crear pedido desde carrito del portal (checkout Fase 2).
+   */
+  async crearPedidoDesdeCarritoCliente(input: {
+    id_cliente: number
+    tipo_intencion: 'compra' | 'cotizacion'
+    fecha_limite_deseada?: string
+    observaciones_cliente?: string
+    es_urgente?: boolean
+    requiere_delivery?: boolean
+    direccion_delivery?: string
+  }): Promise<ApiResponse<PedidoClienteRecord>> {
+    const carrito = await this.getCarritoCliente(input.id_cliente)
+    if (!carrito.success || !carrito.data) {
+      return { success: false, error: carrito.error || 'Carrito vacío' }
+    }
+    if (carrito.data.items.length === 0) {
+      return { success: false, error: 'El carrito está vacío' }
+    }
+
+    const items = carrito.data.items.map((it) => ({
+      id_articulo: it.id_articulo,
+      cantidad: it.cantidad,
+      precio_unitario: it.precio_unitario,
+      precio_total: it.precio_total
+    }))
+
+    const resp = await this.crearPedidoCliente({
+      id_cliente: input.id_cliente,
+      items,
+      tipo_intencion: input.tipo_intencion,
+      fecha_limite_deseada: input.fecha_limite_deseada,
+      observaciones_cliente: input.observaciones_cliente,
+      es_urgente: input.es_urgente,
+      requiere_delivery: input.requiere_delivery,
+      direccion_delivery: input.direccion_delivery
+    })
+
+    if (resp.success && resp.data?.id && input.tipo_intencion === 'compra') {
+      await this.aplicarStockPedidoCliente(resp.data.id, 'portal')
+    }
+
+    if (resp.success) {
+      await this.vaciarCarritoCliente(input.id_cliente)
+    }
+
+    return resp
   }
 
   /**

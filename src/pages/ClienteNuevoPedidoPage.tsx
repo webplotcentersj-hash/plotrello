@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
-import type { ArticuloEmpresaRecord } from '../types/api'
+import { validarCantidadVentaComercial } from '../services/commerceCatalogService'
+import type { ArticuloEmpresaRecord, TipoIntencionPedido } from '../types/api'
 import './ClienteNuevoPedidoPage.css'
 
 const TIPOS_PRODUCTO = [
@@ -47,6 +48,7 @@ export default function ClienteNuevoPedidoPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [archivos, setArchivos] = useState<File[]>([])
+  const [tipoIntencion, setTipoIntencion] = useState<TipoIntencionPedido>('compra')
 
   const [formData, setFormData] = useState({
     fecha_limite_deseada: '',
@@ -83,11 +85,26 @@ export default function ClienteNuevoPedidoPage() {
   const loadArticulos = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getArticulosEmpresa(true)
+      const response = await apiService.getCatalogoComercial({ canal: 'portal', limite: 500 })
       if (response.success && response.data) {
-        setArticulos(response.data)
+        setArticulos(response.data.items)
       } else {
         setError('Error al cargar catálogo')
+      }
+
+      if (cliente) {
+        const carrito = await apiService.getCarritoCliente(cliente.id)
+        if (carrito.success && carrito.data?.items.length) {
+          setItems(
+            carrito.data.items.map((it) => ({
+              id_articulo: it.id_articulo,
+              cantidad: it.cantidad,
+              precio_unitario: it.precio_unitario,
+              precio_total: it.precio_total,
+              nombre_articulo: it.articulo.nombre
+            }))
+          )
+        }
       }
     } catch (err) {
       setError('Error al cargar catálogo')
@@ -113,7 +130,31 @@ export default function ClienteNuevoPedidoPage() {
     })
   }
 
+  const articuloById = (id: number) => articulos.find((a) => a.id === id)
+
   const agregarArticulo = (articulo: ArticuloEmpresaRecord) => {
+    const existente = items.find((i) => i.id_articulo === articulo.id)
+    const nuevaCantidad = (existente?.cantidad || 0) + 1
+    const v = validarCantidadVentaComercial(articulo, nuevaCantidad)
+    if (!v.ok) {
+      setError(v.error)
+      return
+    }
+    setError('')
+    if (existente) {
+      setItems(
+        items.map((i) =>
+          i.id_articulo === articulo.id
+            ? {
+                ...i,
+                cantidad: nuevaCantidad,
+                precio_total: nuevaCantidad * (i.precio_unitario || 0)
+              }
+            : i
+        )
+      )
+      return
+    }
     const nuevoItem: PedidoItem = {
       id_articulo: articulo.id,
       cantidad: 1,
@@ -124,11 +165,22 @@ export default function ClienteNuevoPedidoPage() {
     setItems([...items, nuevoItem])
   }
 
-  const actualizarItem = (index: number, campo: keyof PedidoItem, valor: any) => {
+  const actualizarItem = (index: number, campo: keyof PedidoItem, valor: unknown) => {
     const nuevosItems = [...items]
     nuevosItems[index] = { ...nuevosItems[index], [campo]: valor }
     if (campo === 'cantidad' || campo === 'precio_unitario') {
       nuevosItems[index].precio_total = nuevosItems[index].cantidad * nuevosItems[index].precio_unitario
+    }
+    if (campo === 'cantidad') {
+      const articulo = articuloById(nuevosItems[index].id_articulo)
+      if (articulo) {
+        const v = validarCantidadVentaComercial(articulo, Number(valor))
+        if (!v.ok) {
+          setError(v.error)
+          return
+        }
+        setError('')
+      }
     }
     setItems(nuevosItems)
   }
@@ -168,6 +220,7 @@ export default function ClienteNuevoPedidoPage() {
       // Crear pedido con todos los campos
       const response = await apiService.crearPedidoCliente({
         id_cliente: cliente.id,
+        tipo_intencion: tipoIntencion,
         fecha_limite_deseada: formData.fecha_limite_deseada || undefined,
         observaciones_cliente: formData.observaciones_cliente.trim() || undefined,
         items: items.map(item => ({
@@ -198,6 +251,10 @@ export default function ClienteNuevoPedidoPage() {
       })
 
       if (response.success && response.data) {
+        if (response.data.id && tipoIntencion === 'compra') {
+          await apiService.aplicarStockPedidoCliente(response.data.id, 'portal')
+        }
+        await apiService.vaciarCarritoCliente(cliente.id)
         // Subir archivos si hay
         if (archivos.length > 0 && response.data.id) {
           try {
@@ -257,6 +314,30 @@ export default function ClienteNuevoPedidoPage() {
               {error}
             </div>
           )}
+
+          <section className="form-section">
+            <h2>Tipo de solicitud</h2>
+            <div className="intencion-opciones">
+              <label>
+                <input
+                  type="radio"
+                  name="tipo_intencion"
+                  checked={tipoIntencion === 'compra'}
+                  onChange={() => setTipoIntencion('compra')}
+                />
+                Compra (descuenta stock si aplica)
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="tipo_intencion"
+                  checked={tipoIntencion === 'cotizacion'}
+                  onChange={() => setTipoIntencion('cotizacion')}
+                />
+                Solicitar cotización
+              </label>
+            </div>
+          </section>
 
           {/* Sección: Artículos */}
           <section className="form-section">

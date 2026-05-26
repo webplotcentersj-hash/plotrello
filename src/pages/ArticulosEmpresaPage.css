@@ -781,6 +781,39 @@
   cursor: pointer;
 }
 
+.cae-form__commerce {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--cae-border);
+  border-radius: 8px;
+  background: var(--cae-surface-muted, #f8fafc);
+}
+
+.cae-form__commerce-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.cae-form__commerce-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.cae-form__commerce-hint {
+  margin: 0.5rem 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--cae-muted, #64748b);
+}
+
+.cae-form__commerce-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
 @media (max-width: 640px) {
   .cae-grid {
     grid-template-columns: 1fr;
