@@ -4,9 +4,38 @@ import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
 import './OrdenesListasPage.css'
 
+const ESTADO_ALMACEN = 'Almacén de Entrega'
+const ESTADO_ENTRADA_TALLER = 'Finalizado en Taller'
+
+function esOpEnAlmacen(orden: OrdenTrabajo): boolean {
+  return orden.estado === ESTADO_ALMACEN
+}
+
+/** OP finalizada en taller pero aún no pasada a almacén (no se listan sin búsqueda). */
+function esOpEntradaTaller(orden: OrdenTrabajo): boolean {
+  return orden.estado === ESTADO_ENTRADA_TALLER
+}
+
+function ordenElegibleLista(orden: OrdenTrabajo): boolean {
+  return (
+    !orden.entregado &&
+    orden.estado !== 'Entregado o Instalado' &&
+    (esOpEnAlmacen(orden) || esOpEntradaTaller(orden))
+  )
+}
+
+function matchesOrdenSearch(orden: OrdenTrabajo, term: string): boolean {
+  const q = term.toLowerCase().trim()
+  if (!q) return true
+  const numeroOpStr = orden.numero_op?.toString().toLowerCase() || ''
+  const clienteStr = orden.cliente?.toLowerCase() || ''
+  const dniCuitStr = orden.dni_cuit?.toLowerCase() || ''
+  return numeroOpStr.includes(q) || clienteStr.includes(q) || dniCuitStr.includes(q)
+}
+
 function estadoCorto(estado: string): string {
-  if (estado === 'Almacén de Entrega') return 'En almacén'
-  if (estado === 'Finalizado en Taller') return 'Finalizado'
+  if (estado === ESTADO_ALMACEN) return 'En almacén'
+  if (estado === ESTADO_ENTRADA_TALLER) return 'En taller'
   return estado
 }
 
@@ -20,7 +49,7 @@ function OrdenFicha({
   onToggle: () => void
 }) {
   const navigate = useNavigate()
-  const esAlmacen = orden.estado === 'Almacén de Entrega'
+  const esAlmacen = esOpEnAlmacen(orden)
   const fechaEntrega = orden.fecha_entrega
     ? new Date(orden.fecha_entrega).toLocaleDateString('es-AR', {
         day: '2-digit',
@@ -128,7 +157,7 @@ const OrdenesListasPage = () => {
   const [loading, setLoading] = useState(true)
   const [ordenesListas, setOrdenesListas] = useState<OrdenTrabajo[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterEstado, setFilterEstado] = useState<'todos' | 'finalizado' | 'almacen'>('todos')
+  const [filterEstado, setFilterEstado] = useState<'almacen' | 'finalizado'>('almacen')
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   useEffect(() => {
@@ -140,13 +169,7 @@ const OrdenesListasPage = () => {
     try {
       const response = await apiService.getOrdenes()
       if (response.success && response.data) {
-        const listas = response.data.filter(
-          (orden) =>
-            !orden.entregado &&
-            orden.estado !== 'Entregado o Instalado' &&
-            (orden.estado === 'Finalizado en Taller' || orden.estado === 'Almacén de Entrega')
-        )
-        setOrdenesListas(listas)
+        setOrdenesListas(response.data.filter(ordenElegibleLista))
       }
     } catch (error) {
       console.error('Error cargando órdenes listas:', error)
@@ -155,36 +178,29 @@ const OrdenesListasPage = () => {
     }
   }
 
+  const buscando = searchTerm.trim().length > 0
+
   const counts = useMemo(
     () => ({
-      todos: ordenesListas.length,
-      finalizado: ordenesListas.filter((o) => o.estado === 'Finalizado en Taller').length,
-      almacen: ordenesListas.filter((o) => o.estado === 'Almacén de Entrega').length
+      almacen: ordenesListas.filter(esOpEnAlmacen).length,
+      entradaTaller: ordenesListas.filter(esOpEntradaTaller).length
     }),
     [ordenesListas]
   )
 
-  const ordenesFiltradas = ordenesListas.filter((orden) => {
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase().trim()
-      const numeroOpStr = orden.numero_op?.toString().toLowerCase() || ''
-      const clienteStr = orden.cliente?.toLowerCase() || ''
-      const dniCuitStr = orden.dni_cuit?.toLowerCase() || ''
+  const ordenesFiltradas = useMemo(() => {
+    return ordenesListas.filter((orden) => {
+      if (filterEstado === 'finalizado') {
+        if (!esOpEntradaTaller(orden)) return false
+      } else {
+        if (esOpEntradaTaller(orden) && !buscando) return false
+        if (!esOpEnAlmacen(orden) && !(buscando && esOpEntradaTaller(orden))) return false
+      }
 
-      const matchesSearch =
-        numeroOpStr.includes(searchLower) ||
-        clienteStr.includes(searchLower) ||
-        dniCuitStr.includes(searchLower)
-
-      if (!matchesSearch) return false
-    }
-
-    return (
-      filterEstado === 'todos' ||
-      (filterEstado === 'finalizado' && orden.estado === 'Finalizado en Taller') ||
-      (filterEstado === 'almacen' && orden.estado === 'Almacén de Entrega')
-    )
-  })
+      if (buscando && !matchesOrdenSearch(orden, searchTerm)) return false
+      return true
+    })
+  }, [ordenesListas, buscando, searchTerm, filterEstado])
 
   const toggleExpand = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id))
@@ -212,7 +228,14 @@ const OrdenesListasPage = () => {
             <div>
               <h1>Órdenes listas para retirar</h1>
               <p className="ol-header__subtitle">
-                {counts.todos} {counts.todos === 1 ? 'orden pendiente de entrega' : 'órdenes pendientes de entrega'}
+                {counts.almacen}{' '}
+                {counts.almacen === 1 ? 'orden en almacén' : 'órdenes en almacén'}
+                {counts.entradaTaller > 0 && (
+                  <span className="ol-header__subtitle-extra">
+                    {' '}
+                    · {counts.entradaTaller} en taller (filtro o buscador)
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -238,12 +261,17 @@ const OrdenesListasPage = () => {
             autoComplete="off"
           />
         </label>
+        {filterEstado !== 'finalizado' && !buscando && (
+          <p className="ol-search-note">
+            Por defecto solo almacén. Usá el filtro <strong>En taller</strong> o el buscador para ver el
+            resto.
+          </p>
+        )}
         <div className="ol-filters" role="tablist" aria-label="Filtrar por estado">
           {(
             [
-              ['todos', 'Todas', counts.todos],
-              ['finalizado', 'Finalizado en taller', counts.finalizado],
-              ['almacen', 'En almacén', counts.almacen]
+              ['almacen', 'En almacén', counts.almacen],
+              ['finalizado', 'En taller', counts.entradaTaller]
             ] as const
           ).map(([key, label, count]) => (
             <button
@@ -259,9 +287,10 @@ const OrdenesListasPage = () => {
             </button>
           ))}
         </div>
-        {searchTerm.trim() && (
+        {buscando && (
           <p className="ol-search-hint">
             {ordenesFiltradas.length} resultado{ordenesFiltradas.length === 1 ? '' : 's'}
+            {ordenesFiltradas.some(esOpEntradaTaller) && ' (incluye OP en taller)'}
           </p>
         )}
       </section>
@@ -271,9 +300,9 @@ const OrdenesListasPage = () => {
           <div className="ol-empty">
             <p className="ol-empty__title">No hay órdenes para mostrar</p>
             <p className="ol-empty__text">
-              {searchTerm || filterEstado !== 'todos'
+              {buscando || filterEstado === 'finalizado'
                 ? 'Probá otro término de búsqueda o cambiá el filtro de estado.'
-                : 'Cuando una OP quede finalizada o en almacén, aparecerá acá.'}
+                : 'Cuando una OP pase a almacén de entrega, aparecerá acá automáticamente.'}
             </p>
           </div>
         ) : (

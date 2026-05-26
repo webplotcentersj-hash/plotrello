@@ -29,6 +29,7 @@ const OrdenesListasPage = lazy(() => import('./pages/OrdenesListasPage'))
 const BuscarClientePage = lazy(() => import('./pages/BuscarClientePage'))
 const EntregaPage = lazy(() => import('./pages/EntregaPage'))
 const CalendarioEntregasPage = lazy(() => import('./pages/CalendarioEntregasPage'))
+const MostradorCalendarioPage = lazy(() => import('./pages/MostradorCalendarioPage'))
 const ReportesMostradorPage = lazy(() => import('./pages/ReportesMostradorPage'))
 const ClientesFrecuentesPage = lazy(() => import('./pages/ClientesFrecuentesPage'))
 const CuentaCorrientePage = lazy(() => import('./pages/CuentaCorrientePage'))
@@ -1110,7 +1111,7 @@ function AppRoutes({
       />
       <Route
         path="/mostrador/calendario"
-        element={<CalendarioEntregasPage />}
+        element={<MostradorCalendarioPage />}
       />
       <Route
         path="/mostrador/reportes"

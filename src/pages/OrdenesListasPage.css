@@ -96,6 +96,11 @@
   color: var(--ol-muted);
 }
 
+.ol-header__subtitle-extra {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 .ol-header__back {
   flex-shrink: 0;
 }
@@ -199,6 +204,13 @@
 
 .ol-filter-pill--active .ol-filter-pill__count {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.ol-search-note {
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  color: var(--ol-muted);
+  line-height: 1.4;
 }
 
 .ol-search-hint {

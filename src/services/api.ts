@@ -4129,6 +4129,61 @@ class ApiService {
     }
   }
 
+  /** Órdenes vinculadas a un cliente (DNI, nombre, empresa, contacto). */
+  async getOrdenesPorCliente(cliente: ClienteRecord): Promise<ApiResponse<OrdenTrabajo[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+
+    const { filtrarOrdenesDeCliente, normalizarDniCuit, nombreCompletoCliente } = await import(
+      '../utils/buscarClienteMatch'
+    )
+
+    try {
+      const orParts: string[] = []
+      const escapeIlike = (s: string) =>
+        String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+
+      const dni = normalizarDniCuit(cliente.dni_cuit)
+      if (dni.length >= 4) {
+        orParts.push(`dni_cuit.ilike.*${escapeIlike(dni)}*`)
+      }
+
+      const nombre = nombreCompletoCliente(cliente)
+      if (nombre.length >= 2) {
+        orParts.push(`cliente.ilike.*${escapeIlike(nombre)}*`)
+        if (cliente.apellido?.trim()) {
+          orParts.push(`cliente.ilike.*${escapeIlike(cliente.apellido.trim())}*`)
+        }
+      }
+
+      if (cliente.empresa?.trim()) {
+        orParts.push(`cliente.ilike.*${escapeIlike(cliente.empresa.trim())}*`)
+      }
+
+      let candidatas: OrdenTrabajo[] = []
+
+      if (orParts.length > 0) {
+        const { data, error } = await supabase
+          .from('ordenes_trabajo')
+          .select(ORDENES_TABLERO_SELECT)
+          .or(orParts.join(','))
+          .eq('eliminada', false)
+          .order('fecha_creacion', { ascending: false })
+          .limit(300)
+
+        if (!error && data) candidatas = data as OrdenTrabajo[]
+      }
+
+      if (candidatas.length === 0) {
+        const todas = await this.getOrdenes()
+        if (todas.success && todas.data) candidatas = todas.data
+      }
+
+      return { success: true, data: filtrarOrdenesDeCliente(candidatas, cliente) }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Error al cargar órdenes del cliente' }
+    }
+  }
+
   async buscarOCrearCliente(cliente: {
     nombre: string
     dni_cuit?: string
