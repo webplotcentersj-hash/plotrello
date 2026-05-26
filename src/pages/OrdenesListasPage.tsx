@@ -1,8 +1,126 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
 import './OrdenesListasPage.css'
+
+function estadoCorto(estado: string): string {
+  if (estado === 'Almacén de Entrega') return 'En almacén'
+  if (estado === 'Finalizado en Taller') return 'Finalizado'
+  return estado
+}
+
+function OrdenFicha({
+  orden,
+  expanded,
+  onToggle
+}: {
+  orden: OrdenTrabajo
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const navigate = useNavigate()
+  const esAlmacen = orden.estado === 'Almacén de Entrega'
+  const fechaEntrega = orden.fecha_entrega
+    ? new Date(orden.fecha_entrega).toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+    : null
+
+  return (
+    <article
+      className={`ol-ficha ol-ficha--${esAlmacen ? 'almacen' : 'finalizado'}${expanded ? ' ol-ficha--open' : ''}`}
+    >
+      <button
+        type="button"
+        className="ol-ficha__summary"
+        aria-expanded={expanded}
+        onClick={onToggle}
+      >
+        <span className="ol-ficha__chevron" aria-hidden />
+        <span className="ol-ficha__op">OP {orden.numero_op}</span>
+        <span className="ol-ficha__cliente">{orden.cliente}</span>
+        <span className={`ol-ficha__badge ol-ficha__badge--${esAlmacen ? 'almacen' : 'finalizado'}`}>
+          {estadoCorto(orden.estado)}
+        </span>
+        {fechaEntrega && (
+          <span className="ol-ficha__fecha" title="Entrega estimada">
+            {fechaEntrega}
+          </span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="ol-ficha__detail">
+          <dl className="ol-ficha__grid">
+            {orden.dni_cuit && (
+              <div>
+                <dt>DNI / CUIT</dt>
+                <dd>{orden.dni_cuit}</dd>
+              </div>
+            )}
+            {orden.fecha_creacion && (
+              <div>
+                <dt>Creada</dt>
+                <dd>{new Date(orden.fecha_creacion).toLocaleDateString('es-AR')}</dd>
+              </div>
+            )}
+            {orden.fecha_entrega && (
+              <div>
+                <dt>Entrega estimada</dt>
+                <dd>{new Date(orden.fecha_entrega).toLocaleDateString('es-AR')}</dd>
+              </div>
+            )}
+            {orden.sector && (
+              <div>
+                <dt>Sector</dt>
+                <dd>{orden.sector}</dd>
+              </div>
+            )}
+            {orden.operario_asignado && (
+              <div>
+                <dt>Operario</dt>
+                <dd>{orden.operario_asignado}</dd>
+              </div>
+            )}
+            {orden.prioridad && (
+              <div>
+                <dt>Prioridad</dt>
+                <dd>{orden.prioridad}</dd>
+              </div>
+            )}
+          </dl>
+
+          {orden.descripcion && (
+            <p className="ol-ficha__desc">
+              <span className="ol-ficha__desc-label">Descripción</span>
+              {orden.descripcion}
+            </p>
+          )}
+
+          <div className="ol-ficha__actions">
+            <button
+              type="button"
+              className="ol-btn ol-btn--primary"
+              onClick={() => navigate(`/mostrador/entrega/${orden.id}`)}
+            >
+              Procesar entrega
+            </button>
+            <button
+              type="button"
+              className="ol-btn ol-btn--ghost"
+              onClick={() => navigate(`/op/${orden.numero_op}`)}
+            >
+              Ver OP
+            </button>
+          </div>
+        </div>
+      )}
+    </article>
+  )
+}
 
 const OrdenesListasPage = () => {
   const navigate = useNavigate()
@@ -11,9 +129,10 @@ const OrdenesListasPage = () => {
   const [ordenesListas, setOrdenesListas] = useState<OrdenTrabajo[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [filterEstado, setFilterEstado] = useState<'todos' | 'finalizado' | 'almacen'>('todos')
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   useEffect(() => {
-    loadOrdenesListas()
+    void loadOrdenesListas()
   }, [location.key])
 
   const loadOrdenesListas = async () => {
@@ -36,42 +155,47 @@ const OrdenesListasPage = () => {
     }
   }
 
+  const counts = useMemo(
+    () => ({
+      todos: ordenesListas.length,
+      finalizado: ordenesListas.filter((o) => o.estado === 'Finalizado en Taller').length,
+      almacen: ordenesListas.filter((o) => o.estado === 'Almacén de Entrega').length
+    }),
+    [ordenesListas]
+  )
+
   const ordenesFiltradas = ordenesListas.filter((orden) => {
-    // Filtro por búsqueda
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase().trim()
       const numeroOpStr = orden.numero_op?.toString().toLowerCase() || ''
       const clienteStr = orden.cliente?.toLowerCase() || ''
       const dniCuitStr = orden.dni_cuit?.toLowerCase() || ''
-      
-      const matchesSearch = 
+
+      const matchesSearch =
         numeroOpStr.includes(searchLower) ||
         clienteStr.includes(searchLower) ||
         dniCuitStr.includes(searchLower)
-      
+
       if (!matchesSearch) return false
     }
 
-    // Filtro por estado
-    const matchesEstado = 
+    return (
       filterEstado === 'todos' ||
       (filterEstado === 'finalizado' && orden.estado === 'Finalizado en Taller') ||
       (filterEstado === 'almacen' && orden.estado === 'Almacén de Entrega')
-
-    return matchesEstado
+    )
   })
 
-  const handleMarcarEntregada = async (ordenId: number) => {
-    // Esto se implementará cuando creemos la página de entrega
-    navigate(`/mostrador/entrega/${ordenId}`)
+  const toggleExpand = (id: number) => {
+    setExpandedId((prev) => (prev === id ? null : id))
   }
 
   if (loading) {
     return (
       <div className="ordenes-listas-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando órdenes...</p>
+        <div className="ol-loading">
+          <div className="ol-spinner" />
+          <p>Cargando órdenes listas…</p>
         </div>
       </div>
     )
@@ -79,143 +203,95 @@ const OrdenesListasPage = () => {
 
   return (
     <div className="ordenes-listas-page">
-      <header className="page-header">
-        <div className="header-content">
-          <div>
-            <h1>📦 Órdenes Listas para Retirar</h1>
-            <p className="subtitle">
-              {ordenesListas.length} {ordenesListas.length === 1 ? 'orden lista' : 'órdenes listas'}
-            </p>
+      <header className="ol-header">
+        <div className="ol-header__top">
+          <div className="ol-header__title-block">
+            <span className="ol-header__icon" aria-hidden>
+              OP
+            </span>
+            <div>
+              <h1>Órdenes listas para retirar</h1>
+              <p className="ol-header__subtitle">
+                {counts.todos} {counts.todos === 1 ? 'orden pendiente de entrega' : 'órdenes pendientes de entrega'}
+              </p>
+            </div>
           </div>
-          <button 
-            className="btn-secondary"
+          <button
+            type="button"
+            className="ol-btn ol-btn--ghost ol-header__back"
             onClick={() => navigate('/mostrador/dashboard')}
           >
-            ← Volver al Dashboard
+            Volver al panel
           </button>
         </div>
       </header>
 
-      {/* Filtros y búsqueda */}
-      <div className="filters-section">
-        <div className="search-box">
+      <section className="ol-search-hero" aria-label="Buscar órdenes">
+        <label className="ol-search-wrap">
+          <span className="ol-search-label">Buscar</span>
           <input
-            type="text"
-            placeholder="Buscar por OP, cliente o DNI/CUIT..."
+            type="search"
+            placeholder="Número de OP, cliente o DNI / CUIT…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
+            className="ol-search-input"
+            autoComplete="off"
           />
-          <span className="search-icon">🔍</span>
-        </div>
-        <div className="filter-buttons">
-          <button
-            className={`filter-btn ${filterEstado === 'todos' ? 'active' : ''}`}
-            onClick={() => setFilterEstado('todos')}
-          >
-            Todas ({ordenesListas.length})
-          </button>
-          <button
-            className={`filter-btn ${filterEstado === 'finalizado' ? 'active' : ''}`}
-            onClick={() => setFilterEstado('finalizado')}
-          >
-            Finalizado en Taller ({ordenesListas.filter(o => o.estado === 'Finalizado en Taller').length})
-          </button>
-          <button
-            className={`filter-btn ${filterEstado === 'almacen' ? 'active' : ''}`}
-            onClick={() => setFilterEstado('almacen')}
-          >
-            Almacén de Entrega ({ordenesListas.filter(o => o.estado === 'Almacén de Entrega').length})
-          </button>
-        </div>
-      </div>
-
-      {/* Lista de órdenes */}
-      {ordenesFiltradas.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📭</div>
-          <h3>No hay órdenes listas</h3>
-          <p>
-            {searchTerm || filterEstado !== 'todos'
-              ? 'No se encontraron órdenes con los filtros aplicados'
-              : 'No hay órdenes listas para retirar en este momento'}
-          </p>
-        </div>
-      ) : (
-        <div className="ordenes-grid">
-          {ordenesFiltradas.map((orden) => (
-            <div 
-              key={orden.id} 
-              className={`orden-card ${orden.estado === 'Almacén de Entrega' ? 'almacen' : 'finalizado'}`}
+        </label>
+        <div className="ol-filters" role="tablist" aria-label="Filtrar por estado">
+          {(
+            [
+              ['todos', 'Todas', counts.todos],
+              ['finalizado', 'Finalizado en taller', counts.finalizado],
+              ['almacen', 'En almacén', counts.almacen]
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={filterEstado === key}
+              className={`ol-filter-pill${filterEstado === key ? ' ol-filter-pill--active' : ''}`}
+              onClick={() => setFilterEstado(key)}
             >
-              <div className="orden-header">
-                <div>
-                  <h3>OP #{orden.numero_op}</h3>
-                  <div className="orden-cliente">{orden.cliente}</div>
-                </div>
-                <span className={`badge ${orden.estado === 'Almacén de Entrega' ? 'almacen-badge' : 'finalizado-badge'}`}>
-                  {orden.estado === 'Almacén de Entrega' ? 'En Almacén' : 'Finalizado'}
-                </span>
-              </div>
-
-              <div className="orden-details">
-                {orden.dni_cuit && (
-                  <div className="detail-row">
-                    <span className="detail-label">DNI/CUIT:</span>
-                    <span className="detail-value">{orden.dni_cuit}</span>
-                  </div>
-                )}
-                {orden.fecha_creacion && (
-                  <div className="detail-row">
-                    <span className="detail-label">Creada:</span>
-                    <span className="detail-value">
-                      {new Date(orden.fecha_creacion).toLocaleDateString('es-AR')}
-                    </span>
-                  </div>
-                )}
-                {orden.fecha_entrega && (
-                  <div className="detail-row">
-                    <span className="detail-label">Entrega estimada:</span>
-                    <span className="detail-value">
-                      {new Date(orden.fecha_entrega).toLocaleDateString('es-AR')}
-                    </span>
-                  </div>
-                )}
-                {orden.sector && (
-                  <div className="detail-row">
-                    <span className="detail-label">Sector:</span>
-                    <span className="detail-value">{orden.sector}</span>
-                  </div>
-                )}
-              </div>
-
-              {orden.descripcion && (
-                <div className="orden-descripcion">
-                  <strong>Descripción:</strong> {orden.descripcion}
-                </div>
-              )}
-
-              <div className="orden-actions">
-                <button 
-                  className="btn-primary"
-                  onClick={() => handleMarcarEntregada(orden.id!)}
-                >
-                  📋 Procesar Entrega
-                </button>
-                <button 
-                  className="btn-secondary"
-                  onClick={() => navigate(`/op/${orden.numero_op}`)}
-                >
-                  Ver Detalles
-                </button>
-              </div>
-            </div>
+              {label}
+              <span className="ol-filter-pill__count">{count}</span>
+            </button>
           ))}
         </div>
-      )}
+        {searchTerm.trim() && (
+          <p className="ol-search-hint">
+            {ordenesFiltradas.length} resultado{ordenesFiltradas.length === 1 ? '' : 's'}
+          </p>
+        )}
+      </section>
+
+      <main className="ol-main">
+        {ordenesFiltradas.length === 0 ? (
+          <div className="ol-empty">
+            <p className="ol-empty__title">No hay órdenes para mostrar</p>
+            <p className="ol-empty__text">
+              {searchTerm || filterEstado !== 'todos'
+                ? 'Probá otro término de búsqueda o cambiá el filtro de estado.'
+                : 'Cuando una OP quede finalizada o en almacén, aparecerá acá.'}
+            </p>
+          </div>
+        ) : (
+          <ul className="ol-list">
+            {ordenesFiltradas.map((orden) => (
+              <li key={orden.id}>
+                <OrdenFicha
+                  orden={orden}
+                  expanded={expandedId === orden.id}
+                  onToggle={() => orden.id != null && toggleExpand(orden.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
     </div>
   )
 }
 
 export default OrdenesListasPage
-
