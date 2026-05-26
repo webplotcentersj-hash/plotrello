@@ -104,6 +104,23 @@
   color: var(--bc-muted);
 }
 
+.bc-duplicados-busqueda,
+.bc-duplicados-detalle {
+  max-width: 680px;
+  margin: 0 auto 20px;
+}
+
+.bc-duplicados-loading {
+  margin: 0;
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  color: var(--bc-muted);
+  text-align: center;
+  border-radius: 12px;
+  border: 1px dashed var(--bc-border);
+  background: rgba(30, 41, 59, 0.35);
+}
+
 .bc-main {
   max-width: 680px;
   margin: 0 auto;

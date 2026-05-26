@@ -25,7 +25,7 @@ export function nombreCompletoCliente(c: ClienteRecord): string {
   return n || c.nombre || '—'
 }
 
-function tokensNombre(texto: string): string[] {
+export function tokensNombre(texto: string): string[] {
   return normalizarTexto(texto)
     .split(' ')
     .filter((t) => t.length >= 2)

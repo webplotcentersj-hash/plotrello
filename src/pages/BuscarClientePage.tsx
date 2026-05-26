@@ -8,7 +8,9 @@ import type {
 } from '../types/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
+import ClienteDuplicadosPanel from '../components/ClienteDuplicadosPanel'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
+import { detectarGruposDuplicados } from '../utils/clienteDuplicados'
 import {
   ESTADO_CC_LABELS,
   isClienteCcOperativo,
@@ -83,6 +85,8 @@ const BuscarClientePage = () => {
   const [ordenesCliente, setOrdenesCliente] = useState<OrdenTrabajo[]>([])
   const [loadingOrdenes, setLoadingOrdenes] = useState(false)
   const [vistaOrdenes, setVistaOrdenes] = useState<'activas' | 'todas'>('activas')
+  const [duplicadosRelacionados, setDuplicadosRelacionados] = useState<ClienteRecord[]>([])
+  const [loadingDuplicados, setLoadingDuplicados] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(searchTerm.trim()), 280)
@@ -116,10 +120,24 @@ const BuscarClientePage = () => {
     }
   }, [debouncedTerm])
 
+  const cargarDuplicados = useCallback(async (cliente: ClienteRecord) => {
+    setLoadingDuplicados(true)
+    setDuplicadosRelacionados([])
+    try {
+      const res = await apiService.buscarDuplicadosCliente(cliente.id)
+      if (res.success && res.data) setDuplicadosRelacionados(res.data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingDuplicados(false)
+    }
+  }, [])
+
   const cargarDatosCliente = useCallback(async (cliente: ClienteRecord) => {
     setLoadingOrdenes(true)
     setOrdenesCliente([])
     setVistaOrdenes('activas')
+    void cargarDuplicados(cliente)
 
     try {
       const [prefRes, ccRes, ordRes] = await Promise.all([
@@ -155,7 +173,12 @@ const BuscarClientePage = () => {
     } finally {
       setLoadingOrdenes(false)
     }
-  }, [])
+  }, [cargarDuplicados])
+
+  const gruposDuplicadosEnBusqueda = useMemo(
+    () => detectarGruposDuplicados(clientesEncontrados),
+    [clientesEncontrados]
+  )
 
   const ordenesActivas = useMemo(
     () =>
@@ -170,6 +193,15 @@ const BuscarClientePage = () => {
   const limpiarSeleccion = () => {
     setClienteSeleccionado(null)
     setOrdenesCliente([])
+    setDuplicadosRelacionados([])
+  }
+
+  const trasFusionar = async (principal: ClienteRecord) => {
+    await cargarDatosCliente(principal)
+    if (debouncedTerm.length >= MIN_BUSQUEDA) {
+      const res = await apiService.buscarClientes(debouncedTerm)
+      if (res.success && res.data) setClientesEncontrados(res.data)
+    }
   }
 
   const buscando = debouncedTerm.length >= MIN_BUSQUEDA
@@ -189,14 +221,15 @@ const BuscarClientePage = () => {
       <div className="bc-hero">
         <h1>Buscar cliente</h1>
         <p className="bc-hero__hint">
-          Nombre, apellido, empresa, DNI, CUIT, teléfono o email — desde 1 carácter
+          Nombre, DNI, CUIT, teléfono o email — podés separar con espacios (ej:{' '}
+          <em>García 20123456789</em>). Detectamos duplicados para unificar fichas.
         </p>
 
         <label className="bc-search-wrap">
           <span className="bc-search-label">Buscar cliente</span>
           <input
             type="search"
-            placeholder="Ej: García, 20-12345678, Plot Lab…"
+            placeholder="Ej: García 20-12345678 o Plot Lab…"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
@@ -219,6 +252,16 @@ const BuscarClientePage = () => {
       </div>
 
       <main className="bc-main">
+        {buscando && !clienteSeleccionado && gruposDuplicadosEnBusqueda.length > 0 && (
+          <div className="bc-duplicados-busqueda">
+            <ClienteDuplicadosPanel
+              candidatos={clientesEncontrados}
+              onFusionCompleta={(p) => void trasFusionar(p)}
+              onVerCliente={(c) => void cargarDatosCliente(c)}
+            />
+          </div>
+        )}
+
         {buscando && !clienteSeleccionado && clientesEncontrados.length > 0 && (
           <ul className="bc-clientes-list">
             {clientesEncontrados.map((cliente) => (
@@ -257,6 +300,20 @@ const BuscarClientePage = () => {
 
         {clienteSeleccionado && (
           <section className="bc-detalle">
+            {(loadingDuplicados || duplicadosRelacionados.length > 0) && (
+              <div className="bc-duplicados-detalle">
+                {loadingDuplicados ? (
+                  <p className="bc-duplicados-loading">Analizando posibles duplicados…</p>
+                ) : (
+                  <ClienteDuplicadosPanel
+                    clienteReferencia={clienteSeleccionado}
+                    candidatos={duplicadosRelacionados}
+                    onFusionCompleta={trasFusionar}
+                  />
+                )}
+              </div>
+            )}
+
             <div className="bc-detalle__head">
               <div>
                 <div className="bc-detalle__title-row">

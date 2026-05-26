@@ -1,19 +1,65 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { OrdenTrabajo, ClienteRecord } from '../types/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { clienteCoincideBusqueda } from '../utils/clienteDuplicados'
 import './ClientesFrecuentesPage.css'
 
 type ClienteFrecuente = ClienteRecord & {
   totalOrdenes: number
   ordenesActivas: number
   ultimaOrden?: string | null
-  montoTotal?: number
   esVIP?: boolean
   preferencias?: string
   notas?: string
+}
+
+function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return '—'
+  try {
+    return new Date(dateString).toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+  } catch {
+    return dateString
+  }
+}
+
+function OrdenFichaCf({
+  orden,
+  onVer
+}: {
+  orden: OrdenTrabajo
+  onVer: () => void
+}) {
+  const status = mapEstadoToStatus(orden.estado)
+  const column = BOARD_COLUMNS.find((col) => col.id === status)
+  const label = column?.label || orden.estado
+  const accent = column?.accent || '#6b7280'
+  const entregada = orden.estado === 'Entregado o Instalado' || orden.entregado
+
+  return (
+    <article className={`cf-orden${entregada ? ' cf-orden--hist' : ''}`}>
+      <div className="cf-orden__head">
+        <span className="cf-orden__op">OP {orden.numero_op}</span>
+        <span className="cf-orden__badge" style={{ backgroundColor: accent }}>
+          {label}
+        </span>
+      </div>
+      {orden.descripcion && <p className="cf-orden__desc">{orden.descripcion}</p>}
+      <div className="cf-orden__meta">
+        {orden.fecha_creacion && <span>Creada {formatDate(orden.fecha_creacion)}</span>}
+        {orden.fecha_entrega && <span>Entrega {formatDate(orden.fecha_entrega)}</span>}
+      </div>
+      <button type="button" className="cf-btn cf-btn--ghost cf-btn--sm" onClick={onVer}>
+        Ver OP
+      </button>
+    </article>
+  )
 }
 
 const ClientesFrecuentesPage = () => {
@@ -29,19 +75,20 @@ const ClientesFrecuentesPage = () => {
   const [preferencias, setPreferencias] = useState('')
   const [notas, setNotas] = useState('')
   const [loadingOrdenes, setLoadingOrdenes] = useState(false)
+  const [guardandoPrefs, setGuardandoPrefs] = useState(false)
+  const [mensajeOk, setMensajeOk] = useState<string | null>(null)
+  const [vistaHistorial, setVistaHistorial] = useState<'activas' | 'todas'>('activas')
 
   useEffect(() => {
-    loadClientesFrecuentes()
+    void loadClientesFrecuentes()
   }, [])
 
   const loadClientesFrecuentes = async () => {
     setLoading(true)
     try {
-      // Cargar todas las órdenes para calcular estadísticas
       const ordenesResponse = await apiService.getOrdenes()
       if (!ordenesResponse.success || !ordenesResponse.data) return
 
-      // Obtener todos los clientes únicos
       const clientesMap = new Map<string, ClienteFrecuente>()
 
       ordenesResponse.data.forEach((orden) => {
@@ -66,19 +113,21 @@ const ClientesFrecuentesPage = () => {
 
         const cliente = clientesMap.get(dni)!
         cliente.totalOrdenes++
-        if (orden.estado !== 'Entregado o Instalado') {
+        if (orden.estado !== 'Entregado o Instalado' && !orden.entregado) {
           cliente.ordenesActivas++
         }
-        if (!cliente.ultimaOrden || 
-            new Date(orden.fecha_creacion || 0) > new Date(cliente.ultimaOrden)) {
+        if (
+          !cliente.ultimaOrden ||
+          new Date(orden.fecha_creacion || 0) > new Date(cliente.ultimaOrden)
+        ) {
           cliente.ultimaOrden = orden.fecha_creacion
         }
       })
 
-      // Cargar preferencias desde la base de datos
       const preferenciasResponse = await apiService.obtenerTodasPreferenciasClientes()
-      const preferenciasMap: Record<string, { preferencias?: string; notas?: string; esVIP?: boolean }> = {}
-      
+      const preferenciasMap: Record<string, { preferencias?: string; notas?: string; esVIP?: boolean }> =
+        {}
+
       if (preferenciasResponse.success && preferenciasResponse.data) {
         preferenciasResponse.data.forEach((pref) => {
           preferenciasMap[pref.dni_cuit.toUpperCase()] = {
@@ -89,7 +138,6 @@ const ClientesFrecuentesPage = () => {
         })
       }
 
-      // Aplicar preferencias y marcar VIP
       clientesMap.forEach((cliente, dni) => {
         const prefs = preferenciasMap[dni] || {}
         cliente.preferencias = prefs.preferencias
@@ -97,11 +145,7 @@ const ClientesFrecuentesPage = () => {
         cliente.esVIP = prefs.esVIP !== undefined ? prefs.esVIP : cliente.totalOrdenes >= 10
       })
 
-      // Convertir a array y ordenar por total de órdenes
-      const clientesArray = Array.from(clientesMap.values())
-        .sort((a, b) => b.totalOrdenes - a.totalOrdenes)
-
-      setClientes(clientesArray)
+      setClientes(Array.from(clientesMap.values()).sort((a, b) => b.totalOrdenes - a.totalOrdenes))
     } catch (error) {
       console.error('Error cargando clientes frecuentes:', error)
     } finally {
@@ -109,93 +153,80 @@ const ClientesFrecuentesPage = () => {
     }
   }
 
-  // Función auxiliar para normalizar DNI/CUIT (eliminar guiones, espacios, etc.)
   const normalizarDniCuit = (dniCuit: string | null | undefined): string => {
     if (!dniCuit) return ''
     return dniCuit.replace(/[-\s]/g, '').toUpperCase().trim()
   }
 
-  const seleccionarCliente = async (cliente: ClienteFrecuente) => {
+  const seleccionarCliente = useCallback(async (cliente: ClienteFrecuente) => {
     setClienteSeleccionado(cliente)
     setPreferencias(cliente.preferencias || '')
     setNotas(cliente.notas || '')
+    setEditandoPreferencias(false)
+    setMensajeOk(null)
+    setVistaHistorial('activas')
     setLoadingOrdenes(true)
 
     try {
       const ordenesResponse = await apiService.getOrdenes()
       if (ordenesResponse.success && ordenesResponse.data) {
-        // Normalizar datos del cliente para búsqueda
         const dniClienteNormalized = normalizarDniCuit(cliente.dni_cuit)
         const nombreClienteLower = cliente.nombre?.toLowerCase().trim() || ''
         const apellidoClienteLower = cliente.apellido?.toLowerCase().trim() || ''
-        const nombreCompletoCliente = `${nombreClienteLower} ${apellidoClienteLower}`.trim()
+        const nombreCompleto = `${nombreClienteLower} ${apellidoClienteLower}`.trim()
         const telefonoCliente = cliente.telefono?.trim() || ''
         const emailCliente = cliente.email?.toLowerCase().trim() || ''
 
-        // Filtrar órdenes por múltiples criterios
         const ordenesFiltradas = ordenesResponse.data.filter((orden) => {
-          // Buscar por DNI/CUIT (normalizado)
           if (dniClienteNormalized) {
             const dniOrdenNormalized = normalizarDniCuit(orden.dni_cuit)
-            if (dniOrdenNormalized && dniOrdenNormalized === dniClienteNormalized) {
-              return true
-            }
+            if (dniOrdenNormalized && dniOrdenNormalized === dniClienteNormalized) return true
           }
-
-          // Buscar por nombre del cliente
           if (nombreClienteLower) {
             const nombreOrdenLower = orden.cliente?.toLowerCase().trim() || ''
-            if (nombreOrdenLower) {
-              // Coincidencia exacta o parcial del nombre
-              if (nombreOrdenLower === nombreCompletoCliente || 
-                  nombreOrdenLower === nombreClienteLower ||
-                  nombreOrdenLower.includes(nombreClienteLower) ||
-                  (apellidoClienteLower && nombreOrdenLower.includes(apellidoClienteLower))) {
-                return true
-              }
+            if (
+              nombreOrdenLower &&
+              (nombreOrdenLower === nombreCompleto ||
+                nombreOrdenLower === nombreClienteLower ||
+                nombreOrdenLower.includes(nombreClienteLower) ||
+                (apellidoClienteLower && nombreOrdenLower.includes(apellidoClienteLower)))
+            ) {
+              return true
             }
           }
-
-          // Buscar por teléfono
           if (telefonoCliente && orden.telefono_cliente) {
-            const telefonoOrden = orden.telefono_cliente.replace(/[-\s()]/g, '').trim()
-            const telefonoClienteClean = telefonoCliente.replace(/[-\s()]/g, '').trim()
-            if (telefonoOrden === telefonoClienteClean) {
-              return true
-            }
+            const tO = orden.telefono_cliente.replace(/[-\s()]/g, '').trim()
+            const tC = telefonoCliente.replace(/[-\s()]/g, '').trim()
+            if (tO === tC) return true
           }
-
-          // Buscar por email
           if (emailCliente && orden.email_cliente) {
-            const emailOrdenLower = orden.email_cliente.toLowerCase().trim()
-            if (emailOrdenLower === emailCliente) {
-              return true
-            }
+            if (orden.email_cliente.toLowerCase().trim() === emailCliente) return true
           }
-
           return false
         })
 
         const activas = ordenesFiltradas.filter(
-          (orden) => orden.estado !== 'Entregado o Instalado'
+          (o) => o.estado !== 'Entregado o Instalado' && !o.entregado
         )
         setOrdenesCliente(activas)
-
-        const historial = [...ordenesFiltradas].sort(
-          (a, b) => new Date(b.fecha_creacion || 0).getTime() - new Date(a.fecha_creacion || 0).getTime()
+        setHistorialCompleto(
+          [...ordenesFiltradas].sort(
+            (a, b) =>
+              new Date(b.fecha_creacion || 0).getTime() - new Date(a.fecha_creacion || 0).getTime()
+          )
         )
-        setHistorialCompleto(historial)
       }
     } catch (error) {
       console.error('Error cargando órdenes del cliente:', error)
     } finally {
       setLoadingOrdenes(false)
     }
-  }
+  }, [])
 
   const guardarPreferencias = async () => {
-    if (!clienteSeleccionado || !clienteSeleccionado.dni_cuit) return
-
+    if (!clienteSeleccionado?.dni_cuit) return
+    setGuardandoPrefs(true)
+    setMensajeOk(null)
     try {
       const response = await apiService.guardarPreferenciasCliente(
         clienteSeleccionado.dni_cuit,
@@ -203,37 +234,29 @@ const ClientesFrecuentesPage = () => {
         notas || null,
         clienteSeleccionado.esVIP
       )
-
       if (!response.success) {
-        alert(`Error al guardar: ${response.error}`)
+        setMensajeOk(response.error || 'Error al guardar')
         return
       }
-
-      // Actualizar cliente en la lista
       setClientes((prev) =>
         prev.map((c) =>
-          c.dni_cuit === clienteSeleccionado.dni_cuit
-            ? { ...c, preferencias, notas }
-            : c
+          c.dni_cuit === clienteSeleccionado.dni_cuit ? { ...c, preferencias, notas } : c
         )
       )
-
-      // Actualizar cliente seleccionado
       setClienteSeleccionado({ ...clienteSeleccionado, preferencias, notas })
-
       setEditandoPreferencias(false)
-      alert('Preferencias guardadas exitosamente')
-    } catch (error) {
-      console.error('Error guardando preferencias:', error)
-      alert('Error al guardar las preferencias')
+      setMensajeOk('Preferencias guardadas')
+      setTimeout(() => setMensajeOk(null), 3000)
+    } catch {
+      setMensajeOk('No se pudieron guardar las preferencias')
+    } finally {
+      setGuardandoPrefs(false)
     }
   }
 
   const toggleVIP = async () => {
-    if (!clienteSeleccionado || !clienteSeleccionado.dni_cuit) return
-
+    if (!clienteSeleccionado?.dni_cuit) return
     const nuevoEstadoVIP = !clienteSeleccionado.esVIP
-
     try {
       const response = await apiService.guardarPreferenciasCliente(
         clienteSeleccionado.dni_cuit,
@@ -241,66 +264,66 @@ const ClientesFrecuentesPage = () => {
         clienteSeleccionado.notas || null,
         nuevoEstadoVIP
       )
-
-      if (!response.success) {
-        alert(`Error al actualizar VIP: ${response.error}`)
-        return
-      }
-
+      if (!response.success) return
       setClienteSeleccionado({ ...clienteSeleccionado, esVIP: nuevoEstadoVIP })
       setClientes((prev) =>
         prev.map((c) =>
-          c.dni_cuit === clienteSeleccionado.dni_cuit
-            ? { ...c, esVIP: nuevoEstadoVIP }
-            : c
+          c.dni_cuit === clienteSeleccionado.dni_cuit ? { ...c, esVIP: nuevoEstadoVIP } : c
         )
       )
     } catch (error) {
       console.error('Error actualizando VIP:', error)
-      alert('Error al actualizar el estado VIP')
     }
   }
 
-  const clientesFiltrados = clientes.filter((cliente) => {
-    const matchesSearch =
-      cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.dni_cuit?.toLowerCase().includes(searchTerm.toLowerCase())
+  const stats = useMemo(
+    () => ({
+      total: clientes.length,
+      vip: clientes.filter((c) => c.esVIP).length,
+      conActivas: clientes.filter((c) => c.ordenesActivas > 0).length
+    }),
+    [clientes]
+  )
 
-    const matchesVIP = filtroVIP === null || cliente.esVIP === filtroVIP
+  const clientesFiltrados = useMemo(() => {
+    const q = searchTerm.trim()
+    return clientes.filter((cliente) => {
+      const matchesSearch =
+        !q ||
+        clienteCoincideBusqueda(
+          {
+            id: cliente.id,
+            nombre: cliente.nombre,
+            apellido: cliente.apellido,
+            dni_cuit: cliente.dni_cuit,
+            telefono: cliente.telefono,
+            email: cliente.email,
+            empresa: cliente.empresa
+          },
+          q
+        ) ||
+        cliente.nombre.toLowerCase().includes(q.toLowerCase()) ||
+        cliente.dni_cuit?.toLowerCase().includes(q.toLowerCase())
 
-    return matchesSearch && matchesVIP
-  })
+      const matchesVIP = filtroVIP === null || cliente.esVIP === filtroVIP
+      return matchesSearch && matchesVIP
+    })
+  }, [clientes, searchTerm, filtroVIP])
 
-  const getEstadoLabel = (estado: string) => {
-    const status = mapEstadoToStatus(estado)
-    const column = BOARD_COLUMNS.find((col) => col.id === status)
-    return column?.label || estado
-  }
+  const ordenesVista = vistaHistorial === 'activas' ? ordenesCliente : historialCompleto
 
-  const getEstadoColor = (estado: string) => {
-    const status = mapEstadoToStatus(estado)
-    const column = BOARD_COLUMNS.find((col) => col.id === status)
-    return column?.accent || '#6b7280'
-  }
-
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      })
-    } catch {
-      return dateString
-    }
+  const cerrarDetalle = () => {
+    setClienteSeleccionado(null)
+    setEditandoPreferencias(false)
+    setMensajeOk(null)
   }
 
   if (loading) {
     return (
       <div className="clientes-frecuentes-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando clientes frecuentes...</p>
+        <div className="cf-loading">
+          <div className="cf-spinner" />
+          <p>Cargando clientes frecuentes…</p>
         </div>
       </div>
     )
@@ -308,334 +331,319 @@ const ClientesFrecuentesPage = () => {
 
   return (
     <div className="clientes-frecuentes-page">
-      <header className="page-header">
-        <div className="header-content">
-          <div>
-            <h1>⭐ Clientes Frecuentes</h1>
-            <p className="subtitle">
-              {clientes.length} {clientes.length === 1 ? 'cliente registrado' : 'clientes registrados'}
-            </p>
+      <header className="cf-header">
+        <div className="cf-header__row">
+          <div className="cf-header__title-block">
+            <span className="cf-header__icon" aria-hidden>
+              CF
+            </span>
+            <div>
+              <h1>Clientes frecuentes</h1>
+              <p className="cf-header__subtitle">
+                {stats.total} clientes · {stats.vip} VIP · {stats.conActivas} con OP activas
+              </p>
+            </div>
           </div>
           <button
-            className="btn-secondary"
+            type="button"
+            className="cf-btn cf-btn--ghost"
             onClick={() => navigate('/mostrador/dashboard')}
           >
-            ← Volver al Dashboard
+            Volver al panel
           </button>
         </div>
       </header>
 
-      {/* Filtros y Búsqueda */}
-      <div className="filtros-section">
-        <div className="search-box">
+      <section className="cf-search-hero" aria-label="Buscar y filtrar">
+        <label className="cf-search-wrap">
+          <span className="cf-search-label">Buscar</span>
           <input
-            type="text"
-            placeholder="Buscar cliente..."
+            type="search"
+            placeholder="Nombre, DNI o varias palabras separadas por espacio…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
+            className="cf-search-input"
+            autoComplete="off"
           />
-          <span className="search-icon">🔍</span>
+        </label>
+        <div className="cf-filters" role="tablist" aria-label="Filtrar por tipo">
+          {(
+            [
+              [null, 'Todos', stats.total],
+              [true, 'VIP', stats.vip],
+              [false, 'Regulares', stats.total - stats.vip]
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={String(key)}
+              type="button"
+              role="tab"
+              aria-selected={filtroVIP === key}
+              className={`cf-filter-pill${filtroVIP === key ? ' cf-filter-pill--active' : ''}${key === true ? ' cf-filter-pill--vip' : ''}`}
+              onClick={() => setFiltroVIP(key)}
+            >
+              {label}
+              <span className="cf-filter-pill__count">{count}</span>
+            </button>
+          ))}
         </div>
-        <div className="filtro-vip">
-          <button
-            className={`filtro-btn ${filtroVIP === null ? 'active' : ''}`}
-            onClick={() => setFiltroVIP(null)}
-          >
-            Todos ({clientes.length})
-          </button>
-          <button
-            className={`filtro-btn ${filtroVIP === true ? 'active' : ''}`}
-            onClick={() => setFiltroVIP(true)}
-          >
-            ⭐ VIP ({clientes.filter(c => c.esVIP).length})
-          </button>
-          <button
-            className={`filtro-btn ${filtroVIP === false ? 'active' : ''}`}
-            onClick={() => setFiltroVIP(false)}
-          >
-            Regulares ({clientes.filter(c => !c.esVIP).length})
-          </button>
-        </div>
-      </div>
+        {searchTerm.trim() && (
+          <p className="cf-search-meta">
+            {clientesFiltrados.length} resultado{clientesFiltrados.length === 1 ? '' : 's'}
+          </p>
+        )}
+      </section>
 
-      <div className="clientes-content">
-        {/* Lista de Clientes */}
-        <section className="clientes-lista-section">
-          <h2>Lista de Clientes</h2>
+      <div className={`cf-layout${clienteSeleccionado ? ' cf-layout--split' : ''}`}>
+        <aside className="cf-lista" aria-label="Ranking de clientes">
+          <div className="cf-lista__head">
+            <h2>Por volumen de órdenes</h2>
+            <span className="cf-lista__count">{clientesFiltrados.length}</span>
+          </div>
+
           {clientesFiltrados.length === 0 ? (
-            <div className="empty-state">
-              <p>No se encontraron clientes</p>
+            <div className="cf-empty">
+              <p>No hay clientes con ese criterio</p>
+              <button type="button" className="cf-btn cf-btn--ghost" onClick={() => setSearchTerm('')}>
+                Limpiar búsqueda
+              </button>
             </div>
           ) : (
-            <div className="clientes-grid">
-              {clientesFiltrados.map((cliente) => (
-                <div
-                  key={cliente.dni_cuit}
-                  className={`cliente-card ${cliente.esVIP ? 'vip' : ''} ${clienteSeleccionado?.dni_cuit === cliente.dni_cuit ? 'selected' : ''}`}
-                  onClick={() => seleccionarCliente(cliente)}
-                >
-                  {cliente.esVIP && (
-                    <div className="vip-badge">⭐ VIP</div>
-                  )}
-                  <div className="cliente-card-header">
-                    <h3>{cliente.nombre}</h3>
-                    <span className="total-ordenes">{cliente.totalOrdenes} órdenes</span>
-                  </div>
-                  <div className="cliente-card-info">
-                    <div className="info-row">
-                      <span className="label">DNI/CUIT:</span>
-                      <span>{cliente.dni_cuit}</span>
-                    </div>
-                    {cliente.ordenesActivas > 0 && (
-                      <div className="info-row activas">
-                        <span className="label">Activas:</span>
-                        <span className="badge-activas">{cliente.ordenesActivas}</span>
-                      </div>
-                    )}
-                    {cliente.ultimaOrden && (
-                      <div className="info-row">
-                        <span className="label">Última orden:</span>
-                        <span>{formatDate(cliente.ultimaOrden)}</span>
-                      </div>
-                    )}
-                  </div>
-                  {cliente.preferencias && (
-                    <div className="cliente-preferencias-preview">
-                      💡 {cliente.preferencias.substring(0, 50)}
-                      {cliente.preferencias.length > 50 && '...'}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Detalle del Cliente Seleccionado */}
-        {clienteSeleccionado && (
-          <section className="cliente-detalle-section">
-            <div className="cliente-detalle-header">
-              <div>
-                <h2>
-                  {clienteSeleccionado.nombre}
-                  {clienteSeleccionado.esVIP && <span className="vip-tag">⭐ VIP</span>}
-                </h2>
-                <div className="cliente-stats">
-                  <div className="stat-item">
-                    <span className="stat-label">Total Órdenes:</span>
-                    <span className="stat-value">{clienteSeleccionado.totalOrdenes}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Órdenes Activas:</span>
-                    <span className="stat-value">{clienteSeleccionado.ordenesActivas}</span>
-                  </div>
-                  {clienteSeleccionado.ultimaOrden && (
-                    <div className="stat-item">
-                      <span className="stat-label">Última Orden:</span>
-                      <span className="stat-value">{formatDate(clienteSeleccionado.ultimaOrden)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="header-actions">
-                <button
-                  className={`btn-vip ${clienteSeleccionado.esVIP ? 'active' : ''}`}
-                  onClick={toggleVIP}
-                >
-                  {clienteSeleccionado.esVIP ? '⭐ Quitar VIP' : '⭐ Marcar como VIP'}
-                </button>
-                <button
-                  className="btn-secondary"
-                  onClick={() => {
-                    setClienteSeleccionado(null)
-                    setEditandoPreferencias(false)
-                  }}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-
-            {/* Preferencias y Notas */}
-            <div className="preferencias-section">
-              <div className="section-header">
-                <h3>💡 Preferencias y Notas</h3>
-                {!editandoPreferencias && (
-                  <button
-                    className="btn-link"
-                    onClick={() => setEditandoPreferencias(true)}
-                  >
-                    ✏️ Editar
-                  </button>
-                )}
-              </div>
-              {editandoPreferencias ? (
-                <div className="form-preferencias">
-                  <div className="form-group">
-                    <label>Preferencias del Cliente:</label>
-                    <textarea
-                      rows={3}
-                      value={preferencias}
-                      onChange={(e) => setPreferencias(e.target.value)}
-                      placeholder="Ej: Prefiere materiales ecológicos, entrega en horario matutino..."
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Notas Internas:</label>
-                    <textarea
-                      rows={3}
-                      value={notas}
-                      onChange={(e) => setNotas(e.target.value)}
-                      placeholder="Notas internas sobre el cliente..."
-                    />
-                  </div>
-                  <div className="form-actions">
+            <ul className="cf-clientes">
+              {clientesFiltrados.map((cliente, index) => {
+                const selected = clienteSeleccionado?.dni_cuit === cliente.dni_cuit
+                return (
+                  <li key={cliente.dni_cuit}>
                     <button
-                      className="btn-secondary"
-                      onClick={() => {
-                        setEditandoPreferencias(false)
-                        setPreferencias(clienteSeleccionado.preferencias || '')
-                        setNotas(clienteSeleccionado.notas || '')
-                      }}
+                      type="button"
+                      className={`cf-cliente-row${selected ? ' cf-cliente-row--selected' : ''}${cliente.esVIP ? ' cf-cliente-row--vip' : ''}`}
+                      onClick={() => void seleccionarCliente(cliente)}
                     >
-                      Cancelar
-                    </button>
-                    <button
-                      className="btn-primary"
-                      onClick={guardarPreferencias}
-                    >
-                      💾 Guardar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="preferencias-display">
-                  {clienteSeleccionado.preferencias ? (
-                    <div className="preferencia-item">
-                      <strong>Preferencias:</strong>
-                      <p>{clienteSeleccionado.preferencias}</p>
-                    </div>
-                  ) : (
-                    <p className="sin-datos">No hay preferencias registradas</p>
-                  )}
-                  {clienteSeleccionado.notas && (
-                    <div className="preferencia-item">
-                      <strong>Notas Internas:</strong>
-                      <p>{clienteSeleccionado.notas}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Órdenes Activas */}
-            {loadingOrdenes ? (
-              <div className="loading-container">
-                <div className="spinner"></div>
-                <p>Cargando órdenes...</p>
-              </div>
-            ) : (
-              <>
-                {ordenesCliente.length > 0 && (
-                  <div className="ordenes-activas-section">
-                    <h3>📋 Órdenes Activas ({ordenesCliente.length})</h3>
-                    <div className="ordenes-grid">
-                      {ordenesCliente.map((orden) => (
-                        <div
-                          key={orden.id}
-                          className="orden-card"
-                          onClick={() => navigate(`/op/${orden.numero_op}`)}
-                        >
-                          <div className="orden-header">
-                            <h4>OP #{orden.numero_op}</h4>
-                            <span
-                              className="badge"
-                              style={{ backgroundColor: getEstadoColor(orden.estado) }}
-                            >
-                              {getEstadoLabel(orden.estado)}
+                      <span className="cf-cliente-row__rank" aria-hidden>
+                        {index + 1}
+                      </span>
+                      <span className="cf-cliente-row__body">
+                        <span className="cf-cliente-row__top">
+                          <strong>{cliente.nombre}</strong>
+                          {cliente.esVIP && <span className="cf-badge cf-badge--vip">VIP</span>}
+                        </span>
+                        <span className="cf-cliente-row__meta">
+                          <span className="cf-cliente-row__ordenes">{cliente.totalOrdenes} OP</span>
+                          {cliente.dni_cuit && <span>{cliente.dni_cuit}</span>}
+                          {cliente.ordenesActivas > 0 && (
+                            <span className="cf-cliente-row__activas">
+                              {cliente.ordenesActivas} activa{cliente.ordenesActivas === 1 ? '' : 's'}
                             </span>
-                          </div>
-                          {orden.descripcion && (
-                            <p className="orden-descripcion">{orden.descripcion}</p>
                           )}
-                          {orden.fecha_entrega && (
-                            <div className="orden-fecha">
-                              Entrega: {formatDate(orden.fecha_entrega)}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        </span>
+                        {cliente.preferencias && (
+                          <span className="cf-cliente-row__hint">{cliente.preferencias}</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </aside>
 
-                {/* Historial Completo */}
-                <div className="historial-section">
-                  <h3>📚 Historial Completo ({historialCompleto.length} órdenes)</h3>
-                  {historialCompleto.length === 0 ? (
-                    <div className="empty-state">
-                      <p>No hay historial disponible</p>
-                    </div>
-                  ) : (
-                    <div className="historial-table">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>OP</th>
-                            <th>Estado</th>
-                            <th>Descripción</th>
-                            <th>Fecha Creación</th>
-                            <th>Fecha Entrega</th>
-                            <th>Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {historialCompleto.map((orden) => (
-                            <tr key={orden.id}>
-                              <td>
-                                <strong>#{orden.numero_op}</strong>
-                              </td>
-                              <td>
-                                <span
-                                  className="badge"
-                                  style={{ backgroundColor: getEstadoColor(orden.estado) }}
-                                >
-                                  {getEstadoLabel(orden.estado)}
-                                </span>
-                              </td>
-                              <td className="descripcion-cell">
-                                {orden.descripcion || 'Sin descripción'}
-                              </td>
-                              <td>
-                                {orden.fecha_creacion ? formatDate(orden.fecha_creacion) : '-'}
-                              </td>
-                              <td>
-                                {orden.fecha_entrega ? formatDate(orden.fecha_entrega) : '-'}
-                              </td>
-                              <td>
-                                <button
-                                  className="btn-link"
-                                  onClick={() => navigate(`/op/${orden.numero_op}`)}
-                                >
-                                  Ver →
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+        <main className="cf-detalle">
+          {!clienteSeleccionado ? (
+            <div className="cf-placeholder">
+              <p className="cf-placeholder__title">Elegí un cliente</p>
+              <p className="cf-placeholder__text">
+                Tocá un nombre de la lista para ver órdenes activas, historial y preferencias de
+                atención.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="cf-detalle__head">
+                <div>
+                  <div className="cf-detalle__title-row">
+                    <h2>{clienteSeleccionado.nombre}</h2>
+                    {clienteSeleccionado.esVIP && (
+                      <span className="cf-badge cf-badge--vip">VIP</span>
+                    )}
+                  </div>
+                  {clienteSeleccionado.dni_cuit && (
+                    <p className="cf-detalle__dni">{clienteSeleccionado.dni_cuit}</p>
                   )}
                 </div>
-              </>
-            )}
-          </section>
-        )}
+                <div className="cf-detalle__actions">
+                  <button
+                    type="button"
+                    className={`cf-btn cf-btn--vip${clienteSeleccionado.esVIP ? ' cf-btn--vip-on' : ''}`}
+                    onClick={() => void toggleVIP()}
+                  >
+                    {clienteSeleccionado.esVIP ? 'Quitar VIP' : 'Marcar VIP'}
+                  </button>
+                  <button type="button" className="cf-btn cf-btn--ghost" onClick={cerrarDetalle}>
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+
+              <div className="cf-kpis">
+                <div className="cf-kpi">
+                  <span className="cf-kpi__val">{clienteSeleccionado.totalOrdenes}</span>
+                  <span className="cf-kpi__lbl">Órdenes totales</span>
+                </div>
+                <div className="cf-kpi cf-kpi--accent">
+                  <span className="cf-kpi__val">{clienteSeleccionado.ordenesActivas}</span>
+                  <span className="cf-kpi__lbl">Activas</span>
+                </div>
+                <div className="cf-kpi">
+                  <span className="cf-kpi__val">
+                    {clienteSeleccionado.ultimaOrden
+                      ? formatDate(clienteSeleccionado.ultimaOrden)
+                      : '—'}
+                  </span>
+                  <span className="cf-kpi__lbl">Última OP</span>
+                </div>
+              </div>
+
+              <section className="cf-prefs">
+                <div className="cf-prefs__head">
+                  <h3>Preferencias y notas</h3>
+                  {!editandoPreferencias && (
+                    <button
+                      type="button"
+                      className="cf-btn cf-btn--ghost cf-btn--sm"
+                      onClick={() => setEditandoPreferencias(true)}
+                    >
+                      Editar
+                    </button>
+                  )}
+                </div>
+                {mensajeOk && (
+                  <p
+                    className={`cf-toast${mensajeOk.includes('Error') || mensajeOk.includes('No se') ? ' cf-toast--err' : ''}`}
+                    role="status"
+                  >
+                    {mensajeOk}
+                  </p>
+                )}
+                {editandoPreferencias ? (
+                  <div className="cf-prefs__form">
+                    <label>
+                      <span>Preferencias de atención</span>
+                      <textarea
+                        rows={3}
+                        value={preferencias}
+                        onChange={(e) => setPreferencias(e.target.value)}
+                        placeholder="Materiales, horarios, formas de contacto…"
+                      />
+                    </label>
+                    <label>
+                      <span>Notas internas</span>
+                      <textarea
+                        rows={3}
+                        value={notas}
+                        onChange={(e) => setNotas(e.target.value)}
+                        placeholder="Solo visible para el equipo…"
+                      />
+                    </label>
+                    <div className="cf-prefs__actions">
+                      <button
+                        type="button"
+                        className="cf-btn cf-btn--ghost"
+                        onClick={() => {
+                          setEditandoPreferencias(false)
+                          setPreferencias(clienteSeleccionado.preferencias || '')
+                          setNotas(clienteSeleccionado.notas || '')
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="cf-btn cf-btn--primary"
+                        disabled={guardandoPrefs}
+                        onClick={() => void guardarPreferencias()}
+                      >
+                        {guardandoPrefs ? 'Guardando…' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="cf-prefs__view">
+                    {clienteSeleccionado.preferencias ? (
+                      <p>
+                        <strong>Preferencias</strong>
+                        {clienteSeleccionado.preferencias}
+                      </p>
+                    ) : (
+                      <p className="cf-prefs__empty">Sin preferencias cargadas</p>
+                    )}
+                    {clienteSeleccionado.notas && (
+                      <p>
+                        <strong>Notas</strong>
+                        {clienteSeleccionado.notas}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              <section className="cf-ordenes">
+                <div className="cf-ordenes__head">
+                  <h3>Órdenes</h3>
+                  <div className="cf-ordenes-tabs" role="tablist">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={vistaHistorial === 'activas'}
+                      className={`cf-ordenes-tab${vistaHistorial === 'activas' ? ' cf-ordenes-tab--active' : ''}`}
+                      onClick={() => setVistaHistorial('activas')}
+                    >
+                      Activas ({ordenesCliente.length})
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={vistaHistorial === 'todas'}
+                      className={`cf-ordenes-tab${vistaHistorial === 'todas' ? ' cf-ordenes-tab--active' : ''}`}
+                      onClick={() => setVistaHistorial('todas')}
+                    >
+                      Historial ({historialCompleto.length})
+                    </button>
+                  </div>
+                </div>
+
+                {loadingOrdenes ? (
+                  <div className="cf-loading cf-loading--inline">
+                    <div className="cf-spinner" />
+                    <p>Cargando órdenes…</p>
+                  </div>
+                ) : ordenesVista.length === 0 ? (
+                  <div className="cf-empty cf-empty--inline">
+                    <p>
+                      {vistaHistorial === 'activas'
+                        ? 'Sin órdenes activas'
+                        : 'Sin historial para este cliente'}
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="cf-ordenes-list">
+                    {ordenesVista.map((orden) => (
+                      <li key={orden.id}>
+                        <OrdenFichaCf
+                          orden={orden}
+                          onVer={() => navigate(`/op/${orden.numero_op}`)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </>
+          )}
+        </main>
       </div>
     </div>
   )
 }
 
 export default ClientesFrecuentesPage
-

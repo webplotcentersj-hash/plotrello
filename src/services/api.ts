@@ -4094,38 +4094,249 @@ class ApiService {
   }
 
   // ========== CLIENTES ==========
+  private escapeIlikeCliente(s: string): string {
+    return String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+  }
+
+  private async buscarClientesPorToken(token: string, limit = 60): Promise<ClienteRecord[]> {
+    if (!supabase) return []
+    const patron = `*${this.escapeIlikeCliente(token)}*`
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .or(
+        `nombre.ilike.${patron},apellido.ilike.${patron},dni_cuit.ilike.${patron},telefono.ilike.${patron},email.ilike.${patron},empresa.ilike.${patron}`
+      )
+      .limit(limit)
+      .order('nombre', { ascending: true })
+    if (error) {
+      console.error('Error buscando clientes por token:', error)
+      return []
+    }
+    return (data as ClienteRecord[]) ?? []
+  }
+
   async buscarClientes(query: string): Promise<ApiResponse<ClienteRecord[]>> {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
     }
 
     try {
+      const { tokenizarBusquedaCliente, clienteCoincideBusqueda } = await import(
+        '../utils/clienteDuplicados'
+      )
       const queryTrimmed = query.trim()
       if (!queryTrimmed) {
         return { success: true, data: [] }
       }
 
-      // Escapar % y _ en el texto del usuario para que no actúen como comodines en ILIKE
-      const escapeIlike = (s: string) => String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
-      const patron = `*${escapeIlike(queryTrimmed)}*`
+      const tokens = tokenizarBusquedaCliente(queryTrimmed)
+      let candidatos: ClienteRecord[]
 
-      // Buscar en clientes por nombre, apellido, dni_cuit, teléfono, email, empresa (PostgREST usa * como %)
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
-        .or(`nombre.ilike.${patron},apellido.ilike.${patron},dni_cuit.ilike.${patron},telefono.ilike.${patron},email.ilike.${patron},empresa.ilike.${patron}`)
-        .limit(50)
-        .order('nombre', { ascending: true })
-
-      if (error) {
-        console.error('Error buscando clientes:', error)
-        return { success: false, error: error.message }
+      if (tokens.length <= 1) {
+        candidatos = await this.buscarClientesPorToken(queryTrimmed, 50)
+      } else {
+        let map: Map<number, ClienteRecord> | null = null
+        for (const token of tokens) {
+          const list = await this.buscarClientesPorToken(token, 80)
+          const tokenMap = new Map(list.map((c) => [c.id, c]))
+          if (map === null) {
+            map = tokenMap
+          } else {
+            const next = new Map<number, ClienteRecord>()
+            for (const [id, c] of map) {
+              if (tokenMap.has(id)) next.set(id, c)
+            }
+            map = next
+          }
+        }
+        candidatos = Array.from(map?.values() ?? [])
       }
 
-      return { success: true, data: (data as ClienteRecord[]) ?? [] }
+      const filtrados = candidatos
+        .filter((c) => clienteCoincideBusqueda(c, queryTrimmed))
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
+
+      return { success: true, data: filtrados.slice(0, 50) }
     } catch (error: any) {
       console.error('Error en buscarClientes:', error)
       return { success: false, error: error.message || 'Error al buscar clientes' }
+    }
+  }
+
+  /** Posibles duplicados del cliente (mismo DNI, teléfono, email o nombre muy similar). */
+  async buscarDuplicadosCliente(idCliente: number): Promise<ApiResponse<ClienteRecord[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+
+    const { analizarParDuplicado } = await import('../utils/clienteDuplicados')
+    const { normalizarDniCuit, normalizarTelefono, normalizarTexto, nombreCompletoCliente } =
+      await import('../utils/buscarClienteMatch')
+
+    try {
+      const { data: base, error } = await supabase.from('clientes').select('*').eq('id', idCliente).maybeSingle()
+      if (error || !base) return { success: false, error: error?.message || 'Cliente no encontrado' }
+
+      const cliente = base as ClienteRecord
+      const seen = new Set<number>([cliente.id])
+      const out: ClienteRecord[] = []
+
+      const addMatches = (list: ClienteRecord[] | null | undefined) => {
+        for (const c of list ?? []) {
+          if (seen.has(c.id)) continue
+          const { duplicado } = analizarParDuplicado(cliente, c)
+          if (!duplicado) continue
+          seen.add(c.id)
+          out.push(c)
+        }
+      }
+
+      const dni = normalizarDniCuit(cliente.dni_cuit)
+      if (dni.length >= 6) {
+        const { data } = await supabase
+          .from('clientes')
+          .select('*')
+          .ilike('dni_cuit', `%${this.escapeIlikeCliente(dni)}%`)
+          .neq('id', idCliente)
+          .limit(20)
+        addMatches(data as ClienteRecord[])
+      }
+
+      const tel = normalizarTelefono(cliente.telefono)
+      if (tel.length >= 8) {
+        const { data } = await supabase
+          .from('clientes')
+          .select('*')
+          .ilike('telefono', `%${tel.slice(-8)}%`)
+          .neq('id', idCliente)
+          .limit(20)
+        addMatches(data as ClienteRecord[])
+      }
+
+      const mail = normalizarTexto(cliente.email)
+      if (mail.length >= 5) {
+        const { data } = await supabase
+          .from('clientes')
+          .select('*')
+          .ilike('email', mail)
+          .neq('id', idCliente)
+          .limit(20)
+        addMatches(data as ClienteRecord[])
+      }
+
+      const nombre = nombreCompletoCliente(cliente)
+      if (nombre.length >= 3) {
+        const apellido = cliente.apellido?.trim()
+        const patron = apellido && apellido.length >= 2 ? apellido : nombre.split(' ')[0]
+        if (patron && patron.length >= 2) {
+          const { data } = await supabase
+            .from('clientes')
+            .select('*')
+            .or(`apellido.ilike.%${this.escapeIlikeCliente(patron)}%,nombre.ilike.%${this.escapeIlikeCliente(patron)}%`)
+            .neq('id', idCliente)
+            .limit(30)
+          addMatches(data as ClienteRecord[])
+        }
+      }
+
+      return { success: true, data: out }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al buscar duplicados' }
+    }
+  }
+
+  /**
+   * Unifica dos fichas de cliente: reasigna pedidos/ventas/CC y desactiva la secundaria.
+   */
+  async fusionarClientes(
+    idPrincipal: number,
+    idSecundario: number
+  ): Promise<ApiResponse<ClienteRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    if (idPrincipal === idSecundario) {
+      return { success: false, error: 'Elegí dos clientes distintos' }
+    }
+
+    try {
+      const [{ data: principal }, { data: secundario }] = await Promise.all([
+        supabase.from('clientes').select('*').eq('id', idPrincipal).maybeSingle(),
+        supabase.from('clientes').select('*').eq('id', idSecundario).maybeSingle()
+      ])
+
+      if (!principal || !secundario) {
+        return { success: false, error: 'No se encontraron ambos clientes' }
+      }
+
+      const p = principal as ClienteRecord
+      const s = secundario as ClienteRecord
+
+      const [{ data: ccP }, { data: ccS }] = await Promise.all([
+        supabase.from('clientes_cuenta_corriente').select('id').eq('id_cliente', idPrincipal).maybeSingle(),
+        supabase.from('clientes_cuenta_corriente').select('id').eq('id_cliente', idSecundario).maybeSingle()
+      ])
+
+      if (ccP && ccS) {
+        return {
+          success: false,
+          error:
+            'Ambos clientes tienen cuenta corriente. Unificá manualmente con administración antes de fusionar.'
+        }
+      }
+
+      const tablasIdCliente = [
+        'pedidos_clientes',
+        'presupuestos_clientes',
+        'ventas',
+        'agenda_asesor_tecnico'
+      ] as const
+
+      for (const tabla of tablasIdCliente) {
+        const { error: upErr } = await supabase
+          .from(tabla)
+          .update({ id_cliente: idPrincipal })
+          .eq('id_cliente', idSecundario)
+        if (upErr && !/does not exist|relation/i.test(upErr.message)) {
+          console.warn(`fusionarClientes: ${tabla}`, upErr.message)
+        }
+      }
+
+      if (!ccP && ccS) {
+        const { error: ccMoveErr } = await supabase
+          .from('clientes_cuenta_corriente')
+          .update({ id_cliente: idPrincipal })
+          .eq('id_cliente', idSecundario)
+        if (ccMoveErr) {
+          return { success: false, error: ccMoveErr.message }
+        }
+      }
+
+      const mergePayload: Record<string, string> = {}
+      if (!p.apellido?.trim() && s.apellido?.trim()) mergePayload.apellido = s.apellido.trim()
+      if (!p.empresa?.trim() && s.empresa?.trim()) mergePayload.empresa = s.empresa.trim()
+      if (!p.telefono?.trim() && s.telefono?.trim()) mergePayload.telefono = s.telefono.trim()
+      if (!p.email?.trim() && s.email?.trim()) mergePayload.email = s.email.trim()
+      if (!p.dni_cuit?.trim() && s.dni_cuit?.trim()) mergePayload.dni_cuit = s.dni_cuit.trim()
+      if (!p.direccion?.trim() && s.direccion?.trim()) mergePayload.direccion = s.direccion.trim()
+
+      if (Object.keys(mergePayload).length > 0) {
+        await supabase.from('clientes').update(mergePayload).eq('id', idPrincipal)
+      }
+
+      const { error: offErr } = await supabase
+        .from('clientes')
+        .update({ activo: false })
+        .eq('id', idSecundario)
+      if (offErr) return { success: false, error: offErr.message }
+
+      const { data: actualizado, error: fetchErr } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', idPrincipal)
+        .single()
+      if (fetchErr) return { success: false, error: fetchErr.message }
+
+      return { success: true, data: actualizado as ClienteRecord }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al fusionar clientes' }
     }
   }
 

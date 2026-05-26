@@ -157,7 +157,7 @@ const OrdenesListasPage = () => {
   const [loading, setLoading] = useState(true)
   const [ordenesListas, setOrdenesListas] = useState<OrdenTrabajo[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterEstado, setFilterEstado] = useState<'almacen' | 'finalizado'>('almacen')
+  const [filterEstado, setFilterEstado] = useState<'almacen' | 'finalizado' | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   useEffect(() => {
@@ -179,6 +179,7 @@ const OrdenesListasPage = () => {
   }
 
   const buscando = searchTerm.trim().length > 0
+  const mostrarLista = buscando || filterEstado !== null
 
   const counts = useMemo(
     () => ({
@@ -189,10 +190,12 @@ const OrdenesListasPage = () => {
   )
 
   const ordenesFiltradas = useMemo(() => {
+    if (!mostrarLista) return []
+
     return ordenesListas.filter((orden) => {
       if (filterEstado === 'finalizado') {
         if (!esOpEntradaTaller(orden)) return false
-      } else {
+      } else if (filterEstado === 'almacen') {
         if (esOpEntradaTaller(orden) && !buscando) return false
         if (!esOpEnAlmacen(orden) && !(buscando && esOpEntradaTaller(orden))) return false
       }
@@ -200,7 +203,7 @@ const OrdenesListasPage = () => {
       if (buscando && !matchesOrdenSearch(orden, searchTerm)) return false
       return true
     })
-  }, [ordenesListas, buscando, searchTerm, filterEstado])
+  }, [ordenesListas, buscando, searchTerm, filterEstado, mostrarLista])
 
   const toggleExpand = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id))
@@ -228,14 +231,9 @@ const OrdenesListasPage = () => {
             <div>
               <h1>Órdenes listas para retirar</h1>
               <p className="ol-header__subtitle">
-                {counts.almacen}{' '}
-                {counts.almacen === 1 ? 'orden en almacén' : 'órdenes en almacén'}
-                {counts.entradaTaller > 0 && (
-                  <span className="ol-header__subtitle-extra">
-                    {' '}
-                    · {counts.entradaTaller} en taller (filtro o buscador)
-                  </span>
-                )}
+                {mostrarLista
+                  ? `${ordenesFiltradas.length} ${ordenesFiltradas.length === 1 ? 'orden' : 'órdenes'} en pantalla`
+                  : 'Elegí un filtro o buscá para ver el listado'}
               </p>
             </div>
           </div>
@@ -261,10 +259,10 @@ const OrdenesListasPage = () => {
             autoComplete="off"
           />
         </label>
-        {filterEstado !== 'finalizado' && !buscando && (
+        {!mostrarLista && (
           <p className="ol-search-note">
-            Por defecto solo almacén. Usá el filtro <strong>En taller</strong> o el buscador para ver el
-            resto.
+            Tocá <strong>En almacén</strong> o <strong>En taller</strong> para ver todas las OP de ese
+            estado, o usá el buscador.
           </p>
         )}
         <div className="ol-filters" role="tablist" aria-label="Filtrar por estado">
@@ -296,13 +294,41 @@ const OrdenesListasPage = () => {
       </section>
 
       <main className="ol-main">
-        {ordenesFiltradas.length === 0 ? (
+        {!mostrarLista ? (
+          <div className="ol-landing">
+            <p className="ol-landing__title">Mostrador</p>
+            <p className="ol-landing__text">
+              El listado de OP no se muestra hasta que elijas un filtro o busques por número, cliente o
+              DNI.
+            </p>
+            <div className="ol-landing__stats">
+              <button
+                type="button"
+                className="ol-landing__stat"
+                onClick={() => setFilterEstado('almacen')}
+              >
+                <span className="ol-landing__stat-num">{counts.almacen}</span>
+                <span className="ol-landing__stat-label">En almacén</span>
+              </button>
+              <button
+                type="button"
+                className="ol-landing__stat"
+                onClick={() => setFilterEstado('finalizado')}
+              >
+                <span className="ol-landing__stat-num">{counts.entradaTaller}</span>
+                <span className="ol-landing__stat-label">En taller</span>
+              </button>
+            </div>
+          </div>
+        ) : ordenesFiltradas.length === 0 ? (
           <div className="ol-empty">
             <p className="ol-empty__title">No hay órdenes para mostrar</p>
             <p className="ol-empty__text">
-              {buscando || filterEstado === 'finalizado'
+              {buscando
                 ? 'Probá otro término de búsqueda o cambiá el filtro de estado.'
-                : 'Cuando una OP pase a almacén de entrega, aparecerá acá automáticamente.'}
+                : filterEstado === 'finalizado'
+                  ? 'No hay OP finalizadas en taller pendientes de pasar a almacén.'
+                  : 'No hay OP en almacén de entrega en este momento.'}
             </p>
           </div>
         ) : (
