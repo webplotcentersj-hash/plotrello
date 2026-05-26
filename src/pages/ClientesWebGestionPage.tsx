@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -244,100 +244,137 @@ const ClientesWebGestionPage = () => {
       return sortDirection === 'asc' ? cmp : -cmp
     })
 
+  const stats = useMemo(
+    () => ({
+      total: clientes.length,
+      conAcceso: clientes.filter((c) => c.es_cliente_web).length,
+      sinAcceso: clientes.filter((c) => !c.es_cliente_web).length
+    }),
+    [clientes]
+  )
+
   if (loading) {
     return (
-      <div className="clientes-web-gestion-loading">
-        <div className="spinner"></div>
-        <p>Cargando clientes...</p>
+      <div className="cwg-page cwg-loading">
+        <div className="cwg-spinner" />
+        <p>Cargando clientes…</p>
       </div>
     )
   }
 
   return (
-    <div className="clientes-web-gestion">
-      <header className="clientes-web-gestion-header">
-        <div className="clientes-web-header-content">
-          <h1>👤 Gestión de Clientes</h1>
-          <div className="clientes-web-header-actions">
-            <button className="btn-back" onClick={() => navigate('/clientes-web/dashboard')}>
-              ← Volver
+    <div className="cwg-page">
+      <div className="cwg-shell">
+        <header className="cwg-header">
+          <div className="cwg-header__title">
+            <span className="cwg-header__icon" aria-hidden>
+              CW
+            </span>
+            <div>
+              <h1>Gestión de clientes</h1>
+              <p className="cwg-header__sub">
+                {stats.total} en total · {stats.conAcceso} con portal · {stats.sinAcceso} solo ficha
+              </p>
+            </div>
+          </div>
+          <div className="cwg-header__actions">
+            <button type="button" className="cwg-btn cwg-btn--ghost cwg-btn--xs" onClick={() => navigate('/clientes-web/dashboard')}>
+              Volver
             </button>
-            <button className="btn-secondary" onClick={() => navigate('/clientes-web/presupuestos')}>
-              💰 Presupuestos
+            <button type="button" className="cwg-btn cwg-btn--ghost cwg-btn--xs" onClick={() => navigate('/clientes-web/presupuestos')}>
+              Presupuestos
             </button>
             <button
-              className="btn-secondary"
+              type="button"
+              className="cwg-btn cwg-btn--ghost cwg-btn--xs"
               onClick={() => {
                 setCrearConAcceso(false)
                 resetForm()
                 setShowCreateModal(true)
               }}
             >
-              + Cliente (sin acceso)
+              + Sin acceso
             </button>
             <button
-              className="btn-primary"
+              type="button"
+              className="cwg-btn cwg-btn--primary cwg-btn--xs"
               onClick={() => {
                 setCrearConAcceso(true)
                 resetForm()
                 setShowCreateModal(true)
               }}
             >
-              + Cliente con acceso
+              + Con acceso
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="clientes-web-gestion-content">
-        <div className="clientes-web-filters">
-          <div className="clientes-web-filter-acceso">
-            <span>Ver:</span>
+        <div className="cwg-toolbar">
+          <div className="cwg-filters">
+            <span className="cwg-filters__label">Ver</span>
             <button
-              className={filtroAcceso === 'todos' ? 'active' : ''}
+              type="button"
+              className={`cwg-pill${filtroAcceso === 'todos' ? ' cwg-pill--active' : ''}`}
               onClick={() => setFiltroAcceso('todos')}
             >
-              Todos
+              Todos ({stats.total})
             </button>
             <button
-              className={filtroAcceso === 'con_acceso' ? 'active' : ''}
+              type="button"
+              className={`cwg-pill${filtroAcceso === 'con_acceso' ? ' cwg-pill--active' : ''}`}
               onClick={() => setFiltroAcceso('con_acceso')}
             >
-              Con acceso
+              Portal ({stats.conAcceso})
             </button>
             <button
-              className={filtroAcceso === 'sin_acceso' ? 'active' : ''}
+              type="button"
+              className={`cwg-pill${filtroAcceso === 'sin_acceso' ? ' cwg-pill--active' : ''}`}
               onClick={() => setFiltroAcceso('sin_acceso')}
             >
-              Sin acceso
+              Sin portal ({stats.sinAcceso})
             </button>
           </div>
-          <input
-            type="text"
-            placeholder="Buscar por nombre, usuario, email, empresa..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="clientes-web-search-input"
-          />
+          <label className="cwg-search">
+            <span className="sr-only">Buscar clientes</span>
+            <input
+              type="search"
+              placeholder="Nombre, usuario, email, empresa…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+          <span className="cwg-meta">
+            {filteredClientes.length} mostrado{filteredClientes.length === 1 ? '' : 's'}
+          </span>
         </div>
 
-        <div className="clientes-web-table-container">
-          <table className="clientes-web-table">
+        <div className="cwg-table-wrap">
+          <table className="cwg-table">
             <thead>
               <tr>
-                <th className="sortable" onClick={() => handleSort('id')}>
-                  ID {sortField === 'id' && <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
+                <th className="cwg-th--sort" onClick={() => handleSort('id')}>
+                  ID
+                  {sortField === 'id' && (
+                    <span className="cwg-sort">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
                 <th>Acceso</th>
-                <th className="sortable" onClick={() => handleSort('usuario')}>
-                  Usuario {sortField === 'usuario' && <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
+                <th className="cwg-th--sort" onClick={() => handleSort('usuario')}>
+                  Usuario
+                  {sortField === 'usuario' && (
+                    <span className="cwg-sort">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
-                <th className="sortable" onClick={() => handleSort('nombre')}>
-                  Nombre {sortField === 'nombre' && <span className="sort-icon">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
+                <th className="cwg-th--sort" onClick={() => handleSort('nombre')}>
+                  Nombre
+                  {sortField === 'nombre' && (
+                    <span className="cwg-sort">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
                 </th>
                 <th>Empresa</th>
                 <th>Email</th>
-                <th>Teléfono</th>
+                <th>Tel.</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -345,80 +382,90 @@ const ClientesWebGestionPage = () => {
             <tbody>
               {filteredClientes.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="clientes-web-empty">
-                    {searchQuery || filtroAcceso !== 'todos' ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+                  <td colSpan={9} className="cwg-empty">
+                    {searchQuery || filtroAcceso !== 'todos'
+                      ? 'No hay clientes con ese criterio'
+                      : 'No hay clientes registrados'}
                   </td>
                 </tr>
               ) : (
                 filteredClientes.map((cliente) => (
                   <tr key={cliente.id}>
-                    <td>{cliente.id}</td>
+                    <td className="cwg-td--id">{cliente.id}</td>
                     <td>
                       {cliente.es_cliente_web ? (
-                        <span className="clientes-web-status-badge activo">Con acceso</span>
+                        <span className="cwg-badge cwg-badge--portal">Portal</span>
                       ) : (
-                        <span className="clientes-web-status-badge sin-acceso">Sin acceso</span>
+                        <span className="cwg-badge cwg-badge--none">Ficha</span>
                       )}
                     </td>
-                    <td>{cliente.usuario || '-'}</td>
-                    <td>{cliente.nombre} {cliente.apellido || ''}</td>
-                    <td>{cliente.empresa || '-'}</td>
-                    <td>{cliente.email || '-'}</td>
-                    <td>{cliente.telefono || '-'}</td>
+                    <td className="cwg-td--muted">{cliente.usuario || '—'}</td>
+                    <td className="cwg-td--name">
+                      {cliente.nombre}
+                      {cliente.apellido ? ` ${cliente.apellido}` : ''}
+                    </td>
+                    <td className="cwg-td--muted">{cliente.empresa || '—'}</td>
+                    <td className="cwg-td--muted">{cliente.email || '—'}</td>
+                    <td className="cwg-td--muted">{cliente.telefono || '—'}</td>
                     <td>
                       {cliente.es_cliente_web ? (
-                        <span className={`clientes-web-status-badge ${cliente.activo ? 'activo' : 'inactivo'}`}>
+                        <span className={`cwg-badge ${cliente.activo ? 'cwg-badge--ok' : 'cwg-badge--off'}`}>
                           {cliente.activo ? 'Activo' : 'Inactivo'}
                         </span>
                       ) : (
-                        '-'
+                        <span className="cwg-td--muted">—</span>
                       )}
                     </td>
                     <td>
-                      <div className="clientes-web-actions-cell">
-                      <button
-                        className="btn-edit"
-                        onClick={() => {
-                          setEditingCliente(cliente)
-                          setFormData({
-                            usuario: cliente.usuario || '',
-                            password: '',
-                            nombre: cliente.nombre,
-                            apellido: cliente.apellido || '',
-                            empresa: cliente.empresa || '',
-                            telefono: cliente.telefono || '',
-                            email: cliente.email || '',
-                            dni_cuit: cliente.dni_cuit || '',
-                            direccion: cliente.direccion || ''
-                          })
-                          setShowCreateModal(true)
-                        }}
-                      >
-                        Editar
-                      </button>
-                      {!cliente.es_cliente_web ? (
+                      <div className="cwg-actions">
                         <button
-                          className="btn-primary btn-sm"
-                          onClick={() => setDarAccesoCliente(cliente)}
+                          type="button"
+                          className="cwg-btn cwg-btn--edit cwg-btn--xs"
+                          onClick={() => {
+                            setEditingCliente(cliente)
+                            setCrearConAcceso(!!cliente.es_cliente_web)
+                            setFormData({
+                              usuario: cliente.usuario || '',
+                              password: '',
+                              nombre: cliente.nombre,
+                              apellido: cliente.apellido || '',
+                              empresa: cliente.empresa || '',
+                              telefono: cliente.telefono || '',
+                              email: cliente.email || '',
+                              dni_cuit: cliente.dni_cuit || '',
+                              direccion: cliente.direccion || ''
+                            })
+                            setShowCreateModal(true)
+                          }}
                         >
-                          Dar acceso
+                          Editar
                         </button>
-                      ) : (
-                        <>
+                        {!cliente.es_cliente_web ? (
                           <button
-                            className={`btn-toggle ${cliente.activo ? 'btn-deactivate' : 'btn-activate'}`}
-                            onClick={() => handleToggleActivo(cliente)}
+                            type="button"
+                            className="cwg-btn cwg-btn--primary cwg-btn--xs"
+                            onClick={() => setDarAccesoCliente(cliente)}
                           >
-                            {cliente.activo ? 'Desactivar' : 'Activar'}
+                            Acceso
                           </button>
-                          <button
-                            className="btn-secondary btn-sm"
-                            onClick={() => handleQuitarAcceso(cliente)}
-                          >
-                            Quitar acceso
-                          </button>
-                        </>
-                      )}
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className={`cwg-btn cwg-btn--xs ${cliente.activo ? 'cwg-btn--warn' : 'cwg-btn--ok'}`}
+                              onClick={() => void handleToggleActivo(cliente)}
+                            >
+                              {cliente.activo ? 'Off' : 'On'}
+                            </button>
+                            <button
+                              type="button"
+                              className="cwg-btn cwg-btn--muted cwg-btn--xs"
+                              onClick={() => void handleQuitarAcceso(cliente)}
+                            >
+                              Quitar
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -429,27 +476,32 @@ const ClientesWebGestionPage = () => {
         </div>
       </div>
 
-      {/* Modal crear/editar */}
       {showCreateModal && (
-        <div className="clientes-web-modal-overlay" onClick={() => { setShowCreateModal(false); resetForm() }}>
-          <div className="clientes-web-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingCliente ? 'Editar Cliente' : crearConAcceso ? 'Nuevo Cliente con Acceso' : 'Nuevo Cliente'}</h2>
-            <form className="clientes-web-modal-form" onSubmit={handleCreate}>
+        <div className="cwg-modal-overlay" onClick={() => { setShowCreateModal(false); resetForm() }}>
+          <div className="cwg-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h2>
+              {editingCliente
+                ? 'Editar cliente'
+                : crearConAcceso
+                  ? 'Nuevo con acceso al portal'
+                  : 'Nuevo cliente (solo ficha)'}
+            </h2>
+            <form className="cwg-form" onSubmit={handleCreate}>
               {!editingCliente && (
-                <div className="clientes-web-form-group">
+                <div className="cwg-field cwg-field--check">
                   <label>
                     <input
                       type="checkbox"
                       checked={crearConAcceso}
                       onChange={(e) => setCrearConAcceso(e.target.checked)}
                     />
-                    {' '}Crear con acceso al portal (usuario y contraseña)
+                    Crear con usuario y contraseña para el portal
                   </label>
                 </div>
               )}
               {crearConAcceso && (
-                <div className="clientes-web-form-row">
-                  <div className="clientes-web-form-group">
+                <div className="cwg-form-row">
+                  <div className="cwg-field">
                     <label>Usuario *</label>
                     <input
                       type="text"
@@ -459,8 +511,8 @@ const ClientesWebGestionPage = () => {
                       required={crearConAcceso && !editingCliente}
                     />
                   </div>
-                  <div className="clientes-web-form-group">
-                    <label>Contraseña {editingCliente ? '(vacío = no cambiar)' : '*'}</label>
+                  <div className="cwg-field">
+                    <label>Contraseña {editingCliente ? '(vacío = sin cambio)' : '*'}</label>
                     <input
                       type="password"
                       value={formData.password}
@@ -471,8 +523,8 @@ const ClientesWebGestionPage = () => {
                   </div>
                 </div>
               )}
-              <div className="clientes-web-form-row">
-                <div className="clientes-web-form-group">
+              <div className="cwg-form-row">
+                <div className="cwg-field">
                   <label>Nombre *</label>
                   <input
                     type="text"
@@ -481,7 +533,7 @@ const ClientesWebGestionPage = () => {
                     required
                   />
                 </div>
-                <div className="clientes-web-form-group">
+                <div className="cwg-field">
                   <label>Apellido</label>
                   <input
                     type="text"
@@ -490,8 +542,8 @@ const ClientesWebGestionPage = () => {
                   />
                 </div>
               </div>
-              <div className="clientes-web-form-row">
-                <div className="clientes-web-form-group">
+              <div className="cwg-form-row">
+                <div className="cwg-field">
                   <label>Empresa</label>
                   <input
                     type="text"
@@ -499,7 +551,7 @@ const ClientesWebGestionPage = () => {
                     onChange={(e) => setFormData({ ...formData, empresa: e.target.value })}
                   />
                 </div>
-                <div className="clientes-web-form-group">
+                <div className="cwg-field">
                   <label>Email</label>
                   <input
                     type="email"
@@ -508,8 +560,8 @@ const ClientesWebGestionPage = () => {
                   />
                 </div>
               </div>
-              <div className="clientes-web-form-row">
-                <div className="clientes-web-form-group">
+              <div className="cwg-form-row">
+                <div className="cwg-field">
                   <label>Teléfono</label>
                   <input
                     type="text"
@@ -517,8 +569,8 @@ const ClientesWebGestionPage = () => {
                     onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
                   />
                 </div>
-                <div className="clientes-web-form-group">
-                  <label>DNI/CUIT</label>
+                <div className="cwg-field">
+                  <label>DNI / CUIT</label>
                   <input
                     type="text"
                     value={formData.dni_cuit}
@@ -526,19 +578,26 @@ const ClientesWebGestionPage = () => {
                   />
                 </div>
               </div>
-              <div className="clientes-web-form-group">
+              <div className="cwg-field">
                 <label>Dirección</label>
                 <textarea
                   value={formData.direccion}
                   onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                  rows={3}
+                  rows={2}
                 />
               </div>
-              <div className="clientes-web-modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => { setShowCreateModal(false); resetForm() }}>
+              <div className="cwg-modal-actions">
+                <button
+                  type="button"
+                  className="cwg-btn cwg-btn--ghost cwg-btn--xs"
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    resetForm()
+                  }}
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="cwg-btn cwg-btn--primary cwg-btn--xs">
                   {editingCliente ? 'Guardar' : 'Crear'}
                 </button>
               </div>
@@ -547,25 +606,30 @@ const ClientesWebGestionPage = () => {
         </div>
       )}
 
-      {/* Modal dar acceso */}
       {darAccesoCliente && (
-        <div className="clientes-web-modal-overlay" onClick={() => { setDarAccesoCliente(null); setDarAccesoForm({ usuario: '', password: '' }) }}>
-          <div className="clientes-web-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Dar acceso a {darAccesoCliente.nombre}</h2>
-            <p className="clientes-web-modal-hint">El cliente podrá ingresar al portal con usuario y contraseña.</p>
-            <form className="clientes-web-modal-form" onSubmit={handleDarAcceso}>
-              <div className="clientes-web-form-group">
+        <div
+          className="cwg-modal-overlay"
+          onClick={() => {
+            setDarAccesoCliente(null)
+            setDarAccesoForm({ usuario: '', password: '' })
+          }}
+        >
+          <div className="cwg-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h2>Acceso portal — {darAccesoCliente.nombre}</h2>
+            <p className="cwg-modal__hint">Usuario y contraseña para ingresar al portal de clientes.</p>
+            <form className="cwg-form" onSubmit={handleDarAcceso}>
+              <div className="cwg-field">
                 <label>Usuario *</label>
                 <input
                   type="text"
                   value={darAccesoForm.usuario}
                   onChange={(e) => setDarAccesoForm({ ...darAccesoForm, usuario: e.target.value })}
                   required
-                  placeholder="Ej: juan.perez"
+                  placeholder="juan.perez"
                 />
               </div>
-              <div className="clientes-web-form-group">
-                <label>Contraseña * (mín. 6 caracteres)</label>
+              <div className="cwg-field">
+                <label>Contraseña * (mín. 6)</label>
                 <input
                   type="password"
                   value={darAccesoForm.password}
@@ -574,12 +638,19 @@ const ClientesWebGestionPage = () => {
                   minLength={6}
                 />
               </div>
-              <div className="clientes-web-modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => { setDarAccesoCliente(null); setDarAccesoForm({ usuario: '', password: '' }) }}>
+              <div className="cwg-modal-actions">
+                <button
+                  type="button"
+                  className="cwg-btn cwg-btn--ghost cwg-btn--xs"
+                  onClick={() => {
+                    setDarAccesoCliente(null)
+                    setDarAccesoForm({ usuario: '', password: '' })
+                  }}
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary">
-                  Habilitar acceso
+                <button type="submit" className="cwg-btn cwg-btn--primary cwg-btn--xs">
+                  Habilitar
                 </button>
               </div>
             </form>
