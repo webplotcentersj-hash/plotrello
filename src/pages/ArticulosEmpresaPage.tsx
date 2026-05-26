@@ -1154,13 +1154,18 @@ const ArticulosEmpresaPage = () => {
                 </div>
 
                 <div className="form-group full-width">
-                  <label className="checkbox-label">
+                  <label className="cae-check">
                     <input
                       type="checkbox"
+                      className="cae-check__input"
                       checked={formData.requiere_archivos}
                       onChange={(e) => setFormData({ ...formData, requiere_archivos: e.target.checked })}
                     />
-                    <span>Requiere archivos adjuntos</span>
+                    <span className="cae-check__box" aria-hidden />
+                    <span className="cae-check__text">
+                      <strong>Requiere archivos adjuntos</strong>
+                      <small>El cliente debe subir archivos al pedir este producto</small>
+                    </span>
                   </label>
                 </div>
 
@@ -1218,76 +1223,118 @@ const ArticulosEmpresaPage = () => {
                       />
                     </div>
                   </div>
-                  <label className="checkbox-label">
+                  <label className="cae-check cae-check-row">
                     <input
                       type="checkbox"
+                      className="cae-check__input"
                       checked={formData.controla_stock}
                       onChange={(e) =>
                         setFormData({ ...formData, controla_stock: e.target.checked })
                       }
                       disabled={!formData.id_articulo_stock}
                     />
-                    <span>Descontar stock al confirmar venta (requiere vínculo)</span>
+                    <span className="cae-check__box" aria-hidden />
+                    <span className="cae-check__text">
+                      <strong>Descontar stock al confirmar venta</strong>
+                      <small>
+                        {formData.id_articulo_stock
+                          ? 'Aplica en compras confirmadas (portal, tótem, etc.)'
+                          : 'Seleccioná un vínculo de stock para habilitar'}
+                      </small>
+                    </span>
                   </label>
                   <p className="cae-form__commerce-hint">Canales de publicación</p>
-                  <div className="cae-form__commerce-channels">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={formData.visible_portal}
-                        onChange={(e) => {
-                          const v = e.target.checked
-                          setFormData({
-                            ...formData,
-                            visible_portal: v,
-                            visible_clientes: v
-                          })
-                        }}
-                      />
-                      <span>Portal cliente</span>
+                  <div className="cae-check-grid">
+                    <label className="cae-check-tile">
+                      <span className="cae-check-tile__head">
+                        <input
+                          type="checkbox"
+                          className="cae-check__input"
+                          checked={formData.visible_portal}
+                          onChange={(e) => {
+                            const v = e.target.checked
+                            setFormData({
+                              ...formData,
+                              visible_portal: v,
+                              visible_clientes: v
+                            })
+                          }}
+                        />
+                        <span className="cae-check__box" aria-hidden />
+                        <span className="cae-check__text">
+                          <strong>Portal cliente</strong>
+                          <small>/cliente</small>
+                        </span>
+                      </span>
                     </label>
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={formData.visible_totem}
-                        onChange={(e) =>
-                          setFormData({ ...formData, visible_totem: e.target.checked })
-                        }
-                      />
-                      <span>Tótem</span>
+                    <label className="cae-check-tile">
+                      <span className="cae-check-tile__head">
+                        <input
+                          type="checkbox"
+                          className="cae-check__input"
+                          checked={formData.visible_totem}
+                          onChange={(e) =>
+                            setFormData({ ...formData, visible_totem: e.target.checked })
+                          }
+                        />
+                        <span className="cae-check__box" aria-hidden />
+                        <span className="cae-check__text">
+                          <strong>Tótem</strong>
+                          <small>Autogestión</small>
+                        </span>
+                      </span>
                     </label>
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={formData.visible_web_publica}
-                        onChange={(e) =>
-                          setFormData({ ...formData, visible_web_publica: e.target.checked })
-                        }
-                      />
-                      <span>Web pública</span>
+                    <label className="cae-check-tile">
+                      <span className="cae-check-tile__head">
+                        <input
+                          type="checkbox"
+                          className="cae-check__input"
+                          checked={formData.visible_web_publica}
+                          onChange={(e) =>
+                            setFormData({ ...formData, visible_web_publica: e.target.checked })
+                          }
+                        />
+                        <span className="cae-check__box" aria-hidden />
+                        <span className="cae-check__text">
+                          <strong>Web pública</strong>
+                          <small>Tienda online</small>
+                        </span>
+                      </span>
                     </label>
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={formData.visible_stickers}
-                        onChange={(e) =>
-                          setFormData({ ...formData, visible_stickers: e.target.checked })
-                        }
-                      />
-                      <span>Stickers</span>
+                    <label className="cae-check-tile">
+                      <span className="cae-check-tile__head">
+                        <input
+                          type="checkbox"
+                          className="cae-check__input"
+                          checked={formData.visible_stickers}
+                          onChange={(e) =>
+                            setFormData({ ...formData, visible_stickers: e.target.checked })
+                          }
+                        />
+                        <span className="cae-check__box" aria-hidden />
+                        <span className="cae-check__text">
+                          <strong>Stickers</strong>
+                          <small>Micrositio</small>
+                        </span>
+                      </span>
                     </label>
                   </div>
                 </div>
 
                 {editingArticulo && (
                   <div className="form-group full-width">
-                    <label className="checkbox-label">
+                    <label className="cae-check">
                       <input
                         type="checkbox"
+                        className="cae-check__input"
                         checked={formData.activo}
                         onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
                       />
-                      <span>Activo</span>
+                      <span className="cae-check__box" aria-hidden />
+                      <span className="cae-check__text">
+                        <strong>Artículo activo</strong>
+                        <small>Visible en el catálogo interno; los canales filtran aparte</small>
+                      </span>
                     </label>
                   </div>
                 )}
