@@ -10,6 +10,37 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import './MostradorDashboardPage.css'
 
+function NavTile({
+  title,
+  desc,
+  badge,
+  accent,
+  onClick
+}: {
+  title: string
+  desc?: string
+  badge?: number
+  accent?: 'cal' | 'vip' | 'cc' | 'portal' | 'crm' | 'print'
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`md-nav-tile${accent ? ` md-nav-tile--${accent}` : ''}`}
+      onClick={onClick}
+    >
+      <span className="md-nav-tile__body">
+        <strong>{title}</strong>
+        {desc ? <span className="md-nav-tile__desc">{desc}</span> : null}
+      </span>
+      {badge != null && badge > 0 ? <span className="md-nav-tile__badge">{badge}</span> : null}
+      <span className="md-nav-tile__arrow" aria-hidden>
+        →
+      </span>
+    </button>
+  )
+}
+
 type TipoAtencion = 'virtual' | 'consulta' | 'venta'
 type Atencion = {
   id: number
@@ -107,7 +138,6 @@ const MostradorDashboardPage = () => {
   const [ordenesPendientesHoy, setOrdenesPendientesHoy] = useState<OrdenTrabajo[]>([])
   const [atencionesHoy, setAtencionesHoy] = useState<Atencion[]>([])
   const [, setOrdenesCreadasHoy] = useState<OrdenTrabajo[]>([])
-  const [ordenesActivas, setOrdenesActivas] = useState<OrdenTrabajo[]>([])
   const [showRegistrarAtencion, setShowRegistrarAtencion] = useState(false)
   const [datosGraficos, setDatosGraficos] = useState({
     atencionesPorDia: [] as Array<{ fecha: string; virtual: number; consulta: number; venta: number; total: number }>,
@@ -401,19 +431,11 @@ const MostradorDashboardPage = () => {
         setOrdenesCreadasCount(creadasHoy.length)
         ordenesCreadasHoyCount = creadasHoy.length
 
-        const activas = ordenesResponse.data.filter(
-          (orden) =>
-            orden.estado !== 'Entregado o Instalado' &&
-            orden.estado !== 'Finalizado en Taller' &&
-            orden.estado !== 'Almacén de Entrega'
-        )
-        setOrdenesActivas(activas)
       } else {
         setOrdenesListas([])
         setOrdenesPendientesHoy([])
         setOrdenesCreadasHoy([])
         setOrdenesCreadasCount(0)
-        setOrdenesActivas([])
       }
 
       await loadAtencionesHoy()
@@ -757,9 +779,9 @@ const MostradorDashboardPage = () => {
   if (loading) {
     return (
       <div className="mostrador-dashboard-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando dashboard...</p>
+        <div className="md-loading">
+          <div className="md-spinner" />
+          <p>Cargando dashboard…</p>
         </div>
       </div>
     )
@@ -770,23 +792,26 @@ const MostradorDashboardPage = () => {
       <header className="dashboard-header">
         <div className="header-content">
           <div className="md-page-title">
-            <span className="md-page-title__icon" aria-hidden>📋</span>
+            <span className="md-page-title__icon" aria-hidden>
+              MD
+            </span>
             <div>
               <h1>Dashboard de mostrador</h1>
-              <p>Panel operativo y accesos del sector</p>
+              <p>
+                {usuario?.nombre ? `Hola, ${usuario.nombre} · ` : ''}
+                Acciones del día y estado del sector
+              </p>
             </div>
           </div>
           <div className="md-header-actions">
             <button type="button" className="md-header-btn md-header-btn--board" onClick={() => navigate('/')}>
-              <span className="md-header-btn__icon" aria-hidden>📊</span>
-              <span className="md-header-btn__text">Ver tablero</span>
+              <span className="md-header-btn__text">Tablero</span>
             </button>
             <button
               type="button"
               className="md-header-btn md-header-btn--ready"
               onClick={() => navigate('/mostrador/ordenes-listas')}
             >
-              <span className="md-header-btn__icon" aria-hidden>📦</span>
               <span className="md-header-btn__text">Órdenes listas</span>
               {ordenesListas.length > 0 && (
                 <span className="md-header-btn__badge">{ordenesListas.length}</span>
@@ -796,11 +821,46 @@ const MostradorDashboardPage = () => {
         </div>
       </header>
 
+      {/* Acciones principales — botones claros */}
+      <section className="md-cta-strip" aria-label="Acciones principales">
+        <button type="button" className="md-btn md-btn--primary md-btn--lg" onClick={() => navigate('/')}>
+          <span className="md-btn__label">Nueva orden</span>
+          <span className="md-btn__hint">Tablero</span>
+        </button>
+        <button
+          type="button"
+          className="md-btn md-btn--success md-btn--lg"
+          onClick={() => navigate('/mostrador/ordenes-listas')}
+        >
+          <span className="md-btn__label">Órdenes listas</span>
+          {ordenesListas.length > 0 && (
+            <span className="md-btn__badge">{ordenesListas.length}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          className="md-btn md-btn--sky md-btn--lg"
+          onClick={() => navigate('/mostrador/buscar-cliente')}
+        >
+          <span className="md-btn__label">Buscar cliente</span>
+        </button>
+        <button
+          type="button"
+          className="md-btn md-btn--amber md-btn--lg"
+          onClick={() => setShowVentaRapida(true)}
+        >
+          <span className="md-btn__label">Venta rápida</span>
+          <kbd className="md-btn__kbd">V</kbd>
+        </button>
+      </section>
+
       {/* Métricas (solo admin) */}
       {isAdmin && (
-        <section className="metricas-section">
+        <section className="metricas-section md-panel">
           <header className="md-section-head">
-            <span className="md-section-head__icon" aria-hidden>📊</span>
+            <span className="md-section-head__icon md-section-head__icon--stat" aria-hidden>
+              KPI
+            </span>
             <div>
               <h2>Métricas del día</h2>
               <p>Actividad de mostrador en tiempo real</p>
@@ -808,42 +868,42 @@ const MostradorDashboardPage = () => {
           </header>
           <div className="metricas-grid">
             <div className="metrica-card metrica-card--personas">
-              <div className="metrica-icon-wrap"><span className="metrica-icon">👥</span></div>
+              <div className="metrica-icon-wrap" aria-hidden />
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.totalAtenciones}</div>
                 <div className="metrica-label">Personas atendidas</div>
               </div>
             </div>
             <div className="metrica-card metrica-card--virtual">
-              <div className="metrica-icon-wrap"><span className="metrica-icon">💻</span></div>
+              <div className="metrica-icon-wrap" aria-hidden />
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.atencionesVirtuales}</div>
                 <div className="metrica-label">Atenciones virtuales</div>
               </div>
             </div>
             <div className="metrica-card metrica-card--consulta">
-              <div className="metrica-icon-wrap"><span className="metrica-icon">❓</span></div>
+              <div className="metrica-icon-wrap" aria-hidden />
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.consultas}</div>
                 <div className="metrica-label">Solo consultas</div>
               </div>
             </div>
             <div className="metrica-card metrica-card--venta">
-              <div className="metrica-icon-wrap"><span className="metrica-icon">💰</span></div>
+              <div className="metrica-icon-wrap" aria-hidden />
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.ventasConcretadas}</div>
                 <div className="metrica-label">Ventas concretadas</div>
               </div>
             </div>
             <div className="metrica-card metrica-card--creadas">
-              <div className="metrica-icon-wrap"><span className="metrica-icon">📝</span></div>
+              <div className="metrica-icon-wrap" aria-hidden />
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.ordenesCreadas}</div>
                 <div className="metrica-label">Órdenes creadas</div>
               </div>
             </div>
             <div className="metrica-card metrica-card--entregadas">
-              <div className="metrica-icon-wrap"><span className="metrica-icon">✅</span></div>
+              <div className="metrica-icon-wrap" aria-hidden />
               <div className="metrica-content">
                 <div className="metrica-value">{metricas.ordenesEntregadas}</div>
                 <div className="metrica-label">Órdenes entregadas</div>
@@ -853,19 +913,159 @@ const MostradorDashboardPage = () => {
         </section>
       )}
 
-      {/* Gráficos Estadísticos */}
+      {/* Paneles operativos — tarjetas de contenido */}
+      <section className="md-panel ordenes-listas-section">
+        <header className="md-panel-head">
+          <div>
+            <h2>Órdenes listas para retirar</h2>
+            <p>En almacén de entrega</p>
+          </div>
+          <button type="button" className="md-btn md-btn--ghost md-btn--sm" onClick={() => navigate('/mostrador/ordenes-listas')}>
+            Ver todas
+          </button>
+        </header>
+        {ordenesListas.length === 0 ? (
+          <div className="md-empty">
+            <p>No hay órdenes listas en este momento</p>
+          </div>
+        ) : (
+          <div className="md-entity-grid">
+            {ordenesListas.slice(0, 6).map((orden) => (
+              <article key={orden.id} className="md-entity-card md-entity-card--ready">
+                <div className="md-entity-card__head">
+                  <h3>OP {orden.numero_op}</h3>
+                  <span className="md-pill md-pill--ok">Listo</span>
+                </div>
+                <p className="md-entity-card__cliente">{orden.cliente}</p>
+                {orden.fecha_entrega && (
+                  <p className="md-entity-card__meta">
+                    Entrega {new Date(orden.fecha_entrega).toLocaleDateString('es-AR')}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="md-btn md-btn--outline md-btn--block"
+                  onClick={() => navigate(`/mostrador/entrega/${orden.id}`)}
+                >
+                  Procesar entrega
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="md-panel pedidos-portal-section">
+        <header className="md-panel-head">
+          <div>
+            <h2>Pedidos del portal</h2>
+            <p>Mensajes de clientes web</p>
+          </div>
+          <button type="button" className="md-btn md-btn--ghost md-btn--sm" onClick={() => navigate('/clientes-web/pedidos')}>
+            Ver todos
+          </button>
+        </header>
+        {pedidosClientes.length === 0 ? (
+          <div className="md-empty">
+            <p>No hay pedidos pendientes del portal</p>
+          </div>
+        ) : (
+          <div className="md-entity-grid">
+            {pedidosClientes.slice(0, 6).map((pedido) => (
+              <article
+                key={pedido.id}
+                className="md-entity-card md-entity-card--portal"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)
+                  }
+                }}
+              >
+                <div className="md-entity-card__head">
+                  <h3>{pedido.numero_pedido}</h3>
+                  <span
+                    className={`md-pill md-pill--${pedido.estado === 'pendiente' ? 'warn' : pedido.estado === 'en_revision' ? 'info' : 'ok'}`}
+                  >
+                    {pedido.estado === 'pendiente'
+                      ? 'Pendiente'
+                      : pedido.estado === 'en_revision'
+                        ? 'En revisión'
+                        : 'Aprobado'}
+                  </span>
+                </div>
+                <p className="md-entity-card__cliente">
+                  {(pedido as { cliente?: { nombre?: string; empresa?: string } }).cliente?.nombre ||
+                    (pedido as { cliente?: { empresa?: string } }).cliente?.empresa ||
+                    'Cliente'}
+                </p>
+                <p className="md-entity-card__meta">
+                  {new Date(pedido.fecha_pedido).toLocaleDateString('es-AR')}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Navegación — tarjetas de acceso (no botones) */}
+      <section className="md-tools-section">
+        <header className="md-section-head">
+          <span className="md-section-head__icon md-section-head__icon--nav" aria-hidden>
+            →
+          </span>
+          <div>
+            <h2>Más herramientas</h2>
+            <p>Calendario, clientes, portal y reportes</p>
+          </div>
+        </header>
+        <p className="md-tools-group-label">Mostrador</p>
+        <div className="md-nav-grid">
+          <NavTile title="Calendario de entregas" desc="Vista mensual de OP" accent="cal" onClick={() => navigate('/mostrador/calendario')} />
+          <NavTile title="Clientes frecuentes" desc="VIP y preferencias" accent="vip" onClick={() => navigate('/mostrador/clientes-frecuentes')} />
+          <NavTile title="Cuenta corriente" desc="Saldos y cobros" accent="cc" onClick={() => navigate('/mostrador/cuenta-corriente')} />
+          <NavTile title="Atención al público" desc="Cola y totem" onClick={() => navigate('/atencion-publico')} />
+        </div>
+        <p className="md-tools-group-label">Portal y ventas</p>
+        <div className="md-nav-grid">
+          <NavTile
+            title="Pedidos y mensajes"
+            desc="Portal de clientes"
+            accent="portal"
+            badge={pedidosClientes.length}
+            onClick={() => navigate('/clientes-web/pedidos')}
+          />
+          <NavTile title="Gestión de clientes" desc="Alta y edición web" onClick={() => navigate('/clientes-web/gestion')} />
+          <NavTile title="Artículos de empresa" desc="Catálogo visible" onClick={() => navigate('/clientes-web/articulos')} />
+          <NavTile title="CRM ventas" desc="Pipeline comercial" accent="crm" onClick={() => navigate('/crm-ventas')} />
+          {canAccessTotemImpresionPanel && (
+            <NavTile title="Pedidos tótem" desc="Panel de impresión" accent="print" onClick={() => navigate('/impresoras/totem')} />
+          )}
+          {isAdmin && (
+            <NavTile title="Reportes" desc="Estadísticas mostrador" onClick={() => navigate('/mostrador/reportes')} />
+          )}
+        </div>
+      </section>
+
       {isAdmin && (
-        <section className="graficos-section">
-          <h2>📈 Estadísticas y Gráficos</h2>
+        <section className="md-panel graficos-section">
+          <header className="md-panel-head">
+            <div>
+              <h2>Estadísticas</h2>
+              <p>Últimos 7 días</p>
+            </div>
+          </header>
           <div className="graficos-grid">
-            {/* Gráfico de barras - Atenciones por tipo (últimos 7 días) */}
             <div className="grafico-card">
-              <h3>Atenciones por Tipo (Últimos 7 Días)</h3>
-              <ResponsiveContainer width="100%" height={300}>
+              <h3>Atenciones por tipo</h3>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={datosGraficos.atencionesPorDia}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" />
-                  <YAxis />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                  <XAxis dataKey="fecha" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="virtual" fill="#8b5cf6" name="Virtual" />
@@ -874,12 +1074,10 @@ const MostradorDashboardPage = () => {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Gráfico circular - Distribución de tipos de atención */}
             {datosGraficos.distribucionTipos.length > 0 && (
               <div className="grafico-card">
-                <h3>Distribución de Atenciones Hoy</h3>
-                <ResponsiveContainer width="100%" height={300}>
+                <h3>Distribución hoy</h3>
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie
                       data={datosGraficos.distribucionTipos}
@@ -887,7 +1085,7 @@ const MostradorDashboardPage = () => {
                       cy="50%"
                       labelLine={false}
                       label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                      outerRadius={100}
+                      outerRadius={90}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -900,15 +1098,13 @@ const MostradorDashboardPage = () => {
                 </ResponsiveContainer>
               </div>
             )}
-
-            {/* Gráfico de líneas - Órdenes creadas vs entregadas */}
             <div className="grafico-card">
-              <h3>Órdenes Creadas vs Entregadas (Últimos 7 Días)</h3>
-              <ResponsiveContainer width="100%" height={300}>
+              <h3>Órdenes creadas vs entregadas</h3>
+              <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={datosGraficos.ordenesPorDia}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" />
-                  <YAxis />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                  <XAxis dataKey="fecha" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
                   <Tooltip />
                   <Legend />
                   <Line type="monotone" dataKey="creadas" stroke="#3b82f6" name="Creadas" strokeWidth={2} />
@@ -916,18 +1112,16 @@ const MostradorDashboardPage = () => {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Gráfico de líneas - Total de atenciones por día */}
             <div className="grafico-card">
-              <h3>Total de Atenciones (Últimos 7 Días)</h3>
-              <ResponsiveContainer width="100%" height={300}>
+              <h3>Total atenciones</h3>
+              <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={datosGraficos.atencionesPorDia}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" />
-                  <YAxis />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                  <XAxis dataKey="fecha" stroke="#94a3b8" />
+                  <YAxis stroke="#94a3b8" />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="total" stroke="#8b5cf6" name="Total Atenciones" strokeWidth={3} />
+                  <Line type="monotone" dataKey="total" stroke="#8b5cf6" name="Total" strokeWidth={3} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -935,210 +1129,32 @@ const MostradorDashboardPage = () => {
         </section>
       )}
 
-      {/* Acciones Rápidas */}
-      <section className="acciones-rapidas-section">
-        <header className="md-section-head">
-          <span className="md-section-head__icon" aria-hidden>⚡</span>
-          <div>
-            <h2>Acciones rápidas</h2>
-            <p>Accesos directos a las tareas del mostrador</p>
-          </div>
-        </header>
-        <div className="acciones-grid">
-          <button type="button" className="accion-card accion-card--primary" onClick={() => navigate('/')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">➕</span></span>
-            <span className="accion-label">Crear nueva orden</span>
-            <span className="accion-hint">Ir al tablero</span>
-          </button>
-          <button
-            type="button"
-            className="accion-card accion-card--success"
-            onClick={() => navigate('/mostrador/ordenes-listas')}
-          >
-            <span className="accion-icon-wrap"><span className="accion-icon">📦</span></span>
-            <span className="accion-label">Órdenes listas para retirar</span>
-            {ordenesListas.length > 0 && <span className="accion-badge">{ordenesListas.length}</span>}
-          </button>
-          <button
-            type="button"
-            className="accion-card accion-card--info"
-            onClick={() => navigate('/mostrador/buscar-cliente')}
-          >
-            <span className="accion-icon-wrap"><span className="accion-icon">🔍</span></span>
-            <span className="accion-label">Buscar cliente</span>
-            {ordenesActivas.length > 0 && (
-              <span className="accion-badge accion-badge--muted">{ordenesActivas.length} activas</span>
-            )}
-          </button>
-          <button type="button" className="accion-card" onClick={() => navigate('/mostrador/calendario')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">📅</span></span>
-            <span className="accion-label">Calendario de entregas</span>
-          </button>
-          <button type="button" className="accion-card" onClick={() => navigate('/mostrador/clientes-frecuentes')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">⭐</span></span>
-            <span className="accion-label">Clientes frecuentes</span>
-          </button>
-          <button type="button" className="accion-card" onClick={() => navigate('/mostrador/cuenta-corriente')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">📒</span></span>
-            <span className="accion-label">Cuenta corriente</span>
-          </button>
-          <button type="button" className="accion-card accion-card--portal" onClick={() => navigate('/clientes-web/pedidos')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">💬</span></span>
-            <span className="accion-label">Pedidos y mensajes del portal</span>
-            {pedidosClientes.length > 0 && <span className="accion-badge">{pedidosClientes.length}</span>}
-          </button>
-          <button type="button" className="accion-card" onClick={() => navigate('/clientes-web/gestion')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">👤</span></span>
-            <span className="accion-label">Gestión de clientes</span>
-          </button>
-          <button type="button" className="accion-card" onClick={() => navigate('/clientes-web/articulos')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">📦</span></span>
-            <span className="accion-label">Artículos de empresa</span>
-          </button>
-          <button type="button" className="accion-card accion-card--call" onClick={() => navigate('/atencion-publico')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">📞</span></span>
-            <span className="accion-label">Atención al público</span>
-          </button>
-          <button type="button" className="accion-card accion-card--crm" onClick={() => navigate('/crm-ventas')}>
-            <span className="accion-icon-wrap"><span className="accion-icon">💼</span></span>
-            <span className="accion-label">CRM ventas</span>
-          </button>
-          {canAccessTotemImpresionPanel && (
-            <button type="button" className="accion-card accion-card--print" onClick={() => navigate('/impresoras/totem')}>
-              <span className="accion-icon-wrap"><span className="accion-icon">🖨️</span></span>
-              <span className="accion-label">Pedidos tótem (impresión)</span>
-            </button>
-          )}
-          {isAdmin && (
-            <button type="button" className="accion-card accion-card--report" onClick={() => navigate('/mostrador/reportes')}>
-              <span className="accion-icon-wrap"><span className="accion-icon">📊</span></span>
-              <span className="accion-label">Reportes</span>
-            </button>
-          )}
-        </div>
-      </section>
-
-      {/* Órdenes Listas para Retirar */}
-      <section className="ordenes-listas-section">
-        <div className="section-header">
-          <h2>📦 Órdenes Listas para Retirar</h2>
-          <button 
-            className="btn-link"
-            onClick={() => navigate('/mostrador/ordenes-listas')}
-          >
-            Ver todas →
-          </button>
-        </div>
-        {ordenesListas.length === 0 ? (
-          <div className="empty-state">
-            <p>No hay órdenes listas para retirar en este momento</p>
-          </div>
-        ) : (
-          <div className="ordenes-grid">
-            {ordenesListas.slice(0, 6).map((orden) => (
-              <div key={orden.id} className="orden-card ready">
-                <div className="orden-header">
-                  <h3>OP #{orden.numero_op}</h3>
-                  <span className="badge ready-badge">Listo</span>
-                </div>
-                <div className="orden-cliente">{orden.cliente}</div>
-                {orden.fecha_entrega && (
-                  <div className="orden-fecha">
-                    Entrega: {new Date(orden.fecha_entrega).toLocaleDateString('es-AR')}
-                  </div>
-                )}
-                <button 
-                  className="btn-small"
-                  onClick={() => navigate(`/mostrador/entrega/${orden.id}`)}
-                >
-                  Ver Detalles
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Pedidos del Portal de Clientes (con mensajes) */}
-      <section className="pedidos-portal-section">
-        <div className="section-header">
-          <h2>💬 Pedidos y Mensajes del Portal</h2>
-          <button 
-            className="btn-link"
-            onClick={() => navigate('/clientes-web/pedidos')}
-          >
-            Ver todos →
-          </button>
-        </div>
-        {pedidosClientes.length === 0 ? (
-          <div className="empty-state">
-            <p>No hay pedidos pendientes del portal de clientes</p>
-          </div>
-        ) : (
-          <div className="ordenes-grid pedidos-portal-grid">
-            {pedidosClientes.slice(0, 6).map((pedido) => (
-              <div 
-                key={pedido.id} 
-                className="orden-card pedido-portal-card"
-                onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="orden-header">
-                  <h3>{pedido.numero_pedido}</h3>
-                  <span 
-                    className="badge" 
-                    style={{ 
-                      background: pedido.estado === 'pendiente' ? '#f59e0b' : 
-                                  pedido.estado === 'en_revision' ? '#3b82f6' : '#10b981',
-                      color: 'white'
-                    }}
-                  >
-                    {pedido.estado === 'pendiente' ? 'Pendiente' : 
-                     pedido.estado === 'en_revision' ? 'En revisión' : 'Aprobado'}
-                  </span>
-                </div>
-                <div className="orden-cliente">
-                  {(pedido as any).cliente?.nombre || (pedido as any).cliente?.empresa || 'Cliente'}
-                </div>
-                <div className="orden-fecha">
-                  {new Date(pedido.fecha_pedido).toLocaleDateString('es-AR')}
-                </div>
-                <button 
-                  className="btn-small"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)
-                  }}
-                >
-                  Ver y responder mensajes
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* Órdenes Pendientes Hoy */}
       {ordenesPendientesHoy.length > 0 && (
-        <section className="pendientes-section">
-          <h2>⏰ Entregas Programadas para Hoy</h2>
-          <div className="ordenes-grid">
+        <section className="md-panel pendientes-section">
+          <header className="md-panel-head">
+            <div>
+              <h2>Entregas programadas hoy</h2>
+              <p>Con fecha de entrega en el día</p>
+            </div>
+          </header>
+          <div className="md-entity-grid md-entity-grid--compact">
             {ordenesPendientesHoy.slice(0, 4).map((orden) => (
-              <div key={orden.id} className="orden-card pending">
-                <div className="orden-header">
-                  <h3>OP #{orden.numero_op}</h3>
-                  <span className="badge pending-badge">Pendiente</span>
+              <article key={orden.id} className="md-entity-card md-entity-card--pending">
+                <div className="md-entity-card__head">
+                  <h3>OP {orden.numero_op}</h3>
+                  <span className="md-pill md-pill--warn">Hoy</span>
                 </div>
-                <div className="orden-cliente">{orden.cliente}</div>
+                <p className="md-entity-card__cliente">{orden.cliente}</p>
                 {orden.fecha_entrega && (
-                  <div className="orden-fecha">
-                    {new Date(orden.fecha_entrega).toLocaleTimeString('es-AR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
+                  <p className="md-entity-card__meta">
+                    {new Date(orden.fecha_entrega).toLocaleTimeString('es-AR', {
+                      hour: '2-digit',
+                      minute: '2-digit'
                     })}
-                  </div>
+                  </p>
                 )}
-              </div>
+              </article>
             ))}
           </div>
         </section>
@@ -1146,140 +1162,117 @@ const MostradorDashboardPage = () => {
 
       {/* Registro de Atenciones Recientes */}
       {atencionesHoy.length > 0 && (
-        <section className="atenciones-section">
-          <h2>👥 Atenciones de Hoy</h2>
-          <div className="atenciones-list">
+        <section className="md-panel atenciones-section">
+          <header className="md-panel-head">
+            <div>
+              <h2>Atenciones de hoy</h2>
+              <p>{atencionesHoy.length} registradas</p>
+            </div>
+          </header>
+          <ul className="md-atenciones-list">
             {atencionesHoy.slice(0, 10).map((atencion) => (
-              <div key={atencion.id} className={`atencion-item ${atencion.tipo}`}>
-                <div className="atencion-icon">
-                  {atencion.tipo === 'virtual' && '💻'}
-                  {atencion.tipo === 'consulta' && '❓'}
-                  {atencion.tipo === 'venta' && '💰'}
-                </div>
-                <div className="atencion-content">
-                  <div className="atencion-cliente">{atencion.cliente_nombre}</div>
-                  <div className="atencion-meta">
-                    {atencion.usuario_nombre} • {new Date(atencion.timestamp).toLocaleTimeString('es-AR')}
-                  </div>
-                </div>
-                {atencion.orden_id && (
-                  <div className="atencion-op">
-                    OP #{atencion.orden_id}
-                  </div>
-                )}
-              </div>
+              <li key={atencion.id} className={`md-atencion md-atencion--${atencion.tipo}`}>
+                <span className="md-atencion__tipo">
+                  {atencion.tipo === 'virtual' ? 'Virtual' : atencion.tipo === 'consulta' ? 'Consulta' : 'Venta'}
+                </span>
+                <span className="md-atencion__cliente">{atencion.cliente_nombre}</span>
+                <span className="md-atencion__meta">
+                  {atencion.usuario_nombre} · {new Date(atencion.timestamp).toLocaleTimeString('es-AR')}
+                </span>
+                {atencion.orden_id ? (
+                  <span className="md-atencion__op">OP {atencion.orden_id}</span>
+                ) : null}
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
 
       {/* CRM de Ventas */}
-      <section className="crm-ventas-section">
-        <div className="section-header">
-          <h2>💼 CRM de Ventas</h2>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button 
-              className="btn-link"
-              onClick={() => navigate('/crm-ventas')}
-            >
-              Ver CRM Completo →
-            </button>
+      <section className="md-panel crm-ventas-section">
+        <header className="md-panel-head">
+          <div>
+            <h2>Ventas de hoy</h2>
+            <p>Resumen CRM</p>
+          </div>
+          <button type="button" className="md-btn md-btn--ghost md-btn--sm" onClick={() => navigate('/crm-ventas')}>
+            Abrir CRM
+          </button>
+        </header>
+
+        <div className="md-crm-kpis">
+          <div className="md-crm-kpi">
+            <span className="md-crm-kpi__val">{estadisticasVentas.totalHoy}</span>
+            <span className="md-crm-kpi__lbl">Ventas</span>
+          </div>
+          <div className="md-crm-kpi md-crm-kpi--money">
+            <span className="md-crm-kpi__val">
+              ${estadisticasVentas.ingresosHoy.toLocaleString('es-AR')}
+            </span>
+            <span className="md-crm-kpi__lbl">Cobrado hoy</span>
+          </div>
+          <div className="md-crm-kpi md-crm-kpi--warn">
+            <span className="md-crm-kpi__val">{estadisticasVentas.ventasPendientes}</span>
+            <span className="md-crm-kpi__lbl">Pendientes</span>
+          </div>
+          <div className="md-crm-kpi md-crm-kpi--due">
+            <span className="md-crm-kpi__val">
+              ${estadisticasVentas.ingresosPendientes.toLocaleString('es-AR')}
+            </span>
+            <span className="md-crm-kpi__lbl">Por cobrar</span>
           </div>
         </div>
 
-        {/* Estadísticas Rápidas */}
-        <div className="metricas-grid" style={{ marginBottom: '24px' }}>
-          <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
-            <div className="metrica-icon">💰</div>
-            <div className="metrica-content">
-              <div className="metrica-value">{estadisticasVentas.totalHoy}</div>
-              <div className="metrica-label">Ventas Hoy</div>
-            </div>
-          </div>
-          <div className="metrica-card" style={{ borderLeft: '4px solid #3b82f6' }}>
-            <div className="metrica-icon">💵</div>
-            <div className="metrica-content">
-              <div className="metrica-value">${estadisticasVentas.ingresosHoy.toLocaleString()}</div>
-              <div className="metrica-label">Ingresos Hoy</div>
-            </div>
-          </div>
-          <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-            <div className="metrica-icon">⏳</div>
-            <div className="metrica-content">
-              <div className="metrica-value">{estadisticasVentas.ventasPendientes}</div>
-              <div className="metrica-label">Pendientes</div>
-            </div>
-          </div>
-          <div className="metrica-card" style={{ borderLeft: '4px solid #ef4444' }}>
-            <div className="metrica-icon">💸</div>
-            <div className="metrica-content">
-              <div className="metrica-value">${estadisticasVentas.ingresosPendientes.toLocaleString()}</div>
-              <div className="metrica-label">Por Cobrar</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Ventas Recientes */}
         {ventasRecientes.length === 0 ? (
-          <div className="empty-state">
+          <div className="md-empty">
             <p>No hay ventas registradas hoy</p>
           </div>
         ) : (
-          <div className="ordenes-grid">
+          <div className="md-entity-grid">
             {ventasRecientes.map((venta) => (
-              <div key={venta.id} className="orden-card" style={{ borderLeft: '4px solid #10b981' }}>
-                <div className="orden-header">
+              <article key={venta.id} className="md-entity-card md-entity-card--venta">
+                <div className="md-entity-card__head">
                   <h3>{venta.cliente_nombre}</h3>
-                  <span 
-                    className="badge" 
-                    style={{ 
-                      background: venta.estado_pago === 'Pagado' ? '#10b981' : 
-                                  venta.estado_pago === 'Pendiente' ? '#f59e0b' : 
-                                  venta.estado_pago === 'Parcial' ? '#3b82f6' : '#ef4444',
-                      color: 'white'
-                    }}
+                  <span
+                    className={`md-pill md-pill--${
+                      venta.estado_pago === 'Pagado'
+                        ? 'ok'
+                        : venta.estado_pago === 'Pendiente'
+                          ? 'warn'
+                          : venta.estado_pago === 'Parcial'
+                            ? 'info'
+                            : 'danger'
+                    }`}
                   >
                     {venta.estado_pago}
                   </span>
                 </div>
-                <div className="orden-cliente">
-                  <strong>Venta:</strong> {venta.numero_venta}
-                </div>
-                <div className="orden-fecha">
-                  <strong>Total:</strong> $
+                <p className="md-entity-card__cliente">Venta {venta.numero_venta}</p>
+                <p className="md-entity-card__meta">
+                  $
                   {Number(venta.valor_total ?? 0).toLocaleString('es-AR', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2
                   })}
-                  {venta.metodo_pago && ` • ${venta.metodo_pago}`}
-                </div>
-                {venta.numero_op ? (
-                  <div className="orden-fecha" style={{ color: '#3b82f6', fontWeight: 600 }}>
-                    OP: {venta.numero_op}
-                  </div>
-                ) : (
-                  <div className="orden-fecha" style={{ color: '#f59e0b', fontStyle: 'italic' }}>
-                    Sin OP asociada
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  <button 
-                    className="btn-small"
-                    onClick={() => {
-                      // Si la venta ya tiene OP, ir al detalle específico de esa OP
-                      if (venta.numero_op) {
-                        navigate(`/op/${encodeURIComponent(venta.numero_op)}`)
-                        return
-                      }
-                      // Si aún no tiene OP, fallback al CRM (no existe ruta de detalle de venta dedicada)
-                      navigate(`/crm-ventas?ventaId=${venta.id}`)
-                    }}
-                    style={{ flex: 1 }}
-                  >
-                    Ver Detalles
-                  </button>
-                </div>
-              </div>
+                  {venta.metodo_pago ? ` · ${venta.metodo_pago}` : ''}
+                </p>
+                <p className="md-entity-card__meta">
+                  {venta.numero_op ? `OP ${venta.numero_op}` : 'Sin OP asociada'}
+                </p>
+                <button
+                  type="button"
+                  className="md-btn md-btn--outline md-btn--block"
+                  onClick={() => {
+                    if (venta.numero_op) {
+                      navigate(`/op/${encodeURIComponent(venta.numero_op)}`)
+                      return
+                    }
+                    navigate(`/crm-ventas?ventaId=${venta.id}`)
+                  }}
+                >
+                  Ver detalle
+                </button>
+              </article>
             ))}
           </div>
         )}
