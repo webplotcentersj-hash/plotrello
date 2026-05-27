@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import type { PresupuestoClienteRecord } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClientePresupuestosPage.css'
 
 export default function ClientePresupuestosPage() {
@@ -72,44 +75,23 @@ export default function ClientePresupuestosPage() {
   })
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-presupuestos-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando presupuestos...</p>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-presupuestos-page">
-      <header className="cliente-presupuestos-header">
-        <div className="cliente-presupuestos-header-content">
-          <h1>💰 Mis Presupuestos</h1>
-          <div className="cliente-presupuestos-header-actions">
-            <button 
-              className="btn-primary"
-              onClick={() => navigate('/cliente/presupuesto/nuevo')}
-            >
-              + Nuevo Presupuesto
-            </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/dashboard')}
-            >
-              ← Volver
-            </button>
-          </div>
-        </div>
-      </header>
+    <ClientePageLayout className="cliente-presupuestos-page">
+      <ClientePageHeader
+        eyebrow="Cotizaciones"
+        title="Presupuestos"
+        subtitle="Tus solicitudes y cotizaciones con Plot Center"
+        actions={
+          <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/presupuesto/nuevo')}>
+            + Nuevo presupuesto
+          </button>
+        }
+      />
 
-      <div className="cliente-presupuestos-content">
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
         {/* Filtros */}
         <div className="cliente-presupuestos-filters">
@@ -129,10 +111,11 @@ export default function ClientePresupuestosPage() {
 
         {/* Lista de presupuestos */}
         {filteredPresupuestos.length === 0 ? (
-          <div className="cliente-presupuestos-empty">
+          <div className="cliente-page-empty">
             <p>No tienes presupuestos {filterEstado !== 'todos' ? `con estado "${filterEstado}"` : ''}</p>
-            <button 
-              className="btn-primary"
+            <button
+              type="button"
+              className="cliente-btn-primary"
               onClick={() => navigate('/cliente/presupuesto/nuevo')}
             >
               Crear Primer Presupuesto
@@ -141,7 +124,7 @@ export default function ClientePresupuestosPage() {
         ) : (
           <div className="cliente-presupuestos-list">
             {filteredPresupuestos.map((presupuesto) => (
-              <div key={presupuesto.id} className="cliente-presupuesto-card">
+              <div key={presupuesto.id} className="cliente-page-card cliente-presupuesto-card">
                 <div className="cliente-presupuesto-card-header">
                   <div className="cliente-presupuesto-card-title">
                     <h3>{presupuesto.numero_presupuesto}</h3>
@@ -230,8 +213,7 @@ export default function ClientePresupuestosPage() {
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </ClientePageLayout>
   )
 }
 

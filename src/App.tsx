@@ -24,6 +24,7 @@ const GaleriaTrabajosPage = lazy(() => import('./pages/GaleriaTrabajosPage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
 const SatisfaccionClientePublicPage = lazy(() => import('./pages/SatisfaccionClientePublicPage'))
+const ClienteAyudaPage = lazy(() => import('./pages/ClienteAyudaPage'))
 const BriefsPendientesPage = lazy(() => import('./pages/BriefsPendientesPage'))
 const OrdenesListasPage = lazy(() => import('./pages/OrdenesListasPage'))
 const BuscarClientePage = lazy(() => import('./pages/BuscarClientePage'))
@@ -129,6 +130,7 @@ import ClienteReclamosPage from './pages/ClienteReclamosPage'
 import ClienteChatPage from './pages/ClienteChatPage'
 import ClienteNotificacionesPage from './pages/ClienteNotificacionesPage'
 import ClienteProtectedRoute from './components/ClienteProtectedRoute'
+import ClientePortalShell from './components/cliente/ClientePortalShell'
 import PresupuestosClientesAdminPage from './pages/PresupuestosClientesAdminPage'
 import PresupuestoClienteDetalleAdminPage from './pages/PresupuestoClienteDetalleAdminPage'
 import PedidoClienteDetalleAdminPage from './pages/PedidoClienteDetalleAdminPage'
@@ -784,6 +786,7 @@ function App() {
             path="/cliente/*"
             element={
               <ClienteProtectedRoute>
+                <ClientePortalShell>
                 <Routes>
                   <Route path="dashboard" element={<ClienteDashboardPage />} />
                   <Route path="catalogo" element={<ClienteCatalogoPage />} />
@@ -800,10 +803,12 @@ function App() {
                   <Route path="disenos" element={<ClienteBriefsPage />} />
                   <Route path="brief/:token" element={<ClienteBriefFormPage />} />
                   <Route path="reclamos" element={<ClienteReclamosPage />} />
+                  <Route path="ayuda" element={<ClienteAyudaPage />} />
                   <Route path="chat" element={<ClienteChatPage />} />
                   <Route path="notificaciones" element={<ClienteNotificacionesPage />} />
                   <Route path="*" element={<Navigate to="/cliente/dashboard" replace />} />
                 </Routes>
+                </ClientePortalShell>
               </ClienteProtectedRoute>
             }
           />

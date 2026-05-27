@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import type { ArticuloEmpresaRecord, PresupuestoClienteRecord } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClientePresupuestoFormPage.css'
 
 interface PresupuestoItem {
@@ -216,38 +219,25 @@ export default function ClientePresupuestoFormPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-presupuesto-form-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   const puedeEditar = !presupuestoExistente || presupuestoExistente.estado === 'borrador'
 
   return (
-    <div className="cliente-presupuesto-form-page">
-      <header className="cliente-presupuesto-form-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <h1>{presupuestoExistente ? 'Editar Presupuesto' : 'Nuevo Presupuesto'}</h1>
-          </div>
-          <button 
-            className="btn-secondary"
-            onClick={() => navigate('/cliente/presupuestos')}
-          >
-            ← Volver
+    <ClientePageLayout className="cliente-presupuesto-form-page">
+      <ClientePageHeader
+        eyebrow="Cotizaciones"
+        title={presupuestoExistente ? 'Editar presupuesto' : 'Nuevo presupuesto'}
+        subtitle="Armá tu solicitud de cotización"
+        actions={
+          <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/presupuestos')}>
+            ← Presupuestos
           </button>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="cliente-presupuesto-form-main">
+      <div className="cliente-presupuesto-form-main">
         {error && (
           <div className="error-message">
             {error}
@@ -380,7 +370,7 @@ export default function ClientePresupuestoFormPage() {
             </button>
             <button
               type="button"
-              className="btn-primary"
+              className="cliente-btn-primary"
               onClick={handleEnviar}
               disabled={saving || items.length === 0}
             >
@@ -388,8 +378,8 @@ export default function ClientePresupuestoFormPage() {
             </button>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </ClientePageLayout>
   )
 }
 

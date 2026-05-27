@@ -1,6 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import { useEffect, useMemo } from 'react'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteChatPage.css'
 
 export default function ClienteChatPage() {
@@ -29,37 +32,19 @@ export default function ClienteChatPage() {
   }, [cliente])
 
   if (authLoading) {
-    return (
-      <div className="cliente-chat-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   if (!cliente) return null
 
   return (
-    <div className="cliente-chat-page">
-      <header className="cliente-chat-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" />
-            <div>
-              <h1>Chat con PlotAI</h1>
-              <p className="cliente-chat-subtitle">
-                Preguntá por el estado de tus pedidos y OP usando su número.
-              </p>
-            </div>
-          </div>
-          <button className="btn-secondary" onClick={() => navigate('/cliente/dashboard')}>
-            ← Volver
-          </button>
-        </div>
-      </header>
-      <main className="cliente-chat-main">
-        <section className="cliente-chat-card">
+    <ClientePageLayout className="cliente-chat-page">
+      <ClientePageHeader
+        eyebrow="Asistente"
+        title="PlotAI"
+        subtitle={`Hola, ${cliente.nombre}. Consultá el estado de tus pedidos y OP.`}
+      />
+        <section className="cliente-page-card cliente-chat-card">
           <div className="cliente-chat-info">
             <h2>👋 Hola, {cliente.nombre}</h2>
           </div>
@@ -71,7 +56,6 @@ export default function ClienteChatPage() {
             />
           )}
         </section>
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }

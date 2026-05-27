@@ -1,0 +1,67 @@
+/* Ajustes para páginas del portal que aún usan tema oscuro local */
+
+.cliente-portal-root .cliente-catalogo-page,
+.cliente-portal-root .cliente-carrito-page,
+.cliente-portal-root .cliente-checkout-page,
+.cliente-portal-root .cliente-nuevo-pedido-page,
+.cliente-portal-root .cliente-pedido-detalle-page,
+.cliente-portal-root .cliente-presupuestos-page,
+.cliente-portal-root .cliente-presupuesto-detalle-page,
+.cliente-portal-root .cliente-presupuesto-form-page,
+.cliente-portal-root .cliente-buscar-op-page,
+.cliente-portal-root .cliente-mensajes-page,
+.cliente-portal-root .cliente-briefs-page,
+.cliente-portal-root .cliente-brief-form-page,
+.cliente-portal-root .cliente-reclamos-page,
+.cliente-portal-root .cliente-ayuda-page,
+.cliente-portal-root .cliente-chat-page,
+.cliente-portal-root .cliente-notifs-page {
+  min-height: auto;
+  background: transparent !important;
+  color: var(--cliente-text);
+}
+
+.cliente-portal-root .cliente-catalogo-header,
+.cliente-portal-root .cliente-buscar-op-header,
+.cliente-portal-root [class*='-header'] {
+  position: static;
+  background: var(--cliente-surface) !important;
+  border-bottom: 1px solid var(--cliente-border) !important;
+  box-shadow: none !important;
+  border-radius: var(--cliente-radius);
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem !important;
+}
+
+.cliente-portal-root .cliente-header-logo h1,
+.cliente-portal-root .cliente-ayuda-header h1,
+.cliente-portal-root [class*='-page'] h1,
+.cliente-portal-root [class*='-page'] h2,
+.cliente-portal-root [class*='-page'] h3 {
+  color: var(--cliente-text);
+}
+
+.cliente-portal-root .cliente-header-logo p,
+.cliente-portal-root [class*='-page'] p,
+.cliente-portal-root .section-desc {
+  color: var(--cliente-muted);
+}
+
+.cliente-portal-root .btn-primary {
+  background: var(--cliente-brand);
+  color: #fff;
+  border: none;
+  border-radius: 9999px;
+}
+
+.cliente-portal-root .btn-secondary {
+  background: var(--cliente-surface);
+  color: var(--cliente-text);
+  border: 1px solid var(--cliente-border);
+  border-radius: 9999px;
+}
+
+.cliente-portal-root .btn-secondary:hover {
+  border-color: var(--cliente-brand);
+  background: var(--cliente-brand-soft);
+}

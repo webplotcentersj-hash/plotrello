@@ -8,6 +8,9 @@ import {
 } from '../services/commerceCatalogService'
 import type { CarritoClientePayload } from '../services/commerceCartService'
 import type { TipoIntencionPedido } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteCheckoutPage.css'
 
 export default function ClienteCheckoutPage() {
@@ -98,30 +101,25 @@ export default function ClienteCheckoutPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-checkout-page">
-        <div className="cliente-checkout-loading">
-          <div className="spinner" />
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-checkout-page">
-      <header className="cliente-checkout-header">
-        <div className="cliente-checkout-header__inner">
-          <button type="button" className="btn-secondary" onClick={() => navigate('/cliente/carrito')}>
+    <ClientePageLayout className="cliente-checkout-page">
+      <ClientePageHeader
+        eyebrow="Compra"
+        title="Checkout"
+        subtitle="Confirmá tu pedido"
+        actions={
+          <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/carrito')}>
             ← Carrito
           </button>
-          <h1>Checkout</h1>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="cliente-checkout-main">
-        {error && <div className="cliente-checkout-error">{error}</div>}
+        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
-        <section className="cliente-checkout-resumen">
+        <section className="cliente-page-card cliente-checkout-resumen">
           <h2>Resumen ({carrito?.cantidad_items ?? 0} u.)</h2>
           <ul>
             {(carrito?.items ?? []).map((it) => (
@@ -136,7 +134,7 @@ export default function ClienteCheckoutPage() {
           <p className="cliente-checkout-total">Total: ${(carrito?.total ?? 0).toFixed(2)}</p>
         </section>
 
-        <form className="cliente-checkout-form" onSubmit={handleSubmit}>
+        <form className="cliente-page-form-section cliente-checkout-form" onSubmit={handleSubmit}>
           <fieldset className="cliente-checkout-intent">
             <legend>¿Qué querés hacer?</legend>
             <label className={`intent-card ${tipoIntencion === 'compra' ? 'active' : ''}`}>
@@ -215,7 +213,7 @@ export default function ClienteCheckoutPage() {
             </button>
           </p>
 
-          <button type="submit" className="btn-primary btn-submit" disabled={saving}>
+          <button type="submit" className="cliente-btn-primary btn-submit" disabled={saving}>
             {saving
               ? 'Enviando…'
               : tipoIntencion === 'compra'
@@ -223,7 +221,6 @@ export default function ClienteCheckoutPage() {
                 : 'Enviar solicitud de cotización'}
           </button>
         </form>
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }

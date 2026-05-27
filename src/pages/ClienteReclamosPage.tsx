@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteReclamosPage.css'
 
 const SECTORES = [
@@ -158,39 +161,28 @@ export default function ClienteReclamosPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-reclamos-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-reclamos-page">
-      <header className="cliente-reclamos-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" />
-            <h1>Reclamos</h1>
-          </div>
-          <button className="btn-secondary" onClick={() => navigate('/cliente/dashboard')}>
-            ← Volver
-          </button>
-        </div>
-      </header>
+    <ClientePageLayout className="cliente-reclamos-page">
+      <ClientePageHeader
+        eyebrow="Atención"
+        title="Reclamos"
+        subtitle="Reportá un problema con tu pedido u OP"
+      />
 
-      <main className="cliente-reclamos-main">
-        <div className="reclamos-tabs">
+        <div className="reclamos-tabs cliente-page-pills">
           <button
-            className={`tab ${activeTab === 'list' ? 'active' : ''}`}
+            type="button"
+            className={`cliente-page-pill tab ${activeTab === 'list' ? 'active' : ''}`}
             onClick={() => setActiveTab('list')}
           >
             Mis Reclamos
           </button>
           <button
-            className={`tab ${activeTab === 'crear' ? 'active' : ''}`}
+            type="button"
+            className={`cliente-page-pill tab ${activeTab === 'crear' ? 'active' : ''}`}
             onClick={() => setActiveTab('crear')}
           >
             Nuevo Reclamo
@@ -198,7 +190,7 @@ export default function ClienteReclamosPage() {
         </div>
 
         {success && (
-          <div className="success-message">
+          <div className="cliente-page-alert cliente-page-alert--success">
             ✅ Reclamo enviado correctamente. Nos pondremos en contacto contigo.
           </div>
         )}
@@ -313,13 +305,12 @@ export default function ClienteReclamosPage() {
                   </div>
                 )}
               </div>
-              <button type="submit" className="btn-primary" disabled={sending || uploadingFoto}>
+              <button type="submit" className="cliente-btn-primary" disabled={sending || uploadingFoto}>
                 {sending ? 'Enviando...' : 'Enviar Reclamo'}
               </button>
             </form>
           </div>
         )}
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }

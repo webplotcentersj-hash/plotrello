@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import type { MensajePedidoClienteRecord, PedidoClienteRecord } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteMensajesPage.css'
 
 export default function ClienteMensajesPage() {
@@ -117,35 +120,19 @@ export default function ClienteMensajesPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="cliente-mensajes-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
+      <ClientePageLoading />
     )
   }
 
   return (
-    <div className="cliente-mensajes-page">
-      <header className="cliente-mensajes-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <h1>Mensajería</h1>
-          </div>
-          <button 
-            className="btn-secondary"
-            onClick={() => navigate('/cliente/dashboard')}
-          >
-            ← Volver
-          </button>
-        </div>
-      </header>
+    <ClientePageLayout className="cliente-mensajes-page">
+      <ClientePageHeader
+        eyebrow="Comunicación"
+        title="Mensajes"
+        subtitle="Escribile al equipo sobre tus pedidos"
+      />
 
-      <main className="cliente-mensajes-main">
+      <div className="cliente-mensajes-main">
         <div className="mensajes-container">
           <div className="pedidos-sidebar">
             <h3>Mis Pedidos</h3>
@@ -239,8 +226,8 @@ export default function ClienteMensajesPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </ClientePageLayout>
   )
 }
 

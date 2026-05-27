@@ -5332,6 +5332,35 @@ class ApiService {
     }
   }
 
+  /** Notas de encuesta post-entrega ya cargadas (por numero_op). */
+  async getSatisfaccionEntregaPorOps(
+    numeroOps: string[]
+  ): Promise<ApiResponse<Record<string, { rating: number; comentario: string | null }>>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const ops = [...new Set(numeroOps.map((o) => String(o).trim()).filter(Boolean))].slice(0, 50)
+    if (ops.length === 0) return { success: true, data: {} }
+    try {
+      const { data, error } = await supabase
+        .from('atencion_satisfaccion_entrega')
+        .select('numero_op, rating, comentario')
+        .in('numero_op', ops)
+      if (error) return { success: false, error: error.message }
+      const map: Record<string, { rating: number; comentario: string | null }> = {}
+      for (const row of data || []) {
+        const op = String((row as { numero_op: string }).numero_op).trim()
+        if (op) {
+          map[op] = {
+            rating: Number((row as { rating: number }).rating),
+            comentario: (row as { comentario: string | null }).comentario
+          }
+        }
+      }
+      return { success: true, data: map }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al consultar encuestas' }
+    }
+  }
+
   async getOrdenesContextoSatisfaccion(numeroOps: string[]): Promise<
     ApiResponse<
       Array<{

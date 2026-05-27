@@ -4,6 +4,9 @@ import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import { validarCantidadVentaComercial } from '../services/commerceCatalogService'
 import type { ArticuloEmpresaRecord, TipoIntencionPedido } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteNuevoPedidoPage.css'
 
 const TIPOS_PRODUCTO = [
@@ -278,44 +281,26 @@ export default function ClienteNuevoPedidoPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-nuevo-pedido-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-nuevo-pedido-page">
-      <header className="cliente-nuevo-pedido-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <h1>Nuevo Pedido</h1>
-          </div>
-          <button 
-            className="btn-secondary"
-            onClick={() => navigate('/cliente/dashboard')}
-          >
-            ← Volver
+    <ClientePageLayout className="cliente-nuevo-pedido-page">
+      <ClientePageHeader
+        eyebrow="Pedidos"
+        title="Nuevo pedido"
+        subtitle="Completá el brief y los datos de tu solicitud"
+        actions={
+          <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/catalogo')}>
+            Ver catálogo
           </button>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="cliente-nuevo-pedido-main">
         <form onSubmit={handleSubmit} className="pedido-form">
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
+          {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
-          <section className="form-section">
+          <section className="cliente-page-form-section form-section">
             <h2>Tipo de solicitud</h2>
             <div className="intencion-opciones">
               <label>
@@ -340,7 +325,7 @@ export default function ClienteNuevoPedidoPage() {
           </section>
 
           {/* Sección: Artículos */}
-          <section className="form-section">
+          <section className="cliente-page-form-section form-section">
             <h2>📦 Artículos</h2>
             <div className="catalogo-grid">
               {articulos.map((articulo) => (
@@ -416,7 +401,7 @@ export default function ClienteNuevoPedidoPage() {
           </section>
 
           {/* Sección: Tipo de Producto/Servicio */}
-          <section className="form-section">
+          <section className="cliente-page-form-section form-section">
             <h2>🎨 Tipo de Producto/Servicio</h2>
             <div className="checkbox-grid">
               {TIPOS_PRODUCTO.map((tipo) => (
@@ -450,7 +435,7 @@ export default function ClienteNuevoPedidoPage() {
           </section>
 
           {/* Sección: Detalles del Producto */}
-          <section className="form-section">
+          <section className="cliente-page-form-section form-section">
             <h2>📋 Detalles del Producto</h2>
             <div className="form-group">
               <label>¿Dónde será colocado/utilizado?</label>
@@ -487,7 +472,7 @@ export default function ClienteNuevoPedidoPage() {
           </section>
 
           {/* Sección: Objetivo y Brief */}
-          <section className="form-section">
+          <section className="cliente-page-form-section form-section">
             <h2>🎯 Objetivo y Brief</h2>
             <div className="form-group">
               <label>Objetivo del Proyecto:</label>
@@ -548,7 +533,7 @@ export default function ClienteNuevoPedidoPage() {
           </section>
 
           {/* Sección: Material Disponible */}
-          <section className="form-section">
+          <section className="cliente-page-form-section form-section">
             <h2>📎 Material Disponible</h2>
             <div className="form-row">
               <div className="form-group">
@@ -610,7 +595,7 @@ export default function ClienteNuevoPedidoPage() {
           </section>
 
           {/* Sección: Plazos y Opciones */}
-          <section className="form-section">
+          <section className="cliente-page-form-section form-section">
             <h2>⏰ Plazos y Opciones</h2>
             <div className="form-row">
               <div className="form-group">
@@ -664,16 +649,15 @@ export default function ClienteNuevoPedidoPage() {
           </section>
 
           <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={() => navigate('/cliente/dashboard')}>
+            <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/dashboard')}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" disabled={saving || items.length === 0}>
+            <button type="submit" className="cliente-btn-primary" disabled={saving || items.length === 0}>
               {saving ? 'Creando Pedido...' : `Crear Pedido ($${calcularTotal().toFixed(2)})`}
             </button>
           </div>
         </form>
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }
 

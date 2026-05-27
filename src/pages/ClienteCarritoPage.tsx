@@ -4,6 +4,9 @@ import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import { cantidadMaximaVendible } from '../services/commerceCatalogService'
 import type { CarritoClientePayload } from '../services/commerceCartService'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteCarritoPage.css'
 
 export default function ClienteCarritoPage() {
@@ -57,38 +60,30 @@ export default function ClienteCarritoPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-carrito-page">
-        <div className="cliente-carrito-loading">
-          <div className="spinner" />
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   const items = carrito?.items ?? []
 
   return (
-    <div className="cliente-carrito-page">
-      <header className="cliente-carrito-header">
-        <div className="cliente-carrito-header__inner">
-          <button type="button" className="btn-secondary" onClick={() => navigate('/cliente/dashboard')}>
-            ← Inicio
-          </button>
-          <h1>Mi carrito</h1>
-          <button type="button" className="btn-secondary" onClick={() => navigate('/cliente/catalogo')}>
+    <ClientePageLayout className="cliente-carrito-page">
+      <ClientePageHeader
+        eyebrow="Compra"
+        title="Mi carrito"
+        subtitle={`${carrito?.cantidad_items ?? 0} artículo${(carrito?.cantidad_items ?? 0) !== 1 ? 's' : ''}`}
+        actions={
+          <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/catalogo')}>
             Seguir comprando
           </button>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="cliente-carrito-main">
-        {error && <div className="cliente-carrito-error">{error}</div>}
+        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
         {items.length === 0 ? (
-          <div className="cliente-carrito-empty">
+          <div className="cliente-page-empty">
             <p>Tu carrito está vacío.</p>
-            <button type="button" className="btn-primary" onClick={() => navigate('/cliente/catalogo')}>
+            <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/catalogo')}>
               Ver catálogo
             </button>
           </div>
@@ -98,7 +93,7 @@ export default function ClienteCarritoPage() {
               {items.map((it) => {
                 const max = cantidadMaximaVendible(it.articulo)
                 return (
-                  <li key={it.id} className="cliente-carrito-row">
+                  <li key={it.id} className="cliente-page-card cliente-carrito-row">
                     <div className="cliente-carrito-row__info">
                       <strong>{it.articulo.nombre}</strong>
                       <span>${it.precio_unitario.toFixed(2)} c/u</span>
@@ -148,12 +143,12 @@ export default function ClienteCarritoPage() {
                 <strong>Total: ${(carrito?.total ?? 0).toFixed(2)}</strong>
               </div>
               <div className="cliente-carrito-foot__actions">
-                <button type="button" className="btn-secondary" onClick={() => void vaciar()}>
+                <button type="button" className="cliente-btn-outline" onClick={() => void vaciar()}>
                   Vaciar
                 </button>
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="cliente-btn-primary"
                   onClick={() => navigate('/cliente/checkout')}
                 >
                   Continuar al checkout
@@ -162,7 +157,6 @@ export default function ClienteCarritoPage() {
             </footer>
           </>
         )}
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }

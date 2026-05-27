@@ -4,6 +4,9 @@ import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import { cantidadMaximaVendible } from '../services/commerceCatalogService'
 import type { ArticuloEmpresaRecord } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteCatalogoPage.css'
 
 export default function ClienteCatalogoPage() {
@@ -80,57 +83,36 @@ export default function ClienteCatalogoPage() {
   })
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-catalogo-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-catalogo-page">
-      <header className="cliente-catalogo-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <h1>Catálogo de Productos</h1>
-          </div>
-          <div className="header-actions">
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/dashboard')}
-            >
-              ← Volver
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/carrito')}
-            >
+    <ClientePageLayout className="cliente-catalogo-page">
+      <ClientePageHeader
+        eyebrow="Tienda"
+        title="Catálogo"
+        subtitle="Productos y servicios disponibles para tu pedido"
+        actions={
+          <>
+            <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/carrito')}>
               🛒 Carrito{cartCount > 0 ? ` (${cartCount})` : ''}
             </button>
-            <button type="button" className="btn-primary" onClick={() => navigate('/cliente/nuevo-pedido')}>
+            <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/nuevo-pedido')}>
               Pedido con brief
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="cliente-catalogo-main">
-        {error && <div className="error-message">{error}</div>}
-        {cartMsg && <div className="cart-toast">{cartMsg}</div>}
+        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
+        {cartMsg && <div className="cliente-page-alert cliente-page-alert--success">{cartMsg}</div>}
 
         {/* Filtros y Búsqueda */}
-        <div className="filtros-section">
+        <div className="cliente-card filtros-section">
           <div className="search-bar">
             <input
               type="text"
-              className="search-input"
+              className="cliente-input search-input"
               placeholder="🔍 Buscar productos..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
@@ -139,15 +121,17 @@ export default function ClienteCatalogoPage() {
           {categorias.length > 0 && (
             <div className="categorias-filtros">
               <button
-                className={`categoria-btn ${!categoriaFiltro ? 'active' : ''}`}
+                type="button"
+                className={`cliente-page-pill categoria-btn ${!categoriaFiltro ? 'active' : ''}`}
                 onClick={() => setCategoriaFiltro('')}
               >
                 Todas
               </button>
               {categorias.map((categoria) => (
                 <button
+                  type="button"
                   key={categoria}
-                  className={`categoria-btn ${categoriaFiltro === categoria ? 'active' : ''}`}
+                  className={`cliente-page-pill categoria-btn ${categoriaFiltro === categoria ? 'active' : ''}`}
                   onClick={() => setCategoriaFiltro(categoria)}
                 >
                   {categoria}
@@ -159,11 +143,12 @@ export default function ClienteCatalogoPage() {
 
         {/* Grid de Artículos */}
         {articulosFiltrados.length === 0 ? (
-          <div className="empty-state">
+          <div className="cliente-page-empty">
             <p>No se encontraron productos</p>
             {busqueda && (
-              <button 
-                className="btn-secondary"
+              <button
+                type="button"
+                className="cliente-btn-outline"
                 onClick={() => setBusqueda('')}
               >
                 Limpiar búsqueda
@@ -177,7 +162,7 @@ export default function ClienteCatalogoPage() {
             </div>
             <div className="catalogo-grid">
               {articulosFiltrados.map((articulo) => (
-                <div key={articulo.id} className="articulo-card">
+                <div key={articulo.id} className="cliente-page-card articulo-card">
                   {articulo.imagen_url && (
                     <div className="articulo-imagen">
                       <img src={articulo.imagen_url} alt={articulo.nombre} />
@@ -212,7 +197,7 @@ export default function ClienteCatalogoPage() {
                     )}
                     <button
                       type="button"
-                      className="btn-agregar"
+                      className="cliente-btn-primary btn-agregar"
                       disabled={
                         addingId === articulo.id ||
                         cantidadMaximaVendible(articulo) === 0
@@ -227,8 +212,7 @@ export default function ClienteCatalogoPage() {
             </div>
           </>
         )}
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }
 

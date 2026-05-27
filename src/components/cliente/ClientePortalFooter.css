@@ -1,0 +1,49 @@
+.cliente-portal-footer {
+  border-top: 1px dotted var(--cliente-border);
+  background: var(--cliente-surface);
+  padding: 2.5rem 0 2rem;
+  margin-top: 2rem;
+}
+
+.cliente-portal-footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.25rem;
+}
+
+.cliente-portal-footer-logo img {
+  height: 44px;
+  width: auto;
+}
+
+.cliente-portal-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+}
+
+.cliente-portal-footer-nav a {
+  font-size: 0.88rem;
+  color: var(--cliente-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.cliente-portal-footer-nav a:hover {
+  color: var(--cliente-brand);
+}
+
+.cliente-portal-footer-divider {
+  width: 100%;
+  max-width: 32rem;
+  border-top: 1px dotted var(--cliente-border);
+}
+
+.cliente-portal-footer-copy {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--cliente-muted);
+}

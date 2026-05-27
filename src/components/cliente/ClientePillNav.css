@@ -1,0 +1,233 @@
+.cliente-pill-nav-wrap {
+  position: fixed;
+  top: 1rem;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem;
+  pointer-events: none;
+}
+
+.cliente-pill-nav-wrap > * {
+  pointer-events: auto;
+}
+
+.cliente-pill-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: fit-content;
+  margin: 0 auto;
+}
+
+.cliente-pill-logo {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 9999px;
+  background: #fff;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.cliente-pill-logo:hover {
+  transform: scale(1.05);
+}
+
+.cliente-pill-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cliente-pill-list {
+  list-style: none;
+  margin: 0;
+  padding: 3px;
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  background: #fff;
+  border-radius: 9999px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.cliente-pill-list--desktop {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .cliente-pill-list--desktop {
+    display: flex;
+  }
+}
+
+.cliente-pill-link {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.1rem;
+  height: 36px;
+  border-radius: 9999px;
+  background: var(--cliente-brand, #eb671b);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  overflow: hidden;
+  transition: color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.cliente-pill-link::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -80%;
+  width: 120%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateX(-50%) scale(0);
+  transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+  z-index: 0;
+}
+
+.cliente-pill-link:hover::before,
+.cliente-pill-link.active::before {
+  transform: translateX(-50%) scale(1.15);
+}
+
+.cliente-pill-link:hover,
+.cliente-pill-link.active {
+  color: #1a1a1a;
+}
+
+.cliente-pill-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  z-index: 2;
+}
+
+.cliente-pill-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.25rem;
+}
+
+.cliente-pill-icon-btn {
+  height: 42px;
+  min-width: 42px;
+  padding: 0 0.65rem;
+  border: none;
+  border-radius: 9999px;
+  background: var(--cliente-brand, #eb671b);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+}
+
+.cliente-pill-icon-btn--logout {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0 0.85rem;
+}
+
+.cliente-pill-icon-btn:hover {
+  transform: scale(1.05);
+  background: var(--cliente-brand-dark, #d45a15);
+}
+
+.cliente-pill-hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--cliente-brand, #eb671b);
+  cursor: pointer;
+}
+
+.cliente-pill-hamburger span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  margin: 0 auto;
+  border-radius: 2px;
+  background: #fff;
+}
+
+@media (min-width: 900px) {
+  .cliente-pill-hamburger {
+    display: none;
+  }
+}
+
+.cliente-pill-mobile {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 1rem;
+  right: 1rem;
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  padding: 0.35rem;
+}
+
+.cliente-pill-mobile ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cliente-pill-mobile a {
+  display: block;
+  padding: 0.85rem 1rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  background: var(--cliente-brand-soft);
+  color: var(--cliente-text);
+}
+
+.cliente-pill-mobile a.active {
+  background: var(--cliente-brand);
+  color: #fff;
+}
+
+@media (min-width: 900px) {
+  .cliente-pill-mobile {
+    display: none;
+  }
+}

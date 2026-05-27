@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import type { PedidoClienteDetalle } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClientePedidoDetallePage.css'
 
 export default function ClientePedidoDetallePage() {
@@ -157,89 +160,64 @@ export default function ClientePedidoDetallePage() {
                         detalle?.pedido.estado !== 'convertido_parcial'
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-pedido-detalle-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   if (!detalle) {
     return (
-      <div className="cliente-pedido-detalle-page">
-        <div className="error-container">
+      <ClientePageLayout className="cliente-pedido-detalle-page">
+        <div className="cliente-page-empty">
           <h2>Pedido no encontrado</h2>
           <p>{error || 'No se pudo cargar el pedido'}</p>
-          <button className="btn-primary" onClick={() => navigate('/cliente/dashboard')}>
-            Volver al Dashboard
+          <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/dashboard')}>
+            Volver al inicio
           </button>
         </div>
-      </div>
+      </ClientePageLayout>
     )
   }
 
+  const fechaPedido = new Date(detalle.pedido.fecha_pedido).toLocaleDateString('es-AR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+
   return (
-    <div className="cliente-pedido-detalle-page">
-      <header className="cliente-pedido-detalle-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <div>
-              <h1>{detalle.pedido.numero_pedido}</h1>
-              <p className="pedido-fecha">
-                {new Date(detalle.pedido.fecha_pedido).toLocaleDateString('es-AR', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-            </div>
-          </div>
-          <div className="header-actions">
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/dashboard')}
-            >
-              ← Volver
-            </button>
+    <ClientePageLayout className="cliente-pedido-detalle-page">
+      <ClientePageHeader
+        eyebrow="Pedido"
+        title={detalle.pedido.numero_pedido}
+        subtitle={fechaPedido}
+        actions={
+          <>
             {puedeEditar && (
-              <button 
-                className="btn-secondary"
-                onClick={() => setEditando(!editando)}
-              >
-                {editando ? 'Cancelar Edición' : '✏️ Editar'}
+              <button type="button" className="cliente-btn-outline" onClick={() => setEditando(!editando)}>
+                {editando ? 'Cancelar edición' : 'Editar'}
               </button>
             )}
             {puedeCancelar && (
-              <button 
-                className="btn-danger"
+              <button
+                type="button"
+                className="cliente-btn-outline cliente-btn-danger"
                 onClick={handleCancelar}
                 disabled={cancelando}
               >
-                {cancelando ? 'Cancelando...' : '❌ Cancelar Pedido'}
+                {cancelando ? 'Cancelando…' : 'Cancelar pedido'}
               </button>
             )}
-            <button 
-              className="btn-primary"
+            <button
+              type="button"
+              className="cliente-btn-primary"
               onClick={() => navigate(`/cliente/mensajes/${detalle.pedido.id}`)}
             >
-              💬 Mensajes
+              Mensajes
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="cliente-pedido-detalle-main">
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
         <div className="pedido-info-grid">
           {/* Estado y Badges */}
@@ -404,10 +382,10 @@ export default function ClientePedidoDetallePage() {
               </div>
             </div>
             <div className="form-actions">
-              <button className="btn-secondary" onClick={() => setEditando(false)}>
+              <button type="button" className="cliente-btn-outline" onClick={() => setEditando(false)}>
                 Cancelar
               </button>
-              <button className="btn-primary" onClick={handleGuardar} disabled={guardando}>
+              <button type="button" className="cliente-btn-primary" onClick={handleGuardar} disabled={guardando}>
                 {guardando ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </div>
@@ -493,8 +471,7 @@ export default function ClientePedidoDetallePage() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }
 

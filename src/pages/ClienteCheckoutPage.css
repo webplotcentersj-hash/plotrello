@@ -1,61 +1,11 @@
-.cliente-checkout-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: #fff;
-}
-
-.cliente-checkout-header {
-  border-bottom: 2px solid #eb671b;
-  background: rgba(26, 26, 46, 0.95);
-  padding: 16px 0;
-}
-
-.cliente-checkout-header__inner {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.cliente-checkout-header h1 {
-  margin: 0;
-  font-size: 1.35rem;
-}
-
-.cliente-checkout-main {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 28px 24px 48px;
-}
-
-.cliente-checkout-loading {
-  display: flex;
-  justify-content: center;
-  padding: 80px;
-}
-
-.cliente-checkout-error {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
-  padding: 12px 16px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-
 .cliente-checkout-resumen {
-  background: rgba(26, 29, 46, 0.85);
-  border: 1px solid rgba(235, 103, 27, 0.2);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
+  margin-bottom: 1.25rem;
 }
 
 .cliente-checkout-resumen h2 {
-  margin: 0 0 12px;
+  margin: 0 0 0.75rem;
   font-size: 1rem;
+  font-weight: 700;
 }
 
 .cliente-checkout-resumen ul {
@@ -67,105 +17,101 @@
 .cliente-checkout-resumen li {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 6px 0;
-  font-size: 0.92rem;
-  color: #cbd5e1;
-}
-
-.cliente-checkout-total {
-  margin: 12px 0 0;
-  font-weight: 700;
-  font-size: 1.15rem;
-}
-
-.cliente-checkout-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.cliente-checkout-intent {
-  border: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.cliente-checkout-intent legend {
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.intent-card {
-  display: flex;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 2px solid rgba(235, 103, 27, 0.25);
-  background: rgba(26, 29, 46, 0.6);
-  cursor: pointer;
-}
-
-.intent-card.active {
-  border-color: #eb671b;
-  background: rgba(235, 103, 27, 0.12);
-}
-
-.intent-card input {
-  margin-top: 4px;
-}
-
-.intent-card p {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--cliente-border);
   font-size: 0.9rem;
 }
 
-.form-group input,
-.form-group textarea {
+.cliente-checkout-resumen li:last-child {
+  border-bottom: none;
+}
+
+.cliente-checkout-total {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 2px solid var(--cliente-brand);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--cliente-brand);
+}
+
+.cliente-checkout-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.cliente-checkout-form label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.cliente-checkout-form input,
+.cliente-checkout-form select,
+.cliente-checkout-form textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.6);
-  color: #fff;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--cliente-border);
+  border-radius: var(--cliente-radius);
+  font-family: inherit;
+  background: var(--cliente-bg);
 }
 
 .checkbox-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
   cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.checkbox-row input {
+  accent-color: var(--cliente-brand);
 }
 
 .cliente-checkout-note {
   font-size: 0.88rem;
-  color: #94a3b8;
+  color: var(--cliente-muted);
+  margin: 1rem 0;
 }
 
 .link-btn {
   background: none;
   border: none;
-  color: #fb923c;
-  text-decoration: underline;
+  color: var(--cliente-brand);
+  font-weight: 600;
   cursor: pointer;
+  text-decoration: underline;
   padding: 0;
-  font: inherit;
+  font-family: inherit;
 }
 
 .btn-submit {
-  margin-top: 8px;
   width: 100%;
-  padding: 14px;
-  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.intencion-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.intencion-toggle button {
+  flex: 1;
+  padding: 0.65rem;
+  border-radius: var(--cliente-radius);
+  border: 1px solid var(--cliente-border);
+  background: var(--cliente-bg);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.intencion-toggle button.active {
+  background: var(--cliente-brand);
+  border-color: var(--cliente-brand);
+  color: #fff;
 }

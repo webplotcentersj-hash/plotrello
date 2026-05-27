@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteBriefsPage.css'
 
 type BriefRecord = {
@@ -178,48 +181,23 @@ export default function ClienteBriefsPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-briefs-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-briefs-page">
-      <header className="cliente-briefs-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center"
-            />
-            <h1>Pedidos de Diseño</h1>
-          </div>
-          <div className="cliente-header-actions">
-            <button
-              className="btn-primary"
-              onClick={handleNuevoBrief}
-              disabled={creating}
-            >
-              {creating ? 'Creando...' : '+ Nuevo Pedido de Diseño'}
-            </button>
-            <button
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/dashboard')}
-            >
-              ← Volver
-            </button>
-          </div>
-        </div>
-      </header>
+    <ClientePageLayout className="cliente-briefs-page">
+      <ClientePageHeader
+        eyebrow="Diseño"
+        title="Pedidos de diseño"
+        subtitle="Briefs y estado de tus trabajos gráficos"
+        actions={
+          <button type="button" className="cliente-btn-primary" onClick={handleNuevoBrief} disabled={creating}>
+            {creating ? 'Creando…' : '+ Nuevo brief'}
+          </button>
+        }
+      />
 
-      <main className="cliente-briefs-main">
-        {error && (
-          <div className="cliente-error-message">{error}</div>
-        )}
+        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
         <div className="cliente-briefs-section">
           <div className="cliente-briefs-section-header">
@@ -332,7 +310,6 @@ export default function ClienteBriefsPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }

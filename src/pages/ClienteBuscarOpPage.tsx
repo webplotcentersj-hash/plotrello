@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
+import { esEstadoListoParaRetiro } from '../utils/clientePortalOps'
+import { emojiRating } from '../data/satisfaccionRatings'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteBuscarOpPage.css'
 
 export default function ClienteBuscarOpPage() {
@@ -12,6 +17,9 @@ export default function ClienteBuscarOpPage() {
   const [loading, setLoading] = useState(false)
   const [op, setOp] = useState<any>(null)
   const [error, setError] = useState('')
+  const [satisfaccionOp, setSatisfaccionOp] = useState<{ rating: number; comentario: string | null } | null>(
+    null
+  )
 
   useEffect(() => {
     if (authLoading) return
@@ -30,6 +38,7 @@ export default function ClienteBuscarOpPage() {
     setLoading(true)
     setError('')
     setOp(null)
+    setSatisfaccionOp(null)
 
     try {
       const raw = numero.trim()
@@ -54,6 +63,11 @@ export default function ClienteBuscarOpPage() {
       }
       if (response.success && response.data) {
         setOp(response.data)
+        const opNum = String(response.data.numero_op || intentoNumero || raw).trim()
+        if (opNum) {
+          const satRes = await apiService.getSatisfaccionEntregaPorOps([opNum])
+          if (satRes.success && satRes.data?.[opNum]) setSatisfaccionOp(satRes.data[opNum])
+        }
       } else {
         setError(response.error || 'OP no encontrada')
       }
@@ -90,69 +104,46 @@ export default function ClienteBuscarOpPage() {
     return labels[estado] || estado
   }
 
-  if (authLoading || loading) {
-    return (
-      <div className="cliente-buscar-op-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+  if (authLoading && !numeroOp) {
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-buscar-op-page">
-      <header className="cliente-buscar-op-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <h1>Buscar OP</h1>
-          </div>
-          <button 
-            className="btn-secondary"
-            onClick={() => navigate('/cliente/dashboard')}
-          >
-            ← Volver
-          </button>
-        </div>
-      </header>
+    <ClientePageLayout className="cliente-buscar-op-page">
+      <ClientePageHeader
+        eyebrow="Seguimiento"
+        title="Buscar OP"
+        subtitle="Consultá el estado de tu orden de trabajo por número"
+      />
 
-      <main className="cliente-buscar-op-main">
-        <div className="cliente-search-section">
-          <h3>🔍 Buscar Orden de Trabajo</h3>
+        <div className="cliente-card cliente-search-section">
+          <h3 className="cliente-search-title">Número de OP</h3>
           <div className="search-input-group">
             <input
               type="text"
-              className="search-input"
+              className="cliente-input search-input"
               placeholder="Ingresa el número de OP (ej: OP-12345)"
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             />
-            <button className="btn-search" onClick={handleSearch}>
-              Buscar
+            <button type="button" className="cliente-btn-primary btn-search" onClick={handleSearch} disabled={loading}>
+              {loading ? 'Buscando…' : 'Buscar'}
             </button>
           </div>
         </div>
 
-        {error && (
-          <div className="cliente-error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
         {op && (
-          <div className="op-detail-card">
+          <div className="cliente-page-card op-detail-card">
             <div className="op-detail-header">
               <div>
                 <h2>{op.numero_op}</h2>
                 <p className="op-titulo">{op.titulo}</p>
               </div>
-              <div 
-                className="op-estado-badge"
+              <div
+                className="cliente-page-badge op-estado-badge"
                 style={{ backgroundColor: getEstadoColor(op.estado) }}
               >
                 {getEstadoLabel(op.estado)}
@@ -189,19 +180,49 @@ export default function ClienteBuscarOpPage() {
 
               {op.id_pedido_cliente && (
                 <div className="op-pedido-link">
-                  <button 
-                    className="btn-primary"
+                  <button
+                    type="button"
+                    className="cliente-btn-primary"
                     onClick={() => navigate(`/cliente/pedido/${op.id_pedido_cliente}`)}
                   >
                     Ver Pedido Original
                   </button>
                 </div>
               )}
+
+              {(esEstadoListoParaRetiro(op.estado) || esEstadoListoParaRetiro(op.sector_asignado)) && (
+                <div className="op-entrega-cta">
+                  <h3>Retiro en mostrador</h3>
+                  {satisfaccionOp ? (
+                    <p className="op-entrega-sat">
+                      {emojiRating(satisfaccionOp.rating)} Ya dejaste tu calificación ({satisfaccionOp.rating}/5)
+                    </p>
+                  ) : (
+                    <p>Firmá y contanos cómo estuvo el trabajo al retirarlo.</p>
+                  )}
+                  <div className="op-entrega-actions">
+                    <a
+                      href={`/firma-cliente/${encodeURIComponent(op.numero_op || searchValue)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cliente-btn-primary"
+                    >
+                      Firmar y calificar
+                    </a>
+                    <button
+                      type="button"
+                      className="cliente-btn-outline"
+                      onClick={() => navigate('/cliente/reclamos')}
+                    >
+                      Hacer un reclamo
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }
 

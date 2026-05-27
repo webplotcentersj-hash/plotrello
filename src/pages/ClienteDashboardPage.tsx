@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import type { PedidoClienteRecord } from '../types/api'
+import { buildOpsListosRetiro, type OpListoRetiro } from '../utils/clientePortalOps'
+import { emojiRating } from '../data/satisfaccionRatings'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import './ClienteDashboardPage.css'
 
 type BriefResumen = {
@@ -19,7 +22,7 @@ type BriefResumen = {
 }
 
 export default function ClienteDashboardPage() {
-  const { cliente, logout, loading: authLoading } = useClienteAuth()
+  const { cliente, loading: authLoading } = useClienteAuth()
   const navigate = useNavigate()
   const [pedidos, setPedidos] = useState<PedidoClienteRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,39 +31,40 @@ export default function ClienteDashboardPage() {
   const [searchPedido, setSearchPedido] = useState('')
   const [briefs, setBriefs] = useState<BriefResumen[]>([])
   const [loadingBriefs, setLoadingBriefs] = useState(false)
+  const [opsListos, setOpsListos] = useState<OpListoRetiro[]>([])
+  const [satisfaccionPorOp, setSatisfaccionPorOp] = useState<
+    Record<string, { rating: number; comentario: string | null }>
+  >({})
 
-  const loadPedidos = useCallback(async () => {
-    if (!cliente) return
-    
-    setLoading(true)
-    setError('')
-    
-    try {
-      const response = await apiService.getPedidosCliente(cliente.id)
-      if (response.success && response.data) {
-        setPedidos(response.data)
-      } else {
-        setError(response.error || 'Error al cargar pedidos')
+  const loadOpsListosYSatisfaccion = useCallback(
+    async (pedidosData: PedidoClienteRecord[], briefsData: BriefResumen[]) => {
+      const listos = buildOpsListosRetiro({
+        pedidos: pedidosData.map((p) => ({
+          id: p.id,
+          numero_op: p.numero_op,
+          estado_op: p.estado_op,
+          descripcion: p.observaciones_cliente,
+          objetivo_proyecto: p.objetivo_proyecto
+        })),
+        briefs: briefsData.map((b) => ({
+          id: b.id,
+          numero_op: b.numero_op,
+          estado: b.estado,
+          objetivo_proyecto: b.objetivo_proyecto,
+          completado: b.completado
+        }))
+      })
+      setOpsListos(listos)
+      if (listos.length === 0) {
+        setSatisfaccionPorOp({})
+        return
       }
-    } catch (err) {
-      setError('Error de conexión')
-    } finally {
-      setLoading(false)
-    }
-  }, [cliente])
-
-  const loadBriefs = useCallback(async () => {
-    if (!cliente) return
-    setLoadingBriefs(true)
-    try {
-      const response = await apiService.listarBriefsPorCliente(cliente.id)
-      if (response.success && response.data) {
-        setBriefs(response.data as BriefResumen[])
-      }
-    } finally {
-      setLoadingBriefs(false)
-    }
-  }, [cliente])
+      const res = await apiService.getSatisfaccionEntregaPorOps(listos.map((o) => o.numero_op))
+      if (res.success && res.data) setSatisfaccionPorOp(res.data)
+      else setSatisfaccionPorOp({})
+    },
+    []
+  )
 
   useEffect(() => {
     // Esperar a que termine la carga de autenticación antes de verificar
@@ -76,9 +80,29 @@ export default function ClienteDashboardPage() {
       return
     }
     console.log('Cliente encontrado, cargando pedidos...')
-    loadPedidos()
-    loadBriefs()
-  }, [cliente, authLoading, navigate, loadPedidos, loadBriefs])
+    void (async () => {
+      if (!cliente) return
+      setLoading(true)
+      setError('')
+      try {
+        const [pedRes, briefRes] = await Promise.all([
+          apiService.getPedidosCliente(cliente.id),
+          apiService.listarBriefsPorCliente(cliente.id)
+        ])
+        const pedidosData = pedRes.success && pedRes.data ? pedRes.data : []
+        const briefsData = briefRes.success && briefRes.data ? (briefRes.data as BriefResumen[]) : []
+        if (!pedRes.success) setError(pedRes.error || 'Error al cargar pedidos')
+        setPedidos(pedidosData)
+        setBriefs(briefsData)
+        await loadOpsListosYSatisfaccion(pedidosData, briefsData)
+      } catch {
+        setError('Error de conexión')
+      } finally {
+        setLoading(false)
+        setLoadingBriefs(false)
+      }
+    })()
+  }, [cliente, authLoading, navigate, loadOpsListosYSatisfaccion])
 
   const getEstadoColor = (estado: PedidoClienteRecord['estado']) => {
     const colors: Record<string, string> = {
@@ -194,8 +218,8 @@ export default function ClienteDashboardPage() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="spinner"></div>
+      <div className="cliente-loading-wrap">
+        <div className="cliente-spinner" />
       </div>
     )
   }
@@ -220,142 +244,148 @@ export default function ClienteDashboardPage() {
     }
   }
 
-  return (
-    <div className="cliente-dashboard-page">
-      <header className="cliente-dashboard-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <div className="cliente-header-info">
-              <h1>Bienvenido, {cliente?.nombre}</h1>
-              <p>{cliente?.empresa || 'Cliente'}</p>
-            </div>
-          </div>
-          <div className="cliente-header-actions">
-            <button 
-              className="btn-primary"
-              onClick={() => navigate('/cliente/nuevo-pedido')}
-            >
-              + Nuevo Pedido
-            </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/catalogo')}
-            >
-              Ver Catálogo
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/carrito')}
-            >
-              🛒 Carrito
-            </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/presupuestos')}
-            >
-              💰 Presupuestos
-            </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/disenos')}
-            >
-              📋 Pedidos de Diseño
-            </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/mensajes')}
-            >
-              💬 Mensajes
-            </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/reclamos')}
-            >
-              📢 Reclamos
-            </button>
-            <button 
-              className="btn-secondary"
-              onClick={() => navigate('/cliente/chat')}
-            >
-              🤖 Chat PlotAI
-            </button>
-            <button 
-              className="btn-icon btn-notificaciones"
-              onClick={() => navigate('/cliente/notificaciones')}
-              title="Notificaciones"
-              aria-label="Notificaciones"
-            >
-              🔔
-            </button>
-            <button 
-              className="btn-logout"
-              onClick={() => {
-                logout()
-                navigate('/cliente/login')
-              }}
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
-      </header>
+  const quickLinks = [
+    { label: 'Presupuestos', icon: '💰', path: '/cliente/presupuestos' },
+    { label: 'Diseños', icon: '📋', path: '/cliente/disenos' },
+    { label: 'Mensajes', icon: '💬', path: '/cliente/mensajes' },
+    { label: 'Carrito', icon: '🛒', path: '/cliente/carrito' },
+    { label: 'Reclamos', icon: '📢', path: '/cliente/reclamos' },
+    { label: 'PlotAI', icon: '🤖', path: '/cliente/chat' }
+  ]
 
-      <main className="cliente-dashboard-main">
-        <div className="cliente-search-section">
+  return (
+    <ClientePageLayout className="cliente-dashboard-page">
+      <div className="cliente-dashboard-inner">
+        <section className="cliente-dashboard-hero">
+          <p className="cliente-eyebrow">Portal de clientes · Plot Center</p>
+          <h1 className="cliente-heading-display cliente-dashboard-hero-title">
+            {cliente?.nombre || 'Bienvenido'}
+          </h1>
+          <p className="cliente-dashboard-hero-sub">{cliente?.empresa || 'Seguí tus pedidos y OP en un solo lugar'}</p>
+          <div className="cliente-dashboard-hero-cta">
+            <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/nuevo-pedido')}>
+              + Nuevo pedido
+            </button>
+            <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/catalogo')}>
+              Ver catálogo
+            </button>
+          </div>
+        </section>
+
+        <nav className="cliente-dashboard-quick" aria-label="Accesos rápidos">
+          {quickLinks.map((link) => (
+            <button
+              key={link.path}
+              type="button"
+              className="cliente-card cliente-dashboard-quick-card"
+              onClick={() => navigate(link.path)}
+            >
+              <span className="cliente-dashboard-quick-icon" aria-hidden>
+                {link.icon}
+              </span>
+              <span>{link.label}</span>
+            </button>
+          ))}
+        </nav>
+
+      <div className="cliente-dashboard-body">
+        <div className="cliente-card cliente-search-section">
           <h3>🔍 Buscar</h3>
           <div className="search-input-group">
             <input
               type="text"
-              className="search-input"
+              className="cliente-input search-input"
               placeholder="Buscar por número de OP..."
               value={searchOp}
               onChange={(e) => setSearchOp(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearchOp()}
             />
-            <button className="btn-search" onClick={handleSearchOp}>
+            <button type="button" className="cliente-btn-primary btn-search" onClick={handleSearchOp}>
               Buscar OP
             </button>
             <input
               type="text"
-              className="search-input"
+              className="cliente-input search-input"
               placeholder="Buscar pedido por número..."
               value={searchPedido}
               onChange={(e) => setSearchPedido(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearchPedido()}
             />
-            <button className="btn-search" onClick={handleSearchPedido}>
-              Buscar Pedido
+            <button type="button" className="cliente-btn-primary btn-search" onClick={handleSearchPedido}>
+              Buscar pedido
             </button>
           </div>
         </div>
 
+        {opsListos.length > 0 && (
+          <section className="cliente-listos-section">
+            <h2>📦 Listos para retirar</h2>
+            <p className="section-desc">
+              Podés pasar por mostrador a retirar. Firmá y calificá el trabajo cuando lo recibas.
+            </p>
+            <ul className="cliente-listos-list">
+              {opsListos.map((item) => {
+                const sat = satisfaccionPorOp[item.numero_op]
+                return (
+                  <li key={item.numero_op} className="cliente-listos-card">
+                    <div className="cliente-listos-card-head">
+                      <div>
+                        <strong>OP {item.numero_op}</strong>
+                        {item.titulo ? <p className="cliente-listos-titulo">{item.titulo}</p> : null}
+                        <span className="cliente-listos-estado">{item.estado}</span>
+                      </div>
+                      {sat ? (
+                        <span className="cliente-listos-sat">
+                          {emojiRating(sat.rating)} Ya calificaste ({sat.rating}/5)
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="cliente-listos-actions">
+                      <a
+                        href={`/firma-cliente/${encodeURIComponent(item.numero_op)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cliente-btn-primary cliente-listos-btn-firma"
+                      >
+                        {sat ? 'Ver / actualizar firma' : 'Firmar y calificar'}
+                      </a>
+                      <button
+                        type="button"
+                        className="cliente-btn-outline"
+                        onClick={() => navigate(`/cliente/buscar-op/${encodeURIComponent(item.numero_op)}`)}
+                      >
+                        Ver detalle OP
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
+
         <div className="cliente-dashboard-stats">
-          <div className="stat-card">
-            <div className="stat-value">{pedidos.length}</div>
-            <div className="stat-label">Total Pedidos</div>
+          <div className="cliente-card stat-card">
+            <div className="cliente-stat-value">{pedidos.length}</div>
+            <div className="cliente-stat-label">Total pedidos</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-value">
+          <div className="cliente-card stat-card">
+            <div className="cliente-stat-value">
               {pedidos.filter(p => p.estado === 'pendiente' || p.estado === 'en_revision').length}
             </div>
-            <div className="stat-label">Pendientes</div>
+            <div className="cliente-stat-label">Pendientes</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-value">
+          <div className="cliente-card stat-card">
+            <div className="cliente-stat-value">
               {pedidos.filter(p => p.estado === 'convertido_completo').length}
             </div>
-            <div className="stat-label">Convertidos</div>
+            <div className="cliente-stat-label">Convertidos</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-value">
+          <div className="cliente-card stat-card">
+            <div className="cliente-stat-value">
               {pedidos.filter(p => p.es_urgente).length}
             </div>
-            <div className="stat-label">Urgentes</div>
+            <div className="cliente-stat-label">Urgentes</div>
           </div>
         </div>
 
@@ -454,11 +484,12 @@ export default function ClienteDashboardPage() {
           {pedidos.length === 0 ? (
             <div className="cliente-empty-state">
               <p>No tienes pedidos aún</p>
-              <button 
-                className="btn-primary"
+              <button
+                type="button"
+                className="cliente-btn-primary"
                 onClick={() => navigate('/cliente/catalogo')}
               >
-                Crear Primer Pedido
+                Crear primer pedido
               </button>
             </div>
           ) : (
@@ -537,8 +568,9 @@ export default function ClienteDashboardPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+      </div>
+    </ClientePageLayout>
   )
 }
 

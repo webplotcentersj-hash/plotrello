@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import type { PresupuestoClienteItemRecord } from '../types/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClientePresupuestoDetallePage.css'
 
 interface PresupuestoDetalle {
@@ -74,26 +77,19 @@ export default function ClientePresupuestoDetallePage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-presupuesto-detalle-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Cargando presupuesto...</p>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   if (!presupuestoDetalle) {
     return (
-      <div className="cliente-presupuesto-detalle-page">
-        <div className="error-container">
+      <ClientePageLayout className="cliente-presupuesto-detalle-page">
+        <div className="cliente-page-empty">
           <p>{error || 'Presupuesto no encontrado'}</p>
-          <button className="btn-secondary" onClick={() => navigate('/cliente/presupuestos')}>
-            Volver a Presupuestos
+          <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/presupuestos')}>
+            Volver a presupuestos
           </button>
         </div>
-      </div>
+      </ClientePageLayout>
     )
   }
 
@@ -101,26 +97,30 @@ export default function ClientePresupuestoDetallePage() {
   const puedeEditar = presupuesto.estado === 'borrador'
 
   return (
-    <div className="cliente-presupuesto-detalle-page">
-      <header className="cliente-presupuesto-detalle-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center Logo"
-            />
-            <h1>Presupuesto {presupuesto.numero_presupuesto}</h1>
-          </div>
-          <button 
-            className="btn-secondary"
-            onClick={() => navigate('/cliente/presupuestos')}
-          >
-            ← Volver
-          </button>
-        </div>
-      </header>
+    <ClientePageLayout className="cliente-presupuesto-detalle-page">
+      <ClientePageHeader
+        eyebrow="Cotizaciones"
+        title={presupuesto.numero_presupuesto}
+        subtitle={getEstadoLabel(presupuesto.estado)}
+        actions={
+          <>
+            <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/presupuestos')}>
+              ← Lista
+            </button>
+            {puedeEditar && (
+              <button
+                type="button"
+                className="cliente-btn-primary"
+                onClick={() => navigate(`/cliente/presupuesto/${presupuesto.id}/editar`)}
+              >
+                Editar
+              </button>
+            )}
+          </>
+        }
+      />
 
-      <main className="cliente-presupuesto-detalle-main">
+      <div className="cliente-presupuesto-detalle-main">
         {error && (
           <div className="error-message">
             {error}
@@ -189,7 +189,7 @@ export default function ClientePresupuestoDetallePage() {
                 <strong>Este presupuesto fue convertido a pedido:</strong> #{presupuesto.id_pedido_asociado}
               </p>
               <button
-                className="btn-primary"
+                className="cliente-btn-primary"
                 onClick={() => navigate(`/cliente/pedido/${presupuesto.id_pedido_asociado}`)}
               >
                 Ver Pedido
@@ -253,8 +253,8 @@ export default function ClientePresupuestoDetallePage() {
             </button>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </ClientePageLayout>
   )
 }
 

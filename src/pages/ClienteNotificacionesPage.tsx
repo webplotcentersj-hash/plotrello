@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
+import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClientePageLoading from '../components/cliente/ClientePageLoading'
 import './ClienteNotificacionesPage.css'
 
 type NotifRecord = {
@@ -64,38 +67,21 @@ export default function ClienteNotificacionesPage() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="cliente-notifs-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-        </div>
-      </div>
-    )
+    return <ClientePageLoading />
   }
 
   return (
-    <div className="cliente-notifs-page">
-      <header className="cliente-notifs-header">
-        <div className="cliente-header-content">
-          <div className="cliente-header-logo">
-            <img src="https://trello.plotcenter.com.ar/Group%20187.png" alt="Plot Center" />
-            <h1>Notificaciones</h1>
-          </div>
-          <button className="btn-secondary" onClick={() => navigate('/cliente/dashboard')}>
-            ← Volver
-          </button>
-        </div>
-      </header>
+    <ClientePageLayout className="cliente-notifs-page">
+      <ClientePageHeader eyebrow="Avisos" title="Notificaciones" subtitle="Novedades sobre tus pedidos y reclamos" />
 
-      <main className="cliente-notifs-main">
         {notifs.length === 0 ? (
-          <div className="empty-state">
+          <div className="cliente-page-empty">
             <p>No tenés notificaciones.</p>
           </div>
         ) : (
           <div className="notifs-list">
             {notifs.map((n) => (
-              <div key={n.id} className={`notif-card ${n.leida ? '' : 'unread'}`}>
+              <div key={n.id} className={`cliente-page-card notif-card ${n.leida ? '' : 'unread'}`}>
                 <div className="notif-header">
                   <span className="notif-tipo">{n.tipo}</span>
                   <span className="notif-fecha">{formatFecha(n.created_at)}</span>
@@ -114,7 +100,6 @@ export default function ClienteNotificacionesPage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+    </ClientePageLayout>
   )
 }
