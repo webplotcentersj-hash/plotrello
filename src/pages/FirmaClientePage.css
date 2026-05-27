@@ -251,6 +251,103 @@
   cursor: not-allowed;
 }
 
+.firma-cliente-satisfaccion {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.firma-cliente-satisfaccion-title {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.firma-cliente-satisfaccion-sub {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.firma-cliente-emojis {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.firma-cliente-emoji-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 72px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.firma-cliente-emoji-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(249, 115, 22, 0.45);
+}
+
+.firma-cliente-emoji-btn.selected {
+  border-color: #f97316;
+  background: rgba(249, 115, 22, 0.18);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
+.firma-cliente-emoji-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.firma-cliente-emoji-face {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.firma-cliente-emoji-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.firma-cliente-emoji-btn.selected .firma-cliente-emoji-label {
+  color: #fdba74;
+}
+
+.firma-cliente-field textarea {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 23, 42, 0.7);
+  color: #f1f5f9;
+  resize: vertical;
+  min-height: 80px;
+  box-sizing: border-box;
+}
+
+.firma-cliente-field textarea::placeholder {
+  color: #64748b;
+}
+
+.firma-cliente-field textarea:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
 @media (max-width: 600px) {
   .firma-cliente-page {
     padding: 16px;

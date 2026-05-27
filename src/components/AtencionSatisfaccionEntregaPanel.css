@@ -1,0 +1,51 @@
+.atencion-sat-entrega-lead {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.45;
+}
+
+.atencion-sat-entrega-promedio {
+  margin-left: auto;
+  font-size: 0.88rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.atencion-sat-entrega-promedio strong {
+  color: #6ee7b7;
+  font-size: 1.05rem;
+}
+
+.atencion-sat-entrega-grid {
+  grid-template-columns: 1fr minmax(180px, 260px);
+}
+
+.atencion-sat-entrega-leyenda ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.atencion-sat-entrega-leyenda li {
+  font-size: 0.9rem;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.atencion-sat-entrega-leyenda li span {
+  font-size: 1.25rem;
+  margin-right: 6px;
+}
+
+@media (max-width: 720px) {
+  .atencion-sat-entrega-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .atencion-sat-entrega-promedio {
+    margin-left: 0;
+    width: 100%;
+  }
+}

@@ -6,15 +6,8 @@ import {
   coordsDistritoEnDepartamento,
   departamentoPorId
 } from '../data/sanJuanSatisfaccionCatalog'
+import { SATISFACCION_RATINGS } from '../data/satisfaccionRatings'
 import './SatisfaccionClientePublicPage.css'
-
-const RATINGS = [
-  { value: 1 as const, emoji: '😠', label: 'Muy malo' },
-  { value: 2 as const, emoji: '😕', label: 'Malo' },
-  { value: 3 as const, emoji: '😐', label: 'Regular' },
-  { value: 4 as const, emoji: '🙂', label: 'Bueno' },
-  { value: 5 as const, emoji: '😀', label: 'Excelente' }
-]
 
 type Sexo = 'f' | 'm' | 'x' | 'prefiero_no_decir'
 
@@ -177,7 +170,7 @@ const SatisfaccionClientePublicPage = () => {
             </h2>
             <p className="sat-cliente-block-sub">Tocá el emoji que mejor refleje tu experiencia</p>
             <div className="sat-cliente-emojis" role="group" aria-label="Calificación con emojis">
-              {RATINGS.map((r, idx) => (
+              {SATISFACCION_RATINGS.map((r, idx) => (
                 <button
                   key={r.value}
                   type="button"

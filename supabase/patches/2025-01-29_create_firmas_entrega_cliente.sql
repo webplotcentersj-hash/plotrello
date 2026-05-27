@@ -35,5 +35,10 @@ CREATE POLICY "firmas_entrega_cliente_auth_select"
   TO authenticated
   USING (true);
 
--- Opcional: permitir que anon lea solo su fila por numero_op (no necesario si la tablet no lee)
+-- Anon necesita SELECT para que INSERT ... ON CONFLICT DO UPDATE (upsert) funcione con RLS
+CREATE POLICY "firmas_entrega_cliente_anon_select"
+  ON public.firmas_entrega_cliente FOR SELECT
+  TO anon
+  USING (true);
+
 -- No añadimos DELETE; si se quiere limpiar después de procesar entrega, puede hacerse desde backend.

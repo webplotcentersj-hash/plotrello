@@ -5239,6 +5239,70 @@ class ApiService {
     }
   }
 
+  async registrarSatisfaccionEntregaPublic(payload: {
+    numeroOp: string
+    rating: number
+    comentario?: string | null
+    clienteNombre?: string | null
+    ordenId?: number | null
+  }): Promise<ApiResponse<{ id: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('registrar_satisfaccion_entrega_public', {
+        p_numero_op: payload.numeroOp.trim(),
+        p_rating: payload.rating,
+        p_comentario: payload.comentario ?? null,
+        p_cliente_nombre: payload.clienteNombre ?? null,
+        p_orden_id: payload.ordenId ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      const raw = data as { id?: number } | string | null
+      const parsed =
+        typeof raw === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(raw) as { id?: number }
+              } catch {
+                return null
+              }
+            })()
+          : raw
+      const id = parsed?.id
+      if (!id || !Number.isFinite(Number(id))) return { success: false, error: 'No se obtuvo el ID de la encuesta' }
+      return { success: true, data: { id: Number(id) } }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al registrar encuesta de entrega' }
+    }
+  }
+
+  async listSatisfaccionEntregaAtencion(limit = 500): Promise<
+    ApiResponse<
+      Array<{
+        id: number
+        numero_op: string
+        orden_id: number | null
+        cliente_nombre: string | null
+        rating: number
+        comentario: string | null
+        created_at: string
+        updated_at: string
+      }>
+    >
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase
+        .from('atencion_satisfaccion_entrega')
+        .select('id, numero_op, orden_id, cliente_nombre, rating, comentario, created_at, updated_at')
+        .order('created_at', { ascending: false })
+        .limit(Math.min(Math.max(limit, 1), 2000))
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as any }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar encuestas de entrega' }
+    }
+  }
+
   async listEncuestasSatisfaccionAtencion(limit = 500): Promise<
     ApiResponse<
       Array<{

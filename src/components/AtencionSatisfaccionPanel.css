@@ -2,6 +2,36 @@
   padding: 0.5rem 0 1.5rem;
 }
 
+.atencion-sat-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.atencion-sat-subtab {
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, 0.12));
+  background: rgba(15, 23, 42, 0.5);
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.atencion-sat-subtab:hover {
+  color: var(--text-primary, #e2e8f0);
+  border-color: rgba(249, 115, 22, 0.35);
+}
+
+.atencion-sat-subtab.active {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.5);
+  color: #fdba74;
+}
+
 .atencion-sat-toolbar {
   display: flex;
   flex-wrap: wrap;

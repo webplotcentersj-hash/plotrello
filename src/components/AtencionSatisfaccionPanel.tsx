@@ -7,7 +7,9 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import apiService from '../services/api'
+import { emojiRating } from '../data/satisfaccionRatings'
 import { FLOTA_MAP_CENTER, FLOTA_MAP_ZOOM_CIUDAD } from '../utils/flotaMapSanJuan'
+import AtencionSatisfaccionEntregaPanel from './AtencionSatisfaccionEntregaPanel'
 import './AtencionSatisfaccionPanel.css'
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
@@ -52,10 +54,6 @@ function edadBucket(edad: number): string {
   return '60+'
 }
 
-function emojiRating(r: number): string {
-  return ['', '😠', '😕', '😐', '🙂', '😀'][r] || String(r)
-}
-
 function jitterForId(lat: number, lng: number, id: number): [number, number] {
   const a = ((id * 9301 + 49297) % 233280) / 233280
   const ang = a * Math.PI * 2
@@ -68,6 +66,7 @@ type Props = {
 }
 
 const AtencionSatisfaccionPanel = ({ active }: Props) => {
+  const [subTab, setSubTab] = useState<'general' | 'entrega'>('entrega')
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -91,8 +90,8 @@ const AtencionSatisfaccionPanel = ({ active }: Props) => {
   }, [])
 
   useEffect(() => {
-    if (active) void load()
-  }, [active, load])
+    if (active && subTab === 'general') void load()
+  }, [active, subTab, load])
 
   const chartRating = useMemo(() => {
     return [1, 2, 3, 4, 5].map((v) => ({
@@ -155,6 +154,27 @@ const AtencionSatisfaccionPanel = ({ active }: Props) => {
 
   return (
     <div className="atencion-sat-panel">
+      <div className="atencion-sat-subtabs">
+        <button
+          type="button"
+          className={`atencion-sat-subtab ${subTab === 'entrega' ? 'active' : ''}`}
+          onClick={() => setSubTab('entrega')}
+        >
+          📦 Post-entrega (firma)
+        </button>
+        <button
+          type="button"
+          className={`atencion-sat-subtab ${subTab === 'general' ? 'active' : ''}`}
+          onClick={() => setSubTab('general')}
+        >
+          🌐 Encuesta general
+        </button>
+      </div>
+
+      {subTab === 'entrega' ? (
+        <AtencionSatisfaccionEntregaPanel active={active} />
+      ) : (
+        <>
       <div className="atencion-sat-toolbar">
         <button type="button" className="atencion-sat-refresh" onClick={() => void load()} disabled={loading}>
           {loading ? 'Actualizando…' : 'Actualizar'}
@@ -355,6 +375,8 @@ const AtencionSatisfaccionPanel = ({ active }: Props) => {
               </table>
             </div>
           </div>
+        </>
+      )}
         </>
       )}
     </div>

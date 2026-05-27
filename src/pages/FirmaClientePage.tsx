@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
+import { SATISFACCION_RATINGS } from '../data/satisfaccionRatings'
 import './FirmaClientePage.css'
 
 const STORAGE_KEY_PREFIX = 'firma_cliente_'
@@ -16,6 +17,8 @@ export default function FirmaClientePage() {
   const [dniRetira, setDniRetira] = useState('')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [rating, setRating] = useState<number | null>(null)
+  const [comentarioTrabajo, setComentarioTrabajo] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -147,6 +150,10 @@ export default function FirmaClientePage() {
 
   const handleConfirmarFirma = async () => {
     if (!orden || !firmaDataUrl || !entregadoA.trim()) return
+    if (rating == null) {
+      setError('Elegí cómo calificarías el trabajo (tocá un emoji).')
+      return
+    }
     setSaving(true)
     setError(null)
     const payload = {
@@ -156,12 +163,27 @@ export default function FirmaClientePage() {
     }
     try {
       const res = await apiService.saveFirmaCliente(orden.numero_op, payload)
-      if (res.success) {
-        sessionStorage.setItem(STORAGE_KEY_PREFIX + orden.numero_op, JSON.stringify(payload))
-        setSuccess(true)
-      } else {
+      if (!res.success) {
         setError(res.error || 'No se pudo guardar la firma')
+        setSaving(false)
+        return
       }
+
+      const satRes = await apiService.registrarSatisfaccionEntregaPublic({
+        numeroOp: orden.numero_op,
+        rating,
+        comentario: comentarioTrabajo.trim() || null,
+        clienteNombre: orden.cliente || null,
+        ordenId: orden.id ?? null
+      })
+      if (!satRes.success) {
+        setError(satRes.error || 'La firma se guardó pero no se pudo registrar la encuesta.')
+        setSaving(false)
+        return
+      }
+
+      sessionStorage.setItem(STORAGE_KEY_PREFIX + orden.numero_op, JSON.stringify(payload))
+      setSuccess(true)
     } catch (e) {
       setError('No se pudo guardar la firma. Revisá la conexión.')
     } finally {
@@ -180,7 +202,7 @@ export default function FirmaClientePage() {
     )
   }
 
-  if (error || !orden) {
+  if (!orden) {
     return (
       <div className="firma-cliente-page">
         <div className="firma-cliente-error">
@@ -196,8 +218,8 @@ export default function FirmaClientePage() {
       <div className="firma-cliente-page">
         <div className="firma-cliente-success">
           <div className="firma-cliente-success-icon">✅</div>
-          <h2>Firma guardada</h2>
-          <p>Entregá el dispositivo al personal para completar la entrega.</p>
+          <h2>¡Gracias!</h2>
+          <p>Firma y encuesta registradas. Entregá el dispositivo al personal para completar la entrega.</p>
           <p className="firma-cliente-success-op">OP {orden.numero_op} · {orden.cliente}</p>
         </div>
       </div>
@@ -263,6 +285,43 @@ export default function FirmaClientePage() {
           )}
         </div>
 
+        <section className="firma-cliente-satisfaccion" aria-labelledby="firma-sat-title">
+          <h2 id="firma-sat-title" className="firma-cliente-satisfaccion-title">
+            ¿Cómo estuvo el trabajo?
+          </h2>
+          <p className="firma-cliente-satisfaccion-sub">Tocá el emoji que mejor refleje tu experiencia con este pedido</p>
+          <div className="firma-cliente-emojis" role="group" aria-label="Calificación del trabajo">
+            {SATISFACCION_RATINGS.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                className={`firma-cliente-emoji-btn ${rating === r.value ? 'selected' : ''}`}
+                onClick={() => {
+                  setRating(r.value)
+                  setError(null)
+                }}
+                disabled={saving}
+                aria-pressed={rating === r.value}
+                aria-label={`${r.label}, ${r.value} de 5`}
+              >
+                <span className="firma-cliente-emoji-face">{r.emoji}</span>
+                <span className="firma-cliente-emoji-label">{r.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="firma-cliente-field">
+            <label>Comentario (opcional)</label>
+            <textarea
+              value={comentarioTrabajo}
+              onChange={(e) => setComentarioTrabajo(e.target.value)}
+              placeholder="¿Algo que quieras contarnos sobre el trabajo?"
+              maxLength={500}
+              rows={3}
+              disabled={saving}
+            />
+          </div>
+        </section>
+
         {error && (
           <div className="firma-cliente-msg error">{error}</div>
         )}
@@ -271,9 +330,9 @@ export default function FirmaClientePage() {
           type="button"
           className="firma-cliente-btn-confirm"
           onClick={handleConfirmarFirma}
-          disabled={saving || !firmaDataUrl || !entregadoA.trim()}
+          disabled={saving || !firmaDataUrl || !entregadoA.trim() || rating == null}
         >
-          {saving ? 'Guardando...' : 'Confirmar firma'}
+          {saving ? 'Guardando...' : 'Confirmar firma y encuesta'}
         </button>
       </div>
     </div>
