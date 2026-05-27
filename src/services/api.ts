@@ -5332,6 +5332,43 @@ class ApiService {
     }
   }
 
+  async getOrdenesContextoSatisfaccion(numeroOps: string[]): Promise<
+    ApiResponse<
+      Array<{
+        id: number
+        numero_op: string
+        cliente: string | null
+        sector: string | null
+        estado: string | null
+        descripcion: string | null
+        fecha_entrega_efectiva: string | null
+        entregado_a: string | null
+        observaciones_entrega: string | null
+        en_reclamo: boolean | null
+        operario_asignado: string | null
+        sectores: string[] | null
+        prioridad: string | null
+        complejidad: string | null
+      }>
+    >
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const ops = [...new Set(numeroOps.map((o) => String(o).trim()).filter(Boolean))].slice(0, 50)
+    if (ops.length === 0) return { success: true, data: [] }
+    try {
+      const { data, error } = await supabase
+        .from('ordenes_trabajo')
+        .select(
+          'id, numero_op, cliente, sector, estado, descripcion, fecha_entrega_efectiva, entregado_a, observaciones_entrega, en_reclamo, operario_asignado, sectores, prioridad, complejidad'
+        )
+        .in('numero_op', ops)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as any }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al cargar contexto de OPs' }
+    }
+  }
+
   async listSatisfaccionEntregaAtencion(limit = 500): Promise<
     ApiResponse<
       Array<{

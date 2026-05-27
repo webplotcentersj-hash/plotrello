@@ -206,3 +206,126 @@
     grid-template-columns: 1fr;
   }
 }
+
+.atencion-sat-ia {
+  margin-bottom: 22px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.12) 0%, rgba(15, 23, 42, 0.6) 55%);
+}
+
+.atencion-sat-ia-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.atencion-sat-ia-head h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: #e9d5ff;
+}
+
+.atencion-sat-ia-desc {
+  margin: 0;
+  max-width: 520px;
+  font-size: 0.86rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.atencion-sat-ia-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.atencion-sat-ia-periodo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.atencion-sat-ia-periodo select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 23, 42, 0.8);
+  color: #f1f5f9;
+  font-size: 0.88rem;
+  min-width: 160px;
+}
+
+.atencion-sat-ia-btn {
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.atencion-sat-ia-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.atencion-sat-ia-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.atencion-sat-ia-error {
+  margin-bottom: 12px;
+}
+
+.atencion-sat-ia-report {
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #e2e8f0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.atencion-sat-ia-report h2,
+.atencion-sat-ia-report h3 {
+  color: #f8fafc;
+  margin: 1.1em 0 0.5em;
+}
+
+.atencion-sat-ia-report h2:first-child {
+  margin-top: 0;
+}
+
+.atencion-sat-ia-report ul,
+.atencion-sat-ia-report ol {
+  padding-left: 1.25rem;
+  margin: 0.5em 0;
+}
+
+.atencion-sat-ia-report strong {
+  color: #c4b5fd;
+}
+
+.atencion-sat-ia-report code {
+  font-size: 0.85em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

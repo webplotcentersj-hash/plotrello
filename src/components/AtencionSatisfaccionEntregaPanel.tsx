@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { marked } from 'marked'
 import {
   Bar,
   BarChart,
@@ -21,6 +22,12 @@ import {
   formatPromedio,
   type SatisfaccionEntregaRow
 } from '../utils/satisfaccionEntregaKpis'
+import {
+  buildSatisfaccionEntregaAnalisisPayload,
+  numeroOpsParaAnalisis,
+  type PeriodoAnalisisIA
+} from '../utils/satisfaccionEntregaAnalisisData'
+import { fetchSatisfaccionEntregaInformeIA } from '../utils/satisfaccionEntregaPlotAI'
 import './AtencionSatisfaccionEntregaPanel.css'
 
 const COL_RATING = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981']
@@ -37,6 +44,10 @@ const AtencionSatisfaccionEntregaPanel = ({ active }: Props) => {
   const [entregas30d, setEntregas30d] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [periodoIA, setPeriodoIA] = useState<PeriodoAnalisisIA>('30d')
+  const [informeIA, setInformeIA] = useState<string | null>(null)
+  const [informeLoading, setInformeLoading] = useState(false)
+  const [informeError, setInformeError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -108,6 +119,28 @@ const AtencionSatisfaccionEntregaPanel = ({ active }: Props) => {
   const hasRows = rows.length > 0
   const detractoresAlto = (kpis.pctDetractores ?? 0) > 15
 
+  const handleGenerarInformeIA = async () => {
+    setInformeLoading(true)
+    setInformeError(null)
+    setInformeIA(null)
+    try {
+      const ops = numeroOpsParaAnalisis(rows, periodoIA)
+      const ordRes = await apiService.getOrdenesContextoSatisfaccion(ops)
+      const ordenes = ordRes.success && ordRes.data ? ordRes.data : []
+      const analisis = buildSatisfaccionEntregaAnalisisPayload(rows, ordenes, periodoIA, kpis)
+      if (analisis.resumen_encuestas.total_periodo === 0) {
+        setInformeError('No hay encuestas en el período seleccionado.')
+        return
+      }
+      const report = await fetchSatisfaccionEntregaInformeIA(analisis)
+      setInformeIA(report)
+    } catch (e: unknown) {
+      setInformeError(e instanceof Error ? e.message : 'Error al generar el informe con IA.')
+    } finally {
+      setInformeLoading(false)
+    }
+  }
+
   return (
     <div className="atencion-sat-entrega">
       <p className="atencion-sat-entrega-lead">
@@ -177,6 +210,57 @@ const AtencionSatisfaccionEntregaPanel = ({ active }: Props) => {
           <span className="atencion-sat-kpi-sub">encuestas · {formatPct(kpis.pctConComentario)} con comentario</span>
         </div>
       </div>
+
+      <section className="atencion-sat-ia" aria-labelledby="atencion-sat-ia-title">
+        <div className="atencion-sat-ia-head">
+          <div>
+            <h3 id="atencion-sat-ia-title">Analizador IA · fallas por OP</h3>
+            <p className="atencion-sat-ia-desc">
+              PlotAI revisa las encuestas bajas, cruza sector/estado de cada OP y genera un informe interpretando de dónde
+              vienen las fallas.
+            </p>
+          </div>
+          <div className="atencion-sat-ia-actions">
+            <label className="atencion-sat-ia-periodo">
+              Período
+              <select
+                value={periodoIA}
+                onChange={(e) => setPeriodoIA(e.target.value as PeriodoAnalisisIA)}
+                disabled={informeLoading}
+              >
+                <option value="7d">Últimos 7 días</option>
+                <option value="30d">Últimos 30 días</option>
+                <option value="90d">Últimos 90 días</option>
+                <option value="todo">Todo el histórico</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="atencion-sat-ia-btn"
+              onClick={() => void handleGenerarInformeIA()}
+              disabled={informeLoading || loading || rows.length === 0}
+            >
+              {informeLoading ? 'Analizando…' : '✨ Generar informe IA'}
+            </button>
+          </div>
+        </div>
+
+        {informeError && (
+          <div className="atencion-sat-error atencion-sat-ia-error">
+            {informeError}
+            <p className="atencion-sat-error-sub">
+              En producción necesitás <code>GEMINI_API_KEY</code> en Vercel. En local, usá <code>vercel dev</code>.
+            </p>
+          </div>
+        )}
+
+        {informeIA && (
+          <div
+            className="atencion-sat-ia-report"
+            dangerouslySetInnerHTML={{ __html: marked.parse(informeIA) as string }}
+          />
+        )}
+      </section>
 
       {loading && rows.length === 0 ? (
         <div className="atencion-sat-loading">Cargando encuestas de entrega…</div>
