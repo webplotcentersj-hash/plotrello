@@ -968,7 +968,6 @@ function AppRoutes({
             teamMembers={teamMembers}
             onNavigateToStats={() => navigate('/statistics')}
             onNavigateToCalendar={() => navigate('/calendario')}
-            onNavigateToGantt={() => navigate('/gantt')}
             onNavigateToUsuarios={() => navigate('/usuarios')}
             onNavigateToChat={() => navigate('/chat')}
             onNavigateToMensajeria={() => navigate('/mensajeria')}

@@ -68,7 +68,6 @@ type BoardPageProps = {
   teamMembers: TeamMember[]
   onNavigateToStats: () => void
   onNavigateToCalendar?: () => void
-  onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
   onNavigateToChat?: () => void
   onNavigateToMensajeria?: () => void
@@ -99,7 +98,6 @@ const BoardPage = ({
   teamMembers,
   onNavigateToStats,
   onNavigateToCalendar,
-  onNavigateToGantt,
   onNavigateToUsuarios,
   onNavigateToChat,
   onNavigateToMensajeria,
@@ -1322,7 +1320,6 @@ const BoardPage = ({
         currentUserName={resolveCurrentUserName()}
         onNavigateToStats={onNavigateToStats}
         onNavigateToCalendar={onNavigateToCalendar}
-        onNavigateToGantt={onNavigateToGantt}
         onNavigateToUsuarios={onNavigateToUsuarios}
         onNavigateToChat={onNavigateToChat}
         onNavigateToMensajeria={onNavigateToMensajeria}

@@ -18,7 +18,6 @@ type HeaderProps = {
   currentUserName?: string
   onNavigateToStats?: () => void
   onNavigateToCalendar?: () => void
-  onNavigateToGantt?: () => void
   onNavigateToUsuarios?: () => void
   onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
@@ -47,7 +46,6 @@ const Header = ({
   currentUserName,
   onNavigateToStats,
   onNavigateToCalendar,
-  onNavigateToGantt,
   onNavigateToUsuarios,
   onNavigateToHerramienta,
   onNavigateToMostrador,
@@ -270,11 +268,6 @@ const Header = ({
                 📅 Calendario
               </button>
             )}
-            {onNavigateToGantt && (
-              <button className="brand-button" onClick={onNavigateToGantt}>
-                📈 Gantt
-              </button>
-            )}
             {onNavigateToUsuarios && isAdmin && (
               <button className="brand-button" onClick={onNavigateToUsuarios}>
                 👥 Usuarios
@@ -407,12 +400,6 @@ const Header = ({
               className="brand-button"
             >
               📚 Protocolos y Bases
-            </a>
-            <a
-              href="/galeria"
-              className="brand-button"
-            >
-              🖼️ Galería
             </a>
             <a
               href="/capacitaciones"
