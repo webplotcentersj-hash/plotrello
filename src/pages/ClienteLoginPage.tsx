@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { LogIn } from 'lucide-react'
 import { useClienteAuth } from '../hooks/useClienteAuth'
+import { ClienteThemeContext, useClienteThemeProviderValue } from '../hooks/useClienteTheme'
+import ClienteThemeToggle from '../components/cliente/ClienteThemeToggle'
 import apiService from '../services/api'
+import '../styles/clientePortalTheme.css'
 import './ClienteLoginPage.css'
 
-export default function ClienteLoginPage() {
+function ClienteLoginForm() {
   const [usuario, setUsuario] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -18,21 +22,15 @@ export default function ClienteLoginPage() {
     setLoading(true)
 
     try {
-      console.log('Iniciando autenticación para usuario:', usuario)
       const response = await apiService.autenticarClienteWeb(usuario, password)
-      console.log('Respuesta completa:', response)
-      
+
       if (response.success && response.data) {
-        console.log('Autenticación exitosa, datos del cliente:', response.data)
         login(response.data)
-        console.log('Navegando a dashboard...')
         navigate('/cliente/dashboard')
       } else {
-        console.error('Error de autenticación:', response.error)
         setError(response.error || 'Usuario o contraseña incorrectos')
       }
     } catch (err) {
-      console.error('Error al iniciar sesión:', err)
       setError(err instanceof Error ? err.message : 'Error de conexión. Intenta nuevamente.')
     } finally {
       setLoading(false)
@@ -40,8 +38,11 @@ export default function ClienteLoginPage() {
   }
 
   return (
-    <div className="cliente-login-page">
-      <div className="cliente-login-container">
+    <div className="cliente-login-page" data-cliente-theme-scope>
+      <div className="cliente-login-theme">
+        <ClienteThemeToggle />
+      </div>
+      <div className="cliente-login-container cliente-card">
         <div className="cliente-login-header">
           <img
             src="https://trello.plotcenter.com.ar/Group%20187.png"
@@ -51,14 +52,15 @@ export default function ClienteLoginPage() {
           <h1>Plot Center</h1>
           <p>Portal de Clientes</p>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="cliente-login-form">
-          {error && <div className="cliente-login-error">{error}</div>}
-          
+          {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
+
           <div className="cliente-login-field">
             <label htmlFor="usuario">Usuario</label>
             <input
               id="usuario"
+              className="cliente-input"
               type="text"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
@@ -72,6 +74,7 @@ export default function ClienteLoginPage() {
             <label htmlFor="password">Contraseña</label>
             <input
               id="password"
+              className="cliente-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -81,12 +84,9 @@ export default function ClienteLoginPage() {
             />
           </div>
 
-          <button 
-            type="submit" 
-            className="cliente-login-button"
-            disabled={loading}
-          >
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+          <button type="submit" className="cliente-btn-primary cliente-login-button" disabled={loading}>
+            <LogIn size={18} strokeWidth={2.25} aria-hidden />
+            {loading ? 'Iniciando sesión…' : 'Iniciar sesión'}
           </button>
         </form>
       </div>
@@ -94,3 +94,14 @@ export default function ClienteLoginPage() {
   )
 }
 
+export default function ClienteLoginPage() {
+  const themeValue = useClienteThemeProviderValue()
+
+  return (
+    <ClienteThemeContext.Provider value={themeValue}>
+      <div data-cliente-theme={themeValue.theme}>
+        <ClienteLoginForm />
+      </div>
+    </ClienteThemeContext.Provider>
+  )
+}

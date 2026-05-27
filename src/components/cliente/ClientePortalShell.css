@@ -1,1 +1,15 @@
-/* shell-specific overrides */
+/* shell-specific: page enter animation */
+.cliente-portal-main > * {
+  animation: cliente-page-in 0.5s var(--cliente-ease-out) both;
+}
+
+@keyframes cliente-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

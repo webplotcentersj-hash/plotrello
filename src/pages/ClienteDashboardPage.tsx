@@ -5,6 +5,16 @@ import apiService from '../services/api'
 import type { PedidoClienteRecord } from '../types/api'
 import { buildOpsListosRetiro, type OpListoRetiro } from '../utils/clientePortalOps'
 import { emojiRating } from '../data/satisfaccionRatings'
+import {
+  Bot,
+  Megaphone,
+  MessageCircle,
+  Palette,
+  Plus,
+  ShoppingCart,
+  Store,
+  Wallet
+} from 'lucide-react'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import './ClienteDashboardPage.css'
 
@@ -245,18 +255,18 @@ export default function ClienteDashboardPage() {
   }
 
   const quickLinks = [
-    { label: 'Presupuestos', icon: '💰', path: '/cliente/presupuestos' },
-    { label: 'Diseños', icon: '📋', path: '/cliente/disenos' },
-    { label: 'Mensajes', icon: '💬', path: '/cliente/mensajes' },
-    { label: 'Carrito', icon: '🛒', path: '/cliente/carrito' },
-    { label: 'Reclamos', icon: '📢', path: '/cliente/reclamos' },
-    { label: 'PlotAI', icon: '🤖', path: '/cliente/chat' }
+    { label: 'Presupuestos', Icon: Wallet, path: '/cliente/presupuestos' },
+    { label: 'Diseños', Icon: Palette, path: '/cliente/disenos' },
+    { label: 'Mensajes', Icon: MessageCircle, path: '/cliente/mensajes' },
+    { label: 'Carrito', Icon: ShoppingCart, path: '/cliente/carrito' },
+    { label: 'Reclamos', Icon: Megaphone, path: '/cliente/reclamos' },
+    { label: 'PlotAI', Icon: Bot, path: '/cliente/chat' }
   ]
 
   return (
     <ClientePageLayout className="cliente-dashboard-page">
       <div className="cliente-dashboard-inner">
-        <section className="cliente-dashboard-hero">
+        <section className="cliente-dashboard-hero cliente-card">
           <p className="cliente-eyebrow">Portal de clientes · Plot Center</p>
           <h1 className="cliente-heading-display cliente-dashboard-hero-title">
             {cliente?.nombre || 'Bienvenido'}
@@ -264,28 +274,33 @@ export default function ClienteDashboardPage() {
           <p className="cliente-dashboard-hero-sub">{cliente?.empresa || 'Seguí tus pedidos y OP en un solo lugar'}</p>
           <div className="cliente-dashboard-hero-cta">
             <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/nuevo-pedido')}>
-              + Nuevo pedido
+              <Plus size={18} strokeWidth={2.5} aria-hidden />
+              Nuevo pedido
             </button>
             <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/catalogo')}>
+              <Store size={18} strokeWidth={2.25} aria-hidden />
               Ver catálogo
             </button>
           </div>
         </section>
 
         <nav className="cliente-dashboard-quick" aria-label="Accesos rápidos">
-          {quickLinks.map((link) => (
-            <button
-              key={link.path}
-              type="button"
-              className="cliente-card cliente-dashboard-quick-card"
-              onClick={() => navigate(link.path)}
-            >
-              <span className="cliente-dashboard-quick-icon" aria-hidden>
-                {link.icon}
-              </span>
-              <span>{link.label}</span>
-            </button>
-          ))}
+          {quickLinks.map((link) => {
+            const Icon = link.Icon
+            return (
+              <button
+                key={link.path}
+                type="button"
+                className="cliente-card cliente-dashboard-quick-card"
+                onClick={() => navigate(link.path)}
+              >
+                <span className="cliente-icon-wrap" aria-hidden>
+                  <Icon size={22} strokeWidth={2} />
+                </span>
+                <span className="cliente-dashboard-quick-label">{link.label}</span>
+              </button>
+            )
+          })}
         </nav>
 
       <div className="cliente-dashboard-body">

@@ -29,15 +29,15 @@
 }
 
 .cliente-page-alert--error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: var(--cliente-error-bg);
+  border: 1px solid var(--cliente-error-border);
+  color: var(--cliente-error-text);
 }
 
 .cliente-page-alert--success {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #166534;
+  background: var(--cliente-success-bg);
+  border: 1px solid var(--cliente-success-border);
+  color: var(--cliente-success-text);
 }
 
 .cliente-page-alert--info {
@@ -73,7 +73,7 @@
 }
 
 .cliente-page-pill {
-  padding: 0.45rem 1rem;
+  padding: 0.5rem 1.1rem;
   border-radius: 9999px;
   border: 1px solid var(--cliente-border);
   background: var(--cliente-surface);
@@ -82,18 +82,26 @@
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.15s;
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    color 0.2s ease,
+    transform 0.25s var(--cliente-ease-spring),
+    box-shadow 0.25s ease;
 }
 
 .cliente-page-pill:hover {
   border-color: var(--cliente-brand);
   color: var(--cliente-text);
+  transform: translateY(-2px);
+  box-shadow: var(--cliente-shadow-sm);
 }
 
 .cliente-page-pill.active {
-  background: var(--cliente-brand);
-  border-color: var(--cliente-brand);
+  background: linear-gradient(135deg, var(--cliente-brand-light), var(--cliente-brand));
+  border-color: transparent;
   color: #fff;
+  box-shadow: var(--cliente-shadow-glow);
 }
 
 .cliente-page-grid {
@@ -112,9 +120,13 @@
 .cliente-page-card {
   background: var(--cliente-surface);
   border: 1px solid var(--cliente-border);
-  border-radius: var(--cliente-radius);
+  border-radius: var(--cliente-radius-lg);
   padding: 1.25rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--cliente-shadow-sm);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.35s var(--cliente-ease-out),
+    transform 0.35s var(--cliente-ease-spring);
 }
 
 .cliente-page-card--clickable {
@@ -122,8 +134,9 @@
 }
 
 .cliente-page-card--clickable:hover {
-  border-color: rgba(235, 103, 27, 0.4);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  border-color: color-mix(in srgb, var(--cliente-brand) 45%, var(--cliente-border));
+  box-shadow: var(--cliente-shadow-md);
+  transform: translateY(-3px);
 }
 
 .cliente-page-badge {

@@ -1,17 +1,12 @@
 import { useState } from 'react'
+import { Bell, LogOut, Menu, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../../hooks/useClienteAuth'
+import { CLIENTE_NAV_ITEMS } from './clienteNavConfig'
+import ClienteThemeToggle from './ClienteThemeToggle'
 import './ClientePillNav.css'
 
 const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
-
-const NAV_ITEMS = [
-  { label: 'Inicio', href: '/cliente/dashboard' },
-  { label: 'Catálogo', href: '/cliente/catalogo' },
-  { label: 'Pedidos', href: '/cliente/nuevo-pedido' },
-  { label: 'Buscar OP', href: '/cliente/buscar-op' },
-  { label: 'Ayuda', href: '/cliente/ayuda' }
-]
 
 export default function ClientePillNav() {
   const location = useLocation()
@@ -34,20 +29,26 @@ export default function ClientePillNav() {
         </Link>
 
         <ul className="cliente-pill-list cliente-pill-list--desktop" role="menubar">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.href} role="none">
-              <Link
-                to={item.href}
-                role="menuitem"
-                className={`cliente-pill-link ${isActive(item.href) ? 'active' : ''}`}
-              >
-                {item.label}
-              </Link>
-            </li>
-          ))}
+          {CLIENTE_NAV_ITEMS.map((item) => {
+            const Icon = item.Icon
+            const active = isActive(item.href)
+            return (
+              <li key={item.href} role="none">
+                <Link
+                  to={item.href}
+                  role="menuitem"
+                  className={`cliente-pill-link ${active ? 'active' : ''}`}
+                >
+                  <Icon className="cliente-pill-link__icon" size={15} strokeWidth={2.25} aria-hidden />
+                  <span className="cliente-pill-link__text">{item.label}</span>
+                </Link>
+              </li>
+            )
+          })}
         </ul>
 
         <div className="cliente-pill-actions">
+          <ClienteThemeToggle compact />
           <button
             type="button"
             className="cliente-pill-icon-btn"
@@ -55,7 +56,7 @@ export default function ClientePillNav() {
             aria-label="Notificaciones"
             onClick={() => navigate('/cliente/notificaciones')}
           >
-            🔔
+            <Bell size={18} strokeWidth={2.25} />
           </button>
           <button
             type="button"
@@ -66,17 +67,17 @@ export default function ClientePillNav() {
               navigate('/cliente/login')
             }}
           >
-            Salir
+            <LogOut size={16} strokeWidth={2.25} />
+            <span className="cliente-pill-icon-btn__label">Salir</span>
           </button>
           <button
             type="button"
             className="cliente-pill-hamburger"
-            aria-label="Menú"
+            aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((o) => !o)}
           >
-            <span />
-            <span />
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </nav>
@@ -84,17 +85,21 @@ export default function ClientePillNav() {
       {mobileOpen && (
         <div className="cliente-pill-mobile">
           <ul>
-            {NAV_ITEMS.map((item) => (
-              <li key={item.href}>
-                <Link
-                  to={item.href}
-                  className={isActive(item.href) ? 'active' : ''}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
+            {CLIENTE_NAV_ITEMS.map((item) => {
+              const Icon = item.Icon
+              return (
+                <li key={item.href}>
+                  <Link
+                    to={item.href}
+                    className={isActive(item.href) ? 'active' : ''}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Icon size={18} strokeWidth={2.25} aria-hidden />
+                    {item.label}
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}

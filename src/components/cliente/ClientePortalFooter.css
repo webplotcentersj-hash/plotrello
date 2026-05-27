@@ -1,8 +1,11 @@
 .cliente-portal-footer {
-  border-top: 1px dotted var(--cliente-border);
-  background: var(--cliente-surface);
+  border-top: 1px solid var(--cliente-border);
+  background: color-mix(in srgb, var(--cliente-surface) 85%, transparent);
+  backdrop-filter: blur(12px);
   padding: 2.5rem 0 2rem;
   margin-top: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .cliente-portal-footer-inner {
@@ -13,9 +16,19 @@
   gap: 1.25rem;
 }
 
+.cliente-portal-footer-logo {
+  display: block;
+  transition: transform 0.3s var(--cliente-ease-spring);
+}
+
+.cliente-portal-footer-logo:hover {
+  transform: scale(1.06);
+}
+
 .cliente-portal-footer-logo img {
   height: 44px;
   width: auto;
+  filter: drop-shadow(0 2px 8px var(--cliente-brand-glow));
 }
 
 .cliente-portal-footer-nav {
@@ -29,17 +42,18 @@
   font-size: 0.88rem;
   color: var(--cliente-muted);
   text-decoration: none;
-  transition: color 0.15s;
+  transition: color 0.2s ease, transform 0.2s var(--cliente-ease-spring);
 }
 
 .cliente-portal-footer-nav a:hover {
   color: var(--cliente-brand);
+  transform: translateY(-1px);
 }
 
 .cliente-portal-footer-divider {
   width: 100%;
   max-width: 32rem;
-  border-top: 1px dotted var(--cliente-border);
+  border-top: 1px dashed var(--cliente-border);
 }
 
 .cliente-portal-footer-copy {
