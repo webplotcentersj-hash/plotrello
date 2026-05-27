@@ -7,6 +7,7 @@ import {
   Cell,
   Pie,
   PieChart,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
