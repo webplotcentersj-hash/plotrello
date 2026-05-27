@@ -5275,6 +5275,63 @@ class ApiService {
     }
   }
 
+  async getSatisfaccionEntregaContextStats(): Promise<
+    ApiResponse<{
+      firmas7d: number
+      firmas30d: number
+      entregas7d: number
+      entregas30d: number
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const since7 = new Date()
+    since7.setDate(since7.getDate() - 7)
+    const since30 = new Date()
+    since30.setDate(since30.getDate() - 30)
+    const iso7 = since7.toISOString()
+    const iso30 = since30.toISOString()
+
+    try {
+      const [firmas7, firmas30, entregas7, entregas30] = await Promise.all([
+        supabase
+          .from('firmas_entrega_cliente')
+          .select('id', { count: 'exact', head: true })
+          .gte('updated_at', iso7),
+        supabase
+          .from('firmas_entrega_cliente')
+          .select('id', { count: 'exact', head: true })
+          .gte('updated_at', iso30),
+        supabase
+          .from('ordenes_trabajo')
+          .select('id', { count: 'exact', head: true })
+          .eq('entregado', true)
+          .gte('fecha_entrega_efectiva', iso7),
+        supabase
+          .from('ordenes_trabajo')
+          .select('id', { count: 'exact', head: true })
+          .eq('entregado', true)
+          .gte('fecha_entrega_efectiva', iso30)
+      ])
+
+      if (firmas7.error) return { success: false, error: firmas7.error.message }
+      if (firmas30.error) return { success: false, error: firmas30.error.message }
+      if (entregas7.error) return { success: false, error: entregas7.error.message }
+      if (entregas30.error) return { success: false, error: entregas30.error.message }
+
+      return {
+        success: true,
+        data: {
+          firmas7d: firmas7.count ?? 0,
+          firmas30d: firmas30.count ?? 0,
+          entregas7d: entregas7.count ?? 0,
+          entregas30d: entregas30.count ?? 0
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al cargar estadísticas de entrega' }
+    }
+  }
+
   async listSatisfaccionEntregaAtencion(limit = 500): Promise<
     ApiResponse<
       Array<{

@@ -5,19 +5,161 @@
   line-height: 1.45;
 }
 
-.atencion-sat-entrega-promedio {
-  margin-left: auto;
-  font-size: 0.88rem;
+.atencion-sat-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.atencion-sat-kpi {
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, 0.1));
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 88px;
+}
+
+.atencion-sat-kpi--highlight {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.atencion-sat-kpi--highlight .atencion-sat-kpi-value {
+  color: #fdba74;
+}
+
+.atencion-sat-kpi--ok .atencion-sat-kpi-value {
+  color: #6ee7b7;
+}
+
+.atencion-sat-kpi--warn {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.atencion-sat-kpi--warn .atencion-sat-kpi-value {
+  color: #fca5a5;
+}
+
+.atencion-sat-kpi-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-muted, #94a3b8);
 }
 
-.atencion-sat-entrega-promedio strong {
-  color: #6ee7b7;
-  font-size: 1.05rem;
+.atencion-sat-kpi-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-primary, #f1f5f9);
 }
 
-.atencion-sat-entrega-grid {
-  grid-template-columns: 1fr minmax(180px, 260px);
+.atencion-sat-kpi-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.3;
+}
+
+.atencion-sat-alertas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.atencion-sat-alerta {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, 0.1));
+}
+
+.atencion-sat-alerta--critica {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.atencion-sat-alerta--seguimiento {
+  border-color: rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.06);
+}
+
+.atencion-sat-alerta h3 {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  color: #e2e8f0;
+}
+
+.atencion-sat-alerta-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.atencion-sat-alerta-list--compact > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+
+.atencion-sat-alerta--critica .atencion-sat-alerta-list > li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.atencion-sat-alerta--critica .atencion-sat-alerta-list > li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.atencion-sat-alerta-nota {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.atencion-sat-alerta-op {
+  font-size: 0.88rem;
+  color: #cbd5e1;
+}
+
+.atencion-sat-alerta-link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #93c5fd;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.atencion-sat-alerta-link:hover {
+  text-decoration: underline;
+}
+
+.atencion-sat-alerta-coment {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.atencion-sat-alerta-coment--muted {
+  opacity: 0.75;
+}
+
+.atencion-sat-entrega-charts {
+  grid-template-columns: 1fr 1fr minmax(160px, 200px);
 }
 
 .atencion-sat-entrega-leyenda ul {
@@ -30,22 +172,37 @@
 }
 
 .atencion-sat-entrega-leyenda li {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--text-primary, #e2e8f0);
 }
 
 .atencion-sat-entrega-leyenda li span {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   margin-right: 6px;
 }
 
-@media (max-width: 720px) {
-  .atencion-sat-entrega-grid {
+.atencion-sat-op-link {
+  color: #93c5fd;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.atencion-sat-op-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .atencion-sat-entrega-charts {
     grid-template-columns: 1fr;
   }
 
-  .atencion-sat-entrega-promedio {
-    margin-left: 0;
-    width: 100%;
+  .atencion-sat-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .atencion-sat-kpi-grid {
+    grid-template-columns: 1fr;
   }
 }
