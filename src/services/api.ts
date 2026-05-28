@@ -13678,6 +13678,36 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  async contarNotificacionesClienteNoLeidas(idCliente: number): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('contar_notificaciones_cliente_no_leidas', {
+          p_id_cliente: idCliente
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: Number(data ?? 0) }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async marcarNotificacionesClienteLeidas(idCliente: number): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('marcar_notificaciones_cliente_leidas', {
+          p_id_cliente: idCliente
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: Number(data ?? 0) }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   /**
    * Obtener mensajes de un pedido
    */

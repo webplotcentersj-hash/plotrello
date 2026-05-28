@@ -1,3 +1,15 @@
+.cliente-ayuda-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--cliente-text);
+  text-align: center;
+}
+
+.cliente-ayuda-tools {
+  margin-bottom: 0.5rem;
+}
+
 .cliente-ayuda-lead {
   margin: 0 0 1.75rem;
   color: var(--cliente-muted);

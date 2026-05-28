@@ -14,6 +14,8 @@ type Props = {
   aiImageUrl?: string | null
   loadingAi?: boolean
   empty?: boolean
+  emptyTitle?: string
+  emptyMessage?: string
 }
 
 const SCENE_LABELS: Record<MockupSceneKind, string> = {
@@ -117,15 +119,15 @@ export default function ClientePedidoMockupPreview({
   userImageUrl,
   aiImageUrl,
   loadingAi = false,
-  empty = false
+  empty = false,
+  emptyTitle = 'Vista previa',
+  emptyMessage = 'Agregá un artículo del catálogo para ver el mockup de cómo podría verse tu pedido.'
 }: Props) {
   if (empty) {
     return (
       <div className="pedido-mockup pedido-mockup--empty">
-        <p className="pedido-mockup__placeholder-title">Vista previa</p>
-        <p className="pedido-mockup__placeholder-text">
-          Agregá un artículo del catálogo para ver el mockup de cómo podría verse tu pedido.
-        </p>
+        <p className="pedido-mockup__placeholder-title">{emptyTitle}</p>
+        <p className="pedido-mockup__placeholder-text">{emptyMessage}</p>
       </div>
     )
   }

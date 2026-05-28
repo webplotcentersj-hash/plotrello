@@ -526,3 +526,107 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+/* Portal cliente: brief con mockup + IA */
+.brief-publico-page--cliente .brief-form .form-section h2 {
+  color: var(--cliente-text, #111827) !important;
+  border-bottom-color: color-mix(in srgb, var(--cliente-brand, #eb671b) 45%, transparent);
+}
+
+.brief-publico-page--cliente .section-description,
+.brief-publico-page--cliente .form-group label {
+  color: var(--cliente-text, #374151) !important;
+}
+
+.brief-publico-page--cliente .form-group input,
+.brief-publico-page--cliente .form-group textarea,
+.brief-publico-page--cliente .form-group select {
+  background: var(--cliente-surface, #fff) !important;
+  color: var(--cliente-text, #1f2937) !important;
+  border-color: var(--cliente-border, #e5e7eb);
+}
+
+.brief-publico-page--cliente .checkbox-label {
+  background: var(--cliente-surface-2, #f9fafb);
+  border-color: var(--cliente-border, #e5e7eb);
+}
+
+.brief-publico-page--cliente .checkbox-label span {
+  color: var(--cliente-text, #374151) !important;
+}
+
+.brief-publico-page--cliente .checkbox-label input[type='checkbox']:checked + span {
+  color: var(--cliente-brand, #eb671b) !important;
+}
+
+.brief-publico-page--cliente .btn-submit {
+  background: linear-gradient(135deg, var(--cliente-brand, #eb671b), color-mix(in srgb, var(--cliente-brand, #eb671b) 80%, #c2410c));
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--cliente-brand, #eb671b) 35%, transparent);
+}
+
+.brief-orden-compact {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--cliente-radius, 12px);
+  background: var(--cliente-brand-soft, #fff7ed);
+  border: 1px solid color-mix(in srgb, var(--cliente-brand, #eb671b) 25%, transparent);
+}
+
+.brief-orden-compact p {
+  margin: 0;
+  color: var(--cliente-text, #111827);
+}
+
+.brief-orden-compact__cliente {
+  margin-top: 0.25rem !important;
+  font-size: 0.88rem;
+  color: var(--cliente-muted, #6b7280) !important;
+}
+
+.form-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.form-section-head h2 {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.form-section-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.brief-ia-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--cliente-brand, #eb671b) 40%, var(--cliente-border, #e5e7eb));
+  background: var(--cliente-brand-soft, #fff7ed);
+  color: var(--cliente-brand, #eb671b);
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.brief-ia-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.brief-ia-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.brief-file-input {
+  font-size: 0.88rem;
+  color: var(--cliente-text, #374151);
+}
+

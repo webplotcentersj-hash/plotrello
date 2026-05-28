@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
+import { Sparkles } from 'lucide-react'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
 import type { ClienteWebRecord } from '../types/api'
+import ClienteBriefMockupStudio from '../components/cliente/ClienteBriefMockupStudio'
+import { generarBriefCamposIa, generarMockupImagenIa } from '../services/clienteBriefAiService'
+import type { BriefCamposIa } from '../services/clienteBriefAiService'
+import {
+  buildBriefIaContext,
+  buildBriefMockupImagePrompt,
+  calcBriefProgress,
+  resolveBriefMockup
+} from '../utils/clienteBriefMockup'
 import './BriefPublicoPage.css'
 
 export type BriefPublicoPageProps = {
@@ -37,18 +47,47 @@ const TIPOS_PRODUCTO = [
   'No sé bien lo que necesito, quiero asesoramiento'
 ]
 
+function BriefIaBtn({
+  label,
+  loading,
+  disabled,
+  onClick
+}: {
+  label: string
+  loading?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="brief-ia-btn"
+      disabled={disabled || loading}
+      onClick={onClick}
+    >
+      <Sparkles size={15} aria-hidden />
+      {loading ? 'Generando…' : label}
+    </button>
+  )
+}
+
 const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
   const paramsToken = useParams<{ token: string }>().token
   const token = props?.token ?? paramsToken
   const clientePrefill = props?.clientePrefill
   const idCliente = props?.idCliente
   const onSuccess = props?.onSuccess
+  const isCliente = props?.variant === 'cliente'
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [orden, setOrden] = useState<Partial<OrdenTrabajo> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  
+  const [mockupAiUrl, setMockupAiUrl] = useState<string | null>(null)
+  const [mockupAiLoading, setMockupAiLoading] = useState(false)
+  const [iaLoading, setIaLoading] = useState(false)
+  const [fotoReferenciaUrl, setFotoReferenciaUrl] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
     // Datos del cliente
     cliente_nombre_completo: '',
@@ -94,6 +133,66 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
       setLoading(false)
     }
   }, [token, clientePrefill])
+
+  useEffect(() => {
+    return () => {
+      if (fotoReferenciaUrl) URL.revokeObjectURL(fotoReferenciaUrl)
+    }
+  }, [fotoReferenciaUrl])
+
+  const mockupState = useMemo(
+    () =>
+      resolveBriefMockup(
+        formData.tipo_producto_servicio,
+        formData.tipo_producto_otro,
+        formData.donde_colocados,
+        formData.digital_o_impresion,
+        formData.necesita_asesoramiento
+      ),
+    [
+      formData.tipo_producto_servicio,
+      formData.tipo_producto_otro,
+      formData.donde_colocados,
+      formData.digital_o_impresion,
+      formData.necesita_asesoramiento
+    ]
+  )
+
+  const briefProgress = useMemo(
+    () =>
+      calcBriefProgress(
+        formData.tipo_producto_servicio,
+        formData.tipo_producto_otro,
+        formData.donde_colocados,
+        formData.digital_o_impresion,
+        formData.necesita_asesoramiento,
+        formData.objetivo_proyecto,
+        formData.brief_publico,
+        formData.estilo_diseno
+      ),
+    [formData]
+  )
+
+  const buildIaContext = useCallback(
+    () =>
+      buildBriefIaContext({
+        tipos_producto: formData.tipo_producto_servicio,
+        tipo_producto_otro: formData.tipo_producto_otro,
+        necesita_asesoramiento: formData.necesita_asesoramiento,
+        donde_colocados: formData.donde_colocados,
+        digital_o_impresion: formData.digital_o_impresion,
+        cantidades: formData.cantidades,
+        objetivo_proyecto: formData.objetivo_proyecto,
+        brief_publico: formData.brief_publico,
+        estilo_diseno: formData.estilo_diseno,
+        material_logo: formData.material_logo,
+        material_textos: formData.material_textos,
+        material_imagenes: formData.material_imagenes,
+        referencias_links: formData.referencias_links,
+        cliente_empresa: formData.cliente_empresa
+      }),
+    [formData]
+  )
 
   const loadOrden = async () => {
     if (!token) return
@@ -154,6 +253,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
   }
 
   const handleTipoProductoChange = (tipo: string) => {
+    setMockupAiUrl(null)
     setFormData(prev => {
       const isSelected = prev.tipo_producto_servicio.includes(tipo)
       if (isSelected) {
@@ -168,6 +268,75 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
         }
       }
     })
+  }
+
+  const patchForm = (patch: Partial<typeof formData>) => {
+    setMockupAiUrl(null)
+    setFormData((prev) => ({ ...prev, ...patch }))
+  }
+
+  const handleFotoReferencia = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (fotoReferenciaUrl) URL.revokeObjectURL(fotoReferenciaUrl)
+    setFotoReferenciaUrl(URL.createObjectURL(file))
+    setMockupAiUrl(null)
+  }
+
+  const handleGenerarCamposIa = async (campo: BriefCamposIa) => {
+    const contexto = buildIaContext()
+    if (!contexto.trim() && campo === 'all') {
+      setError('Seleccioná al menos un producto o servicio antes de usar la IA')
+      return
+    }
+    setIaLoading(true)
+    setError(null)
+    try {
+      const result = await generarBriefCamposIa({ contexto, campo })
+      setFormData((prev) => ({
+        ...prev,
+        ...(result.objetivo_proyecto && (campo === 'all' || campo === 'objetivo')
+          ? { objetivo_proyecto: result.objetivo_proyecto }
+          : {}),
+        ...(result.brief_publico && (campo === 'all' || campo === 'brief_publico')
+          ? { brief_publico: result.brief_publico }
+          : {}),
+        ...(result.estilo_diseno && (campo === 'all' || campo === 'estilo_diseno')
+          ? { estilo_diseno: result.estilo_diseno }
+          : {})
+      }))
+      setMockupAiUrl(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo generar con IA')
+    } finally {
+      setIaLoading(false)
+    }
+  }
+
+  const handleGenerarMockupIa = async () => {
+    if (mockupState.empty) return
+    setMockupAiLoading(true)
+    setError(null)
+    try {
+      const prompt = buildBriefMockupImagePrompt({
+        productLabel: mockupState.productLabel,
+        productKind: mockupState.productKind,
+        sceneKind: mockupState.sceneKind,
+        tipos: formData.tipo_producto_servicio,
+        donde_colocados: formData.donde_colocados,
+        objetivo_proyecto: formData.objetivo_proyecto,
+        brief_publico: formData.brief_publico,
+        estilo_diseno: formData.estilo_diseno,
+        digital_o_impresion: formData.digital_o_impresion,
+        cantidades: formData.cantidades
+      })
+      const dataUrl = await generarMockupImagenIa(prompt)
+      setMockupAiUrl(dataUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo generar la vista previa')
+    } finally {
+      setMockupAiLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -260,8 +429,9 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
   }
 
   return (
-    <div className="brief-publico-page">
-      <div className="brief-container">
+    <div className={`brief-publico-page${isCliente ? ' brief-publico-page--cliente' : ''}`}>
+      <div className={`brief-container${isCliente ? ' brief-container--cliente' : ''}`}>
+        {!isCliente && (
         <header className="brief-header">
           <div className="brief-logo">
             <div className="brief-logo-main">
@@ -284,6 +454,14 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
             </div>
           )}
         </header>
+        )}
+
+        {isCliente && orden && (
+          <div className="brief-orden-compact">
+            {orden.numero_op != null && <p><strong>OP #{orden.numero_op}</strong></p>}
+            {orden.cliente && <p className="brief-orden-compact__cliente">{orden.cliente}</p>}
+          </div>
+        )}
 
         {success && (
           <div className="success-message">
@@ -297,6 +475,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
           </div>
         )}
 
+        <div className={isCliente ? 'brief-studio-layout' : undefined}>
         <form onSubmit={handleSubmit} className="brief-form">
           {/* 1. Datos del Cliente */}
           <div className="form-section">
@@ -363,7 +542,9 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
           {/* 2. Tipo de Producto o Servicio */}
           <div className="form-section">
             <h2>2. Tipo de Producto o Servicio que Necesitás</h2>
-            <p className="section-description">Marcá una o varias opciones</p>
+            <p className="section-description">
+              Marcá una o varias opciones{isCliente ? ' — el mockup a la derecha se actualiza al instante' : ''}
+            </p>
             
             <div className="checkbox-grid">
               {TIPOS_PRODUCTO.map((tipo) => (
@@ -386,7 +567,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                 id="tipo_producto_otro"
                 type="text"
                 value={formData.tipo_producto_otro}
-                onChange={(e) => setFormData({ ...formData, tipo_producto_otro: e.target.value })}
+                onChange={(e) => patchForm({ tipo_producto_otro: e.target.value })}
                 placeholder="Especifica otro tipo de producto o servicio"
               />
             </div>
@@ -396,7 +577,10 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                 <input
                   type="checkbox"
                   checked={formData.necesita_asesoramiento}
-                  onChange={(e) => setFormData({ ...formData, necesita_asesoramiento: e.target.checked })}
+                  onChange={(e) => {
+                    setMockupAiUrl(null)
+                    setFormData({ ...formData, necesita_asesoramiento: e.target.checked })
+                  }}
                 />
                 <span>No sé bien lo que necesito, quiero asesoramiento</span>
               </label>
@@ -416,7 +600,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                   id="donde_colocados"
                   type="text"
                   value={formData.donde_colocados}
-                  onChange={(e) => setFormData({ ...formData, donde_colocados: e.target.value })}
+                  onChange={(e) => patchForm({ donde_colocados: e.target.value })}
                   placeholder="Ej: En el local, en redes sociales, en vehículos, etc."
                 />
               </div>
@@ -429,7 +613,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                   <select
                     id="digital_o_impresion"
                     value={formData.digital_o_impresion}
-                    onChange={(e) => setFormData({ ...formData, digital_o_impresion: e.target.value })}
+                    onChange={(e) => patchForm({ digital_o_impresion: e.target.value })}
                   >
                     <option value="">Seleccionar...</option>
                     <option value="digital">Solo Digital</option>
@@ -446,7 +630,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                     id="cantidades"
                     type="text"
                     value={formData.cantidades}
-                    onChange={(e) => setFormData({ ...formData, cantidades: e.target.value })}
+                    onChange={(e) => patchForm({ cantidades: e.target.value })}
                     placeholder="Ej: 100 unidades, 500 ejemplares, etc."
                   />
                 </div>
@@ -456,7 +640,17 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
 
           {/* 3. Objetivo */}
           <div className="form-section">
-            <h2>3. Objetivo del Producto o Servicio</h2>
+            <div className="form-section-head">
+              <h2>3. Objetivo del Producto o Servicio</h2>
+              {isCliente && (
+                <BriefIaBtn
+                  label="Generar objetivo con IA"
+                  loading={iaLoading}
+                  disabled={mockupState.empty}
+                  onClick={() => void handleGenerarCamposIa('objetivo')}
+                />
+              )}
+            </div>
             <p className="section-description">
               Ej.: vender más, comunicar un evento, reforzar identidad, lanzamiento, señalización, etc.
             </p>
@@ -465,7 +659,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
               <textarea
                 rows={4}
                 value={formData.objetivo_proyecto}
-                onChange={(e) => setFormData({ ...formData, objetivo_proyecto: e.target.value })}
+                onChange={(e) => patchForm({ objetivo_proyecto: e.target.value })}
                 placeholder="Describe el objetivo principal de este proyecto..."
               />
             </div>
@@ -538,8 +732,21 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                   id="referencias_links"
                   rows={3}
                   value={formData.referencias_links}
-                  onChange={(e) => setFormData({ ...formData, referencias_links: e.target.value })}
+                  onChange={(e) => patchForm({ referencias_links: e.target.value })}
                   placeholder="Pega aquí los links de Pinterest, Behance, imágenes, o describe las referencias..."
+                />
+              </div>
+            )}
+
+            {isCliente && (
+              <div className="form-group">
+                <label htmlFor="brief-foto-ref">Foto de referencia (aparece en el mockup)</label>
+                <input
+                  id="brief-foto-ref"
+                  type="file"
+                  accept="image/*"
+                  className="brief-file-input"
+                  onChange={handleFotoReferencia}
                 />
               </div>
             )}
@@ -547,7 +754,25 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
 
           {/* Brief Público */}
           <div className="form-section">
-            <h2>Información Adicional del Proyecto</h2>
+            <div className="form-section-head">
+              <h2>Información Adicional del Proyecto</h2>
+              {isCliente && (
+                <div className="form-section-head__actions">
+                  <BriefIaBtn
+                    label="Descripción con IA"
+                    loading={iaLoading}
+                    disabled={mockupState.empty}
+                    onClick={() => void handleGenerarCamposIa('brief_publico')}
+                  />
+                  <BriefIaBtn
+                    label="Estilo con IA"
+                    loading={iaLoading}
+                    disabled={mockupState.empty}
+                    onClick={() => void handleGenerarCamposIa('estilo_diseno')}
+                  />
+                </div>
+              )}
+            </div>
             
             <div className="form-group">
               <label htmlFor="brief_publico">
@@ -557,7 +782,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                 id="brief_publico"
                 rows={6}
                 value={formData.brief_publico}
-                onChange={(e) => setFormData({ ...formData, brief_publico: e.target.value })}
+                onChange={(e) => patchForm({ brief_publico: e.target.value })}
                 placeholder="Describe tu proyecto, contexto, ideas, y cualquier información relevante..."
               />
             </div>
@@ -570,7 +795,7 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
                 id="estilo_diseno"
                 type="text"
                 value={formData.estilo_diseno}
-                onChange={(e) => setFormData({ ...formData, estilo_diseno: e.target.value })}
+                onChange={(e) => patchForm({ estilo_diseno: e.target.value })}
                 placeholder="Ej: Minimalista, Corporativo, Moderno, Colorido, etc."
               />
             </div>
@@ -649,10 +874,35 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
           </div>
         </form>
 
+        {isCliente && (
+          <ClienteBriefMockupStudio
+            productKind={mockupState.productKind}
+            sceneKind={mockupState.sceneKind}
+            productLabel={mockupState.productLabel}
+            especificacion={formData.brief_publico || formData.objetivo_proyecto}
+            dondeColocados={formData.donde_colocados}
+            digitalOImpresion={formData.digital_o_impresion}
+            cantidades={formData.cantidades}
+            estiloDiseno={formData.estilo_diseno}
+            selectedTipos={formData.tipo_producto_servicio}
+            progress={briefProgress}
+            empty={mockupState.empty}
+            aiImageUrl={mockupAiUrl}
+            loadingAi={mockupAiLoading}
+            userImageUrl={fotoReferenciaUrl}
+            iaLoading={iaLoading}
+            onGenerarMockupIa={() => void handleGenerarMockupIa()}
+            onGenerarTodoIa={() => void handleGenerarCamposIa('all')}
+          />
+        )}
+        </div>
+
+        {!isCliente && (
         <footer className="brief-footer">
           <p>Plot Center SRL - 9 de Julio 622 - Oeste, Capital. San Juan · Argentina</p>
           <p>plotcenter.com.ar</p>
         </footer>
+        )}
       </div>
     </div>
   )

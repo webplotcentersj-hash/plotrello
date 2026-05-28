@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
+import ClienteAyudaFaq from '../components/cliente/ClienteAyudaFaq'
 import './ClienteAyudaPage.css'
 
 const HERRAMIENTAS: {
@@ -79,15 +80,18 @@ export default function ClienteAyudaPage() {
       <ClientePageHeader
         eyebrow="Atención al cliente"
         title="Centro de ayuda"
-        subtitle={`Herramientas de seguimiento${cliente?.nombre ? ` · ${cliente.nombre}` : ''}`}
+        subtitle={`Herramientas, FAQ y soporte${cliente?.nombre ? ` · ${cliente.nombre}` : ''}`}
       />
 
       <div className="cliente-ayuda-main">
-        <p className="cliente-ayuda-lead">
-          Acá reunimos todo lo que podés usar para consultar trabajos, comunicarte con Plot Center y dejar tu opinión
-          después de retirar.
-        </p>
-        <div className="cliente-ayuda-grid">
+        <section className="cliente-ayuda-tools" aria-labelledby="cliente-ayuda-tools-title">
+          <h2 id="cliente-ayuda-tools-title" className="cliente-ayuda-section-title">
+            Accesos rápidos
+          </h2>
+          <p className="cliente-ayuda-lead">
+            Consultá trabajos, comunicate con Plot Center y dejá tu opinión después de retirar.
+          </p>
+          <div className="cliente-ayuda-grid">
           {HERRAMIENTAS.map((h) => {
             const Icon = h.Icon
             return (
@@ -115,7 +119,10 @@ export default function ClienteAyudaPage() {
               </button>
             )
           })}
-        </div>
+          </div>
+        </section>
+
+        <ClienteAyudaFaq />
       </div>
     </ClientePageLayout>
   )

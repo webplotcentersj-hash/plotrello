@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bell, LogOut, Menu, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../../hooks/useClienteAuth'
+import { useClienteNotificacionesBadge } from '../../hooks/useClienteNotificacionesBadge'
 import { CLIENTE_NAV_ITEMS } from './clienteNavConfig'
 import ClienteThemeToggle from './ClienteThemeToggle'
 import './ClientePillNav.css'
@@ -12,7 +13,12 @@ export default function ClientePillNav() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, cliente } = useClienteAuth()
+  const { noLeidas, tieneNoLeidas } = useClienteNotificacionesBadge()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const notifLabel =
+    noLeidas > 0
+      ? `Notificaciones, ${noLeidas} sin leer`
+      : 'Notificaciones'
 
   const isActive = (href: string) => {
     if (href === '/cliente/dashboard') {
@@ -51,12 +57,17 @@ export default function ClientePillNav() {
           <ClienteThemeToggle compact />
           <button
             type="button"
-            className="cliente-pill-icon-btn"
-            title="Notificaciones"
-            aria-label="Notificaciones"
+            className={`cliente-pill-icon-btn cliente-pill-notif-btn${tieneNoLeidas ? ' cliente-pill-notif-btn--alert' : ''}`}
+            title={notifLabel}
+            aria-label={notifLabel}
             onClick={() => navigate('/cliente/notificaciones')}
           >
             <Bell size={18} strokeWidth={2.25} />
+            {noLeidas > 0 && (
+              <span className="cliente-pill-notif-badge" aria-hidden>
+                {noLeidas > 9 ? '9+' : noLeidas}
+              </span>
+            )}
           </button>
           <button
             type="button"

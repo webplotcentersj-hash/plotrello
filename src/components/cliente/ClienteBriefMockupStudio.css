@@ -1,0 +1,262 @@
+.brief-mockup-studio {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.15rem;
+  border-radius: calc(var(--cliente-radius, 14px) + 4px);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--cliente-brand, #eb671b) 12%, var(--cliente-surface, #fff)) 0%,
+    var(--cliente-surface, #fff) 45%,
+    color-mix(in srgb, var(--cliente-brand, #eb671b) 6%, var(--cliente-surface-2, #f8fafc)) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--cliente-brand, #eb671b) 35%, var(--cliente-border, #e5e7eb));
+  box-shadow:
+    0 12px 40px color-mix(in srgb, var(--cliente-brand, #eb671b) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+}
+
+.brief-mockup-studio__glow {
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--cliente-brand, #eb671b) 25%, transparent), transparent 70%);
+  pointer-events: none;
+  animation: brief-studio-glow 6s ease-in-out infinite alternate;
+}
+
+@keyframes brief-studio-glow {
+  from {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+.brief-mockup-studio__head {
+  position: relative;
+  z-index: 1;
+}
+
+.brief-mockup-studio__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cliente-brand, #eb671b);
+}
+
+.brief-mockup-studio__title {
+  margin: 0;
+  font-family: var(--cliente-font-heading, inherit);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--cliente-text, #111827);
+}
+
+.brief-mockup-studio__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--cliente-muted, #6b7280);
+}
+
+.brief-mockup-studio__progress {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cliente-surface, #fff) 88%, var(--cliente-brand-soft, #fff7ed));
+  border: 1px solid var(--cliente-border, #e5e7eb);
+}
+
+.brief-mockup-studio__progress-ring {
+  --p: 0%;
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(
+    var(--cliente-brand, #eb671b) var(--p),
+    color-mix(in srgb, var(--cliente-border, #e5e7eb) 80%, transparent) 0
+  );
+  transition: background 0.45s var(--cliente-ease-out, ease);
+}
+
+.brief-mockup-studio__progress-ring::before {
+  content: '';
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--cliente-surface, #fff);
+}
+
+.brief-mockup-studio__progress-value {
+  position: absolute;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--cliente-brand, #eb671b);
+}
+
+.brief-mockup-studio__progress-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.brief-mockup-studio__progress-copy strong {
+  font-size: 0.82rem;
+  color: var(--cliente-text, #111827);
+}
+
+.brief-mockup-studio__progress-copy span {
+  font-size: 0.75rem;
+  color: var(--cliente-muted, #6b7280);
+}
+
+.brief-mockup-studio__chips {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.brief-mockup-studio__chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: var(--cliente-brand-soft, #fff7ed);
+  color: var(--cliente-brand, #eb671b);
+  border: 1px solid color-mix(in srgb, var(--cliente-brand, #eb671b) 30%, transparent);
+  animation: brief-chip-in 0.35s var(--cliente-ease-out, ease) both;
+}
+
+.brief-mockup-studio__chip--more {
+  background: var(--cliente-surface-2, #f3f4f6);
+  color: var(--cliente-muted, #6b7280);
+  border-color: var(--cliente-border, #e5e7eb);
+}
+
+@keyframes brief-chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.brief-mockup-studio__preview {
+  position: relative;
+  z-index: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: box-shadow 0.35s ease;
+}
+
+.brief-mockup-studio__preview--active {
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--cliente-brand, #eb671b) 22%, transparent);
+  animation: brief-preview-pop 0.45s var(--cliente-ease-out, ease);
+}
+
+@keyframes brief-preview-pop {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.brief-mockup-studio__preview .pedido-mockup {
+  border-radius: 14px;
+}
+
+.brief-mockup-studio__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.brief-mockup-studio__btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.brief-mockup-studio__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.brief-mockup-studio__btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--cliente-brand, #eb671b), color-mix(in srgb, var(--cliente-brand, #eb671b) 75%, #c2410c));
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--cliente-brand, #eb671b) 35%, transparent);
+}
+
+.brief-mockup-studio__btn--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--cliente-brand, #eb671b) 45%, transparent);
+}
+
+.brief-mockup-studio__btn--secondary {
+  color: var(--cliente-text, #111827);
+  background: var(--cliente-surface, #fff);
+  border: 1px solid var(--cliente-border, #e5e7eb);
+}
+
+.brief-mockup-studio__btn--secondary:hover:not(:disabled) {
+  border-color: var(--cliente-brand, #eb671b);
+  color: var(--cliente-brand, #eb671b);
+}
+
+.brief-mockup-studio__hint {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--cliente-muted, #6b7280);
+}
+
+.brief-mockup-studio__hint svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--cliente-brand, #eb671b);
+}

@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
+import { useClienteNotificacionesBadge } from '../hooks/useClienteNotificacionesBadge'
 import apiService from '../services/api'
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageLoading from '../components/cliente/ClientePageLoading'
+import { metaNotificacionCliente } from '../utils/clienteNotificacionUi'
 import './ClienteNotificacionesPage.css'
 
 type NotifRecord = {
@@ -20,6 +22,7 @@ type NotifRecord = {
 
 export default function ClienteNotificacionesPage() {
   const { cliente, loading: authLoading } = useClienteAuth()
+  const { refresh: refreshBadge } = useClienteNotificacionesBadge()
   const navigate = useNavigate()
   const [notifs, setNotifs] = useState<NotifRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,8 +33,15 @@ export default function ClienteNotificacionesPage() {
       navigate('/cliente/login')
       return
     }
-    loadNotifs()
+    void loadNotifs()
   }, [cliente, authLoading, navigate])
+
+  useEffect(() => {
+    if (!cliente?.id) return
+    return () => {
+      void apiService.marcarNotificacionesClienteLeidas(cliente.id).then(() => refreshBadge())
+    }
+  }, [cliente?.id, refreshBadge])
 
   const loadNotifs = async () => {
     if (!cliente) return
@@ -66,40 +76,73 @@ export default function ClienteNotificacionesPage() {
     }
   }
 
+  const noLeidasVisuales = notifs.filter((n) => !n.leida).length
+
   if (authLoading || loading) {
     return <ClientePageLoading />
   }
 
   return (
     <ClientePageLayout className="cliente-notifs-page">
-      <ClientePageHeader eyebrow="Avisos" title="Notificaciones" subtitle="Novedades sobre tus pedidos y reclamos" />
+      <ClientePageHeader
+        eyebrow="Avisos"
+        title="Notificaciones"
+        subtitle="Novedades sobre tus pedidos y reclamos"
+        actions={
+          noLeidasVisuales > 0 ? (
+            <span className="cliente-notifs-header-badge" aria-live="polite">
+              {noLeidasVisuales} nueva{noLeidasVisuales === 1 ? '' : 's'}
+            </span>
+          ) : notifs.length > 0 ? (
+            <span className="cliente-notifs-header-badge cliente-notifs-header-badge--muted">
+              Al día
+            </span>
+          ) : null
+        }
+      />
 
-        {notifs.length === 0 ? (
-          <div className="cliente-page-empty">
-            <p>No tenés notificaciones.</p>
-          </div>
-        ) : (
-          <div className="notifs-list">
-            {notifs.map((n) => (
-              <div key={n.id} className={`cliente-page-card notif-card ${n.leida ? '' : 'unread'}`}>
+      {notifs.length === 0 ? (
+        <div className="cliente-page-empty">
+          <p>No tenés notificaciones.</p>
+        </div>
+      ) : (
+        <div className="notifs-list">
+          {notifs.map((n) => {
+            const meta = metaNotificacionCliente(n.tipo)
+            const unread = !n.leida
+            return (
+              <div
+                key={n.id}
+                className={`cliente-page-card notif-card ${unread ? 'notif-card--unread' : 'notif-card--read'}`}
+                style={
+                  {
+                    '--notif-accent': meta.accent,
+                    '--notif-bg': meta.bg,
+                    '--notif-border': meta.border
+                  } as CSSProperties
+                }
+              >
+                {unread && <span className="notif-card__dot" aria-hidden />}
                 <div className="notif-header">
-                  <span className="notif-tipo">{n.tipo}</span>
+                  <span className="notif-tipo">{meta.label}</span>
                   <span className="notif-fecha">{formatFecha(n.created_at)}</span>
                 </div>
                 {n.titulo && <h4 className="notif-titulo">{n.titulo}</h4>}
                 <p className="notif-mensaje">{n.mensaje}</p>
                 {n.id_pedido && (
                   <button
-                    className="btn-link"
+                    type="button"
+                    className="notif-card__cta"
                     onClick={() => navigate(`/cliente/pedido/${n.id_pedido}`)}
                   >
                     Ver pedido
                   </button>
                 )}
               </div>
-            ))}
-          </div>
-        )}
+            )
+          })}
+        </div>
+      )}
     </ClientePageLayout>
   )
 }
