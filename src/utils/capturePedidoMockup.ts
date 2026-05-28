@@ -3,11 +3,19 @@ import html2canvas from 'html2canvas'
 export const PEDIDO_MOCKUP_FILENAME = 'mockup-vista-previa.png'
 export const PEDIDO_MOCKUP_TIPO = 'mockup_vista_previa'
 
+export const BRIEF_MOCKUP_FILENAME = 'mockup-vista-previa-brief.png'
+export const BRIEF_MOCKUP_TIPO = 'mockup_vista_previa'
+export const BRIEF_REFERENCIA_TIPO = 'referencia_cliente'
+
 export function isPedidoMockupArchivo(archivo: { nombre_archivo?: string; tipo?: string | null }): boolean {
   return (
     archivo.tipo === PEDIDO_MOCKUP_TIPO ||
     (archivo.nombre_archivo?.toLowerCase().startsWith('mockup-vista-previa') ?? false)
   )
+}
+
+export function isBriefMockupArchivo(archivo: { nombre_archivo?: string; tipo?: string | null }): boolean {
+  return isPedidoMockupArchivo(archivo)
 }
 
 export async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
@@ -93,5 +101,34 @@ export async function buildPedidoMockupFile(input: {
     return await captureElementAsPngFile(input.captureElement, filename)
   }
 
+  return null
+}
+
+/** Mockup del brief (misma lógica que pedido). */
+export async function buildBriefMockupFile(input: {
+  idBrief: number
+  aiDataUrl?: string | null
+  captureElement?: HTMLElement | null
+}): Promise<File | null> {
+  const filename = `mockup-vista-previa-brief-${input.idBrief}.png`
+  if (input.aiDataUrl) {
+    if (input.aiDataUrl.startsWith('data:')) {
+      return dataUrlToFile(input.aiDataUrl, filename)
+    }
+    try {
+      const res = await fetch(input.aiDataUrl)
+      const blob = await res.blob()
+      return new File([blob], filename, { type: blob.type || 'image/png' })
+    } catch {
+      /* captura DOM */
+    }
+  }
+  if (input.captureElement) {
+    const node = resolveMockupCaptureNode(input.captureElement)
+    if (!node || node.classList.contains('pedido-mockup--empty')) {
+      return null
+    }
+    return await captureElementAsPngFile(input.captureElement, filename)
+  }
   return null
 }

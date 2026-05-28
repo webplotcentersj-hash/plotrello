@@ -1,10 +1,17 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
 import type { ClienteWebRecord } from '../types/api'
 import ClienteBriefMockupStudio from '../components/cliente/ClienteBriefMockupStudio'
+import BriefMockupCard from '../components/BriefMockupCard'
+import {
+  BRIEF_MOCKUP_FILENAME,
+  BRIEF_MOCKUP_TIPO,
+  BRIEF_REFERENCIA_TIPO,
+  buildBriefMockupFile
+} from '../utils/capturePedidoMockup'
 import { generarBriefCamposIa, generarMockupImagenIa } from '../services/clienteBriefAiService'
 import type { BriefCamposIa } from '../services/clienteBriefAiService'
 import {
@@ -87,6 +94,10 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
   const [mockupAiLoading, setMockupAiLoading] = useState(false)
   const [iaLoading, setIaLoading] = useState(false)
   const [fotoReferenciaUrl, setFotoReferenciaUrl] = useState<string | null>(null)
+  const [fotoReferenciaFile, setFotoReferenciaFile] = useState<File | null>(null)
+  const [briefId, setBriefId] = useState<number | null>(null)
+  const [mockupUrlGuardado, setMockupUrlGuardado] = useState<string | null>(null)
+  const mockupCaptureRef = useRef<HTMLDivElement>(null)
 
   const [formData, setFormData] = useState({
     // Datos del cliente
@@ -214,6 +225,12 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
       if (response.success && response.data) {
         setOrden(response.data)
         const data = response.data
+        if (typeof data.id === 'number') {
+          setBriefId(data.id)
+        }
+        if (data.mockup_url) {
+          setMockupUrlGuardado(data.mockup_url)
+        }
         const nombreCompleto = data.cliente_nombre_completo || (clientePrefill ? `${clientePrefill.nombre || ''} ${clientePrefill.apellido || ''}`.trim() || clientePrefill.nombre : '')
         const empresa = data.cliente_empresa || clientePrefill?.empresa || ''
         const telefono = data.telefono_cliente || clientePrefill?.telefono || ''
@@ -279,8 +296,37 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (fotoReferenciaUrl) URL.revokeObjectURL(fotoReferenciaUrl)
+    setFotoReferenciaFile(file)
     setFotoReferenciaUrl(URL.createObjectURL(file))
     setMockupAiUrl(null)
+  }
+
+  const guardarMockupBrief = async (idBrief: number) => {
+    if (mockupState.empty) return
+    try {
+      const mockupFile = await buildBriefMockupFile({
+        idBrief,
+        aiDataUrl: mockupAiUrl,
+        captureElement: mockupCaptureRef.current
+      })
+      if (mockupFile) {
+        const up = await apiService.uploadArchivoBriefPublico(mockupFile, idBrief, {
+          nombreArchivo: BRIEF_MOCKUP_FILENAME,
+          tipoEtiqueta: BRIEF_MOCKUP_TIPO
+        })
+        if (up.success && up.data) {
+          setMockupUrlGuardado(up.data)
+        }
+      }
+      if (fotoReferenciaFile) {
+        await apiService.uploadArchivoBriefPublico(fotoReferenciaFile, idBrief, {
+          nombreArchivo: fotoReferenciaFile.name,
+          tipoEtiqueta: BRIEF_REFERENCIA_TIPO
+        })
+      }
+    } catch (err) {
+      console.warn('No se pudo guardar el mockup del brief:', err)
+    }
   }
 
   const handleGenerarCamposIa = async (campo: BriefCamposIa) => {
@@ -386,6 +432,17 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
       })
 
       if (response.success) {
+        let idBrief = briefId
+        if (!idBrief && token) {
+          const refreshed = await apiService.obtenerBriefPorToken(token)
+          if (refreshed.success && refreshed.data?.id) {
+            idBrief = refreshed.data.id
+            setBriefId(idBrief)
+          }
+        }
+        if (idBrief) {
+          await guardarMockupBrief(idBrief)
+        }
         setSuccess(true)
         if (onSuccess) {
           setTimeout(onSuccess, 1500)
@@ -460,6 +517,13 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
           <div className="brief-orden-compact">
             {orden.numero_op != null && <p><strong>OP #{orden.numero_op}</strong></p>}
             {orden.cliente && <p className="brief-orden-compact__cliente">{orden.cliente}</p>}
+          </div>
+        )}
+
+        {!isCliente && mockupUrlGuardado && (
+          <div className="brief-mockup-staff-banner">
+            <h3 className="brief-mockup-staff-banner__title">Mockup del cliente</h3>
+            <BriefMockupCard mockupUrl={mockupUrlGuardado} />
           </div>
         )}
 
@@ -875,25 +939,28 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
         </form>
 
         {isCliente && (
-          <ClienteBriefMockupStudio
-            productKind={mockupState.productKind}
-            sceneKind={mockupState.sceneKind}
-            productLabel={mockupState.productLabel}
-            especificacion={formData.brief_publico || formData.objetivo_proyecto}
-            dondeColocados={formData.donde_colocados}
-            digitalOImpresion={formData.digital_o_impresion}
-            cantidades={formData.cantidades}
-            estiloDiseno={formData.estilo_diseno}
-            selectedTipos={formData.tipo_producto_servicio}
-            progress={briefProgress}
-            empty={mockupState.empty}
-            aiImageUrl={mockupAiUrl}
-            loadingAi={mockupAiLoading}
-            userImageUrl={fotoReferenciaUrl}
-            iaLoading={iaLoading}
-            onGenerarMockupIa={() => void handleGenerarMockupIa()}
-            onGenerarTodoIa={() => void handleGenerarCamposIa('all')}
-          />
+          <div className="brief-mockup-aside" aria-label="Vista previa fija al completar el brief">
+            <ClienteBriefMockupStudio
+              captureRef={mockupCaptureRef}
+              productKind={mockupState.productKind}
+              sceneKind={mockupState.sceneKind}
+              productLabel={mockupState.productLabel}
+              especificacion={formData.brief_publico || formData.objetivo_proyecto}
+              dondeColocados={formData.donde_colocados}
+              digitalOImpresion={formData.digital_o_impresion}
+              cantidades={formData.cantidades}
+              estiloDiseno={formData.estilo_diseno}
+              selectedTipos={formData.tipo_producto_servicio}
+              progress={briefProgress}
+              empty={mockupState.empty}
+              aiImageUrl={mockupAiUrl}
+              loadingAi={mockupAiLoading}
+              userImageUrl={fotoReferenciaUrl}
+              iaLoading={iaLoading}
+              onGenerarMockupIa={() => void handleGenerarMockupIa()}
+              onGenerarTodoIa={() => void handleGenerarCamposIa('all')}
+            />
+          </div>
         )}
         </div>
 

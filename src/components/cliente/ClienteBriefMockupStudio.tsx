@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, RefObject } from 'react'
 import { Sparkles, ImageIcon, Wand2, Layers } from 'lucide-react'
 import ClientePedidoMockupPreview from './ClientePedidoMockupPreview'
 import type { MockupProductKind, MockupSceneKind } from '../../utils/clientePedidoMockup'
@@ -22,6 +22,7 @@ type Props = {
   iaLoading: boolean
   onGenerarMockupIa: () => void
   onGenerarTodoIa: () => void
+  captureRef?: RefObject<HTMLDivElement | null>
 }
 
 export default function ClienteBriefMockupStudio({
@@ -41,7 +42,8 @@ export default function ClienteBriefMockupStudio({
   userImageUrl,
   iaLoading,
   onGenerarMockupIa,
-  onGenerarTodoIa
+  onGenerarTodoIa,
+  captureRef
 }: Props) {
   const specForMockup =
     especificacion.trim() ||
@@ -86,6 +88,7 @@ export default function ClienteBriefMockupStudio({
       )}
 
       <div
+        ref={captureRef}
         className={`brief-mockup-studio__preview ${empty ? '' : 'brief-mockup-studio__preview--active'}`}
         key={`${productKind}-${sceneKind}-${productLabel}`}
       >

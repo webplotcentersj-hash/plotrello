@@ -7,6 +7,7 @@ import { filterOperariosBySector } from '../utils/dataMappers'
 import apiService from '../services/api'
 import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
 import OpFichaGuiaModal from './OpFichaGuiaModal'
+import BriefMockupCard from './BriefMockupCard'
 import { attachmentListHasReadySitePhoto, opSectoresRequierenFotosLugar } from '../utils/sectoresFotosLugar'
 import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
 import { pillColorFromString } from '../utils/pillColorFromString'
@@ -50,6 +51,7 @@ const TaskCreateModal = ({
 }: TaskCreateModalProps) => {
   const { usuario, isAdmin, isDiseno } = useAuth()
   const [briefTokenSeleccionado, setBriefTokenSeleccionado] = useState<string | null>(null)
+  const [briefMockupUrl, setBriefMockupUrl] = useState<string | null>(null)
   const [briefsPendientes, setBriefsPendientes] = useState<any[]>([])
   const [loadingBriefs, setLoadingBriefs] = useState(false)
   const [mostrarSelectorBrief, setMostrarSelectorBrief] = useState(false)
@@ -330,6 +332,7 @@ const TaskCreateModal = ({
         if (brief.fecha_limite_brief) {
           setDeadlineBrief(brief.fecha_limite_brief)
         }
+        setBriefMockupUrl(brief.mockup_url || null)
       }
     } catch (error) {
       console.error('Error cargando brief desde token:', error)
@@ -1112,6 +1115,11 @@ const TaskCreateModal = ({
                     border: '1px solid rgba(102, 126, 234, 0.3)',
                     marginBottom: '8px'
                   }}>
+                    {briefMockupUrl && (
+                      <div style={{ marginBottom: '10px' }}>
+                        <BriefMockupCard mockupUrl={briefMockupUrl} compact alt="Mockup del brief" />
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: '#667eea', fontWeight: 600 }}>
                         ✓ Brief seleccionado
@@ -1120,6 +1128,7 @@ const TaskCreateModal = ({
                         type="button"
                         onClick={() => {
                           setBriefTokenSeleccionado(null)
+                          setBriefMockupUrl(null)
                           setCliente('')
                           setTelefonoCliente('')
                           setEmailCliente('')
@@ -1205,6 +1214,11 @@ const TaskCreateModal = ({
                               e.currentTarget.style.boxShadow = 'none'
                             }}
                           >
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                              {brief.mockup_url && (
+                                <BriefMockupCard mockupUrl={brief.mockup_url} compact alt="Mockup" />
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 700, color: '#e5e7eb', marginBottom: '4px' }}>
                               {brief.cliente_nombre_completo || 'Cliente sin nombre'}
                               {brief.cliente_empresa && ` - ${brief.cliente_empresa}`}
@@ -1219,6 +1233,9 @@ const TaskCreateModal = ({
                             <div style={{ fontSize: '0.75rem', color: '#d1d5db', marginTop: '4px' }}>
                               {brief.completado ? '✓ Completado' : '⏳ Pendiente'}
                               {brief.es_urgencia && ' • ⚠️ Urgencia'}
+                              {brief.mockup_url && ' • 🖼 Mockup'}
+                            </div>
+                              </div>
                             </div>
                           </button>
                         ))}

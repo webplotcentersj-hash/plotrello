@@ -186,6 +186,14 @@
   white-space: nowrap;
 }
 
+.brief-card-mockup {
+  margin-bottom: 1rem;
+}
+
+.brief-card-mockup {
+  margin-bottom: 0.25rem;
+}
+
 .brief-card-body {
   flex: 1;
   display: flex;

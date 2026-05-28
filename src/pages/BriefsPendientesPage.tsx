@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import BriefMockupCard from '../components/BriefMockupCard'
 import './BriefsPendientesPage.css'
 
 interface BriefPendiente {
@@ -17,6 +18,7 @@ interface BriefPendiente {
   fecha_completado: string | null
   completado: boolean
   es_urgencia: boolean
+  mockup_url?: string | null
 }
 
 const BriefsPendientesPage = () => {
@@ -150,6 +152,12 @@ const BriefsPendientesPage = () => {
                 </div>
 
                 <div className="brief-card-body">
+                  {brief.mockup_url && (
+                    <div className="brief-card-mockup">
+                      <BriefMockupCard mockupUrl={brief.mockup_url} compact alt={`Mockup ${brief.cliente_nombre_completo || 'brief'}`} />
+                    </div>
+                  )}
+
                   <h3 className="brief-cliente">
                     {brief.cliente_nombre_completo || 'Cliente sin nombre'}
                     {brief.cliente_empresa && (

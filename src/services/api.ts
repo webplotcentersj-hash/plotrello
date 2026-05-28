@@ -10475,6 +10475,45 @@ class ApiService {
   }
 
   // Asociar un brief a una orden
+  async uploadArchivoBriefPublico(
+    file: File,
+    idBrief: number,
+    options?: { tipoEtiqueta?: string; nombreArchivo?: string }
+  ): Promise<ApiResponse<string>> {
+    if (supabase) {
+      try {
+        const nombreDb = options?.nombreArchivo || file.name
+        const tipoDb = options?.tipoEtiqueta || file.type
+        const fileExt = file.name.split('.').pop() || 'png'
+        const fileName = `${idBrief}_${Date.now()}.${fileExt}`
+        const filePath = `${idBrief}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('briefs-publicos')
+          .upload(filePath, file, { upsert: true })
+
+        if (uploadError) return { success: false, error: uploadError.message }
+
+        const { data: urlData } = supabase.storage.from('briefs-publicos').getPublicUrl(filePath)
+
+        const { error: dbError } = await supabase.from('briefs_publicos_archivos').insert({
+          id_brief: idBrief,
+          url: urlData.publicUrl,
+          nombre_archivo: nombreDb,
+          tipo: tipoDb,
+          tamaño: file.size
+        })
+
+        if (dbError) return { success: false, error: dbError.message }
+
+        return { success: true, data: urlData.publicUrl }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   async asociarBriefAOrden(tokenBrief: string, idOrden: number): Promise<ApiResponse<void>> {
     if (supabase) {
       try {

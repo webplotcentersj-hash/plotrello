@@ -630,3 +630,17 @@
   color: var(--cliente-text, #374151);
 }
 
+.brief-mockup-staff-banner {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(235, 103, 27, 0.08);
+  border: 1px solid rgba(235, 103, 27, 0.25);
+}
+
+.brief-mockup-staff-banner__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #fff;
+}
+
