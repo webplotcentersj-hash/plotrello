@@ -1,6 +1,4 @@
 .pedido-mockup {
-  position: sticky;
-  top: 5.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -338,6 +336,62 @@
   border-radius: inherit;
 }
 
+.mockup-product__spec-text {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  font-weight: 600;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  word-break: break-word;
+}
+
+.mockup-product--logo .mockup-product__spec-text,
+.mockup-product--sign .mockup-product__spec-text {
+  color: #fafafa;
+}
+
+.pedido-mockup__detalles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.pedido-mockup__detalle {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--cliente-radius);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--cliente-text);
+  background: var(--cliente-bg-elevated, var(--cliente-bg));
+  border: 1px solid var(--cliente-border);
+}
+
+.pedido-mockup__detalle--spec {
+  border-left: 3px solid var(--cliente-brand);
+}
+
+.pedido-mockup__detalle-k {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cliente-brand);
+}
+
 .pedido-mockup__spec-snippet {
   margin: 0;
   padding: 0.65rem 0.75rem;
@@ -370,8 +424,3 @@
   display: block;
 }
 
-@media (max-width: 1024px) {
-  .pedido-mockup {
-    position: static;
-  }
-}

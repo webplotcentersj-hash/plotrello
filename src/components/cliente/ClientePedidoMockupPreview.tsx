@@ -1,4 +1,5 @@
 import type { MockupProductKind, MockupSceneKind } from '../../utils/clientePedidoMockup'
+import { labelFormatoPedido } from '../../utils/clientePedidoMockup'
 import './ClientePedidoMockupPreview.css'
 
 type Props = {
@@ -6,6 +7,9 @@ type Props = {
   sceneKind: MockupSceneKind
   productLabel: string
   especificacion?: string
+  dondeColocados?: string
+  digitalOImpresion?: string
+  cantidades?: string
   userImageUrl?: string | null
   aiImageUrl?: string | null
   loadingAi?: boolean
@@ -32,11 +36,84 @@ const PRODUCT_LABELS: Record<MockupProductKind, string> = {
   generic: 'Producto gráfico'
 }
 
+function MockupDetalles({
+  especificacion,
+  dondeColocados,
+  digitalOImpresion,
+  cantidades
+}: Pick<Props, 'especificacion' | 'dondeColocados' | 'digitalOImpresion' | 'cantidades'>) {
+  const formato = labelFormatoPedido(digitalOImpresion || '')
+  const tieneAlgo =
+    especificacion?.trim() || dondeColocados?.trim() || formato || cantidades?.trim()
+
+  if (!tieneAlgo) return null
+
+  return (
+    <div className="pedido-mockup__detalles">
+      {especificacion?.trim() && (
+        <p className="pedido-mockup__detalle pedido-mockup__detalle--spec">
+          <span className="pedido-mockup__detalle-k">Tu idea</span>
+          {especificacion.trim()}
+        </p>
+      )}
+      {dondeColocados?.trim() && (
+        <p className="pedido-mockup__detalle">
+          <span className="pedido-mockup__detalle-k">Ubicación</span>
+          {dondeColocados.trim()}
+        </p>
+      )}
+      {formato && (
+        <p className="pedido-mockup__detalle">
+          <span className="pedido-mockup__detalle-k">Formato</span>
+          {formato}
+        </p>
+      )}
+      {cantidades?.trim() && (
+        <p className="pedido-mockup__detalle">
+          <span className="pedido-mockup__detalle-k">Cantidades</span>
+          {cantidades.trim()}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function MockupProductContent({
+  userImageUrl,
+  especificacion
+}: {
+  userImageUrl?: string | null
+  especificacion?: string
+}) {
+  if (userImageUrl) {
+    return <img src={userImageUrl} alt="Referencia subida" className="mockup-product__user-img" />
+  }
+
+  if (especificacion?.trim()) {
+    return (
+      <p className="mockup-product__spec-text" title={especificacion.trim()}>
+        {especificacion.trim()}
+      </p>
+    )
+  }
+
+  return (
+    <div className="mockup-product__art">
+      <span className="mockup-product__art-line" />
+      <span className="mockup-product__art-line mockup-product--accent" />
+      <span className="mockup-product__art-brand">PLOT</span>
+    </div>
+  )
+}
+
 export default function ClientePedidoMockupPreview({
   productKind,
   sceneKind,
   productLabel,
   especificacion = '',
+  dondeColocados = '',
+  digitalOImpresion = '',
+  cantidades = '',
   userImageUrl,
   aiImageUrl,
   loadingAi = false,
@@ -63,9 +140,12 @@ export default function ClientePedidoMockupPreview({
         <div className="pedido-mockup__ai-frame">
           <img src={aiImageUrl} alt={`Vista previa ${productLabel}`} className="pedido-mockup__ai-img" />
         </div>
-        {especificacion.trim() && (
-          <p className="pedido-mockup__spec-snippet">{especificacion.trim().slice(0, 120)}…</p>
-        )}
+        <MockupDetalles
+          especificacion={especificacion}
+          dondeColocados={dondeColocados}
+          digitalOImpresion={digitalOImpresion}
+          cantidades={cantidades}
+        />
       </div>
     )
   }
@@ -111,23 +191,18 @@ export default function ClientePedidoMockupPreview({
         )}
 
         <div className={`mockup-product mockup-product--${productKind}`}>
-          {userImageUrl ? (
-            <img src={userImageUrl} alt="" className="mockup-product__user-img" />
-          ) : (
-            <div className="mockup-product__art">
-              <span className="mockup-product__art-line" />
-              <span className="mockup-product__art-line mockup-product--accent" />
-              <span className="mockup-product__art-brand">PLOT</span>
-            </div>
-          )}
+          <MockupProductContent userImageUrl={userImageUrl} especificacion={especificacion} />
         </div>
       </div>
 
       {loadingAi && <p className="pedido-mockup__loading">Generando vista previa IA…</p>}
 
-      {especificacion.trim() && (
-        <blockquote className="pedido-mockup__spec-snippet">{especificacion.trim()}</blockquote>
-      )}
+      <MockupDetalles
+        especificacion={userImageUrl ? especificacion : undefined}
+        dondeColocados={dondeColocados}
+        digitalOImpresion={digitalOImpresion}
+        cantidades={cantidades}
+      />
     </div>
   )
 }

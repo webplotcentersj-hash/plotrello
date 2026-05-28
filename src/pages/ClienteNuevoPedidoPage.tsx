@@ -96,8 +96,13 @@ export default function ClienteNuevoPedidoPage() {
   }, [primaryItem, primaryArticulo])
 
   const mockupSceneKind = useMemo(
-    () => resolveMockupScene(formData.donde_colocados, mockupProductKind),
-    [formData.donde_colocados, mockupProductKind]
+    () =>
+      resolveMockupScene(
+        formData.donde_colocados,
+        mockupProductKind,
+        formData.digital_o_impresion
+      ),
+    [formData.donde_colocados, formData.digital_o_impresion, mockupProductKind]
   )
 
   const mockupProductLabel = primaryItem?.nombre_articulo || 'Producto'
@@ -462,19 +467,6 @@ export default function ClienteNuevoPedidoPage() {
                         ✕
                       </button>
                     </div>
-                    <div className="item-field item-field--full">
-                      <label htmlFor={`item-desc-${index}`}>Descripción (IA o manual)</label>
-                      <textarea
-                        id={`item-desc-${index}`}
-                        className="item-descripcion"
-                        placeholder="Se completa al generar con IA o podés editarla..."
-                        rows={2}
-                        value={item.descripcion_personalizada || ''}
-                        onChange={(e) =>
-                          actualizarItem(index, 'descripcion_personalizada', e.target.value)
-                        }
-                      />
-                    </div>
                     <div className="item-row-metrics">
                       <div className="item-field">
                         <label htmlFor={`item-cant-${index}`}>Cantidad</label>
@@ -518,7 +510,7 @@ export default function ClienteNuevoPedidoPage() {
           <section className="cliente-page-form-section form-section">
             <h2>Especificación</h2>
             <p className="form-section-hint">
-              Contanos qué necesitás. La IA redacta la descripción del artículo y el brief para producción.
+              Lo que escribas se muestra en el mockup. La IA arma el brief para producción.
             </p>
             <div className="form-group">
               <label htmlFor="pedido-especificacion">¿Qué querés lograr?</label>
@@ -526,7 +518,10 @@ export default function ClienteNuevoPedidoPage() {
                 id="pedido-especificacion"
                 rows={4}
                 value={especificacion}
-                onChange={(e) => setEspecificacion(e.target.value)}
+                onChange={(e) => {
+                  setEspecificacion(e.target.value)
+                  setMockupAiUrl(null)
+                }}
                 placeholder="Ej: Banner 2x1 m con logo grande, colores naranja y blanco, texto de promoción verano..."
               />
             </div>
@@ -559,7 +554,7 @@ export default function ClienteNuevoPedidoPage() {
               <p className="form-field-hint">Se muestra en el mockup y se adjunta al pedido.</p>
             </div>
             <div className="form-group">
-              <label htmlFor="archivos-adjuntos">Otros archivos</label>
+              <label htmlFor="archivos-adjuntos">Archivo original (opcional)</label>
               <input
                 id="archivos-adjuntos"
                 type="file"
@@ -567,6 +562,9 @@ export default function ClienteNuevoPedidoPage() {
                 onChange={handleFileChange}
                 className="file-input"
               />
+              <p className="form-field-hint">
+                Subí tu archivo original si no necesitás diseño de Plot.
+              </p>
               {archivos.length > 0 && (
                 <div className="archivos-list">
                   {archivos.map((archivo, index) => (
@@ -603,7 +601,10 @@ export default function ClienteNuevoPedidoPage() {
                 <select
                   id="digital-impresion"
                   value={formData.digital_o_impresion}
-                  onChange={(e) => setFormData({ ...formData, digital_o_impresion: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, digital_o_impresion: e.target.value })
+                    setMockupAiUrl(null)
+                  }}
                 >
                   <option value="">Seleccionar…</option>
                   <option value="digital">Digital</option>
@@ -617,7 +618,10 @@ export default function ClienteNuevoPedidoPage() {
                   id="cantidades-pedido"
                   type="text"
                   value={formData.cantidades}
-                  onChange={(e) => setFormData({ ...formData, cantidades: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, cantidades: e.target.value })
+                    setMockupAiUrl(null)
+                  }}
                   placeholder="Ej: 100 unidades, 500 ejemplares"
                 />
               </div>
@@ -696,6 +700,9 @@ export default function ClienteNuevoPedidoPage() {
             sceneKind={mockupSceneKind}
             productLabel={mockupProductLabel}
             especificacion={especificacion}
+            dondeColocados={formData.donde_colocados}
+            digitalOImpresion={formData.digital_o_impresion}
+            cantidades={formData.cantidades}
             userImageUrl={fotoReferenciaUrl}
             aiImageUrl={mockupAiUrl}
             loadingAi={mockupAiLoading}

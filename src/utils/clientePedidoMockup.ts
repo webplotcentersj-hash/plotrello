@@ -38,7 +38,13 @@ export function resolveMockupProduct(nombre: string, categoria?: string | null):
   return 'generic'
 }
 
-export function resolveMockupScene(ubicacion: string, productKind?: MockupProductKind): MockupSceneKind {
+export function resolveMockupScene(
+  ubicacion: string,
+  productKind?: MockupProductKind,
+  digitalOImpresion?: string
+): MockupSceneKind {
+  if (digitalOImpresion === 'digital') return 'digital'
+
   const text = ubicacion.trim()
   if (text) {
     for (const rule of SCENE_RULES) {
@@ -47,6 +53,13 @@ export function resolveMockupScene(ubicacion: string, productKind?: MockupProduc
   }
   if (productKind === 'vehicle') return 'vehicle'
   return 'interior'
+}
+
+export function labelFormatoPedido(value: string): string {
+  if (value === 'digital') return 'Digital'
+  if (value === 'impresion') return 'Impresión'
+  if (value === 'ambos') return 'Digital e impresión'
+  return ''
 }
 
 export function inferTiposProducto(nombres: string[]): string[] {

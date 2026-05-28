@@ -1,3 +1,17 @@
+/* Sin transform en la entrada: si no, position:sticky del mockup no funciona */
+.cliente-portal-main > .cliente-nuevo-pedido-page.cliente-page {
+  animation: cliente-nuevo-pedido-page-in 0.45s var(--cliente-ease-out) both;
+}
+
+@keyframes cliente-nuevo-pedido-page-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .cliente-nuevo-pedido-page .pedido-form-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
@@ -10,9 +24,17 @@
 }
 
 .cliente-nuevo-pedido-page .pedido-mockup-aside {
+  position: sticky;
+  top: 6.25rem;
+  align-self: start;
+  z-index: 5;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 0.25rem;
 }
 
 .cliente-nuevo-pedido-page .pedido-mockup-capture-wrap {
@@ -95,6 +117,9 @@
   }
 
   .cliente-nuevo-pedido-page .pedido-mockup-aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
     order: -1;
   }
 }
