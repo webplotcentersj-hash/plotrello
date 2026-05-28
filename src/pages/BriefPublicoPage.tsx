@@ -215,15 +215,20 @@ const BriefPublicoPage = (props?: BriefPublicoPageProps) => {
       let response
       
       if (briefResponse.success && briefResponse.data) {
-        // Usar los datos del brief directamente
         response = { success: true, data: briefResponse.data }
+      } else if (isCliente && token) {
+        // Token recién creado (pendiente en BD): permitir formulario con prefill del portal
+        response = {
+          success: true,
+          data: { token, completado: false }
+        }
       } else {
-        // Fallback: intentar con la función antigua
         response = await apiService.obtenerOrdenPorBriefToken(token)
       }
-      
+
       if (response.success && response.data) {
         setOrden(response.data)
+        setError(null)
         const data = response.data
         if (typeof data.id === 'number') {
           setBriefId(data.id)

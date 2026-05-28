@@ -115,7 +115,44 @@ BEGIN
     public.brief_mockup_url(b.id) AS mockup_url
   FROM public.briefs_publicos b
   LEFT JOIN public.ordenes_trabajo o ON b.id_orden_asociada = o.id
-  WHERE b.token = p_token;
+  WHERE b.token = p_token
+
+  UNION ALL
+
+  SELECT
+    NULL::integer,
+    tp.token,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text[],
+    NULL::text,
+    false,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    false,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::date,
+    false,
+    NULL::integer,
+    false,
+    NULL::varchar,
+    NULL::varchar,
+    NULL::text
+  FROM public.briefs_tokens_pendientes tp
+  WHERE tp.token = p_token
+    AND NOT EXISTS (
+      SELECT 1 FROM public.briefs_publicos bp WHERE bp.token = p_token
+    );
 END;
 $$;
 
