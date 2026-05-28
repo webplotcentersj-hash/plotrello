@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Bell, LogOut, Menu, X } from 'lucide-react'
+import { Bell, LogOut, Menu, MessageCircle, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../../hooks/useClienteAuth'
 import { useClienteNotificacionesBadge } from '../../hooks/useClienteNotificacionesBadge'
+import { useClienteMensajesBadge } from '../../hooks/useClienteMensajesBadge'
 import { CLIENTE_NAV_ITEMS } from './clienteNavConfig'
 import ClienteThemeToggle from './ClienteThemeToggle'
 import './ClientePillNav.css'
@@ -14,11 +15,17 @@ export default function ClientePillNav() {
   const navigate = useNavigate()
   const { logout, cliente } = useClienteAuth()
   const { noLeidas, tieneNoLeidas } = useClienteNotificacionesBadge()
+  const { noLeidos: mensajesNoLeidos, tieneNoLeidas: tieneMensajesNoLeidos } =
+    useClienteMensajesBadge()
   const [mobileOpen, setMobileOpen] = useState(false)
   const notifLabel =
     noLeidas > 0
       ? `Notificaciones, ${noLeidas} sin leer`
       : 'Notificaciones'
+  const mensajesLabel =
+    mensajesNoLeidos > 0
+      ? `Mensajes, ${mensajesNoLeidos} sin leer`
+      : 'Mensajes con el equipo'
 
   const isActive = (href: string) => {
     if (href === '/cliente/dashboard') {
@@ -55,6 +62,20 @@ export default function ClientePillNav() {
 
         <div className="cliente-pill-actions">
           <ClienteThemeToggle compact />
+          <button
+            type="button"
+            className={`cliente-pill-icon-btn cliente-pill-notif-btn${tieneMensajesNoLeidos ? ' cliente-pill-notif-btn--alert' : ''}`}
+            title={mensajesLabel}
+            aria-label={mensajesLabel}
+            onClick={() => navigate('/cliente/mensajes')}
+          >
+            <MessageCircle size={18} strokeWidth={2.25} />
+            {mensajesNoLeidos > 0 && (
+              <span className="cliente-pill-notif-badge" aria-hidden>
+                {mensajesNoLeidos > 9 ? '9+' : mensajesNoLeidos}
+              </span>
+            )}
+          </button>
           <button
             type="button"
             className={`cliente-pill-icon-btn cliente-pill-notif-btn${tieneNoLeidas ? ' cliente-pill-notif-btn--alert' : ''}`}

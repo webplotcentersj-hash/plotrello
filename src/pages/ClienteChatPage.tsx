@@ -45,9 +45,6 @@ export default function ClienteChatPage() {
         subtitle={`Hola, ${cliente.nombre}. Consultá el estado de tus pedidos y OP.`}
       />
         <section className="cliente-page-card cliente-chat-card">
-          <div className="cliente-chat-info">
-            <h2>👋 Hola, {cliente.nombre}</h2>
-          </div>
           {embedUrl && (
             <iframe
               src={embedUrl}

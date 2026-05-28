@@ -569,6 +569,7 @@ export interface PedidoClienteRecord {
   numero_pedido: string
   estado: 'pendiente' | 'en_revision' | 'aprobado' | 'rechazado' | 'convertido_parcial' | 'convertido_completo' | 'cancelado'
   id_op_asociada?: number | null
+  id_venta_asociada?: number | null
   numero_op?: string | null
   estado_op?: string | null
   fecha_pedido: string
@@ -1449,14 +1450,16 @@ export interface Venta {
   id_oportunidad?: number | null
   /** Cliente del catálogo (venta rápida / CRM) */
   id_cliente?: number | null
+  /** Pedido web origen (portal/tótem) — usar convertir_pedido_a_op al generar OP */
+  id_pedido_cliente?: number | null
   cliente_nombre: string
   cliente_telefono?: string | null
   cliente_email?: string | null
   cliente_dni_cuit?: string | null
   cliente_empresa?: string | null
   cliente_direccion?: string | null
-  id_op: number
-  numero_op: string
+  id_op?: number | null
+  numero_op?: string | null
   valor_total: number
   metodo_pago?: MetodoPago | null
   estado_pago: EstadoPago

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoClienteRecord } from '../types/api'
 import PedidoClienteMaterialModal from '../components/admin/PedidoClienteMaterialModal'
+import { puedeConvertirPedidoAOp } from '../utils/pedidoClienteConversion'
 import './PedidosClientesPage.css'
 
 const PedidosClientesPage = () => {
@@ -154,7 +155,7 @@ const PedidosClientesPage = () => {
                       >
                         Ver detalle
                       </button>
-                      {pedido.estado === 'pendiente' && (
+                      {puedeConvertirPedidoAOp(pedido) && (
                         <button
                           className="btn-convert"
                           onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}/convertir`)}

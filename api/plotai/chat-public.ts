@@ -44,11 +44,14 @@ HORARIOS DE ATENCIÓN:
 type Body = {
   message?: string
   modo?: string
+  /** Sesión portal cliente autenticado */
+  cliente_id?: number
   nombre?: string
   empresa?: string
   dni?: string
   cuit?: string
   op?: string
+  cliente_email?: string
   conversation_id?: number
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
   images?: Array<{ mimeType: string; data: string }>
@@ -237,6 +240,172 @@ async function getContextByOp(
     (listoRetiro ? '\n  LISTO PARA RETIRO: esta OP ya puede ser retirada. Avisale al cliente que puede pasar a buscarla.' : '')
 
   return { clientContext, ordersContext }
+}
+
+const PEDIDO_ESTADO_LABEL: Record<string, string> = {
+  pendiente: 'Pendiente',
+  en_revision: 'En revisión',
+  aprobado: 'Aprobado',
+  rechazado: 'Rechazado',
+  convertido_completo: 'Convertido a OP',
+  convertido_parcial: 'Convertido parcial',
+  cancelado: 'Cancelado'
+}
+
+/** Contexto completo para cliente logueado en el portal (pedidos web + OPs vinculadas). */
+async function getContextByClienteId(
+  clienteId: number
+): Promise<{ clientContext: string; ordersContext: string; pedidosContext: string }> {
+  if (!supabase || !Number.isInteger(clienteId) || clienteId <= 0) {
+    return {
+      clientContext: 'No se pudo identificar la cuenta del portal.',
+      ordersContext: '',
+      pedidosContext: ''
+    }
+  }
+
+  const { data: clientRow, error: clientErr } = await supabase
+    .from('clientes')
+    .select('id, nombre, apellido, empresa, dni_cuit, telefono, email, activo, es_cliente_web')
+    .eq('id', clienteId)
+    .maybeSingle()
+
+  if (clientErr || !clientRow) {
+    return {
+      clientContext: `Cuenta portal #${clienteId}: no se encontró el cliente en el sistema.`,
+      ordersContext: '',
+      pedidosContext: ''
+    }
+  }
+
+  const c = clientRow as Record<string, unknown>
+  const nombreCompleto =
+    [c.nombre, c.apellido].filter(Boolean).join(' ').trim() ||
+    String(c.empresa || '').trim() ||
+    `Cliente #${clienteId}`
+
+  const clientContext =
+    `CLIENTE IDENTIFICADO (sesión portal autenticada): ${nombreCompleto}` +
+    (c.empresa ? ` · Empresa: ${c.empresa}` : '') +
+    `. DNI/CUIT: ${c.dni_cuit || '—'}. Tel: ${c.telefono || '—'}. Email: ${c.email || '—'}.` +
+    `\nUsá SOLO los pedidos y OP listados abajo para este cliente; no pidas DNI ni nombre salvo que consulte otra persona.`
+
+  const { data: pedidosRows } = await supabase
+    .from('pedidos_clientes')
+    .select(
+      'id, numero_pedido, estado, tipo_intencion, precio_total, fecha_pedido, fecha_limite_deseada, id_op_asociada, id_venta_asociada, observaciones_cliente'
+    )
+    .eq('id_cliente', clienteId)
+    .order('fecha_pedido', { ascending: false })
+    .limit(25)
+
+  const pedidos = (pedidosRows || []) as Array<Record<string, unknown>>
+  let pedidosContext = ''
+  if (pedidos.length === 0) {
+    pedidosContext =
+      'PEDIDOS WEB DEL CLIENTE: no tiene pedidos registrados en el portal todavía.'
+  } else {
+    pedidosContext =
+      'PEDIDOS WEB DEL CLIENTE (portal, datos reales):\n' +
+      pedidos
+        .map((p) => {
+          const est = PEDIDO_ESTADO_LABEL[String(p.estado || '')] || String(p.estado || '—')
+          const tipo = String(p.tipo_intencion || 'compra') === 'cotizacion' ? 'Cotización' : 'Compra'
+          const opLink = p.id_op_asociada ? ` · OP vinculada id ${p.id_op_asociada}` : ''
+          const venta = p.id_venta_asociada ? ` · Venta #${p.id_venta_asociada}` : ''
+          const limite = p.fecha_limite_deseada ? ` · Fecha límite: ${p.fecha_limite_deseada}` : ''
+          const total =
+            p.precio_total != null && !Number.isNaN(Number(p.precio_total))
+              ? ` · Total $${Number(p.precio_total).toFixed(2)}`
+              : ''
+          return `- ${p.numero_pedido ?? '—'} (${tipo}): ${est}${total}${limite}${opLink}${venta} · Pedido ${p.fecha_pedido ?? '—'}`
+        })
+        .join('\n')
+  }
+
+  const opIdsFromPedidos = [
+    ...new Set(
+      pedidos
+        .map((p) => Number(p.id_op_asociada))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )
+  ]
+
+  const opSelect = `id, ${ORDEN_UBICACION_SELECT}, id_pedido_cliente`
+
+  const { data: ordenesPorPedidoCliente } = await supabase
+    .from('ordenes_trabajo')
+    .select(opSelect)
+    .eq('id_pedido_cliente', clienteId)
+    .order('fecha_creacion', { ascending: false })
+    .limit(25)
+
+  const ordenesById = new Map<number, Record<string, unknown>>()
+  for (const o of (ordenesPorPedidoCliente || []) as Array<Record<string, unknown>>) {
+    const id = Number(o.id)
+    if (Number.isInteger(id) && id > 0) ordenesById.set(id, o)
+  }
+
+  if (opIdsFromPedidos.length > 0) {
+    const { data: ordenesExtra } = await supabase
+      .from('ordenes_trabajo')
+      .select(opSelect)
+      .in('id', opIdsFromPedidos)
+    for (const o of (ordenesExtra || []) as Array<Record<string, unknown>>) {
+      const id = Number(o.id)
+      if (Number.isInteger(id) && id > 0) ordenesById.set(id, o)
+    }
+  }
+
+  const docNorm = digitsOnly(String(c.dni_cuit || ''))
+  const nombreLower = nombreCompleto.toLowerCase()
+  if (docNorm.length >= 6 || nombreLower.length >= 2) {
+    const { data: ordenesRecientes } = await supabase
+      .from('ordenes_trabajo')
+      .select(opSelect)
+      .order('fecha_creacion', { ascending: false })
+      .limit(80)
+
+    for (const o of (ordenesRecientes || []) as Array<Record<string, unknown>>) {
+      const id = Number(o.id)
+      if (!Number.isInteger(id) || id <= 0 || ordenesById.has(id)) continue
+      const oDoc = digitsOnly(String(o.dni_cuit ?? ''))
+      const oCliente = String(o.cliente ?? '').toLowerCase().trim()
+      const matchDoc = docNorm.length >= 6 && oDoc.length >= 6 && oDoc === docNorm
+      const matchNombre =
+        nombreLower.length >= 2 &&
+        (oCliente.includes(nombreLower) ||
+          nombreLower.split(/\s+/).filter((p) => p.length >= 2).every((p) => oCliente.includes(p)))
+      if (matchDoc || matchNombre) ordenesById.set(id, o)
+    }
+  }
+
+  const ordenesList = [...ordenesById.values()]
+  let ordersContext = ''
+  if (ordenesList.length === 0) {
+    ordersContext =
+      'ÓRDENES DE TRABAJO (OP): no hay OP vinculadas a sus pedidos ni coincidencias recientes por nombre/DNI.'
+  } else {
+    ordersContext =
+      'ÓRDENES DE TRABAJO DEL CLIENTE (en tiempo real):\n' +
+      ordenesList
+        .slice(0, 20)
+        .map((o) => {
+          const est = (o.estado != null && String(o.estado).trim()) ? String(o.estado).trim() : '—'
+          const donde = buildDondeEsta(o)
+          const retiro = LISTO_RETIRO_ESTADOS.includes(est)
+            ? ' LISTO PARA RETIRO: puede pasar a buscarla.'
+            : ''
+          const pedidoRef = o.id_pedido_cliente ? ` · Pedido web #${o.id_pedido_cliente}` : ''
+          return (
+            `- OP ${o.numero_op ?? '—'}: ${o.descripcion ?? 'Sin descripción'} | Estado: ${est} | Prioridad: ${o.prioridad ?? '—'} | Fecha entrega: ${o.fecha_entrega ?? '—'}${pedidoRef}\n` +
+            `  Dónde está: ${donde}.${retiro}`
+          )
+        })
+        .join('\n')
+  }
+
+  return { clientContext, ordersContext, pedidosContext }
 }
 
 /** Detecta si el cliente pide hablar con un humano o con un sector. Devuelve rol (para notificación) y etiqueta para el mensaje. */
@@ -496,12 +665,30 @@ SALIDA:
     const opFromMsg = allUserTexts.map(extractOpFromText).find(Boolean)
     const numeroOp = (opFromBody && opFromBody.length >= 2) ? opFromBody : (opFromMsg || null)
 
+    const clienteIdFromBody =
+      body.cliente_id != null && Number.isInteger(Number(body.cliente_id)) && Number(body.cliente_id) > 0
+        ? Number(body.cliente_id)
+        : null
+
     let clientContext: string
     let ordersContext: string
+    let pedidosContext = ''
+
     if (numeroOp) {
       const byOp = await getContextByOp(numeroOp)
       clientContext = byOp.clientContext
       ordersContext = byOp.ordersContext
+      if (modo === 'cliente_portal' && clienteIdFromBody) {
+        const portalCtx = await getContextByClienteId(clienteIdFromBody)
+        clientContext = portalCtx.clientContext + '\n' + clientContext
+        pedidosContext = portalCtx.pedidosContext
+        if (!ordersContext && portalCtx.ordersContext) ordersContext = portalCtx.ordersContext
+      }
+    } else if (modo === 'cliente_portal' && clienteIdFromBody) {
+      const portalCtx = await getContextByClienteId(clienteIdFromBody)
+      clientContext = portalCtx.clientContext
+      ordersContext = portalCtx.ordersContext
+      pedidosContext = portalCtx.pedidosContext
     } else {
       const byClient = await findClientAndOrders(nombre, dni, cuit, empresa)
       clientContext = byClient.clientContext
@@ -665,6 +852,7 @@ ${PLOT_CENTER_KNOWLEDGE}
 
 CLIENTE CON QUIEN ESTÁS HABLANDO (solo esta info es válida para OPs, estados y datos del cliente):
 ${clientContext}
+${pedidosContext ? '\n' + pedidosContext : ''}
 ${ordersContext ? '\n' + ordersContext : ''}
 
 CÓMO TRATAR AL CLIENTE (atención al público):
@@ -732,7 +920,15 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     }
 
     let conversationId: number | null = null
-    const clienteNombreConv = nombre || 'Cliente web'
+    const clienteNombreConv =
+      nombre ||
+      (modo === 'cliente_portal' && clienteIdFromBody ? `Cliente portal #${clienteIdFromBody}` : 'Cliente web')
+    const canalConversacion =
+      modo === 'cliente_portal'
+        ? 'cliente_portal'
+        : modo === 'totem' || modo === 'totem_autogestion' || modo === 'totem_consulta_cliente'
+          ? 'totem'
+          : 'chat_web'
     if (supabase && modo !== 'admin') {
       try {
         if (body.conversation_id && Number.isInteger(Number(body.conversation_id))) {
@@ -766,7 +962,8 @@ CÓMO TRATAR AL CLIENTE (atención al público):
             .from('atencion_conversaciones')
             .insert({
               cliente_nombre: clienteNombreConv,
-              canal: 'chat_web',
+              canal: canalConversacion,
+              ...(body.cliente_email?.trim() ? { cliente_email: body.cliente_email.trim() } : {}),
               ultimo_mensaje_preview: message.slice(0, 200),
               estado: 'abierto',
               historial_mensajes: [

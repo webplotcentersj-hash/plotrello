@@ -1307,9 +1307,41 @@ const CRMVentasPage = () => {
     }
   }
 
+  const ventaTieneOp = (venta: Venta) =>
+    Boolean(venta.numero_op?.trim()) || (venta.id_op != null && venta.id_op > 0)
+
   const handleConvertirVentaAOP = async (venta: Venta) => {
     if (!usuario) {
       alert('Debes estar autenticado para convertir la venta a OP')
+      return
+    }
+
+    if (venta.id_pedido_cliente) {
+      if (
+        !confirm(
+          'Esta venta proviene de un pedido del portal. Se creará la OP con brief, archivos y se vinculará la venta existente. ¿Continuar?'
+        )
+      ) {
+        return
+      }
+      try {
+        const response = await apiService.convertirPedidoAOp({
+          id_pedido: venta.id_pedido_cliente,
+          id_usuario_convertidor: usuario.id,
+          nombre_usuario_convertidor: usuario.nombre || 'Usuario',
+          sector_inicial: 'Diseño Gráfico'
+        })
+        if (response.success && response.data) {
+          const d = response.data
+          alert(`Pedido convertido a OP ${d.numero_op}${d.numero_venta ? ` · Venta ${d.numero_venta}` : ''}`)
+          navigate(`/op/${d.id_op}`)
+        } else {
+          alert(response.error || 'No se pudo convertir el pedido a OP')
+        }
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Error desconocido'
+        alert('Error al convertir pedido a OP: ' + msg)
+      }
       return
     }
 
@@ -2477,10 +2509,14 @@ const CRMVentasPage = () => {
                   >
                     {ventaExpandidaId === venta.id ? '🔽 Cerrar' : '🔎 Ampliar'}
                   </button>
-                  {venta.numero_op ? (
+                  {ventaTieneOp(venta) ? (
                     <button
                       className="btn-action"
-                      onClick={() => navigate(`/op/${venta.numero_op}`)}
+                      onClick={() =>
+                        navigate(
+                          venta.id_op ? `/op/${venta.id_op}` : `/op/${venta.numero_op}`
+                        )
+                      }
                     >
                       👁️ Ver OP
                     </button>
@@ -2488,8 +2524,13 @@ const CRMVentasPage = () => {
                     <button
                       className="btn-action btn-primary"
                       onClick={() => handleConvertirVentaAOP(venta)}
+                      title={
+                        venta.id_pedido_cliente
+                          ? 'Crea OP desde el pedido web (brief, mockup, venta vinculada)'
+                          : undefined
+                      }
                     >
-                      📋 Convertir a OP
+                      {venta.id_pedido_cliente ? '📋 Pedido → OP' : '📋 Convertir a OP'}
                     </button>
                   )}
                   <button

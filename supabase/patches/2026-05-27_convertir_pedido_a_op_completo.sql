@@ -38,6 +38,7 @@ DECLARE
   v_numero_venta varchar(50);
   v_cliente_nombre varchar(255);
   mockup_url text;
+  v_venta_existente boolean := false;
 BEGIN
   SELECT * INTO pedido_record
   FROM public.pedidos_clientes pc
@@ -226,95 +227,116 @@ BEGIN
     );
   END LOOP;
 
-  -- Venta registrada (mostrador / CRM)
-  v_numero_venta := 'VENT-' || TO_CHAR(now(), 'YYYYMMDD') || '-' || LPAD(
-    (COALESCE((SELECT MAX(v.id) FROM public.ventas v), 0) + 1)::text,
-    4,
-    '0'
-  );
+  -- Venta en CRM (reutilizar si ya se creó al confirmar compra en portal)
+  IF pedido_record.id_venta_asociada IS NOT NULL THEN
+    v_venta_existente := true;
+    v_id_venta := pedido_record.id_venta_asociada;
+    SELECT v.numero_venta INTO v_numero_venta FROM public.ventas v WHERE v.id = v_id_venta;
 
-  INSERT INTO public.ventas (
-    numero_venta,
-    id_cliente,
-    cliente_nombre,
-    cliente_telefono,
-    cliente_email,
-    cliente_dni_cuit,
-    cliente_empresa,
-    cliente_direccion,
-    id_op,
-    numero_op,
-    valor_total,
-    metodo_pago,
-    estado_pago,
-    fecha_venta,
-    id_vendedor,
-    nombre_vendedor,
-    observaciones
-  ) VALUES (
-    v_numero_venta,
-    pedido_record.id_cliente,
-    v_cliente_nombre,
-    cliente_record.telefono,
-    cliente_record.email,
-    cliente_record.dni_cuit,
-    cliente_record.empresa,
-    cliente_record.direccion,
-    nueva_op_id,
-    numero_op_generado,
-    COALESCE(pedido_record.precio_total, 0),
-    'Otro',
-    'Pendiente',
-    CURRENT_DATE,
-    p_id_usuario_convertidor,
-    p_nombre_usuario_convertidor,
-    'Venta desde pedido web ' || pedido_record.numero_pedido
-  )
-  RETURNING id INTO v_id_venta;
+    UPDATE public.ventas v
+    SET
+      id_op = nueva_op_id,
+      numero_op = numero_op_generado,
+      observaciones = COALESCE(v.observaciones, '') ||
+        E'\nVinculada a OP ' || numero_op_generado || ' el ' || CURRENT_TIMESTAMP::text,
+      updated_at = now()
+    WHERE v.id = v_id_venta;
+  ELSE
+    v_numero_venta := 'VENT-' || TO_CHAR(now(), 'YYYYMMDD') || '-' || LPAD(
+      (COALESCE((SELECT MAX(v.id) FROM public.ventas v), 0) + 1)::text,
+      4,
+      '0'
+    );
 
-  FOR item_record IN
-    SELECT
-      i.cantidad,
-      i.precio_unitario,
-      i.precio_total,
-      i.descripcion_personalizada,
-      a.nombre AS nombre_articulo,
-      a.codigo AS codigo_articulo,
-      a.id_articulo_stock
-    FROM public.pedidos_clientes_items i
-    JOIN public.articulos_empresa a ON a.id = i.id_articulo
-    WHERE i.id_pedido = p_id_pedido
-  LOOP
-    INSERT INTO public.ventas_items (
-      id_venta,
-      id_articulo_stock,
-      codigo_articulo,
-      descripcion,
-      cantidad,
-      precio_unitario,
-      precio_total,
+    INSERT INTO public.ventas (
+      numero_venta,
+      id_cliente,
+      id_pedido_cliente,
+      cliente_nombre,
+      cliente_telefono,
+      cliente_email,
+      cliente_dni_cuit,
+      cliente_empresa,
+      cliente_direccion,
+      id_op,
+      numero_op,
+      valor_total,
+      metodo_pago,
+      estado_pago,
+      fecha_venta,
+      id_vendedor,
+      nombre_vendedor,
       observaciones
     ) VALUES (
-      v_id_venta,
-      item_record.id_articulo_stock,
-      item_record.codigo_articulo,
-      COALESCE(
-        NULLIF(trim(item_record.descripcion_personalizada), ''),
-        item_record.nombre_articulo
-      ),
-      item_record.cantidad,
-      item_record.precio_unitario,
-      item_record.precio_total,
-      'Pedido ' || pedido_record.numero_pedido
-    );
-  END LOOP;
+      v_numero_venta,
+      pedido_record.id_cliente,
+      p_id_pedido,
+      v_cliente_nombre,
+      cliente_record.telefono,
+      cliente_record.email,
+      cliente_record.dni_cuit,
+      cliente_record.empresa,
+      cliente_record.direccion,
+      nueva_op_id,
+      numero_op_generado,
+      COALESCE(pedido_record.precio_total, 0),
+      'Otro',
+      'Pendiente',
+      CURRENT_DATE,
+      p_id_usuario_convertidor,
+      p_nombre_usuario_convertidor,
+      'Venta desde pedido web ' || pedido_record.numero_pedido
+    )
+    RETURNING id INTO v_id_venta;
 
-  UPDATE public.ventas v
-  SET valor_total = COALESCE((
-    SELECT SUM(vi.precio_total) FROM public.ventas_items vi WHERE vi.id_venta = v_id_venta
-  ), 0),
-  updated_at = now()
-  WHERE v.id = v_id_venta;
+    FOR item_record IN
+      SELECT
+        i.cantidad,
+        i.precio_unitario,
+        i.precio_total,
+        i.descripcion_personalizada,
+        a.nombre AS nombre_articulo,
+        a.codigo AS codigo_articulo,
+        a.id_articulo_stock
+      FROM public.pedidos_clientes_items i
+      JOIN public.articulos_empresa a ON a.id = i.id_articulo
+      WHERE i.id_pedido = p_id_pedido
+    LOOP
+      INSERT INTO public.ventas_items (
+        id_venta,
+        id_articulo_stock,
+        codigo_articulo,
+        descripcion,
+        cantidad,
+        precio_unitario,
+        precio_total,
+        observaciones
+      ) VALUES (
+        v_id_venta,
+        item_record.id_articulo_stock,
+        item_record.codigo_articulo,
+        COALESCE(
+          NULLIF(trim(item_record.descripcion_personalizada), ''),
+          item_record.nombre_articulo
+        ),
+        item_record.cantidad,
+        item_record.precio_unitario,
+        item_record.precio_total,
+        'Pedido ' || pedido_record.numero_pedido
+      );
+    END LOOP;
+
+    UPDATE public.ventas v
+    SET valor_total = COALESCE((
+      SELECT SUM(vi.precio_total) FROM public.ventas_items vi WHERE vi.id_venta = v_id_venta
+    ), 0),
+    updated_at = now()
+    WHERE v.id = v_id_venta;
+
+    UPDATE public.pedidos_clientes pc
+    SET id_venta_asociada = v_id_venta
+    WHERE pc.id = p_id_pedido;
+  END IF;
 
   UPDATE public.pedidos_clientes pc
   SET
@@ -342,7 +364,12 @@ BEGIN
   SELECT
     nueva_op_id,
     numero_op_generado,
-    'Pedido convertido a OP ' || numero_op_generado || ' · Venta ' || v_numero_venta,
+    CASE
+      WHEN v_venta_existente THEN
+        'Pedido convertido a OP ' || numero_op_generado || ' · Venta existente ' || v_numero_venta
+      ELSE
+        'Pedido convertido a OP ' || numero_op_generado || ' · Venta ' || v_numero_venta
+    END,
     v_id_venta,
     v_numero_venta;
 END;

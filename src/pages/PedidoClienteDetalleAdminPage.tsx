@@ -5,6 +5,10 @@ import apiService from '../services/api'
 import type { PedidoClienteDetalle, MensajePedidoClienteRecord } from '../types/api'
 import PedidoClienteMaterialModal from '../components/admin/PedidoClienteMaterialModal'
 import { buildPedidoEspecificacionTexto, splitPedidoArchivos } from '../utils/pedidoClienteMaterial'
+import {
+  etiquetaTipoIntencionPedido,
+  puedeConvertirPedidoAOp
+} from '../utils/pedidoClienteConversion'
 import './PedidoClienteDetalleAdminPage.css'
 
 export default function PedidoClienteDetalleAdminPage() {
@@ -213,6 +217,15 @@ export default function PedidoClienteDetalleAdminPage() {
             </span>
           </div>
           <div className="pedido-detalle-header-actions">
+            {puedeConvertirPedidoAOp(pedido) && (
+              <button
+                type="button"
+                className="btn-convert"
+                onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}/convertir`)}
+              >
+                Convertir a OP
+              </button>
+            )}
             <button
               type="button"
               className="btn-primary-outline"
@@ -273,6 +286,13 @@ export default function PedidoClienteDetalleAdminPage() {
         <section className="info-section">
           <h2>Información del Pedido</h2>
           <div className="info-grid">
+            <div className="info-item">
+              <span className="info-label">Tipo:</span>
+              <span className="info-value" style={{ color: '#111827' }}>
+                {etiquetaTipoIntencionPedido(pedido.tipo_intencion)}
+                {pedido.id_venta_asociada ? ' · con venta en CRM' : ''}
+              </span>
+            </div>
             <div className="info-item">
               <span className="info-label">Fecha de pedido:</span>
               <span className="info-value" style={{ color: '#111827' }}>

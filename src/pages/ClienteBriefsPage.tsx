@@ -1,10 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ChevronRight, Palette, Plus, RefreshCw, Sparkles } from 'lucide-react'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageLoading from '../components/cliente/ClientePageLoading'
+import ClienteStatusBadge from '../components/cliente/ClienteStatusBadge'
+import BriefMockupCard from '../components/BriefMockupCard'
+import {
+  BRIEF_PIPELINE_STEPS,
+  getBriefCardTitle,
+  getClienteBriefStatus,
+  type BriefFase
+} from '../utils/clienteBriefStatus'
 import './ClienteBriefsPage.css'
 
 type BriefRecord = {
@@ -23,6 +32,7 @@ type BriefRecord = {
   fecha_completado: string | null
   es_urgencia: boolean | null
   estado?: string | null
+  mockup_url?: string | null
   etapa_taller_grafico?: string | null
   etapa_instalaciones?: string | null
   etapa_taller_imprenta?: string | null
@@ -30,51 +40,7 @@ type BriefRecord = {
   etapa_metalurgica?: string | null
 }
 
-const ESTADOS_DISPLAY: Record<string, string> = {
-  'Pendiente': 'Recibimos tu pedido',
-  'Asesor Técnico': 'Revisando tu pedido',
-  'Presupuestos': 'Preparando tu presupuesto',
-  'Finalizado Asesor Presupuestos': 'Tu presupuesto está listo',
-  'Diseño Gráfico': 'Diseñando tu trabajo',
-  'Diseño en Proceso': 'Diseñando tu trabajo',
-  'En Espera': 'En cola de producción',
-  'Imprenta (Área de Impresión)': 'Imprimiendo tu trabajo',
-  'Taller de Imprenta': 'En taller de impresión',
-  'Taller Gráfico': 'En taller gráfico',
-  'Instalaciones': 'Instalando tu trabajo',
-  'Metalúrgica': 'Fabricando estructuras',
-  'Finalizado en Taller': 'Listo en taller',
-  'Almacén de Entrega': 'Listo para retirar',
-  'Entregado o Instalado': 'Entregado'
-}
-
-const ESTADOS_COLOR: Record<string, string> = {
-  'Pendiente': '#6B7280',
-  'Asesor Técnico': '#8b5cf6',
-  'Presupuestos': '#8b5cf6',
-  'Finalizado Asesor Presupuestos': '#10b981',
-  'Diseño Gráfico': '#f97316',
-  'Diseño en Proceso': '#f97316',
-  'En Espera': '#6B7280',
-  'Imprenta (Área de Impresión)': '#0ea5e9',
-  'Taller de Imprenta': '#0ea5e9',
-  'Taller Gráfico': '#6366f1',
-  'Instalaciones': '#a855f7',
-  'Metalúrgica': '#ec4899',
-  'Finalizado en Taller': '#10b981',
-  'Almacén de Entrega': '#10b981',
-  'Mostrador': '#10b981',
-  'Caja': '#facc15',
-  'Entregado o Instalado': '#16a34a'
-}
-
-const ETAPAS_SECTOR: Array<{ key: keyof BriefRecord; label: string }> = [
-  { key: 'etapa_taller_grafico', label: 'Taller Gráfico' },
-  { key: 'etapa_instalaciones', label: 'Instalaciones' },
-  { key: 'etapa_taller_imprenta', label: 'Taller Imprenta' },
-  { key: 'etapa_impresion_digital', label: 'Impresión Digital' },
-  { key: 'etapa_metalurgica', label: 'Metalúrgica' }
-]
+type FiltroFase = 'todos' | BriefFase
 
 export default function ClienteBriefsPage() {
   const { cliente, loading: authLoading } = useClienteAuth()
@@ -84,6 +50,7 @@ export default function ClienteBriefsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [filtro, setFiltro] = useState<FiltroFase>('todos')
 
   const loadBriefs = useCallback(async (silent = false) => {
     if (!cliente) return
@@ -96,7 +63,7 @@ export default function ClienteBriefsPage() {
       } else if (!silent) {
         setError(response.error || 'Error al cargar pedidos de diseño')
       }
-    } catch (err) {
+    } catch {
       if (!silent) setError('Error de conexión')
     } finally {
       if (!silent) setLoading(false)
@@ -112,13 +79,10 @@ export default function ClienteBriefsPage() {
     loadBriefs(false)
   }, [cliente, authLoading, navigate, loadBriefs])
 
-  // Actualización automática: refresca cada 30 s para que el cliente vea el avance del proyecto
   useEffect(() => {
     if (!cliente || authLoading) return
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        loadBriefs(true)
-      }
+      if (document.visibilityState === 'visible') loadBriefs(true)
     }, 30000)
     return () => clearInterval(interval)
   }, [cliente, authLoading, loadBriefs])
@@ -134,7 +98,7 @@ export default function ClienteBriefsPage() {
       } else {
         setError(response.error || 'Error al crear pedido de diseño')
       }
-    } catch (err) {
+    } catch {
       setError('Error al crear pedido de diseño')
     } finally {
       setCreating(false)
@@ -142,43 +106,36 @@ export default function ClienteBriefsPage() {
   }
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '-'
+    if (!dateStr) return 'Sin fecha'
     return new Date(dateStr).toLocaleDateString('es-AR', {
-      year: 'numeric',
+      day: 'numeric',
       month: 'short',
-      day: 'numeric'
+      year: 'numeric'
     })
   }
 
-  const getEstadoLabel = (b: BriefRecord) => {
-    if (!b.completado) return 'En edición'
-    if (b.id_orden_asociada && b.estado) {
-      const display = ESTADOS_DISPLAY[b.estado]
-      return display || b.estado
-    }
-    if (b.id_orden_asociada) return `OP ${b.numero_op || b.id_orden_asociada}`
-    return 'Completado - Pendiente de asignación'
-  }
+  const briefsConEstado = useMemo(
+    () =>
+      briefs.map((b) => ({
+        brief: b,
+        status: getClienteBriefStatus(b),
+        title: getBriefCardTitle(b)
+      })),
+    [briefs]
+  )
 
-  const getEstadoColor = (b: BriefRecord) => {
-    if (!b.completado) return '#f59e0b'
-    if (b.id_orden_asociada && b.estado) {
-      return ESTADOS_COLOR[b.estado] || '#10b981'
-    }
-    if (b.id_orden_asociada) return '#10b981'
-    return '#3b82f6'
-  }
+  const filtrados = useMemo(() => {
+    if (filtro === 'todos') return briefsConEstado
+    return briefsConEstado.filter((x) => x.status.fase === filtro)
+  }, [briefsConEstado, filtro])
 
-  const getEtapasActivas = (b: BriefRecord) => {
-    if (!b.id_orden_asociada) return []
-    return ETAPAS_SECTOR.filter(({ key }) => {
-      const val = b[key]
-      return val && String(val).trim() !== ''
-    }).map(({ key, label }) => ({
-      sector: label,
-      etapa: b[key] as string
-    }))
-  }
+  const conteos = useMemo(() => {
+    const c = { todos: briefs.length, borrador: 0, enviado: 0, produccion: 0, entregado: 0 }
+    for (const { status } of briefsConEstado) {
+      c[status.fase] += 1
+    }
+    return c
+  }, [briefsConEstado, briefs.length])
 
   if (authLoading || loading) {
     return <ClientePageLoading />
@@ -188,128 +145,172 @@ export default function ClienteBriefsPage() {
     <ClientePageLayout className="cliente-briefs-page">
       <ClientePageHeader
         eyebrow="Diseño"
-        title="Pedidos de diseño"
-        subtitle="Briefs y estado de tus trabajos gráficos"
+        title="Mis pedidos de diseño"
+        subtitle="Briefs creativos: desde tu idea hasta la orden en producción"
         actions={
-          <button type="button" className="cliente-btn-primary" onClick={handleNuevoBrief} disabled={creating}>
-            {creating ? 'Creando…' : '+ Nuevo brief'}
+          <button
+            type="button"
+            className="cliente-btn-primary cliente-briefs-new-btn"
+            onClick={handleNuevoBrief}
+            disabled={creating}
+          >
+            <Plus size={18} aria-hidden />
+            {creating ? 'Abriendo…' : 'Nuevo pedido'}
           </button>
         }
       />
 
-        {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
+      {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
-        <div className="cliente-briefs-section">
-          <div className="cliente-briefs-section-header">
-            <div>
-              <h2>Mis Pedidos de Diseño (Briefs)</h2>
-              <p className="section-desc">
-                Aquí podés ver el estado de tus pedidos de diseño. Creá un nuevo brief para solicitar un trabajo de diseño gráfico.
-              </p>
-            </div>
+      <section className="cliente-briefs-intro cliente-page-card">
+        <div className="cliente-briefs-intro__icon" aria-hidden>
+          <Palette size={22} />
+        </div>
+        <div>
+          <h2 className="cliente-briefs-intro__title">¿Cómo funciona?</h2>
+          <ol className="cliente-briefs-intro__steps">
+            <li><strong>Completás el brief</strong> con productos, objetivo y mockup.</li>
+            <li><strong>Plot Center lo revisa</strong> y crea tu orden de trabajo (OP).</li>
+            <li><strong>Seguís el avance</strong> hasta que el trabajo esté listo.</li>
+          </ol>
+        </div>
+      </section>
+
+      <div className="cliente-briefs-toolbar">
+        <div className="cliente-briefs-filters" role="tablist" aria-label="Filtrar pedidos">
+          {(
+            [
+              ['todos', 'Todos', conteos.todos],
+              ['borrador', 'Borradores', conteos.borrador],
+              ['enviado', 'En revisión', conteos.enviado],
+              ['produccion', 'En producción', conteos.produccion],
+              ['entregado', 'Entregados', conteos.entregado]
+            ] as const
+          ).map(([id, label, count]) => (
             <button
+              key={id}
               type="button"
-              className="btn-actualizar-briefs"
-              onClick={async () => {
-                setRefreshing(true)
-                await loadBriefs(true)
-                setRefreshing(false)
-              }}
-              disabled={refreshing}
-              title="Actualizar estado de los pedidos"
+              role="tab"
+              aria-selected={filtro === id}
+              className={`cliente-briefs-filter ${filtro === id ? 'is-active' : ''}`}
+              onClick={() => setFiltro(id)}
             >
-              {refreshing ? 'Actualizando...' : '↻ Actualizar'}
+              {label}
+              <span className="cliente-briefs-filter__count">{count}</span>
             </button>
-          </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="cliente-btn-outline cliente-briefs-refresh"
+          onClick={async () => {
+            setRefreshing(true)
+            await loadBriefs(true)
+            setRefreshing(false)
+          }}
+          disabled={refreshing}
+        >
+          <RefreshCw size={16} className={refreshing ? 'is-spinning' : ''} aria-hidden />
+          {refreshing ? 'Actualizando…' : 'Actualizar'}
+        </button>
+      </div>
 
-          {briefs.length === 0 ? (
-            <div className="cliente-empty-state">
-              <p>No tenés pedidos de diseño aún</p>
-              <button
-                className="btn-primary"
-                onClick={handleNuevoBrief}
-                disabled={creating}
+      {briefs.length === 0 ? (
+        <div className="cliente-page-empty cliente-briefs-empty">
+          <Sparkles size={40} strokeWidth={1.5} className="cliente-briefs-empty__icon" aria-hidden />
+          <h3>Todavía no tenés pedidos de diseño</h3>
+          <p>Contanos qué necesitás: banners, logos, piezas para redes y más.</p>
+          <button type="button" className="cliente-btn-primary" onClick={handleNuevoBrief} disabled={creating}>
+            Crear mi primer pedido
+          </button>
+        </div>
+      ) : filtrados.length === 0 ? (
+        <div className="cliente-page-empty">
+          <p>No hay pedidos en esta categoría.</p>
+          <button type="button" className="cliente-btn-outline" onClick={() => setFiltro('todos')}>
+            Ver todos
+          </button>
+        </div>
+      ) : (
+        <ul className="cliente-briefs-list">
+          {filtrados.map(({ brief, status, title }) => (
+            <li key={brief.id}>
+              <article
+                className={`cliente-brief-card cliente-page-card ${brief.es_urgencia ? 'is-urgent' : ''}`}
+                onClick={() => navigate(`/cliente/brief/${brief.token}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(`/cliente/brief/${brief.token}`)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
-                Crear Primer Pedido de Diseño
-              </button>
-            </div>
-          ) : (
-            <div className="cliente-briefs-list">
-              {briefs.map((brief) => (
-                <div
-                  key={brief.id}
-                  className={`cliente-brief-card ${brief.es_urgencia ? 'urgente' : ''}`}
-                  onClick={() => navigate(`/cliente/brief/${brief.token}`)}
-                >
-                  <div className="brief-card-header">
-                    <div>
-                      <h3>Brief #{brief.id}</h3>
-                      <p className="brief-fecha">
+                <div className="cliente-brief-card__top">
+                  <div className="cliente-brief-card__identity">
+                    {brief.mockup_url ? (
+                      <div className="cliente-brief-card__thumb">
+                        <BriefMockupCard mockupUrl={brief.mockup_url} compact alt="" />
+                      </div>
+                    ) : (
+                      <div className="cliente-brief-card__thumb cliente-brief-card__thumb--empty" aria-hidden>
+                        <Palette size={28} strokeWidth={1.5} />
+                      </div>
+                    )}
+                    <div className="cliente-brief-card__titles">
+                      <h3 className="cliente-brief-card__title">{title}</h3>
+                      <p className="cliente-brief-card__meta">
+                        #{brief.id}
+                        <span aria-hidden> · </span>
                         {formatDate(brief.fecha_completado || brief.fecha_creacion)}
                       </p>
                     </div>
-                    <div
-                      className="brief-estado-badge"
-                      style={{ backgroundColor: getEstadoColor(brief) }}
-                    >
-                      {getEstadoLabel(brief)}
-                    </div>
                   </div>
-                  <div className="brief-card-body">
-                    {/* Estado del pedido: siempre visible */}
-                    <div
-                      className="brief-estado-pedido"
-                      style={{
-                        borderLeftColor: getEstadoColor(brief),
-                        backgroundColor: `${getEstadoColor(brief)}18`
-                      }}
-                    >
-                      <span className="brief-estado-pedido-label">Estado:</span>
-                      <span className="brief-estado-pedido-valor">{getEstadoLabel(brief)}</span>
-                    </div>
-                    {brief.id_orden_asociada && (
-                      <div className="brief-etapas">
-                        <p className="brief-etapas-titulo">
-                          OP {brief.numero_op || brief.id_orden_asociada} — Avance del proyecto
-                        </p>
-                        <div className="brief-etapas-lista">
-                          {getEtapasActivas(brief).length > 0 ? (
-                            getEtapasActivas(brief).map(({ sector, etapa }) => (
-                              <div key={sector} className="brief-etapa-item">
-                                <span className="brief-etapa-sector">{sector}:</span>
-                                <span className="brief-etapa-valor">{etapa}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="brief-etapa-item">
-                              <span className="brief-etapa-valor">{getEstadoLabel(brief)}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {brief.objetivo_proyecto && (
-                      <p className="brief-objetivo">{brief.objetivo_proyecto}</p>
-                    )}
-                    {brief.brief_publico && (
-                      <p className="brief-desc">{brief.brief_publico.slice(0, 120)}...</p>
-                    )}
-                    {brief.tipo_producto_servicio && brief.tipo_producto_servicio.length > 0 && (
-                      <div className="brief-tags">
-                        {brief.tipo_producto_servicio.slice(0, 3).map((t) => (
-                          <span key={t} className="brief-tag">{t}</span>
-                        ))}
-                      </div>
-                    )}
-                    {brief.es_urgencia && (
-                      <span className="badge badge-urgente">⚡ Urgente</span>
-                    )}
-                  </div>
+                  <ClienteStatusBadge label={status.label} accent={status.accent} size="sm" />
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+
+                <div className="cliente-brief-card__pipeline" aria-label="Progreso del pedido">
+                  {BRIEF_PIPELINE_STEPS.map(({ step, label }) => (
+                    <div
+                      key={step}
+                      className={`cliente-brief-card__pipe-step ${
+                        step < status.step ? 'is-done' : step === status.step ? 'is-current' : ''
+                      }`}
+                    >
+                      <span className="cliente-brief-card__pipe-dot" />
+                      <span className="cliente-brief-card__pipe-label">{label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="cliente-brief-card__hint">{status.hint}</p>
+
+                {brief.tipo_producto_servicio && brief.tipo_producto_servicio.length > 0 && (
+                  <div className="cliente-brief-card__tags">
+                    {brief.tipo_producto_servicio.slice(0, 4).map((t) => (
+                      <span key={t} className="cliente-brief-card__tag">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <footer className="cliente-brief-card__footer">
+                  <span className="cliente-brief-card__cta">
+                    {!brief.completado ? 'Continuar brief' : 'Ver detalle'}
+                    <ChevronRight size={16} aria-hidden />
+                  </span>
+                  {brief.es_urgencia && <span className="cliente-brief-card__urgent">Urgente</span>}
+                  {brief.id_orden_asociada && brief.numero_op && (
+                    <span className="cliente-brief-card__op">{brief.numero_op}</span>
+                  )}
+                </footer>
+              </article>
+            </li>
+          ))}
+        </ul>
+      )}
     </ClientePageLayout>
   )
 }

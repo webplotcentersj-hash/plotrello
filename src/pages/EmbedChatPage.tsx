@@ -7,8 +7,15 @@ export default function EmbedChatPage() {
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const hideFormFromPortal = searchParams?.get('hideForm') === '1'
   const modoFromUrl = searchParams?.get('modo') || (hideFormFromPortal ? 'cliente_portal' : 'web_publico')
+  const clienteIdFromUrl = (() => {
+    const raw = searchParams?.get('clienteId')
+    const n = raw ? parseInt(raw, 10) : NaN
+    return Number.isInteger(n) && n > 0 ? n : null
+  })()
   const clienteNombreFromUrl = searchParams?.get('clienteNombre') || ''
   const clienteEmpresaFromUrl = searchParams?.get('clienteEmpresa') || ''
+  const clienteEmailFromUrl = searchParams?.get('clienteEmail') || ''
+  const isClientePortal = modoFromUrl === 'cliente_portal'
   const [nombre, setNombre] = useState('')
   const [dni, setDni] = useState('')
   const [cuit, setCuit] = useState('')
@@ -45,6 +52,15 @@ export default function EmbedChatPage() {
   useEffect(() => {
     scrollToBottom()
   }, [messages, loading])
+
+  useEffect(() => {
+    if (!isClientePortal || messages.length > 0) return
+    const saludo =
+      clienteNombreFromUrl.trim().length > 0
+        ? `¡Hola, ${clienteNombreFromUrl.trim()}! Soy PlotAI. Tengo acceso a tus pedidos del portal y a tus órdenes de trabajo. Preguntame por el estado de un pedido, una OP o una fecha de entrega.`
+        : '¡Hola! Soy PlotAI. Preguntame por el estado de tus pedidos u órdenes de trabajo.'
+    setMessages([{ role: 'model', parts: [{ text: saludo }] }])
+  }, [isClientePortal, clienteNombreFromUrl, messages.length])
 
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const chatApi = `${apiBase}/api/plotai/chat-public`
@@ -154,19 +170,23 @@ export default function EmbedChatPage() {
     setError(null)
 
     try {
-      const history = messages.map((m) => ({
-        role: m.role,
-        parts: m.parts
-      }))
+      const history = messages
+        .filter((m) => m.role === 'user' || (m.role === 'model' && m.parts?.[0]?.text))
+        .map((m) => ({
+          role: m.role,
+          parts: m.parts
+        }))
       const res = await fetch(chatApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
           modo: modoFromUrl,
+          ...(clienteIdFromUrl ? { cliente_id: clienteIdFromUrl } : {}),
           ...(pendingImage ? { images: [{ mimeType: pendingImage.mimeType, data: pendingImage.data }] } : {}),
           nombre: normalizeForSearch(nombre) || (clienteNombreFromUrl || undefined),
           empresa: clienteEmpresaFromUrl || undefined,
+          cliente_email: clienteEmailFromUrl || undefined,
           dni: normalizeForSearch(dni, true),
           cuit: normalizeForSearch(cuit, true),
           op: normalizeForSearch(op, true),
@@ -269,7 +289,7 @@ export default function EmbedChatPage() {
       ))}
 
       <div className="embed-chat-messages">
-        {messages.length === 0 && !loading && (
+        {messages.length === 0 && !loading && !isClientePortal && (
           <div className="embed-chat-welcome">
             <p>Hola.</p>
           </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
+import { useClienteMensajesBadge } from '../hooks/useClienteMensajesBadge'
 import apiService from '../services/api'
 import type { PedidoClienteRecord } from '../types/api'
 import { buildOpsListosRetiro, type OpListoRetiro } from '../utils/clientePortalOps'
@@ -34,6 +35,7 @@ type BriefResumen = {
 
 export default function ClienteDashboardPage() {
   const { cliente, loading: authLoading } = useClienteAuth()
+  const { noLeidos: mensajesNoLeidos } = useClienteMensajesBadge()
   const navigate = useNavigate()
   const [pedidos, setPedidos] = useState<PedidoClienteRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -288,6 +290,8 @@ export default function ClienteDashboardPage() {
         <nav className="cliente-dashboard-quick" aria-label="Accesos rápidos">
           {quickLinks.map((link) => {
             const Icon = link.Icon
+            const badge =
+              link.path === '/cliente/mensajes' && mensajesNoLeidos > 0 ? mensajesNoLeidos : 0
             return (
               <button
                 key={link.path}
@@ -295,8 +299,13 @@ export default function ClienteDashboardPage() {
                 className="cliente-card cliente-dashboard-quick-card"
                 onClick={() => navigate(link.path)}
               >
-                <span className="cliente-icon-wrap" aria-hidden>
+                <span className="cliente-icon-wrap cliente-dashboard-quick-icon-wrap" aria-hidden>
                   <Icon size={22} strokeWidth={2} />
+                  {badge > 0 && (
+                    <span className="cliente-dashboard-quick-badge" aria-hidden>
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
                 </span>
                 <span className="cliente-dashboard-quick-label">{link.label}</span>
               </button>

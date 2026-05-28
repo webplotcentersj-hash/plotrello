@@ -3,6 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoClienteDetalle } from '../types/api'
+import {
+  etiquetaTipoIntencionPedido,
+  puedeConvertirPedidoAOp
+} from '../utils/pedidoClienteConversion'
 import './ConvertirPedidoAOpPage.css'
 
 export default function ConvertirPedidoAOpPage() {
@@ -50,6 +54,14 @@ export default function ConvertirPedidoAOpPage() {
     try {
       const response = await apiService.getDetallePedidoCliente(parseInt(id))
       if (response.success && response.data) {
+        const p = response.data.pedido
+        if (!puedeConvertirPedidoAOp(p)) {
+          if (p.id_op_asociada) {
+            navigate(`/op/${p.id_op_asociada}`, { replace: true })
+            return
+          }
+          setError('Este pedido ya no puede convertirse a OP')
+        }
         setDetalle(response.data)
       } else {
         setError(response.error || 'Error al cargar el pedido')
@@ -138,7 +150,10 @@ export default function ConvertirPedidoAOpPage() {
         <div className="convertir-pedido-op-header-content">
           <div>
             <h1>Convertir Pedido a OP</h1>
-            <p className="pedido-info">Pedido: {pedido.numero_pedido}</p>
+            <p className="pedido-info">
+              Pedido: {pedido.numero_pedido} · {etiquetaTipoIntencionPedido(pedido.tipo_intencion)}
+              {pedido.id_venta_asociada ? ' · Venta ya registrada' : ''}
+            </p>
           </div>
           <button 
             className="btn-secondary"

@@ -12909,6 +12909,40 @@ class ApiService {
   }
 
   /**
+   * Registra venta CRM con ítems desde un pedido web tipo compra.
+   */
+  async crearVentaDesdePedidoCliente(
+    idPedido: number
+  ): Promise<ApiResponse<{ id: number; numero_venta: string; ya_existia?: boolean }>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('crear_venta_desde_pedido_cliente', {
+          p_id_pedido: idPedido
+        })
+        if (error) return { success: false, error: error.message }
+        if (data && typeof data === 'object' && 'success' in data) {
+          const result = data as {
+            success: boolean
+            error?: string
+            data?: { id: number; numero_venta: string; ya_existia?: boolean }
+          }
+          if (result.success && result.data) {
+            return { success: true, data: result.data }
+          }
+          return { success: false, error: result.error || 'No se pudo registrar la venta' }
+        }
+        return { success: false, error: 'Respuesta inválida al registrar venta' }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Error desconocido'
+        }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
    * Crear pedido desde carrito del portal (checkout Fase 2).
    */
   async crearPedidoDesdeCarritoCliente(input: {
@@ -12948,6 +12982,15 @@ class ApiService {
 
     if (resp.success && resp.data?.id && input.tipo_intencion === 'compra') {
       await this.aplicarStockPedidoCliente(resp.data.id, 'portal')
+      const ventaRes = await this.crearVentaDesdePedidoCliente(resp.data.id)
+      if (!ventaRes.success) {
+        return {
+          success: false,
+          error:
+            ventaRes.error ||
+            'El pedido se creó pero no se registró en ventas. Contactá a mostrador.'
+        }
+      }
     }
 
     if (resp.success) {
@@ -13736,6 +13779,57 @@ class ApiService {
     if (supabase) {
       try {
         const { data, error } = await supabase.rpc('marcar_notificaciones_cliente_leidas', {
+          p_id_cliente: idCliente
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: Number(data ?? 0) }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async contarMensajesClienteNoLeidos(idCliente: number): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('contar_mensajes_cliente_no_leidos', {
+          p_id_cliente: idCliente
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: Number(data ?? 0) }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async listarMensajesPedidoNoLeidosCliente(
+    idCliente: number
+  ): Promise<ApiResponse<Array<{ id_pedido: number; cantidad: number }>>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('listar_mensajes_pedido_no_leidos_cliente', {
+          p_id_cliente: idCliente
+        })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []) as Array<{ id_pedido: number; cantidad: number }> }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async marcarMensajesPedidoLeidosCliente(
+    idPedido: number,
+    idCliente: number
+  ): Promise<ApiResponse<number>> {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('marcar_mensajes_pedido_leidos_cliente', {
+          p_id_pedido: idPedido,
           p_id_cliente: idCliente
         })
         if (error) return { success: false, error: error.message }

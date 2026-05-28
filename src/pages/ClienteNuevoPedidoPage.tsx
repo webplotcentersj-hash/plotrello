@@ -359,6 +359,15 @@ export default function ClienteNuevoPedidoPage() {
       if (response.success && response.data) {
         if (response.data.id && tipoIntencion === 'compra') {
           await apiService.aplicarStockPedidoCliente(response.data.id, 'portal')
+          const ventaRes = await apiService.crearVentaDesdePedidoCliente(response.data.id)
+          if (!ventaRes.success) {
+            setError(
+              ventaRes.error ||
+                'El pedido se creó pero no se registró en ventas. Contactá a mostrador.'
+            )
+            setSaving(false)
+            return
+          }
         }
         await apiService.vaciarCarritoCliente(cliente.id)
         if (response.data.id) {

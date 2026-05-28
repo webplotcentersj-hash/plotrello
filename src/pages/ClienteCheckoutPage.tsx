@@ -147,7 +147,6 @@ export default function ClienteCheckoutPage() {
               />
               <div>
                 <strong>Comprar ahora</strong>
-                <p>Pedido con precios del catálogo. Se reserva stock si aplica.</p>
               </div>
             </label>
             <label className={`intent-card ${tipoIntencion === 'cotizacion' ? 'active' : ''}`}>
@@ -160,7 +159,6 @@ export default function ClienteCheckoutPage() {
               />
               <div>
                 <strong>Solicitar cotización</strong>
-                <p>Mostrador te contactará con precio final. No se descuenta stock.</p>
               </div>
             </label>
           </fieldset>

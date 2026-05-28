@@ -134,12 +134,15 @@ export default function TotemAutogestionCheckoutPage() {
 
       const pedidoId = (resp.data as { id: number }).id
       const stockResp = await apiService.aplicarStockPedidoCliente(pedidoId, 'totem')
+      const ventaResp = await apiService.crearVentaDesdePedidoCliente(pedidoId)
       const stockWarning =
         !stockResp.success
           ? stockResp.error
           : stockResp.data?.errores?.length
             ? stockResp.data.errores.join('; ')
-            : undefined
+            : !ventaResp.success
+              ? ventaResp.error
+              : undefined
 
       setResult({ pedidoId, stockWarning })
       clearTotemCart()
