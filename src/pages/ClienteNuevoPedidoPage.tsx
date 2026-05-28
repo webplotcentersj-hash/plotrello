@@ -317,6 +317,19 @@ export default function ClienteNuevoPedidoPage() {
     setSaving(true)
     setError('')
 
+    let mockupFilePendiente: File | null = null
+    if (items.length > 0 && mockupCaptureRef.current) {
+      try {
+        mockupFilePendiente = await buildPedidoMockupFile({
+          idPedido: 0,
+          aiDataUrl: mockupAiUrl,
+          captureElement: mockupCaptureRef.current
+        })
+      } catch (captureErr) {
+        console.warn('No se pudo preparar el mockup antes de crear el pedido:', captureErr)
+      }
+    }
+
     try {
       const response = await apiService.crearPedidoCliente({
         id_cliente: cliente.id,
@@ -350,16 +363,27 @@ export default function ClienteNuevoPedidoPage() {
         await apiService.vaciarCarritoCliente(cliente.id)
         if (response.data.id) {
           try {
-            const mockupFile = await buildPedidoMockupFile({
-              idPedido: response.data.id,
-              aiDataUrl: mockupAiUrl,
-              captureElement: mockupCaptureRef.current
-            })
-            if (mockupFile) {
-              await apiService.uploadArchivoPedidoCliente(mockupFile, response.data.id, undefined, {
-                nombreArchivo: PEDIDO_MOCKUP_FILENAME,
-                tipoEtiqueta: PEDIDO_MOCKUP_TIPO
+            let mockupFile = mockupFilePendiente
+            if (!mockupFile && mockupCaptureRef.current) {
+              mockupFile = await buildPedidoMockupFile({
+                idPedido: response.data.id,
+                aiDataUrl: mockupAiUrl,
+                captureElement: mockupCaptureRef.current
               })
+            }
+            if (mockupFile) {
+              const mockupUpload = await apiService.uploadArchivoPedidoCliente(
+                mockupFile,
+                response.data.id,
+                undefined,
+                {
+                  nombreArchivo: PEDIDO_MOCKUP_FILENAME,
+                  tipoEtiqueta: PEDIDO_MOCKUP_TIPO
+                }
+              )
+              if (!mockupUpload.success) {
+                console.error('Error al guardar mockup del pedido:', mockupUpload.error)
+              }
             }
           } catch (mockupError) {
             console.error('Error al guardar mockup del pedido:', mockupError)

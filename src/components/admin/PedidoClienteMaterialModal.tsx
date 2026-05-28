@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { PedidoClienteDetalle } from '../../types/api'
 import apiService from '../../services/api'
 import {
@@ -57,6 +58,15 @@ export default function PedidoClienteMaterialModal({ pedidoId, numeroPedido, onC
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  useEffect(() => {
+    if (!pedidoId) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [pedidoId])
+
   if (!pedidoId) return null
 
   const pedido = detalle?.pedido
@@ -65,7 +75,7 @@ export default function PedidoClienteMaterialModal({ pedidoId, numeroPedido, onC
   const especificacion = pedido ? buildPedidoEspecificacionTexto(pedido) : ''
   const titulo = numeroPedido || pedido?.numero_pedido || `Pedido #${pedidoId}`
 
-  return (
+  const modal = (
     <div className="pedido-material-modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="pedido-material-modal"
@@ -179,4 +189,6 @@ export default function PedidoClienteMaterialModal({ pedidoId, numeroPedido, onC
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }
