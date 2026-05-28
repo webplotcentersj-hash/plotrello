@@ -13095,11 +13095,14 @@ class ApiService {
   async uploadArchivoPedidoCliente(
     file: File,
     idPedido: number,
-    idItem?: number
+    idItem?: number,
+    options?: { tipoEtiqueta?: string; nombreArchivo?: string }
   ): Promise<ApiResponse<string>> {
     if (supabase) {
       try {
-        const fileExt = file.name.split('.').pop()
+        const nombreDb = options?.nombreArchivo || file.name
+        const tipoDb = options?.tipoEtiqueta || file.type
+        const fileExt = file.name.split('.').pop() || 'png'
         const fileName = `${idPedido}_${Date.now()}.${fileExt}`
         const filePath = idItem ? `${idPedido}/${idItem}/${fileName}` : `${idPedido}/${fileName}`
 
@@ -13118,8 +13121,8 @@ class ApiService {
           id_pedido: idPedido,
           id_item: idItem || null,
           url: urlData.publicUrl,
-          nombre_archivo: file.name,
-          tipo: file.type,
+          nombre_archivo: nombreDb,
+          tipo: tipoDb,
           tamaño: file.size
         })
 

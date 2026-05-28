@@ -1,37 +1,31 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Sparkles, ImageIcon } from 'lucide-react'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import { validarCantidadVentaComercial } from '../services/commerceCatalogService'
+import {
+  generarMockupImagenIa,
+  generarPedidoDesdeEspecificacion
+} from '../services/clientePedidoAiService'
 import type { ArticuloEmpresaRecord, TipoIntencionPedido } from '../types/api'
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageLoading from '../components/cliente/ClientePageLoading'
+import ClientePedidoMockupPreview from '../components/cliente/ClientePedidoMockupPreview'
+import {
+  buildBriefFromPedido,
+  buildMockupImagePrompt,
+  inferTiposProducto,
+  resolveMockupProduct,
+  resolveMockupScene
+} from '../utils/clientePedidoMockup'
+import {
+  buildPedidoMockupFile,
+  PEDIDO_MOCKUP_FILENAME,
+  PEDIDO_MOCKUP_TIPO
+} from '../utils/capturePedidoMockup'
 import './ClienteNuevoPedidoPage.css'
-
-const TIPOS_PRODUCTO = [
-  'Diseño de una pieza gráfica',
-  'Flyer',
-  'Banner',
-  'Carpetas',
-  'Folletos',
-  'Agendas',
-  'Tarjetas personales',
-  'Stickers',
-  'Presentación PDF',
-  'Packaging',
-  'Brochure',
-  'Cuaderno',
-  'Calendario',
-  'Logo',
-  'Rediseño de logo existente',
-  'Cartelería',
-  'Ploteo vehicular',
-  'Ploteo de vidrieras/comercios',
-  'Señalética',
-  'Diseño y desarrollo web. Automatización con IA',
-  'No sé bien lo que necesito, quiero asesoramiento'
-]
 
 interface PedidoItem {
   id_articulo: number
@@ -53,27 +47,24 @@ export default function ClienteNuevoPedidoPage() {
   const [archivos, setArchivos] = useState<File[]>([])
   const [tipoIntencion, setTipoIntencion] = useState<TipoIntencionPedido>('compra')
 
+  const [especificacion, setEspecificacion] = useState('')
+  const [iaBrief, setIaBrief] = useState('')
+  const [iaEstilo, setIaEstilo] = useState('')
+  const [iaLoading, setIaLoading] = useState(false)
+  const [mockupAiUrl, setMockupAiUrl] = useState<string | null>(null)
+  const [mockupAiLoading, setMockupAiLoading] = useState(false)
+  const [fotoReferenciaUrl, setFotoReferenciaUrl] = useState<string | null>(null)
+  const mockupCaptureRef = useRef<HTMLDivElement>(null)
+
   const [formData, setFormData] = useState({
     fecha_limite_deseada: '',
     observaciones_cliente: '',
     es_urgente: false,
     requiere_delivery: false,
     direccion_delivery: '',
-    tipo_producto_servicio: [] as string[],
-    tipo_producto_otro: '',
-    necesita_asesoramiento: false,
     donde_colocados: '',
     digital_o_impresion: '',
-    cantidades: '',
-    objetivo_proyecto: '',
-    material_logo: '',
-    material_textos: '',
-    material_imagenes: '',
-    tiene_referencias: false,
-    referencias_links: '',
-    brief_publico: '',
-    estilo_diseno: '',
-    referencias: ''
+    cantidades: ''
   })
 
   useEffect(() => {
@@ -84,6 +75,32 @@ export default function ClienteNuevoPedidoPage() {
     }
     loadArticulos()
   }, [cliente, authLoading, navigate])
+
+  useEffect(() => {
+    return () => {
+      if (fotoReferenciaUrl) URL.revokeObjectURL(fotoReferenciaUrl)
+    }
+  }, [fotoReferenciaUrl])
+
+  const articuloById = useCallback(
+    (id: number) => articulos.find((a) => a.id === id),
+    [articulos]
+  )
+
+  const primaryItem = items.length > 0 ? items[items.length - 1] : null
+  const primaryArticulo = primaryItem ? articuloById(primaryItem.id_articulo) : null
+
+  const mockupProductKind = useMemo(() => {
+    if (!primaryItem?.nombre_articulo) return 'generic' as const
+    return resolveMockupProduct(primaryItem.nombre_articulo, primaryArticulo?.categoria)
+  }, [primaryItem, primaryArticulo])
+
+  const mockupSceneKind = useMemo(
+    () => resolveMockupScene(formData.donde_colocados, mockupProductKind),
+    [formData.donde_colocados, mockupProductKind]
+  )
+
+  const mockupProductLabel = primaryItem?.nombre_articulo || 'Producto'
 
   const loadArticulos = async () => {
     setLoading(true)
@@ -109,31 +126,12 @@ export default function ClienteNuevoPedidoPage() {
           )
         }
       }
-    } catch (err) {
+    } catch {
       setError('Error al cargar catálogo')
     } finally {
       setLoading(false)
     }
   }
-
-  const handleTipoProductoChange = (tipo: string) => {
-    setFormData(prev => {
-      const isSelected = prev.tipo_producto_servicio.includes(tipo)
-      if (isSelected) {
-        return {
-          ...prev,
-          tipo_producto_servicio: prev.tipo_producto_servicio.filter(t => t !== tipo)
-        }
-      } else {
-        return {
-          ...prev,
-          tipo_producto_servicio: [...prev.tipo_producto_servicio, tipo]
-        }
-      }
-    })
-  }
-
-  const articuloById = (id: number) => articulos.find((a) => a.id === id)
 
   const agregarArticulo = (articulo: ArticuloEmpresaRecord) => {
     const existente = items.find((i) => i.id_articulo === articulo.id)
@@ -144,6 +142,7 @@ export default function ClienteNuevoPedidoPage() {
       return
     }
     setError('')
+    setMockupAiUrl(null)
     if (existente) {
       setItems(
         items.map((i) =>
@@ -158,14 +157,16 @@ export default function ClienteNuevoPedidoPage() {
       )
       return
     }
-    const nuevoItem: PedidoItem = {
-      id_articulo: articulo.id,
-      cantidad: 1,
-      precio_unitario: articulo.precio_base || 0,
-      precio_total: articulo.precio_base || 0,
-      nombre_articulo: articulo.nombre
-    }
-    setItems([...items, nuevoItem])
+    setItems([
+      ...items,
+      {
+        id_articulo: articulo.id,
+        cantidad: 1,
+        precio_unitario: articulo.precio_base || 0,
+        precio_total: articulo.precio_base || 0,
+        nombre_articulo: articulo.nombre
+      }
+    ])
   }
 
   const actualizarItem = (index: number, campo: keyof PedidoItem, valor: unknown) => {
@@ -190,15 +191,85 @@ export default function ClienteNuevoPedidoPage() {
 
   const eliminarItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index))
+    setMockupAiUrl(null)
   }
 
-  const calcularTotal = () => {
-    return items.reduce((sum, item) => sum + item.precio_total, 0)
-  }
+  const calcularTotal = () => items.reduce((sum, item) => sum + item.precio_total, 0)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setArchivos(Array.from(e.target.files))
+    }
+  }
+
+  const handleFotoReferencia = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (fotoReferenciaUrl) URL.revokeObjectURL(fotoReferenciaUrl)
+    setFotoReferenciaUrl(URL.createObjectURL(file))
+    setArchivos((prev) => {
+      const sinPreviasRef = prev.filter((f) => !f.name.startsWith('ref-mockup-'))
+      return [...sinPreviasRef, file]
+    })
+    setMockupAiUrl(null)
+    e.target.value = ''
+  }
+
+  const handleGenerarConIa = async () => {
+    if (!especificacion.trim()) {
+      setError('Escribí qué necesitás en la especificación antes de usar la IA.')
+      return
+    }
+    if (items.length === 0) {
+      setError('Agregá al menos un artículo del catálogo.')
+      return
+    }
+    setIaLoading(true)
+    setError('')
+    try {
+      const result = await generarPedidoDesdeEspecificacion({
+        especificacion,
+        articulos: items.map((i) => i.nombre_articulo || '').filter(Boolean),
+        donde_colocados: formData.donde_colocados,
+        digital_o_impresion: formData.digital_o_impresion,
+        cantidades: formData.cantidades
+      })
+      setIaBrief(result.brief_publico)
+      setIaEstilo(result.estilo_diseno)
+      if (result.descripcion_articulo && items.length > 0) {
+        setItems((prev) =>
+          prev.map((it, idx) =>
+            idx === prev.length - 1
+              ? { ...it, descripcion_personalizada: result.descripcion_articulo }
+              : it
+          )
+        )
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al generar con IA')
+    } finally {
+      setIaLoading(false)
+    }
+  }
+
+  const handleGenerarMockupIa = async () => {
+    if (items.length === 0) return
+    setMockupAiLoading(true)
+    setError('')
+    try {
+      const prompt = buildMockupImagePrompt({
+        productLabel: mockupProductLabel,
+        productKind: mockupProductKind,
+        sceneKind: mockupSceneKind,
+        especificacion,
+        donde_colocados: formData.donde_colocados
+      })
+      const dataUrl = await generarMockupImagenIa(prompt)
+      setMockupAiUrl(dataUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo generar la vista previa')
+    } finally {
+      setMockupAiLoading(false)
     }
   }
 
@@ -211,22 +282,43 @@ export default function ClienteNuevoPedidoPage() {
       return
     }
 
+    const tieneDescripcion =
+      especificacion.trim() ||
+      iaBrief.trim() ||
+      items.some((i) => i.descripcion_personalizada?.trim())
+
+    if (!tieneDescripcion) {
+      setError('Completá la especificación o generá la descripción con IA')
+      return
+    }
+
     if (formData.requiere_delivery && !formData.direccion_delivery.trim()) {
       setError('Debes proporcionar la dirección de delivery')
       return
     }
 
+    const brief_publico =
+      iaBrief.trim() ||
+      buildBriefFromPedido({
+        especificacion,
+        donde_colocados: formData.donde_colocados,
+        cantidades: formData.cantidades,
+        digital_o_impresion: formData.digital_o_impresion,
+        items
+      })
+
+    const nombresArticulos = items.map((i) => i.nombre_articulo || '').filter(Boolean)
+
     setSaving(true)
     setError('')
 
     try {
-      // Crear pedido con todos los campos
       const response = await apiService.crearPedidoCliente({
         id_cliente: cliente.id,
         tipo_intencion: tipoIntencion,
         fecha_limite_deseada: formData.fecha_limite_deseada || undefined,
         observaciones_cliente: formData.observaciones_cliente.trim() || undefined,
-        items: items.map(item => ({
+        items: items.map((item) => ({
           id_articulo: item.id_articulo,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
@@ -236,21 +328,14 @@ export default function ClienteNuevoPedidoPage() {
         es_urgente: formData.es_urgente,
         requiere_delivery: formData.requiere_delivery,
         direccion_delivery: formData.direccion_delivery.trim() || undefined,
-        tipo_producto_servicio: formData.tipo_producto_servicio.length > 0 ? formData.tipo_producto_servicio : undefined,
-        tipo_producto_otro: formData.tipo_producto_otro.trim() || undefined,
-        necesita_asesoramiento: formData.necesita_asesoramiento,
+        tipo_producto_servicio: inferTiposProducto(nombresArticulos),
+        tipo_producto_otro: especificacion.trim() || undefined,
         donde_colocados: formData.donde_colocados.trim() || undefined,
-        digital_o_impresion: formData.digital_o_impresion.trim() || undefined,
+        digital_o_impresion: formData.digital_o_impresion || undefined,
         cantidades: formData.cantidades.trim() || undefined,
-        objetivo_proyecto: formData.objetivo_proyecto.trim() || undefined,
-        material_logo: formData.material_logo || undefined,
-        material_textos: formData.material_textos || undefined,
-        material_imagenes: formData.material_imagenes || undefined,
-        tiene_referencias: formData.tiene_referencias,
-        referencias_links: formData.referencias_links.trim() || undefined,
-        brief_publico: formData.brief_publico.trim() || undefined,
-        estilo_diseno: formData.estilo_diseno.trim() || undefined,
-        referencias: formData.referencias.trim() || undefined
+        objetivo_proyecto: especificacion.trim().slice(0, 800) || undefined,
+        brief_publico,
+        estilo_diseno: iaEstilo.trim() || undefined
       })
 
       if (response.success && response.data) {
@@ -258,22 +343,38 @@ export default function ClienteNuevoPedidoPage() {
           await apiService.aplicarStockPedidoCliente(response.data.id, 'portal')
         }
         await apiService.vaciarCarritoCliente(cliente.id)
-        // Subir archivos si hay
-        if (archivos.length > 0 && response.data.id) {
+        if (response.data.id) {
           try {
-            for (const archivo of archivos) {
-              await apiService.uploadArchivoPedidoCliente(archivo, response.data.id)
+            const mockupFile = await buildPedidoMockupFile({
+              idPedido: response.data.id,
+              aiDataUrl: mockupAiUrl,
+              captureElement: mockupCaptureRef.current
+            })
+            if (mockupFile) {
+              await apiService.uploadArchivoPedidoCliente(mockupFile, response.data.id, undefined, {
+                nombreArchivo: PEDIDO_MOCKUP_FILENAME,
+                tipoEtiqueta: PEDIDO_MOCKUP_TIPO
+              })
             }
-          } catch (uploadError) {
-            console.error('Error al subir archivos:', uploadError)
-            // Continuar aunque falle la subida de archivos
+          } catch (mockupError) {
+            console.error('Error al guardar mockup del pedido:', mockupError)
+          }
+
+          if (archivos.length > 0) {
+            try {
+              for (const archivo of archivos) {
+                await apiService.uploadArchivoPedidoCliente(archivo, response.data.id)
+              }
+            } catch (uploadError) {
+              console.error('Error al subir archivos:', uploadError)
+            }
           }
         }
         navigate(`/cliente/pedido/${response.data.id}`)
       } else {
         setError(response.error || 'Error al crear el pedido')
       }
-    } catch (err) {
+    } catch {
       setError('Error al crear el pedido')
     } finally {
       setSaving(false)
@@ -289,7 +390,7 @@ export default function ClienteNuevoPedidoPage() {
       <ClientePageHeader
         eyebrow="Pedidos"
         title="Nuevo pedido"
-        subtitle="Completá el brief y los datos de tu solicitud"
+        subtitle="Elegí del catálogo, describí tu idea y mirá la vista previa al costado"
         actions={
           <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/catalogo')}>
             Ver catálogo
@@ -297,51 +398,48 @@ export default function ClienteNuevoPedidoPage() {
         }
       />
 
-        <form onSubmit={handleSubmit} className="pedido-form">
+      <div className="pedido-form-layout">
+        <form onSubmit={handleSubmit} className="pedido-form pedido-form-main">
           {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
           <section className="cliente-page-form-section form-section">
             <h2>Tipo de solicitud</h2>
-            <div className="intencion-opciones">
-              <label>
+            <div className="intencion-opciones" role="radiogroup" aria-label="Tipo de solicitud">
+              <label className={`intencion-opcion ${tipoIntencion === 'compra' ? 'is-selected' : ''}`}>
                 <input
                   type="radio"
                   name="tipo_intencion"
                   checked={tipoIntencion === 'compra'}
                   onChange={() => setTipoIntencion('compra')}
                 />
-                Compra (descuenta stock si aplica)
+                <span>Compra</span>
               </label>
-              <label>
+              <label className={`intencion-opcion ${tipoIntencion === 'cotizacion' ? 'is-selected' : ''}`}>
                 <input
                   type="radio"
                   name="tipo_intencion"
                   checked={tipoIntencion === 'cotizacion'}
                   onChange={() => setTipoIntencion('cotizacion')}
                 />
-                Solicitar cotización
+                <span>Solicitar cotización</span>
               </label>
             </div>
           </section>
 
-          {/* Sección: Artículos */}
           <section className="cliente-page-form-section form-section">
-            <h2>📦 Artículos</h2>
+            <h2>Artículos</h2>
+            <p className="form-section-hint">
+              El producto que elijas define el mockup de la derecha (banner, flyer, etc.).
+            </p>
             <div className="catalogo-grid">
               {articulos.map((articulo) => (
                 <div key={articulo.id} className="articulo-card">
                   <div className="articulo-info">
                     <h3>{articulo.nombre}</h3>
                     {articulo.descripcion && <p>{articulo.descripcion}</p>}
-                    <div className="articulo-precio">
-                      ${articulo.precio_base?.toFixed(2) || '0.00'}
-                    </div>
+                    <div className="articulo-precio">${articulo.precio_base?.toFixed(2) || '0.00'}</div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-agregar"
-                    onClick={() => agregarArticulo(articulo)}
-                  >
+                  <button type="button" className="btn-agregar" onClick={() => agregarArticulo(articulo)}>
                     + Agregar
                   </button>
                 </div>
@@ -353,44 +451,61 @@ export default function ClienteNuevoPedidoPage() {
                 <h3>Artículos seleccionados</h3>
                 {items.map((item, index) => (
                   <div key={index} className="item-row">
-                    <div className="item-info">
-                      <strong>{item.nombre_articulo}</strong>
+                    <div className="item-row-head">
+                      <strong className="item-row-name">{item.nombre_articulo}</strong>
+                      <button
+                        type="button"
+                        className="btn-eliminar"
+                        onClick={() => eliminarItem(index)}
+                        aria-label="Quitar artículo"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="item-field item-field--full">
+                      <label htmlFor={`item-desc-${index}`}>Descripción (IA o manual)</label>
                       <textarea
+                        id={`item-desc-${index}`}
                         className="item-descripcion"
-                        placeholder="Descripción personalizada..."
+                        placeholder="Se completa al generar con IA o podés editarla..."
+                        rows={2}
                         value={item.descripcion_personalizada || ''}
-                        onChange={(e) => actualizarItem(index, 'descripcion_personalizada', e.target.value)}
+                        onChange={(e) =>
+                          actualizarItem(index, 'descripcion_personalizada', e.target.value)
+                        }
                       />
                     </div>
-                    <div className="item-cantidad">
-                      <label>Cantidad:</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.cantidad}
-                        onChange={(e) => actualizarItem(index, 'cantidad', parseInt(e.target.value) || 1)}
-                      />
+                    <div className="item-row-metrics">
+                      <div className="item-field">
+                        <label htmlFor={`item-cant-${index}`}>Cantidad</label>
+                        <input
+                          id={`item-cant-${index}`}
+                          type="number"
+                          min="1"
+                          value={item.cantidad}
+                          onChange={(e) =>
+                            actualizarItem(index, 'cantidad', parseInt(e.target.value) || 1)
+                          }
+                        />
+                      </div>
+                      <div className="item-field">
+                        <label htmlFor={`item-precio-${index}`}>Precio unit.</label>
+                        <input
+                          id={`item-precio-${index}`}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.precio_unitario}
+                          onChange={(e) =>
+                            actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div className="item-field item-field--total">
+                        <span className="item-field-label">Subtotal</span>
+                        <strong className="item-total-value">${item.precio_total.toFixed(2)}</strong>
+                      </div>
                     </div>
-                    <div className="item-precio">
-                      <label>Precio unitario:</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={item.precio_unitario}
-                        onChange={(e) => actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="item-total">
-                      <strong>${item.precio_total.toFixed(2)}</strong>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-eliminar"
-                      onClick={() => eliminarItem(index)}
-                    >
-                      ✕
-                    </button>
                   </div>
                 ))}
                 <div className="total-pedido">
@@ -400,183 +515,53 @@ export default function ClienteNuevoPedidoPage() {
             )}
           </section>
 
-          {/* Sección: Tipo de Producto/Servicio */}
           <section className="cliente-page-form-section form-section">
-            <h2>🎨 Tipo de Producto/Servicio</h2>
-            <div className="checkbox-grid">
-              {TIPOS_PRODUCTO.map((tipo) => (
-                <label key={tipo} className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={formData.tipo_producto_servicio.includes(tipo)}
-                    onChange={() => handleTipoProductoChange(tipo)}
-                  />
-                  <span>{tipo}</span>
-                </label>
-              ))}
-            </div>
+            <h2>Especificación</h2>
+            <p className="form-section-hint">
+              Contanos qué necesitás. La IA redacta la descripción del artículo y el brief para producción.
+            </p>
             <div className="form-group">
-              <label>Otro tipo (especificar):</label>
-              <input
-                type="text"
-                value={formData.tipo_producto_otro}
-                onChange={(e) => setFormData({ ...formData, tipo_producto_otro: e.target.value })}
-                placeholder="Especifica otro tipo de producto o servicio"
-              />
-            </div>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={formData.necesita_asesoramiento}
-                onChange={(e) => setFormData({ ...formData, necesita_asesoramiento: e.target.checked })}
-              />
-              <span>No sé bien lo que necesito, quiero asesoramiento</span>
-            </label>
-          </section>
-
-          {/* Sección: Detalles del Producto */}
-          <section className="cliente-page-form-section form-section">
-            <h2>📋 Detalles del Producto</h2>
-            <div className="form-group">
-              <label>¿Dónde será colocado/utilizado?</label>
+              <label htmlFor="pedido-especificacion">¿Qué querés lograr?</label>
               <textarea
-                value={formData.donde_colocados}
-                onChange={(e) => setFormData({ ...formData, donde_colocados: e.target.value })}
-                placeholder="Ej: En la fachada del local, en redes sociales, etc."
-                rows={3}
+                id="pedido-especificacion"
+                rows={4}
+                value={especificacion}
+                onChange={(e) => setEspecificacion(e.target.value)}
+                placeholder="Ej: Banner 2x1 m con logo grande, colores naranja y blanco, texto de promoción verano..."
               />
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Digital o Impresión:</label>
-                <select
-                  value={formData.digital_o_impresion}
-                  onChange={(e) => setFormData({ ...formData, digital_o_impresion: e.target.value })}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="digital">Digital</option>
-                  <option value="impresion">Impresión</option>
-                  <option value="ambos">Ambos</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Cantidades:</label>
-                <input
-                  type="text"
-                  value={formData.cantidades}
-                  onChange={(e) => setFormData({ ...formData, cantidades: e.target.value })}
-                  placeholder="Ej: 100 unidades, 500 ejemplares"
-                />
-              </div>
+            <div className="especificacion-actions">
+              <button
+                type="button"
+                className="cliente-btn-primary especificacion-ia-btn"
+                disabled={iaLoading || items.length === 0}
+                onClick={() => void handleGenerarConIa()}
+              >
+                <Sparkles size={16} aria-hidden />
+                {iaLoading ? 'Generando…' : 'Generar descripción con IA'}
+              </button>
             </div>
-          </section>
-
-          {/* Sección: Objetivo y Brief */}
-          <section className="cliente-page-form-section form-section">
-            <h2>🎯 Objetivo y Brief</h2>
-            <div className="form-group">
-              <label>Objetivo del Proyecto:</label>
-              <textarea
-                value={formData.objetivo_proyecto}
-                onChange={(e) => setFormData({ ...formData, objetivo_proyecto: e.target.value })}
-                placeholder="¿Cuál es el objetivo principal de este proyecto?"
-                rows={3}
-              />
-            </div>
-            <div className="form-group">
-              <label>Brief Público *</label>
-              <textarea
-                value={formData.brief_publico}
-                onChange={(e) => setFormData({ ...formData, brief_publico: e.target.value })}
-                placeholder="Describe el proyecto, objetivos, contexto y cualquier información relevante..."
-                rows={5}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Estilo de Diseño:</label>
-              <input
-                type="text"
-                value={formData.estilo_diseno}
-                onChange={(e) => setFormData({ ...formData, estilo_diseno: e.target.value })}
-                placeholder="Ej: Minimalista, Corporativo, Moderno, etc."
-              />
-            </div>
-            <div className="form-group">
-              <label>Referencias:</label>
-              <textarea
-                value={formData.referencias}
-                onChange={(e) => setFormData({ ...formData, referencias: e.target.value })}
-                placeholder="Describe referencias visuales o estilos que te gusten"
-                rows={3}
-              />
-            </div>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={formData.tiene_referencias}
-                onChange={(e) => setFormData({ ...formData, tiene_referencias: e.target.checked })}
-              />
-              <span>Tengo referencias (links abajo)</span>
-            </label>
-            {formData.tiene_referencias && (
-              <div className="form-group">
-                <label>Links de Referencias:</label>
-                <textarea
-                  value={formData.referencias_links}
-                  onChange={(e) => setFormData({ ...formData, referencias_links: e.target.value })}
-                  placeholder="Pega aquí los links de tus referencias (uno por línea)"
-                  rows={3}
-                />
+            {iaBrief && (
+              <div className="ia-brief-preview">
+                <p className="ia-brief-preview__label">Brief generado (se envía con el pedido)</p>
+                <p className="ia-brief-preview__text">{iaBrief}</p>
               </div>
             )}
-          </section>
-
-          {/* Sección: Material Disponible */}
-          <section className="cliente-page-form-section form-section">
-            <h2>📎 Material Disponible</h2>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Logo:</label>
-                <select
-                  value={formData.material_logo}
-                  onChange={(e) => setFormData({ ...formData, material_logo: e.target.value })}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="si_pdf_eps_ai">Sí, en PDF/EPS/AI</option>
-                  <option value="si_solo_imagen">Sí, solo imagen</option>
-                  <option value="no">No tengo</option>
-                  <option value="necesito_diseno">Necesito diseño</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Textos:</label>
-                <select
-                  value={formData.material_textos}
-                  onChange={(e) => setFormData({ ...formData, material_textos: e.target.value })}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="si_definitivos">Sí, textos definitivos</option>
-                  <option value="no">No tengo</option>
-                  <option value="necesito_redacten">Necesito que redacten</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Imágenes:</label>
-                <select
-                  value={formData.material_imagenes}
-                  onChange={(e) => setFormData({ ...formData, material_imagenes: e.target.value })}
-                >
-                  <option value="">Seleccionar...</option>
-                  <option value="si_material_propio">Sí, material propio</option>
-                  <option value="no">No tengo</option>
-                  <option value="usar_banco_imagenes">Usar banco de imágenes</option>
-                </select>
-              </div>
+            <div className="form-group">
+              <label htmlFor="foto-referencia">Foto de referencia (opcional)</label>
+              <input
+                id="foto-referencia"
+                type="file"
+                accept="image/*"
+                onChange={handleFotoReferencia}
+                className="file-input"
+              />
+              <p className="form-field-hint">Se muestra en el mockup y se adjunta al pedido.</p>
             </div>
             <div className="form-group">
-              <label>Archivos Adjuntos:</label>
+              <label htmlFor="archivos-adjuntos">Otros archivos</label>
               <input
+                id="archivos-adjuntos"
                 type="file"
                 multiple
                 onChange={handleFileChange}
@@ -594,55 +579,100 @@ export default function ClienteNuevoPedidoPage() {
             </div>
           </section>
 
-          {/* Sección: Plazos y Opciones */}
           <section className="cliente-page-form-section form-section">
-            <h2>⏰ Plazos y Opciones</h2>
+            <h2>Detalles del producto</h2>
+            <p className="form-section-hint">
+              La ubicación actualiza el escenario del mockup (local, vehículo, digital, etc.).
+            </p>
+            <div className="form-group">
+              <label htmlFor="donde-colocados">¿Dónde será colocado o utilizado?</label>
+              <textarea
+                id="donde-colocados"
+                value={formData.donde_colocados}
+                onChange={(e) => {
+                  setFormData({ ...formData, donde_colocados: e.target.value })
+                  setMockupAiUrl(null)
+                }}
+                placeholder="Ej: Afuera del local en la fachada, vidriera principal..."
+                rows={3}
+              />
+            </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Fecha Límite Deseada:</label>
+                <label htmlFor="digital-impresion">Digital o impresión</label>
+                <select
+                  id="digital-impresion"
+                  value={formData.digital_o_impresion}
+                  onChange={(e) => setFormData({ ...formData, digital_o_impresion: e.target.value })}
+                >
+                  <option value="">Seleccionar…</option>
+                  <option value="digital">Digital</option>
+                  <option value="impresion">Impresión</option>
+                  <option value="ambos">Ambos</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="cantidades-pedido">Cantidades</label>
                 <input
-                  type="date"
-                  value={formData.fecha_limite_deseada}
-                  onChange={(e) => setFormData({ ...formData, fecha_limite_deseada: e.target.value })}
+                  id="cantidades-pedido"
+                  type="text"
+                  value={formData.cantidades}
+                  onChange={(e) => setFormData({ ...formData, cantidades: e.target.value })}
+                  placeholder="Ej: 100 unidades, 500 ejemplares"
                 />
               </div>
-              <div className="form-group">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={formData.es_urgente}
-                    onChange={(e) => setFormData({ ...formData, es_urgente: e.target.checked })}
-                  />
-                  <span>⚡ Pedido Urgente</span>
-                </label>
-              </div>
             </div>
-            <label className="checkbox-label">
+          </section>
+
+          <section className="cliente-page-form-section form-section">
+            <h2>Plazos y opciones</h2>
+            <div className="form-group form-group--date">
+              <label htmlFor="fecha-limite-pedido">Fecha límite deseada</label>
               <input
-                type="checkbox"
-                checked={formData.requiere_delivery}
-                onChange={(e) => setFormData({ ...formData, requiere_delivery: e.target.checked })}
+                id="fecha-limite-pedido"
+                type="date"
+                value={formData.fecha_limite_deseada}
+                onChange={(e) => setFormData({ ...formData, fecha_limite_deseada: e.target.value })}
               />
-              <span>🚚 Requiere Delivery</span>
-            </label>
+            </div>
+            <div className="pedido-flags" role="group" aria-label="Opciones del pedido">
+              <label className="pedido-flag-chip">
+                <input
+                  type="checkbox"
+                  checked={formData.es_urgente}
+                  onChange={(e) => setFormData({ ...formData, es_urgente: e.target.checked })}
+                />
+                <span>⚡ Pedido urgente</span>
+              </label>
+              <label className="pedido-flag-chip">
+                <input
+                  type="checkbox"
+                  checked={formData.requiere_delivery}
+                  onChange={(e) => setFormData({ ...formData, requiere_delivery: e.target.checked })}
+                />
+                <span>🚚 Requiere delivery</span>
+              </label>
+            </div>
             {formData.requiere_delivery && (
               <div className="form-group">
-                <label>Dirección de Delivery:</label>
+                <label htmlFor="direccion-delivery">Dirección de delivery</label>
                 <textarea
+                  id="direccion-delivery"
                   value={formData.direccion_delivery}
                   onChange={(e) => setFormData({ ...formData, direccion_delivery: e.target.value })}
-                  placeholder="Ingresa la dirección completa para el delivery"
+                  placeholder="Dirección completa"
                   rows={2}
                   required
                 />
               </div>
             )}
             <div className="form-group">
-              <label>Observaciones Adicionales:</label>
+              <label htmlFor="observaciones">Observaciones adicionales</label>
               <textarea
+                id="observaciones"
                 value={formData.observaciones_cliente}
                 onChange={(e) => setFormData({ ...formData, observaciones_cliente: e.target.value })}
-                placeholder="Cualquier otra información relevante..."
+                placeholder="Cualquier otra información relevante…"
                 rows={3}
               />
             </div>
@@ -653,11 +683,42 @@ export default function ClienteNuevoPedidoPage() {
               Cancelar
             </button>
             <button type="submit" className="cliente-btn-primary" disabled={saving || items.length === 0}>
-              {saving ? 'Creando Pedido...' : `Crear Pedido ($${calcularTotal().toFixed(2)})`}
+              {saving ? 'Creando pedido…' : `Crear pedido ($${calcularTotal().toFixed(2)})`}
             </button>
           </div>
         </form>
+
+        <aside className="pedido-mockup-aside" aria-label="Vista previa del pedido">
+          <div ref={mockupCaptureRef} className="pedido-mockup-capture-wrap">
+          <ClientePedidoMockupPreview
+            empty={items.length === 0}
+            productKind={mockupProductKind}
+            sceneKind={mockupSceneKind}
+            productLabel={mockupProductLabel}
+            especificacion={especificacion}
+            userImageUrl={fotoReferenciaUrl}
+            aiImageUrl={mockupAiUrl}
+            loadingAi={mockupAiLoading}
+          />
+          </div>
+          {items.length > 0 && (
+            <>
+              <p className="pedido-mockup-save-hint">
+                Esta vista previa se guarda automáticamente al crear el pedido.
+              </p>
+              <button
+                type="button"
+                className="cliente-btn-outline pedido-mockup-ia-btn"
+                disabled={mockupAiLoading}
+                onClick={() => void handleGenerarMockupIa()}
+              >
+                <ImageIcon size={16} aria-hidden />
+                {mockupAiLoading ? 'Generando vista IA…' : 'Vista previa realista (IA)'}
+              </button>
+            </>
+          )}
+        </aside>
+      </div>
     </ClientePageLayout>
   )
 }
-

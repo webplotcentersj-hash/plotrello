@@ -6,6 +6,7 @@ import type { PedidoClienteDetalle } from '../types/api'
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageLoading from '../components/cliente/ClientePageLoading'
+import { isPedidoMockupArchivo } from '../utils/capturePedidoMockup'
 import './ClientePedidoDetallePage.css'
 
 export default function ClientePedidoDetallePage() {
@@ -444,33 +445,57 @@ export default function ClientePedidoDetallePage() {
           </div>
         )}
 
-        {/* Archivos Adjuntos */}
-        {detalle.archivos.length > 0 && (
-          <div className="section-card">
-            <h2>📎 Archivos Adjuntos</h2>
-            <div className="archivos-grid">
-              {detalle.archivos.map((archivo) => (
-                <a
-                  key={archivo.id}
-                  href={archivo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="archivo-card"
-                >
-                  <div className="archivo-icon">📄</div>
-                  <div className="archivo-info">
-                    <div className="archivo-nombre">{archivo.nombre_archivo}</div>
-                    {archivo.tamaño && (
-                      <div className="archivo-tamaño">
-                        {(archivo.tamaño / 1024).toFixed(2)} KB
-                      </div>
-                    )}
+        {(() => {
+          const mockupArchivo = detalle.archivos.find((a) => isPedidoMockupArchivo(a))
+          const otrosArchivos = detalle.archivos.filter((a) => !isPedidoMockupArchivo(a))
+          return (
+            <>
+              {mockupArchivo && (
+                <div className="section-card pedido-mockup-guardado">
+                  <h2>Vista previa del pedido</h2>
+                  <a
+                    href={mockupArchivo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pedido-mockup-guardado__link"
+                  >
+                    <img
+                      src={mockupArchivo.url}
+                      alt="Mockup guardado al crear el pedido"
+                      className="pedido-mockup-guardado__img"
+                    />
+                  </a>
+                </div>
+              )}
+              {otrosArchivos.length > 0 && (
+                <div className="section-card">
+                  <h2>Archivos adjuntos</h2>
+                  <div className="archivos-grid">
+                    {otrosArchivos.map((archivo) => (
+                      <a
+                        key={archivo.id}
+                        href={archivo.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="archivo-card"
+                      >
+                        <div className="archivo-icon">📄</div>
+                        <div className="archivo-info">
+                          <div className="archivo-nombre">{archivo.nombre_archivo}</div>
+                          {archivo.tamaño && (
+                            <div className="archivo-tamaño">
+                              {(archivo.tamaño / 1024).toFixed(2)} KB
+                            </div>
+                          )}
+                        </div>
+                      </a>
+                    ))}
                   </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
+                </div>
+              )}
+            </>
+          )
+        })()}
     </ClientePageLayout>
   )
 }
