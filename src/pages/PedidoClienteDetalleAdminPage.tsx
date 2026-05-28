@@ -20,7 +20,9 @@ export default function PedidoClienteDetalleAdminPage() {
   const [errorMensaje, setErrorMensaje] = useState('')
   const [errorCargaMensajes, setErrorCargaMensajes] = useState('')
   const [materialModalOpen, setMaterialModalOpen] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const mensajesListRef = useRef<HTMLDivElement>(null)
+  const mensajesCountRef = useRef(0)
+  const stickMensajesBottomRef = useRef(true)
 
   useEffect(() => {
     if (authLoading) return
@@ -83,8 +85,27 @@ export default function PedidoClienteDetalleAdminPage() {
     return () => clearInterval(interval)
   }, [detalle?.pedido?.id, detalle?.pedido?.id_cliente, detalle?.pedido?.cliente?.id])
 
+  const scrollMensajesListToBottom = (behavior: ScrollBehavior = 'auto') => {
+    const list = mensajesListRef.current
+    if (!list) return
+    list.scrollTo({ top: list.scrollHeight, behavior })
+  }
+
+  const handleMensajesListScroll = () => {
+    const list = mensajesListRef.current
+    if (!list) return
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight
+    stickMensajesBottomRef.current = distanceFromBottom < 48
+  }
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const prevCount = mensajesCountRef.current
+    const hasNewMessages = mensajes.length > prevCount
+    mensajesCountRef.current = mensajes.length
+
+    if (hasNewMessages && mensajes.length > 0 && stickMensajesBottomRef.current) {
+      scrollMensajesListToBottom('smooth')
+    }
   }, [mensajes])
 
   const enviarMensaje = async () => {
@@ -100,6 +121,7 @@ export default function PedidoClienteDetalleAdminPage() {
       )
       if (response.success) {
         setNuevoMensaje('')
+        stickMensajesBottomRef.current = true
         loadMensajes()
       } else {
         setErrorMensaje(response.error || 'Error al enviar mensaje')
@@ -455,7 +477,11 @@ export default function PedidoClienteDetalleAdminPage() {
             {errorCargaMensajes && (
               <div className="mensaje-error mensaje-error--load">{errorCargaMensajes}</div>
             )}
-            <div className="mensajes-admin-list">
+            <div
+              ref={mensajesListRef}
+              className="mensajes-admin-list"
+              onScroll={handleMensajesListScroll}
+            >
               {mensajes.length === 0 && !errorCargaMensajes ? (
                 <div className="mensajes-admin-empty">
                   <p>No hay mensajes aún. El cliente puede escribir desde su portal.</p>
@@ -478,7 +504,6 @@ export default function PedidoClienteDetalleAdminPage() {
                   </div>
                 ))
               )}
-              <div ref={messagesEndRef} />
             </div>
             <div className="mensajes-admin-input">
               {errorMensaje && <div className="mensaje-error">{errorMensaje}</div>}
