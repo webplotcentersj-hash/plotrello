@@ -68,9 +68,13 @@ export default function ClienteMensajesPage() {
       const response = await apiService.obtenerMensajesPedido(pedidoSeleccionado, cliente.id)
       if (response.success && response.data) {
         setMensajes(response.data)
+        setError('')
+      } else {
+        setError(response.error || 'No se pudieron cargar los mensajes')
       }
     } catch (err) {
       console.error('Error al cargar mensajes:', err)
+      setError('Error al cargar mensajes')
     }
   }
 

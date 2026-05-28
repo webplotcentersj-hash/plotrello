@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoClienteDetalle, MensajePedidoClienteRecord } from '../types/api'
+import PedidoClienteMaterialModal from '../components/admin/PedidoClienteMaterialModal'
+import { buildPedidoEspecificacionTexto, splitPedidoArchivos } from '../utils/pedidoClienteMaterial'
 import './PedidoClienteDetalleAdminPage.css'
 
 export default function PedidoClienteDetalleAdminPage() {
@@ -16,6 +18,8 @@ export default function PedidoClienteDetalleAdminPage() {
   const [nuevoMensaje, setNuevoMensaje] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [errorMensaje, setErrorMensaje] = useState('')
+  const [errorCargaMensajes, setErrorCargaMensajes] = useState('')
+  const [materialModalOpen, setMaterialModalOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -50,24 +54,34 @@ export default function PedidoClienteDetalleAdminPage() {
 
   const loadMensajes = async () => {
     if (!detalle?.pedido) return
-    const { id: pedidoId, id_cliente } = detalle.pedido
+    const pedidoId = detalle.pedido.id
+    const idCliente = detalle.pedido.id_cliente ?? detalle.pedido.cliente?.id
+    if (!idCliente) {
+      setErrorCargaMensajes('No se pudo identificar el cliente del pedido')
+      return
+    }
     try {
-      const response = await apiService.obtenerMensajesPedido(pedidoId, id_cliente)
+      const response = await apiService.obtenerMensajesPedido(pedidoId, idCliente)
       if (response.success && response.data) {
         setMensajes(response.data)
+        setErrorCargaMensajes('')
+      } else {
+        setErrorCargaMensajes(response.error || 'No se pudieron cargar los mensajes')
       }
     } catch (err) {
       console.error('Error al cargar mensajes:', err)
+      setErrorCargaMensajes('Error al cargar mensajes')
     }
   }
 
   useEffect(() => {
-    if (detalle?.pedido) {
-      loadMensajes()
-      const interval = setInterval(loadMensajes, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [detalle?.pedido?.id, detalle?.pedido?.id_cliente])
+    if (!detalle?.pedido) return
+    void loadMensajes()
+    const interval = setInterval(() => {
+      void loadMensajes()
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [detalle?.pedido?.id, detalle?.pedido?.id_cliente, detalle?.pedido?.cliente?.id])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -176,12 +190,22 @@ export default function PedidoClienteDetalleAdminPage() {
               {getEstadoLabel(pedido.estado)}
             </span>
           </div>
-          <button 
-            className="btn-secondary"
-            onClick={() => navigate('/clientes-web/pedidos')}
-          >
-            ← Volver
-          </button>
+          <div className="pedido-detalle-header-actions">
+            <button
+              type="button"
+              className="btn-primary-outline"
+              onClick={() => setMaterialModalOpen(true)}
+            >
+              Mockup y archivos
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate('/clientes-web/pedidos')}
+            >
+              ← Volver
+            </button>
+          </div>
         </div>
       </header>
 
@@ -337,7 +361,20 @@ export default function PedidoClienteDetalleAdminPage() {
           </div>
         </section>
 
-        {/* Información del Brief */}
+        {/* Especificación / brief */}
+        {buildPedidoEspecificacionTexto(pedido) && (
+          <section className="info-section">
+            <div className="info-section-head">
+              <h2>Especificación del cliente</h2>
+              <button type="button" className="btn-link-inline" onClick={() => setMaterialModalOpen(true)}>
+                Ver mockup y descargar archivos
+              </button>
+            </div>
+            <pre className="pedido-spec-block">{buildPedidoEspecificacionTexto(pedido)}</pre>
+          </section>
+        )}
+
+        {/* Información del Brief (campos sueltos) */}
         {(pedido.brief_publico || pedido.objetivo_proyecto || pedido.estilo_diseno || pedido.referencias) && (
           <section className="info-section">
             <h2>Información del Brief</h2>
@@ -383,9 +420,14 @@ export default function PedidoClienteDetalleAdminPage() {
         {/* Archivos Adjuntos */}
         {archivos.length > 0 && (
           <section className="info-section">
-            <h2>Archivos Adjuntos</h2>
+            <h2>Archivos adjuntos</h2>
             <div className="archivos-grid">
-              {archivos.map((archivo) => (
+              {splitPedidoArchivos(archivos).mockup && (
+                <p className="archivos-mockup-hint">
+                  El mockup está en &quot;Mockup y archivos&quot; (descarga desde el modal).
+                </p>
+              )}
+              {splitPedidoArchivos(archivos).otros.map((archivo) => (
                 <a
                   key={archivo.id}
                   href={archivo.url}
@@ -408,10 +450,13 @@ export default function PedidoClienteDetalleAdminPage() {
 
         {/* Mensajes con el cliente */}
         <section className="info-section mensajes-section">
-          <h2>💬 Mensajes con el Cliente</h2>
+          <h2>Mensajes con el cliente</h2>
           <div className="mensajes-admin-container">
+            {errorCargaMensajes && (
+              <div className="mensaje-error mensaje-error--load">{errorCargaMensajes}</div>
+            )}
             <div className="mensajes-admin-list">
-              {mensajes.length === 0 ? (
+              {mensajes.length === 0 && !errorCargaMensajes ? (
                 <div className="mensajes-admin-empty">
                   <p>No hay mensajes aún. El cliente puede escribir desde su portal.</p>
                 </div>
@@ -458,6 +503,14 @@ export default function PedidoClienteDetalleAdminPage() {
           </div>
         </section>
       </main>
+
+      {materialModalOpen && (
+        <PedidoClienteMaterialModal
+          pedidoId={pedido.id}
+          numeroPedido={pedido.numero_pedido}
+          onClose={() => setMaterialModalOpen(false)}
+        />
+      )}
     </div>
   )
 }

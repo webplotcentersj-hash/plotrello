@@ -1,9 +1,38 @@
+/* Texto oscuro: contrarresta --text-primary global (#f9fbff) */
 .pedidos-clientes {
   min-height: 100vh;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
   background-attachment: fixed;
   padding: 20px;
   position: relative;
+  color: #111827;
+}
+
+.pedidos-clientes .pedidos-clientes-content,
+.pedidos-clientes .pedidos-clientes-header {
+  color: #111827;
+}
+
+.pedidos-clientes-loading p {
+  color: #374151;
+}
+
+.pedidos-clientes .btn-back {
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.pedidos-clientes .btn-back:hover {
+  border-color: #f97316;
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .pedidos-clientes::before {
@@ -171,6 +200,27 @@
 
 .pedidos-clientes-op-link:hover {
   text-decoration: underline;
+}
+
+.pedidos-clientes-actions-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.btn-material {
+  padding: 6px 12px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  color: #c2410c;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-material:hover {
+  background: #ffedd5;
 }
 
 .btn-view {

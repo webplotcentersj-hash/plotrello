@@ -1,0 +1,186 @@
+.pedido-material-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.pedido-material-modal {
+  width: min(920px, 100%);
+  max-height: min(92vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.pedido-material-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.35rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.pedido-material-modal__header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #111827;
+}
+
+.pedido-material-modal__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.88rem;
+  color: #6b7280;
+}
+
+.pedido-material-modal__close {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.pedido-material-modal__body {
+  overflow-y: auto;
+  padding: 1.15rem 1.35rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pedido-material-modal__section h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #eb671b;
+}
+
+.pedido-material-modal__loading,
+.pedido-material-modal__error,
+.pedido-material-modal__empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.pedido-material-modal__error {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.pedido-material-mockup-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.pedido-material-mockup-img {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.pedido-material-spec {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #111827;
+}
+
+.pedido-material-items {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.pedido-material-item-qty {
+  color: #6b7280;
+}
+
+.pedido-material-archivos {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pedido-material-archivo-card {
+  display: flex;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.pedido-material-archivo-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.pedido-material-archivo-meta {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pedido-material-archivo-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #111827;
+  word-break: break-all;
+}
+
+.pedido-material-archivo-size {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.pedido-material-archivo-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.pedido-material-archivo-actions a,
+.pedido-material-archivo-actions button {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #eb671b;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}

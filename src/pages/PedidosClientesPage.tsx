@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoClienteRecord } from '../types/api'
+import PedidoClienteMaterialModal from '../components/admin/PedidoClienteMaterialModal'
 import './PedidosClientesPage.css'
 
 const PedidosClientesPage = () => {
@@ -11,6 +12,8 @@ const PedidosClientesPage = () => {
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoClienteRecord[]>([])
   const [filterEstado, setFilterEstado] = useState<string>('todos')
+  const [materialPedidoId, setMaterialPedidoId] = useState<number | null>(null)
+  const [materialPedidoNumero, setMaterialPedidoNumero] = useState<string>('')
 
   useEffect(() => {
     if (authLoading) return
@@ -133,12 +136,23 @@ const PedidosClientesPage = () => {
                         '-'
                       )}
                     </td>
-                    <td>
+                    <td className="pedidos-clientes-actions-cell">
                       <button
+                        type="button"
+                        className="btn-material"
+                        onClick={() => {
+                          setMaterialPedidoId(pedido.id)
+                          setMaterialPedidoNumero(pedido.numero_pedido)
+                        }}
+                      >
+                        Mockup / archivos
+                      </button>
+                      <button
+                        type="button"
                         className="btn-view"
                         onClick={() => navigate(`/clientes-web/pedidos/${pedido.id}/detalle`)}
                       >
-                        Ver Detalle
+                        Ver detalle
                       </button>
                       {pedido.estado === 'pendiente' && (
                         <button
@@ -156,6 +170,15 @@ const PedidosClientesPage = () => {
           </table>
         </div>
       </div>
+
+      <PedidoClienteMaterialModal
+        pedidoId={materialPedidoId}
+        numeroPedido={materialPedidoNumero}
+        onClose={() => {
+          setMaterialPedidoId(null)
+          setMaterialPedidoNumero('')
+        }}
+      />
     </div>
   )
 }

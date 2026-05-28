@@ -50,6 +50,10 @@
   font-size: 1rem;
 }
 
+.convertir-pedido-op-page {
+  color: #111827;
+}
+
 .convertir-pedido-op-main {
   max-width: 1200px;
   margin: 0 auto;
@@ -60,6 +64,13 @@
     0 8px 32px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(249, 115, 22, 0.15);
+  color: #111827;
+}
+
+.convertir-pedido-op-main p,
+.convertir-pedido-op-main label,
+.convertir-pedido-op-main .info-value {
+  color: #111827;
 }
 
 .info-section {

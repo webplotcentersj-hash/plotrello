@@ -1,9 +1,15 @@
+/* La app global usa --text-primary claro; forzar texto oscuro en esta vista clara */
 .pedido-cliente-detalle-admin-page {
   min-height: 100vh;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
   background-attachment: fixed;
   padding: 20px;
   position: relative;
+  color: #111827;
+}
+
+.pedido-cliente-detalle-admin-page .pedido-detalle-admin-main {
+  color: #111827;
 }
 
 .pedido-cliente-detalle-admin-page::before {
@@ -35,6 +41,71 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 15px;
+}
+
+.pedido-detalle-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn-primary-outline {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 2px solid #eb671b;
+  background: #fff7ed;
+  color: #c2410c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary-outline:hover {
+  background: #ffedd5;
+}
+
+.info-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-section-head h2 {
+  margin: 0;
+}
+
+.btn-link-inline {
+  border: none;
+  background: none;
+  color: #eb671b;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.pedido-spec-block {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #111827;
+}
+
+.archivos-mockup-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: #6b7280;
+}
+
+.mensaje-error--load {
+  margin-bottom: 0.75rem;
 }
 
 .pedido-detalle-header-content h1 {
@@ -88,6 +159,32 @@
   font-weight: 700;
   padding-bottom: 10px;
   border-bottom: 2px solid #f97316;
+}
+
+/* Bloques anidados del brief (h3 + párrafos sin .info-label/.info-value) */
+.pedido-cliente-detalle-admin-page .info-section .info-section {
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.pedido-cliente-detalle-admin-page .info-section .info-section:last-child {
+  margin-bottom: 0;
+}
+
+.pedido-cliente-detalle-admin-page .info-section .info-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #374151 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pedido-cliente-detalle-admin-page .info-section .info-section p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #111827 !important;
 }
 
 .info-grid {
@@ -345,6 +442,23 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.pedido-cliente-detalle-admin-page .btn-back {
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pedido-cliente-detalle-admin-page .btn-back:hover {
+  border-color: #f97316;
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .btn-secondary {
