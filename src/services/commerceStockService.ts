@@ -179,7 +179,11 @@ export async function descontarStockComercial(
 export async function aplicarStockDesdePedidoCliente(
   idPedido: number,
   canal: CanalComercial = 'sistema',
-  options?: { permitirStockNegativo?: boolean }
+  options?: {
+    permitirStockNegativo?: boolean
+    /** Al convertir a OP: aplica stock aunque sea cotización y evita doble descuento. */
+    enConversionOp?: boolean
+  }
 ): Promise<{ success: boolean; descontados: number; errores: string[] }> {
   if (!supabase) {
     return { success: false, descontados: 0, errores: ['Sin conexión a Supabase'] }
@@ -196,8 +200,19 @@ export async function aplicarStockDesdePedidoCliente(
   }
 
   const intencion = (pedido as { tipo_intencion?: string }).tipo_intencion || 'compra'
-  if (intencion === 'cotizacion') {
+  if (intencion === 'cotizacion' && !options?.enConversionOp) {
     return { success: true, descontados: 0, errores: [] }
+  }
+
+  if (options?.enConversionOp) {
+    const { count, error: movErr } = await supabase
+      .from('stock_movimientos')
+      .select('id', { count: 'exact', head: true })
+      .eq('id_pedido_cliente', idPedido)
+      .lt('cantidad', 0)
+    if (!movErr && (count ?? 0) > 0) {
+      return { success: true, descontados: 0, errores: [] }
+    }
   }
 
   const { data: items, error: iErr } = await supabase

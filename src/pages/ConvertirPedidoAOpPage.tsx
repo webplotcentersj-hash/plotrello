@@ -81,8 +81,20 @@ export default function ConvertirPedidoAOpPage() {
       })
       
       if (response.success && response.data) {
-        alert(`Pedido convertido exitosamente. OP creada: ${response.data.numero_op}`)
-        navigate(`/clientes-web/pedidos`)
+        const d = response.data
+        const partes = [
+          `OP: ${d.numero_op}`,
+          d.numero_venta ? `Venta: ${d.numero_venta}` : '',
+          'Mockup y archivos copiados a la OP',
+          'Etiquetas y especificación incluidas',
+          d.stock_descontados != null && d.stock_descontados > 0
+            ? `Stock: ${d.stock_descontados} artículo(s) descontado(s)`
+            : d.stock_errores?.length
+              ? `Stock: ${d.stock_errores.join('; ')}`
+              : 'Stock: sin cambios (ya aplicado o cotización sin stock)'
+        ].filter(Boolean)
+        alert(`Pedido convertido.\n\n${partes.join('\n')}`)
+        navigate(`/op/${d.id_op}`)
       } else {
         setError(response.error || 'Error al convertir pedido')
       }
@@ -150,8 +162,11 @@ export default function ConvertirPedidoAOpPage() {
           <ul className="info-list">
             <li>Se creará una nueva <strong>Orden de Trabajo (OP)</strong> en el sistema</li>
             <li>La OP aparecerá en el tablero Kanban en el sector inicial seleccionado</li>
-            <li>El pedido quedará marcado como <strong>"Convertido"</strong> y asociado a la OP</li>
-            <li>Los artículos del pedido se incluirán en la descripción de la OP</li>
+            <li>El pedido quedará marcado como <strong>Convertido</strong> y vinculado a la OP</li>
+            <li>Se copiarán <strong>mockup, archivos y especificación</strong> a la OP (enlaces adjuntos)</li>
+            <li>Se asignarán <strong>etiquetas</strong> (Pedido Web, número de pedido, urgente, etc.)</li>
+            <li>Se registrará la <strong>venta</strong> con los ítems del pedido</li>
+            <li>Se <strong>descontará stock</strong> si aún no se había aplicado</li>
             <li>La fecha límite del pedido se transferirá a la OP</li>
           </ul>
         </section>

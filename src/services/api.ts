@@ -12333,7 +12333,7 @@ class ApiService {
   async aplicarStockPedidoCliente(
     idPedido: number,
     canal: CanalComercial = 'sistema',
-    options?: { permitirStockNegativo?: boolean }
+    options?: { permitirStockNegativo?: boolean; enConversionOp?: boolean }
   ): Promise<ApiResponse<{ descontados: number; errores: string[] }>> {
     const r = await aplicarStockDesdePedidoCliente(idPedido, canal, options)
     return {
@@ -13065,7 +13065,17 @@ class ApiService {
     nombre_usuario_convertidor: string
     sector_inicial?: string
     observaciones?: string
-  }): Promise<ApiResponse<{ id_op: number; numero_op: string; mensaje: string }>> {
+  }): Promise<
+    ApiResponse<{
+      id_op: number
+      numero_op: string
+      mensaje: string
+      id_venta?: number
+      numero_venta?: string
+      stock_descontados?: number
+      stock_errores?: string[]
+    }>
+  > {
     if (supabase) {
       try {
         const { data, error } = await supabase.rpc('convertir_pedido_a_op', {
@@ -13081,7 +13091,30 @@ class ApiService {
           return { success: false, error: 'No se pudo convertir el pedido' }
         }
 
-        return { success: true, data: data[0] }
+        const row = data[0] as {
+          id_op: number
+          numero_op: string
+          mensaje: string
+          id_venta?: number
+          numero_venta?: string
+        }
+
+        const stockRes = await this.aplicarStockPedidoCliente(params.id_pedido, 'portal', {
+          enConversionOp: true
+        })
+
+        return {
+          success: true,
+          data: {
+            ...row,
+            stock_descontados: stockRes.data?.descontados,
+            stock_errores: stockRes.data?.errores
+          },
+          error:
+            stockRes.data?.errores?.length && !stockRes.success
+              ? `OP creada; stock: ${stockRes.data.errores.join('; ')}`
+              : undefined
+        }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
