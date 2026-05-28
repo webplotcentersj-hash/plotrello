@@ -1,0 +1,48 @@
+/* Badges de estado — fondo suave, borde y texto con color de acento */
+.cliente-status-badge {
+  --badge-accent: var(--cliente-muted);
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.4rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--badge-accent) 12%, var(--cliente-surface));
+  color: color-mix(in srgb, var(--badge-accent) 88%, var(--cliente-text));
+  border: 1px solid color-mix(in srgb, var(--badge-accent) 28%, var(--cliente-border));
+  box-shadow: none;
+}
+
+.cliente-status-badge--sm {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.68rem;
+  border-radius: 8px;
+}
+
+.cliente-status-badge--uppercase {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.65rem;
+}
+
+.cliente-status-badge__dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: 0.28em;
+  border-radius: 50%;
+  background: var(--badge-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--badge-accent) 25%, transparent);
+}
+
+.cliente-status-badge__text {
+  min-width: 0;
+}

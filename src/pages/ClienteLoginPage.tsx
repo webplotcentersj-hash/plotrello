@@ -44,11 +44,15 @@ function ClienteLoginForm() {
       </div>
       <div className="cliente-login-container cliente-card">
         <div className="cliente-login-header">
-          <img
-            src="https://trello.plotcenter.com.ar/Group%20187.png"
-            alt="Plot Center Logo"
-            className="cliente-login-logo"
-          />
+          <div className="cliente-login-logo-wrap">
+            <div className="cliente-login-logo-inner">
+              <img
+                src="https://trello.plotcenter.com.ar/Group%20187.png"
+                alt="Plot Center Logo"
+                className="cliente-login-logo"
+              />
+            </div>
+          </div>
           <h1>Plot Center</h1>
           <p>Portal de Clientes</p>
         </div>

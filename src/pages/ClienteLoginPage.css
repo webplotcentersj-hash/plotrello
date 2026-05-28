@@ -45,6 +45,10 @@
   z-index: 10;
 }
 
+.cliente-login-theme .cliente-theme-toggle {
+  box-shadow: var(--cliente-shadow-md);
+}
+
 .cliente-login-container {
   width: 100%;
   max-width: 420px;
@@ -63,16 +67,47 @@
   margin-bottom: 1.75rem;
 }
 
+.cliente-login-logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  margin: 0 auto 1.15rem;
+  border-radius: 1.25rem;
+  background: linear-gradient(145deg, var(--cliente-brand-light) 0%, var(--cliente-brand) 50%, var(--cliente-brand-dark) 100%);
+  box-shadow:
+    0 10px 32px var(--cliente-brand-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition:
+    transform 0.35s var(--cliente-ease-spring),
+    box-shadow 0.3s ease;
+}
+
+.cliente-login-logo-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.1rem;
+  border-radius: 1rem;
+  background: #ffffff;
+}
+
+[data-cliente-theme='dark'] .cliente-login-logo-inner {
+  background: #fafafa;
+}
+
+.cliente-login-container:hover .cliente-login-logo-wrap {
+  transform: scale(1.05) translateY(-2px);
+  box-shadow:
+    0 14px 40px var(--cliente-brand-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
 .cliente-login-logo {
   width: 96px;
   height: auto;
-  margin-bottom: 1rem;
-  filter: drop-shadow(0 4px 12px var(--cliente-brand-glow));
-  transition: transform 0.35s var(--cliente-ease-spring);
-}
-
-.cliente-login-container:hover .cliente-login-logo {
-  transform: scale(1.05);
+  display: block;
+  object-fit: contain;
 }
 
 .cliente-login-header h1 {

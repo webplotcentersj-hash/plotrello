@@ -16,6 +16,7 @@ import {
   Wallet
 } from 'lucide-react'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
+import ClienteStatusBadge from '../components/cliente/ClienteStatusBadge'
 import './ClienteDashboardPage.css'
 
 type BriefResumen = {
@@ -215,7 +216,7 @@ export default function ClienteDashboardPage() {
     if (brief.id_orden_asociada) {
       return `OP ${brief.numero_op || brief.id_orden_asociada}`
     }
-    return 'Completado - Pendiente de asignación'
+    return 'Pendiente de asignación'
   }
 
   const formatDate = (dateStr: string) => {
@@ -420,11 +421,11 @@ export default function ClienteDashboardPage() {
               {briefs.slice(0, 3).map((brief) => (
                 <div
                   key={brief.id}
-                  className={`cliente-brief-resumen-card ${brief.es_urgencia ? 'urgente' : ''}`}
+                  className={`cliente-card cliente-brief-resumen-card ${brief.es_urgencia ? 'urgente' : ''}`}
                   onClick={() => navigate(`/cliente/brief/${brief.token}`)}
                 >
                   <div className="brief-resumen-header">
-                    <div>
+                    <div className="brief-resumen-title-block">
                       <h3>Brief #{brief.id}</h3>
                       <p className="brief-resumen-fecha">
                         {formatDate(
@@ -432,12 +433,12 @@ export default function ClienteDashboardPage() {
                         )}
                       </p>
                     </div>
-                    <div
+                    <ClienteStatusBadge
                       className="brief-resumen-estado"
-                      style={{ backgroundColor: getEstadoBriefColor(brief) }}
-                    >
-                      {getEstadoBriefLabel(brief)}
-                    </div>
+                      label={getEstadoBriefLabel(brief)}
+                      accent={getEstadoBriefColor(brief)}
+                      size="sm"
+                    />
                   </div>
                   {brief.objetivo_proyecto && (
                     <p className="brief-resumen-objetivo">
@@ -474,19 +475,19 @@ export default function ClienteDashboardPage() {
                 .map((pedido) => (
                   <div
                     key={pedido.id}
-                    className="cliente-op-card"
+                    className="cliente-card cliente-op-card"
                     onClick={() => navigate(`/cliente/buscar-op/${pedido.id_op_asociada}`)}
                   >
                     <span className="op-numero">
                       {pedido.numero_op || `OP-${pedido.id_op_asociada}`}
                     </span>
                     <span className="op-pedido">{pedido.numero_pedido}</span>
-                    <span
+                    <ClienteStatusBadge
                       className="op-estado"
-                      style={{ backgroundColor: getEstadoOpColor(pedido.estado_op || null) }}
-                    >
-                      {pedido.estado_op || 'En producción'}
-                    </span>
+                      label={pedido.estado_op || 'En producción'}
+                      accent={getEstadoOpColor(pedido.estado_op || null)}
+                      size="sm"
+                    />
                   </div>
                 ))}
             </div>
@@ -512,63 +513,54 @@ export default function ClienteDashboardPage() {
               {pedidos.map((pedido) => (
                 <div 
                   key={pedido.id} 
-                  className={`cliente-pedido-card ${pedido.es_urgente ? 'urgente' : ''}`}
+                  className={`cliente-card cliente-pedido-card ${pedido.es_urgente ? 'urgente' : ''}`}
                   onClick={() => navigate(`/cliente/pedido/${pedido.id}`)}
                 >
                   <div className="pedido-card-header">
-                    <div>
-                      <h3>{pedido.numero_pedido}</h3>
-                      <p className="pedido-fecha">
+                    <div className="pedido-card-identity">
+                      <span className="pedido-card-num">{pedido.numero_pedido}</span>
+                      <time className="pedido-fecha" dateTime={pedido.fecha_pedido}>
                         {formatDate(pedido.fecha_pedido)}
-                      </p>
+                      </time>
                     </div>
-                    <div 
+                    <ClienteStatusBadge
                       className="pedido-estado-badge"
-                      style={{ backgroundColor: getEstadoColor(pedido.estado) }}
-                    >
-                      {getEstadoLabel(pedido.estado)}
-                    </div>
+                      label={getEstadoLabel(pedido.estado)}
+                      accent={getEstadoColor(pedido.estado)}
+                      uppercase
+                    />
                   </div>
-                  
+
                   <div className="pedido-card-body">
-                    <div className="pedido-info">
-                      <span className="pedido-label">Total:</span>
-                      <span className="pedido-value">${pedido.precio_total.toFixed(2)}</span>
-                    </div>
-                    {pedido.fecha_limite_deseada && (
-                      <div className="pedido-info">
-                        <span className="pedido-label">Fecha límite:</span>
-                        <span className="pedido-value">
-                          {formatDate(pedido.fecha_limite_deseada)}
-                        </span>
+                    <dl className="pedido-meta-grid">
+                      <div className="pedido-meta-item">
+                        <dt className="pedido-label">Total</dt>
+                        <dd className="pedido-value">${pedido.precio_total.toFixed(2)}</dd>
                       </div>
-                    )}
-                    {pedido.id_op_asociada && (
-                      <div className="pedido-info">
-                        <span className="pedido-label">OP asociada:</span>
-                        <span className="pedido-value">
-                          <button
-                            className="btn-link"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/cliente/buscar-op/${pedido.id_op_asociada}`)
-                            }}
-                            style={{ 
-                              background: 'none', 
-                              border: 'none', 
-                              color: '#eb671b', 
-                              cursor: 'pointer',
-                              textDecoration: 'underline',
-                              padding: 0,
-                              fontSize: 'inherit',
-                              fontWeight: 'inherit'
-                            }}
-                          >
-                            OP-{pedido.id_op_asociada}
-                          </button>
-                        </span>
-                      </div>
-                    )}
+                      {pedido.fecha_limite_deseada && (
+                        <div className="pedido-meta-item">
+                          <dt className="pedido-label">Fecha límite</dt>
+                          <dd className="pedido-value">{formatDate(pedido.fecha_limite_deseada)}</dd>
+                        </div>
+                      )}
+                      {pedido.id_op_asociada && (
+                        <div className="pedido-meta-item">
+                          <dt className="pedido-label">OP asociada</dt>
+                          <dd className="pedido-value">
+                            <button
+                              type="button"
+                              className="pedido-op-link"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/cliente/buscar-op/${pedido.id_op_asociada}`)
+                              }}
+                            >
+                              OP-{pedido.id_op_asociada}
+                            </button>
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
                     <div className="pedido-badges">
                       {pedido.es_urgente && (
                         <span className="badge badge-urgente">⚡ Urgente</span>

@@ -13,17 +13,25 @@ export default function ClienteThemeToggle({ className = '', compact = false }: 
   return (
     <button
       type="button"
-      className={`cliente-theme-toggle ${compact ? 'cliente-theme-toggle--compact' : ''} ${className}`.trim()}
+      role="switch"
+      aria-checked={isDark}
+      className={[
+        'cliente-theme-toggle',
+        isDark ? 'is-dark' : '',
+        compact ? 'cliente-theme-toggle--compact' : '',
+        className
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onClick={toggle}
       aria-label={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
       title={isDark ? 'Modo claro' : 'Modo oscuro'}
     >
+      <Sun className="cliente-theme-toggle__icon cliente-theme-toggle__icon--sun" size={compact ? 15 : 16} strokeWidth={2} aria-hidden />
       <span className="cliente-theme-toggle__track" aria-hidden>
-        <span className={`cliente-theme-toggle__thumb ${isDark ? 'is-dark' : ''}`}>
-          {isDark ? <Moon size={14} strokeWidth={2.25} /> : <Sun size={14} strokeWidth={2.25} />}
-        </span>
+        <span className="cliente-theme-toggle__thumb" />
       </span>
-      {!compact && <span className="cliente-theme-toggle__label">{isDark ? 'Oscuro' : 'Claro'}</span>}
+      <Moon className="cliente-theme-toggle__icon cliente-theme-toggle__icon--moon" size={compact ? 15 : 16} strokeWidth={2} aria-hidden />
     </button>
   )
 }
