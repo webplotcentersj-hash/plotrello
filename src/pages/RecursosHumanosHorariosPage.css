@@ -1236,6 +1236,52 @@
   background: rgba(59, 130, 246, 0.16);
 }
 
+/* Cabecera derecha + selector de mes de horarios fijos */
+.rrhh-fijos-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.rrhh-fijos-mes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.rrhh-fijos-mes input {
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  color: #111827;
+  background: #fff;
+}
+
+/* Botón eliminar horario fijo */
+.rrhh-fijos-del-btn {
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.rrhh-fijos-del-btn:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.16);
+}
+
+.rrhh-fijos-del-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* Editor de horario fijo dentro de la planilla clara (inputs legibles) */
 .rrhh-fijos-tabla .reloj-fijo-input {
   background: #fff;
@@ -1249,6 +1295,175 @@
 
 .rrhh-fijos-tabla .reloj-fijo-sep {
   color: #6b7280;
+}
+
+/* Planilla de asistencia guardada (tema claro) */
+.rrhh-asis-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.rrhh-asis-vbtn {
+  padding: 7px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #374151;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.rrhh-asis-vbtn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.rrhh-asis-help {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.rrhh-asis-scroll {
+  overflow: auto;
+  max-height: 600px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.rrhh-asis-tabla {
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  color: #1f2937;
+}
+
+.rrhh-asis-tabla th,
+.rrhh-asis-tabla td {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  text-align: center;
+}
+
+.rrhh-asis-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #f1f5f9;
+  text-align: left !important;
+  padding: 6px 10px;
+  min-width: 200px;
+  max-width: 200px;
+}
+
+thead .rrhh-asis-sticky {
+  z-index: 3;
+}
+
+.rrhh-asis-emp {
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rrhh-asis-tabla thead th {
+  position: sticky;
+  top: 0;
+  background: #f1f5f9;
+  color: #111827;
+  padding: 5px 4px;
+  z-index: 1;
+}
+
+.rrhh-asis-dia {
+  min-width: 46px;
+}
+
+.rrhh-asis-dia .dia-dow {
+  display: block;
+  font-size: 0.6rem;
+  color: #94a3b8;
+}
+
+.rrhh-asis-dia .dia-num {
+  display: block;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #1f2937;
+}
+
+.rrhh-asis-dia.finde {
+  background: #e9eef5;
+}
+
+.rrhh-asis-celda {
+  padding: 3px 4px;
+  min-width: 46px;
+  line-height: 1.15;
+  background: #fff;
+}
+
+.rrhh-asis-celda.finde {
+  background: #f6f8fb;
+}
+
+.rrhh-asis-celda .celda-h {
+  display: block;
+  font-size: 0.72rem;
+  color: #1f2937;
+}
+
+.rrhh-asis-celda .celda-vacia {
+  color: #cbd5e1;
+}
+
+.rrhh-asis-celda.celda-ok {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.rrhh-asis-celda.celda-tarde {
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.rrhh-asis-celda.celda-aus {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.rrhh-asis-celda.celda-click {
+  cursor: pointer;
+}
+
+.rrhh-asis-celda.celda-click:hover {
+  outline: 2px solid rgba(220, 38, 38, 0.55);
+  outline-offset: -2px;
+}
+
+/* Botón eliminar en la lista de asistencia */
+.rrhh-asis-del-btn {
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.rrhh-asis-del-btn:hover {
+  background: rgba(220, 38, 38, 0.16);
+}
+
+.rrhh-asis-tot {
+  background: #f1f5f9;
+  font-weight: 600;
+  padding: 4px 8px;
+  min-width: 48px;
+  color: #111827;
 }
 
 .reloj-planilla-dia {

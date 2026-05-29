@@ -14585,14 +14585,16 @@ class ApiService {
   }
 
   /**
-   * Crea o actualiza el horario fijo estándar de un empleado (un único
-   * registro por usuario). Se usa como entrada esperada / jornada esperada.
+   * Crea o actualiza el horario fijo estándar de un empleado para un mes
+   * (clave: id_usuario + primer día del mes). Se usa como entrada esperada /
+   * jornada esperada. `mes` en formato 'YYYY-MM' o 'YYYY-MM-DD' (null = mes actual).
    */
   async upsertHorarioFijo(
     idUsuario: number,
     horaEntrada: string,
     horaSalida: string,
     horasSemanales: number | null = null,
+    mes: string | null = null,
     observaciones: string | null = null
   ): Promise<ApiResponse<HorarioEmpleado>> {
     if (!supabase) {
@@ -14605,7 +14607,8 @@ class ApiService {
         p_hora_entrada: horaEntrada,
         p_hora_salida: horaSalida,
         p_horas_semanales: horasSemanales,
-        p_observaciones: observaciones
+        p_observaciones: observaciones,
+        p_mes: mes ? (mes.length === 7 ? `${mes}-01` : mes) : null
       })
 
       if (error) {
@@ -14618,11 +14621,50 @@ class ApiService {
     }
   }
 
+  /** Elimina el horario fijo de un empleado para un mes ('YYYY-MM' o 'YYYY-MM-DD'). */
+  async eliminarHorarioFijo(idUsuario: number, mes: string | null = null): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('eliminar_horario_fijo', {
+        p_id_usuario: idUsuario,
+        p_mes: mes ? (mes.length === 7 ? `${mes}-01` : mes) : null
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as boolean }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /** Elimina un registro de asistencia por id. */
+  async eliminarAsistencia(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { error } = await supabase.from('asistencia').delete().eq('id', id)
+      if (error) {
+        return { success: false, error: error.message }
+      }
+      return { success: true, data: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   /**
    * Devuelve los horarios fijos estándar de todos los empleados
    * (tipo_horario='fijo', dia_semana null) como mapa idUsuario → { entrada, salida, horas }.
    */
-  async obtenerHorariosFijos(): Promise<
+  async obtenerHorariosFijos(mes: string | null = null): Promise<
     ApiResponse<Record<number, { entrada: string; salida: string; horas: number | null }>>
   > {
     if (!supabase) {
@@ -14630,11 +14672,17 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('horarios_empleados')
-        .select('id_usuario, hora_entrada, hora_salida, horas_semanales, activo')
+        .select('id_usuario, hora_entrada, hora_salida, horas_semanales, activo, fecha_inicio')
         .eq('tipo_horario', 'fijo')
         .is('dia_semana', null)
+
+      if (mes) {
+        query = query.eq('fecha_inicio', mes.length === 7 ? `${mes}-01` : mes)
+      }
+
+      const { data, error } = await query
 
       if (error) {
         return { success: false, error: error.message }

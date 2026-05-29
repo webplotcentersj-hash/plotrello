@@ -153,6 +153,20 @@ const RecursosHumanosHorariosPage = () => {
     }
   }
 
+  const handleEliminarAsistencia = async (id: number) => {
+    try {
+      const response = await apiService.eliminarAsistencia(id)
+      if (response.success) {
+        loadAsistencia()
+      } else {
+        alert('Error al eliminar: ' + (response.error || ''))
+      }
+    } catch (error) {
+      alert('Error al eliminar el registro')
+      console.error(error)
+    }
+  }
+
   const handleMarcarEntrada = async () => {
     if (!usuario) return
     try {
@@ -313,6 +327,7 @@ const RecursosHumanosHorariosPage = () => {
             usuario={usuario}
             onMarcarEntrada={handleMarcarEntrada}
             onMarcarSalida={handleMarcarSalida}
+            onEliminar={handleEliminarAsistencia}
           />
         )}
 
@@ -382,16 +397,27 @@ const RelojImportTab = ({
     [usuarios]
   )
 
-  // Cargar horarios fijos guardados (persisten hasta que se cambien).
+  // Mes (YYYY-MM) del archivo importado: se usa para leer/guardar los horarios
+  // fijos de ese mes. Sin archivo, el mes actual.
+  const mesActivo = useMemo(() => {
+    if (marcaciones.length) {
+      const min = new Date(Math.min(...marcaciones.map((m) => m.fechaHora.getTime())))
+      return `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, '0')}`
+    }
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }, [marcaciones])
+
+  // Cargar horarios fijos del mes activo (persisten hasta que se cambien).
   useEffect(() => {
     let cancelado = false
-    apiService.obtenerHorariosFijos().then((r) => {
-      if (!cancelado && r.success && r.data) setHorariosFijos(r.data)
+    apiService.obtenerHorariosFijos(mesActivo).then((r) => {
+      if (!cancelado) setHorariosFijos(r.success && r.data ? r.data : {})
     })
     return () => {
       cancelado = true
     }
-  }, [])
+  }, [mesActivo])
 
   const usuariosOrdenados = useMemo(
     () => [...usuarios].sort((a, b) => a.nombre.localeCompare(b.nombre)),
@@ -595,7 +621,7 @@ const RelojImportTab = ({
     setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida, horas } }))
     setGuardandoFijo(plotLabId)
     try {
-      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida, horas)
+      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida, horas, mesActivo)
       if (!r.success) {
         // Revertir si falló.
         setHorariosFijos((prev) => {
@@ -669,7 +695,7 @@ const RelojImportTab = ({
         omitidos++
         continue
       }
-      const resp = await apiService.upsertHorarioFijo(r.plotLabId, r.entrada, r.salida, r.horas)
+      const resp = await apiService.upsertHorarioFijo(r.plotLabId, r.entrada, r.salida, r.horas, mesActivo)
       if (resp.success) {
         ok++
         nuevos[r.plotLabId] = { entrada: r.entrada, salida: r.salida, horas: r.horas }
@@ -881,7 +907,7 @@ const RelojImportTab = ({
           <div className="reloj-fijos-preview">
             <div className="reloj-fijos-preview-bar">
               <span>
-                {prevFijos.length} empleados · {prevFijos.filter((r) => r.plotLabId && r.entrada && r.salida).length} listos para guardar
+                {prevFijos.length} empleados · {prevFijos.filter((r) => r.plotLabId && r.entrada && r.salida).length} listos para guardar · se guardan para el mes <strong>{mesActivo}</strong>
               </span>
               <div>
                 <button className="btn-secondary" onClick={() => setPrevFijos(null)} disabled={guardandoFijos}>
@@ -1639,19 +1665,36 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
   const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string; sector: string }>>({})
   // Usuario cuyo legajo se está viendo en el modal.
   const [legajoUsuario, setLegajoUsuario] = useState<UsuarioRecord | null>(null)
+  // Mes seleccionado (YYYY-MM): los horarios fijos se guardan/leen por mes.
+  const [mes, setMes] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
 
+  // Legajos: una sola vez.
   useEffect(() => {
     let cancelado = false
-    Promise.all([apiService.obtenerHorariosFijos(), apiService.obtenerLegajosBasico()]).then(([rf, rl]) => {
-      if (cancelado) return
-      if (rf.success && rf.data) setFijos(rf.data)
-      if (rl.success && rl.data) setLegajos(rl.data)
-      setCargandoFijos(false)
+    apiService.obtenerLegajosBasico().then((rl) => {
+      if (!cancelado && rl.success && rl.data) setLegajos(rl.data)
     })
     return () => {
       cancelado = true
     }
   }, [])
+
+  // Horarios fijos del mes seleccionado.
+  useEffect(() => {
+    let cancelado = false
+    setCargandoFijos(true)
+    apiService.obtenerHorariosFijos(mes).then((rf) => {
+      if (cancelado) return
+      setFijos(rf.success && rf.data ? rf.data : {})
+      setCargandoFijos(false)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [mes])
 
   const upsertFijo = async (idUsuario: number, entrada: string, salida: string, horas: number | null) => {
     if (!idUsuario || !entrada || !salida) return
@@ -1659,7 +1702,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
     setFijos((prev) => ({ ...prev, [idUsuario]: { entrada, salida, horas } }))
     setGuardandoFijo(idUsuario)
     try {
-      const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida, horas)
+      const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida, horas, mes)
       if (!r.success) {
         setFijos((prev) => {
           const next = { ...prev }
@@ -1668,6 +1711,29 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
           return next
         })
         alert('Error al guardar el horario fijo: ' + (r.error || ''))
+      } else {
+        onLoad()
+      }
+    } finally {
+      setGuardandoFijo(null)
+    }
+  }
+
+  const eliminarFijo = async (idUsuario: number) => {
+    if (!fijos[idUsuario]) return
+    if (!confirm('¿Eliminar el horario fijo de este empleado para el mes seleccionado?')) return
+    const previo = fijos[idUsuario]
+    setFijos((prev) => {
+      const next = { ...prev }
+      delete next[idUsuario]
+      return next
+    })
+    setGuardandoFijo(idUsuario)
+    try {
+      const r = await apiService.eliminarHorarioFijo(idUsuario, mes)
+      if (!r.success) {
+        setFijos((prev) => ({ ...prev, [idUsuario]: previo }))
+        alert('Error al eliminar: ' + (r.error || ''))
       } else {
         onLoad()
       }
@@ -1773,15 +1839,22 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
       <div className="rrhh-fijos-planilla">
         <div className="rrhh-section-header">
           <h2>🕘 Horarios fijos (planilla)</h2>
-          <span className="rrhh-fijos-resumen">
-            {cargandoFijos
-              ? 'Cargando...'
-              : `${totalConFijo} de ${usuariosFijos.length} empleados con horario fijo`}
-          </span>
+          <div className="rrhh-fijos-header-right">
+            <label className="rrhh-fijos-mes">
+              Mes:
+              <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
+            </label>
+            <span className="rrhh-fijos-resumen">
+              {cargandoFijos
+                ? 'Cargando...'
+                : `${totalConFijo} de ${usuariosFijos.length} empleados con horario fijo`}
+            </span>
+          </div>
         </div>
         <p className="rrhh-fijos-help">
-          Entrada/salida estándar de cada empleado. Quedan fijos hasta que los cambies y son la referencia
-          para puntualidad y horas extra al importar el reloj. Se completan al importar la planilla "PERSONAL ACTUAL".
+          Entrada/salida estándar de cada empleado para el <strong>mes seleccionado</strong>. Quedan fijos hasta que
+          los cambies y son la referencia para puntualidad y horas extra al importar el reloj de ese mes. Se completan
+          al importar la planilla "PERSONAL ACTUAL".
         </p>
         <div className="rrhh-fijos-tabla-wrap">
           <table className="rrhh-fijos-tabla">
@@ -1792,6 +1865,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
                 <th>Horario fijo</th>
                 <th>Jornada (hs)</th>
                 <th>Legajo</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -1826,6 +1900,18 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
                       <button className="rrhh-fijos-legajo-btn" onClick={() => setLegajoUsuario(u)}>
                         📂 Ver legajo
                       </button>
+                    </td>
+                    <td>
+                      {tieneHorario && (
+                        <button
+                          className="rrhh-fijos-del-btn"
+                          title="Eliminar horario fijo de este mes"
+                          disabled={guardandoFijo === u.id}
+                          onClick={() => eliminarFijo(u.id)}
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -2361,12 +2447,64 @@ const AusenciasTab = ({ usuarios, ausencias, usuario, onLoad }: {
 }
 
 // Componente de Asistencia
-const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida }: {
+/** Extrae 'HH:mm' de un timestamp/hora guardado (timestamptz, ISO o 'YYYY-MM-DD HH:mm:ss'). */
+const asisHoraCorta = (ts: string | null): string => {
+  if (!ts) return ''
+  const m = String(ts).match(/[T ](\d{2}):(\d{2})/)
+  if (m) return `${m[1]}:${m[2]}`
+  const m2 = String(ts).match(/^(\d{1,2}):(\d{2})/)
+  return m2 ? `${m2[1].padStart(2, '0')}:${m2[2]}` : ''
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, onEliminar }: {
   asistencia: Asistencia[]
   usuario: any
   onMarcarEntrada: () => void
   onMarcarSalida: () => void
+  onEliminar: (id: number) => void
 }) => {
+  const [vista, setVista] = useState<'planilla' | 'lista'>('planilla')
+
+  const eliminar = (a: Asistencia) => {
+    if (!a?.id) return
+    if (!confirm(`¿Eliminar el registro de ${a.nombre_usuario || 'este empleado'} del ${new Date(a.fecha).toLocaleDateString()}?`)) return
+    onEliminar(a.id)
+  }
+
+  // Días (ISO) del período cubierto por los registros guardados.
+  const dias = useMemo(() => {
+    if (!asistencia.length) return []
+    const fechas = asistencia.map((a) => a.fecha.slice(0, 10)).sort()
+    const min = fechas[0]
+    const max = fechas[fechas.length - 1]
+    const [y, m, d] = min.split('-').map(Number)
+    const [Y, M, D] = max.split('-').map(Number)
+    const cur = new Date(y, m - 1, d)
+    const fin = new Date(Y, M - 1, D)
+    const out: string[] = []
+    while (cur <= fin) {
+      out.push(`${cur.getFullYear()}-${pad2(cur.getMonth() + 1)}-${pad2(cur.getDate())}`)
+      cur.setDate(cur.getDate() + 1)
+    }
+    return out
+  }, [asistencia])
+
+  // Empleados con sus registros indexados por fecha.
+  const empleados = useMemo(() => {
+    const map = new Map<number, { id: number; nombre: string; dias: Record<string, Asistencia>; horas: number }>()
+    for (const a of asistencia) {
+      if (!map.has(a.id_usuario)) {
+        map.set(a.id_usuario, { id: a.id_usuario, nombre: a.nombre_usuario || `Usuario ${a.id_usuario}`, dias: {}, horas: 0 })
+      }
+      const emp = map.get(a.id_usuario)!
+      emp.dias[a.fecha.slice(0, 10)] = a
+      emp.horas += a.horas_trabajadas || 0
+    }
+    return [...map.values()].sort((x, y) => x.nombre.localeCompare(y.nombre))
+  }, [asistencia])
+
   return (
     <div className="rrhh-tab-content">
       <div className="rrhh-section-header">
@@ -2383,26 +2521,114 @@ const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida }:
         )}
       </div>
 
-      <div className="rrhh-asistencia-list">
-        {asistencia.length === 0 ? (
+      {asistencia.length > 0 && (
+        <div className="rrhh-asis-toggle">
+          <button className={`rrhh-asis-vbtn ${vista === 'planilla' ? 'active' : ''}`} onClick={() => setVista('planilla')}>
+            📋 Planilla
+          </button>
+          <button className={`rrhh-asis-vbtn ${vista === 'lista' ? 'active' : ''}`} onClick={() => setVista('lista')}>
+            📃 Lista
+          </button>
+        </div>
+      )}
+
+      {asistencia.length === 0 ? (
+        <div className="rrhh-asistencia-list">
           <p>No hay registros de asistencia</p>
-        ) : (
-          asistencia.map(a => (
+        </div>
+      ) : vista === 'planilla' ? (
+        <div className="rrhh-asis-planilla">
+          <p className="rrhh-asis-help">
+            Asistencia guardada (incluye lo importado del reloj). Cada celda muestra entrada / salida; "AUS" = ausente.
+            Hacé clic en una celda para eliminar ese registro.
+          </p>
+          <div className="rrhh-asis-scroll">
+            <table className="rrhh-asis-tabla">
+              <thead>
+                <tr>
+                  <th className="rrhh-asis-sticky">Empleado</th>
+                  {dias.map((f) => {
+                    const [y, m, d] = f.split('-').map(Number)
+                    const dow = new Date(y, m - 1, d).getDay()
+                    const finde = dow === 0 || dow === 6
+                    return (
+                      <th key={f} className={`rrhh-asis-dia ${finde ? 'finde' : ''}`}>
+                        <span className="dia-dow">{DOW_CORTO[dow]}</span>
+                        <span className="dia-num">{d}</span>
+                      </th>
+                    )
+                  })}
+                  <th className="rrhh-asis-tot">Hs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {empleados.map((emp) => (
+                  <tr key={emp.id}>
+                    <td className="rrhh-asis-sticky rrhh-asis-emp" title={emp.nombre}>{emp.nombre}</td>
+                    {dias.map((f) => {
+                      const a = emp.dias[f]
+                      const [y, m, d] = f.split('-').map(Number)
+                      const dow = new Date(y, m - 1, d).getDay()
+                      const finde = dow === 0 || dow === 6
+                      let cls = 'rrhh-asis-celda'
+                      let contenido: React.ReactNode = <span className="celda-vacia">·</span>
+                      if (a) {
+                        if (a.tipo_registro === 'ausente') {
+                          cls += ' celda-aus'
+                          contenido = <span>AUS</span>
+                        } else {
+                          const e = asisHoraCorta(a.hora_entrada)
+                          const s = asisHoraCorta(a.hora_salida)
+                          cls += a.tipo_registro === 'tarde' ? ' celda-tarde' : ' celda-ok'
+                          contenido = (
+                            <>
+                              <span className="celda-h">{e || '—'}</span>
+                              <span className="celda-h">{s || '—'}</span>
+                            </>
+                          )
+                        }
+                      }
+                      if (finde) cls += ' finde'
+                      if (a) cls += ' celda-click'
+                      return (
+                        <td
+                          key={f}
+                          className={cls}
+                          title={a ? `${a.observaciones || ''} (clic para eliminar)`.trim() : ''}
+                          onClick={a ? () => eliminar(a) : undefined}
+                        >
+                          {contenido}
+                        </td>
+                      )
+                    })}
+                    <td className="rrhh-asis-tot">{emp.horas ? emp.horas.toFixed(1) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="rrhh-asistencia-list">
+          {asistencia.map(a => (
             <div key={a.id} className="rrhh-asistencia-card">
               <div className="rrhh-asistencia-info">
                 <h3>{a.nombre_usuario || 'Usuario'}</h3>
                 <p>Fecha: {new Date(a.fecha).toLocaleDateString()}</p>
-                {a.hora_entrada && <p>Entrada: {new Date(a.hora_entrada).toLocaleTimeString()}</p>}
-                {a.hora_salida && <p>Salida: {new Date(a.hora_salida).toLocaleTimeString()}</p>}
-                {a.horas_trabajadas && <p>Horas trabajadas: {a.horas_trabajadas.toFixed(2)}</p>}
+                {a.hora_entrada && <p>Entrada: {asisHoraCorta(a.hora_entrada)}</p>}
+                {a.hora_salida && <p>Salida: {asisHoraCorta(a.hora_salida)}</p>}
+                {a.horas_trabajadas != null && <p>Horas trabajadas: {a.horas_trabajadas.toFixed(2)}</p>}
                 <span className={`rrhh-badge ${a.tipo_registro}`}>
                   {a.tipo_registro}
                 </span>
               </div>
+              <button className="rrhh-asis-del-btn" title="Eliminar registro" onClick={() => eliminar(a)}>
+                🗑️ Eliminar
+              </button>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
