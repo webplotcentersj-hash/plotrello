@@ -852,7 +852,7 @@ export function matchearUsuario(
  */
 export function construirMapaHorariosFijos(
   vinculacion: Record<string, { id: number } | undefined>,
-  horariosPorUsuario: Record<number, { entrada: string; salida: string }>
+  horariosPorUsuario: Record<number, { entrada: string; salida: string; horas?: number | null }>
 ): MapaHorariosFijos {
   const mapa: MapaHorariosFijos = {}
   for (const [relojId, v] of Object.entries(vinculacion)) {
@@ -860,12 +860,18 @@ export function construirMapaHorariosFijos(
     const h = horariosPorUsuario[v.id]
     if (!h || !h.entrada) continue
     const entradaMin = parseHoraEsperada(h.entrada)
-    const salidaMin = parseHoraEsperada(h.salida)
     let horasJornada: number | null = null
-    if (entradaMin != null && salidaMin != null) {
-      let diff = salidaMin - entradaMin
-      if (diff <= 0) diff += 24 * 60
-      horasJornada = Math.round((diff / 60) * 100) / 100
+    // Jornada esperada: la horas guardada manualmente tiene prioridad; si no,
+    // se deriva del rango entrada→salida.
+    if (h.horas != null) {
+      horasJornada = h.horas
+    } else {
+      const salidaMin = parseHoraEsperada(h.salida)
+      if (entradaMin != null && salidaMin != null) {
+        let diff = salidaMin - entradaMin
+        if (diff <= 0) diff += 24 * 60
+        horasJornada = Math.round((diff / 60) * 100) / 100
+      }
     }
     mapa[relojId] = { entradaMin, horasJornada }
   }

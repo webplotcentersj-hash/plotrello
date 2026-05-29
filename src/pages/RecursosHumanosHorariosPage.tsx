@@ -16,6 +16,7 @@ import {
 } from 'recharts'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import VerLegajoModal from '../components/VerLegajoModal'
 import type { UsuarioRecord, HorarioEmpleado, Turno, Ausencia, Asistencia } from '../types/api'
 import {
   procesarArchivoReloj,
@@ -364,14 +365,14 @@ const RelojImportTab = ({
   const [registrarTardanzas, setRegistrarTardanzas] = useState(true)
 
   const [override, setOverride] = useState<Record<string, number>>({})
-  // Horarios fijos guardados, por id de usuario de Plot Lab: { entrada, salida } en 'HH:mm'.
-  const [horariosFijos, setHorariosFijos] = useState<Record<number, { entrada: string; salida: string }>>({})
+  // Horarios fijos guardados, por id de usuario de Plot Lab: { entrada, salida, horas } en 'HH:mm'.
+  const [horariosFijos, setHorariosFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null }>>({})
   const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
 
   // Importador de horarios reales (planilla "PERSONAL ACTUAL").
   const horariosFileRef = useRef<HTMLInputElement>(null)
   const [prevFijos, setPrevFijos] = useState<
-    Array<{ nombre: string; puesto: string; jornada: string; entrada: string; salida: string; plotLabId: number }> | null
+    Array<{ nombre: string; puesto: string; jornada: string; entrada: string; salida: string; horas: number | null; plotLabId: number }> | null
   >(null)
   const [guardandoFijos, setGuardandoFijos] = useState(false)
   const [resFijos, setResFijos] = useState('')
@@ -590,10 +591,11 @@ const RelojImportTab = ({
   const guardarHorarioFijo = async (plotLabId: number, entrada: string, salida: string) => {
     if (!plotLabId || !entrada || !salida) return
     const previo = horariosFijos[plotLabId]
-    setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida } }))
+    const horas = previo?.horas ?? null
+    setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida, horas } }))
     setGuardandoFijo(plotLabId)
     try {
-      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida)
+      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida, horas)
       if (!r.success) {
         // Revertir si falló.
         setHorariosFijos((prev) => {
@@ -634,6 +636,7 @@ const RelojImportTab = ({
           jornada: r.jornadaSemanal,
           entrada: r.entrada,
           salida: r.salida,
+          horas: r.horasDia,
           plotLabId: m?.id || 0
         }
       })
@@ -660,16 +663,16 @@ const RelojImportTab = ({
     let ok = 0
     let omitidos = 0
     let errores = 0
-    const nuevos: Record<number, { entrada: string; salida: string }> = { ...horariosFijos }
+    const nuevos: Record<number, { entrada: string; salida: string; horas?: number | null }> = { ...horariosFijos }
     for (const r of prevFijos) {
       if (!r.plotLabId || !r.entrada || !r.salida) {
         omitidos++
         continue
       }
-      const resp = await apiService.upsertHorarioFijo(r.plotLabId, r.entrada, r.salida)
+      const resp = await apiService.upsertHorarioFijo(r.plotLabId, r.entrada, r.salida, r.horas)
       if (resp.success) {
         ok++
-        nuevos[r.plotLabId] = { entrada: r.entrada, salida: r.salida }
+        nuevos[r.plotLabId] = { entrada: r.entrada, salida: r.salida, horas: r.horas }
       } else {
         errores++
       }
@@ -1324,6 +1327,56 @@ const HorarioFijoEditor = ({
 }
 
 // ============================================================
+// Editor de jornada (horas) por empleado, con valor derivado como placeholder
+// ============================================================
+const JornadaCell = ({
+  valor,
+  derivado,
+  disabled,
+  onGuardar
+}: {
+  valor: number | null
+  derivado: number | null
+  disabled?: boolean
+  onGuardar: (horas: number | null) => void
+}) => {
+  const [v, setV] = useState(valor != null ? String(valor) : '')
+
+  useEffect(() => {
+    setV(valor != null ? String(valor) : '')
+  }, [valor])
+
+  const commit = () => {
+    const txt = v.trim()
+    if (txt === '') {
+      if (valor != null) onGuardar(null)
+      return
+    }
+    const n = Number(txt)
+    if (!isNaN(n) && n > 0 && n !== valor) onGuardar(Math.round(n * 100) / 100)
+  }
+
+  return (
+    <input
+      type="number"
+      min={0}
+      max={24}
+      step={0.5}
+      className="rrhh-fijos-jornada-input"
+      value={v}
+      disabled={disabled}
+      placeholder={derivado != null ? String(derivado) : '—'}
+      title={derivado != null ? `Derivado del horario: ${derivado} hs` : 'Definí el horario fijo primero'}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+      }}
+    />
+  )
+}
+
+// ============================================================
 // Planilla editable (grilla empleados x días)
 // ============================================================
 const DOW_CORTO = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
@@ -1578,31 +1631,35 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
   onLoad: () => void
 }) => {
   const [showModal, setShowModal] = useState(false)
-  // Horarios fijos (planilla editable): entrada/salida estándar por empleado.
-  const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string }>>({})
+  // Horarios fijos (planilla editable): entrada/salida/jornada estándar por empleado.
+  const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null }>>({})
   const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
   const [cargandoFijos, setCargandoFijos] = useState(true)
+  // Datos de legajo (nombre completo + área) por id de usuario.
+  const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string; sector: string }>>({})
+  // Usuario cuyo legajo se está viendo en el modal.
+  const [legajoUsuario, setLegajoUsuario] = useState<UsuarioRecord | null>(null)
 
   useEffect(() => {
     let cancelado = false
-    apiService.obtenerHorariosFijos().then((r) => {
-      if (!cancelado) {
-        if (r.success && r.data) setFijos(r.data)
-        setCargandoFijos(false)
-      }
+    Promise.all([apiService.obtenerHorariosFijos(), apiService.obtenerLegajosBasico()]).then(([rf, rl]) => {
+      if (cancelado) return
+      if (rf.success && rf.data) setFijos(rf.data)
+      if (rl.success && rl.data) setLegajos(rl.data)
+      setCargandoFijos(false)
     })
     return () => {
       cancelado = true
     }
   }, [])
 
-  const guardarFijo = async (idUsuario: number, entrada: string, salida: string) => {
+  const upsertFijo = async (idUsuario: number, entrada: string, salida: string, horas: number | null) => {
     if (!idUsuario || !entrada || !salida) return
     const previo = fijos[idUsuario]
-    setFijos((prev) => ({ ...prev, [idUsuario]: { entrada, salida } }))
+    setFijos((prev) => ({ ...prev, [idUsuario]: { entrada, salida, horas } }))
     setGuardandoFijo(idUsuario)
     try {
-      const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida)
+      const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida, horas)
       if (!r.success) {
         setFijos((prev) => {
           const next = { ...prev }
@@ -1619,10 +1676,31 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
     }
   }
 
+  // Guarda entrada/salida preservando la jornada manual existente.
+  const guardarFijo = (idUsuario: number, entrada: string, salida: string) =>
+    upsertFijo(idUsuario, entrada, salida, fijos[idUsuario]?.horas ?? null)
+
+  // Guarda la jornada (hs) preservando entrada/salida.
+  const guardarJornada = (idUsuario: number, horas: number | null) => {
+    const f = fijos[idUsuario]
+    if (!f?.entrada || !f?.salida) return
+    upsertFijo(idUsuario, f.entrada, f.salida, horas)
+  }
+
+  const nombreCompletoLegajo = (u: UsuarioRecord): string => {
+    const l = legajos[u.id]
+    const full = `${l?.nombre || ''} ${l?.apellido || ''}`.trim()
+    return full || u.nombre
+  }
+
   const usuariosFijos = useMemo(() => {
     const lista = usuarioSeleccionado ? usuarios.filter((u) => u.id === usuarioSeleccionado) : usuarios
-    return [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre))
-  }, [usuarios, usuarioSeleccionado])
+    return [...lista].sort((a, b) => {
+      const na = `${legajos[a.id]?.nombre || ''} ${legajos[a.id]?.apellido || ''}`.trim() || a.nombre
+      const nb = `${legajos[b.id]?.nombre || ''} ${legajos[b.id]?.apellido || ''}`.trim() || b.nombre
+      return na.localeCompare(nb)
+    })
+  }, [usuarios, usuarioSeleccionado, legajos])
 
   const totalConFijo = useMemo(
     () => usuariosFijos.filter((u) => fijos[u.id]?.entrada && fijos[u.id]?.salida).length,
@@ -1710,17 +1788,24 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
             <thead>
               <tr>
                 <th>Empleado</th>
+                <th>Área</th>
                 <th>Horario fijo</th>
-                <th>Jornada</th>
+                <th>Jornada (hs)</th>
+                <th>Legajo</th>
               </tr>
             </thead>
             <tbody>
               {usuariosFijos.map((u) => {
                 const f = fijos[u.id]
-                const hs = f?.entrada && f?.salida ? horasEntre(f.entrada, f.salida) : null
+                const sector = legajos[u.id]?.sector || ''
+                const tieneHorario = !!(f?.entrada && f?.salida)
                 return (
                   <tr key={u.id} className={f?.entrada ? '' : 'rrhh-fijos-row-sin'}>
-                    <td className="reloj-td-nombre">{u.nombre}</td>
+                    <td>
+                      <span className="rrhh-fijos-nombre">{nombreCompletoLegajo(u)}</span>
+                      <span className="rrhh-fijos-login">{u.nombre}</span>
+                    </td>
+                    <td className="rrhh-fijos-area">{sector || '—'}</td>
                     <td>
                       <HorarioFijoEditor
                         plotLabId={u.id}
@@ -1729,7 +1814,19 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
                         onGuardar={guardarFijo}
                       />
                     </td>
-                    <td className="rrhh-fijos-jornada">{hs != null ? `${hs} hs` : '—'}</td>
+                    <td>
+                      <JornadaCell
+                        valor={f?.horas ?? null}
+                        derivado={tieneHorario ? horasEntre(f!.entrada, f!.salida) : null}
+                        disabled={!tieneHorario || guardandoFijo === u.id}
+                        onGuardar={(h) => guardarJornada(u.id, h)}
+                      />
+                    </td>
+                    <td>
+                      <button className="rrhh-fijos-legajo-btn" onClick={() => setLegajoUsuario(u)}>
+                        📂 Ver legajo
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
@@ -1737,6 +1834,10 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
           </table>
         </div>
       </div>
+
+      {legajoUsuario && (
+        <VerLegajoModal usuario={legajoUsuario} isOpen onClose={() => setLegajoUsuario(null)} />
+      )}
 
       <div className="rrhh-section-header">
         <h2>Horarios de Empleados</h2>

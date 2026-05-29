@@ -14620,9 +14620,11 @@ class ApiService {
 
   /**
    * Devuelve los horarios fijos estándar de todos los empleados
-   * (tipo_horario='fijo', dia_semana null) como mapa idUsuario → entrada/salida 'HH:mm'.
+   * (tipo_horario='fijo', dia_semana null) como mapa idUsuario → { entrada, salida, horas }.
    */
-  async obtenerHorariosFijos(): Promise<ApiResponse<Record<number, { entrada: string; salida: string }>>> {
+  async obtenerHorariosFijos(): Promise<
+    ApiResponse<Record<number, { entrada: string; salida: string; horas: number | null }>>
+  > {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
     }
@@ -14630,7 +14632,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('horarios_empleados')
-        .select('id_usuario, hora_entrada, hora_salida, activo')
+        .select('id_usuario, hora_entrada, hora_salida, horas_semanales, activo')
         .eq('tipo_horario', 'fijo')
         .is('dia_semana', null)
 
@@ -14638,12 +14640,53 @@ class ApiService {
         return { success: false, error: error.message }
       }
 
-      const mapa: Record<number, { entrada: string; salida: string }> = {}
-      for (const row of (data as Array<{ id_usuario: number; hora_entrada: string | null; hora_salida: string | null; activo: boolean | null }>) || []) {
+      const mapa: Record<number, { entrada: string; salida: string; horas: number | null }> = {}
+      for (const row of (data as Array<{ id_usuario: number; hora_entrada: string | null; hora_salida: string | null; horas_semanales: number | null; activo: boolean | null }>) || []) {
         if (row.activo === false) continue
         const entrada = (row.hora_entrada || '').slice(0, 5)
         const salida = (row.hora_salida || '').slice(0, 5)
-        if (entrada) mapa[row.id_usuario] = { entrada, salida }
+        if (entrada) {
+          mapa[row.id_usuario] = {
+            entrada,
+            salida,
+            horas: row.horas_semanales != null ? Number(row.horas_semanales) : null
+          }
+        }
+      }
+
+      return { success: true, data: mapa }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Lista básica de legajos (nombre, apellido, sector) por id de usuario,
+   * para mostrar nombre completo y área en planillas.
+   */
+  async obtenerLegajosBasico(): Promise<
+    ApiResponse<Record<number, { nombre: string; apellido: string; sector: string }>>
+  > {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('legajos_empleados')
+        .select('id_usuario, nombre, apellido, sector')
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      const mapa: Record<number, { nombre: string; apellido: string; sector: string }> = {}
+      for (const row of (data as Array<{ id_usuario: number; nombre: string | null; apellido: string | null; sector: string | null }>) || []) {
+        mapa[row.id_usuario] = {
+          nombre: row.nombre || '',
+          apellido: row.apellido || '',
+          sector: row.sector || ''
+        }
       }
 
       return { success: true, data: mapa }

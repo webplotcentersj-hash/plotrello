@@ -79,18 +79,24 @@
 .rrhh-filter-select,
 .rrhh-date-input {
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 0.9rem;
+}
+
+/* Opciones del desplegable legibles (evita fondo blanco con texto blanco) */
+.rrhh-filter-select option {
+  background: #1e293b;
+  color: #f1f5f9;
 }
 
 .rrhh-filter-select:focus,
 .rrhh-date-input:focus {
   outline: none;
   border-color: #3b82f6;
-  background: rgba(255, 255, 255, 0.08);
+  background: #243044;
 }
 
 /* Tab Content */
@@ -1122,31 +1128,35 @@
   color: var(--text-muted);
 }
 
-/* Planilla de horarios fijos en la pestaña Horarios */
+/* Planilla de horarios fijos en la pestaña Horarios (tema claro) */
 .rrhh-fijos-planilla {
   margin-bottom: 22px;
   padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: #ffffff;
+}
+
+.rrhh-fijos-planilla .rrhh-section-header h2 {
+  font-size: 1.2rem;
 }
 
 .rrhh-fijos-resumen {
   font-size: 0.82rem;
-  color: var(--text-muted);
+  color: #6b7280;
 }
 
 .rrhh-fijos-help {
   margin: 0 0 12px;
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: #6b7280;
   max-width: 760px;
 }
 
 .rrhh-fijos-tabla-wrap {
-  max-height: 480px;
+  max-height: 520px;
   overflow: auto;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
 }
 
@@ -1154,30 +1164,91 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.84rem;
+  color: #1f2937;
 }
 
 .rrhh-fijos-tabla th {
   position: sticky;
   top: 0;
-  background: #1e293b;
+  background: #f1f5f9;
+  color: #111827;
   text-align: left;
-  padding: 8px 12px;
+  padding: 9px 12px;
   font-weight: 600;
   z-index: 1;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .rrhh-fijos-tabla td {
-  padding: 6px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 7px 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  color: #1f2937;
 }
 
 .rrhh-fijos-row-sin {
-  background: rgba(255, 255, 255, 0.015);
+  background: #fafafa;
 }
 
-.rrhh-fijos-jornada {
-  color: var(--text-secondary, #cbd5e1);
+.rrhh-fijos-nombre {
+  display: block;
+  font-weight: 600;
+  color: #111827;
+}
+
+.rrhh-fijos-login {
+  display: block;
+  font-size: 0.7rem;
+  color: #9ca3af;
+}
+
+.rrhh-fijos-area {
+  color: #374151;
   white-space: nowrap;
+}
+
+.rrhh-fijos-jornada-input {
+  width: 78px;
+  padding: 5px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  font-size: 0.82rem;
+}
+
+.rrhh-fijos-jornada-input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.rrhh-fijos-legajo-btn {
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+  color: #2563eb;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rrhh-fijos-legajo-btn:hover {
+  background: rgba(59, 130, 246, 0.16);
+}
+
+/* Editor de horario fijo dentro de la planilla clara (inputs legibles) */
+.rrhh-fijos-tabla .reloj-fijo-input {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.18);
+  color: #111827;
+}
+
+.rrhh-fijos-tabla .reloj-fijo-input::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
+.rrhh-fijos-tabla .reloj-fijo-sep {
+  color: #6b7280;
 }
 
 .reloj-planilla-dia {
