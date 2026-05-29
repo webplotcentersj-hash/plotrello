@@ -46,7 +46,7 @@
       ]
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!embed/).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
