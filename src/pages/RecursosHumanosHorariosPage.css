@@ -852,6 +852,404 @@
   cursor: pointer;
 }
 
+/* Toggle de vista */
+.reloj-vista-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.reloj-vista-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.reloj-vista-btn.active {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+}
+
+/* Planilla editable */
+.reloj-planilla {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reloj-planilla-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.reloj-planilla-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.reloj-planilla-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.reloj-planilla-legend .lg {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.lg-ok { background: rgba(34, 197, 94, 0.5); }
+.lg-tarde { background: rgba(245, 158, 11, 0.6); }
+.lg-aus { background: rgba(239, 68, 68, 0.55); }
+.lg-warn { background: rgba(234, 179, 8, 0.4); }
+
+.reloj-planilla-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.reloj-planilla-tabla {
+  border-collapse: collapse;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.reloj-planilla-tabla th,
+.reloj-planilla-tabla td {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.reloj-planilla-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #1e293b;
+  text-align: left !important;
+  padding: 6px 10px;
+  min-width: 205px;
+  max-width: 205px;
+}
+
+.reloj-planilla-emp {
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.reloj-planilla-emp-nombre {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+/* Editor de horario fijo (entrada/salida estándar) */
+.reloj-fijo-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.reloj-fijo-editor.compacto {
+  transform: scale(0.92);
+  transform-origin: left center;
+}
+
+.reloj-fijo-input {
+  width: 74px;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  color: var(--text-primary);
+}
+
+.reloj-fijo-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+.reloj-fijo-sep {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.reloj-fijo-save {
+  border: none;
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.reloj-fijo-save:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.32);
+}
+
+.reloj-fijo-save:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.reloj-fijo-novinc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Importador de horarios reales (PERSONAL ACTUAL) */
+.reloj-fijos-import {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.reloj-fijos-import-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.reloj-fijos-import-head p {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 620px;
+}
+
+.reloj-fijos-preview {
+  margin-top: 14px;
+}
+
+.reloj-fijos-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #cbd5e1);
+  flex-wrap: wrap;
+}
+
+.reloj-fijos-preview-bar > div {
+  display: flex;
+  gap: 8px;
+}
+
+.reloj-fijos-tabla-wrap {
+  max-height: 460px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+.reloj-fijos-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.reloj-fijos-tabla th {
+  position: sticky;
+  top: 0;
+  background: #1e293b;
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.reloj-fijos-tabla td {
+  padding: 6px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.reloj-fijos-row-warn {
+  background: rgba(245, 158, 11, 0.07);
+}
+
+.reloj-fijos-puesto {
+  font-size: 0.78rem;
+}
+
+.reloj-fijos-puesto span {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.reloj-planilla-dia {
+  padding: 4px 2px;
+  min-width: 42px;
+  color: var(--text-muted);
+}
+
+.reloj-planilla-dia .dia-dow {
+  display: block;
+  font-size: 0.62rem;
+  opacity: 0.7;
+}
+
+.reloj-planilla-dia .dia-num {
+  display: block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+
+.reloj-planilla-dia.finde,
+.reloj-celda.finde {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.reloj-planilla-tot {
+  padding: 4px 8px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  position: sticky;
+  right: 0;
+}
+
+.reloj-celda {
+  cursor: pointer;
+  padding: 3px 4px;
+  min-width: 42px;
+  line-height: 1.15;
+}
+
+.reloj-celda:hover {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: -2px;
+}
+
+.reloj-celda .celda-h {
+  display: block;
+  font-size: 0.7rem;
+}
+
+.reloj-celda .celda-vacia {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.celda-ok { background: rgba(34, 197, 94, 0.16); }
+.celda-warn { background: rgba(234, 179, 8, 0.18); }
+.celda-aus { background: rgba(239, 68, 68, 0.22); color: #fca5a5; font-weight: 700; }
+
+/* Editor de celda */
+.reloj-celda-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.reloj-celda-editor {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 18px;
+  width: 320px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.reloj-celda-editor header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reloj-celda-editor header strong {
+  font-size: 0.95rem;
+}
+
+.reloj-celda-editor header span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.reloj-celda-editor-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.reloj-celda-aus-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.reloj-celda-horas {
+  display: flex;
+  gap: 12px;
+}
+
+.reloj-celda-horas > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reloj-celda-horas label,
+.reloj-celda-obs label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.reloj-celda-horas input,
+.reloj-celda-obs input {
+  padding: 7px 9px;
+  background: var(--bg-primary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: var(--text-primary);
+}
+
+.reloj-celda-obs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reloj-celda-editor-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 /* Gráficos */
 .reloj-charts {
   display: grid;

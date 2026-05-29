@@ -14584,6 +14584,74 @@ class ApiService {
     }
   }
 
+  /**
+   * Crea o actualiza el horario fijo estándar de un empleado (un único
+   * registro por usuario). Se usa como entrada esperada / jornada esperada.
+   */
+  async upsertHorarioFijo(
+    idUsuario: number,
+    horaEntrada: string,
+    horaSalida: string,
+    horasSemanales: number | null = null,
+    observaciones: string | null = null
+  ): Promise<ApiResponse<HorarioEmpleado>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('upsert_horario_fijo', {
+        p_id_usuario: idUsuario,
+        p_hora_entrada: horaEntrada,
+        p_hora_salida: horaSalida,
+        p_horas_semanales: horasSemanales,
+        p_observaciones: observaciones
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as HorarioEmpleado }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Devuelve los horarios fijos estándar de todos los empleados
+   * (tipo_horario='fijo', dia_semana null) como mapa idUsuario → entrada/salida 'HH:mm'.
+   */
+  async obtenerHorariosFijos(): Promise<ApiResponse<Record<number, { entrada: string; salida: string }>>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('horarios_empleados')
+        .select('id_usuario, hora_entrada, hora_salida, activo')
+        .eq('tipo_horario', 'fijo')
+        .is('dia_semana', null)
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      const mapa: Record<number, { entrada: string; salida: string }> = {}
+      for (const row of (data as Array<{ id_usuario: number; hora_entrada: string | null; hora_salida: string | null; activo: boolean | null }>) || []) {
+        if (row.activo === false) continue
+        const entrada = (row.hora_entrada || '').slice(0, 5)
+        const salida = (row.hora_salida || '').slice(0, 5)
+        if (entrada) mapa[row.id_usuario] = { entrada, salida }
+      }
+
+      return { success: true, data: mapa }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   // ============================================
   // SOLICITUDES Y PERMISOS
   // ============================================

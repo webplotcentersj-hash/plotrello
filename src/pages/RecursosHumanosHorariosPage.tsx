@@ -24,12 +24,19 @@ import {
   generarInformeAsistenciaIa,
   construirRegistrosAsistencia,
   construirTardanzas,
+  construirPlanilla,
+  planillaToMarcaciones,
+  procesarMarcaciones,
+  construirMapaHorariosFijos,
+  parsearHorariosReales,
+  diasDelPeriodo,
   matchearUsuario,
   formatHoras,
   CONFIG_CALCULO_DEFAULT,
   type ResumenEmpleado,
   type ConfigCalculo,
-  type MarcacionReloj
+  type MarcacionReloj,
+  type PlanillaEmpleado
 } from '../services/relojBiometricoService'
 import './RecursosHumanosHorariosPage.css'
 
@@ -337,11 +344,14 @@ const RelojImportTab = ({
   usuarioActual: { id: number } | null
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const bufferRef = useRef<ArrayBuffer | null>(null)
   const [fileName, setFileName] = useState('')
   const [config, setConfig] = useState<ConfigCalculo>({ ...CONFIG_CALCULO_DEFAULT })
   const [marcaciones, setMarcaciones] = useState<MarcacionReloj[]>([])
   const [resumenes, setResumenes] = useState<ResumenEmpleado[]>([])
+  const [planilla, setPlanilla] = useState<PlanillaEmpleado[]>([])
+  const [diasPeriodo, setDiasPeriodo] = useState<string[]>([])
+  const [vista, setVista] = useState<'resumen' | 'planilla'>('resumen')
+  const [celdaEdit, setCeldaEdit] = useState<{ empKey: string; fecha: string } | null>(null)
   const [empleadoExpandido, setEmpleadoExpandido] = useState<string | null>(null)
   const [procesando, setProcesando] = useState(false)
   const [error, setError] = useState('')
@@ -354,11 +364,33 @@ const RelojImportTab = ({
   const [registrarTardanzas, setRegistrarTardanzas] = useState(true)
 
   const [override, setOverride] = useState<Record<string, number>>({})
+  // Horarios fijos guardados, por id de usuario de Plot Lab: { entrada, salida } en 'HH:mm'.
+  const [horariosFijos, setHorariosFijos] = useState<Record<number, { entrada: string; salida: string }>>({})
+  const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
+
+  // Importador de horarios reales (planilla "PERSONAL ACTUAL").
+  const horariosFileRef = useRef<HTMLInputElement>(null)
+  const [prevFijos, setPrevFijos] = useState<
+    Array<{ nombre: string; puesto: string; jornada: string; entrada: string; salida: string; plotLabId: number }> | null
+  >(null)
+  const [guardandoFijos, setGuardandoFijos] = useState(false)
+  const [resFijos, setResFijos] = useState('')
 
   const usuariosLite = useMemo(
     () => usuarios.map((u) => ({ id: u.id, nombre: u.nombre })),
     [usuarios]
   )
+
+  // Cargar horarios fijos guardados (persisten hasta que se cambien).
+  useEffect(() => {
+    let cancelado = false
+    apiService.obtenerHorariosFijos().then((r) => {
+      if (!cancelado && r.success && r.data) setHorariosFijos(r.data)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   const usuariosOrdenados = useMemo(
     () => [...usuarios].sort((a, b) => a.nombre.localeCompare(b.nombre)),
@@ -366,9 +398,11 @@ const RelojImportTab = ({
   )
 
   // Vínculo efectivo por empleado del reloj: override manual o match automático.
+  // Se basa en la planilla (identidad estable de empleados) para no recalcularse
+  // en cada recompute de resúmenes y evitar bucles.
   const vinculos = useMemo(() => {
     const map: Record<string, { id: number; nombre: string }> = {}
-    for (const emp of resumenes) {
+    for (const emp of planilla) {
       if (emp.idUsuario in override) {
         const id = override[emp.idUsuario]
         const u = usuariosLite.find((x) => x.id === id)
@@ -379,7 +413,16 @@ const RelojImportTab = ({
       }
     }
     return map
-  }, [resumenes, override, usuariosLite])
+  }, [planilla, override, usuariosLite])
+
+  // Recompute central: cada vez que cambian la planilla, los vínculos, los
+  // horarios fijos o la configuración, recalcula los resúmenes aplicando el
+  // horario fijo de cada empleado (entrada esperada + jornada esperada).
+  useEffect(() => {
+    if (!planilla.length) return
+    const mapaFijos = construirMapaHorariosFijos(vinculos, horariosFijos)
+    setResumenes(procesarMarcaciones(planillaToMarcaciones(planilla), config, mapaFijos))
+  }, [planilla, vinculos, horariosFijos, config])
 
   const handleGuardar = async () => {
     if (!resumenes.length) return
@@ -490,6 +533,9 @@ const RelojImportTab = ({
       }
       setMarcaciones(marc)
       setResumenes(res)
+      setPlanilla(construirPlanilla(res))
+      setDiasPeriodo(diasDelPeriodo(marc))
+      setCeldaEdit(null)
       setInformeIa('')
       setResultadoGuardado('')
       setErrorGuardado('')
@@ -507,13 +553,136 @@ const RelojImportTab = ({
     setFileName(file.name)
     setOverride({})
     const buffer = await file.arrayBuffer()
-    bufferRef.current = buffer
     procesar(buffer, config)
   }
 
+  // El recompute lo dispara el efecto central; aquí solo cambia la configuración.
   const recalcular = (nuevaConfig: ConfigCalculo) => {
     setConfig(nuevaConfig)
-    if (bufferRef.current) procesar(bufferRef.current, nuevaConfig)
+  }
+
+  const editarCelda = (empKey: string, fecha: string, celda: { entrada: string; salida: string; ausente: boolean; obs: string }) => {
+    setPlanilla((prev) =>
+      prev.map((emp) => (emp.idUsuario === empKey ? { ...emp, dias: { ...emp.dias, [fecha]: celda } } : emp))
+    )
+  }
+
+  const marcarAusenciasHabilesVacias = () => {
+    setPlanilla((prev) =>
+      prev.map((emp) => {
+        const dias = { ...emp.dias }
+        for (const f of diasPeriodo) {
+          const [y, m, d] = f.split('-').map(Number)
+          const dow = new Date(y, m - 1, d).getDay()
+          if (dow === 0) continue // domingo no se marca como ausencia
+          const c = dias[f]
+          const vacio = !c || (!c.entrada && !c.salida && !c.ausente)
+          if (vacio) dias[f] = { entrada: '', salida: '', ausente: true, obs: 'Ausencia (día hábil sin marcación)' }
+        }
+        return { ...emp, dias }
+      })
+    )
+  }
+
+  // Guarda/actualiza el horario fijo de un empleado. Persiste en BD y queda
+  // como referencia hasta que se vuelva a cambiar. Actualiza el estado local
+  // de forma optimista para recalcular en vivo.
+  const guardarHorarioFijo = async (plotLabId: number, entrada: string, salida: string) => {
+    if (!plotLabId || !entrada || !salida) return
+    const previo = horariosFijos[plotLabId]
+    setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida } }))
+    setGuardandoFijo(plotLabId)
+    try {
+      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida)
+      if (!r.success) {
+        // Revertir si falló.
+        setHorariosFijos((prev) => {
+          const next = { ...prev }
+          if (previo) next[plotLabId] = previo
+          else delete next[plotLabId]
+          return next
+        })
+        setErrorGuardado(
+          (r.error || 'No se pudo guardar el horario fijo.') +
+            (/function|does not exist|upsert_horario_fijo/i.test(r.error || '')
+              ? ' — Falta aplicar la migración 2026-05-29_upsert_horario_fijo.sql en Supabase.'
+              : '')
+        )
+      }
+    } finally {
+      setGuardandoFijo(null)
+    }
+  }
+
+  // Importa la planilla "PERSONAL ACTUAL": parsea horarios reales y matchea empleados.
+  const handleHorariosRealesFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setResFijos('')
+    try {
+      const buf = await file.arrayBuffer()
+      const rows = parsearHorariosReales(buf)
+      if (!rows.length) {
+        setResFijos('No se encontraron filas. Verificá que tenga columnas COLABORADORES y HORARIO.')
+        return
+      }
+      const prev = rows.map((r) => {
+        const m = matchearUsuario(r.nombre, usuariosLite)
+        return {
+          nombre: r.nombre,
+          puesto: r.puesto,
+          jornada: r.jornadaSemanal,
+          entrada: r.entrada,
+          salida: r.salida,
+          plotLabId: m?.id || 0
+        }
+      })
+      setPrevFijos(prev)
+    } catch {
+      setResFijos('No se pudo leer el archivo. Probá exportarlo de nuevo en formato Excel.')
+    } finally {
+      e.target.value = ''
+    }
+  }
+
+  const actualizarPrevFijo = (
+    index: number,
+    patch: Partial<{ entrada: string; salida: string; plotLabId: number }>
+  ) => {
+    setPrevFijos((prev) => (prev ? prev.map((r, i) => (i === index ? { ...r, ...patch } : r)) : prev))
+  }
+
+  // Guarda en bloque todos los horarios fijos del preview (persisten hasta cambiarse).
+  const guardarHorariosRealesTodos = async () => {
+    if (!prevFijos) return
+    setGuardandoFijos(true)
+    setResFijos('')
+    let ok = 0
+    let omitidos = 0
+    let errores = 0
+    const nuevos: Record<number, { entrada: string; salida: string }> = { ...horariosFijos }
+    for (const r of prevFijos) {
+      if (!r.plotLabId || !r.entrada || !r.salida) {
+        omitidos++
+        continue
+      }
+      const resp = await apiService.upsertHorarioFijo(r.plotLabId, r.entrada, r.salida)
+      if (resp.success) {
+        ok++
+        nuevos[r.plotLabId] = { entrada: r.entrada, salida: r.salida }
+      } else {
+        errores++
+      }
+    }
+    setHorariosFijos(nuevos)
+    setGuardandoFijos(false)
+    setResFijos(
+      `✓ Guardados ${ok} horarios fijos` +
+        (omitidos ? `, ${omitidos} omitidos (sin vínculo u horario)` : '') +
+        (errores ? `, ${errores} con error` : '') +
+        '.'
+    )
+    setPrevFijos(null)
   }
 
   const totales = useMemo(() => {
@@ -688,6 +857,106 @@ const RelojImportTab = ({
         {fileName && <span className="reloj-filename">{fileName}</span>}
       </div>
 
+      {/* Importar horarios reales (PERSONAL ACTUAL) → guardar como horarios fijos */}
+      <div className="reloj-fijos-import">
+        <div className="reloj-fijos-import-head">
+          <div>
+            <strong>🗂️ Horarios reales de cada empleado</strong>
+            <p>
+              Subí la planilla "PERSONAL ACTUAL". Se leen los horarios reales, se vinculan los empleados
+              y quedan guardados como <b>horarios fijos</b> (entrada esperada y jornada) hasta que los cambies.
+            </p>
+          </div>
+          <input
+            ref={horariosFileRef}
+            type="file"
+            accept=".xls,.xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            onChange={handleHorariosRealesFile}
+            style={{ display: 'none' }}
+          />
+          <button className="btn-secondary" onClick={() => horariosFileRef.current?.click()}>
+            📂 Importar horarios reales
+          </button>
+        </div>
+
+        {resFijos && <div className="reloj-ok">{resFijos}</div>}
+
+        {prevFijos && (
+          <div className="reloj-fijos-preview">
+            <div className="reloj-fijos-preview-bar">
+              <span>
+                {prevFijos.length} empleados · {prevFijos.filter((r) => r.plotLabId && r.entrada && r.salida).length} listos para guardar
+              </span>
+              <div>
+                <button className="btn-secondary" onClick={() => setPrevFijos(null)} disabled={guardandoFijos}>
+                  Cancelar
+                </button>
+                <button className="btn-primary" onClick={guardarHorariosRealesTodos} disabled={guardandoFijos}>
+                  {guardandoFijos ? '💾 Guardando...' : '💾 Guardar horarios fijos'}
+                </button>
+              </div>
+            </div>
+            <div className="reloj-fijos-tabla-wrap">
+              <table className="reloj-fijos-tabla">
+                <thead>
+                  <tr>
+                    <th>Empleado</th>
+                    <th>Puesto / Jornada</th>
+                    <th>Usuario Plot Lab</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prevFijos.map((r, i) => {
+                    const incompleto = !r.plotLabId || !r.entrada || !r.salida
+                    return (
+                      <tr key={`${r.nombre}-${i}`} className={incompleto ? 'reloj-fijos-row-warn' : ''}>
+                        <td className="reloj-td-nombre">{r.nombre}</td>
+                        <td className="reloj-fijos-puesto">
+                          {r.puesto || '—'}
+                          <span>{r.jornada}</span>
+                        </td>
+                        <td>
+                          <select
+                            className={`reloj-vinculo-select ${r.plotLabId ? 'reloj-vinculo-auto' : 'reloj-vinculo-none'}`}
+                            value={r.plotLabId}
+                            onChange={(e) => actualizarPrevFijo(i, { plotLabId: Number(e.target.value) })}
+                          >
+                            <option value={0}>Sin vincular</option>
+                            {usuariosOrdenados.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            type="time"
+                            className="reloj-fijo-input"
+                            value={r.entrada}
+                            onChange={(e) => actualizarPrevFijo(i, { entrada: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="time"
+                            className="reloj-fijo-input"
+                            value={r.salida}
+                            onChange={(e) => actualizarPrevFijo(i, { salida: e.target.value })}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
       {procesando && <div className="reloj-procesando">Procesando archivo...</div>}
       {error && <div className="reloj-error">{error}</div>}
 
@@ -750,6 +1019,40 @@ const RelojImportTab = ({
           {resultadoGuardado && <div className="reloj-ok">{resultadoGuardado}</div>}
           {errorGuardado && <div className="reloj-error">{errorGuardado}</div>}
 
+          {/* Toggle de vista */}
+          <div className="reloj-vista-toggle">
+            <button
+              className={`reloj-vista-btn ${vista === 'resumen' ? 'active' : ''}`}
+              onClick={() => setVista('resumen')}
+            >
+              📊 Resumen
+            </button>
+            <button
+              className={`reloj-vista-btn ${vista === 'planilla' ? 'active' : ''}`}
+              onClick={() => setVista('planilla')}
+            >
+              📋 Planilla editable
+            </button>
+          </div>
+
+          {vista === 'planilla' && (
+            <PlanillaEditable
+              planilla={planilla}
+              diasPeriodo={diasPeriodo}
+              resumenes={resumenes}
+              celdaEdit={celdaEdit}
+              setCeldaEdit={setCeldaEdit}
+              onEdit={editarCelda}
+              onMarcarAusencias={marcarAusenciasHabilesVacias}
+              vinculos={vinculos}
+              horariosFijos={horariosFijos}
+              guardandoFijo={guardandoFijo}
+              onGuardarHorarioFijo={guardarHorarioFijo}
+            />
+          )}
+
+          {vista === 'resumen' && (
+          <>
           {/* Gráficos */}
           <div className="reloj-charts">
             <div className="reloj-chart-card">
@@ -845,6 +1148,7 @@ const RelojImportTab = ({
                   <th>Empleado</th>
                   <th>Depto</th>
                   <th>Plot Lab</th>
+                  <th>Horario fijo</th>
                   <th>Días</th>
                   <th>Horas</th>
                   <th>Extra</th>
@@ -880,6 +1184,14 @@ const RelojImportTab = ({
                             ))}
                           </select>
                         </td>
+                        <td>
+                          <HorarioFijoEditor
+                            plotLabId={vinc?.id || null}
+                            valor={vinc?.id ? horariosFijos[vinc.id] : undefined}
+                            guardando={guardandoFijo === vinc?.id}
+                            onGuardar={guardarHorarioFijo}
+                          />
+                        </td>
                         <td className="reloj-td-num">{emp.diasTrabajados}</td>
                         <td className="reloj-td-num">{formatHoras(emp.totalHoras)}</td>
                         <td className="reloj-td-num reloj-td-extra">{formatHoras(emp.totalExtra)}</td>
@@ -906,7 +1218,7 @@ const RelojImportTab = ({
                       </tr>
                       {expandido && (
                         <tr className="reloj-detalle-row">
-                          <td colSpan={9}>
+                          <td colSpan={10}>
                             <table className="reloj-detalle-tabla">
                               <thead>
                                 <tr>
@@ -948,7 +1260,308 @@ const RelojImportTab = ({
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// Editor de horario fijo por empleado (entrada/salida estándar)
+// Persiste en BD y queda como referencia hasta que se cambie.
+// ============================================================
+const HorarioFijoEditor = ({
+  plotLabId,
+  valor,
+  guardando,
+  onGuardar,
+  compacto
+}: {
+  plotLabId: number | null
+  valor?: { entrada: string; salida: string }
+  guardando?: boolean
+  onGuardar: (plotLabId: number, entrada: string, salida: string) => void
+  compacto?: boolean
+}) => {
+  const [entrada, setEntrada] = useState(valor?.entrada || '')
+  const [salida, setSalida] = useState(valor?.salida || '')
+
+  useEffect(() => {
+    setEntrada(valor?.entrada || '')
+    setSalida(valor?.salida || '')
+  }, [valor?.entrada, valor?.salida])
+
+  const sucio = entrada !== (valor?.entrada || '') || salida !== (valor?.salida || '')
+  const valido = !!entrada && !!salida
+
+  if (!plotLabId) {
+    return <span className="reloj-fijo-novinc">Vinculá primero</span>
+  }
+
+  return (
+    <div className={`reloj-fijo-editor ${compacto ? 'compacto' : ''}`}>
+      <input
+        type="time"
+        className="reloj-fijo-input"
+        value={entrada}
+        title="Entrada esperada"
+        onChange={(e) => setEntrada(e.target.value)}
+      />
+      <span className="reloj-fijo-sep">–</span>
+      <input
+        type="time"
+        className="reloj-fijo-input"
+        value={salida}
+        title="Salida esperada"
+        onChange={(e) => setSalida(e.target.value)}
+      />
+      <button
+        type="button"
+        className="reloj-fijo-save"
+        disabled={!valido || !sucio || guardando}
+        title={valor ? 'Actualizar horario fijo' : 'Guardar horario fijo'}
+        onClick={() => valido && onGuardar(plotLabId, entrada, salida)}
+      >
+        {guardando ? '…' : sucio ? '💾' : '✓'}
+      </button>
+    </div>
+  )
+}
+
+// ============================================================
+// Planilla editable (grilla empleados x días)
+// ============================================================
+const DOW_CORTO = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
+
+const PlanillaEditable = ({
+  planilla,
+  diasPeriodo,
+  resumenes,
+  celdaEdit,
+  setCeldaEdit,
+  onEdit,
+  onMarcarAusencias,
+  vinculos,
+  horariosFijos,
+  guardandoFijo,
+  onGuardarHorarioFijo
+}: {
+  planilla: PlanillaEmpleado[]
+  diasPeriodo: string[]
+  resumenes: ResumenEmpleado[]
+  celdaEdit: { empKey: string; fecha: string } | null
+  setCeldaEdit: (c: { empKey: string; fecha: string } | null) => void
+  onEdit: (empKey: string, fecha: string, celda: { entrada: string; salida: string; ausente: boolean; obs: string }) => void
+  onMarcarAusencias: () => void
+  vinculos: Record<string, { id: number; nombre: string }>
+  horariosFijos: Record<number, { entrada: string; salida: string }>
+  guardandoFijo: number | null
+  onGuardarHorarioFijo: (plotLabId: number, entrada: string, salida: string) => void
+}) => {
+  const [form, setForm] = useState<{ entrada: string; salida: string; ausente: boolean; obs: string }>({
+    entrada: '',
+    salida: '',
+    ausente: false,
+    obs: ''
+  })
+
+  const totalesPorEmp = useMemo(() => {
+    const map: Record<string, { horas: number; extra: number; tardanzas: number; anomalias: number }> = {}
+    for (const e of resumenes) {
+      map[e.idUsuario] = {
+        horas: e.totalHoras,
+        extra: e.totalExtra,
+        tardanzas: e.tardanzas,
+        anomalias: e.anomalias
+      }
+    }
+    return map
+  }, [resumenes])
+
+  const abrirEditor = (empKey: string, fecha: string) => {
+    const emp = planilla.find((p) => p.idUsuario === empKey)
+    const celda = emp?.dias[fecha]
+    setForm({
+      entrada: celda?.entrada || '',
+      salida: celda?.salida || '',
+      ausente: celda?.ausente || false,
+      obs: celda?.obs || ''
+    })
+    setCeldaEdit({ empKey, fecha })
+  }
+
+  const guardarEditor = () => {
+    if (!celdaEdit) return
+    onEdit(celdaEdit.empKey, celdaEdit.fecha, {
+      entrada: form.ausente ? '' : form.entrada,
+      salida: form.ausente ? '' : form.salida,
+      ausente: form.ausente,
+      obs: form.obs
+    })
+    setCeldaEdit(null)
+  }
+
+  const limpiarCelda = () => {
+    if (!celdaEdit) return
+    onEdit(celdaEdit.empKey, celdaEdit.fecha, { entrada: '', salida: '', ausente: false, obs: '' })
+    setCeldaEdit(null)
+  }
+
+  const empEditando = celdaEdit ? planilla.find((p) => p.idUsuario === celdaEdit.empKey) : null
+
+  return (
+    <div className="reloj-planilla">
+      <div className="reloj-planilla-toolbar">
+        <button className="btn-secondary" onClick={onMarcarAusencias}>
+          🚩 Marcar ausencias en días hábiles vacíos
+        </button>
+        <div className="reloj-planilla-legend">
+          <span><i className="lg lg-ok" /> Trabajado</span>
+          <span><i className="lg lg-tarde" /> Tarde</span>
+          <span><i className="lg lg-aus" /> Ausente</span>
+          <span><i className="lg lg-warn" /> Falta marca</span>
+        </div>
+      </div>
+
+      <div className="reloj-planilla-scroll">
+        <table className="reloj-planilla-tabla">
+          <thead>
+            <tr>
+              <th className="reloj-planilla-sticky">Empleado</th>
+              {diasPeriodo.map((f) => {
+                const [y, m, d] = f.split('-').map(Number)
+                const dow = new Date(y, m - 1, d).getDay()
+                const finde = dow === 0 || dow === 6
+                return (
+                  <th key={f} className={`reloj-planilla-dia ${finde ? 'finde' : ''}`}>
+                    <span className="dia-dow">{DOW_CORTO[dow]}</span>
+                    <span className="dia-num">{d}</span>
+                  </th>
+                )
+              })}
+              <th className="reloj-planilla-tot">Hs</th>
+              <th className="reloj-planilla-tot">Ext</th>
+            </tr>
+          </thead>
+          <tbody>
+            {planilla.map((emp) => {
+              const tot = totalesPorEmp[emp.idUsuario]
+              const vinc = vinculos[emp.idUsuario]
+              return (
+                <tr key={emp.idUsuario}>
+                  <td className="reloj-planilla-sticky reloj-planilla-emp" title={emp.nombre}>
+                    <span className="reloj-planilla-emp-nombre">{emp.nombre}</span>
+                    <HorarioFijoEditor
+                      plotLabId={vinc?.id || null}
+                      valor={vinc?.id ? horariosFijos[vinc.id] : undefined}
+                      guardando={guardandoFijo === vinc?.id}
+                      onGuardar={onGuardarHorarioFijo}
+                      compacto
+                    />
+                  </td>
+                  {diasPeriodo.map((f) => {
+                    const c = emp.dias[f]
+                    const [y, m, d] = f.split('-').map(Number)
+                    const dow = new Date(y, m - 1, d).getDay()
+                    const finde = dow === 0 || dow === 6
+                    let cls = 'reloj-celda'
+                    let contenido: React.ReactNode = <span className="celda-vacia">·</span>
+                    if (c?.ausente) {
+                      cls += ' celda-aus'
+                      contenido = <span>AUS</span>
+                    } else if (c?.entrada && c?.salida) {
+                      cls += ' celda-ok'
+                      contenido = (
+                        <>
+                          <span className="celda-h">{c.entrada}</span>
+                          <span className="celda-h">{c.salida}</span>
+                        </>
+                      )
+                    } else if (c?.entrada || c?.salida) {
+                      cls += ' celda-warn'
+                      contenido = (
+                        <>
+                          <span className="celda-h">{c.entrada || '—'}</span>
+                          <span className="celda-h">{c.salida || '—'}</span>
+                        </>
+                      )
+                    }
+                    if (finde) cls += ' finde'
+                    return (
+                      <td
+                        key={f}
+                        className={cls}
+                        onClick={() => abrirEditor(emp.idUsuario, f)}
+                        title="Editar"
+                      >
+                        {contenido}
+                      </td>
+                    )
+                  })}
+                  <td className="reloj-planilla-tot">{tot ? formatHoras(tot.horas) : '—'}</td>
+                  <td className="reloj-planilla-tot reloj-td-extra">
+                    {tot && tot.extra > 0 ? formatHoras(tot.extra) : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {celdaEdit && (
+        <div className="reloj-celda-editor-overlay" onMouseDown={() => setCeldaEdit(null)}>
+          <div className="reloj-celda-editor" onMouseDown={(e) => e.stopPropagation()}>
+            <header>
+              <strong>{empEditando?.nombre}</strong>
+              <span>{celdaEdit.fecha}</span>
+              <button className="reloj-celda-editor-close" onClick={() => setCeldaEdit(null)}>✕</button>
+            </header>
+            <label className="reloj-celda-aus-toggle">
+              <input
+                type="checkbox"
+                checked={form.ausente}
+                onChange={(e) => setForm({ ...form, ausente: e.target.checked })}
+              />
+              Ausente / Falta
+            </label>
+            {!form.ausente && (
+              <div className="reloj-celda-horas">
+                <div>
+                  <label>Entrada</label>
+                  <input
+                    type="time"
+                    value={form.entrada}
+                    onChange={(e) => setForm({ ...form, entrada: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Salida</label>
+                  <input
+                    type="time"
+                    value={form.salida}
+                    onChange={(e) => setForm({ ...form, salida: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="reloj-celda-obs">
+              <label>Observaciones</label>
+              <input
+                type="text"
+                value={form.obs}
+                onChange={(e) => setForm({ ...form, obs: e.target.value })}
+                placeholder="Opcional"
+              />
+            </div>
+            <div className="reloj-celda-editor-actions">
+              <button className="btn-secondary" onClick={limpiarCelda}>Vaciar</button>
+              <button className="btn-primary" onClick={guardarEditor}>Aplicar</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

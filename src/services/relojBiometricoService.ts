@@ -78,6 +78,20 @@ export const CONFIG_CALCULO_DEFAULT: ConfigCalculo = {
   horaEntradaEsperada: ''
 }
 
+/**
+ * Horario fijo de un empleado (estándar de días hábiles), usado como
+ * referencia para puntualidad (entrada esperada) y horas extra
+ * (jornada esperada). Indexado por idUsuario del reloj.
+ */
+export interface HorarioFijoCalc {
+  /** Minutos desde 00:00 de la entrada esperada. null = sin definir. */
+  entradaMin: number | null
+  /** Horas de jornada esperada (Lun-Vie). null = usar configuración global. */
+  horasJornada: number | null
+}
+
+export type MapaHorariosFijos = Record<string, HorarioFijoCalc>
+
 const DIAS_SEMANA_UP = ['DOMINGO', 'LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO']
 
 // ------------------------------------------------------------
@@ -244,10 +258,12 @@ export function parsearMarcaciones(file: ArrayBuffer): MarcacionReloj[] {
 
 const MAX_HORAS_SESION = 18
 
-function horasNormales(fecha: Date, config: ConfigCalculo): number {
+function horasNormales(fecha: Date, config: ConfigCalculo, horarioFijo?: HorarioFijoCalc): number {
   const dow = fecha.getDay()
   if (dow === 0) return config.domingoTodoExtra ? 0 : config.jornadaLunVie
   if (dow === 6) return config.jornadaSab
+  // Lun-Vie: jornada esperada del horario fijo del empleado si está definida.
+  if (horarioFijo && horarioFijo.horasJornada != null) return horarioFijo.horasJornada
   return config.jornadaLunVie
 }
 
@@ -260,7 +276,8 @@ function calcularExtra(horasTrabajadas: number, normal: number, config: ConfigCa
 function crearSesion(
   entrada: MarcacionReloj | null,
   salida: MarcacionReloj | null,
-  config: ConfigCalculo
+  config: ConfigCalculo,
+  horarioFijo?: HorarioFijoCalc
 ): SesionDia {
   const ref = entrada || salida
   const refDate = ref!.fechaHora
@@ -285,7 +302,7 @@ function crearSesion(
   }
 
   horasTrabajadas = Math.round(horasTrabajadas * 100) / 100
-  const normal = horasNormales(refDate, config)
+  const normal = horasNormales(refDate, config, horarioFijo)
   const horasExtra = anomalia ? 0 : calcularExtra(horasTrabajadas, normal, config)
 
   const observacionesPartes: string[] = []
@@ -331,7 +348,7 @@ function mediana(valores: number[]): number {
 }
 
 /** Calcula tardanzas y puntualidad anotando las sesiones in-place. */
-function calcularPuntualidad(sesiones: SesionDia[], config: ConfigCalculo): {
+function calcularPuntualidad(sesiones: SesionDia[], config: ConfigCalculo, horarioFijo?: HorarioFijoCalc): {
   diasConEntrada: number
   tardanzas: number
   minutosTardeTotal: number
@@ -343,8 +360,13 @@ function calcularPuntualidad(sesiones: SesionDia[], config: ConfigCalculo): {
     .map((s) => minutosDelDia(s.entrada as Date))
 
   const esperadaFija = parseHoraEsperada(config.horaEntradaEsperada)
-  // Baseline: hora fija configurada o el horario habitual (mediana) del empleado.
-  const baselineMin = esperadaFija != null ? esperadaFija : mediana(entradas)
+  // Baseline (prioridad): horario fijo del empleado > hora fija global > mediana habitual.
+  const baselineMin =
+    horarioFijo && horarioFijo.entradaMin != null
+      ? horarioFijo.entradaMin
+      : esperadaFija != null
+        ? esperadaFija
+        : mediana(entradas)
   const limite = baselineMin + (config.toleranciaTardanzaMin || 0)
 
   let diasConEntrada = 0
@@ -372,7 +394,7 @@ function calcularPuntualidad(sesiones: SesionDia[], config: ConfigCalculo): {
   return { diasConEntrada, tardanzas, minutosTardeTotal, puntualidadPct, baselineEntrada: baselineHora }
 }
 
-function emparejarEmpleado(marcaciones: MarcacionReloj[], config: ConfigCalculo): SesionDia[] {
+function emparejarEmpleado(marcaciones: MarcacionReloj[], config: ConfigCalculo, horarioFijo?: HorarioFijoCalc): SesionDia[] {
   const ordenadas = [...marcaciones].sort((a, b) => a.fechaHora.getTime() - b.fechaHora.getTime())
   const sesiones: SesionDia[] = []
   let pendienteEntrada: MarcacionReloj | null = null
@@ -403,22 +425,22 @@ function emparejarEmpleado(marcaciones: MarcacionReloj[], config: ConfigCalculo)
     if (m.tipo === 'entrada') {
       if (pendienteEntrada) {
         // Entrada nueva sin salida previa -> cerrar la anterior como incompleta
-        sesiones.push(crearSesion(pendienteEntrada, null, config))
+        sesiones.push(crearSesion(pendienteEntrada, null, config, horarioFijo))
       }
       pendienteEntrada = m
     } else if (m.tipo === 'salida') {
       if (pendienteEntrada) {
-        sesiones.push(crearSesion(pendienteEntrada, m, config))
+        sesiones.push(crearSesion(pendienteEntrada, m, config, horarioFijo))
         pendienteEntrada = null
       } else {
         // Salida sin entrada
-        sesiones.push(crearSesion(null, m, config))
+        sesiones.push(crearSesion(null, m, config, horarioFijo))
       }
     }
   }
 
   if (pendienteEntrada) {
-    sesiones.push(crearSesion(pendienteEntrada, null, config))
+    sesiones.push(crearSesion(pendienteEntrada, null, config, horarioFijo))
   }
 
   return sesiones
@@ -426,7 +448,8 @@ function emparejarEmpleado(marcaciones: MarcacionReloj[], config: ConfigCalculo)
 
 export function procesarMarcaciones(
   marcaciones: MarcacionReloj[],
-  config: ConfigCalculo = CONFIG_CALCULO_DEFAULT
+  config: ConfigCalculo = CONFIG_CALCULO_DEFAULT,
+  horariosFijos: MapaHorariosFijos = {}
 ): ResumenEmpleado[] {
   const porEmpleado = new Map<string, MarcacionReloj[]>()
   for (const m of marcaciones) {
@@ -436,9 +459,10 @@ export function procesarMarcaciones(
   }
 
   const resumenes: ResumenEmpleado[] = []
-  for (const [, lista] of porEmpleado) {
-    const sesiones = emparejarEmpleado(lista, config)
-    const punt = calcularPuntualidad(sesiones, config)
+  for (const [key, lista] of porEmpleado) {
+    const horarioFijo = horariosFijos[key] || horariosFijos[lista[0]?.idUsuario]
+    const sesiones = emparejarEmpleado(lista, config, horarioFijo)
+    const punt = calcularPuntualidad(sesiones, config, horarioFijo)
     const totalHoras = sesiones.reduce((acc, s) => acc + s.horasTrabajadas, 0)
     const totalExtra = sesiones.reduce((acc, s) => acc + s.horasExtra, 0)
     const diasTrabajados = new Set(sesiones.filter((s) => s.horasTrabajadas > 0).map((s) => s.fecha)).size
@@ -466,13 +490,231 @@ export function procesarMarcaciones(
 }
 
 /** Atajo: archivo -> resúmenes por empleado. */
-export function procesarArchivoReloj(file: ArrayBuffer, config: ConfigCalculo = CONFIG_CALCULO_DEFAULT): {
+export function procesarArchivoReloj(
+  file: ArrayBuffer,
+  config: ConfigCalculo = CONFIG_CALCULO_DEFAULT,
+  horariosFijos: MapaHorariosFijos = {}
+): {
   marcaciones: MarcacionReloj[]
   resumenes: ResumenEmpleado[]
 } {
   const marcaciones = parsearMarcaciones(file)
-  const resumenes = procesarMarcaciones(marcaciones, config)
+  const resumenes = procesarMarcaciones(marcaciones, config, horariosFijos)
   return { marcaciones, resumenes }
+}
+
+// ------------------------------------------------------------
+// Planilla editable (grilla empleados x días)
+// ------------------------------------------------------------
+
+export interface CeldaDia {
+  entrada: string // 'HH:mm' o ''
+  salida: string // 'HH:mm' o ''
+  ausente: boolean
+  obs: string
+}
+
+export interface PlanillaEmpleado {
+  idUsuario: string
+  nombre: string
+  departamento: string
+  dias: Record<string, CeldaDia>
+}
+
+function horaHHmm(fechaHoraStr: string): string {
+  // "YYYY-MM-DD HH:mm:ss" -> "HH:mm"
+  const m = String(fechaHoraStr || '').match(/(\d{1,2}):(\d{2})/)
+  return m ? `${pad(Number(m[1]))}:${m[2]}` : ''
+}
+
+/** Lista de fechas (ISO) entre la primera y la última marcación, inclusive. */
+export function diasDelPeriodo(marcaciones: MarcacionReloj[]): string[] {
+  if (!marcaciones.length) return []
+  const times = marcaciones.map((m) => m.fechaHora.getTime())
+  const min = new Date(Math.min(...times))
+  const max = new Date(Math.max(...times))
+  const dias: string[] = []
+  const cur = new Date(min.getFullYear(), min.getMonth(), min.getDate())
+  const fin = new Date(max.getFullYear(), max.getMonth(), max.getDate())
+  while (cur <= fin) {
+    dias.push(fechaISO(cur))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return dias
+}
+
+/** Construye la planilla editable a partir de los resúmenes ya calculados. */
+export function construirPlanilla(resumenes: ResumenEmpleado[]): PlanillaEmpleado[] {
+  return resumenes.map((emp) => {
+    const dias: Record<string, CeldaDia> = {}
+    for (const s of emp.sesiones) {
+      const prev = dias[s.fecha]
+      const entrada = horaHHmm(s.entradaStr)
+      const salida = horaHHmm(s.salidaStr)
+      if (prev) {
+        // Combinar sesiones del mismo día: primera entrada, última salida.
+        if (entrada && (!prev.entrada || entrada < prev.entrada)) prev.entrada = entrada
+        if (salida && (!prev.salida || salida > prev.salida)) prev.salida = salida
+        prev.ausente = prev.ausente && s.anomalia === 'falta'
+      } else {
+        dias[s.fecha] = {
+          entrada,
+          salida,
+          ausente: s.anomalia === 'falta',
+          obs: s.anomalia === 'falta' ? s.observaciones : ''
+        }
+      }
+    }
+    return {
+      idUsuario: emp.idUsuario,
+      nombre: emp.nombre,
+      departamento: emp.departamento,
+      dias
+    }
+  })
+}
+
+/** Convierte la planilla editable de vuelta a marcaciones para recalcular con el motor. */
+export function planillaToMarcaciones(planilla: PlanillaEmpleado[]): MarcacionReloj[] {
+  const marcaciones: MarcacionReloj[] = []
+  for (const emp of planilla) {
+    for (const [fecha, celda] of Object.entries(emp.dias)) {
+      const [y, mo, d] = fecha.split('-').map(Number)
+      if (celda.ausente) {
+        const fhFalta = new Date(y, mo - 1, d, 0, 0, 0)
+        marcaciones.push({
+          idUsuario: emp.idUsuario,
+          nombre: emp.nombre,
+          fechaHora: fhFalta,
+          fechaHoraStr: `${fecha} 00:00:00`,
+          tipo: 'falta',
+          descripcion: 'FALTA INJUSTIFICADA',
+          departamento: emp.departamento
+        })
+        continue
+      }
+      const mkEntrada = (hhmm: string): Date | null => {
+        const mm = hhmm.match(/^(\d{1,2}):(\d{2})$/)
+        if (!mm) return null
+        return new Date(y, mo - 1, d, Number(mm[1]), Number(mm[2]), 0)
+      }
+      const entradaDate = celda.entrada ? mkEntrada(celda.entrada) : null
+      let salidaDate = celda.salida ? mkEntrada(celda.salida) : null
+      // Si la salida es menor o igual a la entrada, cruza la medianoche.
+      if (entradaDate && salidaDate && salidaDate <= entradaDate) {
+        salidaDate = new Date(salidaDate.getTime() + 24 * 60 * 60 * 1000)
+      }
+      if (entradaDate) {
+        marcaciones.push({
+          idUsuario: emp.idUsuario,
+          nombre: emp.nombre,
+          fechaHora: entradaDate,
+          fechaHoraStr: formatFechaHora(entradaDate),
+          tipo: 'entrada',
+          descripcion: 'ENTRADA',
+          departamento: emp.departamento
+        })
+      }
+      if (salidaDate) {
+        marcaciones.push({
+          idUsuario: emp.idUsuario,
+          nombre: emp.nombre,
+          fechaHora: salidaDate,
+          fechaHoraStr: formatFechaHora(salidaDate),
+          tipo: 'salida',
+          descripcion: 'SALIDA',
+          departamento: emp.departamento
+        })
+      }
+    }
+  }
+  return marcaciones
+}
+
+// ------------------------------------------------------------
+// Importador de horarios reales (planilla "PERSONAL ACTUAL")
+// Columnas: COLABORADORES | JORNADA SEMANAL | PUESTO | HORARIO | CANTIDAD DE HS
+// ------------------------------------------------------------
+
+export interface HorarioRealRow {
+  nombre: string
+  jornadaSemanal: string
+  puesto: string
+  horarioTexto: string
+  horasDia: number | null
+  /** Entrada estándar de días hábiles 'HH:mm' (vacío si no se pudo derivar). */
+  entrada: string
+  /** Salida estándar de días hábiles 'HH:mm' (vacío si no se pudo derivar). */
+  salida: string
+}
+
+function minToHHmm(min: number): string {
+  return `${pad(Math.floor(min / 60))}:${pad(min % 60)}`
+}
+
+/**
+ * Extrae el rango de entrada/salida de días hábiles del texto de horario.
+ * Ej: "09 a 18:00 - Sabado 09.00 a 14.00" → { entrada:'09:00', salida:'18:00' }
+ * Ignora la parte de "Sabado/Jornada/Turnos" (el modelo fijo es único Lun-Vie).
+ */
+export function parseRangoHorario(texto: string): { entrada: string; salida: string } {
+  const base = String(texto || '').split(/sabado|sábado|jornada|turno/i)[0]
+  const times: number[] = []
+  for (const m of base.matchAll(/(\d{1,2})(?:[:.](\d{2}))?/g)) {
+    const h = Number(m[1])
+    const mi = m[2] != null ? Number(m[2]) : 0
+    if (h <= 23 && mi <= 59) times.push(h * 60 + mi)
+  }
+  if (times.length >= 2 && times[1] > times[0]) {
+    return { entrada: minToHHmm(times[0]), salida: minToHHmm(times[1]) }
+  }
+  return { entrada: '', salida: '' }
+}
+
+export function parsearHorariosReales(file: ArrayBuffer): HorarioRealRow[] {
+  const wb = XLSX.read(file, { type: 'array', cellDates: false })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  if (!ws) return []
+  const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', blankrows: false }) as unknown[][]
+  if (!aoa.length) return []
+
+  // Detectar fila de encabezado (contiene "COLABORADORES" y "HORARIO").
+  let headerIdx = 0
+  for (let i = 0; i < Math.min(aoa.length, 15); i++) {
+    const keys = aoa[i].map((c) => normKey(String(c)))
+    if (keys.some((k) => k.includes('colaborador')) && keys.some((k) => k.includes('horario'))) {
+      headerIdx = i
+      break
+    }
+  }
+  const headers = aoa[headerIdx].map((c) => normKey(String(c)))
+  const idx = (pred: (k: string) => boolean) => headers.findIndex(pred)
+  const colNombre = idx((k) => k.includes('colaborador'))
+  const colJornada = idx((k) => k.includes('jornada'))
+  const colPuesto = idx((k) => k.includes('puesto'))
+  const colHorario = idx((k) => k === 'horario' || (k.includes('horario') && !k.includes('cantidad')))
+  const colHoras = idx((k) => k.includes('cantidad'))
+
+  const rows: HorarioRealRow[] = []
+  for (let i = headerIdx + 1; i < aoa.length; i++) {
+    const arr = aoa[i]
+    const nombre = String(arr[colNombre] ?? '').trim().toUpperCase()
+    if (!nombre) continue
+    const horarioTexto = String(arr[colHorario] ?? '').trim()
+    const horasRaw = arr[colHoras]
+    const horasDia = horasRaw === '' || horasRaw == null ? null : Number(horasRaw) || null
+    const { entrada, salida } = parseRangoHorario(horarioTexto)
+    rows.push({
+      nombre,
+      jornadaSemanal: String(arr[colJornada] ?? '').trim().toUpperCase(),
+      puesto: String(arr[colPuesto] ?? '').trim().toUpperCase(),
+      horarioTexto,
+      horasDia,
+      entrada,
+      salida
+    })
+  }
+  return rows
 }
 
 // ------------------------------------------------------------
@@ -598,6 +840,33 @@ export function matchearUsuario(
     }
   }
   return mejorScore >= 6 ? mejor : null
+}
+
+/**
+ * Construye el mapa de horarios fijos por idUsuario del reloj a partir de
+ * los vínculos (relojId → usuario Plot Lab) y los horarios fijos guardados
+ * por id de usuario de Plot Lab ({ entrada: 'HH:mm', salida: 'HH:mm' }).
+ */
+export function construirMapaHorariosFijos(
+  vinculacion: Record<string, { id: number } | undefined>,
+  horariosPorUsuario: Record<number, { entrada: string; salida: string }>
+): MapaHorariosFijos {
+  const mapa: MapaHorariosFijos = {}
+  for (const [relojId, v] of Object.entries(vinculacion)) {
+    if (!v?.id) continue
+    const h = horariosPorUsuario[v.id]
+    if (!h || !h.entrada) continue
+    const entradaMin = parseHoraEsperada(h.entrada)
+    const salidaMin = parseHoraEsperada(h.salida)
+    let horasJornada: number | null = null
+    if (entradaMin != null && salidaMin != null) {
+      let diff = salidaMin - entradaMin
+      if (diff <= 0) diff += 24 * 60
+      horasJornada = Math.round((diff / 60) * 100) / 100
+    }
+    mapa[relojId] = { entradaMin, horasJornada }
+  }
+  return mapa
 }
 
 // ------------------------------------------------------------
