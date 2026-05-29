@@ -14554,6 +14554,36 @@ class ApiService {
     }
   }
 
+  async registrarAsistenciaReloj(
+    registros: Array<{
+      id_usuario: number
+      fecha: string
+      hora_entrada: string | null
+      hora_salida: string | null
+      horas_trabajadas: number | null
+      tipo_registro: string
+      observaciones: string | null
+    }>
+  ): Promise<ApiResponse<{ insertados: number; actualizados: number; total: number }>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('registrar_asistencia_reloj', {
+        p_registros: registros
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data as { insertados: number; actualizados: number; total: number } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   // ============================================
   // SOLICITUDES Y PERMISOS
   // ============================================

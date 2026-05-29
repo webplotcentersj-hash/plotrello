@@ -1,11 +1,39 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { marked } from 'marked'
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { UsuarioRecord, HorarioEmpleado, Turno, Ausencia, Asistencia } from '../types/api'
+import {
+  procesarArchivoReloj,
+  exportarRelojXlsx,
+  exportarResumenXlsx,
+  generarInformeAsistenciaIa,
+  construirRegistrosAsistencia,
+  construirTardanzas,
+  matchearUsuario,
+  formatHoras,
+  CONFIG_CALCULO_DEFAULT,
+  type ResumenEmpleado,
+  type ConfigCalculo,
+  type MarcacionReloj
+} from '../services/relojBiometricoService'
 import './RecursosHumanosHorariosPage.css'
 
-type TabType = 'horarios' | 'turnos' | 'ausencias' | 'asistencia' | 'reportes'
+type TabType = 'horarios' | 'turnos' | 'ausencias' | 'asistencia' | 'reportes' | 'reloj'
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
@@ -204,9 +232,16 @@ const RecursosHumanosHorariosPage = () => {
           >
             📊 Reportes
           </button>
+          <button
+            className={`rrhh-tab ${activeTab === 'reloj' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reloj')}
+          >
+            🕒 Importar Reloj
+          </button>
         </div>
 
         {/* Filtros */}
+        {activeTab !== 'reloj' && (
         <div className="rrhh-filters-section">
           <select
             value={usuarioSeleccionado || ''}
@@ -235,6 +270,7 @@ const RecursosHumanosHorariosPage = () => {
             </>
           )}
         </div>
+        )}
 
         {/* Contenido de tabs */}
         {activeTab === 'horarios' && (
@@ -281,7 +317,639 @@ const RecursosHumanosHorariosPage = () => {
             fechaHasta={fechaHasta}
           />
         )}
+
+        {activeTab === 'reloj' && (
+          <RelojImportTab usuarios={usuarios} usuarioActual={usuario} />
+        )}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Importar Reloj Biométrico
+// ============================================================
+const RelojImportTab = ({
+  usuarios,
+  usuarioActual
+}: {
+  usuarios: UsuarioRecord[]
+  usuarioActual: { id: number } | null
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const bufferRef = useRef<ArrayBuffer | null>(null)
+  const [fileName, setFileName] = useState('')
+  const [config, setConfig] = useState<ConfigCalculo>({ ...CONFIG_CALCULO_DEFAULT })
+  const [marcaciones, setMarcaciones] = useState<MarcacionReloj[]>([])
+  const [resumenes, setResumenes] = useState<ResumenEmpleado[]>([])
+  const [empleadoExpandido, setEmpleadoExpandido] = useState<string | null>(null)
+  const [procesando, setProcesando] = useState(false)
+  const [error, setError] = useState('')
+  const [informeIa, setInformeIa] = useState('')
+  const [generandoIa, setGenerandoIa] = useState(false)
+  const [errorIa, setErrorIa] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [resultadoGuardado, setResultadoGuardado] = useState('')
+  const [errorGuardado, setErrorGuardado] = useState('')
+  const [registrarTardanzas, setRegistrarTardanzas] = useState(true)
+
+  const [override, setOverride] = useState<Record<string, number>>({})
+
+  const usuariosLite = useMemo(
+    () => usuarios.map((u) => ({ id: u.id, nombre: u.nombre })),
+    [usuarios]
+  )
+
+  const usuariosOrdenados = useMemo(
+    () => [...usuarios].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    [usuarios]
+  )
+
+  // Vínculo efectivo por empleado del reloj: override manual o match automático.
+  const vinculos = useMemo(() => {
+    const map: Record<string, { id: number; nombre: string }> = {}
+    for (const emp of resumenes) {
+      if (emp.idUsuario in override) {
+        const id = override[emp.idUsuario]
+        const u = usuariosLite.find((x) => x.id === id)
+        map[emp.idUsuario] = u ? { id: u.id, nombre: u.nombre } : { id: 0, nombre: '' }
+      } else {
+        const auto = matchearUsuario(emp.nombre, usuariosLite)
+        map[emp.idUsuario] = auto ? { id: auto.id, nombre: auto.nombre } : { id: 0, nombre: '' }
+      }
+    }
+    return map
+  }, [resumenes, override, usuariosLite])
+
+  const handleGuardar = async () => {
+    if (!resumenes.length) return
+    const { registros, vinculados, noVinculados } = construirRegistrosAsistencia(resumenes, vinculos)
+    if (!registros.length) {
+      setErrorGuardado('Ningún empleado del reloj coincide con usuarios de Plot Lab. Verificá los nombres.')
+      return
+    }
+    const aviso =
+      `Se guardarán ${registros.length} registros de ${vinculados.length} empleados vinculados.` +
+      (noVinculados.length ? `\n\nNo se vincularon (${noVinculados.length}): ${noVinculados.join(', ')}` : '') +
+      `\n\n¿Continuar?`
+    if (!confirm(aviso)) return
+
+    setGuardando(true)
+    setErrorGuardado('')
+    setResultadoGuardado('')
+    try {
+      const resp = await apiService.registrarAsistenciaReloj(registros)
+      if (resp.success && resp.data) {
+        let msg = `✓ Guardado: ${resp.data.insertados} nuevos, ${resp.data.actualizados} actualizados (${resp.data.total} total).`
+
+        if (registrarTardanzas) {
+          const res = await registrarTardanzasEnLegajo()
+          if (res.error) {
+            msg += ` Tardanzas: ${res.error}`
+          } else {
+            msg += ` Tardanzas en legajo: ${res.creadas} nuevas${res.omitidas ? `, ${res.omitidas} ya existían` : ''}.`
+          }
+        }
+        setResultadoGuardado(msg)
+      } else {
+        setErrorGuardado(
+          (resp.error || 'No se pudo guardar.') +
+            (/function|does not exist|registrar_asistencia_reloj/i.test(resp.error || '')
+              ? ' — Falta aplicar la migración 2026-05-29_registrar_asistencia_reloj.sql en Supabase.'
+              : '')
+        )
+      }
+    } catch (e) {
+      setErrorGuardado(e instanceof Error ? e.message : 'Error al guardar.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  /** Registra cada tardanza como novedad RRHH (aparece en el legajo). Evita duplicados por usuario+fecha. */
+  const registrarTardanzasEnLegajo = async (): Promise<{ creadas: number; omitidas: number; error?: string }> => {
+    const tardanzas = construirTardanzas(resumenes, vinculos)
+    if (!tardanzas.length) return { creadas: 0, omitidas: 0 }
+    if (!usuarioActual?.id) return { creadas: 0, omitidas: 0, error: 'sin usuario para registrar.' }
+
+    // Fechas ya registradas como tardanza por usuario, para no duplicar.
+    const fechas = tardanzas.map((t) => t.fecha).sort()
+    const desde = fechas[0]
+    const hasta = fechas[fechas.length - 1]
+    const yaExistentes = new Set<string>()
+    const idsUsuario = [...new Set(tardanzas.map((t) => t.id_usuario))]
+    for (const idU of idsUsuario) {
+      const prev = await apiService.rrhhNovedadesListar({
+        idUsuario: idU,
+        grupo: 'tardanza_retiro',
+        codigo: 'tardanza',
+        fechaDesde: desde,
+        fechaHasta: hasta
+      })
+      if (prev.success && prev.data) {
+        for (const n of prev.data) yaExistentes.add(`${idU}|${n.fecha_desde}`)
+      }
+    }
+
+    let creadas = 0
+    let omitidas = 0
+    for (const t of tardanzas) {
+      if (yaExistentes.has(`${t.id_usuario}|${t.fecha}`)) {
+        omitidas++
+        continue
+      }
+      const obs = `Tardanza de ${t.minutos} min (entró ${t.entrada}, horario habitual ~${t.baseline}). Importado del reloj biométrico.`
+      const r = await apiService.rrhhNovedadCrear({
+        id_usuario: t.id_usuario,
+        grupo: 'tardanza_retiro',
+        codigo: 'tardanza',
+        fecha_desde: t.fecha,
+        fecha_hasta: t.fecha,
+        duracion_minutos: t.minutos,
+        observaciones: obs,
+        registrado_por: usuarioActual.id
+      })
+      if (r.success) {
+        creadas++
+        yaExistentes.add(`${t.id_usuario}|${t.fecha}`)
+      }
+    }
+    return { creadas, omitidas }
+  }
+
+  const procesar = (buffer: ArrayBuffer, cfg: ConfigCalculo) => {
+    setProcesando(true)
+    setError('')
+    try {
+      const { marcaciones: marc, resumenes: res } = procesarArchivoReloj(buffer, cfg)
+      if (!marc.length) {
+        setError('No se encontraron marcaciones. Verificá que el Excel tenga columnas "Nombre" y "Fecha/Hora".')
+        setMarcaciones([])
+        setResumenes([])
+        return
+      }
+      setMarcaciones(marc)
+      setResumenes(res)
+      setInformeIa('')
+      setResultadoGuardado('')
+      setErrorGuardado('')
+    } catch (e) {
+      console.error(e)
+      setError('No se pudo leer el archivo. Probá exportarlo de nuevo en formato Excel.')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileName(file.name)
+    setOverride({})
+    const buffer = await file.arrayBuffer()
+    bufferRef.current = buffer
+    procesar(buffer, config)
+  }
+
+  const recalcular = (nuevaConfig: ConfigCalculo) => {
+    setConfig(nuevaConfig)
+    if (bufferRef.current) procesar(bufferRef.current, nuevaConfig)
+  }
+
+  const totales = useMemo(() => {
+    return resumenes.reduce(
+      (acc, e) => {
+        acc.horas += e.totalHoras
+        acc.extra += e.totalExtra
+        acc.anomalias += e.anomalias
+        return acc
+      },
+      { horas: 0, extra: 0, anomalias: 0 }
+    )
+  }, [resumenes])
+
+  const periodo = useMemo(() => {
+    if (!marcaciones.length) return ''
+    const fechas = marcaciones.map((m) => m.fechaHora.getTime())
+    const min = new Date(Math.min(...fechas))
+    const max = new Date(Math.max(...fechas))
+    const f = (d: Date) => d.toLocaleDateString('es-AR')
+    return `${f(min)} al ${f(max)}`
+  }, [marcaciones])
+
+  const nombreCorto = (n: string) => {
+    const parts = n.split(/\s+/)
+    return parts.length > 2 ? `${parts[0]} ${parts[1]}` : n
+  }
+
+  const chartHoras = useMemo(
+    () =>
+      [...resumenes]
+        .sort((a, b) => b.totalHoras - a.totalHoras)
+        .slice(0, 12)
+        .map((e) => ({
+          nombre: nombreCorto(e.nombre),
+          Normales: Math.round((e.totalHoras - e.totalExtra) * 10) / 10,
+          Extra: Math.round(e.totalExtra * 10) / 10
+        })),
+    [resumenes]
+  )
+
+  const ranking = useMemo(
+    () =>
+      [...resumenes]
+        .filter((e) => e.diasConEntrada > 0)
+        .sort((a, b) => b.puntualidadPct - a.puntualidadPct || a.minutosTardeTotal - b.minutosTardeTotal),
+    [resumenes]
+  )
+
+  const chartDistribucion = useMemo(() => {
+    let puntual = 0
+    let tarde = 0
+    let anomalia = 0
+    for (const e of resumenes) {
+      for (const s of e.sesiones) {
+        if (s.anomalia) anomalia++
+        else if (s.tarde) tarde++
+        else puntual++
+      }
+    }
+    return [
+      { name: 'Puntual', value: puntual, color: '#22c55e' },
+      { name: 'Tarde', value: tarde, color: '#f59e0b' },
+      { name: 'Anomalías', value: anomalia, color: '#ef4444' }
+    ].filter((d) => d.value > 0)
+  }, [resumenes])
+
+  const totalTardanzas = useMemo(() => resumenes.reduce((a, e) => a + e.tardanzas, 0), [resumenes])
+
+  const handleInformeIa = async () => {
+    if (!resumenes.length) return
+    setGenerandoIa(true)
+    setErrorIa('')
+    try {
+      const informe = await generarInformeAsistenciaIa(resumenes, periodo, config)
+      setInformeIa(informe)
+    } catch (e) {
+      setErrorIa(e instanceof Error ? e.message : 'No se pudo generar el informe con IA.')
+    } finally {
+      setGenerandoIa(false)
+    }
+  }
+
+  return (
+    <div className="rrhh-reloj-tab">
+      <div className="reloj-intro">
+        <h2>🕒 Importar asistencia del reloj biométrico</h2>
+        <p>
+          Subí el Excel que exporta el reloj. El sistema empareja entrada/salida (incluso turnos que
+          cruzan la medianoche), calcula horas trabajadas y horas extra, y detecta marcaciones faltantes.
+        </p>
+      </div>
+
+      {/* Configuración de jornada */}
+      <div className="reloj-config">
+        <div className="reloj-config-field">
+          <label>Jornada Lun-Vie (hs)</label>
+          <input
+            type="number"
+            min={1}
+            max={24}
+            step={0.5}
+            value={config.jornadaLunVie}
+            onChange={(e) => recalcular({ ...config, jornadaLunVie: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="reloj-config-field">
+          <label>Jornada Sábado (hs)</label>
+          <input
+            type="number"
+            min={0}
+            max={24}
+            step={0.5}
+            value={config.jornadaSab}
+            onChange={(e) => recalcular({ ...config, jornadaSab: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="reloj-config-field reloj-config-check">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.domingoTodoExtra}
+              onChange={(e) => recalcular({ ...config, domingoTodoExtra: e.target.checked })}
+            />
+            Domingo todo extra
+          </label>
+        </div>
+        <div className="reloj-config-field">
+          <label>Redondeo extra (hs)</label>
+          <select
+            value={config.redondeoExtra}
+            onChange={(e) => recalcular({ ...config, redondeoExtra: Number(e.target.value) })}
+          >
+            <option value={0.25}>15 min</option>
+            <option value={0.5}>30 min</option>
+            <option value={1}>1 hora</option>
+          </select>
+        </div>
+        <div className="reloj-config-field">
+          <label>Tolerancia tardanza (min)</label>
+          <input
+            type="number"
+            min={0}
+            max={120}
+            step={5}
+            value={config.toleranciaTardanzaMin}
+            onChange={(e) => recalcular({ ...config, toleranciaTardanzaMin: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="reloj-config-field">
+          <label title="Vacío = usa el horario habitual de cada empleado">Hora entrada esperada</label>
+          <input
+            type="time"
+            value={config.horaEntradaEsperada}
+            onChange={(e) => recalcular({ ...config, horaEntradaEsperada: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Carga de archivo */}
+      <div className="reloj-upload">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xls,.xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          onChange={handleFile}
+          style={{ display: 'none' }}
+        />
+        <button className="btn-primary" onClick={() => fileInputRef.current?.click()}>
+          📂 Seleccionar Excel del reloj
+        </button>
+        {fileName && <span className="reloj-filename">{fileName}</span>}
+      </div>
+
+      {procesando && <div className="reloj-procesando">Procesando archivo...</div>}
+      {error && <div className="reloj-error">{error}</div>}
+
+      {resumenes.length > 0 && (
+        <>
+          {/* Totales */}
+          <div className="reloj-totales">
+            <div className="reloj-total-card">
+              <span className="reloj-total-num">{resumenes.length}</span>
+              <span className="reloj-total-label">Empleados</span>
+            </div>
+            <div className="reloj-total-card">
+              <span className="reloj-total-num">{formatHoras(totales.horas)}</span>
+              <span className="reloj-total-label">Horas totales</span>
+            </div>
+            <div className="reloj-total-card reloj-total-extra">
+              <span className="reloj-total-num">{formatHoras(totales.extra)}</span>
+              <span className="reloj-total-label">Horas extra</span>
+            </div>
+            <div className={`reloj-total-card ${totalTardanzas ? 'reloj-total-tarde' : ''}`}>
+              <span className="reloj-total-num">{totalTardanzas}</span>
+              <span className="reloj-total-label">Tardanzas</span>
+            </div>
+            <div className={`reloj-total-card ${totales.anomalias ? 'reloj-total-warn' : ''}`}>
+              <span className="reloj-total-num">{totales.anomalias}</span>
+              <span className="reloj-total-label">Anomalías</span>
+            </div>
+            {periodo && (
+              <div className="reloj-total-card reloj-total-periodo">
+                <span className="reloj-total-num">📅</span>
+                <span className="reloj-total-label">{periodo}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Acciones */}
+          <div className="reloj-acciones">
+            <button className="btn-secondary" onClick={() => exportarRelojXlsx(resumenes)}>
+              ⬇️ Exportar planilla (formato reloj)
+            </button>
+            <button className="btn-secondary" onClick={() => exportarResumenXlsx(resumenes)}>
+              ⬇️ Exportar resumen por empleado
+            </button>
+            <button className="btn-primary" onClick={handleInformeIa} disabled={generandoIa}>
+              {generandoIa ? '🤖 Analizando...' : '🤖 Analizar con IA'}
+            </button>
+            <button className="btn-primary reloj-btn-guardar" onClick={handleGuardar} disabled={guardando}>
+              {guardando ? '💾 Guardando...' : '💾 Guardar en Plot Lab'}
+            </button>
+            <label className="reloj-check-tardanzas">
+              <input
+                type="checkbox"
+                checked={registrarTardanzas}
+                onChange={(e) => setRegistrarTardanzas(e.target.checked)}
+              />
+              Registrar tardanzas en el legajo
+            </label>
+          </div>
+
+          {resultadoGuardado && <div className="reloj-ok">{resultadoGuardado}</div>}
+          {errorGuardado && <div className="reloj-error">{errorGuardado}</div>}
+
+          {/* Gráficos */}
+          <div className="reloj-charts">
+            <div className="reloj-chart-card">
+              <h3>Horas por empleado (top 12)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartHoras} margin={{ top: 8, right: 8, left: 0, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="nombre" angle={-40} textAnchor="end" interval={0} tick={{ fontSize: 11 }} height={70} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
+                  />
+                  <Legend />
+                  <Bar dataKey="Normales" stackId="h" fill="#3b82f6" />
+                  <Bar dataKey="Extra" stackId="h" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="reloj-chart-card reloj-chart-pie">
+              <h3>Distribución de marcaciones</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={chartDistribucion}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={95}
+                    label={(entry) => `${entry.name}: ${entry.value}`}
+                  >
+                    {chartDistribucion.map((d) => (
+                      <Cell key={d.name} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Ranking de puntualidad */}
+          {ranking.length > 0 && (
+            <div className="reloj-ranking">
+              <h3>🏆 Ranking de puntualidad</h3>
+              <div className="reloj-ranking-list">
+                {ranking.map((e, i) => (
+                  <div key={e.idUsuario} className="reloj-ranking-item">
+                    <span className={`reloj-rank-pos ${i < 3 ? `reloj-rank-${i + 1}` : ''}`}>{i + 1}</span>
+                    <span className="reloj-rank-nombre">{e.nombre}</span>
+                    <div className="reloj-rank-bar-wrap">
+                      <div
+                        className="reloj-rank-bar"
+                        style={{
+                          width: `${e.puntualidadPct}%`,
+                          background:
+                            e.puntualidadPct >= 90 ? '#22c55e' : e.puntualidadPct >= 70 ? '#f59e0b' : '#ef4444'
+                        }}
+                      />
+                    </div>
+                    <span className="reloj-rank-pct">{e.puntualidadPct}%</span>
+                    <span className="reloj-rank-detalle">
+                      {e.tardanzas} tard. · entra ~{e.baselineEntrada}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {errorIa && <div className="reloj-error">{errorIa}</div>}
+          {informeIa && (
+            <div className="reloj-informe-ia">
+              <div className="reloj-informe-header">
+                <span>🤖 Informe PlotAI</span>
+                <button className="reloj-informe-close" onClick={() => setInformeIa('')}>✕</button>
+              </div>
+              <div
+                className="reloj-informe-body"
+                dangerouslySetInnerHTML={{ __html: marked.parse(informeIa) as string }}
+              />
+            </div>
+          )}
+
+          {/* Tabla por empleado */}
+          <div className="reloj-tabla-wrap">
+            <table className="reloj-tabla">
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th>Depto</th>
+                  <th>Plot Lab</th>
+                  <th>Días</th>
+                  <th>Horas</th>
+                  <th>Extra</th>
+                  <th>Punt.</th>
+                  <th>Anomalías</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumenes.map((emp) => {
+                  const vinc = vinculos[emp.idUsuario]
+                  const esAuto = !(emp.idUsuario in override)
+                  const expandido = empleadoExpandido === emp.idUsuario
+                  return (
+                    <Fragment key={emp.idUsuario}>
+                      <tr className={emp.anomalias ? 'reloj-row-warn' : ''}>
+                        <td className="reloj-td-nombre">{emp.nombre}</td>
+                        <td>{emp.departamento || '—'}</td>
+                        <td>
+                          <select
+                            className={`reloj-vinculo-select ${vinc?.id ? (esAuto ? 'reloj-vinculo-auto' : 'reloj-vinculo-manual') : 'reloj-vinculo-none'}`}
+                            value={vinc?.id || 0}
+                            onChange={(e) =>
+                              setOverride({ ...override, [emp.idUsuario]: Number(e.target.value) })
+                            }
+                            title={vinc?.id && esAuto ? 'Vinculado automáticamente' : ''}
+                          >
+                            <option value={0}>Sin vincular</option>
+                            {usuariosOrdenados.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="reloj-td-num">{emp.diasTrabajados}</td>
+                        <td className="reloj-td-num">{formatHoras(emp.totalHoras)}</td>
+                        <td className="reloj-td-num reloj-td-extra">{formatHoras(emp.totalExtra)}</td>
+                        <td className="reloj-td-num">
+                          <span
+                            className="reloj-punt-badge"
+                            style={{
+                              color:
+                                emp.puntualidadPct >= 90 ? '#22c55e' : emp.puntualidadPct >= 70 ? '#f59e0b' : '#ef4444'
+                            }}
+                          >
+                            {emp.diasConEntrada ? `${emp.puntualidadPct}%` : '—'}
+                          </span>
+                        </td>
+                        <td className="reloj-td-num">{emp.anomalias > 0 ? `⚠️ ${emp.anomalias}` : '—'}</td>
+                        <td>
+                          <button
+                            className="reloj-detalle-btn"
+                            onClick={() => setEmpleadoExpandido(expandido ? null : emp.idUsuario)}
+                          >
+                            {expandido ? 'Ocultar' : 'Ver días'}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandido && (
+                        <tr className="reloj-detalle-row">
+                          <td colSpan={9}>
+                            <table className="reloj-detalle-tabla">
+                              <thead>
+                                <tr>
+                                  <th>Día</th>
+                                  <th>Fecha</th>
+                                  <th>Entrada</th>
+                                  <th>Salida</th>
+                                  <th>Horas</th>
+                                  <th>Extra</th>
+                                  <th>Observaciones</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {emp.sesiones.map((s, i) => (
+                                  <tr key={i} className={s.anomalia ? 'reloj-sesion-warn' : ''}>
+                                    <td>{s.dia}</td>
+                                    <td>{s.fecha}</td>
+                                    <td className={s.tarde ? 'reloj-td-tarde' : ''}>
+                                      {s.entradaStr ? s.entradaStr.slice(11, 16) : '—'}
+                                      {s.tarde && <span className="reloj-tarde-badge"> tarde</span>}
+                                    </td>
+                                    <td>
+                                      {s.salidaStr ? s.salidaStr.slice(11, 16) : '—'}
+                                      {s.cruzaMedianoche && <span className="reloj-cruza"> (+1d)</span>}
+                                    </td>
+                                    <td>{formatHoras(s.horasTrabajadas)}</td>
+                                    <td className="reloj-td-extra">{s.horasExtra > 0 ? formatHoras(s.horasExtra) : '—'}</td>
+                                    <td className="reloj-obs">{s.observaciones || '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   )
 }

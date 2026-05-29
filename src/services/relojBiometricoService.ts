@@ -1,0 +1,850 @@
+import * as XLSX from 'xlsx'
+
+// ============================================================
+// Importador de reloj biométrico (asistencia) + cálculo de horas
+// El reloj exporta un Excel "crudo" (29.xls) con una fila por
+// marcación. Este servicio lo normaliza, empareja entrada/salida
+// (incluyendo turnos que cruzan medianoche), calcula horas
+// trabajadas y horas extra, y permite exportarlo al formato
+// "limpio" (RELOJ - MAYO 2026.xls).
+// ============================================================
+
+export type TipoMarcacion = 'entrada' | 'salida' | 'falta' | 'otro'
+
+export interface MarcacionReloj {
+  idUsuario: string
+  nombre: string
+  fechaHora: Date
+  fechaHoraStr: string
+  tipo: TipoMarcacion
+  descripcion: string
+  departamento: string
+}
+
+export type AnomaliaSesion = null | 'sin_salida' | 'sin_entrada' | 'falta' | 'turno_largo'
+
+export interface SesionDia {
+  idUsuario: string
+  nombre: string
+  departamento: string
+  dia: string
+  fecha: string
+  entrada: Date | null
+  salida: Date | null
+  entradaStr: string
+  salidaStr: string
+  horasTrabajadas: number
+  horasExtra: number
+  cruzaMedianoche: boolean
+  anomalia: AnomaliaSesion
+  observaciones: string
+  tarde: boolean
+  minutosTarde: number
+}
+
+export interface ResumenEmpleado {
+  idUsuario: string
+  nombre: string
+  departamento: string
+  sesiones: SesionDia[]
+  totalHoras: number
+  totalExtra: number
+  diasTrabajados: number
+  anomalias: number
+  diasConEntrada: number
+  tardanzas: number
+  minutosTardeTotal: number
+  puntualidadPct: number
+  baselineEntrada: string
+}
+
+export interface ConfigCalculo {
+  jornadaLunVie: number
+  jornadaSab: number
+  domingoTodoExtra: boolean
+  redondeoExtra: number
+  /** Tolerancia en minutos antes de marcar una entrada como tardía. */
+  toleranciaTardanzaMin: number
+  /** Hora de entrada esperada fija "HH:mm". Si está vacío, se usa el horario habitual de cada empleado. */
+  horaEntradaEsperada: string
+}
+
+export const CONFIG_CALCULO_DEFAULT: ConfigCalculo = {
+  jornadaLunVie: 9,
+  jornadaSab: 5,
+  domingoTodoExtra: true,
+  redondeoExtra: 0.5,
+  toleranciaTardanzaMin: 10,
+  horaEntradaEsperada: ''
+}
+
+const DIAS_SEMANA_UP = ['DOMINGO', 'LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO']
+
+// ------------------------------------------------------------
+// Utilidades
+// ------------------------------------------------------------
+
+function quitarAcentos(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function normalizarTexto(s: unknown): string {
+  return quitarAcentos(String(s ?? '').trim()).toUpperCase()
+}
+
+/** Convierte una clave de encabezado a una forma comparable. */
+function normKey(s: string): string {
+  return quitarAcentos(String(s ?? '').toLowerCase()).replace(/[^a-z0-9]/g, '')
+}
+
+/** Parsea un valor de celda a Date, soportando string "YYYY-MM-DD HH:mm:ss" y serial de Excel. */
+function parseFechaHora(value: unknown): { date: Date | null; str: string } {
+  if (value == null || value === '') return { date: null, str: '' }
+
+  // Serial numérico de Excel
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF?.parse_date_code?.(value)
+    if (parsed) {
+      const d = new Date(parsed.y, (parsed.m || 1) - 1, parsed.d || 1, parsed.H || 0, parsed.M || 0, Math.floor(parsed.S || 0))
+      return { date: d, str: formatFechaHora(d) }
+    }
+  }
+
+  if (value instanceof Date) {
+    return { date: value, str: formatFechaHora(value) }
+  }
+
+  const raw = String(value).trim()
+  // Normalizar separador: "2026-05-02 08:04:28" o "02/05/2026 08:04"
+  let m = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || '0'))
+    return { date: d, str: raw }
+  }
+  m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (m) {
+    const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5]), Number(m[6] || '0'))
+    return { date: d, str: formatFechaHora(d) }
+  }
+  const fallback = new Date(raw)
+  if (!isNaN(fallback.getTime())) return { date: fallback, str: raw }
+  return { date: null, str: raw }
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+export function formatFechaHora(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+export function formatHoras(h: number): string {
+  if (!h) return '0:00'
+  const totalMin = Math.round(h * 60)
+  const hh = Math.floor(totalMin / 60)
+  const mm = totalMin % 60
+  return `${hh}:${pad(mm)}`
+}
+
+function diaSemanaUp(d: Date): string {
+  return DIAS_SEMANA_UP[d.getDay()]
+}
+
+function fechaISO(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function redondear(valor: number, paso: number): number {
+  if (!paso || paso <= 0) return Math.round(valor * 100) / 100
+  return Math.round(valor / paso) * paso
+}
+
+// ------------------------------------------------------------
+// Parseo del Excel
+// ------------------------------------------------------------
+
+/** Detecta la fila de encabezados y devuelve filas como objetos normalizados por clave. */
+function leerFilas(file: ArrayBuffer): Record<string, unknown>[] {
+  const wb = XLSX.read(file, { type: 'array', cellDates: false })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  if (!ws) return []
+  const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', blankrows: false }) as unknown[][]
+  if (!aoa.length) return []
+
+  // Buscar la fila de encabezado (la que contiene "Nombre" y "Fecha/Hora")
+  let headerIdx = 0
+  for (let i = 0; i < Math.min(aoa.length, 15); i++) {
+    const keys = aoa[i].map((c) => normKey(String(c)))
+    if (keys.includes('nombre') && keys.some((k) => k.includes('fechahora') || k === 'fecha')) {
+      headerIdx = i
+      break
+    }
+  }
+  const headers = aoa[headerIdx].map((c) => normKey(String(c)))
+  const rows: Record<string, unknown>[] = []
+  for (let i = headerIdx + 1; i < aoa.length; i++) {
+    const arr = aoa[i]
+    const obj: Record<string, unknown> = {}
+    headers.forEach((h, idx) => {
+      if (h) obj[h] = arr[idx]
+    })
+    rows.push(obj)
+  }
+  return rows
+}
+
+function detectarTipo(descripcion: string, tipoRegistro: unknown): TipoMarcacion {
+  const desc = normalizarTexto(descripcion)
+  if (desc.includes('FALTA') || desc.includes('AUSENT')) return 'falta'
+  if (desc.startsWith('ENTRA')) return 'entrada'
+  if (desc.startsWith('SALI')) return 'salida'
+  // Tipo de registro: 0 = entrada, 1 = salida (formato crudo del reloj)
+  const tr = String(tipoRegistro ?? '').trim()
+  if (tr === '0') return 'entrada'
+  if (tr === '1') return 'salida'
+  if (desc) return 'otro'
+  return 'otro'
+}
+
+export function parsearMarcaciones(file: ArrayBuffer): MarcacionReloj[] {
+  const filas = leerFilas(file)
+  const marcaciones: MarcacionReloj[] = []
+
+  for (const row of filas) {
+    const nombre = String(row['nombre'] ?? '').trim()
+    const fechaHoraRaw = row['fechahora'] ?? row['fecha']
+    if (!nombre || (fechaHoraRaw == null || fechaHoraRaw === '')) continue
+
+    const { date, str } = parseFechaHora(fechaHoraRaw)
+    if (!date) continue
+
+    const descripcion = String(row['descripcion'] ?? '').trim()
+    const tipoRegistro = row['tipoderegistro']
+    const idUsuario = String(row['iddeusuario'] ?? row['usuarionro'] ?? '').trim() || nombre
+    const departamento = String(row['departamento'] ?? '').trim().toUpperCase()
+
+    marcaciones.push({
+      idUsuario,
+      nombre: nombre.toUpperCase(),
+      fechaHora: date,
+      fechaHoraStr: str,
+      tipo: detectarTipo(descripcion, tipoRegistro),
+      descripcion,
+      departamento
+    })
+  }
+
+  return marcaciones
+}
+
+// ------------------------------------------------------------
+// Emparejado entrada/salida + cálculo de horas
+// ------------------------------------------------------------
+
+const MAX_HORAS_SESION = 18
+
+function horasNormales(fecha: Date, config: ConfigCalculo): number {
+  const dow = fecha.getDay()
+  if (dow === 0) return config.domingoTodoExtra ? 0 : config.jornadaLunVie
+  if (dow === 6) return config.jornadaSab
+  return config.jornadaLunVie
+}
+
+function calcularExtra(horasTrabajadas: number, normal: number, config: ConfigCalculo): number {
+  const bruto = horasTrabajadas - normal
+  if (bruto <= 0) return 0
+  return Math.max(0, redondear(bruto, config.redondeoExtra))
+}
+
+function crearSesion(
+  entrada: MarcacionReloj | null,
+  salida: MarcacionReloj | null,
+  config: ConfigCalculo
+): SesionDia {
+  const ref = entrada || salida
+  const refDate = ref!.fechaHora
+  let horasTrabajadas = 0
+  let cruzaMedianoche = false
+  let anomalia: AnomaliaSesion = null
+
+  if (entrada && salida) {
+    const diffMs = salida.fechaHora.getTime() - entrada.fechaHora.getTime()
+    horasTrabajadas = diffMs / (1000 * 60 * 60)
+    cruzaMedianoche = fechaISO(entrada.fechaHora) !== fechaISO(salida.fechaHora)
+    if (horasTrabajadas < 0) {
+      horasTrabajadas = 0
+      anomalia = 'sin_entrada'
+    } else if (horasTrabajadas > MAX_HORAS_SESION) {
+      anomalia = 'turno_largo'
+    }
+  } else if (entrada && !salida) {
+    anomalia = 'sin_salida'
+  } else if (!entrada && salida) {
+    anomalia = 'sin_entrada'
+  }
+
+  horasTrabajadas = Math.round(horasTrabajadas * 100) / 100
+  const normal = horasNormales(refDate, config)
+  const horasExtra = anomalia ? 0 : calcularExtra(horasTrabajadas, normal, config)
+
+  const observacionesPartes: string[] = []
+  if (anomalia === 'sin_salida') observacionesPartes.push('Falta marcar salida')
+  if (anomalia === 'sin_entrada') observacionesPartes.push('Falta marcar entrada')
+  if (anomalia === 'turno_largo') observacionesPartes.push('Turno > 18h, revisar')
+
+  return {
+    idUsuario: ref!.idUsuario,
+    nombre: ref!.nombre,
+    departamento: ref!.departamento,
+    dia: diaSemanaUp(refDate),
+    fecha: fechaISO(refDate),
+    entrada: entrada ? entrada.fechaHora : null,
+    salida: salida ? salida.fechaHora : null,
+    entradaStr: entrada ? entrada.fechaHoraStr : '',
+    salidaStr: salida ? salida.fechaHoraStr : '',
+    horasTrabajadas,
+    horasExtra,
+    cruzaMedianoche,
+    anomalia,
+    observaciones: observacionesPartes.join('; '),
+    tarde: false,
+    minutosTarde: 0
+  }
+}
+
+function minutosDelDia(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes()
+}
+
+function parseHoraEsperada(hhmm: string): number | null {
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+function mediana(valores: number[]): number {
+  if (!valores.length) return 0
+  const ord = [...valores].sort((a, b) => a - b)
+  const mid = Math.floor(ord.length / 2)
+  return ord.length % 2 ? ord[mid] : Math.round((ord[mid - 1] + ord[mid]) / 2)
+}
+
+/** Calcula tardanzas y puntualidad anotando las sesiones in-place. */
+function calcularPuntualidad(sesiones: SesionDia[], config: ConfigCalculo): {
+  diasConEntrada: number
+  tardanzas: number
+  minutosTardeTotal: number
+  puntualidadPct: number
+  baselineEntrada: string
+} {
+  const entradas = sesiones
+    .filter((s) => s.entrada && !s.anomalia)
+    .map((s) => minutosDelDia(s.entrada as Date))
+
+  const esperadaFija = parseHoraEsperada(config.horaEntradaEsperada)
+  // Baseline: hora fija configurada o el horario habitual (mediana) del empleado.
+  const baselineMin = esperadaFija != null ? esperadaFija : mediana(entradas)
+  const limite = baselineMin + (config.toleranciaTardanzaMin || 0)
+
+  let diasConEntrada = 0
+  let tardanzas = 0
+  let minutosTardeTotal = 0
+
+  for (const s of sesiones) {
+    if (!s.entrada || s.anomalia) continue
+    diasConEntrada++
+    const min = minutosDelDia(s.entrada)
+    const tarde = min > limite
+    s.tarde = tarde
+    s.minutosTarde = tarde ? min - baselineMin : 0
+    if (tarde) {
+      tardanzas++
+      minutosTardeTotal += s.minutosTarde
+      if (s.observaciones) s.observaciones += `; Tarde ${s.minutosTarde}min`
+      else s.observaciones = `Tarde ${s.minutosTarde}min`
+    }
+  }
+
+  const puntualidadPct = diasConEntrada ? Math.round(((diasConEntrada - tardanzas) / diasConEntrada) * 100) : 0
+  const baselineHora = `${pad(Math.floor(baselineMin / 60))}:${pad(baselineMin % 60)}`
+
+  return { diasConEntrada, tardanzas, minutosTardeTotal, puntualidadPct, baselineEntrada: baselineHora }
+}
+
+function emparejarEmpleado(marcaciones: MarcacionReloj[], config: ConfigCalculo): SesionDia[] {
+  const ordenadas = [...marcaciones].sort((a, b) => a.fechaHora.getTime() - b.fechaHora.getTime())
+  const sesiones: SesionDia[] = []
+  let pendienteEntrada: MarcacionReloj | null = null
+
+  for (const m of ordenadas) {
+    if (m.tipo === 'falta') {
+      sesiones.push({
+        idUsuario: m.idUsuario,
+        nombre: m.nombre,
+        departamento: m.departamento,
+        dia: diaSemanaUp(m.fechaHora),
+        fecha: fechaISO(m.fechaHora),
+        entrada: null,
+        salida: null,
+        entradaStr: '',
+        salidaStr: '',
+        horasTrabajadas: 0,
+        horasExtra: 0,
+        cruzaMedianoche: false,
+        anomalia: 'falta',
+        observaciones: m.descripcion || 'Falta',
+        tarde: false,
+        minutosTarde: 0
+      })
+      continue
+    }
+
+    if (m.tipo === 'entrada') {
+      if (pendienteEntrada) {
+        // Entrada nueva sin salida previa -> cerrar la anterior como incompleta
+        sesiones.push(crearSesion(pendienteEntrada, null, config))
+      }
+      pendienteEntrada = m
+    } else if (m.tipo === 'salida') {
+      if (pendienteEntrada) {
+        sesiones.push(crearSesion(pendienteEntrada, m, config))
+        pendienteEntrada = null
+      } else {
+        // Salida sin entrada
+        sesiones.push(crearSesion(null, m, config))
+      }
+    }
+  }
+
+  if (pendienteEntrada) {
+    sesiones.push(crearSesion(pendienteEntrada, null, config))
+  }
+
+  return sesiones
+}
+
+export function procesarMarcaciones(
+  marcaciones: MarcacionReloj[],
+  config: ConfigCalculo = CONFIG_CALCULO_DEFAULT
+): ResumenEmpleado[] {
+  const porEmpleado = new Map<string, MarcacionReloj[]>()
+  for (const m of marcaciones) {
+    const key = m.idUsuario || m.nombre
+    if (!porEmpleado.has(key)) porEmpleado.set(key, [])
+    porEmpleado.get(key)!.push(m)
+  }
+
+  const resumenes: ResumenEmpleado[] = []
+  for (const [, lista] of porEmpleado) {
+    const sesiones = emparejarEmpleado(lista, config)
+    const punt = calcularPuntualidad(sesiones, config)
+    const totalHoras = sesiones.reduce((acc, s) => acc + s.horasTrabajadas, 0)
+    const totalExtra = sesiones.reduce((acc, s) => acc + s.horasExtra, 0)
+    const diasTrabajados = new Set(sesiones.filter((s) => s.horasTrabajadas > 0).map((s) => s.fecha)).size
+    const anomalias = sesiones.filter((s) => s.anomalia).length
+    const primero = lista[0]
+    resumenes.push({
+      idUsuario: primero.idUsuario,
+      nombre: primero.nombre,
+      departamento: primero.departamento,
+      sesiones,
+      totalHoras: Math.round(totalHoras * 100) / 100,
+      totalExtra: Math.round(totalExtra * 100) / 100,
+      diasTrabajados,
+      anomalias,
+      diasConEntrada: punt.diasConEntrada,
+      tardanzas: punt.tardanzas,
+      minutosTardeTotal: punt.minutosTardeTotal,
+      puntualidadPct: punt.puntualidadPct,
+      baselineEntrada: punt.baselineEntrada
+    })
+  }
+
+  resumenes.sort((a, b) => a.nombre.localeCompare(b.nombre))
+  return resumenes
+}
+
+/** Atajo: archivo -> resúmenes por empleado. */
+export function procesarArchivoReloj(file: ArrayBuffer, config: ConfigCalculo = CONFIG_CALCULO_DEFAULT): {
+  marcaciones: MarcacionReloj[]
+  resumenes: ResumenEmpleado[]
+} {
+  const marcaciones = parsearMarcaciones(file)
+  const resumenes = procesarMarcaciones(marcaciones, config)
+  return { marcaciones, resumenes }
+}
+
+// ------------------------------------------------------------
+// Matcheo con usuarios de Plot Lab (por nombre, sin importar orden)
+// ------------------------------------------------------------
+
+/** Solo letras (sin acentos, en minúscula). */
+function soloLetras(s: string): string {
+  return quitarAcentos(String(s || '').toLowerCase()).replace(/[^a-z]/g, '')
+}
+
+/** Parte local del login/email (antes de la @), solo letras. */
+function loginLocal(nombre: string): string {
+  const base = String(nombre || '').split('@')[0]
+  return soloLetras(base)
+}
+
+function tokensReloj(nombre: string): string[] {
+  return quitarAcentos(String(nombre || '').toLowerCase())
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z]/g, ''))
+    .filter((t) => t.length >= 2)
+}
+
+/** Longitud de la subcadena común más larga (tolera prefijos y typos menores). */
+function lcsLongitud(a: string, b: string): number {
+  if (!a || !b) return 0
+  let best = 0
+  const dp = new Array(b.length + 1).fill(0)
+  for (let i = 1; i <= a.length; i++) {
+    let prev = 0
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = dp[j]
+      if (a[i - 1] === b[j - 1]) {
+        dp[j] = prev + 1
+        if (dp[j] > best) best = dp[j]
+      } else {
+        dp[j] = 0
+      }
+      prev = tmp
+    }
+  }
+  return best
+}
+
+/** Distancia de Damerau-Levenshtein (cuenta transposiciones como 1). */
+function damerauLevenshtein(a: string, b: string): number {
+  const al = a.length
+  const bl = b.length
+  if (!al) return bl
+  if (!bl) return al
+  const d: number[][] = Array.from({ length: al + 1 }, () => new Array(bl + 1).fill(0))
+  for (let i = 0; i <= al; i++) d[i][0] = i
+  for (let j = 0; j <= bl; j++) d[0][j] = j
+  for (let i = 1; i <= al; i++) {
+    for (let j = 1; j <= bl; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1)
+      }
+    }
+  }
+  return d[al][bl]
+}
+
+/**
+ * Puntaje de coincidencia entre el nombre del reloj (ej. "BARROS JUAN MIGUEL")
+ * y el login de un usuario (ej. "jbarros@plotcenter.com.ar" → "jbarros").
+ */
+export function puntajeMatch(nombreReloj: string, nombreUsuario: string): number {
+  const local = loginLocal(nombreUsuario)
+  const tokens = tokensReloj(nombreReloj)
+  if (!local || !tokens.length) return 0
+
+  let mejorToken = 0
+  for (const t of tokens) {
+    if (t.length < 3) continue
+    if (local.includes(t) || t.includes(local)) {
+      mejorToken = Math.max(mejorToken, Math.min(t.length, local.length) * 2)
+    } else {
+      const lcs = lcsLongitud(local, t)
+      if (lcs >= 4) mejorToken = Math.max(mejorToken, lcs)
+    }
+  }
+
+  // Bonus por inicial: el login suele ser inicial(nombre) + apellido.
+  const inicialBonus = tokens.some((t) => t[0] === local[0]) ? 3 : 0
+  const scoreContencion = mejorToken + (mejorToken > 0 ? inicialBonus : 0)
+
+  // Coincidencia difusa contra logins candidatos (inicial+apellido, apellido solo).
+  const largos = tokens.filter((t) => t.length >= 3)
+  const candidatos = new Set<string>()
+  for (const t of largos) candidatos.add(t)
+  for (const a of largos) {
+    for (const b of largos) {
+      if (a === b) continue
+      candidatos.add(a[0] + b)
+    }
+  }
+  let mejorFuzzy = 0
+  for (const cand of candidatos) {
+    if (Math.abs(cand.length - local.length) > 3) continue
+    const dist = damerauLevenshtein(local, cand)
+    const score = dist === 0 ? 20 : dist === 1 ? 14 : dist === 2 ? 8 : 0
+    if (score > mejorFuzzy) mejorFuzzy = score
+  }
+
+  return Math.max(scoreContencion, mejorFuzzy)
+}
+
+export function matchearUsuario(
+  nombreReloj: string,
+  usuarios: Array<{ id: number; nombre: string }>
+): { id: number; nombre: string } | null {
+  let mejor: { id: number; nombre: string } | null = null
+  let mejorScore = 0
+  for (const u of usuarios) {
+    const score = puntajeMatch(nombreReloj, u.nombre)
+    if (score > mejorScore) {
+      mejorScore = score
+      mejor = u
+    }
+  }
+  return mejorScore >= 6 ? mejor : null
+}
+
+// ------------------------------------------------------------
+// Construcción de registros para guardar en la asistencia de Plot Lab
+// ------------------------------------------------------------
+
+export interface RegistroAsistenciaBD {
+  id_usuario: number
+  fecha: string
+  hora_entrada: string | null
+  hora_salida: string | null
+  horas_trabajadas: number | null
+  tipo_registro: 'normal' | 'tarde' | 'ausente' | 'justificado'
+  observaciones: string | null
+}
+
+export interface ResultadoVinculacion {
+  registros: RegistroAsistenciaBD[]
+  vinculados: Array<{ nombre: string; plotLab: string }>
+  noVinculados: string[]
+}
+
+/**
+ * Construye los registros para guardar en BD.
+ * `vinculacion` mapea idUsuario del reloj → { id, nombre } del usuario de Plot Lab.
+ * Los empleados sin entrada en el mapa (o con id 0) se omiten.
+ */
+export function construirRegistrosAsistencia(
+  resumenes: ResumenEmpleado[],
+  vinculacion: Record<string, { id: number; nombre: string }>
+): ResultadoVinculacion {
+  const registros: RegistroAsistenciaBD[] = []
+  const vinculados: Array<{ nombre: string; plotLab: string }> = []
+  const noVinculados: string[] = []
+
+  for (const emp of resumenes) {
+    const match = vinculacion[emp.idUsuario]
+    if (!match || !match.id) {
+      noVinculados.push(emp.nombre)
+      continue
+    }
+    vinculados.push({ nombre: emp.nombre, plotLab: match.nombre })
+
+    // Agrupar por fecha (la tabla tiene UNIQUE(id_usuario, fecha))
+    const porFecha = new Map<string, SesionDia[]>()
+    for (const s of emp.sesiones) {
+      if (!porFecha.has(s.fecha)) porFecha.set(s.fecha, [])
+      porFecha.get(s.fecha)!.push(s)
+    }
+
+    for (const [fecha, sesiones] of porFecha) {
+      const esFalta = sesiones.every((s) => s.anomalia === 'falta')
+      const conEntrada = sesiones.filter((s) => s.entrada)
+      const conSalida = sesiones.filter((s) => s.salida)
+      const horas = sesiones.reduce((acc, s) => acc + s.horasTrabajadas, 0)
+      const tarde = sesiones.some((s) => s.tarde)
+      const obs = sesiones.map((s) => s.observaciones).filter(Boolean).join('; ')
+
+      const entradaMin = conEntrada.length
+        ? conEntrada.reduce((a, s) => (a.entrada! < s.entrada! ? a : s)).entradaStr
+        : null
+      const salidaMax = conSalida.length
+        ? conSalida.reduce((a, s) => (a.salida! > s.salida! ? a : s)).salidaStr
+        : null
+
+      registros.push({
+        id_usuario: match.id,
+        fecha,
+        hora_entrada: entradaMin,
+        hora_salida: salidaMax,
+        horas_trabajadas: esFalta ? 0 : Math.round(horas * 100) / 100,
+        tipo_registro: esFalta ? 'ausente' : tarde ? 'tarde' : 'normal',
+        observaciones: obs || null
+      })
+    }
+  }
+
+  return { registros, vinculados, noVinculados }
+}
+
+export interface TardanzaEmpleado {
+  id_usuario: number
+  nombrePlotLab: string
+  nombreReloj: string
+  fecha: string
+  minutos: number
+  entrada: string
+  baseline: string
+}
+
+/** Extrae las tardanzas de empleados vinculados, para registrar como novedades de legajo. */
+export function construirTardanzas(
+  resumenes: ResumenEmpleado[],
+  vinculacion: Record<string, { id: number; nombre: string }>
+): TardanzaEmpleado[] {
+  const tardanzas: TardanzaEmpleado[] = []
+  for (const emp of resumenes) {
+    const match = vinculacion[emp.idUsuario]
+    if (!match || !match.id) continue
+    for (const s of emp.sesiones) {
+      if (!s.tarde || s.minutosTarde <= 0) continue
+      tardanzas.push({
+        id_usuario: match.id,
+        nombrePlotLab: match.nombre,
+        nombreReloj: emp.nombre,
+        fecha: s.fecha,
+        minutos: s.minutosTarde,
+        entrada: s.entradaStr ? s.entradaStr.slice(11, 16) : '',
+        baseline: emp.baselineEntrada
+      })
+    }
+  }
+  return tardanzas
+}
+
+// ------------------------------------------------------------
+// Export al formato "limpio" (como RELOJ - MAYO 2026.xls)
+// ------------------------------------------------------------
+
+interface FilaExport {
+  DIA: string
+  Nombre: string
+  'Fecha/Hora': string
+  'Descripción': string
+  Departamento: string
+  'Hs Extras': number | string
+  Observaciones: string
+}
+
+export function construirFilasExport(resumenes: ResumenEmpleado[]): FilaExport[] {
+  const filas: FilaExport[] = []
+  for (const emp of resumenes) {
+    for (const s of emp.sesiones) {
+      if (s.anomalia === 'falta') {
+        filas.push({
+          DIA: s.dia,
+          Nombre: emp.nombre,
+          'Fecha/Hora': `${s.fecha} 00:00:00`,
+          'Descripción': 'FALTA INJUSTIFICADA',
+          Departamento: s.departamento,
+          'Hs Extras': '',
+          Observaciones: s.observaciones
+        })
+        continue
+      }
+      if (s.entradaStr) {
+        filas.push({
+          DIA: s.dia,
+          Nombre: emp.nombre,
+          'Fecha/Hora': s.entradaStr,
+          'Descripción': 'ENTRADA',
+          Departamento: s.departamento,
+          'Hs Extras': '',
+          Observaciones: ''
+        })
+      }
+      if (s.salidaStr) {
+        filas.push({
+          DIA: s.dia,
+          Nombre: emp.nombre,
+          'Fecha/Hora': s.salidaStr,
+          'Descripción': 'SALIDA',
+          Departamento: s.departamento,
+          'Hs Extras': s.horasExtra > 0 ? s.horasExtra : '',
+          Observaciones: s.observaciones
+        })
+      }
+    }
+  }
+  return filas
+}
+
+export function exportarRelojXlsx(resumenes: ResumenEmpleado[], filename?: string): void {
+  const filas = construirFilasExport(resumenes)
+  const ws = XLSX.utils.json_to_sheet(filas, {
+    header: ['DIA', 'Nombre', 'Fecha/Hora', 'Descripción', 'Departamento', 'Hs Extras', 'Observaciones']
+  })
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Asistencia')
+  const fecha = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(wb, filename || `asistencia-reloj-${fecha}.xlsx`)
+}
+
+// ------------------------------------------------------------
+// Informe con IA (opcional)
+// ------------------------------------------------------------
+
+export async function generarInformeAsistenciaIa(
+  resumenes: ResumenEmpleado[],
+  periodo: string,
+  config: ConfigCalculo
+): Promise<string> {
+  const empleados = resumenes.map((e) => ({
+    nombre: e.nombre,
+    departamento: e.departamento,
+    totalHoras: e.totalHoras,
+    totalExtra: e.totalExtra,
+    diasTrabajados: e.diasTrabajados,
+    anomalias: e.anomalias,
+    sesionesAnomalas: e.sesiones
+      .filter((s) => s.anomalia)
+      .map((s) => ({
+        fecha: s.fecha,
+        dia: s.dia,
+        entrada: s.entradaStr,
+        salida: s.salidaStr,
+        horas: s.horasTrabajadas,
+        extra: s.horasExtra,
+        anomalia: s.anomalia
+      }))
+  }))
+
+  const resp = await fetch('/api/plotai/asistencia-reloj', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      empleados,
+      periodo,
+      config: {
+        jornadaLunVie: config.jornadaLunVie,
+        jornadaSab: config.jornadaSab,
+        domingoTodoExtra: config.domingoTodoExtra
+      }
+    })
+  })
+
+  const json = (await resp.json().catch(() => ({}))) as { informe?: string; error?: string }
+  if (!resp.ok) {
+    throw new Error(json.error || 'No se pudo generar el informe con IA.')
+  }
+  const informe = (json.informe || '').trim()
+  if (!informe) throw new Error('La IA no devolvió contenido.')
+  return informe
+}
+
+export function exportarResumenXlsx(resumenes: ResumenEmpleado[], filename?: string): void {
+  const filas = resumenes.map((e) => ({
+    Empleado: e.nombre,
+    Departamento: e.departamento,
+    'Días trabajados': e.diasTrabajados,
+    'Horas totales': Math.round(e.totalHoras * 100) / 100,
+    'Horas extra': Math.round(e.totalExtra * 100) / 100,
+    'Anomalías': e.anomalias
+  }))
+  const ws = XLSX.utils.json_to_sheet(filas)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Resumen')
+  const fecha = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(wb, filename || `resumen-asistencia-${fecha}.xlsx`)
+}
