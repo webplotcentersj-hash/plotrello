@@ -69,12 +69,15 @@ export interface ConfigCalculo {
   horaEntradaEsperada: string
 }
 
+/** Tolerancia fija de tardanza en minutos (no configurable). */
+export const TOLERANCIA_TARDANZA_MIN = 15
+
 export const CONFIG_CALCULO_DEFAULT: ConfigCalculo = {
   jornadaLunVie: 9,
   jornadaSab: 5,
   domingoTodoExtra: true,
   redondeoExtra: 0.5,
-  toleranciaTardanzaMin: 10,
+  toleranciaTardanzaMin: TOLERANCIA_TARDANZA_MIN,
   horaEntradaEsperada: ''
 }
 

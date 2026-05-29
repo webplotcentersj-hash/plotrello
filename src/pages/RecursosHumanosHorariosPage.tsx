@@ -779,7 +779,7 @@ const RelojImportTab = ({
       {/* Configuración de jornada */}
       <div className="reloj-config">
         <div className="reloj-config-field">
-          <label>Jornada Lun-Vie (hs)</label>
+          <label>Jornada Lun-Sáb (hs)</label>
           <input
             type="number"
             min={1}
@@ -822,15 +822,8 @@ const RelojImportTab = ({
           </select>
         </div>
         <div className="reloj-config-field">
-          <label>Tolerancia tardanza (min)</label>
-          <input
-            type="number"
-            min={0}
-            max={120}
-            step={5}
-            value={config.toleranciaTardanzaMin}
-            onChange={(e) => recalcular({ ...config, toleranciaTardanzaMin: Number(e.target.value) || 0 })}
-          />
+          <label>Tolerancia tardanza</label>
+          <div className="reloj-config-fija">15 min (fija)</div>
         </div>
         <div className="reloj-config-field">
           <label title="Vacío = usa el horario habitual de cada empleado">Hora entrada esperada</label>
@@ -1568,6 +1561,16 @@ const PlanillaEditable = ({
 }
 
 // Componente de Horarios
+/** Horas decimales entre dos 'HH:mm' (cruza medianoche si salida <= entrada). */
+const horasEntre = (entrada: string, salida: string): number | null => {
+  const pe = entrada.match(/^(\d{1,2}):(\d{2})$/)
+  const ps = salida.match(/^(\d{1,2}):(\d{2})$/)
+  if (!pe || !ps) return null
+  let diff = (Number(ps[1]) * 60 + Number(ps[2])) - (Number(pe[1]) * 60 + Number(pe[2]))
+  if (diff <= 0) diff += 24 * 60
+  return Math.round((diff / 60) * 100) / 100
+}
+
 const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
   usuarios: UsuarioRecord[]
   usuarioSeleccionado: number | null
@@ -1575,6 +1578,56 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
   onLoad: () => void
 }) => {
   const [showModal, setShowModal] = useState(false)
+  // Horarios fijos (planilla editable): entrada/salida estándar por empleado.
+  const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string }>>({})
+  const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
+  const [cargandoFijos, setCargandoFijos] = useState(true)
+
+  useEffect(() => {
+    let cancelado = false
+    apiService.obtenerHorariosFijos().then((r) => {
+      if (!cancelado) {
+        if (r.success && r.data) setFijos(r.data)
+        setCargandoFijos(false)
+      }
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  const guardarFijo = async (idUsuario: number, entrada: string, salida: string) => {
+    if (!idUsuario || !entrada || !salida) return
+    const previo = fijos[idUsuario]
+    setFijos((prev) => ({ ...prev, [idUsuario]: { entrada, salida } }))
+    setGuardandoFijo(idUsuario)
+    try {
+      const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida)
+      if (!r.success) {
+        setFijos((prev) => {
+          const next = { ...prev }
+          if (previo) next[idUsuario] = previo
+          else delete next[idUsuario]
+          return next
+        })
+        alert('Error al guardar el horario fijo: ' + (r.error || ''))
+      } else {
+        onLoad()
+      }
+    } finally {
+      setGuardandoFijo(null)
+    }
+  }
+
+  const usuariosFijos = useMemo(() => {
+    const lista = usuarioSeleccionado ? usuarios.filter((u) => u.id === usuarioSeleccionado) : usuarios
+    return [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [usuarios, usuarioSeleccionado])
+
+  const totalConFijo = useMemo(
+    () => usuariosFijos.filter((u) => fijos[u.id]?.entrada && fijos[u.id]?.salida).length,
+    [usuariosFijos, fijos]
+  )
   const [formData, setFormData] = useState({
     id_usuario: usuarioSeleccionado || 0,
     tipo_horario: 'fijo' as 'fijo' | 'flexible' | 'turnos',
@@ -1638,6 +1691,53 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
 
   return (
     <div className="rrhh-tab-content">
+      {/* Planilla editable de horarios fijos (se completa al importar y desde el reloj) */}
+      <div className="rrhh-fijos-planilla">
+        <div className="rrhh-section-header">
+          <h2>🕘 Horarios fijos (planilla)</h2>
+          <span className="rrhh-fijos-resumen">
+            {cargandoFijos
+              ? 'Cargando...'
+              : `${totalConFijo} de ${usuariosFijos.length} empleados con horario fijo`}
+          </span>
+        </div>
+        <p className="rrhh-fijos-help">
+          Entrada/salida estándar de cada empleado. Quedan fijos hasta que los cambies y son la referencia
+          para puntualidad y horas extra al importar el reloj. Se completan al importar la planilla "PERSONAL ACTUAL".
+        </p>
+        <div className="rrhh-fijos-tabla-wrap">
+          <table className="rrhh-fijos-tabla">
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Horario fijo</th>
+                <th>Jornada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usuariosFijos.map((u) => {
+                const f = fijos[u.id]
+                const hs = f?.entrada && f?.salida ? horasEntre(f.entrada, f.salida) : null
+                return (
+                  <tr key={u.id} className={f?.entrada ? '' : 'rrhh-fijos-row-sin'}>
+                    <td className="reloj-td-nombre">{u.nombre}</td>
+                    <td>
+                      <HorarioFijoEditor
+                        plotLabId={u.id}
+                        valor={f}
+                        guardando={guardandoFijo === u.id}
+                        onGuardar={guardarFijo}
+                      />
+                    </td>
+                    <td className="rrhh-fijos-jornada">{hs != null ? `${hs} hs` : '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="rrhh-section-header">
         <h2>Horarios de Empleados</h2>
         <button className="btn-primary" onClick={() => setShowModal(true)}>
@@ -1647,7 +1747,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
 
       {!usuarioSeleccionado && (
         <div className="rrhh-info-box">
-          <p>Selecciona un usuario para ver sus horarios</p>
+          <p>Selecciona un usuario para ver sus horarios detallados (por día)</p>
         </div>
       )}
 
