@@ -381,13 +381,13 @@ const RelojImportTab = ({
 
   const [override, setOverride] = useState<Record<string, number>>({})
   // Horarios fijos guardados, por id de usuario de Plot Lab: { entrada, salida, horas } en 'HH:mm'.
-  const [horariosFijos, setHorariosFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null }>>({})
+  const [horariosFijos, setHorariosFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }>>({})
   const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
 
   // Importador de horarios reales (planilla "PERSONAL ACTUAL").
   const horariosFileRef = useRef<HTMLInputElement>(null)
   const [prevFijos, setPrevFijos] = useState<
-    Array<{ nombre: string; puesto: string; jornada: string; entrada: string; salida: string; horas: number | null; plotLabId: number }> | null
+    Array<{ nombre: string; puesto: string; jornada: string; entrada: string; salida: string; horas: number | null; trabajaSabado: boolean; plotLabId: number }> | null
   >(null)
   const [guardandoFijos, setGuardandoFijos] = useState(false)
   const [resFijos, setResFijos] = useState('')
@@ -618,10 +618,11 @@ const RelojImportTab = ({
     if (!plotLabId || !entrada || !salida) return
     const previo = horariosFijos[plotLabId]
     const horas = previo?.horas ?? null
-    setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida, horas } }))
+    const trabajaSabado = previo?.trabajaSabado ?? true
+    setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida, horas, trabajaSabado } }))
     setGuardandoFijo(plotLabId)
     try {
-      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida, horas, mesActivo)
+      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida, horas, mesActivo, trabajaSabado)
       if (!r.success) {
         // Revertir si falló.
         setHorariosFijos((prev) => {
@@ -663,6 +664,7 @@ const RelojImportTab = ({
           entrada: r.entrada,
           salida: r.salida,
           horas: r.horasDia,
+          trabajaSabado: r.trabajaSabado,
           plotLabId: m?.id || 0
         }
       })
@@ -676,7 +678,7 @@ const RelojImportTab = ({
 
   const actualizarPrevFijo = (
     index: number,
-    patch: Partial<{ entrada: string; salida: string; plotLabId: number }>
+    patch: Partial<{ entrada: string; salida: string; trabajaSabado: boolean; plotLabId: number }>
   ) => {
     setPrevFijos((prev) => (prev ? prev.map((r, i) => (i === index ? { ...r, ...patch } : r)) : prev))
   }
@@ -689,16 +691,16 @@ const RelojImportTab = ({
     let ok = 0
     let omitidos = 0
     let errores = 0
-    const nuevos: Record<number, { entrada: string; salida: string; horas?: number | null }> = { ...horariosFijos }
+    const nuevos: Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }> = { ...horariosFijos }
     for (const r of prevFijos) {
       if (!r.plotLabId || !r.entrada || !r.salida) {
         omitidos++
         continue
       }
-      const resp = await apiService.upsertHorarioFijo(r.plotLabId, r.entrada, r.salida, r.horas, mesActivo)
+      const resp = await apiService.upsertHorarioFijo(r.plotLabId, r.entrada, r.salida, r.horas, mesActivo, r.trabajaSabado)
       if (resp.success) {
         ok++
-        nuevos[r.plotLabId] = { entrada: r.entrada, salida: r.salida, horas: r.horas }
+        nuevos[r.plotLabId] = { entrada: r.entrada, salida: r.salida, horas: r.horas, trabajaSabado: r.trabajaSabado }
       } else {
         errores++
       }
@@ -927,6 +929,7 @@ const RelojImportTab = ({
                     <th>Usuario Plot Lab</th>
                     <th>Entrada</th>
                     <th>Salida</th>
+                    <th>Sáb</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -967,6 +970,14 @@ const RelojImportTab = ({
                             className="reloj-fijo-input"
                             value={r.salida}
                             onChange={(e) => actualizarPrevFijo(i, { salida: e.target.value })}
+                          />
+                        </td>
+                        <td className="reloj-fijos-sab">
+                          <input
+                            type="checkbox"
+                            checked={r.trabajaSabado}
+                            title="Trabaja sábado (Lun-Sáb)"
+                            onChange={(e) => actualizarPrevFijo(i, { trabajaSabado: e.target.checked })}
                           />
                         </td>
                       </tr>
@@ -1658,7 +1669,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
 }) => {
   const [showModal, setShowModal] = useState(false)
   // Horarios fijos (planilla editable): entrada/salida/jornada estándar por empleado.
-  const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null }>>({})
+  const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }>>({})
   const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
   const [cargandoFijos, setCargandoFijos] = useState(true)
   // Datos de legajo (nombre completo + área) por id de usuario.
@@ -1696,13 +1707,13 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
     }
   }, [mes])
 
-  const upsertFijo = async (idUsuario: number, entrada: string, salida: string, horas: number | null) => {
+  const upsertFijo = async (idUsuario: number, entrada: string, salida: string, horas: number | null, trabajaSabado: boolean) => {
     if (!idUsuario || !entrada || !salida) return
     const previo = fijos[idUsuario]
-    setFijos((prev) => ({ ...prev, [idUsuario]: { entrada, salida, horas } }))
+    setFijos((prev) => ({ ...prev, [idUsuario]: { entrada, salida, horas, trabajaSabado } }))
     setGuardandoFijo(idUsuario)
     try {
-      const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida, horas, mes)
+      const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida, horas, mes, trabajaSabado)
       if (!r.success) {
         setFijos((prev) => {
           const next = { ...prev }
@@ -1742,15 +1753,22 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
     }
   }
 
-  // Guarda entrada/salida preservando la jornada manual existente.
+  // Guarda entrada/salida preservando la jornada y el sábado existentes.
   const guardarFijo = (idUsuario: number, entrada: string, salida: string) =>
-    upsertFijo(idUsuario, entrada, salida, fijos[idUsuario]?.horas ?? null)
+    upsertFijo(idUsuario, entrada, salida, fijos[idUsuario]?.horas ?? null, fijos[idUsuario]?.trabajaSabado ?? true)
 
-  // Guarda la jornada (hs) preservando entrada/salida.
+  // Guarda la jornada (hs) preservando entrada/salida y sábado.
   const guardarJornada = (idUsuario: number, horas: number | null) => {
     const f = fijos[idUsuario]
     if (!f?.entrada || !f?.salida) return
-    upsertFijo(idUsuario, f.entrada, f.salida, horas)
+    upsertFijo(idUsuario, f.entrada, f.salida, horas, f.trabajaSabado ?? true)
+  }
+
+  // Cambia si el empleado trabaja sábado (Lun-Sáb vs Lun-Vie).
+  const guardarSabado = (idUsuario: number, trabajaSabado: boolean) => {
+    const f = fijos[idUsuario]
+    if (!f?.entrada || !f?.salida) return
+    upsertFijo(idUsuario, f.entrada, f.salida, f.horas ?? null, trabajaSabado)
   }
 
   const nombreCompletoLegajo = (u: UsuarioRecord): string => {
@@ -1864,6 +1882,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
                 <th>Área</th>
                 <th>Horario fijo</th>
                 <th>Jornada (hs)</th>
+                <th title="Trabaja sábado (Lun-Sáb). Si no, el sábado es todo extra.">Sáb</th>
                 <th>Legajo</th>
                 <th></th>
               </tr>
@@ -1894,6 +1913,15 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
                         derivado={tieneHorario ? horasEntre(f!.entrada, f!.salida) : null}
                         disabled={!tieneHorario || guardandoFijo === u.id}
                         onGuardar={(h) => guardarJornada(u.id, h)}
+                      />
+                    </td>
+                    <td className="rrhh-fijos-sab">
+                      <input
+                        type="checkbox"
+                        checked={f?.trabajaSabado !== false}
+                        disabled={!tieneHorario || guardandoFijo === u.id}
+                        title={f?.trabajaSabado === false ? 'Lun-Vie (sábado todo extra)' : 'Lun-Sáb'}
+                        onChange={(e) => guardarSabado(u.id, e.target.checked)}
                       />
                     </td>
                     <td>

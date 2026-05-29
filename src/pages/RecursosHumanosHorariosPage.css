@@ -1282,6 +1282,21 @@
   cursor: default;
 }
 
+.rrhh-fijos-sab {
+  text-align: center;
+}
+
+.rrhh-fijos-sab input,
+.reloj-fijos-sab input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.reloj-fijos-sab {
+  text-align: center;
+}
+
 /* Editor de horario fijo dentro de la planilla clara (inputs legibles) */
 .rrhh-fijos-tabla .reloj-fijo-input {
   background: #fff;

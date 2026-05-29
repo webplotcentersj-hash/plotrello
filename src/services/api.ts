@@ -14595,6 +14595,7 @@ class ApiService {
     horaSalida: string,
     horasSemanales: number | null = null,
     mes: string | null = null,
+    trabajaSabado: boolean = true,
     observaciones: string | null = null
   ): Promise<ApiResponse<HorarioEmpleado>> {
     if (!supabase) {
@@ -14608,7 +14609,8 @@ class ApiService {
         p_hora_salida: horaSalida,
         p_horas_semanales: horasSemanales,
         p_observaciones: observaciones,
-        p_mes: mes ? (mes.length === 7 ? `${mes}-01` : mes) : null
+        p_mes: mes ? (mes.length === 7 ? `${mes}-01` : mes) : null,
+        p_trabaja_sabado: trabajaSabado
       })
 
       if (error) {
@@ -14665,7 +14667,7 @@ class ApiService {
    * (tipo_horario='fijo', dia_semana null) como mapa idUsuario → { entrada, salida, horas }.
    */
   async obtenerHorariosFijos(mes: string | null = null): Promise<
-    ApiResponse<Record<number, { entrada: string; salida: string; horas: number | null }>>
+    ApiResponse<Record<number, { entrada: string; salida: string; horas: number | null; trabajaSabado: boolean }>>
   > {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
@@ -14674,7 +14676,7 @@ class ApiService {
     try {
       let query = supabase
         .from('horarios_empleados')
-        .select('id_usuario, hora_entrada, hora_salida, horas_semanales, activo, fecha_inicio')
+        .select('id_usuario, hora_entrada, hora_salida, horas_semanales, activo, fecha_inicio, trabaja_sabado')
         .eq('tipo_horario', 'fijo')
         .is('dia_semana', null)
 
@@ -14688,8 +14690,8 @@ class ApiService {
         return { success: false, error: error.message }
       }
 
-      const mapa: Record<number, { entrada: string; salida: string; horas: number | null }> = {}
-      for (const row of (data as Array<{ id_usuario: number; hora_entrada: string | null; hora_salida: string | null; horas_semanales: number | null; activo: boolean | null }>) || []) {
+      const mapa: Record<number, { entrada: string; salida: string; horas: number | null; trabajaSabado: boolean }> = {}
+      for (const row of (data as Array<{ id_usuario: number; hora_entrada: string | null; hora_salida: string | null; horas_semanales: number | null; activo: boolean | null; trabaja_sabado: boolean | null }>) || []) {
         if (row.activo === false) continue
         const entrada = (row.hora_entrada || '').slice(0, 5)
         const salida = (row.hora_salida || '').slice(0, 5)
@@ -14697,7 +14699,8 @@ class ApiService {
           mapa[row.id_usuario] = {
             entrada,
             salida,
-            horas: row.horas_semanales != null ? Number(row.horas_semanales) : null
+            horas: row.horas_semanales != null ? Number(row.horas_semanales) : null,
+            trabajaSabado: row.trabaja_sabado !== false
           }
         }
       }

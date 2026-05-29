@@ -89,8 +89,10 @@ export const CONFIG_CALCULO_DEFAULT: ConfigCalculo = {
 export interface HorarioFijoCalc {
   /** Minutos desde 00:00 de la entrada esperada. null = sin definir. */
   entradaMin: number | null
-  /** Horas de jornada esperada (Lun-Vie). null = usar configuración global. */
+  /** Horas de jornada esperada (Lun-Sáb). null = usar configuración global. */
   horasJornada: number | null
+  /** Si trabaja sábado (Lun-Sáb). false = Lun-Vie (sábado todo extra). */
+  trabajaSabado: boolean
 }
 
 export type MapaHorariosFijos = Record<string, HorarioFijoCalc>
@@ -263,8 +265,18 @@ const MAX_HORAS_SESION = 18
 
 function horasNormales(fecha: Date, config: ConfigCalculo, horarioFijo?: HorarioFijoCalc): number {
   const dow = fecha.getDay()
+  // Domingo: todo extra (jornada normal 0) salvo config en contra.
   if (dow === 0) return config.domingoTodoExtra ? 0 : config.jornadaLunVie
-  if (dow === 6) return config.jornadaSab
+  if (dow === 6) {
+    // Sábado según el horario fijo del empleado.
+    if (horarioFijo) {
+      // No trabaja sábado (Lun-Vie) → todo lo trabajado es extra.
+      if (!horarioFijo.trabajaSabado) return 0
+      // Trabaja sábado (Lun-Sáb) → cuenta su jornada normal.
+      if (horarioFijo.horasJornada != null) return horarioFijo.horasJornada
+    }
+    return config.jornadaSab
+  }
   // Lun-Vie: jornada esperada del horario fijo del empleado si está definida.
   if (horarioFijo && horarioFijo.horasJornada != null) return horarioFijo.horasJornada
   return config.jornadaLunVie
@@ -649,6 +661,18 @@ export interface HorarioRealRow {
   entrada: string
   /** Salida estándar de días hábiles 'HH:mm' (vacío si no se pudo derivar). */
   salida: string
+  /** Si el empleado trabaja sábado (deducido de la jornada semanal / horario). */
+  trabajaSabado: boolean
+}
+
+/** Deduce si la jornada incluye el sábado a partir del texto del Excel. */
+function detectarTrabajaSabado(jornadaSemanal: string, horarioTexto: string): boolean {
+  const t = `${jornadaSemanal} ${horarioTexto}`.toLowerCase()
+  // Menciona el sábado explícitamente como día trabajado.
+  if (/s[aá]b/.test(t)) return true
+  // "lunes a viernes" / "lun a vie" → no trabaja sábado.
+  if (/vier|vie\b/.test(t) && !/s[aá]b/.test(t)) return false
+  return true
 }
 
 function minToHHmm(min: number): string {
@@ -707,14 +731,16 @@ export function parsearHorariosReales(file: ArrayBuffer): HorarioRealRow[] {
     const horasRaw = arr[colHoras]
     const horasDia = horasRaw === '' || horasRaw == null ? null : Number(horasRaw) || null
     const { entrada, salida } = parseRangoHorario(horarioTexto)
+    const jornadaSemanal = String(arr[colJornada] ?? '').trim().toUpperCase()
     rows.push({
       nombre,
-      jornadaSemanal: String(arr[colJornada] ?? '').trim().toUpperCase(),
+      jornadaSemanal,
       puesto: String(arr[colPuesto] ?? '').trim().toUpperCase(),
       horarioTexto,
       horasDia,
       entrada,
-      salida
+      salida,
+      trabajaSabado: detectarTrabajaSabado(jornadaSemanal, horarioTexto)
     })
   }
   return rows
@@ -852,7 +878,7 @@ export function matchearUsuario(
  */
 export function construirMapaHorariosFijos(
   vinculacion: Record<string, { id: number } | undefined>,
-  horariosPorUsuario: Record<number, { entrada: string; salida: string; horas?: number | null }>
+  horariosPorUsuario: Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }>
 ): MapaHorariosFijos {
   const mapa: MapaHorariosFijos = {}
   for (const [relojId, v] of Object.entries(vinculacion)) {
@@ -873,7 +899,7 @@ export function construirMapaHorariosFijos(
         horasJornada = Math.round((diff / 60) * 100) / 100
       }
     }
-    mapa[relojId] = { entradaMin, horasJornada }
+    mapa[relojId] = { entradaMin, horasJornada, trabajaSabado: h.trabajaSabado !== false }
   }
   return mapa
 }
