@@ -156,7 +156,13 @@ import type {
 import './app.css'
 import './plotlab-mobile.css'
 import apiService, { formatSupabaseStatementTimeoutError } from './services/api'
-import { historialToActivity, ordenToTask, taskFromRealtimeOrdenUpdate } from './utils/dataMappers'
+import {
+  historialToActivity,
+  isOrdenMarcadaEliminada,
+  isTaskHiddenFromKanban,
+  ordenToTask,
+  taskFromRealtimeOrdenUpdate
+} from './utils/dataMappers'
 import { subscribeOrdenesBroadcast } from './utils/ordenesBroadcast'
 import { readOrdenesTableroCache, writeOrdenesTableroCache } from './utils/ordenesTableroCache'
 import { supabase } from './services/supabaseClient'
@@ -317,7 +323,9 @@ function App() {
           })
           if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
             writeOrdenesTableroCache(ordenesResp.data)
-            const mapped = ordenesResp.data.map((orden) => ordenToTask(orden))
+            const mapped = ordenesResp.data
+              .map((orden) => ordenToTask(orden))
+              .filter((task) => !isTaskHiddenFromKanban(task))
             startTransition(() => {
               setTasks(mapped)
               setDataError(null)
@@ -343,14 +351,22 @@ function App() {
 
       const cached = readOrdenesTableroCache()
       if (cached?.length) {
-        startTransition(() => setTasks(cached.map((orden) => ordenToTask(orden))))
+        startTransition(() =>
+          setTasks(
+            cached
+              .map((orden) => ordenToTask(orden))
+              .filter((task) => !isTaskHiddenFromKanban(task))
+          )
+        )
       }
 
       const ordenesResp = await apiService.getOrdenes({ attachLineasM2: false })
 
       if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
         writeOrdenesTableroCache(ordenesResp.data)
-        const tasksWithCorrectStatus = ordenesResp.data.map((orden) => ordenToTask(orden))
+        const tasksWithCorrectStatus = ordenesResp.data
+          .map((orden) => ordenToTask(orden))
+          .filter((task) => !isTaskHiddenFromKanban(task))
         startTransition(() => {
           setTasks(tasksWithCorrectStatus)
           setDataError(null)
@@ -560,10 +576,6 @@ function App() {
         return
       }
       const taskId = orden.id!.toString()
-      if ((orden as { eliminada?: boolean | null }).eliminada === true) {
-        // Borrado lógico: la biblioteca debe poder verla, el tablero la filtra por `ordenEliminada`.
-        // Por eso la mantenemos en `tasks`.
-      }
       // Las OP entregadas/archivadas siguen en `tasks` para biblioteca, búsquedas y reportes;
       // el tablero las oculta con filteredTasks (BoardPage).
       const settling = multiSectorSettleRef.current
@@ -574,7 +586,7 @@ function App() {
 
       // Verificar si hay un movimiento reciente del usuario para esta ficha
       const recentMove = recentUserMoves.get(taskId)
-      const incomingEliminada = (orden as { eliminada?: boolean | null }).eliminada === true
+      const incomingEliminada = isOrdenMarcadaEliminada(orden)
       if (recentMove && !incomingEliminada) {
         const timeSinceMove = Date.now() - recentMove.timestamp
         if (timeSinceMove >= 3000) {
@@ -627,9 +639,15 @@ function App() {
           next.unshift(mapped)
         }
 
-        return next
+        return next.filter((task) => !isTaskHiddenFromKanban(task))
       })
     }
+
+    const handleOrdenUpsertEvent = (event: Event) => {
+      const orden = (event as CustomEvent<{ orden?: OrdenTrabajo }>).detail?.orden
+      if (orden?.id) upsertTaskFromOrden(orden)
+    }
+    window.addEventListener('plotrello-orden-upsert', handleOrdenUpsertEvent)
 
     const removeTask = (orden: OrdenTrabajo | null) => {
       if (!orden?.id) return
@@ -692,6 +710,7 @@ function App() {
     return () => {
       void ordenesChannel.unsubscribe()
       void historialChannel.unsubscribe()
+      window.removeEventListener('plotrello-orden-upsert', handleOrdenUpsertEvent)
       window.removeEventListener('user-moved-task', handleUserMove)
       window.removeEventListener('user-edited-task', handleUserEdit)
       window.removeEventListener('board-dragging-changed', handleBoardDraggingChanged)

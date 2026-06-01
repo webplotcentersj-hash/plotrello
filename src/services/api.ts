@@ -9,7 +9,7 @@ import {
 } from '../utils/dateUtils'
 import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
-import { ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
+import { isOrdenVisibleOnTablero, ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
 import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
 import type {
@@ -140,7 +140,7 @@ export function formatSupabaseStatementTimeoutError(raw: string): string {
 
 /** Columnas para listado del tablero (sin `*` ni JSON pesado). */
 const ORDENES_TABLERO_SELECT =
-  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
+  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,motivo_eliminacion,fecha_eliminacion,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
 
 const ORDENES_TABLERO_LIMIT = 800
 /** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */
@@ -753,20 +753,38 @@ class ApiService {
   }): Promise<ApiResponse<OrdenTrabajo[]>> {
     if (supabase) {
       try {
-        const query = supabase
-          .from('ordenes_trabajo')
-          .select(ORDENES_TABLERO_SELECT)
-          .order('id', { ascending: false })
-          .limit(ORDENES_TABLERO_LIMIT)
+        const sb = supabase
+        const runQuery = (select: string) =>
+          withQueryTimeout(
+            Promise.resolve(
+              sb
+                .from('ordenes_trabajo')
+                .select(select)
+                .order('id', { ascending: false })
+                .limit(ORDENES_TABLERO_LIMIT)
+            ),
+            'getOrdenes'
+          )
 
-        const { data, error } = await withQueryTimeout(Promise.resolve(query), 'getOrdenes')
+        let { data, error } = await runQuery(ORDENES_TABLERO_SELECT)
+        if (
+          error &&
+          (error.message?.includes('motivo_eliminacion') ||
+            error.message?.includes('fecha_eliminacion'))
+        ) {
+          const fallbackSelect = ORDENES_TABLERO_SELECT.replace(
+            ',motivo_eliminacion,fecha_eliminacion',
+            ''
+          )
+          ;({ data, error } = await runQuery(fallbackSelect))
+        }
 
         if (error) {
           console.error('Supabase getOrdenes error:', error)
           return { success: false, error: formatSupabaseStatementTimeoutError(error.message) }
         }
 
-        const normalizedData = (data || []).map((orden: any) => ({
+        let normalizedData = (data || []).map((orden: any) => ({
           ...orden,
           foto_url: orden.foto_url || null,
           telefono_cliente: orden.telefono_cliente || null,
@@ -776,6 +794,8 @@ class ApiService {
           ubicacion_link: orden.ubicacion_link || null,
           drive_link: orden.drive_link || null
         }))
+
+        normalizedData = normalizedData.filter((orden) => isOrdenVisibleOnTablero(orden))
 
         if (options?.attachLineasM2 === true) {
           await attachLineasM2ToOrdenes(normalizedData)

@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import apiService from '../services/api'
-import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
-import type { ClienteRecord } from '../types/api'
+import { notifyOrdenChangedLocally } from '../utils/ordenLocalSync'
+import type { ClienteRecord, OrdenTrabajo } from '../types/api'
 import type { Task } from '../types/board'
 import { parseTaskIdToOrdenId, taskToOrdenPayload } from '../utils/dataMappers'
 import QRPrintView from './QRPrintView'
@@ -383,7 +383,12 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         alert(response.error || 'No se pudo eliminar la ficha')
         return
       }
-      broadcastOrdenesChanged()
+      notifyOrdenChangedLocally({
+        id: ordenId,
+        eliminada: true,
+        visible_en_tablero: false,
+        motivo_eliminacion: motivo.trim()
+      } as OrdenTrabajo)
       onSuccess()
       onClose()
     } catch (err) {
@@ -498,9 +503,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         return
       }
 
-      broadcastOrdenesChanged()
-
       const created = response.data
+      if (created) notifyOrdenChangedLocally(created)
       const ordenId = created?.id
       if (ordenId && adjuntosSubidos.length > 0) {
         await Promise.all(
@@ -576,7 +580,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
         }
       }
 
-      broadcastOrdenesChanged()
+      if (response.data) notifyOrdenChangedLocally(response.data)
       onSuccess()
       onClose()
     } finally {

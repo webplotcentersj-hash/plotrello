@@ -2,6 +2,7 @@ import { startTransition, useCallback, useMemo, useRef, useState } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
+import { isTaskHiddenFromKanban } from '../utils/dataMappers'
 import Column from './Column'
 import './Board.css'
 
@@ -23,6 +24,8 @@ type BoardProps = {
   hideReclamoUI?: boolean
   /** Teléfono: desactiva arrastre (las fichas no se mueven con el dedo). */
   disableDrag?: boolean
+  /** Excluir fichas eliminadas u ocultas del tablero (asesor/presupuestos). */
+  excludeHiddenFromKanban?: boolean
 }
 
 const Board = ({
@@ -39,7 +42,8 @@ const Board = ({
   onSelectTask,
   onViewTask,
   hideReclamoUI,
-  disableDrag = false
+  disableDrag = false,
+  excludeHiddenFromKanban = false
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
   /** Evita que un endDragUi diferido pise un drag nuevo (setTimeout tras soltar). */
@@ -66,20 +70,25 @@ const Board = ({
     'finalizado-asesor-presupuestos': null
   })
 
+  const boardTasks = useMemo(() => {
+    if (!excludeHiddenFromKanban) return tasks
+    return tasks.filter((task) => !isTaskHiddenFromKanban(task))
+  }, [tasks, excludeHiddenFromKanban])
+
   const groupedByStatus = useMemo(() => {
     const emptyGroups = columns.reduce<Record<string, Task[]>>((acc, column) => {
       acc[column.id] = []
       return acc
     }, {})
 
-    for (const task of tasks) {
+    for (const task of boardTasks) {
       if (emptyGroups[task.status]) {
         emptyGroups[task.status].push(task)
       }
     }
 
     return emptyGroups
-  }, [tasks, columns])
+  }, [boardTasks, columns])
 
   // Calcular el máximo de tareas en cualquier columna para normalizar la barra
   const maxTasksInColumn = useMemo(() => {

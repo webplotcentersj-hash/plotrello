@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useAuth'
 import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import apiService from '../services/api'
 import {
+  isTaskHiddenFromKanban,
   mapStatusToEstado,
   parseTaskIdToOrdenId,
   taskToOrdenPayload
@@ -131,6 +132,7 @@ const AsesorPresupuestosPage = ({
     if (!canAccess) return []
     
     let filtered = tasks.filter((task) => {
+      if (isTaskHiddenFromKanban(task)) return false
       const sector = task.assignedSector || task.sectorInicial
       return (
         sector === 'Asesor Técnico' ||
@@ -182,7 +184,10 @@ const AsesorPresupuestosPage = ({
   }, [tasks, searchQuery, priorityFilter, statusFocus, canAccess])
 
   const kanbanTasksForBoard = useMemo(
-    () => filteredTasks.map(normalizeTaskForAsesorKanban),
+    () =>
+      filteredTasks
+        .filter((task) => !isTaskHiddenFromKanban(task))
+        .map(normalizeTaskForAsesorKanban),
     [filteredTasks]
   )
 
@@ -532,6 +537,7 @@ const AsesorPresupuestosPage = ({
             <div className="asesor-presupuestos-board-wrap">
               <Board
                 tasks={kanbanTasksForBoard}
+                excludeHiddenFromKanban
                 disableDrag={isPhoneBoard}
                 onMoveTask={handleTaskMove}
                 members={teamMembers}
@@ -602,9 +608,7 @@ const AsesorPresupuestosPage = ({
               setFichaModalEditTask(null)
             }}
             onSuccess={() => {
-              if (onReloadData) {
-                onReloadData()
-              }
+              void onReloadData?.({ silent: true })
               setFichaModalOpen(false)
               setFichaModalEditTask(null)
             }}

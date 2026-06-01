@@ -124,6 +124,40 @@ export const mapEstadoToStatus = (estado: string): TaskStatus => {
   return ESTADO_TO_STATUS[normalized] ?? 'en-espera'
 }
 
+/** Borrado lógico en BD (boolean, legacy o estado ELIMINADA en historial). */
+export function isOrdenMarcadaEliminada(
+  orden: Partial<Pick<OrdenTrabajo, 'eliminada' | 'estado' | 'motivo_eliminacion' | 'fecha_eliminacion'>>
+): boolean {
+  const e = orden.eliminada
+  if (e === true) return true
+  if (typeof e === 'string' && (e === 'true' || e === 't' || e === '1')) return true
+  const est = String(orden.estado ?? '')
+    .trim()
+    .toLowerCase()
+  if (est === 'eliminada' || est === 'eliminado') return true
+  if (orden.motivo_eliminacion != null && String(orden.motivo_eliminacion).trim() !== '') {
+    return true
+  }
+  if (orden.fecha_eliminacion != null && String(orden.fecha_eliminacion).trim() !== '') {
+    return true
+  }
+  return false
+}
+
+export function isOrdenVisibleOnTablero(
+  orden: Partial<Pick<OrdenTrabajo, 'eliminada' | 'visible_en_tablero' | 'estado' | 'motivo_eliminacion' | 'fecha_eliminacion'>>
+): boolean {
+  if (isOrdenMarcadaEliminada(orden)) return false
+  return orden.visible_en_tablero !== false
+}
+
+/** Ocultar en kanban (tablero general y asesor/presupuestos). */
+export function isTaskHiddenFromKanban(task: Task): boolean {
+  if (task.ordenEliminada === true) return true
+  if (task.visibleEnTablero === false) return true
+  return false
+}
+
 export const mapPriorityToDb = (priority: Priority): string =>
   PRIORITY_TO_DB[priority] ?? 'Normal'
 
@@ -252,7 +286,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     opBloqueada: orden.op_bloqueada === true,
     espejoSectoresOp: orden.espejo_sectores_op === true,
     entregado: orden.entregado ?? false,
-    ordenEliminada: orden.eliminada === true,
+    ordenEliminada: isOrdenMarcadaEliminada(orden),
     visibleEnTablero: orden.visible_en_tablero !== false,
     motivoEliminacion: orden.motivo_eliminacion ?? undefined,
     fechaEliminacion: orden.fecha_eliminacion ?? undefined,
@@ -556,7 +590,7 @@ export function taskFromRealtimeOrdenUpdate(prev: Task, incoming: OrdenTrabajo):
     id: idNum,
     numero_op: prev.opNumber,
     entregado: prev.entregado,
-    eliminada: prev.ordenEliminada,
+    eliminada: prev.ordenEliminada === true,
     visible_en_tablero: prev.visibleEnTablero !== false,
     motivo_eliminacion: prev.motivoEliminacion ?? null,
     fecha_eliminacion: prev.fechaEliminacion ?? null,
