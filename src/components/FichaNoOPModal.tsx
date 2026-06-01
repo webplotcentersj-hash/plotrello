@@ -52,6 +52,7 @@ type FichaNoOPModalProps = {
 const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalProps) => {
   const { usuario } = useAuth()
   const [nombreCliente, setNombreCliente] = useState('')
+  const [dniCuit, setDniCuit] = useState('')
   const [datosContacto, setDatosContacto] = useState('')
   const [ubicacionTexto, setUbicacionTexto] = useState('')
   const [observaciones, setObservaciones] = useState('')
@@ -116,6 +117,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   useEffect(() => {
     if (editTask) {
       setNombreCliente(editTask.title ?? '')
+      setDniCuit(editTask.dniCuit ?? '')
       setDatosContacto(editTask.clientPhone ?? '')
       setUbicacionTexto(editTask.clientAddress ?? '')
       const raw = editTask.summary && editTask.summary !== 'Sin descripción' ? editTask.summary : ''
@@ -171,11 +173,13 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
             if (o.presupuesto_en_espera != null) {
               setPresupuestoEnEspera(Boolean(o.presupuesto_en_espera))
             }
+            if (o.dni_cuit?.trim()) setDniCuit(o.dni_cuit.trim())
           }
         })()
       }
     } else {
       setNombreCliente('')
+      setDniCuit('')
       setDatosContacto('')
       setUbicacionTexto('')
       setObservaciones('')
@@ -255,6 +259,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
 
   const handleSelectCliente = (clienteSeleccionado: ClienteRecord) => {
     setNombreCliente(clienteSeleccionado.nombre)
+    setDniCuit(clienteSeleccionado.dni_cuit?.trim() || '')
     setDatosContacto(clienteSeleccionado.telefono || '')
     setUbicacionTexto(clienteSeleccionado.direccion || '')
     setDriveLink(clienteSeleccionado.drive_link || '')
@@ -448,6 +453,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     if (!clienteFinal) {
       const crearResponse = await apiService.buscarOCrearCliente({
         nombre: nombreCliente.trim(),
+        dni_cuit: dniCuit.trim() || undefined,
         telefono: datosContacto.trim() || undefined,
         direccion: ubicacionTexto.trim() || undefined,
         drive_link: driveLink.trim() || undefined,
@@ -481,6 +487,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       direccion_cliente: clienteFinal.direccion || ubicacionTexto.trim() || null,
       drive_link: clienteFinal.drive_link || driveLink.trim() || null,
       ubicacion_link: clienteFinal.ubicacion_link || ubicacionLink.trim() || null,
+      dni_cuit: dniCuit.trim() || clienteFinal.dni_cuit?.trim() || null,
       es_ficha_no_op: true,
       planilla_preliminar: planillaPreliminar,
       // Mantener compatibilidad: si hay PDFs adjuntos, guardar el primero como ficha técnica principal
@@ -554,6 +561,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       const merged: Task = {
         ...editTask,
         title: nombreCliente.trim(),
+        dniCuit: dniCuit.trim() || undefined,
         summary: descripcionFinal || 'Sin descripción',
         clientPhone: datosContacto.trim() || undefined,
         clientAddress: ubicacionTexto.trim() || undefined,
@@ -744,6 +752,9 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                       onClick={() => handleSelectCliente(cliente)}
                     >
                       <div className="cliente-nombre">{cliente.nombre}</div>
+                      {cliente.dni_cuit && (
+                        <div className="cliente-info">CUIT/CUIL: {cliente.dni_cuit}</div>
+                      )}
                       {cliente.telefono && (
                         <div className="cliente-info">📞 {cliente.telefono}</div>
                       )}
@@ -766,6 +777,17 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="form-group">
+            <label>CUIT / CUIL</label>
+            <input
+              type="text"
+              placeholder="Ej: 20-12345678-9 o 30123456789"
+              value={dniCuit}
+              onChange={(e) => setDniCuit(e.target.value)}
+              autoComplete="off"
+            />
           </div>
 
           <div className="form-group">
