@@ -1,5 +1,6 @@
 import { supabase } from '../../services/supabaseClient'
 import { DEFAULT_CAJAS, DEFAULT_PARAMS, LS_KEY } from './constants'
+import { getPlotlabLoginKeys, getStoredCajaSlug } from './cajaUsuarioDisplay'
 import { newId } from './format'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import type {
@@ -296,30 +297,43 @@ function slugFromCajeraNombre(cajeraNombre: string, cajas: CajaRegistro[]): stri
   )
 }
 
-/** Asocia el usuario logueado a su caja (maestros cajeras + nombre). */
+/** Asocia el usuario logueado a su caja (maestros, login, preferencia guardada). */
 export function resolveCajaSlugForUsuario(
   usuarioNombre: string,
   cajas: CajaRegistro[],
-  cajeras: CajaCajera[] = []
+  cajeras: CajaCajera[] = [],
+  opts?: { usuarioId?: number }
 ): string | null {
   const norm = usuarioNombre.trim().toLowerCase()
-  if (!norm) return null
+  const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+  if (!operativas.length) return null
+
+  if (opts?.usuarioId) {
+    const stored = getStoredCajaSlug(opts.usuarioId)
+    if (stored && operativas.some((c) => c.slug === stored)) return stored
+  }
+
+  const loginKeys = getPlotlabLoginKeys(usuarioNombre)
 
   for (const cajera of cajeras) {
     const cn = cajera.nombre.trim().toLowerCase()
     const cu = cajera.usuario.trim().toLowerCase()
-    if (norm === cn || norm === cu) {
+    if (loginKeys.some((k) => k === cu) || norm === cn || norm === cu) {
       const slug = slugFromCajeraNombre(cajera.nombre, cajas)
       if (slug) return slug
     }
     const first = cn.split(/\s+/)[0]
-    if (first && first.length >= 3 && norm.includes(first)) {
+    if (first && first.length >= 3 && (norm.includes(first) || loginKeys.some((k) => k.includes(first)))) {
       const slug = slugFromCajeraNombre(cajera.nombre, cajas)
       if (slug) return slug
     }
   }
 
-  const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+  for (const key of loginKeys) {
+    const bySlug = operativas.find((c) => c.slug === key)
+    if (bySlug) return bySlug.slug
+  }
+
   const fromNombre = resolveCajaSlug(usuarioNombre, operativas)
   if (fromNombre) return fromNombre
 
@@ -328,6 +342,17 @@ export function resolveCajaSlugForUsuario(
     return operativas.find((c) => c.slug === first)?.slug ?? null
   }
   return null
+}
+
+/** Última caja usada por el usuario en arqueos previos. */
+export async function resolveCajaSlugFromHistorial(
+  usuarioId: number,
+  cajas: CajaRegistro[]
+): Promise<string | null> {
+  const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+  const arqueos = await listArqueos({ usuarioId })
+  const slug = arqueos.find((a) => operativas.some((c) => c.slug === a.caja_slug))?.caja_slug
+  return slug ?? null
 }
 
 export async function usesRemoteStorage(): Promise<boolean> {

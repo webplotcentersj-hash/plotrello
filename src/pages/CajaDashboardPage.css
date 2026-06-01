@@ -801,6 +801,15 @@
   font-size: 13px;
 }
 
+.caja-dashboard-page .caja-cc-field-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
 .caja-cc-modal-backdrop,
 .caja-dashboard-page .caja-cc-modal-backdrop {
   position: fixed;

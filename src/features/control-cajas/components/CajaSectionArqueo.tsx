@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import SignaturePad from '../../../components/SignaturePad'
 import { BILLETE_DENOMINACIONES, TURNOS_CAJA } from '../constants'
-import { getParams, listCajas, resolveCajaSlugForUsuario, saveArqueo } from '../cajaRepository'
+import {
+  getParams,
+  listCajas,
+  resolveCajaSlugForUsuario,
+  resolveCajaSlugFromHistorial,
+  saveArqueo
+} from '../cajaRepository'
 import { DEFAULT_CAJERAS } from '../constants'
+import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import type { CajaRegistro } from '../types'
@@ -11,7 +18,7 @@ type Props = {
   usuarioNombre: string
   usuarioId?: number
   soloCajasOperativas?: boolean
-  /** Vista cajera: caja fijada al usuario, sin selector. */
+  /** Vista cajera: caja asociada al usuario; selector solo si no se puede resolver. */
   fijarCajaUsuario?: boolean
   onSaved?: () => void
 }
@@ -26,6 +33,8 @@ export default function CajaSectionArqueo({
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [cajaSlug, setCajaSlug] = useState('')
+  const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
+  const [cajaResolviendo, setCajaResolviendo] = useState(fijarCajaUsuario)
   const [turno, setTurno] = useState<string>('Único')
   const [billetes, setBilletes] = useState<Record<string, number>>({})
   const [firmaDataUrl, setFirmaDataUrl] = useState<string | null>(null)
@@ -35,22 +44,48 @@ export default function CajaSectionArqueo({
   const [msg, setMsg] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+    setCajaResolviendo(fijarCajaUsuario)
+
     void Promise.all([listCajas(), fijarCajaUsuario ? getParams() : Promise.resolve(null)]).then(
-      ([list, params]) => {
+      async ([list, params]) => {
         const filtered = soloCajasOperativas
           ? list.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
           : list
+        if (cancelled) return
         setCajas(filtered)
-        if (fijarCajaUsuario) {
-          const cajeras = params?.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-          const slug = resolveCajaSlugForUsuario(usuarioNombre, filtered, cajeras)
-          if (slug) setCajaSlug(slug)
-        } else if (filtered.length && !cajaSlug) {
-          setCajaSlug(filtered[0].slug)
+
+        if (!fijarCajaUsuario) {
+          if (filtered.length) setCajaSlug((prev) => prev || filtered[0].slug)
+          setCajaAutoAsignada(false)
+          setCajaResolviendo(false)
+          return
         }
+
+        const cajeras = params?.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
+        let slug =
+          resolveCajaSlugForUsuario(usuarioNombre, filtered, cajeras, { usuarioId }) ?? ''
+
+        if (!slug && usuarioId) {
+          slug = (await resolveCajaSlugFromHistorial(usuarioId, filtered)) ?? ''
+        }
+
+        if (cancelled) return
+        setCajaSlug(slug)
+        setCajaAutoAsignada(!!slug)
+        setCajaResolviendo(false)
       }
     )
-  }, [soloCajasOperativas, fijarCajaUsuario, usuarioNombre, cajaSlug])
+
+    return () => {
+      cancelled = true
+    }
+  }, [soloCajasOperativas, fijarCajaUsuario, usuarioNombre, usuarioId])
+
+  const onCajaManual = (slug: string) => {
+    setCajaSlug(slug)
+    if (usuarioId && slug) setStoredCajaSlug(usuarioId, slug)
+  }
 
   const total = useMemo(() => {
     return BILLETE_DENOMINACIONES.reduce((sum, d) => {
@@ -69,7 +104,7 @@ export default function CajaSectionArqueo({
     if (!cajaSlug) {
       setMsg(
         fijarCajaUsuario
-          ? 'No se pudo identificar tu caja. Pedí a administración que revise Maestros → Cajeras.'
+          ? 'Elegí tu caja en el listado. Si no aparece, pedí a administración que te agregue en Maestros → Cajeras.'
           : 'Elegí una caja.'
       )
       return
@@ -92,6 +127,7 @@ export default function CajaSectionArqueo({
         total,
         firma_data_url: firmaDataUrl
       })
+      if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
       setMsg(`Arqueo guardado — total $ ${fmtArs(total)}`)
       setBilletes({})
       setFirmaDataUrl(null)
@@ -105,6 +141,8 @@ export default function CajaSectionArqueo({
   }
 
   const cajaAsignadaNombre = cajas.find((c) => c.slug === cajaSlug)?.nombre ?? ''
+  const mostrarSelectorCaja =
+    fijarCajaUsuario && !cajaResolviendo && (!cajaAutoAsignada || !cajaSlug)
 
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
@@ -118,24 +156,32 @@ export default function CajaSectionArqueo({
             Fecha
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
           </label>
-          {fijarCajaUsuario ? (
-            <label className="caja-cc-field">
-              Caja
-              <input type="text" readOnly value={cajaAsignadaNombre || 'Sin asignar'} />
-            </label>
-          ) : (
-            <label className="caja-cc-field">
-              Caja
-              <select value={cajaSlug} onChange={(e) => setCajaSlug(e.target.value)} required>
-                <option value="">Elegir…</option>
-                {cajas.map((c) => (
-                  <option key={c.slug} value={c.slug}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <label className="caja-cc-field">
+            Caja
+            {cajaResolviendo ? (
+              <input type="text" readOnly value="Identificando…" />
+            ) : mostrarSelectorCaja ? (
+              <>
+                <select
+                  value={cajaSlug}
+                  onChange={(e) => onCajaManual(e.target.value)}
+                  required
+                >
+                  <option value="">Elegir tu caja…</option>
+                  {cajas.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+                <span className="caja-cc-field-hint">
+                  Tu usuario no está en Maestros; elegí la caja una vez y quedará guardada.
+                </span>
+              </>
+            ) : (
+              <input type="text" readOnly value={cajaAsignadaNombre || '—'} />
+            )}
+          </label>
           <label className="caja-cc-field">
             Turno
             <select value={turno} onChange={(e) => setTurno(e.target.value)}>
@@ -189,7 +235,11 @@ export default function CajaSectionArqueo({
       </div>
       {msg && <p className={msg.startsWith('Arqueo') ? 'caja-cc-ok' : 'caja-cc-error'}>{msg}</p>}
       <div className="caja-cc-actions">
-        <button type="submit" className="btn-primary" disabled={saving}>
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={saving || cajaResolviendo}
+        >
           {saving ? 'Guardando…' : 'Guardar y firmar'}
         </button>
       </div>
