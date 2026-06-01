@@ -74,6 +74,9 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   const [hydratedFichaPdfUrl, setHydratedFichaPdfUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const clienteInputRef = useRef<HTMLInputElement>(null)
+  /** Tras elegir de la lista: no re-buscar ni reabrir el dropdown. */
+  const omitirBusquedaClienteRef = useRef(false)
+  const clienteSearchGenRef = useRef(0)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -233,21 +236,35 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
     const buscarClientes = async () => {
+      if (omitirBusquedaClienteRef.current) {
+        omitirBusquedaClienteRef.current = false
+        return
+      }
+
       if (nombreCliente.trim().length < 2) {
         setClientesEncontrados([])
         setIsClienteDropdownOpen(false)
         return
       }
 
+      const gen = ++clienteSearchGenRef.current
       setBuscandoClientes(true)
-      const response = await apiService.buscarClientes(nombreCliente.trim())
-      if (response.success && response.data) {
-        setClientesEncontrados(response.data)
-        setIsClienteDropdownOpen(true)
-      } else {
-        setClientesEncontrados([])
+      try {
+        const response = await apiService.buscarClientes(nombreCliente.trim())
+        if (gen !== clienteSearchGenRef.current) return
+
+        if (response.success && response.data) {
+          setClientesEncontrados(response.data)
+          setIsClienteDropdownOpen(true)
+        } else {
+          setClientesEncontrados([])
+          setIsClienteDropdownOpen(false)
+        }
+      } finally {
+        if (gen === clienteSearchGenRef.current) {
+          setBuscandoClientes(false)
+        }
       }
-      setBuscandoClientes(false)
     }
 
     const timeoutId = setTimeout(() => {
@@ -258,6 +275,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   }, [nombreCliente])
 
   const handleSelectCliente = (clienteSeleccionado: ClienteRecord) => {
+    omitirBusquedaClienteRef.current = true
+    clienteSearchGenRef.current += 1
     setNombreCliente(clienteSeleccionado.nombre)
     setDniCuit(clienteSeleccionado.dni_cuit?.trim() || '')
     setDatosContacto(clienteSeleccionado.telefono || '')
@@ -266,6 +285,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     setUbicacionLink(clienteSeleccionado.ubicacion_link || '')
     setClientesEncontrados([])
     setIsClienteDropdownOpen(false)
+    setBuscandoClientes(false)
   }
 
   const uploadAdjunto = async (id: string, file: File) => {
@@ -731,13 +751,20 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                 value={nombreCliente}
                 onChange={(e) => setNombreCliente(e.target.value)}
                 onFocus={() => {
-                  if (clientesEncontrados.length > 0) {
+                  if (
+                    !omitirBusquedaClienteRef.current &&
+                    clientesEncontrados.length > 0
+                  ) {
                     setIsClienteDropdownOpen(true)
                   }
                 }}
                 onBlur={() => {
-                  // Delay para permitir el click en el dropdown
                   setTimeout(() => setIsClienteDropdownOpen(false), 200)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setIsClienteDropdownOpen(false)
+                  }
                 }}
               />
               {isClienteDropdownOpen && clientesEncontrados.length > 0 && (
@@ -749,7 +776,10 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                     <div
                       key={cliente.id}
                       className="dropdown-item"
-                      onClick={() => handleSelectCliente(cliente)}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        handleSelectCliente(cliente)
+                      }}
                     >
                       <div className="cliente-nombre">{cliente.nombre}</div>
                       {cliente.dni_cuit && (
