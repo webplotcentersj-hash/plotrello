@@ -879,7 +879,11 @@ function AppRoutes({
   const hideCampoFloaters = pathname === '/app-campo'
   const isBoardRoute = pathname === '/' || pathname === ''
   const hideGlobalFloaters =
-    hideCampoFloaters || isBoardRoute || pathname.startsWith('/mostrador') || pathname.startsWith('/rrhh')
+    hideCampoFloaters ||
+    isBoardRoute ||
+    pathname.startsWith('/mostrador') ||
+    pathname.startsWith('/rrhh') ||
+    pathname.startsWith('/caja')
   const isPhoneLayout = usePhoneBoardLayout()
   const hideImpresorasButton =
     isPhoneLayout ||

@@ -54,14 +54,16 @@ export default function CajaSectionMovimientos({
     setLoading(true)
     const [c, m] = await Promise.all([
       listCajas(),
-      listMovimientos(soloMisMovimientos ? { usuario: usuarioNombre } : undefined)
+      listMovimientos(
+        soloMisMovimientos ? { usuario: usuarioNombre, usuarioId: usuarioId ?? undefined } : undefined
+      )
     ])
     setCajas(c)
     setMovimientos(m)
     if (c.length && !origen) setOrigen(c[0].slug)
     if (c.length && !destino) setDestino(c[1]?.slug ?? c[0].slug)
     setLoading(false)
-  }, [soloMisMovimientos, usuarioNombre, origen])
+  }, [soloMisMovimientos, usuarioNombre, usuarioId, origen])
 
   useEffect(() => {
     void reload()
@@ -180,7 +182,7 @@ export default function CajaSectionMovimientos({
             <input value={nro} onChange={(e) => setNro(e.target.value)} placeholder="MEC-0000…" />
           </label>
         </div>
-        <div className="caja-cc-grid-3">
+        <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Fecha
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
@@ -189,11 +191,12 @@ export default function CajaSectionMovimientos({
             Hora
             <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
           </label>
-          <label className="caja-cc-field">
-            Usuario
-            <input value={usuarioNombre} readOnly />
-          </label>
         </div>
+        {soloMisMovimientos && (
+          <p className="caja-cc-help caja-cc-mov-usuario-hint">
+            Registrado a nombre de <strong>{usuarioNombre}</strong>
+          </p>
+        )}
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Caja origen

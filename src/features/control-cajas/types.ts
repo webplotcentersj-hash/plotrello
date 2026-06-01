@@ -14,6 +14,7 @@ export type CajaArqueo = {
   usuario_nombre?: string | null
   billetes: Record<string, number>
   total: number
+  firma_data_url?: string | null
   created_at?: string
 }
 

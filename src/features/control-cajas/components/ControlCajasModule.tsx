@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { NAV_ADMIN, NAV_CAJA } from '../constants'
 import type { CajaSectionId } from '../types'
-import { usesRemoteStorage } from '../cajaRepository'
+import { getParams, usesRemoteStorage } from '../cajaRepository'
+import { resolveUsuarioCajaEtiqueta } from '../cajaUsuarioDisplay'
+import { DEFAULT_CAJERAS } from '../constants'
 import CajaSectionTablero from './CajaSectionTablero'
 import CajaTableroAdmin from './CajaTableroAdmin'
 import CajaSectionCierreForm from './CajaSectionCierreForm'
@@ -47,8 +49,17 @@ export default function ControlCajasModule() {
     loading: authLoading
   } = useAuth()
   const canViewIngresos = isAdmin
-  const usuarioNombre = usuario?.nombre ?? 'Usuario'
   const usuarioId = usuario?.id
+  const [usuarioEtiqueta, setUsuarioEtiqueta] = useState(
+    () => resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
+  )
+
+  useEffect(() => {
+    void getParams().then((p) => {
+      const cajeras = p.cajeras?.length ? p.cajeras : DEFAULT_CAJERAS
+      setUsuarioEtiqueta(resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario', cajeras))
+    })
+  }, [usuario?.nombre])
 
   const [section, setSection] = useState<CajaSectionId>(isAdmin ? 'tablero_admin' : 'arqueo')
   const [editCierreId, setEditCierreId] = useState<string | null>(null)
@@ -119,7 +130,7 @@ export default function ControlCajasModule() {
 
       <div className={`caja-cc-role-banner ${isAdmin ? 'admin' : 'caja'}`}>
         <span>
-          <strong>{isAdmin ? 'Administración' : 'Caja'}</strong> — {usuarioNombre}
+          <strong>{isAdmin ? 'Administración' : 'Caja'}</strong> — {usuarioEtiqueta}
           {!canViewIngresos && ' · Los ingresos del tablero ERP solo los ve administración.'}
         </span>
       </div>
@@ -196,12 +207,17 @@ export default function ControlCajasModule() {
           {section === 'tablero' && isAdmin && <CajaSectionTablero canViewIngresos={canViewIngresos} />}
 
           {section === 'arqueo' && (
-            <CajaSectionArqueo usuarioNombre={usuarioNombre} usuarioId={usuarioId} soloCajasOperativas />
+            <CajaSectionArqueo
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              soloCajasOperativas
+              fijarCajaUsuario
+            />
           )}
 
           {section === 'movimientos' && (
             <CajaSectionMovimientos
-              usuarioNombre={usuarioNombre}
+              usuarioNombre={usuarioEtiqueta}
               usuarioId={usuarioId}
               soloMisMovimientos
               allowExcelImport
@@ -209,13 +225,15 @@ export default function ControlCajasModule() {
             />
           )}
 
-          {section === 'historial' && <CajaSectionHistorial usuarioNombre={usuarioNombre} />}
+          {section === 'historial' && (
+            <CajaSectionHistorial usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
+          )}
 
           {section === 'arqueos_admin' && isAdmin && <CajaSectionArqueosAdmin />}
 
           {section === 'movimientos_admin' && isAdmin && (
             <CajaSectionMovimientos
-              usuarioNombre={usuarioNombre}
+              usuarioNombre={usuarioEtiqueta}
               usuarioId={usuarioId}
               soloMisMovimientos={false}
               allowExcelImport
@@ -228,7 +246,7 @@ export default function ControlCajasModule() {
           {section === 'diferencias' && isAdmin && <CajaSectionDiferencias />}
           {section === 'ventas' && isAdmin && <CajaSectionVentasDiarias />}
           {section === 'config' && isAdmin && <CajaSectionConfig />}
-          {section === 'asistente' && <CajaPlotAI isAdmin={isAdmin} usuarioNombre={usuarioNombre} />}
+          {section === 'asistente' && <CajaPlotAI isAdmin={isAdmin} usuarioNombre={usuarioEtiqueta} />}
         </main>
       </div>
     </div>

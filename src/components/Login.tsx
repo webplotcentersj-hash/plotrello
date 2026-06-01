@@ -24,6 +24,7 @@ const Login = ({ onLogin }: LoginProps) => {
         // Guardar usuario en localStorage en el formato esperado por useAuth
         localStorage.setItem('usuario', JSON.stringify(response.data.usuario))
         localStorage.setItem('usuario_id', response.data.usuario.id.toString())
+        localStorage.setItem('plotlab_login_usuario', usuario.trim())
         onLogin(response.data.usuario)
       } else {
         setError(response.error || 'Error al iniciar sesión')

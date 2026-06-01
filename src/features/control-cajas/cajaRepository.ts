@@ -4,6 +4,7 @@ import { newId } from './format'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import type {
   CajaArqueo,
+  CajaCajera,
   CajaCierre,
   CajaConcilBanco,
   CajaConcilMP,
@@ -94,17 +95,22 @@ export async function listCajas(): Promise<CajaRegistro[]> {
   return readLocal().cajas.filter((c) => c.activa)
 }
 
-export async function listArqueos(opts?: { usuario?: string }): Promise<CajaArqueo[]> {
+export async function listArqueos(opts?: {
+  usuario?: string
+  usuarioId?: number
+}): Promise<CajaArqueo[]> {
   if (await checkRemote()) {
     let q = supabase!.from('control_caja_arqueos').select('*').order('fecha', { ascending: false })
-    if (opts?.usuario) q = q.eq('usuario_nombre', opts.usuario)
+    if (opts?.usuarioId != null) q = q.eq('id_usuario', opts.usuarioId)
+    else if (opts?.usuario) q = q.eq('usuario_nombre', opts.usuario)
     const { data, error } = await q
     if (!error && data) {
       return data.map(mapArqueoRow)
     }
   }
   let list = readLocal().arqueos
-  if (opts?.usuario) list = list.filter((a) => a.usuario_nombre === opts.usuario)
+  if (opts?.usuarioId != null) list = list.filter((a) => a.id_usuario === opts.usuarioId)
+  else if (opts?.usuario) list = list.filter((a) => a.usuario_nombre === opts.usuario)
   return [...list].sort((a, b) => b.fecha.localeCompare(a.fecha))
 }
 
@@ -118,6 +124,7 @@ function mapArqueoRow(r: Record<string, unknown>): CajaArqueo {
     usuario_nombre: r.usuario_nombre != null ? String(r.usuario_nombre) : null,
     billetes: (r.billetes as Record<string, number>) ?? {},
     total: Number(r.total) || 0,
+    firma_data_url: r.firma_data_url != null ? String(r.firma_data_url) : null,
     created_at: r.created_at != null ? String(r.created_at) : undefined
   }
 }
@@ -137,7 +144,8 @@ export async function saveArqueo(
       id_usuario: arqueo.id_usuario ?? null,
       usuario_nombre: arqueo.usuario_nombre ?? null,
       billetes: arqueo.billetes,
-      total: arqueo.total
+      total: arqueo.total,
+      firma_data_url: arqueo.firma_data_url ?? null
     }
     const { error } = await supabase!.from('control_caja_arqueos').upsert(row)
     if (!error) return record
@@ -161,17 +169,22 @@ export async function deleteArqueo(id: string): Promise<void> {
   writeLocal(store)
 }
 
-export async function listMovimientos(opts?: { usuario?: string }): Promise<CajaMovimiento[]> {
+export async function listMovimientos(opts?: {
+  usuario?: string
+  usuarioId?: number
+}): Promise<CajaMovimiento[]> {
   if (await checkRemote()) {
     let q = supabase!.from('control_caja_movimientos').select('*').order('fecha', { ascending: false })
-    if (opts?.usuario) q = q.eq('usuario_nombre', opts.usuario)
+    if (opts?.usuarioId != null) q = q.eq('id_usuario', opts.usuarioId)
+    else if (opts?.usuario) q = q.eq('usuario_nombre', opts.usuario)
     const { data, error } = await q
     if (!error && data) {
       return data.map(mapMovRow)
     }
   }
   let list = readLocal().movimientos
-  if (opts?.usuario) list = list.filter((m) => m.usuario_nombre === opts.usuario)
+  if (opts?.usuarioId != null) list = list.filter((m) => m.id_usuario === opts.usuarioId)
+  else if (opts?.usuario) list = list.filter((m) => m.usuario_nombre === opts.usuario)
   return [...list].sort((a, b) => {
     const ka = `${b.fecha}${b.hora ?? ''}`
     const kb = `${a.fecha}${a.hora ?? ''}`
@@ -266,6 +279,55 @@ export function resolveCajaSlug(nombre: string, cajas: CajaRegistro[]): string |
     (c) => c.nombre.toLowerCase().includes(n) || n.includes(c.nombre.toLowerCase())
   )
   return partial?.slug ?? null
+}
+
+function slugFromCajeraNombre(cajeraNombre: string, cajas: CajaRegistro[]): string | null {
+  const first = cajeraNombre.trim().split(/\s+/)[0]?.toLowerCase()
+  if (!first) return null
+  const bySlug = cajas.find((c) => c.slug === first)
+  if (bySlug) return bySlug.slug
+  return (
+    cajas.find(
+      (c) =>
+        c.slug !== 'admin' &&
+        c.slug !== 'vuelto' &&
+        c.nombre.toLowerCase().replace(/^caja\s+/, '').startsWith(first)
+    )?.slug ?? null
+  )
+}
+
+/** Asocia el usuario logueado a su caja (maestros cajeras + nombre). */
+export function resolveCajaSlugForUsuario(
+  usuarioNombre: string,
+  cajas: CajaRegistro[],
+  cajeras: CajaCajera[] = []
+): string | null {
+  const norm = usuarioNombre.trim().toLowerCase()
+  if (!norm) return null
+
+  for (const cajera of cajeras) {
+    const cn = cajera.nombre.trim().toLowerCase()
+    const cu = cajera.usuario.trim().toLowerCase()
+    if (norm === cn || norm === cu) {
+      const slug = slugFromCajeraNombre(cajera.nombre, cajas)
+      if (slug) return slug
+    }
+    const first = cn.split(/\s+/)[0]
+    if (first && first.length >= 3 && norm.includes(first)) {
+      const slug = slugFromCajeraNombre(cajera.nombre, cajas)
+      if (slug) return slug
+    }
+  }
+
+  const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+  const fromNombre = resolveCajaSlug(usuarioNombre, operativas)
+  if (fromNombre) return fromNombre
+
+  const first = norm.split(/\s+/)[0]
+  if (first.length >= 2) {
+    return operativas.find((c) => c.slug === first)?.slug ?? null
+  }
+  return null
 }
 
 export async function usesRemoteStorage(): Promise<boolean> {

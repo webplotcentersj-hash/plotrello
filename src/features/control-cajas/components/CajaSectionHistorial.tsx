@@ -1,26 +1,26 @@
 import { useEffect, useState } from 'react'
-import { deleteArqueo, listArqueos, listCajas, listMovimientos } from '../cajaRepository'
+import { listArqueos, listCajas, listMovimientos } from '../cajaRepository'
 import { fmtArs, fmtDateAr } from '../format'
 import type { CajaArqueo, CajaMovimiento, CajaRegistro } from '../types'
 
-type Props = { usuarioNombre: string }
+type Props = { usuarioNombre: string; usuarioId?: number }
 
-export default function CajaSectionHistorial({ usuarioNombre }: Props) {
+export default function CajaSectionHistorial({ usuarioNombre, usuarioId }: Props) {
   const [arqueos, setArqueos] = useState<CajaArqueo[]>([])
   const [movimientos, setMovimientos] = useState<CajaMovimiento[]>([])
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
 
   useEffect(() => {
     void Promise.all([
-      listArqueos({ usuario: usuarioNombre }),
-      listMovimientos({ usuario: usuarioNombre }),
+      listArqueos({ usuario: usuarioNombre, usuarioId }),
+      listMovimientos({ usuario: usuarioNombre, usuarioId }),
       listCajas()
     ]).then(([a, m, c]) => {
       setArqueos(a.slice(0, 15))
       setMovimientos(m.slice(0, 15))
       setCajas(c)
     })
-  }, [usuarioNombre])
+  }, [usuarioNombre, usuarioId])
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
 
@@ -80,66 +80,4 @@ export default function CajaSectionHistorial({ usuarioNombre }: Props) {
   )
 }
 
-export function CajaSectionArqueosAdmin() {
-  const [arqueos, setArqueos] = useState<CajaArqueo[]>([])
-  const [cajas, setCajas] = useState<CajaRegistro[]>([])
-
-  const reload = () => {
-    void Promise.all([listArqueos(), listCajas()]).then(([a, c]) => {
-      setArqueos(a)
-      setCajas(c)
-    })
-  }
-
-  useEffect(() => {
-    reload()
-  }, [])
-
-  const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
-
-  return (
-    <div className="caja-cc-card">
-      <h3>Arqueos firmados por cajeras</h3>
-      {arqueos.length === 0 ? (
-        <p className="caja-cc-empty">Las cajeras todavía no cargaron arqueos.</p>
-      ) : (
-        <table className="caja-cc-table">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Caja</th>
-              <th>Turno</th>
-              <th>Cajera</th>
-              <th className="num">Total</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {arqueos.map((a) => (
-              <tr key={a.id}>
-                <td>{fmtDateAr(a.fecha)}</td>
-                <td>{cajaNombre(a.caja_slug)}</td>
-                <td>{a.turno}</td>
-                <td>{a.usuario_nombre ?? '—'}</td>
-                <td className="num">$ {fmtArs(a.total)}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn-small danger"
-                    onClick={() => {
-                      if (confirm('¿Eliminar arqueo?')) {
-                        void deleteArqueo(a.id).then(reload)
-                      }
-                    }}
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  )
-}
+export { default as CajaSectionArqueosAdmin } from './CajaSectionArqueosAdmin'

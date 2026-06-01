@@ -3,9 +3,13 @@ import { listCajas, resolveCajaSlug, saveMovimientosBulk, savePlanillaImport } f
 import { fmtArs, fmtDateAr } from '../format'
 import {
   parsePlanillaCajaPdf,
+  planillaEgresosToMovimientos,
   planillaMecToMovimientos,
+  PLANILLA_LINEA_COLUMNAS,
   type PlanillaCajaParsed
 } from '../parsePlanillaCajaPdf'
+import { downloadPlanillaPdf } from '../exportPlanillaPdf'
+import PlanillaLineasTable from './PlanillaLineasTable'
 
 type Props = {
   usuarioNombre: string
@@ -51,15 +55,18 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
       const cajaSlug = resolveCajaSlug(preview.caja_nombre, cajas)
       await savePlanillaImport(preview, cajaSlug, usuarioNombre, usuarioId)
 
-      const movs = planillaMecToMovimientos(preview, cajas, usuarioNombre, usuarioId)
+      const movsMec = planillaMecToMovimientos(preview, cajas, usuarioNombre, usuarioId)
+      const movsEg = planillaEgresosToMovimientos(preview, cajas, cajaSlug, usuarioNombre, usuarioId)
+      const movs = [...movsMec, ...movsEg]
       if (movs.length) {
         await saveMovimientosBulk(movs)
       }
 
       setMsg(
         `Planilla guardada (${preview.archivo_nombre}).` +
-          (movs.length ? ` ${movs.length} movimiento(s) MEC importado(s).` : '') +
-          (preview.cantidad_ventas ? ` ${preview.cantidad_ventas} ventas detectadas en el PDF.` : '')
+          (movsMec.length ? ` ${movsMec.length} MEC.` : '') +
+          (movsEg.length ? ` ${movsEg.length} egreso(s) EG.` : '') +
+          (preview.cantidad_ventas ? ` ${preview.cantidad_ventas} ventas FA/FB en planilla.` : '')
       )
       setPreview(null)
       onImported?.()
@@ -78,8 +85,9 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
         <div>
           <h3>Planilla de caja (PDF)</h3>
           <p className="caja-cc-sub">
-            Subí el <strong>Listado de Planilla de Caja</strong> que envía el sistema (MEC / PLOT CENTER), el mismo
-            PDF del mail diario.
+            Subí el <strong>Listado de Planilla de Caja</strong> de PLOT CENTER (mismo PDF del mail diario).
+            Columnas: Comprobante, Concepto, Total, Cta. cte., Efectivo, cheques, Tarjetas, Docum., C.
+            contab., Trans. B. y Otros.
           </p>
         </div>
         <div className="caja-cc-page-actions">
@@ -116,8 +124,9 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
             <span>
               {fmtDateAr(preview.fecha_desde)} → {fmtDateAr(preview.fecha_hasta)}
             </span>
-            <span>{preview.cantidad_ventas} ventas (FA/FB)</span>
-            <span>{preview.movimientos_mec.length} mov. entre cajas (MEC)</span>
+            <span>{preview.cantidad_ventas} ventas FA/FB</span>
+            <span>{preview.egresos.length} egresos EG</span>
+            <span>{preview.movimientos_mec.length} MEC</span>
           </div>
 
           {t && (
@@ -130,6 +139,7 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
                   <th className="num">Efectivo</th>
                   <th className="num">Tarjetas</th>
                   <th className="num">Trans. B.</th>
+                  <th className="num">Otros</th>
                 </tr>
               </thead>
               <tbody>
@@ -140,6 +150,7 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
                   <td className="num">$ {fmtArs(t.ingresos_efectivo)}</td>
                   <td className="num">$ {fmtArs(t.ingresos_tarjetas)}</td>
                   <td className="num">$ {fmtArs(t.ingresos_trans_b)}</td>
+                  <td className="num">$ {fmtArs(t.ingresos_otros)}</td>
                 </tr>
                 <tr>
                   <td>Egresos</td>
@@ -147,11 +158,12 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
                   <td className="num">$ {fmtArs(t.egresos_cta_cte)}</td>
                   <td className="num">$ {fmtArs(t.egresos_efectivo)}</td>
                   <td className="num">$ {fmtArs(t.egresos_tarjetas)}</td>
-                  <td className="num">—</td>
+                  <td className="num">$ {fmtArs(t.egresos_trans_b)}</td>
+                  <td className="num">$ {fmtArs(t.egresos_otros)}</td>
                 </tr>
                 <tr className="caja-cc-row-neto">
                   <td>Ingresos − Egresos</td>
-                  <td className="num" colSpan={5}>
+                  <td className="num" colSpan={6}>
                     <strong>$ {fmtArs(t.neto)}</strong>
                   </td>
                 </tr>
@@ -159,38 +171,34 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
             </table>
           )}
 
-          {preview.movimientos_mec.length > 0 && (
-            <div className="caja-cc-planilla-mec">
-              <h4>Movimientos entre cajas (MEC)</h4>
-              <table className="caja-cc-table">
-                <thead>
-                  <tr>
-                    <th>Comprobante</th>
-                    <th>Detalle</th>
-                    <th className="num">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.movimientos_mec.map((m, i) => (
-                    <tr key={i}>
-                      <td>{m.comprobante}</td>
-                      <td>{m.concepto}</td>
-                      <td className="num">$ {fmtArs(m.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <p className="caja-cc-help caja-cc-planilla-cols-hint">
+            Columnas por línea (como en el PDF):{' '}
+            {PLANILLA_LINEA_COLUMNAS.map((c) => c.label).join(' · ')}
+          </p>
+
+          <PlanillaLineasTable title="Ingresos ventas (FA / FB)" lineas={preview.ventas} />
+          <PlanillaLineasTable title="Egresos (EG)" lineas={preview.egresos} maxRows={15} />
+          <PlanillaLineasTable title="Movimientos entre cajas (MEC)" lineas={preview.movimientos_mec} maxRows={10} />
 
           <div className="caja-cc-actions">
             <button type="button" className="btn-secondary" onClick={() => setPreview(null)}>
               Cancelar
             </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => downloadPlanillaPdf(preview, preview.caja_nombre)}
+            >
+              Descargar PDF
+            </button>
             <button type="button" className="btn-primary" disabled={saving} onClick={() => void handleGuardar()}>
               {saving ? 'Guardando…' : 'Guardar planilla y movimientos'}
             </button>
           </div>
+          <p className="caja-cc-help">
+            Al guardar se importan como movimientos los <strong>MEC</strong> y los <strong>EG</strong> (egresos).
+            Las ventas FA/FB quedan en la planilla para cierre y conciliación.
+          </p>
         </div>
       )}
     </div>

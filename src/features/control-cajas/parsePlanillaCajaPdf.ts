@@ -4,7 +4,25 @@ import type { CajaMovimiento, CajaRegistro } from './types'
 import { resolveCajaSlug } from './cajaRepository'
 
 /** Monto argentino: 2.485.275,55 o 5305,33 */
-const AR_AMOUNT = /(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})/g
+const AR_AMOUNT = /(\d{1,3}(?:\.\d{3})*,\d{2,3}|\d+,\d{2})/g
+
+/** Columnas de cada línea FA/FB/EG (orden del PDF «Ingresos Ventas» / «Egresos Varios»). */
+export const PLANILLA_LINEA_COLUMNAS = [
+  { key: 'total', label: 'Total' },
+  { key: 'cta_cte', label: 'Cta. cte.' },
+  { key: 'efectivo', label: 'Efectivo' },
+  { key: 'ch_prop', label: 'Ch. prop.' },
+  { key: 'ch_terc', label: 'Ch. terc.' },
+  { key: 'tarjetas', label: 'Tarjetas' },
+  { key: 'docum', label: 'Docum.' },
+  { key: 'c_contab', label: 'C. contab.' },
+  { key: 'trans_b', label: 'Trans. B.' },
+  { key: 'otros', label: 'Otros' }
+] as const
+
+export type PlanillaColumnaKey = (typeof PLANILLA_LINEA_COLUMNAS)[number]['key']
+
+export type PlanillaMontosLinea = Record<PlanillaColumnaKey, number>
 
 export type PlanillaCajaTotales = {
   ingresos_total: number
@@ -22,33 +40,19 @@ export type PlanillaCajaTotales = {
   egresos_otros: number
 }
 
-export type PlanillaLineaVenta = {
+export type PlanillaLineaVenta = PlanillaMontosLinea & {
   comprobante: string
   concepto: string
-  total: number
-  cta_cte: number
-  efectivo: number
-  tarjetas: number
-  trans_b: number
-  otros: number
 }
 
-export type PlanillaLineaEgreso = {
+export type PlanillaLineaEgreso = PlanillaMontosLinea & {
   comprobante: string
   concepto: string
-  total: number
-  cta_cte: number
-  efectivo: number
-  tarjetas: number
 }
 
-export type PlanillaLineaMec = {
+export type PlanillaLineaMec = PlanillaMontosLinea & {
   comprobante: string
   concepto: string
-  cta_cte: number
-  efectivo: number
-  tarjetas: number
-  total: number
   origen_hint: string
   destino_hint: string
 }
@@ -67,6 +71,19 @@ export type PlanillaCajaParsed = {
   warnings: string[]
 }
 
+const EMPTY_MONTOS = (): PlanillaMontosLinea => ({
+  total: 0,
+  cta_cte: 0,
+  efectivo: 0,
+  ch_prop: 0,
+  ch_terc: 0,
+  tarjetas: 0,
+  docum: 0,
+  c_contab: 0,
+  trans_b: 0,
+  otros: 0
+})
+
 function parseArAmount(raw: string): number {
   return parseNum(raw.trim())
 }
@@ -75,6 +92,15 @@ function parseAmountsFromTail(tail: string): number[] {
   const matches = tail.match(AR_AMOUNT)
   if (!matches) return []
   return matches.map(parseArAmount)
+}
+
+/** Mapea los montos del final de línea al orden de columnas del PDF. */
+export function mapMontosPlanillaLinea(amounts: number[]): PlanillaMontosLinea {
+  const m = EMPTY_MONTOS()
+  PLANILLA_LINEA_COLUMNAS.forEach((col, i) => {
+    m[col.key] = amounts[i] ?? 0
+  })
+  return m
 }
 
 function dmYToIso(dmY: string): string {
@@ -99,21 +125,29 @@ function parseHeader(text: string): Pick<PlanillaCajaParsed, 'fecha_desde' | 'fe
 function parseTotalesDeCaja(text: string): PlanillaCajaTotales | null {
   const idx = text.indexOf('TOTALES DE CAJA')
   if (idx < 0) return null
-  const chunk = text.slice(idx, idx + 1200)
+  const chunk = text.slice(idx, idx + 900)
   const rows: number[][] = []
   for (const line of chunk.split(/\n/)) {
-    const nums = parseAmountsFromTail(line)
+    const trimmed = line.trim()
+    if (!/^\d/.test(trimmed)) continue
+    const nums = parseAmountsFromTail(trimmed)
     if (nums.length >= 6 && nums[0] > 1000) rows.push(nums)
   }
   if (rows.length < 2) return null
 
   const ing = rows[0]
   const egr = rows[1]
-  const neto = rows[2]?.[0] ?? ing[0] - egr[0]
+  const netoRow = rows[2]
+  const neto = netoRow?.[0] > 1000 ? netoRow[0] : (ing[0] ?? 0) - (egr[0] ?? 0)
 
   let transB = 0
-  const transMatch = text.match(/Trans\.\s*B\.?\s*([\d.,]+)/i)
-  if (transMatch) transB = parseArAmount(transMatch[1])
+  const transLines = chunk.match(/Trans\.\s*B\.?\s*([\d.,]+)/gi)
+  if (transLines?.length) {
+    const last = transLines[transLines.length - 1].match(/([\d.,]+)/)
+    if (last) transB = parseArAmount(last[1])
+  }
+  const transGlobal = text.match(/Trans\.\s*B\.?\s*\n\s*([\d.,]+)/i)
+  if (transGlobal) transB = parseArAmount(transGlobal[1])
 
   let tarjetasIngreso = ing[5] ?? 0
   const tarjetaBlock = text.match(/Total\s+Tarjeta\s+([\d.,]+)/i)
@@ -125,57 +159,55 @@ function parseTotalesDeCaja(text: string): PlanillaCajaTotales | null {
     ingresos_efectivo: ing[2] ?? 0,
     ingresos_tarjetas: tarjetasIngreso,
     ingresos_trans_b: transB,
-    ingresos_otros: 0,
+    ingresos_otros: ing[9] ?? ing[ing.length - 1] ?? 0,
     egresos_total: egr[0] ?? 0,
     egresos_cta_cte: egr[1] ?? 0,
     egresos_efectivo: egr[2] ?? 0,
     egresos_tarjetas: egr[5] ?? 0,
-    egresos_trans_b: 0,
-    egresos_otros: 0,
+    egresos_trans_b: egr[8] ?? 0,
+    egresos_otros: egr[9] ?? egr[egr.length - 1] ?? 0,
     neto
   }
+}
+
+function conceptoSinMontos(rest: string): string {
+  return (
+    rest
+      .replace(AR_AMOUNT, '|')
+      .split('|')[0]
+      ?.replace(/\s+/g, ' ')
+      .trim() ?? ''
+  )
 }
 
 function parseVentasLine(line: string): PlanillaLineaVenta | null {
   const m = line.match(/^(FA|FB)\s+(\S+)\s+(.+)$/i)
   if (!m) return null
   const amounts = parseAmountsFromTail(m[3])
-  if (!amounts.length) return null
-  const concepto =
-    line
-      .replace(/^(FA|FB)\s+\S+\s+/i, '')
-      .replace(AR_AMOUNT, '|')
-      .split('|')[0]
-      ?.trim() ?? 'Venta'
-
+  if (amounts.length < 1) return null
+  const concepto = conceptoSinMontos(m[3]) || 'Venta'
   return {
-    comprobante: `${m[1]} ${m[2]}`,
+    comprobante: `${m[1].toUpperCase()} ${m[2]}`,
     concepto,
-    total: amounts[0] ?? 0,
-    cta_cte: amounts[1] ?? 0,
-    efectivo: amounts[2] ?? 0,
-    tarjetas: amounts[5] ?? 0,
-    trans_b: amounts[7] ?? 0,
-    otros: amounts[amounts.length - 1] ?? 0
+    ...mapMontosPlanillaLinea(amounts)
   }
 }
 
 function parseEgresoLine(line: string): PlanillaLineaEgreso | null {
-  const m = line.match(/^(EG|MEC)\s+(\S+)\s+(.+)$/i)
-  if (!m || m[1].toUpperCase() === 'MEC') return null
-  const amounts = parseAmountsFromTail(m[3])
+  const m = line.match(/^EG\s+(\S+)\s+(.+)$/i)
+  if (!m) return null
+  const amounts = parseAmountsFromTail(m[2])
   if (!amounts.length) return null
-  const cleanConcept = m[3]
-    .replace(AR_AMOUNT, '|')
-    .split('|')[0]
-    ?.trim() ?? 'Egreso'
+  const concepto = conceptoSinMontos(m[2]) || 'Egreso'
+  const montos = mapMontosPlanillaLinea(amounts)
+  if (montos.total === 0 && montos.efectivo === 0 && montos.cta_cte === 0) {
+    const max = Math.max(...amounts)
+    if (max > 0) montos.efectivo = max
+  }
   return {
-    comprobante: `${m[1]} ${m[2]}`,
-    concepto: cleanConcept,
-    total: amounts[amounts.length - 1] ?? amounts[0] ?? 0,
-    cta_cte: amounts[0] ?? 0,
-    efectivo: amounts[3] ?? amounts[1] ?? 0,
-    tarjetas: amounts[5] ?? 0
+    comprobante: `EG ${m[1]}`,
+    concepto,
+    ...montos
   }
 }
 
@@ -184,7 +216,7 @@ function parseMecLine(line: string): PlanillaLineaMec | null {
   if (!m) return null
   const amounts = parseAmountsFromTail(m[2])
   if (!amounts.length) return null
-  const conceptRaw = m[2].replace(AR_AMOUNT, '|').split('|')[0]?.trim() ?? ''
+  const conceptRaw = conceptoSinMontos(m[2]) || ''
   const paren = conceptRaw.match(/\(([^)]+)\)/)
   let origen_hint = ''
   let destino_hint = ''
@@ -193,17 +225,20 @@ function parseMecLine(line: string): PlanillaLineaMec | null {
     origen_hint = parts[0]?.trim() ?? ''
     destino_hint = parts[1]?.trim() ?? ''
   }
-  const total = amounts[amounts.length - 1] ?? 0
-  const efectivo = amounts[3] ?? amounts[1] ?? 0
+
+  const montos = mapMontosPlanillaLinea(amounts)
+  if (montos.total === 0 && amounts.length >= 6) {
+    montos.cta_cte = amounts[0] ?? 0
+    montos.efectivo = amounts[3] ?? 0
+    montos.total = amounts[5] ?? amounts[amounts.length - 1] ?? 0
+  }
+
   return {
     comprobante: `MEC ${m[1]}`,
     concepto: conceptRaw,
-    cta_cte: amounts[0] ?? 0,
-    efectivo,
-    tarjetas: amounts[5] ?? 0,
-    total,
     origen_hint,
-    destino_hint
+    destino_hint,
+    ...montos
   }
 }
 
@@ -224,17 +259,17 @@ export function parsePlanillaCajaText(text: string, archivoNombre: string): Plan
       if (v && v.total > 0) ventas.push(v)
     } else if (/^EG\s+/i.test(trimmed)) {
       const e = parseEgresoLine(trimmed)
-      if (e) egresos.push(e)
+      if (e && (e.total > 0 || e.efectivo > 0 || e.cta_cte > 0)) egresos.push(e)
     } else if (/^MEC\s+/i.test(trimmed)) {
       const mec = parseMecLine(trimmed)
-      if (mec) movimientos_mec.push(mec)
+      if (mec && mec.total > 0) movimientos_mec.push(mec)
     }
   }
 
   if (!header.caja_nombre) warnings.push('No se detectó el nombre de caja en el encabezado.')
   if (!totales) warnings.push('No se encontró el bloque TOTALES DE CAJA; revisá que sea el PDF completo.')
-  if (!ventas.length && !movimientos_mec.length) {
-    warnings.push('No se detectaron líneas de ventas (FA/FB) ni movimientos MEC.')
+  if (!ventas.length && !egresos.length && !movimientos_mec.length) {
+    warnings.push('No se detectaron líneas FA/FB, EG ni MEC.')
   }
 
   return {
@@ -285,14 +320,16 @@ export function planillaMecToMovimientos(
       hintToSlug(mec.destino_hint, cajas, planilla.caja_nombre) ??
       resolveCajaSlug('admin', cajas) ??
       'admin'
+    const efectivo = mec.efectivo > 0 ? mec.efectivo : mec.total
+    const otros = mec.cta_cte + mec.tarjetas + mec.trans_b + mec.otros
     return {
       fecha,
       hora: null,
       concepto: 'Pase de caja',
       origen_slug: origen,
       destino_slug: destino,
-      efectivo: mec.efectivo || mec.total,
-      otros: mec.cta_cte + mec.tarjetas,
+      efectivo,
+      otros,
       nro_comprobante: mec.comprobante,
       observacion: mec.concepto,
       id_usuario: usuarioId ?? null,
@@ -300,4 +337,37 @@ export function planillaMecToMovimientos(
       origen_importacion: 'planilla_pdf'
     }
   })
+}
+
+/** Egresos EG como salidas de caja (opcional al importar). */
+export function planillaEgresosToMovimientos(
+  planilla: PlanillaCajaParsed,
+  cajas: CajaRegistro[],
+  cajaSlug: string | null,
+  usuarioNombre: string,
+  usuarioId?: number
+): Omit<CajaMovimiento, 'id' | 'created_at'>[] {
+  const slug =
+    cajaSlug ??
+    resolveCajaSlug(planilla.caja_nombre, cajas) ??
+    cajas.find((c) => c.slug !== 'admin')?.slug ??
+    'noelia'
+  const fecha = planilla.fecha_hasta || planilla.fecha_desde
+  const destino =
+    resolveCajaSlug('admin', cajas) ?? cajas.find((c) => c.slug === 'admin')?.slug ?? slug
+
+  return planilla.egresos.map((eg) => ({
+    fecha,
+    hora: null,
+    concepto: eg.concepto || 'Egreso',
+    origen_slug: slug,
+    destino_slug: destino,
+    efectivo: eg.efectivo || eg.total,
+    otros: eg.cta_cte + eg.tarjetas + eg.trans_b + eg.ch_prop + eg.ch_terc + eg.otros,
+    nro_comprobante: eg.comprobante,
+    observacion: `Importado planilla PDF — ${eg.concepto}`,
+    id_usuario: usuarioId ?? null,
+    usuario_nombre: usuarioNombre,
+    origen_importacion: 'planilla_pdf'
+  }))
 }

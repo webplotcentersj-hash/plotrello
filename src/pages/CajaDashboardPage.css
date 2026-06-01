@@ -743,12 +743,197 @@
   background: #f1f5f9;
 }
 
-.caja-dashboard-page .caja-cc-signature {
-  font-size: 12px;
-  color: #64748b;
-  padding: 12px;
-  background: #f8fafc;
+.caja-dashboard-page .caja-cc-signature-block {
+  margin-top: 4px;
+}
+
+.caja-dashboard-page .caja-cc-firma-thumb {
+  max-height: 36px;
+  max-width: 120px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #fff;
+  vertical-align: middle;
+}
+
+.caja-dashboard-page .caja-cc-table-scroll {
+  overflow-x: auto;
+  margin: 8px 0 12px;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-lineas-table {
+  min-width: 1100px;
+  font-size: 12px;
+}
+
+.caja-dashboard-page .caja-cc-table-compact th,
+.caja-dashboard-page .caja-cc-table-compact td {
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.caja-dashboard-page .caja-cc-cell-concept {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caja-dashboard-page .caja-cc-cell-comp {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-cols-hint {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-lineas h4 {
+  margin: 16px 0 4px;
+  font-size: 14px;
+}
+
+.caja-dashboard-page .caja-cc-mov-usuario-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.caja-cc-modal-backdrop,
+.caja-dashboard-page .caja-cc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.caja-cc-modal,
+.caja-dashboard-page .caja-cc-modal {
+  width: min(560px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.caja-cc-modal-header,
+.caja-dashboard-page .caja-cc-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.caja-cc-modal-header h2,
+.caja-dashboard-page .caja-cc-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.caja-cc-modal-close,
+.caja-dashboard-page .caja-cc-modal-close {
+  border: none;
+  background: #f1f5f9;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.caja-cc-modal-close:hover,
+.caja-dashboard-page .caja-cc-modal-close:hover {
+  background: #e2e8f0;
+}
+
+.caja-cc-modal-body,
+.caja-dashboard-page .caja-cc-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.caja-cc-modal-body h3,
+.caja-dashboard-page .caja-cc-modal-body h3 {
+  margin: 16px 0 8px;
+  font-size: 14px;
+}
+
+.caja-cc-modal-footer,
+.caja-dashboard-page .caja-cc-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 20px 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.caja-cc-arqueo-meta-grid,
+.caja-dashboard-page .caja-cc-arqueo-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.caja-cc-meta-label,
+.caja-dashboard-page .caja-cc-meta-label {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.caja-cc-meta-total,
+.caja-dashboard-page .caja-cc-meta-total {
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.caja-cc-arqueo-firma-block,
+.caja-dashboard-page .caja-cc-arqueo-firma-block {
+  margin-top: 12px;
+}
+
+.caja-cc-arqueo-firma-img,
+.caja-dashboard-page .caja-cc-arqueo-firma-img {
+  max-width: 100%;
+  max-height: 120px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.caja-dashboard-page .caja-cc-table-clickable tbody tr.caja-cc-row-clickable {
+  cursor: pointer;
+}
+
+.caja-dashboard-page .caja-cc-table-clickable tbody tr.caja-cc-row-clickable:hover {
+  background: #f8fafc;
+}
+
+.caja-dashboard-page .caja-cc-actions-cell {
+  white-space: nowrap;
+}
+
+.caja-dashboard-page .caja-cc-actions-cell .btn-small {
+  margin-left: 4px;
 }
 
 .caja-dashboard-page .caja-cc-actions {
