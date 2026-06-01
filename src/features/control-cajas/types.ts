@@ -113,8 +113,45 @@ export type CajaParams = {
   cajeras: CajaCajera[]
 }
 
+export type CajaAlertaSeveridad = 'ok' | 'info' | 'warn' | 'error'
+
+export type CajaAlertaDominio =
+  | 'efectivo'
+  | 'mercado_pago'
+  | 'banco'
+  | 'cierre'
+  | 'arqueo'
+  | 'movimiento'
+  | 'diferencia'
+  | 'general'
+
+export type CajaAlerta = {
+  id: string
+  severidad: CajaAlertaSeveridad
+  dominio: CajaAlertaDominio
+  titulo: string
+  detalle: string
+  fecha?: string
+  accion?: { label: string; section: CajaSectionId }
+}
+
+export type CajaSaludResumen = {
+  puntaje: number
+  etiqueta: 'Excelente' | 'Atención' | 'Crítico'
+  alertas: CajaAlerta[]
+  fechasRecientes: string[]
+  totalesMes: {
+    cierres: number
+    ok: number
+    revisar: number
+    difNeta: number
+    ventas: number
+  }
+}
+
 export type CajaSectionId =
   | 'tablero_admin'
+  | 'centro_ia'
   | 'tablero'
   | 'cierres_new'
   | 'cierres'

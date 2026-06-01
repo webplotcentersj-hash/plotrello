@@ -19,10 +19,13 @@ import CajaSectionDiferencias from './CajaSectionDiferencias'
 import CajaSectionVentasDiarias from './CajaSectionVentasDiarias'
 import CajaSectionConfig from './CajaSectionConfig'
 import CajaPlotAI from './CajaPlotAI'
+import CajaCentroInteligente from './CajaCentroInteligente'
+import CajaInteligenciaBar from './CajaInteligenciaBar'
 import '../../../pages/CajaDashboardPage.css'
 
 const SECTION_TITLES: Record<CajaSectionId, string> = {
   tablero_admin: 'Tablero',
+  centro_ia: 'Centro de inteligencia',
   tablero: 'Tablero ERP',
   cierres_new: 'Nuevo cierre',
   cierres: 'Cierres',
@@ -93,7 +96,16 @@ export default function ControlCajasModule() {
     )
   }
 
-  const showPageTitle = section !== 'tablero_admin' && section !== 'cierres_new'
+  const showPageTitle =
+    section !== 'tablero_admin' && section !== 'centro_ia' && section !== 'cierres_new'
+
+  const goSection = (s: CajaSectionId) => {
+    setEditCierreId(null)
+    setSection(s)
+  }
+
+  const showIntelBar =
+    isAdmin && section !== 'tablero_admin' && section !== 'centro_ia' && section !== 'asistente'
 
   return (
     <div className="caja-dashboard-page caja-control-module">
@@ -160,6 +172,15 @@ export default function ControlCajasModule() {
         </nav>
 
         <main className="caja-cc-content" key={refreshKey}>
+          {showIntelBar && (
+            <CajaInteligenciaBar
+              isAdmin={isAdmin}
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              onNavigate={goSection}
+            />
+          )}
+
           {showPageTitle && (
             <div className="caja-cc-page-head compact">
               <h2>{SECTION_TITLES[section]}</h2>
@@ -167,12 +188,30 @@ export default function ControlCajasModule() {
           )}
 
           {section === 'tablero_admin' && isAdmin && (
-            <CajaTableroAdmin
-              onNuevoCierre={() => {
-                setEditCierreId(null)
-                setSection('cierres_new')
-              }}
-              onVerCierres={() => setSection('cierres')}
+            <>
+              <CajaCentroInteligente
+                isAdmin
+                usuarioNombre={usuarioEtiqueta}
+                usuarioId={usuarioId}
+                onNavigate={goSection}
+                compact
+              />
+              <CajaTableroAdmin
+                onNuevoCierre={() => {
+                  setEditCierreId(null)
+                  setSection('cierres_new')
+                }}
+                onVerCierres={() => setSection('cierres')}
+              />
+            </>
+          )}
+
+          {section === 'centro_ia' && isAdmin && (
+            <CajaCentroInteligente
+              isAdmin
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              onNavigate={goSection}
             />
           )}
 
@@ -207,12 +246,20 @@ export default function ControlCajasModule() {
           {section === 'tablero' && isAdmin && <CajaSectionTablero canViewIngresos={canViewIngresos} />}
 
           {section === 'arqueo' && (
-            <CajaSectionArqueo
-              usuarioNombre={usuarioEtiqueta}
-              usuarioId={usuarioId}
-              soloCajasOperativas
-              fijarCajaUsuario
-            />
+            <>
+              <CajaCentroInteligente
+                isAdmin={false}
+                usuarioNombre={usuarioEtiqueta}
+                usuarioId={usuarioId}
+                compact
+              />
+              <CajaSectionArqueo
+                usuarioNombre={usuarioEtiqueta}
+                usuarioId={usuarioId}
+                soloCajasOperativas
+                fijarCajaUsuario
+              />
+            </>
           )}
 
           {section === 'movimientos' && (
@@ -246,7 +293,9 @@ export default function ControlCajasModule() {
           {section === 'diferencias' && isAdmin && <CajaSectionDiferencias />}
           {section === 'ventas' && isAdmin && <CajaSectionVentasDiarias />}
           {section === 'config' && isAdmin && <CajaSectionConfig />}
-          {section === 'asistente' && <CajaPlotAI isAdmin={isAdmin} usuarioNombre={usuarioEtiqueta} />}
+          {section === 'asistente' && (
+            <CajaPlotAI isAdmin={isAdmin} usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
+          )}
         </main>
       </div>
     </div>

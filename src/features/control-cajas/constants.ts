@@ -49,6 +49,7 @@ export const DEFAULT_PARAMS = {
 
 export const NAV_ADMIN: NavItem[] = [
   { section: 'tablero_admin', label: 'Tablero', icon: '📊', adminOnly: true },
+  { section: 'centro_ia', label: 'Centro IA', icon: '✨', adminOnly: true },
   { header: 'Operación diaria' },
   { section: 'cierres_new', label: 'Nuevo cierre', icon: '➕', adminOnly: true },
   { section: 'cierres', label: 'Cierres', icon: '✅', adminOnly: true },

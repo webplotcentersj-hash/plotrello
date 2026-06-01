@@ -1,20 +1,26 @@
 import { useCallback, useRef, useState } from 'react'
 import { generateContent } from '../../../services/plotAIService'
-import { listArqueos, listMovimientos } from '../cajaRepository'
-import { fmtArs } from '../format'
+import {
+  CAJA_AI_PROMPTS,
+  formatSnapshotForAI,
+  loadCajaSnapshot
+} from '../cajaInteligencia'
 
 type Msg = { role: 'user' | 'assistant'; text: string }
 
 type Props = {
   isAdmin: boolean
   usuarioNombre: string
+  usuarioId?: number
 }
 
-export default function CajaPlotAI({ isAdmin, usuarioNombre }: Props) {
+export default function CajaPlotAI({ isAdmin, usuarioNombre, usuarioId }: Props) {
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: 'assistant',
-      text: 'Soy PlotAI para Control de Cajas. Puedo ayudarte con arqueos, movimientos, importación Excel y buenas prácticas de cierre. ¿Qué necesitás?'
+      text: isAdmin
+        ? 'Soy PlotAI para Control de Cajas. Tengo contexto de cierres, efectivo, Mercado Pago, banco, conciliaciones y arqueos. Preguntame cómo orquestar el día o resolver una diferencia.'
+        : 'Soy PlotAI para tu caja. Te ayudo con arqueos, movimientos y cómo cuadrar con el cierre de administración.'
     }
   ])
   const [input, setInput] = useState('')
@@ -22,34 +28,24 @@ export default function CajaPlotAI({ isAdmin, usuarioNombre }: Props) {
   const endRef = useRef<HTMLDivElement>(null)
 
   const buildContext = useCallback(async () => {
-    const [arqueos, movs] = await Promise.all([
-      listArqueos(isAdmin ? undefined : { usuario: usuarioNombre }),
-      listMovimientos(isAdmin ? undefined : { usuario: usuarioNombre })
-    ])
-    const ultArqueo = arqueos[0]
-    const ultMovs = movs.slice(0, 5)
-    return `Módulo Control de Cajas (Plot Lab).
-Usuario: ${usuarioNombre}. Rol: ${isAdmin ? 'Administración' : 'Caja'}.
-Último arqueo: ${ultArqueo ? `${ultArqueo.fecha} caja ${ultArqueo.caja_slug} total $${fmtArs(ultArqueo.total)}` : 'ninguno'}.
-Últimos movimientos: ${
-      ultMovs.length
-        ? ultMovs.map((m) => `${m.fecha} ${m.concepto} $${fmtArs(m.efectivo + m.otros)}`).join('; ')
-        : 'ninguno'
-    }.
-Guía: Fondo de caja = apertura; Pase = entre cajas; Cierre = entrega a administración.
-Excel: columnas fecha, hora, concepto, origen, destino, efectivo, otros, nro, observacion.`
-  }, [isAdmin, usuarioNombre])
+    const snap = await loadCajaSnapshot({
+      isAdmin,
+      usuario: usuarioNombre,
+      usuarioId
+    })
+    return formatSnapshotForAI(snap, { isAdmin, usuario: usuarioNombre })
+  }, [isAdmin, usuarioNombre, usuarioId])
 
-  const send = async () => {
-    const text = input.trim()
+  const send = async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim()
     if (!text || loading) return
-    setInput('')
+    if (!textOverride) setInput('')
     setMessages((prev) => [...prev, { role: 'user', text }])
     setLoading(true)
     try {
       const ctx = await buildContext()
       const history = messages
-        .slice(-6)
+        .slice(-8)
         .map((m) => `${m.role === 'user' ? 'Usuario' : 'PlotAI'}: ${m.text}`)
         .join('\n')
       const reply = await generateContent({
@@ -80,8 +76,21 @@ Excel: columnas fecha, hora, concepto, origen, destino, efectivo, otros, nro, ob
   return (
     <div className="caja-cc-ai">
       <div className="caja-cc-help">
-        Asistente para dudas de arqueo, movimientos, plantilla Excel y procedimientos. No reemplaza la firma ni
-        el control de administración.
+        Asistente con motor de concordancia: efectivo, MP, banco, cierres y arqueos. No reemplaza firma ni control
+        de administración.
+      </div>
+      <div className="caja-cc-intel-prompts caja-cc-ai-chips">
+        {CAJA_AI_PROMPTS.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            className="caja-cc-intel-chip"
+            disabled={loading}
+            onClick={() => void send(p.prompt)}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
       <div className="caja-cc-ai-messages">
         {messages.map((m, i) => (
@@ -89,14 +98,18 @@ Excel: columnas fecha, hora, concepto, origen, destino, efectivo, otros, nro, ob
             {m.text}
           </div>
         ))}
-        {loading && <div className="caja-cc-ai-msg assistant">Pensando…</div>}
+        {loading && <div className="caja-cc-ai-msg assistant">Analizando concordancia…</div>}
         <div ref={endRef} />
       </div>
       <div className="caja-cc-ai-input">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ej: ¿Cómo cargo un pase a administración?"
+          placeholder={
+            isAdmin
+              ? 'Ej: ¿Por qué no cuadra MP hoy y qué reviso primero?'
+              : 'Ej: ¿Cómo cargo un pase a administración?'
+          }
           rows={2}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
