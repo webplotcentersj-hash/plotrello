@@ -806,13 +806,14 @@
   position: fixed;
   inset: 0;
   z-index: 2000;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(0, 0, 0, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
 }
 
+/* Portal en document.body: colores propios (no heredar tema oscuro de #app) */
 .caja-cc-modal,
 .caja-dashboard-page .caja-cc-modal {
   width: min(560px, 100%);
@@ -820,9 +821,67 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: #ffffff;
+  color: #0f172a;
   border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid #e2e8f0;
+}
+
+.caja-cc-modal h2,
+.caja-cc-modal h3,
+.caja-cc-modal strong,
+.caja-cc-modal td,
+.caja-cc-modal th,
+.caja-cc-modal p,
+.caja-cc-modal span {
+  color: inherit;
+}
+
+.caja-cc-modal .caja-cc-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #475569;
+  font-weight: 400;
+}
+
+.caja-cc-modal .caja-cc-empty {
+  color: #64748b;
+}
+
+.caja-cc-modal .caja-cc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.caja-cc-modal .caja-cc-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f1f5f9;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #334155;
+  font-weight: 600;
+}
+
+.caja-cc-modal .caja-cc-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+  background: #fff;
+}
+
+.caja-cc-modal .caja-cc-table td.num,
+.caja-cc-modal .caja-cc-table th.num {
+  text-align: right;
+  font-family: ui-monospace, monospace;
+}
+
+.caja-cc-modal .caja-cc-table tfoot td {
+  background: #f8fafc;
+  font-weight: 600;
 }
 
 .caja-cc-modal-header,
@@ -833,12 +892,15 @@
   gap: 12px;
   padding: 18px 20px 12px;
   border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .caja-cc-modal-header h2,
 .caja-dashboard-page .caja-cc-modal-header h2 {
   margin: 0;
   font-size: 18px;
+  color: #0f172a;
 }
 
 .caja-cc-modal-close,
@@ -864,12 +926,15 @@
   padding: 16px 20px;
   overflow-y: auto;
   flex: 1;
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .caja-cc-modal-body h3,
 .caja-dashboard-page .caja-cc-modal-body h3 {
   margin: 16px 0 8px;
   font-size: 14px;
+  color: #0f172a;
 }
 
 .caja-cc-modal-footer,
@@ -880,6 +945,7 @@
   justify-content: flex-end;
   padding: 12px 20px 18px;
   border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
 .caja-cc-arqueo-meta-grid,
