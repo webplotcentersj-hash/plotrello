@@ -1,5 +1,6 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { calcularCierre } from './cierreCalculations'
+import { FONDO_CAJA_BASE_MIN, fondoMinimoCaja, requiereFondoMinimo } from './fondoCaja'
 import { fmtArs } from './format'
 import {
   cierresEnFecha,
@@ -211,8 +212,62 @@ export function analizarConcordancia(input: {
     }
   }
 
+  // —— Fondo de caja (efectivo real permanente, base $100.000) ——
+  for (const caja of cajas) {
+    if (requiereFondoMinimo(caja.slug) && (caja.fondo_fijo || 0) < FONDO_CAJA_BASE_MIN) {
+      pushAlert(alertas, {
+        severidad: 'warn',
+        dominio: 'efectivo',
+        titulo: `Fondo de caja desactualizado · ${caja.nombre}`,
+        detalle: `Maestro con $${fmtArs(caja.fondo_fijo)}; la base operativa es $${fmtArs(FONDO_CAJA_BASE_MIN)}.`,
+        accion: { label: 'Maestros', section: 'config' }
+      })
+    }
+  }
+
+  for (const c of cierres.slice(0, 30)) {
+    const caja = cajas.find((x) => x.slug === c.caja_slug)
+    if (!caja || !requiereFondoMinimo(c.caja_slug)) continue
+    const min = fondoMinimoCaja(caja)
+    if ((c.fondo_fijo || 0) < min) {
+      pushAlert(alertas, {
+        severidad: 'warn',
+        dominio: 'efectivo',
+        fecha: c.fecha,
+        titulo: 'Cierre con fondo bajo la base',
+        detalle: `${cajaLabel(cajas, c.caja_slug)} ${c.fecha}: fondo registrado $${fmtArs(c.fondo_fijo)} (mín. $${fmtArs(min)}).`,
+        accion: { label: 'Ver cierres', section: 'cierres' }
+      })
+    }
+    if (c.ef_contado > 0 && c.ef_contado < min) {
+      pushAlert(alertas, {
+        severidad: 'error',
+        dominio: 'efectivo',
+        fecha: c.fecha,
+        titulo: 'Efectivo contado bajo el fondo de caja',
+        detalle: `${c.fecha}: contado $${fmtArs(c.ef_contado)} menor al fondo $${fmtArs(min)}.`,
+        accion: { label: 'Ver cierres', section: 'cierres' }
+      })
+    }
+  }
+
   // —— Arqueo vs efectivo contado en cierre (misma fecha y caja) ——
   for (const a of arqueos.slice(0, 40)) {
+    const caja = cajas.find((x) => x.slug === a.caja_slug)
+    if (caja && requiereFondoMinimo(a.caja_slug)) {
+      const min = fondoMinimoCaja(caja)
+      if (a.total > 0 && a.total < min) {
+        pushAlert(alertas, {
+          severidad: 'error',
+          dominio: 'arqueo',
+          fecha: a.fecha,
+          titulo: 'Arqueo por debajo del fondo de caja',
+          detalle: `${cajaLabel(cajas, a.caja_slug)} ${a.fecha}: $${fmtArs(a.total)} contados; fondo mínimo $${fmtArs(min)}.`,
+          accion: { label: 'Ver arqueos', section: 'arqueos_admin' }
+        })
+      }
+    }
+
     const cierreMatch = cierres.find((c) => c.fecha === a.fecha && c.caja_slug === a.caja_slug)
     if (cierreMatch) {
       const delta = a.total - (cierreMatch.ef_contado || 0)
@@ -377,6 +432,7 @@ Conciliaciones banco:
 ${ultBanco.map((x) => `${x.fecha} sist $${fmtArs(x.sistema)} ext $${fmtArs(x.extracto)} Δ $${fmtArs(x.diferencia)} ${x.estado}`).join('\n') || 'ninguna'}
 
 REGLAS DE NEGOCIO:
+- Fondo de caja = efectivo REAL que debe permanecer siempre en la caja operativa. Base mínima $${fmtArs(FONDO_CAJA_BASE_MIN)} (Noelia/Rosa). El arqueo y el efectivo contado no pueden ser menores a ese fondo.
 - Efectivo teórico = fondo fijo + ingresos efectivo − egresos efectivo; debe coincidir con efectivo contado (tolerancia).
 - MP: en cierres, tarjeta sistema + MP/QR debe alinearse con conciliación MP (sistema vs dashboard de la app MP).
 - Banco: transferencias en cierres vs conciliación con extracto bancario.

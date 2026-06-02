@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS public.control_caja_cajas (
 );
 
 INSERT INTO public.control_caja_cajas (slug, nombre, fondo_fijo, activa) VALUES
-  ('noelia', 'Caja Noelia', 50000, true),
-  ('rosa', 'Caja Rosa', 50000, true),
+  ('noelia', 'Caja Noelia', 100000, true),
+  ('rosa', 'Caja Rosa', 100000, true),
   ('admin', 'Caja Administración', 0, true),
   ('vuelto', 'Caja Vuelto', 5000, true)
 ON CONFLICT (slug) DO NOTHING;

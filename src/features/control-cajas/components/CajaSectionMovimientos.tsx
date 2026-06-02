@@ -176,6 +176,12 @@ export default function CajaSectionMovimientos({
                 </option>
               ))}
             </select>
+            {concepto === 'Pase de caja' && (
+              <span className="caja-cc-field-hint">
+                Para pases con montos antes/después e historial completo, usá la sección <strong>Pase de caja</strong>{' '}
+                del menú.
+              </span>
+            )}
           </label>
           <label className="caja-cc-field">
             Nº comprobante

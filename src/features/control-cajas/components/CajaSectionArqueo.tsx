@@ -11,6 +11,7 @@ import {
 import { DEFAULT_CAJERAS } from '../constants'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
+import { fondoMinimoCaja, requiereFondoMinimo, validarEfectivoFisicoVsFondo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import type { CajaRegistro } from '../types'
 
@@ -113,6 +114,14 @@ export default function CajaSectionArqueo({
       setFirmaError('Tenés que firmar en el recuadro antes de guardar.')
       return
     }
+    const caja = cajas.find((c) => c.slug === cajaSlug)
+    if (caja) {
+      const v = validarEfectivoFisicoVsFondo(total, caja)
+      if (!v.ok) {
+        setMsg(v.mensaje)
+        return
+      }
+    }
     setFirmaError(undefined)
     setSaving(true)
     setMsg(null)
@@ -140,14 +149,25 @@ export default function CajaSectionArqueo({
     }
   }
 
-  const cajaAsignadaNombre = cajas.find((c) => c.slug === cajaSlug)?.nombre ?? ''
+  const cajaActiva = cajas.find((c) => c.slug === cajaSlug)
+  const fondoMin = cajaActiva ? fondoMinimoCaja(cajaActiva) : 0
+  const bajoFondo = fondoMin > 0 && total > 0 && total < fondoMin
+
+  const cajaAsignadaNombre = cajaActiva?.nombre ?? ''
   const mostrarSelectorCaja =
     fijarCajaUsuario && !cajaResolviendo && (!cajaAutoAsignada || !cajaSlug)
 
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
       <div className="caja-cc-help">
-        Contá los billetes de tu caja. El total se calcula solo y queda firmado a tu nombre.
+        Contá los billetes de tu caja (efectivo real). El total se calcula solo y queda firmado a tu nombre.
+        {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (
+          <>
+            {' '}
+            El <strong>fondo de caja</strong> es el dinero que debe permanecer siempre en la caja; la base es{' '}
+            <strong>$ {fmtArs(fondoMin)}</strong> (no puede haber menos en el arqueo).
+          </>
+        )}
       </div>
       <div className="caja-cc-card">
         <h3>Identificación</h3>
@@ -217,10 +237,19 @@ export default function CajaSectionArqueo({
           )
         })}
       </div>
-      <div className="caja-cc-result neutral">
-        <span>Total contado</span>
+      <div className={`caja-cc-result ${bajoFondo ? 'bad' : total > 0 ? 'ok' : 'neutral'}`}>
+        <span>
+          Total contado
+          {fondoMin > 0 && ` · mín. fondo $ ${fmtArs(fondoMin)}`}
+        </span>
         <strong>$ {fmtArs(total)}</strong>
       </div>
+      {bajoFondo && cajaActiva && (
+        <p className="caja-cc-error">
+          El conteo está por debajo del fondo de caja. Revisá billetes o informá a administración antes de
+          guardar.
+        </p>
+      )}
       <div className="caja-cc-card caja-cc-signature-block">
         <SignaturePad
           key={firmaPadKey}

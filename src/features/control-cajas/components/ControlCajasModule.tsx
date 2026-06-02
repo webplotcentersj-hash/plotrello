@@ -12,6 +12,9 @@ import CajaSectionCierreForm from './CajaSectionCierreForm'
 import CajaSectionCierresList from './CajaSectionCierresList'
 import CajaSectionArqueo from './CajaSectionArqueo'
 import CajaSectionMovimientos from './CajaSectionMovimientos'
+import CajaSectionPaseCaja from './CajaSectionPaseCaja'
+import CajaSectionCierreTurno from './CajaSectionCierreTurno'
+import CajaSectionEgresos from './CajaSectionEgresos'
 import CajaSectionHistorial, { CajaSectionArqueosAdmin } from './CajaSectionHistorial'
 import CajaSectionConcilMP from './CajaSectionConcilMP'
 import CajaSectionConcilBanco from './CajaSectionConcilBanco'
@@ -30,6 +33,9 @@ const SECTION_TITLES: Record<CajaSectionId, string> = {
   cierres_new: 'Nuevo cierre',
   cierres: 'Cierres',
   arqueo: 'Mi arqueo',
+  cierre_turno: 'Cierre de turno',
+  pase_caja: 'Pase de caja',
+  egresos: 'Egresos',
   movimientos: 'Mis movimientos',
   historial: 'Historial',
   arqueos_admin: 'Arqueos',
@@ -260,6 +266,26 @@ export default function ControlCajasModule() {
                 fijarCajaUsuario
               />
             </>
+          )}
+
+          {section === 'cierre_turno' && (
+            <CajaSectionCierreTurno usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
+          )}
+
+          {section === 'pase_caja' && (
+            <CajaSectionPaseCaja
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              soloMisPases={!isAdmin}
+            />
+          )}
+
+          {section === 'egresos' && (
+            <CajaSectionEgresos
+              isAdmin={isAdmin}
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+            />
           )}
 
           {section === 'movimientos' && (

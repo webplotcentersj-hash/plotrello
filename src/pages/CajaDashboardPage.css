@@ -1629,3 +1629,78 @@
   min-width: 120px;
   color: var(--caja-muted);
 }
+
+/* —— Pase de caja / trazabilidad —— */
+.caja-dashboard-page .caja-cc-pase-block {
+  margin: 16px 0;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--caja-border);
+  background: #fafbfc;
+}
+
+.caja-dashboard-page .caja-cc-pase-block.highlight {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.caja-dashboard-page .caja-cc-pase-block h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.caja-dashboard-page .caja-cc-pase-preview {
+  margin: 16px 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--caja-border);
+}
+
+.caja-dashboard-page .caja-cc-pase-preview h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.caja-dashboard-page .caja-cc-pase-table {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.caja-dashboard-page .caja-cc-pase-suggest {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.caja-dashboard-page .caja-cc-pase-trace {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.caja-dashboard-page .caja-cc-pase-trace-line {
+  display: block;
+  font-family: ui-monospace, monospace;
+}
+
+.caja-dashboard-page .caja-cc-pase-trace-line.caja-cc-pase-id {
+  font-family: inherit;
+  opacity: 0.75;
+  font-size: 11px;
+}
+
+.caja-dashboard-page .caja-cc-concil-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.caja-dashboard-page .caja-cc-egreso-pendientes {
+  border-left: 4px solid #eab308;
+}

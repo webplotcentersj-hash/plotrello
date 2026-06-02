@@ -1,4 +1,7 @@
 import type { CajaRegistro, CajaSectionId } from './types'
+import { FONDO_CAJA_BASE_MIN } from './fondoCaja'
+
+export { FONDO_CAJA_BASE_MIN }
 
 export const BILLETE_DENOMINACIONES = [20000, 10000, 2000, 1000, 500, 200, 100, 50, 20, 10] as const
 
@@ -12,8 +15,8 @@ export const CONCEPTOS_MOVIMIENTO = [
 ] as const
 
 export const DEFAULT_CAJAS: CajaRegistro[] = [
-  { slug: 'noelia', nombre: 'Caja Noelia', fondo_fijo: 50000, activa: true },
-  { slug: 'rosa', nombre: 'Caja Rosa', fondo_fijo: 50000, activa: true },
+  { slug: 'noelia', nombre: 'Caja Noelia', fondo_fijo: FONDO_CAJA_BASE_MIN, activa: true },
+  { slug: 'rosa', nombre: 'Caja Rosa', fondo_fijo: FONDO_CAJA_BASE_MIN, activa: true },
   { slug: 'admin', nombre: 'Caja Administración', fondo_fijo: 0, activa: true },
   { slug: 'vuelto', nombre: 'Caja Vuelto', fondo_fijo: 5000, activa: true }
 ]
@@ -31,7 +34,10 @@ export type NavItem =
 export const NAV_CAJA: NavItem[] = [
   { header: 'Mi día' },
   { section: 'arqueo', label: 'Mi arqueo', icon: '💵', cajaOnly: true },
-  { section: 'movimientos', label: 'Mis movimientos', icon: '↔️', cajaOnly: true },
+  { section: 'cierre_turno', label: 'Cierre de turno', icon: '🔁', cajaOnly: true },
+  { section: 'pase_caja', label: 'Pase de caja', icon: '↔️', cajaOnly: true },
+  { section: 'egresos', label: 'Egresos', icon: '📤', cajaOnly: true },
+  { section: 'movimientos', label: 'Mis movimientos', icon: '📋', cajaOnly: true },
   { section: 'historial', label: 'Historial', icon: '🕐', cajaOnly: true },
   { section: 'asistente', label: 'Asistente IA', icon: '✨' }
 ]
@@ -54,7 +60,10 @@ export const NAV_ADMIN: NavItem[] = [
   { section: 'cierres_new', label: 'Nuevo cierre', icon: '➕', adminOnly: true },
   { section: 'cierres', label: 'Cierres', icon: '✅', adminOnly: true },
   { section: 'arqueos_admin', label: 'Arqueos', icon: '💵', adminOnly: true },
-  { section: 'movimientos_admin', label: 'Movimientos', icon: '↔️', adminOnly: true },
+  { section: 'cierre_turno', label: 'Cierre de turno', icon: '🔁', adminOnly: true },
+  { section: 'pase_caja', label: 'Pase de caja', icon: '↔️', adminOnly: true },
+  { section: 'egresos', label: 'Egresos', icon: '📤', adminOnly: true },
+  { section: 'movimientos_admin', label: 'Movimientos', icon: '📋', adminOnly: true },
   { header: 'Conciliaciones' },
   { section: 'concil_mp', label: 'Mercado Pago', icon: '💳', adminOnly: true },
   { section: 'concil_banco', label: 'Banco', icon: '🏦', adminOnly: true },

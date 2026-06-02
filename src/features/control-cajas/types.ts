@@ -24,11 +24,26 @@ export type CajaMovimientoConcepto =
   | 'Cierre de caja'
   | 'Otro'
 
+export type CajaMovimientoTrazabilidad = {
+  origen_efectivo_antes?: number | null
+  origen_otros_antes?: number | null
+  destino_efectivo_antes?: number | null
+  destino_otros_antes?: number | null
+  origen_efectivo_despues?: number | null
+  origen_otros_despues?: number | null
+  destino_efectivo_despues?: number | null
+  destino_otros_despues?: number | null
+}
+
+export type CajaPaseSubtipo = 'fondo' | 'resto_admin' | 'libre'
+
 export type CajaMovimiento = {
   id: string
   fecha: string
   hora?: string | null
   concepto: CajaMovimientoConcepto | string
+  subtipo_pase?: CajaPaseSubtipo | null
+  id_lote?: string | null
   origen_slug: string
   destino_slug: string
   efectivo: number
@@ -39,7 +54,7 @@ export type CajaMovimiento = {
   usuario_nombre?: string | null
   origen_importacion: 'manual' | 'excel' | 'planilla_pdf'
   created_at?: string
-}
+} & CajaMovimientoTrazabilidad
 
 export type CajaCierreEstado = 'OK' | 'REVISAR'
 
@@ -156,6 +171,9 @@ export type CajaSectionId =
   | 'cierres_new'
   | 'cierres'
   | 'arqueo'
+  | 'pase_caja'
+  | 'cierre_turno'
+  | 'egresos'
   | 'movimientos'
   | 'historial'
   | 'arqueos_admin'
@@ -166,6 +184,46 @@ export type CajaSectionId =
   | 'ventas'
   | 'config'
   | 'asistente'
+
+export type CajaEgresoEstado = 'pendiente' | 'aprobado' | 'rechazado'
+
+export type CajaEgresoSolicitud = {
+  id: string
+  fecha: string
+  caja_slug: string
+  concepto: string
+  monto_efectivo: number
+  monto_otros: number
+  estado: CajaEgresoEstado
+  solicitante_id?: number | null
+  solicitante_nombre?: string | null
+  aprobador_id?: number | null
+  aprobador_nombre?: string | null
+  observacion?: string | null
+  motivo_rechazo?: string | null
+  id_movimiento?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export type CajaTransferenciaLote = {
+  id: string
+  fecha: string
+  hora?: string | null
+  origen_slug: string
+  caja_fondo_destino_slug: string
+  arqueo_efectivo: number
+  arqueo_otros: number
+  fondo_monto: number
+  resto_efectivo: number
+  resto_otros: number
+  egresos_aprobados_ef: number
+  id_planilla?: string | null
+  id_usuario?: number | null
+  usuario_nombre?: string | null
+  observacion?: string | null
+  created_at?: string
+}
 
 export type MovimientoExcelRow = Omit<CajaMovimiento, 'id' | 'created_at' | 'origen_importacion'> & {
   origen_importacion?: 'excel'

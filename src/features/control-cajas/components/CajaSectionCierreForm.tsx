@@ -12,6 +12,12 @@ import {
 } from '../cajaRepository'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import CajaBadge from './CajaBadge'
+import {
+  FONDO_CAJA_BASE_MIN,
+  fondoFijoEfectivo,
+  requiereFondoMinimo,
+  validarEfectivoFisicoVsFondo
+} from '../fondoCaja'
 
 type Props = {
   editId?: string | null
@@ -64,8 +70,9 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
       setCajera(c.cajera ?? '')
       setEmailOk(c.email_ok === 'No' ? 'No' : 'Sí')
       setObservacion(c.observacion ?? '')
+      const caja = cajas.find((x) => x.slug === c.caja_slug)
       setForm({
-        fondo_fijo: c.fondo_fijo,
+        fondo_fijo: caja ? fondoFijoEfectivo(caja) : c.fondo_fijo,
         ing_ef: c.ing_ef,
         egr_ef: c.egr_ef,
         ef_contado: c.ef_contado,
@@ -76,7 +83,7 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
         cta_cte: c.cta_cte
       })
     })
-  }, [editId])
+  }, [editId, cajas])
 
   const calc = useMemo(() => calcularCierre(form, tolerancia), [form, tolerancia])
 
@@ -88,8 +95,11 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
   const onCajaChange = (slug: string) => {
     setCajaSlug(slug)
     const c = cajas.find((x) => x.slug === slug)
-    if (c) setForm((prev) => ({ ...prev, fondo_fijo: c.fondo_fijo }))
+    if (c) setForm((prev) => ({ ...prev, fondo_fijo: fondoFijoEfectivo(c) }))
   }
+
+  const cajaActiva = cajas.find((c) => c.slug === cajaSlug)
+  const fondoMin = cajaActiva ? fondoFijoEfectivo(cajaActiva) : 0
 
   const cargarDesdePlanilla = async () => {
     const planillas = await listPlanillas(20)
@@ -119,6 +129,23 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cajaSlug) return
+    const caja = cajas.find((c) => c.slug === cajaSlug)
+    if (caja) {
+      const fondoOk = fondoFijoEfectivo(caja)
+      if (requiereFondoMinimo(caja.slug) && (form.fondo_fijo || 0) < fondoOk) {
+        setMsg(
+          `El fondo de caja debe ser al menos $ ${fmtArs(fondoOk)} (efectivo real permanente en la caja).`
+        )
+        return
+      }
+      if (form.ef_contado > 0) {
+        const v = validarEfectivoFisicoVsFondo(form.ef_contado, caja)
+        if (!v.ok) {
+          setMsg(v.mensaje)
+          return
+        }
+      }
+    }
     setSaving(true)
     try {
       const payload = cierreFromCalculado(
@@ -211,13 +238,19 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
         <h3>Efectivo</h3>
         <div className="caja-cc-grid-3">
           <label className="caja-cc-field">
-            Fondo fijo <span className="caja-cc-tag cfg">auto</span>
+            Fondo de caja <span className="caja-cc-tag cfg">real · base</span>
             <input
               type="number"
               step="0.01"
+              readOnly={!!cajaActiva && requiereFondoMinimo(cajaActiva.slug)}
               value={form.fondo_fijo || ''}
               onChange={(e) => setNum('fondo_fijo', e.target.value)}
             />
+            {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (
+              <span className="caja-cc-field-hint">
+                Efectivo permanente en caja. Base mínima $ {fmtArs(FONDO_CAJA_BASE_MIN)}.
+              </span>
+            )}
           </label>
           <label className="caja-cc-field">
             Ingresos efectivo <span className="caja-cc-tag input">listado</span>
@@ -236,6 +269,9 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
           <label className="caja-cc-field">
             Efectivo contado <span className="caja-cc-tag input">hoja firmada</span>
             <input type="number" step="0.01" value={form.ef_contado || ''} onChange={(e) => setNum('ef_contado', e.target.value)} />
+            {fondoMin > 0 && (
+              <span className="caja-cc-field-hint">No puede ser menor al fondo ($ {fmtArs(fondoMin)}).</span>
+            )}
           </label>
           <label className="caja-cc-field">
             Diferencia efectivo <span className="caja-cc-tag calc">calc</span>

@@ -1,6 +1,7 @@
 import { supabase } from '../../services/supabaseClient'
 import { DEFAULT_CAJAS, DEFAULT_PARAMS, LS_KEY } from './constants'
 import { getPlotlabLoginKeys, getStoredCajaSlug } from './cajaUsuarioDisplay'
+import { fondoFijoEfectivo } from './fondoCaja'
 import { newId } from './format'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import type {
@@ -10,9 +11,11 @@ import type {
   CajaConcilBanco,
   CajaConcilMP,
   CajaDiferencia,
+  CajaEgresoSolicitud,
   CajaMovimiento,
   CajaParams,
   CajaRegistro,
+  CajaTransferenciaLote,
   PlanillaCajaGuardada
 } from './types'
 
@@ -25,6 +28,8 @@ type LocalStore = {
   concil_mp: CajaConcilMP[]
   concil_banco: CajaConcilBanco[]
   diferencias: CajaDiferencia[]
+  transferencia_lotes: CajaTransferenciaLote[]
+  egreso_solicitudes: CajaEgresoSolicitud[]
   params: CajaParams
 }
 
@@ -55,6 +60,8 @@ function readLocal(): LocalStore {
         concil_mp: parsed.concil_mp ?? [],
         concil_banco: parsed.concil_banco ?? [],
         diferencias: parsed.diferencias ?? [],
+        transferencia_lotes: parsed.transferencia_lotes ?? [],
+        egreso_solicitudes: parsed.egreso_solicitudes ?? [],
         params: parsed.params ?? { ...DEFAULT_PARAMS }
       }
     }
@@ -70,12 +77,29 @@ function readLocal(): LocalStore {
     concil_mp: [],
     concil_banco: [],
     diferencias: [],
+    transferencia_lotes: [],
+    egreso_solicitudes: [],
     params: { ...DEFAULT_PARAMS, cajeras: [...DEFAULT_PARAMS.cajeras] }
   }
 }
 
 function writeLocal(data: LocalStore) {
   localStorage.setItem(LS_KEY, JSON.stringify(data))
+}
+
+function mapCajaRegistro(r: {
+  slug: string
+  nombre: string
+  fondo_fijo: unknown
+  activa: boolean
+}): CajaRegistro {
+  const row: CajaRegistro = {
+    slug: r.slug,
+    nombre: r.nombre,
+    fondo_fijo: Number(r.fondo_fijo) || 0,
+    activa: !!r.activa
+  }
+  return { ...row, fondo_fijo: fondoFijoEfectivo(row) }
 }
 
 export async function listCajas(): Promise<CajaRegistro[]> {
@@ -85,15 +109,12 @@ export async function listCajas(): Promise<CajaRegistro[]> {
       .select('slug, nombre, fondo_fijo, activa')
       .order('nombre')
     if (!error && data?.length) {
-      return data.map((r) => ({
-        slug: r.slug,
-        nombre: r.nombre,
-        fondo_fijo: Number(r.fondo_fijo) || 0,
-        activa: !!r.activa
-      }))
+      return data.map((r) => mapCajaRegistro(r))
     }
   }
-  return readLocal().cajas.filter((c) => c.activa)
+  return readLocal()
+    .cajas.filter((c) => c.activa)
+    .map((c) => mapCajaRegistro(c))
 }
 
 export async function listArqueos(opts?: {
@@ -113,6 +134,21 @@ export async function listArqueos(opts?: {
   if (opts?.usuarioId != null) list = list.filter((a) => a.id_usuario === opts.usuarioId)
   else if (opts?.usuario) list = list.filter((a) => a.usuario_nombre === opts.usuario)
   return [...list].sort((a, b) => b.fecha.localeCompare(a.fecha))
+}
+
+/** Último arqueo de una caja (misma fecha primero, luego el más reciente). */
+export async function getUltimoArqueoCaja(
+  cajaSlug: string,
+  fecha?: string
+): Promise<CajaArqueo | null> {
+  const arqueos = await listArqueos()
+  const delSlug = arqueos.filter((a) => a.caja_slug === cajaSlug)
+  if (!delSlug.length) return null
+  if (fecha) {
+    const mismoDia = delSlug.find((a) => a.fecha === fecha)
+    if (mismoDia) return mismoDia
+  }
+  return delSlug[0]
 }
 
 function mapArqueoRow(r: Record<string, unknown>): CajaArqueo {
@@ -193,7 +229,16 @@ export async function listMovimientos(opts?: {
   })
 }
 
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isNaN(n) ? null : n
+}
+
 function mapMovRow(r: Record<string, unknown>): CajaMovimiento {
+  const imp = r.origen_importacion
+  const origen_importacion =
+    imp === 'excel' ? 'excel' : imp === 'planilla_pdf' ? 'planilla_pdf' : 'manual'
   return {
     id: String(r.id),
     fecha: String(r.fecha).slice(0, 10),
@@ -207,8 +252,21 @@ function mapMovRow(r: Record<string, unknown>): CajaMovimiento {
     observacion: r.observacion != null ? String(r.observacion) : null,
     id_usuario: r.id_usuario != null ? Number(r.id_usuario) : null,
     usuario_nombre: r.usuario_nombre != null ? String(r.usuario_nombre) : null,
-    origen_importacion: r.origen_importacion === 'excel' ? 'excel' : 'manual',
-    created_at: r.created_at != null ? String(r.created_at) : undefined
+    origen_importacion,
+    created_at: r.created_at != null ? String(r.created_at) : undefined,
+    id_lote: r.id_lote != null ? String(r.id_lote) : null,
+    subtipo_pase:
+      r.subtipo_pase === 'fondo' || r.subtipo_pase === 'resto_admin' || r.subtipo_pase === 'libre'
+        ? r.subtipo_pase
+        : null,
+    origen_efectivo_antes: numOrNull(r.origen_efectivo_antes),
+    origen_otros_antes: numOrNull(r.origen_otros_antes),
+    destino_efectivo_antes: numOrNull(r.destino_efectivo_antes),
+    destino_otros_antes: numOrNull(r.destino_otros_antes),
+    origen_efectivo_despues: numOrNull(r.origen_efectivo_despues),
+    origen_otros_despues: numOrNull(r.origen_otros_despues),
+    destino_efectivo_despues: numOrNull(r.destino_efectivo_despues),
+    destino_otros_despues: numOrNull(r.destino_otros_despues)
   }
 }
 
@@ -232,7 +290,17 @@ export async function saveMovimiento(
       observacion: mov.observacion ?? null,
       id_usuario: mov.id_usuario ?? null,
       usuario_nombre: mov.usuario_nombre ?? null,
-      origen_importacion: record.origen_importacion
+      origen_importacion: record.origen_importacion,
+      id_lote: mov.id_lote ?? null,
+      subtipo_pase: mov.subtipo_pase ?? null,
+      origen_efectivo_antes: mov.origen_efectivo_antes ?? null,
+      origen_otros_antes: mov.origen_otros_antes ?? null,
+      destino_efectivo_antes: mov.destino_efectivo_antes ?? null,
+      destino_otros_antes: mov.destino_otros_antes ?? null,
+      origen_efectivo_despues: mov.origen_efectivo_despues ?? null,
+      origen_otros_despues: mov.origen_otros_despues ?? null,
+      destino_efectivo_despues: mov.destino_efectivo_despues ?? null,
+      destino_otros_despues: mov.destino_otros_despues ?? null
     }
     const { error } = await supabase!.from('control_caja_movimientos').upsert(row)
     if (!error) return record
@@ -259,6 +327,239 @@ export async function saveMovimientosBulk(
     )
   }
   return saved
+}
+
+export function getCierreFechaCaja(
+  cierres: CajaCierre[],
+  fecha: string,
+  cajaSlug: string
+): CajaCierre | null {
+  return cierres.find((c) => c.fecha === fecha && c.caja_slug === cajaSlug) ?? null
+}
+
+// —— Egresos (aprobación administración) ——
+
+function mapEgresoRow(r: Record<string, unknown>): CajaEgresoSolicitud {
+  const estado = r.estado === 'aprobado' || r.estado === 'rechazado' ? r.estado : 'pendiente'
+  return {
+    id: String(r.id),
+    fecha: String(r.fecha).slice(0, 10),
+    caja_slug: String(r.caja_slug),
+    concepto: String(r.concepto),
+    monto_efectivo: Number(r.monto_efectivo) || 0,
+    monto_otros: Number(r.monto_otros) || 0,
+    estado,
+    solicitante_id: r.solicitante_id != null ? Number(r.solicitante_id) : null,
+    solicitante_nombre: r.solicitante_nombre != null ? String(r.solicitante_nombre) : null,
+    aprobador_id: r.aprobador_id != null ? Number(r.aprobador_id) : null,
+    aprobador_nombre: r.aprobador_nombre != null ? String(r.aprobador_nombre) : null,
+    observacion: r.observacion != null ? String(r.observacion) : null,
+    motivo_rechazo: r.motivo_rechazo != null ? String(r.motivo_rechazo) : null,
+    id_movimiento: r.id_movimiento != null ? String(r.id_movimiento) : null,
+    created_at: r.created_at != null ? String(r.created_at) : undefined,
+    updated_at: r.updated_at != null ? String(r.updated_at) : undefined
+  }
+}
+
+export async function listEgresoSolicitudes(opts?: {
+  fecha?: string
+  cajaSlug?: string
+  soloPendientes?: boolean
+}): Promise<CajaEgresoSolicitud[]> {
+  if (await checkRemote()) {
+    let q = supabase!
+      .from('control_caja_egreso_solicitudes')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (opts?.fecha) q = q.eq('fecha', opts.fecha)
+    if (opts?.cajaSlug) q = q.eq('caja_slug', opts.cajaSlug)
+    if (opts?.soloPendientes) q = q.eq('estado', 'pendiente')
+    const { data, error } = await q
+    if (!error && data) return data.map((r) => mapEgresoRow(r))
+  }
+  let list = readLocal().egreso_solicitudes
+  if (opts?.fecha) list = list.filter((s) => s.fecha === opts.fecha)
+  if (opts?.cajaSlug) list = list.filter((s) => s.caja_slug === opts.cajaSlug)
+  if (opts?.soloPendientes) list = list.filter((s) => s.estado === 'pendiente')
+  return [...list].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+}
+
+export async function createEgresoSolicitud(
+  input: Omit<CajaEgresoSolicitud, 'id' | 'estado' | 'created_at' | 'updated_at' | 'aprobador_id' | 'aprobador_nombre' | 'motivo_rechazo' | 'id_movimiento'>
+): Promise<CajaEgresoSolicitud> {
+  const id = newId()
+  const now = new Date().toISOString()
+  const record: CajaEgresoSolicitud = {
+    ...input,
+    id,
+    estado: 'pendiente',
+    aprobador_id: null,
+    aprobador_nombre: null,
+    motivo_rechazo: null,
+    id_movimiento: null,
+    created_at: now,
+    updated_at: now
+  }
+
+  if (await checkRemote()) {
+    const { error } = await supabase!.from('control_caja_egreso_solicitudes').insert({
+      id,
+      fecha: input.fecha,
+      caja_slug: input.caja_slug,
+      concepto: input.concepto,
+      monto_efectivo: input.monto_efectivo,
+      monto_otros: input.monto_otros,
+      estado: 'pendiente',
+      solicitante_id: input.solicitante_id ?? null,
+      solicitante_nombre: input.solicitante_nombre ?? null,
+      observacion: input.observacion ?? null
+    })
+    if (!error) return record
+  }
+
+  const store = readLocal()
+  store.egreso_solicitudes.unshift(record)
+  writeLocal(store)
+  return record
+}
+
+export async function resolverEgresoSolicitud(
+  id: string,
+  accion: 'aprobado' | 'rechazado',
+  aprobador: { id: number; nombre: string },
+  opts?: { motivo_rechazo?: string; adminSlug?: string }
+): Promise<CajaEgresoSolicitud | null> {
+  const list = await listEgresoSolicitudes()
+  const sol = list.find((s) => s.id === id)
+  if (!sol || sol.estado !== 'pendiente') return null
+
+  const now = new Date().toISOString()
+  let id_movimiento: string | null = null
+
+  if (accion === 'aprobado') {
+    const adminSlug =
+      opts?.adminSlug ??
+      (await listCajas()).find((c) => c.slug === 'admin')?.slug ??
+      'admin'
+    const mov = await saveMovimiento({
+      fecha: sol.fecha,
+      hora: new Date().toTimeString().slice(0, 5),
+      concepto: sol.concepto || 'Egreso',
+      subtipo_pase: null,
+      origen_slug: sol.caja_slug,
+      destino_slug: adminSlug,
+      efectivo: sol.monto_efectivo,
+      otros: sol.monto_otros,
+      observacion: `Egreso aprobado por ${aprobador.nombre}. ${sol.observacion ?? ''}`.trim(),
+      id_usuario: sol.solicitante_id ?? null,
+      usuario_nombre: sol.solicitante_nombre ?? null,
+      origen_importacion: 'manual'
+    })
+    id_movimiento = mov.id
+  }
+
+  const updated: CajaEgresoSolicitud = {
+    ...sol,
+    estado: accion,
+    aprobador_id: aprobador.id,
+    aprobador_nombre: aprobador.nombre,
+    motivo_rechazo: accion === 'rechazado' ? opts?.motivo_rechazo ?? null : null,
+    id_movimiento,
+    updated_at: now
+  }
+
+  if (await checkRemote()) {
+    const { error } = await supabase!
+      .from('control_caja_egreso_solicitudes')
+      .update({
+        estado: accion,
+        aprobador_id: aprobador.id,
+        aprobador_nombre: aprobador.nombre,
+        motivo_rechazo: updated.motivo_rechazo,
+        id_movimiento,
+        updated_at: now
+      })
+      .eq('id', id)
+    if (!error) return updated
+  }
+
+  const store = readLocal()
+  const idx = store.egreso_solicitudes.findIndex((s) => s.id === id)
+  if (idx >= 0) store.egreso_solicitudes[idx] = updated
+  writeLocal(store)
+  return updated
+}
+
+// —— Cierre de turno (lote) ——
+
+function mapLoteRow(r: Record<string, unknown>): CajaTransferenciaLote {
+  return {
+    id: String(r.id),
+    fecha: String(r.fecha).slice(0, 10),
+    hora: r.hora != null ? String(r.hora).slice(0, 5) : null,
+    origen_slug: String(r.origen_slug),
+    caja_fondo_destino_slug: String(r.caja_fondo_destino_slug),
+    arqueo_efectivo: Number(r.arqueo_efectivo) || 0,
+    arqueo_otros: Number(r.arqueo_otros) || 0,
+    fondo_monto: Number(r.fondo_monto) || 0,
+    resto_efectivo: Number(r.resto_efectivo) || 0,
+    resto_otros: Number(r.resto_otros) || 0,
+    egresos_aprobados_ef: Number(r.egresos_aprobados_ef) || 0,
+    id_planilla: r.id_planilla != null ? String(r.id_planilla) : null,
+    id_usuario: r.id_usuario != null ? Number(r.id_usuario) : null,
+    usuario_nombre: r.usuario_nombre != null ? String(r.usuario_nombre) : null,
+    observacion: r.observacion != null ? String(r.observacion) : null,
+    created_at: r.created_at != null ? String(r.created_at) : undefined
+  }
+}
+
+export async function listTransferenciaLotes(limit = 30): Promise<CajaTransferenciaLote[]> {
+  if (await checkRemote()) {
+    const { data, error } = await supabase!
+      .from('control_caja_transferencia_lotes')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (!error && data) return data.map((r) => mapLoteRow(r))
+  }
+  return readLocal()
+    .transferencia_lotes.slice(0, limit)
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+}
+
+export async function saveTransferenciaLote(
+  lote: Omit<CajaTransferenciaLote, 'created_at'> & { id?: string }
+): Promise<CajaTransferenciaLote> {
+  const id = lote.id ?? newId()
+  const record: CajaTransferenciaLote = { ...lote, id }
+
+  if (await checkRemote()) {
+    const { error } = await supabase!.from('control_caja_transferencia_lotes').upsert({
+      id,
+      fecha: lote.fecha,
+      hora: lote.hora || null,
+      origen_slug: lote.origen_slug,
+      caja_fondo_destino_slug: lote.caja_fondo_destino_slug,
+      arqueo_efectivo: lote.arqueo_efectivo,
+      arqueo_otros: lote.arqueo_otros,
+      fondo_monto: lote.fondo_monto,
+      resto_efectivo: lote.resto_efectivo,
+      resto_otros: lote.resto_otros,
+      egresos_aprobados_ef: lote.egresos_aprobados_ef,
+      id_planilla: lote.id_planilla ?? null,
+      id_usuario: lote.id_usuario ?? null,
+      usuario_nombre: lote.usuario_nombre ?? null,
+      observacion: lote.observacion ?? null
+    })
+    if (!error) return record
+  }
+
+  const store = readLocal()
+  const idx = store.transferencia_lotes.findIndex((l) => l.id === id)
+  if (idx >= 0) store.transferencia_lotes[idx] = record
+  else store.transferencia_lotes.unshift(record)
+  writeLocal(store)
+  return record
 }
 
 export async function deleteMovimiento(id: string): Promise<void> {
@@ -458,15 +759,10 @@ export async function listCajasAll(): Promise<CajaRegistro[]> {
   if (await checkRemote()) {
     const { data, error } = await supabase!.from('control_caja_cajas').select('*').order('nombre')
     if (!error && data?.length) {
-      return data.map((r) => ({
-        slug: r.slug,
-        nombre: r.nombre,
-        fondo_fijo: Number(r.fondo_fijo) || 0,
-        activa: !!r.activa
-      }))
+      return data.map((r) => mapCajaRegistro(r))
     }
   }
-  return [...readLocal().cajas]
+  return readLocal().cajas.map((c) => mapCajaRegistro(c))
 }
 
 export async function saveCajasMaestro(cajas: CajaRegistro[]): Promise<void> {

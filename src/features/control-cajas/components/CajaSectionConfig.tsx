@@ -3,6 +3,8 @@ import { DEFAULT_CAJERAS } from '../constants'
 import { newId } from '../format'
 import { getParams, listCajasAll, saveCajasMaestro, saveParams } from '../cajaRepository'
 import type { CajaCajera, CajaRegistro } from '../types'
+import { FONDO_CAJA_BASE_MIN, requiereFondoMinimo } from '../fondoCaja'
+import { fmtArs } from '../format'
 
 export default function CajaSectionConfig() {
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -19,6 +21,15 @@ export default function CajaSectionConfig() {
   }, [])
 
   const guardar = async () => {
+    const invalida = cajas.find(
+      (c) => requiereFondoMinimo(c.slug) && (c.fondo_fijo || 0) < FONDO_CAJA_BASE_MIN
+    )
+    if (invalida) {
+      setMsg(
+        `Fondo de "${invalida.nombre}" no puede ser menor a $ ${fmtArs(FONDO_CAJA_BASE_MIN)} (efectivo real en caja).`
+      )
+      return
+    }
     await saveCajasMaestro(cajas)
     await saveParams({ tolerancia, cajeras })
     setMsg('Configuración guardada')
@@ -33,7 +44,11 @@ export default function CajaSectionConfig() {
   return (
     <>
       <div className="caja-cc-card">
-        <h3>Cajas y fondos fijos</h3>
+        <h3>Cajas y fondo de caja</h3>
+        <p className="caja-cc-sub">
+          El fondo es el efectivo real que debe permanecer siempre en caja operativa. Base mínima:{' '}
+          $ {fmtArs(FONDO_CAJA_BASE_MIN)} (Noelia / Rosa).
+        </p>
         <table className="caja-cc-table">
           <thead>
             <tr>
@@ -103,7 +118,12 @@ export default function CajaSectionConfig() {
           onClick={() =>
             setCajas((prev) => [
               ...prev,
-              { slug: newId().slice(0, 8), nombre: 'Nueva caja', fondo_fijo: 0, activa: true }
+              {
+                slug: newId().slice(0, 8),
+                nombre: 'Nueva caja',
+                fondo_fijo: FONDO_CAJA_BASE_MIN,
+                activa: true
+              }
             ])
           }
         >
