@@ -419,6 +419,17 @@ export type ParsePlanillaOptions = {
   useAi?: boolean
 }
 
+/** Lectura local rápida (sin IA) para vista previa inmediata. */
+export async function parsePlanillaCajaPdfLocal(
+  buffer: ArrayBuffer,
+  archivoNombre: string
+): Promise<PlanillaCajaParsed> {
+  const pdfBuf = buffer.slice(0)
+  const lines = await extractLinesFromPdfArrayBuffer(pdfBuf)
+  const text = lines.join('\n')
+  return parsePlanillaCajaText(text, archivoNombre)
+}
+
 export async function parsePlanillaCajaPdf(
   buffer: ArrayBuffer,
   archivoNombre: string,

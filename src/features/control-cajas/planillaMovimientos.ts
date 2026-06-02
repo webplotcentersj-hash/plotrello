@@ -1,4 +1,10 @@
+import { getArgentinaDateString } from '../../utils/dateUtils'
 import { newId } from './format'
+
+function fechaPlanillaImport(planilla: PlanillaCajaParsed): string {
+  const raw = (planilla.fecha_hasta || planilla.fecha_desde || '').trim().slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : getArgentinaDateString()
+}
 import { crearTraspasoCaja, mediosToPlanillaLinea, type MediosPagoInput } from './movimientoCaja'
 import type { PlanillaCajaParsed, PlanillaLineaConMontos, PlanillaLineaMec } from './parsePlanillaCajaPdf'
 import { resolveCajaSlug } from './cajaRepository'
@@ -147,7 +153,7 @@ function mecToMovimientos(
   usuarioNombre: string,
   usuarioId?: number
 ): Omit<CajaMovimiento, 'id' | 'created_at'>[] {
-  const fecha = planilla.fecha_hasta || planilla.fecha_desde
+  const fecha = fechaPlanillaImport(planilla)
   const adminSlug = resolveCajaSlug('admin', cajas) ?? 'admin'
 
   const hintToSlug = (hint: string): string | null => {
@@ -225,7 +231,7 @@ export function planillaAllToMovimientos(
     cajas.find((c) => c.slug !== 'admin' && c.slug !== 'vuelto')?.slug ??
     'noelia'
 
-  const fecha = planilla.fecha_hasta || planilla.fecha_desde
+  const fecha = fechaPlanillaImport(planilla)
 
   const ingresos = [
     ...ingresosDesdeLineas(planilla.ventas, slug, fecha, usuarioNombre, usuarioId),

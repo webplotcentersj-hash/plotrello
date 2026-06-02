@@ -13,7 +13,9 @@ import {
 import { validarCuadreMediosPago } from './planillaMediosPago'
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
-const MODEL = 'gemini-2.5-flash'
+/** Flash lite: más rápido para extracción estructurada de planillas. */
+const MODEL = 'gemini-2.5-flash-lite'
+const MODEL_FALLBACK = 'gemini-2.5-flash'
 
 let aiClient: GoogleGenAI | null = null
 try {
@@ -305,8 +307,49 @@ export function mergePlanillaPreferComplete(
   return primary
 }
 
+async function generatePlanillaJson(
+  userText: string,
+  opts?: { withPdf?: string }
+): Promise<string> {
+  if (!aiClient) throw new Error('PlotAI no configurado')
+
+  const models = opts?.withPdf ? [MODEL, MODEL_FALLBACK] : [MODEL, MODEL_FALLBACK]
+  let lastErr: unknown
+
+  for (const model of models) {
+    try {
+      const contents = opts?.withPdf
+        ? [
+            {
+              role: 'user' as const,
+              parts: [
+                { text: userText },
+                { inlineData: { mimeType: 'application/pdf', data: opts.withPdf } }
+              ]
+            }
+          ]
+        : userText
+
+      const response = await withTimeout(
+        aiClient.models.generateContent({ model, contents }),
+        opts?.withPdf ? 90_000 : 55_000,
+        opts?.withPdf
+          ? 'PlotAI tardó demasiado con el PDF adjunto.'
+          : 'PlotAI tardó demasiado leyendo el texto (máx. ~1 min).'
+      )
+      const text = response.text || ''
+      if (text.trim()) return text
+    } catch (e) {
+      lastErr = e
+      console.warn(`Planilla IA (${model}) falló:`, e)
+    }
+  }
+
+  throw lastErr instanceof Error ? lastErr : new Error('PlotAI no respondió.')
+}
+
 /**
- * Lee la planilla con Gemini (PDF nativo + texto extraído) y devuelve estructura PlotLab.
+ * Lee la planilla con Gemini: primero texto (rápido); PDF adjunto solo si hace falta.
  */
 export async function parsePlanillaCajaPdfWithGemini(
   buffer: ArrayBuffer,
@@ -316,57 +359,66 @@ export async function parsePlanillaCajaPdfWithGemini(
     throw new Error('PlotAI no configurado. Agregá VITE_GEMINI_API_KEY en .env')
   }
 
-  const textoExtraido = await extractTextFromPdfArrayBuffer(buffer)
+  const pdfBuf = buffer.slice(0)
+  const textoExtraido = await extractTextFromPdfArrayBuffer(pdfBuf)
   const textoLocal = parsePlanillaCajaText(textoExtraido, archivoNombre)
-  const base64 = arrayBufferToBase64(buffer.slice(0))
+  const localLineas = countPlanillaLineas(textoLocal)
 
   const userText = `${PLANILLA_AI_SCHEMA}
 
 Archivo: ${archivoNombre}
+Devolvé SOLO el JSON con todas las líneas del listado.
 
-TEXTO EXTRAÍDO (referencia, puede tener errores de columnas):
+TEXTO DEL PDF:
 ---
-${textoExtraido.slice(0, 100_000)}
----
-
-También tenés el PDF adjunto: usalo como fuente principal para tablas y columnas alineadas.
-Devolvé el JSON completo con todas las líneas.`
-
-  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
-    { text: userText },
-    { inlineData: { mimeType: 'application/pdf', data: base64 } }
-  ]
+${textoExtraido.slice(0, 48_000)}
+---`
 
   let responseText = ''
   try {
-    const response = await withTimeout(
-      aiClient.models.generateContent({
-        model: MODEL,
-        contents: [{ role: 'user', parts }]
-      }),
-      120_000,
-      'PlotAI tardó demasiado leyendo el PDF (máx. 2 min).'
-    )
-    responseText = response.text || ''
-  } catch (pdfErr) {
-    console.warn('Planilla IA con PDF adjunto falló, reintento solo texto:', pdfErr)
-    const response = await withTimeout(
-      aiClient.models.generateContent({
-        model: MODEL,
-        contents: userText
-      }),
-      90_000,
-      'PlotAI tardó demasiado.'
-    )
-    responseText = response.text || ''
+    responseText = await generatePlanillaJson(userText)
+  } catch (textErr) {
+    console.warn('Planilla IA solo texto falló:', textErr)
   }
 
-  if (!responseText.trim()) throw new Error('PlotAI no devolvió contenido.')
+  let fromAi: PlanillaCajaParsed | null = null
+  if (responseText.trim()) {
+    try {
+      fromAi = planillaFromAiJson(parseJsonResponse(responseText), archivoNombre)
+    } catch {
+      fromAi = null
+    }
+  }
 
-  const json = parseJsonResponse(responseText)
-  const fromAi = planillaFromAiJson(json, archivoNombre)
+  const aiLineas = fromAi ? countPlanillaLineas(fromAi) : 0
+  const needPdf =
+    !fromAi || aiLineas === 0 || (localLineas >= 8 && aiLineas < Math.floor(localLineas * 0.55))
 
-  if (countPlanillaLineas(fromAi) === 0) {
+  if (needPdf) {
+    try {
+      const base64 = arrayBufferToBase64(pdfBuf)
+      const pdfText = `${userText}\n\nUsá el PDF adjunto para alinear columnas y medios de pago.`
+      responseText = await generatePlanillaJson(pdfText, { withPdf: base64 })
+      fromAi = planillaFromAiJson(parseJsonResponse(responseText), archivoNombre)
+    } catch (pdfErr) {
+      console.warn('Planilla IA con PDF:', pdfErr)
+      if (!fromAi && localLineas > 0) {
+        return {
+          ...textoLocal,
+          warnings: [...textoLocal.warnings, 'PlotAI incompleto; se usó lectura local.']
+        }
+      }
+      if (!fromAi) throw pdfErr
+    }
+  }
+
+  if (!fromAi || countPlanillaLineas(fromAi) === 0) {
+    if (localLineas > 0) {
+      return {
+        ...textoLocal,
+        warnings: [...textoLocal.warnings, 'PlotAI sin líneas; se usó lectura local.']
+      }
+    }
     throw new Error('PlotAI no detectó comprobantes en el PDF.')
   }
 

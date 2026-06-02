@@ -1,9 +1,23 @@
 import { useRef, useState } from 'react'
-import { listCajas, resolveCajaSlug, saveMovimientosBulk, savePlanillaImport } from '../cajaRepository'
+import {
+  getParams,
+  listCajas,
+  resolveCajaSlug,
+  resolveCajaSlugForUsuario,
+  resolveCajaSlugFromHistorial,
+  saveMovimientosBulk,
+  savePlanillaImport
+} from '../cajaRepository'
+import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
+import { DEFAULT_CAJERAS } from '../constants'
 import { calcularTotalesDesdePlanilla } from '../cajaTotales'
 import { fmtArs, fmtDateAr } from '../format'
-import { isPlanillaAiAvailable } from '../planillaCajaGemini'
-import { parsePlanillaCajaPdf, type PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
+import { countPlanillaLineas, isPlanillaAiAvailable, mergePlanillaPreferComplete } from '../planillaCajaGemini'
+import {
+  parsePlanillaCajaPdf,
+  parsePlanillaCajaPdfLocal,
+  type PlanillaCajaParsed
+} from '../parsePlanillaCajaPdf'
 import { planillaAllToMovimientos, resumenImportacion } from '../planillaMovimientos'
 import PlanillaLineasTable from './PlanillaLineasTable'
 import PlanillaMediosResumen from './PlanillaMediosResumen'
@@ -24,7 +38,9 @@ export default function CajaImportPlanillaPdf({
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsing, setParsing] = useState(false)
+  const [parsingEtapa, setParsingEtapa] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [importProgress, setImportProgress] = useState<string | null>(null)
   const [preview, setPreview] = useState<PlanillaCajaParsed | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -44,6 +60,7 @@ export default function CajaImportPlanillaPdf({
       return
     }
     setParsing(true)
+    setParsingEtapa(null)
     setMsg(null)
     setErr(null)
     setPreviewAndNotify(null)
@@ -51,7 +68,24 @@ export default function CajaImportPlanillaPdf({
     setLineSearch('')
     try {
       const buf = (await file.arrayBuffer()).slice(0)
-      const parsed = await parsePlanillaCajaPdf(buf, file.name, { useAi })
+      let parsed: PlanillaCajaParsed
+
+      if (useAi && iaDisponible) {
+        setParsingEtapa('Lectura rápida local…')
+        const local = await parsePlanillaCajaPdfLocal(buf, file.name)
+        if (countPlanillaLineas(local) > 0) {
+          setPreviewAndNotify(local)
+        }
+        setParsingEtapa('PlotAI extrayendo datos…')
+        parsed = await parsePlanillaCajaPdf(buf, file.name, { useAi: true })
+        if (countPlanillaLineas(local) > 0) {
+          parsed = mergePlanillaPreferComplete(parsed, local)
+        }
+      } else {
+        setParsingEtapa('Leyendo PDF…')
+        parsed = await parsePlanillaCajaPdf(buf, file.name, { useAi: false })
+      }
+
       setPreviewAndNotify(parsed)
       const totalLineas =
         parsed.ventas.length +
@@ -68,6 +102,7 @@ export default function CajaImportPlanillaPdf({
       setErr(e instanceof Error ? e.message : 'No se pudo leer el PDF')
     } finally {
       setParsing(false)
+      setParsingEtapa(null)
     }
   }
 
@@ -84,29 +119,60 @@ export default function CajaImportPlanillaPdf({
     }
     setSaving(true)
     setErr(null)
+    setImportProgress(null)
     try {
-      const cajas = await listCajas()
-      const cajaSlug = resolveCajaSlug(preview.caja_nombre, cajas)
+      const [cajas, params] = await Promise.all([listCajas(), getParams()])
+      const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+      const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
+
+      let cajaSlug =
+        resolveCajaSlug(preview.caja_nombre, cajas) ??
+        resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ??
+        null
+
+      if (!cajaSlug && usuarioId) {
+        cajaSlug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? null
+      }
+      if (!cajaSlug) {
+        cajaSlug = operativas[0]?.slug ?? null
+      }
+      if (!cajaSlug) {
+        throw new Error('No se pudo determinar la caja. Revisá Maestros → Cajeras o el nombre en el PDF.')
+      }
+      if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
+
+      setImportProgress('Guardando planilla…')
       const guardada = await savePlanillaImport(preview, cajaSlug, usuarioNombre, usuarioId)
       const movs = planillaAllToMovimientos(preview, cajas, cajaSlug, usuarioNombre, usuarioId)
-      if (movs.length) {
-        await saveMovimientosBulk(movs)
-      } else {
+      if (!movs.length) {
         throw new Error(
           'La planilla se guardó pero no se generaron movimientos. Revisá que el PDF tenga líneas FA/FB, EG o MEC con montos.'
         )
       }
 
+      setImportProgress(`Importando 0 / ${movs.length} movimientos…`)
+      const bulk = await saveMovimientosBulk(movs, {
+        cajas,
+        onProgress: (done, total) => setImportProgress(`Importando ${done} / ${total} movimientos…`)
+      })
+
       const r = resumenImportacion(movs)
-      setMsg(
-        `Planilla guardada (${guardada.id.slice(0, 8)}…). Subidos: ${r.ventas} ventas, ${r.ingresos - r.ventas} otros ingresos, ${r.egresos} egresos, ${r.traspasos} traspasos (${r.total} movimientos). Administración ve el mismo detalle en Tablero / Cierres.`
-      )
+      let okMsg = `Planilla guardada (${guardada.id.slice(0, 8)}…). Importados: ${r.total} movimientos (${r.ventas} ventas, ${r.egresos} egresos, ${r.traspasos} traspasos) en ${cajas.find((c) => c.slug === cajaSlug)?.nombre ?? cajaSlug}.`
+      if (!bulk.persistedRemote && bulk.remoteError) {
+        okMsg += ` Quedaron en este navegador (servidor: ${bulk.remoteError}).`
+      } else if (!bulk.persistedRemote) {
+        okMsg += ' Guardados en este navegador.'
+      }
+
       setPreviewAndNotify(null)
+      setMsg(okMsg)
       onImported?.()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al guardar')
+      setMsg(null)
     } finally {
       setSaving(false)
+      setImportProgress(null)
     }
   }
 
@@ -186,9 +252,7 @@ export default function CajaImportPlanillaPdf({
           </span>
           <strong>
             {parsing
-              ? useAi && iaDisponible
-                ? 'PlotAI está leyendo el PDF…'
-                : 'Leyendo PDF…'
+              ? parsingEtapa ?? (useAi && iaDisponible ? 'PlotAI…' : 'Leyendo PDF…')
               : 'Subir planilla de caja (PDF)'}
           </strong>
           <span className="caja-cc-planilla-drop-hint">
@@ -365,8 +429,13 @@ export default function CajaImportPlanillaPdf({
 
           <div className="caja-cc-planilla-actions">
             <button type="button" className="btn-primary" disabled={saving} onClick={() => void handleGuardar()}>
-              {saving ? 'Importando…' : 'Importar todo al sistema'}
+              {saving ? importProgress ?? 'Importando…' : 'Importar todo al sistema'}
             </button>
+            {saving && importProgress && (
+              <p className="caja-cc-help" role="status">
+                {importProgress}
+              </p>
+            )}
           </div>
           <p className="caja-cc-planilla-foot">
             Se importan <strong>todas las líneas</strong> con desglose por medio. La planilla alimenta movimientos, el

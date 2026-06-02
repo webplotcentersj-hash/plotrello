@@ -79,6 +79,8 @@ export default function ControlCajasModule() {
   const [editCierreId, setEditCierreId] = useState<string | null>(null)
   const [remote, setRemote] = useState<boolean | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  /** Recarga movimientos en arqueo sin remontar toda la página (evita cierre al importar planilla). */
+  const [movimientosRefreshKey, setMovimientosRefreshKey] = useState(0)
   const [planillaActiva, setPlanillaActiva] = useState<PlanillaCajaParsed | null>(null)
 
   const nav = useMemo(() => (isAdmin ? NAV_ADMIN : NAV_CAJA), [isAdmin])
@@ -148,7 +150,7 @@ export default function ControlCajasModule() {
         onPlanillaParsed={setPlanillaActiva}
         onImported={() => {
           setPlanillaActiva(null)
-          bumpRefresh()
+          setMovimientosRefreshKey((k) => k + 1)
         }}
       />
       {adminVePlanillasRecibidas && (
@@ -310,6 +312,7 @@ export default function ControlCajasModule() {
                 soloCajasOperativas
                 fijarCajaUsuario
                 planillaActiva={planillaActiva}
+                movimientosRefreshKey={movimientosRefreshKey}
               />
             </>
           )}

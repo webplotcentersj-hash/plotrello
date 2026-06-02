@@ -29,6 +29,8 @@ type Props = {
   onSaved?: () => void
   /** Planilla PDF leída arriba — referencia para arqueo físico. */
   planillaActiva?: PlanillaCajaParsed | null
+  /** Incrementar tras importar planilla para refrescar movimientos sin remontar la vista. */
+  movimientosRefreshKey?: number
 }
 
 export default function CajaSectionArqueo({
@@ -37,7 +39,8 @@ export default function CajaSectionArqueo({
   soloCajasOperativas = true,
   fijarCajaUsuario = false,
   onSaved,
-  planillaActiva = null
+  planillaActiva = null,
+  movimientosRefreshKey = 0
 }: Props) {
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [fecha, setFecha] = useState(getArgentinaDateString())
@@ -56,7 +59,7 @@ export default function CajaSectionArqueo({
   useEffect(() => {
     if (!cajaSlug || !fecha) return
     void listMovimientos().then(setMovimientos)
-  }, [cajaSlug, fecha])
+  }, [cajaSlug, fecha, movimientosRefreshKey])
 
   useEffect(() => {
     let cancelled = false

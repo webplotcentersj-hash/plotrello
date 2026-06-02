@@ -58,6 +58,67 @@ async function checkRemote(): Promise<boolean> {
   return remoteOk
 }
 
+function sortMovimientos(list: CajaMovimiento[]): CajaMovimiento[] {
+  return [...list].sort((a, b) => {
+    const ka = `${b.fecha}${b.hora ?? ''}`
+    const kb = `${a.fecha}${a.hora ?? ''}`
+    return ka.localeCompare(kb)
+  })
+}
+
+function filterMovimientos(list: CajaMovimiento[], opts?: { usuario?: string; usuarioId?: number }) {
+  let out = list
+  if (opts?.usuarioId != null) out = out.filter((m) => m.id_usuario === opts.usuarioId)
+  else if (opts?.usuario) out = out.filter((m) => m.usuario_nombre === opts.usuario)
+  return out
+}
+
+/** Une movimientos locales y remotos (mismo id: gana el más reciente por updated_at/created_at). */
+function mergeMovimientosLists(remote: CajaMovimiento[], local: CajaMovimiento[]): CajaMovimiento[] {
+  const byId = new Map<string, CajaMovimiento>()
+  for (const m of local) byId.set(m.id, m)
+  for (const m of remote) {
+    const prev = byId.get(m.id)
+    if (!prev) {
+      byId.set(m.id, m)
+      continue
+    }
+    const tNew = m.created_at ?? ''
+    const tOld = prev.created_at ?? ''
+    if (tNew >= tOld) byId.set(m.id, m)
+  }
+  return sortMovimientos([...byId.values()])
+}
+
+/** Asegura que existan en Supabase las cajas referenciadas (FK origen_slug / destino_slug). */
+export async function ensureCajaSlugsForMovimientos(
+  rows: Pick<CajaMovimiento, 'origen_slug' | 'destino_slug'>[],
+  cajas: CajaRegistro[]
+): Promise<void> {
+  if (!(await checkRemote()) || !supabase) return
+  const needed = new Set<string>()
+  for (const r of rows) {
+    if (r.origen_slug) needed.add(r.origen_slug)
+    if (r.destino_slug) needed.add(r.destino_slug)
+  }
+  const { data } = await supabase.from('control_caja_cajas').select('slug')
+  const existing = new Set((data ?? []).map((r) => String(r.slug)))
+  for (const slug of needed) {
+    if (existing.has(slug)) continue
+    const def =
+      cajas.find((c) => c.slug === slug) ?? DEFAULT_CAJAS.find((c) => c.slug === slug)
+    if (!def) continue
+    await supabase.from('control_caja_cajas').upsert({
+      slug: def.slug,
+      nombre: def.nombre,
+      fondo_fijo: def.fondo_fijo,
+      activa: def.activa,
+      updated_at: new Date().toISOString()
+    })
+    existing.add(slug)
+  }
+}
+
 function readLocal(): LocalStore {
   try {
     const raw = localStorage.getItem(LS_KEY)
@@ -98,7 +159,15 @@ function readLocal(): LocalStore {
 }
 
 function writeLocal(data: LocalStore) {
-  localStorage.setItem(LS_KEY, JSON.stringify(data))
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(data))
+  } catch (e) {
+    const msg =
+      e instanceof DOMException && e.name === 'QuotaExceededError'
+        ? 'No hay espacio en el navegador para guardar más datos de caja. Usá Supabase en producción o borrá datos viejos.'
+        : 'No se pudo guardar en el almacenamiento local.'
+    throw new Error(msg)
+  }
 }
 
 function mapCajaRegistro(r: {
@@ -351,23 +420,19 @@ export async function listMovimientos(opts?: {
   usuario?: string
   usuarioId?: number
 }): Promise<CajaMovimiento[]> {
+  const local = filterMovimientos(readLocal().movimientos, opts)
+
   if (await checkRemote()) {
     let q = supabase!.from('control_caja_movimientos').select('*').order('fecha', { ascending: false })
     if (opts?.usuarioId != null) q = q.eq('id_usuario', opts.usuarioId)
     else if (opts?.usuario) q = q.eq('usuario_nombre', opts.usuario)
     const { data, error } = await q
     if (!error && data) {
-      return data.map(mapMovRow)
+      return mergeMovimientosLists(data.map(mapMovRow), local)
     }
   }
-  let list = readLocal().movimientos
-  if (opts?.usuarioId != null) list = list.filter((m) => m.id_usuario === opts.usuarioId)
-  else if (opts?.usuario) list = list.filter((m) => m.usuario_nombre === opts.usuario)
-  return [...list].sort((a, b) => {
-    const ka = `${b.fecha}${b.hora ?? ''}`
-    const kb = `${a.fecha}${a.hora ?? ''}`
-    return ka.localeCompare(kb)
-  })
+
+  return sortMovimientos(local)
 }
 
 function numOrNull(v: unknown): number | null {
@@ -504,19 +569,84 @@ export async function saveMovimiento(
   return record
 }
 
-export async function saveMovimientosBulk(
-  rows: Omit<CajaMovimiento, 'id' | 'created_at'>[]
-): Promise<CajaMovimiento[]> {
-  const saved: CajaMovimiento[] = []
-  for (const row of rows) {
-    saved.push(
-      await saveMovimiento({
-        ...row,
-        origen_importacion: row.origen_importacion ?? 'manual'
-      })
-    )
+const MOVIMIENTOS_BULK_CHUNK = 80
+
+export type SaveMovimientosBulkResult = {
+  records: CajaMovimiento[]
+  persistedRemote: boolean
+  persistedLocal: boolean
+  remoteError?: string
+}
+
+function persistMovimientosLocal(records: CajaMovimiento[]): void {
+  const store = readLocal()
+  for (const record of records) {
+    const idx = store.movimientos.findIndex((m) => m.id === record.id)
+    if (idx >= 0) store.movimientos[idx] = record
+    else store.movimientos.unshift(record)
   }
-  return saved
+  writeLocal(store)
+}
+
+export async function saveMovimientosBulk(
+  rows: Omit<CajaMovimiento, 'id' | 'created_at'>[],
+  opts?: {
+    onProgress?: (done: number, total: number) => void
+    cajas?: CajaRegistro[]
+  }
+): Promise<SaveMovimientosBulkResult> {
+  if (!rows.length) {
+    return { records: [], persistedRemote: false, persistedLocal: false }
+  }
+
+  const total = rows.length
+  const records: CajaMovimiento[] = rows.map((row) => ({
+    ...row,
+    id: newId(),
+    origen_importacion: row.origen_importacion ?? 'planilla_pdf'
+  }))
+
+  let persistedRemote = false
+  let remoteError: string | undefined
+
+  if (await checkRemote()) {
+    try {
+      const cajas = opts?.cajas ?? (await listCajas())
+      await ensureCajaSlugsForMovimientos(records, cajas)
+      for (let i = 0; i < records.length; i += MOVIMIENTOS_BULK_CHUNK) {
+        const chunk = records.slice(i, i + MOVIMIENTOS_BULK_CHUNK)
+        const payload = chunk.map((r) => movRowFromRecord(r, r.id))
+        const { error } = await supabase!.from('control_caja_movimientos').insert(payload)
+        if (error) {
+          throw new Error(error.message || 'Error al importar movimientos en el servidor')
+        }
+        opts?.onProgress?.(Math.min(i + chunk.length, total), total)
+      }
+      persistedRemote = true
+    } catch (e) {
+      remoteError = e instanceof Error ? e.message : 'Error en Supabase'
+      console.warn('Importación remota de movimientos falló, se guarda en este navegador:', e)
+    }
+  }
+
+  try {
+    persistMovimientosLocal(records)
+    if (!persistedRemote) opts?.onProgress?.(total, total)
+  } catch (e) {
+    if (persistedRemote) {
+      throw new Error(
+        `Movimientos en el servidor OK, pero no en este navegador: ${e instanceof Error ? e.message : 'error local'}`
+      )
+    }
+    throw e
+  }
+
+  return {
+    records,
+    persistedRemote,
+    persistedLocal: true,
+    remoteError
+  }
 }
 
 export function getCierreFechaCaja(
@@ -884,6 +1014,13 @@ export async function savePlanillaImport(
     usuario_nombre: usuarioNombre
   }
 
+  const datosJson = planillaToDatosJson(planilla)
+  const localRecord = {
+    ...record,
+    datos: datosJson
+  } as PlanillaCajaGuardada & { datos?: Record<string, unknown> }
+
+  let remoteOkPlanilla = false
   if (await checkRemote()) {
     const row = {
       id,
@@ -893,21 +1030,25 @@ export async function savePlanillaImport(
       caja_nombre: planilla.caja_nombre,
       caja_slug: cajaSlug,
       totales: planilla.totales,
-      datos: planillaToDatosJson(planilla),
+      datos: datosJson,
       id_usuario: usuarioId ?? null,
       usuario_nombre: usuarioNombre
     }
     const { error } = await supabase!.from('control_caja_planillas').insert(row)
-    if (!error) return record
+    remoteOkPlanilla = !error
+    if (error) console.warn('Planilla remota no guardada:', error.message)
   }
 
   const store = readLocal()
-  const localRecord = {
-    ...record,
-    datos: planillaToDatosJson(planilla)
-  }
-  store.planillas.unshift(localRecord as PlanillaCajaGuardada & { datos?: Record<string, unknown> })
+  const idxLocal = store.planillas.findIndex((p) => p.id === id)
+  if (idxLocal >= 0) store.planillas[idxLocal] = localRecord
+  else store.planillas.unshift(localRecord)
   writeLocal(store)
+
+  if (!remoteOkPlanilla && (await checkRemote())) {
+    console.warn('Planilla guardada solo en este navegador (falló Supabase).')
+  }
+
   return record
 }
 
@@ -971,6 +1112,18 @@ export async function listPlanillas(limit = 10): Promise<PlanillaCajaGuardada[]>
     }
   }
 
+  const localMapped = readLocal()
+    .planillas.slice(0, limit * 2)
+    .map((p) => {
+      const ext = p as PlanillaCajaGuardada & { datos?: Record<string, unknown> }
+      return mapRow({
+        ...ext,
+        id: ext.id,
+        datos: ext.datos ?? null,
+        created_at: ext.created_at
+      } as Record<string, unknown>)
+    })
+
   if (await checkRemote()) {
     const { data, error } = await supabase!
       .from('control_caja_planillas')
@@ -978,19 +1131,16 @@ export async function listPlanillas(limit = 10): Promise<PlanillaCajaGuardada[]>
       .order('created_at', { ascending: false })
       .limit(limit)
     if (!error && data) {
-      return data.map((r) => mapRow(r as Record<string, unknown>))
+      const remote = data.map((r) => mapRow(r as Record<string, unknown>))
+      const byId = new Map<string, PlanillaCajaGuardada>()
+      for (const p of localMapped) byId.set(p.id, p)
+      for (const p of remote) byId.set(p.id, p)
+      return [...byId.values()]
+        .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+        .slice(0, limit)
     }
   }
-  return readLocal()
-    .planillas.slice(0, limit)
-    .map((p) => {
-      const ext = p as PlanillaCajaGuardada & { datos?: Record<string, unknown> }
-      return mapRow({
-        ...ext,
-        id: ext.id,
-        datos: ext.datos ?? null
-      } as Record<string, unknown>)
-    })
+  return localMapped.slice(0, limit)
 }
 
 // —— Cajas (maestros) ——
