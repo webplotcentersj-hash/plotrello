@@ -6,12 +6,13 @@ type Linea = PlanillaLineaConMontos
 type Props = {
   title: string
   lineas: Linea[]
-  maxRows?: number
+  /** Máximo de filas; `null` = mostrar todas las líneas del PDF. */
+  maxRows?: number | null
 }
 
-export default function PlanillaLineasTable({ title, lineas, maxRows = 25 }: Props) {
+export default function PlanillaLineasTable({ title, lineas, maxRows = null }: Props) {
   if (!lineas.length) return null
-  const shown = lineas.slice(0, maxRows)
+  const shown = maxRows == null ? lineas : lineas.slice(0, maxRows)
   const rest = lineas.length - shown.length
 
   return (

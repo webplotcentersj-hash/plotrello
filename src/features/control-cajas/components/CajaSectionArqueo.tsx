@@ -16,6 +16,8 @@ import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
 import { fondoFijoEfectivo, fondoMinimoCaja, requiereFondoMinimo, validarEfectivoFisicoVsFondo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
+import { calcularTotalesDesdePlanilla } from '../cajaTotales'
+import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro } from '../types'
 
 type Props = {
@@ -25,6 +27,8 @@ type Props = {
   /** Vista cajera: caja asociada al usuario; selector solo si no se puede resolver. */
   fijarCajaUsuario?: boolean
   onSaved?: () => void
+  /** Planilla PDF leída arriba — referencia para arqueo físico. */
+  planillaActiva?: PlanillaCajaParsed | null
 }
 
 export default function CajaSectionArqueo({
@@ -32,7 +36,8 @@ export default function CajaSectionArqueo({
   usuarioId,
   soloCajasOperativas = true,
   fijarCajaUsuario = false,
-  onSaved
+  onSaved,
+  planillaActiva = null
 }: Props) {
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [fecha, setFecha] = useState(getArgentinaDateString())
@@ -190,12 +195,28 @@ export default function CajaSectionArqueo({
 
   const bajoFondo = fondoMin > 0 && total > 0 && total < fondoMin
 
+  const planillaResumen = planillaActiva ? calcularTotalesDesdePlanilla(planillaActiva) : null
+  const planillaMismaFecha =
+    planillaActiva &&
+    (planillaActiva.fecha_hasta === fecha || planillaActiva.fecha_desde === fecha)
+
   const cajaAsignadaNombre = cajaActiva?.nombre ?? ''
   const mostrarSelectorCaja =
     fijarCajaUsuario && !cajaResolviendo && (!cajaAutoAsignada || !cajaSlug)
 
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
+      {planillaResumen && planillaMismaFecha && (
+        <div className="caja-cc-planilla-arqueo-hint">
+          <strong>Según planilla PDF:</strong> efectivo neto del día{' '}
+          <strong>$ {fmtArs(planillaResumen.neto.efectivo)}</strong>
+          {' · '}
+          físico clasificado (billetes/cheques/doc.){' '}
+          <strong>$ {fmtArs(planillaResumen.neto.fisico_neto)}</strong>
+          . Contá billetes para validar contra estos totales.
+        </div>
+      )}
+
       <div className="caja-cc-help">
         Contá solo billetes y efectivo físico. No incluyas tarjetas, transferencias ni cuenta corriente: eso se concilia aparte.
         {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (

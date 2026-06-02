@@ -24,7 +24,9 @@ import CajaSectionVentasDiarias from './CajaSectionVentasDiarias'
 import CajaSectionConfig from './CajaSectionConfig'
 import CajaPlotAI from './CajaPlotAI'
 import CajaCentroInteligente from './CajaCentroInteligente'
+import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
 import CajaInteligenciaBar from './CajaInteligenciaBar'
+import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import '../../../pages/CajaDashboardPage.css'
 
 const SECTION_TITLES: Record<CajaSectionId, string> = {
@@ -76,6 +78,7 @@ export default function ControlCajasModule() {
   const [editCierreId, setEditCierreId] = useState<string | null>(null)
   const [remote, setRemote] = useState<boolean | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [planillaActiva, setPlanillaActiva] = useState<PlanillaCajaParsed | null>(null)
 
   const nav = useMemo(() => (isAdmin ? NAV_ADMIN : NAV_CAJA), [isAdmin])
 
@@ -110,7 +113,35 @@ export default function ControlCajasModule() {
   const goSection = (s: CajaSectionId) => {
     setEditCierreId(null)
     setSection(s)
+    if (s !== 'arqueo' && s !== 'movimientos' && s !== 'movimientos_admin') setPlanillaActiva(null)
   }
+
+  const seccionConPlanilla =
+    section === 'arqueo' || section === 'movimientos' || section === 'movimientos_admin'
+
+  const panelPlanillaIntel = seccionConPlanilla ? (
+    <>
+      <CajaCentroInteligente
+        isAdmin={isAdmin}
+        usuarioNombre={usuarioEtiqueta}
+        usuarioId={usuarioId}
+        onNavigate={goSection}
+        compact
+        collapsible
+        defaultExpanded={false}
+        planillaActiva={planillaActiva}
+      />
+      <CajaImportPlanillaPdf
+        usuarioNombre={usuarioEtiqueta}
+        usuarioId={usuarioId}
+        onPlanillaParsed={setPlanillaActiva}
+        onImported={() => {
+          setPlanillaActiva(null)
+          bumpRefresh()
+        }}
+      />
+    </>
+  ) : null
 
   const showIntelBar =
     isAdmin && section !== 'tablero_admin' && section !== 'centro_ia' && section !== 'asistente'
@@ -203,6 +234,8 @@ export default function ControlCajasModule() {
                 usuarioId={usuarioId}
                 onNavigate={goSection}
                 compact
+                collapsible
+                defaultExpanded={false}
               />
               <CajaTableroAdmin
                 onNuevoCierre={() => {
@@ -255,17 +288,13 @@ export default function ControlCajasModule() {
 
           {section === 'arqueo' && (
             <>
-              <CajaCentroInteligente
-                isAdmin={false}
-                usuarioNombre={usuarioEtiqueta}
-                usuarioId={usuarioId}
-                compact
-              />
+              {panelPlanillaIntel}
               <CajaSectionArqueo
                 usuarioNombre={usuarioEtiqueta}
                 usuarioId={usuarioId}
                 soloCajasOperativas
                 fijarCajaUsuario
+                planillaActiva={planillaActiva}
               />
             </>
           )}
@@ -299,13 +328,17 @@ export default function ControlCajasModule() {
           )}
 
           {section === 'movimientos' && (
-            <CajaSectionMovimientos
-              usuarioNombre={usuarioEtiqueta}
-              usuarioId={usuarioId}
-              soloMisMovimientos
-              allowExcelImport
-              title="Mis movimientos"
-            />
+            <>
+              {panelPlanillaIntel}
+              <CajaSectionMovimientos
+                usuarioNombre={usuarioEtiqueta}
+                usuarioId={usuarioId}
+                soloMisMovimientos
+                allowExcelImport
+                hidePlanillaImport
+                title="Mis movimientos"
+              />
+            </>
           )}
 
           {section === 'historial' && (
@@ -315,13 +348,17 @@ export default function ControlCajasModule() {
           {section === 'arqueos_admin' && isAdmin && <CajaSectionArqueosAdmin />}
 
           {section === 'movimientos_admin' && isAdmin && (
-            <CajaSectionMovimientos
-              usuarioNombre={usuarioEtiqueta}
-              usuarioId={usuarioId}
-              soloMisMovimientos={false}
-              allowExcelImport
-              title="Movimientos entre cajas"
-            />
+            <>
+              {panelPlanillaIntel}
+              <CajaSectionMovimientos
+                usuarioNombre={usuarioEtiqueta}
+                usuarioId={usuarioId}
+                soloMisMovimientos={false}
+                allowExcelImport
+                hidePlanillaImport
+                title="Movimientos entre cajas"
+              />
+            </>
           )}
 
           {section === 'concil_mp' && isAdmin && <CajaSectionConcilMP />}

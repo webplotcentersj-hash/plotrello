@@ -414,10 +414,38 @@ export function parsePlanillaCajaText(rawText: string, archivoNombre: string): P
   }
 }
 
+export type ParsePlanillaOptions = {
+  /** Si true (default cuando hay API key), intenta PlotAI/Gemini primero. */
+  useAi?: boolean
+}
+
 export async function parsePlanillaCajaPdf(
   buffer: ArrayBuffer,
-  archivoNombre: string
+  archivoNombre: string,
+  options?: ParsePlanillaOptions
 ): Promise<PlanillaCajaParsed> {
+  const wantAi = options?.useAi !== false
+
+  if (wantAi) {
+    try {
+      const { isPlanillaAiAvailable, parsePlanillaCajaPdfWithGemini } = await import(
+        './planillaCajaGemini'
+      )
+      if (isPlanillaAiAvailable()) {
+        return await parsePlanillaCajaPdfWithGemini(buffer, archivoNombre)
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error en PlotAI'
+      const lines = await extractLinesFromPdfArrayBuffer(buffer)
+      const text = lines.join('\n')
+      const parsed = parsePlanillaCajaText(text, archivoNombre)
+      return {
+        ...parsed,
+        warnings: [...parsed.warnings, `PlotAI: ${msg}. Se usó lectura local.`]
+      }
+    }
+  }
+
   const lines = await extractLinesFromPdfArrayBuffer(buffer)
   const text = lines.join('\n')
   const parsed = parsePlanillaCajaText(text, archivoNombre)

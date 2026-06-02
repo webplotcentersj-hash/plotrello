@@ -24,6 +24,8 @@ type Props = {
   allowExcelImport?: boolean
   allowDelete?: boolean
   title?: string
+  /** Si el padre ya muestra la zona PDF (arqueo/movimientos unificado). */
+  hidePlanillaImport?: boolean
 }
 
 export default function CajaSectionMovimientos({
@@ -32,7 +34,8 @@ export default function CajaSectionMovimientos({
   soloMisMovimientos = false,
   allowExcelImport = true,
   allowDelete = true,
-  title = 'Movimientos de caja'
+  title = 'Movimientos de caja',
+  hidePlanillaImport = false
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -157,11 +160,13 @@ export default function CajaSectionMovimientos({
 
       {importMsg && <p className="caja-cc-help">{importMsg}</p>}
 
-      <CajaImportPlanillaPdf
-        usuarioNombre={usuarioNombre}
-        usuarioId={usuarioId}
-        onImported={() => void reload()}
-      />
+      {!hidePlanillaImport && (
+        <CajaImportPlanillaPdf
+          usuarioNombre={usuarioNombre}
+          usuarioId={usuarioId}
+          onImported={() => void reload()}
+        />
+      )}
 
       <form className="caja-cc-card" onSubmit={(e) => void handleSubmit(e)}>
         <h3>Nuevo movimiento</h3>

@@ -13,6 +13,8 @@ import {
   listDiferencias,
   listMovimientos
 } from './cajaRepository'
+import { calcularTotalesDesdePlanilla } from './cajaTotales'
+import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import type {
   CajaAlerta,
   CajaArqueo,
@@ -353,6 +355,108 @@ export function analizarConcordancia(input: {
       difNeta: mc.reduce((s, c) => s + (c.dif_total || 0), 0),
       ventas: mc.reduce((s, c) => s + (c.total_ventas || 0), 0)
     }
+  }
+}
+
+/** Alertas de concordancia derivadas de una planilla PDF cargada (todos los bloques). */
+export function alertasDesdePlanilla(
+  planilla: PlanillaCajaParsed,
+  tolerancia: number
+): CajaAlerta[] {
+  const alertas: CajaAlerta[] = []
+  const fecha = planilla.fecha_hasta || planilla.fecha_desde
+  const resumen = calcularTotalesDesdePlanilla(planilla)
+
+  if (planilla.lineas_cuadre_invalido > 0) {
+    pushAlert(alertas, {
+      severidad: 'warn',
+      dominio: 'movimiento',
+      fecha,
+      titulo: 'Planilla PDF con líneas sin cuadrar',
+      detalle: `${planilla.lineas_cuadre_invalido} comprobante(s) donde Total ≠ suma de medios de pago. Revisá antes del cierre.`,
+      accion: { label: 'Movimientos', section: 'movimientos' }
+    })
+  }
+
+  const t = planilla.totales
+  if (t) {
+    pushAlert(alertas, {
+      severidad: 'info',
+      dominio: 'general',
+      fecha,
+      titulo: `Planilla ${planilla.caja_nombre || 'caja'} cargada`,
+      detalle: `Ingresos $${fmtArs(t.ingresos_total)} · Egresos $${fmtArs(t.egresos_total)} · Neto $${fmtArs(t.neto)} · ${planilla.cantidad_ventas} ventas FA/FB.`,
+      accion: { label: 'Cierre', section: 'cierre_turno' }
+    })
+    if (Math.abs(t.neto - resumen.neto.total) > tolerancia + 0.5) {
+      pushAlert(alertas, {
+        severidad: 'warn',
+        dominio: 'movimiento',
+        fecha,
+        titulo: 'Totales PDF vs cálculo interno',
+        detalle: `Neto en PDF $${fmtArs(t.neto)} vs recalculado $${fmtArs(resumen.neto.total)} (Δ $${fmtArs(Math.abs(t.neto - resumen.neto.total))}).`,
+        accion: { label: 'Movimientos', section: 'movimientos' }
+      })
+    }
+  }
+
+  if (resumen.neto.fisico_neto !== 0) {
+    pushAlert(alertas, {
+      severidad: 'info',
+      dominio: 'efectivo',
+      fecha,
+      titulo: 'Efectivo físico según planilla',
+      detalle: `Neto efectivo (ing − egr) $${fmtArs(resumen.neto.efectivo)} · Físico neto clasificado $${fmtArs(resumen.neto.fisico_neto)}. Usá este dato al arquear billetes.`,
+      accion: { label: 'Arqueo', section: 'arqueo' }
+    })
+  }
+
+  if (resumen.neto.electronico_neto !== 0) {
+    pushAlert(alertas, {
+      severidad: 'info',
+      dominio: 'mercado_pago',
+      fecha,
+      titulo: 'Medios electrónicos en planilla',
+      detalle: `Tarjetas/MP neto $${fmtArs(resumen.neto.tarjetas)} · Transferencias $${fmtArs(resumen.neto.trans_b)}.`,
+      accion: { label: 'Conciliar MP', section: 'concil_mp' }
+    })
+  }
+
+  for (const w of planilla.warnings.slice(0, 4)) {
+    pushAlert(alertas, {
+      severidad: 'warn',
+      dominio: 'general',
+      fecha,
+      titulo: 'Aviso del lector PDF',
+      detalle: w
+    })
+  }
+
+  return alertas
+}
+
+export function mezclarSaludConPlanilla(
+  salud: CajaSaludResumen,
+  planilla: PlanillaCajaParsed | null | undefined,
+  tolerancia: number
+): CajaSaludResumen {
+  if (!planilla) return salud
+  const extra = alertasDesdePlanilla(planilla, tolerancia)
+  const alertas = [...extra, ...salud.alertas]
+  const errores = alertas.filter((a) => a.severidad === 'error').length
+  const warns = alertas.filter((a) => a.severidad === 'warn').length
+  const puntaje = Math.max(0, Math.min(100, 100 - errores * 18 - warns * 8))
+  let etiqueta: CajaSaludResumen['etiqueta'] = 'Excelente'
+  if (puntaje < 70) etiqueta = 'Crítico'
+  else if (puntaje < 90) etiqueta = 'Atención'
+  return {
+    ...salud,
+    puntaje,
+    etiqueta,
+    alertas: alertas.sort((a, b) => {
+      const ord = { error: 0, warn: 1, info: 2, ok: 3 }
+      return ord[a.severidad] - ord[b.severidad]
+    })
   }
 }
 
