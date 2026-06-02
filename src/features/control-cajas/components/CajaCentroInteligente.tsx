@@ -64,6 +64,7 @@ export default function CajaCentroInteligente({
   const [loading, setLoading] = useState(true)
   const [briefing, setBriefing] = useState<string | null>(null)
   const [briefingLoading, setBriefingLoading] = useState(false)
+  const [alertSearch, setAlertSearch] = useState('')
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -126,9 +127,19 @@ export default function CajaCentroInteligente({
 
   if (!snap || !salud) return null
 
-  const alertasVisibles = compact
+  const alertasBase = compact
     ? salud.alertas.filter((a) => a.severidad !== 'ok').slice(0, 5)
     : salud.alertas.slice(0, 24)
+
+  const qAlert = alertSearch.trim().toLowerCase()
+  const alertasVisibles = qAlert
+    ? alertasBase.filter(
+        (a) =>
+          a.titulo.toLowerCase().includes(qAlert) ||
+          a.detalle.toLowerCase().includes(qAlert) ||
+          dominioLabel(a.dominio).toLowerCase().includes(qAlert)
+      )
+    : alertasBase
   const puntajeClass = salud.puntaje >= 90 ? 'ok' : salud.puntaje >= 70 ? 'warn' : 'bad'
 
   const toggleExpanded = () => {
@@ -168,27 +179,33 @@ export default function CajaCentroInteligente({
           <span className="caja-cc-intel-score-l">{salud.etiqueta}</span>
         </div>
         <div className="caja-cc-intel-actions">
-          <button type="button" className="btn-secondary" onClick={() => void refresh()} disabled={loading}>
-            Actualizar
+          <button
+            type="button"
+            className="btn-tiny caja-cc-intel-btn"
+            onClick={() => void refresh()}
+            disabled={loading}
+            title="Recalcular concordancia"
+          >
+            {loading ? '…' : '↻'}
           </button>
           {!compact && (
             <button
               type="button"
-              className="btn-primary"
+              className="btn-tiny caja-cc-intel-btn caja-cc-intel-btn-primary"
               disabled={briefingLoading}
               onClick={() => void runBriefing()}
             >
-              {briefingLoading ? 'Orquestando…' : 'Briefing IA'}
+              {briefingLoading ? '…' : 'Briefing'}
             </button>
           )}
           {esColapsable && (
             <button
               type="button"
-              className="btn-secondary btn-small"
+              className="btn-tiny caja-cc-intel-btn"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
             >
-              {expanded ? 'Ocultar' : 'Desplegar'}
+              {expanded ? 'Ocultar' : 'Ver'}
             </button>
           )}
         </div>
@@ -247,9 +264,26 @@ export default function CajaCentroInteligente({
           )}
 
           <div className="caja-cc-intel-alerts">
-            <h4>Alertas de concordancia</h4>
+            <div className="caja-cc-intel-alerts-head">
+              <h4>Alertas de concordancia</h4>
+              <label className="caja-cc-search caja-cc-search--dark">
+                <span className="caja-cc-search-icon" aria-hidden>
+                  ⌕
+                </span>
+                <input
+                  type="search"
+                  className="caja-cc-search-input"
+                  placeholder="Buscar alerta…"
+                  value={alertSearch}
+                  onChange={(e) => setAlertSearch(e.target.value)}
+                  aria-label="Buscar en alertas"
+                />
+              </label>
+            </div>
             {alertasVisibles.length === 0 ? (
-              <p className="caja-cc-empty">Sin alertas en la ventana analizada.</p>
+              <p className="caja-cc-empty">
+                {qAlert ? 'Ninguna alerta coincide con la búsqueda.' : 'Sin alertas en la ventana analizada.'}
+              </p>
             ) : (
               <ul className="caja-cc-intel-alert-list">
                 {alertasVisibles.map((a) => (

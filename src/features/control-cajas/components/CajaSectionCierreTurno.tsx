@@ -5,24 +5,31 @@ import {
   getUltimoArqueoCaja,
   listCajas,
   listCierres,
-  listEgresoSolicitudes,
   listTransferenciaLotes,
   resolveCajaSlug,
+  resolveCajaSlugForUsuario,
+  resolveCajaSlugFromHistorial,
   saveMovimiento,
+  saveMovimientosBulk,
   savePlanillaImport,
   saveTransferenciaLote
 } from '../cajaRepository'
+import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
+import { DEFAULT_CAJERAS } from '../constants'
 import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
   buildMovimientosCierreTurno,
   calcularCierreTurnoMontos,
+  cajaFondoDestinoPorDefecto,
   conciliarCierreTurno,
+  egresosDelDiaParaCierreTurno,
   fondoMontoParaCaja,
   hayEgresosPendientes,
-  totalEgresosAprobados
+  type EgresosDelDiaResumen
 } from '../cierreTurno'
 import { parsePlanillaCajaPdf } from '../parsePlanillaCajaPdf'
+import { planillaAllToMovimientos } from '../planillaMovimientos'
 import { newId } from '../format'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro, CajaTransferenciaLote } from '../types'
@@ -39,6 +46,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   const [tolerancia, setTolerancia] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [cajaResolviendo, setCajaResolviendo] = useState(true)
+  const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
+  const [historialOpen, setHistorialOpen] = useState(false)
 
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [hora, setHora] = useState(() => new Date().toTimeString().slice(0, 5))
@@ -46,7 +56,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   const [cajaFondoDestino, setCajaFondoDestino] = useState('')
   const [arqueoEf, setArqueoEf] = useState('')
   const [arqueoOt, setArqueoOt] = useState('')
-  const [egresosLista, setEgresosLista] = useState<Awaited<ReturnType<typeof listEgresoSolicitudes>>>([])
+  const [egresosResumen, setEgresosResumen] = useState<EgresosDelDiaResumen | null>(null)
+  const [egresosLoading, setEgresosLoading] = useState(false)
   const [planillaPreview, setPlanillaPreview] = useState<PlanillaCajaParsed | null>(null)
   const [planillaId, setPlanillaId] = useState<string | null>(null)
 
@@ -56,21 +67,70 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
     setCajas(operativas)
     setLotes(lot)
     setTolerancia(p.tolerancia)
-    if (!origen) {
-      const rosa = operativas.find((x) => x.slug === 'rosa')?.slug
-      const noelia = operativas.find((x) => x.slug === 'noelia')?.slug
-      setOrigen(rosa ?? operativas[0]?.slug ?? '')
-      setCajaFondoDestino(noelia ?? operativas[1]?.slug ?? operativas[0]?.slug ?? '')
-    }
-  }, [origen])
+  }, [])
 
   useEffect(() => {
     void reload()
   }, [reload])
 
   useEffect(() => {
-    if (!origen || !fecha) return
-    void listEgresoSolicitudes({ fecha, cajaSlug: origen }).then(setEgresosLista)
+    let cancelled = false
+    setCajaResolviendo(true)
+
+    void Promise.all([listCajas(), getParams()]).then(async ([list, params]) => {
+      const operativas = list.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
+      if (cancelled) return
+      setCajas(list.filter((x) => x.slug !== 'vuelto'))
+
+      const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
+      let slug =
+        resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ?? ''
+
+      if (!slug && usuarioId) {
+        slug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? ''
+      }
+
+      if (cancelled) return
+      if (slug) {
+        setOrigen(slug)
+        setCajaAutoAsignada(true)
+        if (usuarioId) setStoredCajaSlug(usuarioId, slug)
+        setCajaFondoDestino((prev) => {
+          if (prev && prev !== slug) return prev
+          return cajaFondoDestinoPorDefecto(slug, operativas)
+        })
+      } else {
+        setCajaAutoAsignada(false)
+        if (!origen && operativas.length) {
+          const first = operativas[0].slug
+          setOrigen(first)
+          setCajaFondoDestino(cajaFondoDestinoPorDefecto(first, operativas))
+        }
+      }
+      setCajaResolviendo(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [usuarioNombre, usuarioId])
+
+  useEffect(() => {
+    if (origen && cajaFondoDestino === origen) {
+      const op = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.slug !== origen)
+      setCajaFondoDestino(op[0]?.slug ?? '')
+    }
+  }, [origen, cajaFondoDestino, cajas])
+
+  useEffect(() => {
+    if (!origen || !fecha) {
+      setEgresosResumen(null)
+      return
+    }
+    setEgresosLoading(true)
+    void egresosDelDiaParaCierreTurno(fecha, origen)
+      .then(setEgresosResumen)
+      .finally(() => setEgresosLoading(false))
   }, [origen, fecha])
 
   useEffect(() => {
@@ -82,7 +142,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
 
   const cajaOrigen = cajas.find((c) => c.slug === origen)
   const fondoMonto = cajaOrigen ? fondoMontoParaCaja(cajaOrigen) : 100_000
-  const egresosTot = totalEgresosAprobados(egresosLista)
+  const egresosLista = egresosResumen?.solicitudes ?? []
+  const egresosTot = egresosResumen?.totales ?? { efectivo: 0, otros: 0 }
 
   const calc = useMemo(
     () =>
@@ -97,8 +158,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   )
 
   const concil = useMemo(() => {
-    const cierres = listCierres()
-    return cierres.then((all) => {
+    return listCierres().then((all) => {
       const cierre = getCierreFechaCaja(all, fecha, origen)
       const arqueoTotal = parseNum(arqueoEf) + parseNum(arqueoOt)
       return conciliarCierreTurno({ calc, cierre, arqueoTotal, tolerancia })
@@ -116,6 +176,22 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
 
   const adminSlug = cajas.find((c) => c.slug === 'admin')?.slug ?? 'admin'
   const cajaNombre = (s: string) => cajas.find((c) => c.slug === s)?.nombre ?? s
+  const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+
+  const onOrigenManual = (slug: string) => {
+    setOrigen(slug)
+    if (usuarioId && slug) setStoredCajaSlug(usuarioId, slug)
+    if (slug === cajaFondoDestino) {
+      setCajaFondoDestino(cajaFondoDestinoPorDefecto(slug, operativas))
+    }
+  }
+
+  const fuenteEgresosLabel = (fuente: EgresosDelDiaResumen['fuente']): string => {
+    if (fuente === 'solicitudes') return 'solicitudes aprobadas'
+    if (fuente === 'movimientos') return 'movimientos de egreso del día'
+    if (fuente === 'cierre') return 'cierre de caja del día'
+    return 'sin registros'
+  }
 
   const handlePdf = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -123,7 +199,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
       return
     }
     try {
-      const buf = await file.arrayBuffer()
+      const buf = (await file.arrayBuffer()).slice(0)
       const parsed = await parsePlanillaCajaPdf(buf, file.name)
       setPlanillaPreview(parsed)
       setPlanillaId(null)
@@ -135,6 +211,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
 
   const ejecutar = async () => {
     setMsg(null)
+    if (!origen) {
+      setMsg('No se pudo identificar tu caja. Pedí a administración que te agreguen en Maestros → Cajeras.')
+      return
+    }
     if (origen === cajaFondoDestino) {
       setMsg('La caja que recibe el fondo debe ser distinta a la de origen.')
       return
@@ -161,6 +241,14 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         const guardada = await savePlanillaImport(planillaPreview, slugOrigen, usuarioNombre, usuarioId)
         idPlanilla = guardada.id
         setPlanillaId(guardada.id)
+        const movs = planillaAllToMovimientos(
+          planillaPreview,
+          cajas,
+          slugOrigen,
+          usuarioNombre,
+          usuarioId
+        )
+        if (movs.length) await saveMovimientosBulk(movs)
       }
 
       const arqFondo = await getUltimoArqueoCaja(cajaFondoDestino, fecha)
@@ -223,17 +311,11 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   }
 
   return (
-    <div>
-      <div className="caja-cc-page-head">
-        <div>
-          <h2>Cierre de turno</h2>
-          <p>
-            Ejemplo: <strong>Rosa</strong> transfiere el <strong>fondo</strong> a <strong>Noelia</strong> y el{' '}
-            <strong>resto</strong> a <strong>Administración</strong> con PDF de transacciones. Debe cuadrar con
-            arqueo, egresos aprobados y cierre de caja.
-          </p>
-        </div>
-      </div>
+    <div className="caja-cc-cierre-turno">
+      <p className="caja-cc-intro caja-cc-sub">
+        Al cerrar el turno, el <strong>fondo</strong> pasa a la otra caja operativa y el <strong>resto</strong> va a
+        administración con el PDF de transacciones. Debe cuadrar con arqueo, egresos y cierre del día.
+      </p>
 
       <div className="caja-cc-card">
         <h3>1 · Arqueo y cajas</h3>
@@ -250,18 +332,37 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Caja que cierra (origen)
-            <select value={origen} onChange={(e) => setOrigen(e.target.value)}>
-              {cajas.filter((c) => c.slug !== 'admin').map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
+            {cajaResolviendo ? (
+              <input type="text" readOnly value="Identificando tu caja…" />
+            ) : cajaAutoAsignada ? (
+              <>
+                <input type="text" readOnly value={cajaNombre(origen)} />
+                <span className="caja-cc-field-hint">Asignada a tu usuario ({usuarioNombre}).</span>
+              </>
+            ) : (
+              <>
+                <select value={origen} onChange={(e) => onOrigenManual(e.target.value)} required>
+                  <option value="">Elegir caja…</option>
+                  {operativas.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+                <span className="caja-cc-field-hint">
+                  Tu usuario no está en Maestros; elegí la caja una vez y quedará guardada.
+                </span>
+              </>
+            )}
           </label>
           <label className="caja-cc-field">
-            Recibe el fondo (ej. Noelia)
-            <select value={cajaFondoDestino} onChange={(e) => setCajaFondoDestino(e.target.value)}>
-              {cajas.filter((c) => c.slug !== 'admin' && c.slug !== origen).map((c) => (
+            Recibe el fondo
+            <select
+              value={cajaFondoDestino}
+              onChange={(e) => setCajaFondoDestino(e.target.value)}
+              disabled={!origen}
+            >
+              {operativas.filter((c) => c.slug !== origen).map((c) => (
                 <option key={c.slug} value={c.slug}>
                   {c.nombre}
                 </option>
@@ -283,15 +384,43 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
 
       <div className="caja-cc-card">
         <h3>2 · Egresos del día</h3>
-        {hayEgresosPendientes(egresosLista) ? (
+        {egresosLoading ? (
+          <p className="caja-cc-help">Cargando egresos…</p>
+        ) : hayEgresosPendientes(egresosLista) ? (
           <p className="caja-cc-error">
             Hay egresos <strong>pendientes</strong> de aprobación por administración. No podés cerrar el turno hasta
             resolverlos (sección Egresos).
           </p>
         ) : (
-          <p className="caja-cc-ok">
-            Egresos aprobados en efectivo: $ {fmtArs(egresosTot.efectivo)} · otros: $ {fmtArs(egresosTot.otros)}
-          </p>
+          <>
+            <p className="caja-cc-ok">
+              Egresos aprobados en efectivo: <strong>$ {fmtArs(egresosTot.efectivo)}</strong> · otros:{' '}
+              <strong>$ {fmtArs(egresosTot.otros)}</strong>
+            </p>
+            {egresosResumen && (
+              <p className="caja-cc-help">
+                Fuente: {fuenteEgresosLabel(egresosResumen.fuente)}
+                {egresosResumen.fuente === 'solicitudes' &&
+                  ` (${egresosLista.filter((s) => s.estado === 'aprobado').length} solicitud/es)`}
+                {egresosResumen.fuente === 'movimientos' &&
+                  ` (${egresosResumen.movimientosEgreso.length} movimiento/s)`}
+                {egresosResumen.fuente === 'ninguno' &&
+                  ' — registrá egresos en la sección Egresos o cargá el cierre del día.'}
+              </p>
+            )}
+            {egresosLista.filter((s) => s.estado === 'aprobado').length > 0 && (
+              <ul className="caja-cc-egresos-mini-list">
+                {egresosLista
+                  .filter((s) => s.estado === 'aprobado')
+                  .slice(0, 6)
+                  .map((s) => (
+                    <li key={s.id}>
+                      {s.concepto} — $ {fmtArs(s.monto_efectivo + s.monto_otros)}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
 
@@ -319,7 +448,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
       <div className="caja-cc-card">
         <h3>4 · PDF planilla (obligatorio para administración)</h3>
         <p className="caja-cc-sub">Detalle de todas las transacciones del turno, como envían por email a administración.</p>
-        <button type="button" className="btn-secondary" onClick={() => fileRef.current?.click()}>
+        <button type="button" className="btn-secondary btn-small" onClick={() => fileRef.current?.click()}>
           Adjuntar PDF planilla
         </button>
         <input
@@ -360,7 +489,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         <button
           type="button"
           className="btn-primary"
-          disabled={saving || hayEgresosPendientes(egresosLista) || !planillaPreview}
+          disabled={saving || hayEgresosPendientes(egresosLista) || !planillaPreview || !origen}
           onClick={() => void ejecutar()}
         >
           {saving ? 'Registrando…' : 'Registrar cierre de turno'}
@@ -368,30 +497,47 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
       </div>
 
       {lotes.length > 0 && (
-        <div className="caja-cc-card">
-          <h3>Historial cierres de turno</h3>
-          <table className="caja-cc-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Origen</th>
-                <th>Fondo →</th>
-                <th className="num">Resto admin</th>
-                <th>Usuario</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lotes.map((l) => (
-                <tr key={l.id}>
-                  <td>{l.fecha}</td>
-                  <td>{cajaNombre(l.origen_slug)}</td>
-                  <td>{cajaNombre(l.caja_fondo_destino_slug)}</td>
-                  <td className="num">$ {fmtArs(l.resto_efectivo + l.resto_otros)}</td>
-                  <td>{l.usuario_nombre ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={`caja-cc-card caja-cc-card-collapsible${historialOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="caja-cc-card-collapsible-head"
+            onClick={() => setHistorialOpen((v) => !v)}
+            aria-expanded={historialOpen}
+          >
+            <span className="caja-cc-card-collapsible-chevron" aria-hidden>
+              {historialOpen ? '▼' : '▶'}
+            </span>
+            <h3>Historial cierres de turno</h3>
+            <span className="caja-cc-card-collapsible-badge">{lotes.length}</span>
+          </button>
+          {historialOpen && (
+            <div className="caja-cc-card-collapsible-body">
+              <div className="caja-cc-table-scroll">
+                <table className="caja-cc-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Origen</th>
+                      <th>Fondo →</th>
+                      <th className="num">Resto admin</th>
+                      <th>Usuario</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lotes.map((l) => (
+                      <tr key={l.id}>
+                        <td>{l.fecha}</td>
+                        <td>{cajaNombre(l.origen_slug)}</td>
+                        <td>{cajaNombre(l.caja_fondo_destino_slug)}</td>
+                        <td className="num">$ {fmtArs(l.resto_efectivo + l.resto_otros)}</td>
+                        <td>{l.usuario_nombre ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

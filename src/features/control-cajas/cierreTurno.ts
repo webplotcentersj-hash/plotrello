@@ -1,6 +1,12 @@
+import {
+  getCierreFechaCaja,
+  listCierres,
+  listEgresoSolicitudes,
+  listMovimientos
+} from './cajaRepository'
 import { calcularPaseTrazabilidad } from './paseCaja'
 import { FONDO_CAJA_BASE_MIN, fondoFijoEfectivo } from './fondoCaja'
-import type { CajaCierre, CajaEgresoSolicitud, CajaRegistro, CajaTransferenciaLote } from './types'
+import type { CajaCierre, CajaEgresoSolicitud, CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from './types'
 
 export type CierreTurnoInput = {
   arqueo_efectivo: number
@@ -195,4 +201,89 @@ export function totalEgresosAprobados(solicitudes: CajaEgresoSolicitud[]): {
 
 export function hayEgresosPendientes(solicitudes: CajaEgresoSolicitud[]): boolean {
   return solicitudes.some((s) => s.estado === 'pendiente')
+}
+
+export type EgresosDelDiaFuente = 'solicitudes' | 'movimientos' | 'cierre' | 'ninguno'
+
+export type EgresosDelDiaResumen = {
+  solicitudes: CajaEgresoSolicitud[]
+  totales: { efectivo: number; otros: number }
+  fuente: EgresosDelDiaFuente
+  movimientosEgreso: CajaMovimiento[]
+  cierreDia: CajaCierre | null
+}
+
+/** Totales de egresos del día: solicitudes aprobadas, o movimientos/cierre si no hay solicitudes. */
+export async function egresosDelDiaParaCierreTurno(
+  fecha: string,
+  cajaSlug: string
+): Promise<EgresosDelDiaResumen> {
+  const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
+  const fromSol = totalEgresosAprobados(solicitudes)
+  if (fromSol.efectivo > 0 || fromSol.otros > 0) {
+    return {
+      solicitudes,
+      totales: fromSol,
+      fuente: 'solicitudes',
+      movimientosEgreso: [],
+      cierreDia: null
+    }
+  }
+
+  const movs = await listMovimientos()
+  const movimientosEgreso = movs.filter((m) => {
+    if (m.fecha.slice(0, 10) !== fecha) return false
+    if (m.origen_slug !== cajaSlug) return false
+    if (m.tipo_movimiento === 'egreso') return true
+    if (/egreso/i.test(m.concepto)) return true
+    if (m.destino_slug === 'admin' && (m.efectivo > 0 || m.otros > 0)) {
+      return !/pase de caja|cierre de turno/i.test(m.concepto)
+    }
+    return false
+  })
+  const fromMov = {
+    efectivo: movimientosEgreso.reduce((s, m) => s + (m.efectivo || 0), 0),
+    otros: movimientosEgreso.reduce((s, m) => s + (m.otros || 0), 0)
+  }
+  if (fromMov.efectivo > 0 || fromMov.otros > 0) {
+    return {
+      solicitudes,
+      totales: fromMov,
+      fuente: 'movimientos',
+      movimientosEgreso,
+      cierreDia: null
+    }
+  }
+
+  const cierres = await listCierres()
+  const cierreDia = getCierreFechaCaja(cierres, fecha, cajaSlug)
+  if (cierreDia && cierreDia.egr_ef > 0) {
+    return {
+      solicitudes,
+      totales: {
+        efectivo: cierreDia.egr_ef || 0,
+        otros: 0
+      },
+      fuente: 'cierre',
+      movimientosEgreso: [],
+      cierreDia
+    }
+  }
+
+  return {
+    solicitudes,
+    totales: fromSol,
+    fuente: 'ninguno',
+    movimientosEgreso: [],
+    cierreDia: cierreDia ?? null
+  }
+}
+
+/** Otra caja operativa que recibe el fondo (distinta al origen). */
+export function cajaFondoDestinoPorDefecto(
+  origenSlug: string,
+  cajas: CajaRegistro[]
+): string {
+  const op = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.slug !== origenSlug)
+  return op[0]?.slug ?? ''
 }

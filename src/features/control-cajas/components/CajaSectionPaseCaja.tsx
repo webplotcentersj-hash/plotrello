@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  getParams,
   getUltimoArqueoCaja,
   listCajas,
   listMovimientos,
+  resolveCajaSlugForUsuario,
+  resolveCajaSlugFromHistorial,
   saveMovimiento
 } from '../cajaRepository'
+import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
+import { DEFAULT_CAJERAS } from '../constants'
 import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { calcularPaseTrazabilidad, validarPaseCaja } from '../paseCaja'
@@ -27,6 +32,9 @@ export default function CajaSectionPaseCaja({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [cajaResolviendo, setCajaResolviendo] = useState(soloMisPases)
+  const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
+  const [historialOpen, setHistorialOpen] = useState(false)
 
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [hora, setHora] = useState(() => new Date().toTimeString().slice(0, 5))
@@ -53,14 +61,69 @@ export default function CajaSectionPaseCaja({
     ])
     setCajas(c.filter((x) => x.slug !== 'vuelto'))
     setPases(m.filter((x) => x.concepto === 'Pase de caja'))
-    if (c.length && !origen) setOrigen(c.find((x) => x.slug !== 'admin')?.slug ?? c[0].slug)
-    if (c.length && !destino) setDestino(c.find((x) => x.slug === 'admin')?.slug ?? c[1]?.slug ?? c[0].slug)
     setLoading(false)
-  }, [soloMisPases, usuarioNombre, usuarioId, origen])
+  }, [soloMisPases, usuarioNombre, usuarioId])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (!soloMisPases) {
+      setCajaResolviendo(false)
+      return
+    }
+    let cancelled = false
+    setCajaResolviendo(true)
+
+    void Promise.all([listCajas(), getParams()]).then(async ([list, params]) => {
+      const operativas = list.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
+      if (cancelled) return
+
+      const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
+      let slug =
+        resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ?? ''
+
+      if (!slug && usuarioId) {
+        slug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? ''
+      }
+
+      if (cancelled) return
+      if (slug) {
+        setOrigen(slug)
+        setCajaAutoAsignada(true)
+        if (usuarioId) setStoredCajaSlug(usuarioId, slug)
+        setDestino((prev) => {
+          if (prev && prev !== slug) return prev
+          const admin = list.find((x) => x.slug === 'admin')?.slug
+          if (admin) return admin
+          return operativas.find((c) => c.slug !== slug)?.slug ?? ''
+        })
+      } else {
+        setCajaAutoAsignada(false)
+        if (operativas.length) {
+          const first = operativas[0].slug
+          setOrigen((prev) => prev || first)
+          setDestino((prev) => prev || (list.find((x) => x.slug === 'admin')?.slug ?? operativas[1]?.slug ?? ''))
+        }
+      }
+      setCajaResolviendo(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [soloMisPases, usuarioNombre, usuarioId])
+
+  useEffect(() => {
+    if (soloMisPases) return
+    if (cajas.length && !origen) {
+      setOrigen(cajas.find((x) => x.slug !== 'admin')?.slug ?? cajas[0].slug)
+    }
+    if (cajas.length && !destino) {
+      setDestino(cajas.find((x) => x.slug === 'admin')?.slug ?? cajas[1]?.slug ?? cajas[0].slug)
+    }
+  }, [soloMisPases, cajas, origen, destino])
 
   const sugerirDesdeArqueo = useCallback(
     async (slug: string, side: 'origen' | 'destino') => {
@@ -91,6 +154,16 @@ export default function CajaSectionPaseCaja({
     if (destino) void sugerirDesdeArqueo(destino, 'destino')
   }, [destino, fecha, sugerirDesdeArqueo])
 
+  useEffect(() => {
+    if (origen && destino === origen) {
+      const otro =
+        cajas.find((c) => c.slug === 'admin')?.slug ??
+        cajas.find((c) => c.slug !== origen && c.slug !== 'vuelto')?.slug ??
+        ''
+      if (otro) setDestino(otro)
+    }
+  }, [origen, destino, cajas])
+
   const calc = useMemo(
     () =>
       calcularPaseTrazabilidad({
@@ -107,6 +180,10 @@ export default function CajaSectionPaseCaja({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setMsg(null)
+    if (!origen) {
+      setMsg('Elegí la caja de origen.')
+      return
+    }
     if (origen === destino) {
       setMsg('Elegí cajas de origen y destino distintas.')
       return
@@ -155,17 +232,17 @@ export default function CajaSectionPaseCaja({
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
 
+  const onOrigenManual = (slug: string) => {
+    setOrigen(slug)
+    if (usuarioId && slug) setStoredCajaSlug(usuarioId, slug)
+  }
+
   return (
-    <div>
-      <div className="caja-cc-page-head">
-        <div>
-          <h2>Pase de caja</h2>
-          <p>
-            Registrá los montos que había en cada caja <strong>antes</strong> del pase, el monto transferido y el
-            saldo resultante. Queda historial con usuario, fecha y hora.
-          </p>
-        </div>
-      </div>
+    <div className="caja-cc-pase-section">
+      <p className="caja-cc-intro caja-cc-sub">
+        Registrá los montos que había en cada caja <strong>antes</strong> del pase, el monto transferido y el saldo
+        resultante. Queda historial con usuario, fecha y hora.
+      </p>
 
       <form className="caja-cc-card caja-cc-pase-form" onSubmit={(e) => void handleSubmit(e)}>
         <h3>Nuevo pase</h3>
@@ -186,26 +263,37 @@ export default function CajaSectionPaseCaja({
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Caja origen (sale el dinero)
-            <select value={origen} onChange={(e) => setOrigen(e.target.value)} required>
-              {cajas.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
+            {cajaResolviendo ? (
+              <input type="text" readOnly value="Identificando tu caja…" />
+            ) : cajaAutoAsignada ? (
+              <>
+                <input type="text" readOnly value={cajaNombre(origen)} />
+                <span className="caja-cc-field-hint">Asignada a tu usuario.</span>
+              </>
+            ) : (
+              <select value={origen} onChange={(e) => onOrigenManual(e.target.value)} required>
+                <option value="">Elegir…</option>
+                {cajas.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
             {hintOrigen && <span className="caja-cc-field-hint">{hintOrigen}</span>}
             <button
               type="button"
               className="btn-link caja-cc-pase-suggest"
               onClick={() => void sugerirDesdeArqueo(origen, 'origen')}
+              disabled={!origen}
             >
               Usar último arqueo →
             </button>
           </label>
           <label className="caja-cc-field">
             Caja destino (recibe el dinero)
-            <select value={destino} onChange={(e) => setDestino(e.target.value)} required>
-              {cajas.map((c) => (
+            <select value={destino} onChange={(e) => setDestino(e.target.value)} required disabled={!origen}>
+              {cajas.filter((c) => c.slug !== origen).map((c) => (
                 <option key={c.slug} value={c.slug}>
                   {c.nombre}
                 </option>
@@ -216,61 +304,66 @@ export default function CajaSectionPaseCaja({
               type="button"
               className="btn-link caja-cc-pase-suggest"
               onClick={() => void sugerirDesdeArqueo(destino, 'destino')}
+              disabled={!destino}
             >
               Usar último arqueo →
             </button>
           </label>
         </div>
 
-        <div className="caja-cc-pase-block">
-          <h4>En {cajaNombre(origen)} — antes del pase</h4>
-          <div className="caja-cc-grid-2">
-            <label className="caja-cc-field">
-              Efectivo en caja
-              <input
-                type="number"
-                step="0.01"
-                required
-                value={origenEfAntes}
-                onChange={(e) => setOrigenEfAntes(e.target.value)}
-                placeholder="Monto real contado"
-              />
-            </label>
-            <label className="caja-cc-field">
-              Tarjetas / otros
-              <input
-                type="number"
-                step="0.01"
-                value={origenOtAntes}
-                onChange={(e) => setOrigenOtAntes(e.target.value)}
-              />
-            </label>
+        {origen && (
+          <div className="caja-cc-pase-block">
+            <h4>En {cajaNombre(origen)} — antes del pase</h4>
+            <div className="caja-cc-grid-2">
+              <label className="caja-cc-field">
+                Efectivo en caja
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={origenEfAntes}
+                  onChange={(e) => setOrigenEfAntes(e.target.value)}
+                  placeholder="Monto real contado"
+                />
+              </label>
+              <label className="caja-cc-field">
+                Tarjetas / otros
+                <input
+                  type="number"
+                  step="0.01"
+                  value={origenOtAntes}
+                  onChange={(e) => setOrigenOtAntes(e.target.value)}
+                />
+              </label>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="caja-cc-pase-block">
-          <h4>En {cajaNombre(destino)} — antes del pase</h4>
-          <div className="caja-cc-grid-2">
-            <label className="caja-cc-field">
-              Efectivo en caja
-              <input
-                type="number"
-                step="0.01"
-                value={destinoEfAntes}
-                onChange={(e) => setDestinoEfAntes(e.target.value)}
-              />
-            </label>
-            <label className="caja-cc-field">
-              Tarjetas / otros
-              <input
-                type="number"
-                step="0.01"
-                value={destinoOtAntes}
-                onChange={(e) => setDestinoOtAntes(e.target.value)}
-              />
-            </label>
+        {destino && (
+          <div className="caja-cc-pase-block">
+            <h4>En {cajaNombre(destino)} — antes del pase</h4>
+            <div className="caja-cc-grid-2">
+              <label className="caja-cc-field">
+                Efectivo en caja
+                <input
+                  type="number"
+                  step="0.01"
+                  value={destinoEfAntes}
+                  onChange={(e) => setDestinoEfAntes(e.target.value)}
+                />
+              </label>
+              <label className="caja-cc-field">
+                Tarjetas / otros
+                <input
+                  type="number"
+                  step="0.01"
+                  value={destinoOtAntes}
+                  onChange={(e) => setDestinoOtAntes(e.target.value)}
+                />
+              </label>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="caja-cc-pase-block highlight">
           <h4>Monto del pase</h4>
@@ -311,28 +404,20 @@ export default function CajaSectionPaseCaja({
               <tr>
                 <td>{cajaNombre(origen)} (origen)</td>
                 <td className="num">$ {fmtArs(calc.origen_efectivo_antes + calc.origen_otros_antes)}</td>
-                <td className="num">
-                  − $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}
-                </td>
-                <td className="num">
-                  $ {fmtArs(calc.origen_efectivo_despues + calc.origen_otros_despues)}
-                </td>
+                <td className="num">− $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}</td>
+                <td className="num">$ {fmtArs(calc.origen_efectivo_despues + calc.origen_otros_despues)}</td>
               </tr>
               <tr>
                 <td>{cajaNombre(destino)} (destino)</td>
                 <td className="num">$ {fmtArs(calc.destino_efectivo_antes + calc.destino_otros_antes)}</td>
-                <td className="num">
-                  + $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}
-                </td>
-                <td className="num">
-                  $ {fmtArs(calc.destino_efectivo_despues + calc.destino_otros_despues)}
-                </td>
+                <td className="num">+ $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}</td>
+                <td className="num">$ {fmtArs(calc.destino_efectivo_despues + calc.destino_otros_despues)}</td>
               </tr>
             </tbody>
           </table>
           <p className="caja-cc-sub">
-            Efectivo origen: $ {fmtArs(calc.origen_efectivo_antes)} → $ {fmtArs(calc.origen_efectivo_despues)} ·
-            Destino: $ {fmtArs(calc.destino_efectivo_antes)} → $ {fmtArs(calc.destino_efectivo_despues)}
+            Efectivo origen: $ {fmtArs(calc.origen_efectivo_antes)} → $ {fmtArs(calc.origen_efectivo_despues)} · Destino:{' '}
+            $ {fmtArs(calc.destino_efectivo_antes)} → $ {fmtArs(calc.destino_efectivo_despues)}
           </p>
         </div>
 
@@ -344,23 +429,40 @@ export default function CajaSectionPaseCaja({
         {msg && <p className={msg.includes('registrado') ? 'caja-cc-ok' : 'caja-cc-error'}>{msg}</p>}
 
         <div className="caja-cc-actions">
-          <button type="submit" className="btn-primary" disabled={saving}>
+          <button type="submit" className="btn-primary" disabled={saving || !origen || !destino}>
             {saving ? 'Guardando…' : 'Registrar pase con trazabilidad'}
           </button>
         </div>
       </form>
 
-      <div className="caja-cc-card">
-        <h3>Historial de pases</h3>
-        {loading ? (
-          <p className="caja-cc-empty">Cargando…</p>
-        ) : (
-          <CajaMovimientosList
-            movimientos={pases}
-            cajas={cajas}
-            showUsuario={!soloMisPases}
-            showPaseTrazabilidad
-          />
+      <div className={`caja-cc-card caja-cc-card-collapsible${historialOpen ? ' is-open' : ''}`}>
+        <button
+          type="button"
+          className="caja-cc-card-collapsible-head"
+          onClick={() => setHistorialOpen((v) => !v)}
+          aria-expanded={historialOpen}
+        >
+          <span className="caja-cc-card-collapsible-chevron" aria-hidden>
+            {historialOpen ? '▼' : '▶'}
+          </span>
+          <h3>Historial de pases</h3>
+          <span className="caja-cc-card-collapsible-badge">
+            {loading ? '…' : pases.length}
+          </span>
+        </button>
+        {historialOpen && (
+          <div className="caja-cc-card-collapsible-body">
+            {loading ? (
+              <p className="caja-cc-empty">Cargando…</p>
+            ) : (
+              <CajaMovimientosList
+                movimientos={pases}
+                cajas={cajas}
+                showUsuario={!soloMisPases}
+                showPaseTrazabilidad
+              />
+            )}
+          </div>
         )}
       </div>
     </div>

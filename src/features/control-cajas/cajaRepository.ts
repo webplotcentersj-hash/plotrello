@@ -941,6 +941,36 @@ export async function getPlanillaById(id: string): Promise<PlanillaCajaParsed | 
 }
 
 export async function listPlanillas(limit = 10): Promise<PlanillaCajaGuardada[]> {
+  const mapRow = (r: Record<string, unknown>): PlanillaCajaGuardada => {
+    const datos = (r.datos as Record<string, unknown> | null) ?? null
+    const ventas = Array.isArray(datos?.ventas)
+      ? datos!.ventas.length
+      : Number(datos?.cantidad_ventas) || 0
+    const egresos =
+      (Array.isArray(datos?.egresos) ? datos!.egresos.length : 0) +
+      (Array.isArray(datos?.egresos_compras) ? datos!.egresos_compras.length : 0) +
+      (Array.isArray(datos?.egresos_pagos_proveedores) ? datos!.egresos_pagos_proveedores.length : 0)
+    const mec = Array.isArray(datos?.movimientos_mec) ? datos!.movimientos_mec.length : 0
+    return {
+      id: String(r.id),
+      archivo_nombre: String(r.archivo_nombre),
+      fecha_desde: r.fecha_desde ? String(r.fecha_desde).slice(0, 10) : '',
+      fecha_hasta: r.fecha_hasta ? String(r.fecha_hasta).slice(0, 10) : '',
+      caja_nombre: String(r.caja_nombre),
+      caja_slug: r.caja_slug != null ? String(r.caja_slug) : null,
+      totales: (r.totales as Record<string, number>) ?? null,
+      resumen: {
+        cantidad_ventas: ventas,
+        cantidad_egresos: egresos,
+        cantidad_mec: mec
+      },
+      id_usuario: r.id_usuario as number | null | undefined,
+      usuario_nombre: r.usuario_nombre as string | null | undefined,
+      created_at: r.created_at as string | undefined,
+      datos
+    }
+  }
+
   if (await checkRemote()) {
     const { data, error } = await supabase!
       .from('control_caja_planillas')
@@ -948,28 +978,19 @@ export async function listPlanillas(limit = 10): Promise<PlanillaCajaGuardada[]>
       .order('created_at', { ascending: false })
       .limit(limit)
     if (!error && data) {
-      return data.map((r) => ({
-        id: String(r.id),
-        archivo_nombre: String(r.archivo_nombre),
-        fecha_desde: r.fecha_desde ? String(r.fecha_desde).slice(0, 10) : '',
-        fecha_hasta: r.fecha_hasta ? String(r.fecha_hasta).slice(0, 10) : '',
-        caja_nombre: String(r.caja_nombre),
-        caja_slug: r.caja_slug != null ? String(r.caja_slug) : null,
-        totales: (r.totales as Record<string, number>) ?? null,
-        resumen: {
-          cantidad_ventas: Number((r.datos as { ventas_count?: number })?.ventas_count) || 0,
-          cantidad_egresos: Number((r.datos as { egresos_count?: number })?.egresos_count) || 0,
-          cantidad_mec: Array.isArray((r.datos as { mec?: unknown })?.mec)
-            ? (r.datos as { mec: unknown[] }).mec.length
-            : 0
-        },
-        id_usuario: r.id_usuario,
-        usuario_nombre: r.usuario_nombre,
-        created_at: r.created_at
-      }))
+      return data.map((r) => mapRow(r as Record<string, unknown>))
     }
   }
-  return readLocal().planillas.slice(0, limit)
+  return readLocal()
+    .planillas.slice(0, limit)
+    .map((p) => {
+      const ext = p as PlanillaCajaGuardada & { datos?: Record<string, unknown> }
+      return mapRow({
+        ...ext,
+        id: ext.id,
+        datos: ext.datos ?? null
+      } as Record<string, unknown>)
+    })
 }
 
 // —— Cajas (maestros) ——

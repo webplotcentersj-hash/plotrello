@@ -63,6 +63,7 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
   const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
   const [snapshot, setSnapshot] = useState<Record<string, unknown> | null>(null)
   const [movsVinculados, setMovsVinculados] = useState<CajaMovimiento[]>([])
+  const [idPlanilla, setIdPlanilla] = useState<string | null>(null)
 
   useEffect(() => {
     void Promise.all([listCajas(), getParams()]).then(([c, p]) => {
@@ -89,6 +90,7 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
       setObservacion(c.observacion ?? '')
       setEstadoCierre(c.estado_cierre ?? 'abierto')
       setSnapshot(c.snapshot_totales ?? null)
+      setIdPlanilla(c.id_planilla ?? null)
       if (c.estado_cierre === 'cerrado' || c.estado_cierre === 'observado') {
         void listMovimientosPorCierre(c.id).then(setMovsVinculados)
       } else {
@@ -156,11 +158,12 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
         resolveCajaSlug(p.caja_nombre, cajas) === cajaSlug
     )
     if (!match) {
-      setMsg('No hay planilla PDF guardada para esta fecha/caja. Subila en Movimientos primero.')
+      setMsg('No hay planilla PDF guardada para esta fecha/caja. Importala arriba o elegila en «Planillas recibidas de caja».')
       return
     }
 
     const full = await getPlanillaById(match.id)
+    setIdPlanilla(match.id)
     if (full) {
       const precarga = cierrePrecargaDesdePlanilla(full)
       setForm((prev) => ({
@@ -223,7 +226,7 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
           cajera: cajera || null,
           email_ok: emailOk,
           observacion: observacion || null,
-          id_planilla: null
+          id_planilla: idPlanilla
         },
         calc
       )

@@ -29,6 +29,7 @@ export default function CajaImportPlanillaPdf({
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [verLineas, setVerLineas] = useState(true)
+  const [lineSearch, setLineSearch] = useState('')
   const [useAi, setUseAi] = useState(() => isPlanillaAiAvailable())
   const iaDisponible = isPlanillaAiAvailable()
 
@@ -47,6 +48,7 @@ export default function CajaImportPlanillaPdf({
     setErr(null)
     setPreviewAndNotify(null)
     setVerLineas(true)
+    setLineSearch('')
     try {
       const buf = (await file.arrayBuffer()).slice(0)
       const parsed = await parsePlanillaCajaPdf(buf, file.name, { useAi })
@@ -97,7 +99,7 @@ export default function CajaImportPlanillaPdf({
 
       const r = resumenImportacion(movs)
       setMsg(
-        `Planilla guardada (${guardada.id.slice(0, 8)}…). Subidos: ${r.ventas} ventas, ${r.ingresos - r.ventas} otros ingresos, ${r.egresos} egresos, ${r.traspasos} traspasos (${r.total} movimientos). Los datos quedan en movimientos, cierre y concordancia.`
+        `Planilla guardada (${guardada.id.slice(0, 8)}…). Subidos: ${r.ventas} ventas, ${r.ingresos - r.ventas} otros ingresos, ${r.egresos} egresos, ${r.traspasos} traspasos (${r.total} movimientos). Administración ve el mismo detalle en Tablero / Cierres.`
       )
       setPreviewAndNotify(null)
       onImported?.()
@@ -121,8 +123,34 @@ export default function CajaImportPlanillaPdf({
       preview.movimientos_mec.length
     : 0
 
+  const qLine = lineSearch.trim()
+  const lineasCoinciden = (arr: { comprobante: string; concepto: string }[]) =>
+    !qLine ||
+    arr.some(
+      (row) =>
+        row.comprobante.toLowerCase().includes(qLine.toLowerCase()) ||
+        row.concepto.toLowerCase().includes(qLine.toLowerCase())
+    )
+  const hayCoincidenciasLineas =
+    !qLine ||
+    lineasCoinciden(preview?.ingresos_varios ?? []) ||
+    lineasCoinciden(preview?.ventas ?? []) ||
+    lineasCoinciden(preview?.ingresos_pagos_clientes ?? []) ||
+    lineasCoinciden(preview?.egresos ?? []) ||
+    lineasCoinciden(preview?.egresos_compras ?? []) ||
+    lineasCoinciden(preview?.egresos_pagos_proveedores ?? []) ||
+    lineasCoinciden(preview?.movimientos_mec ?? [])
+
   return (
-    <section className="caja-cc-planilla-zone" aria-label="Importar planilla PDF">
+    <section className="caja-cc-planilla-zone caja-cc-planilla-import" aria-label="Importar planilla PDF">
+      <header className="caja-cc-planilla-zone-head">
+        <div>
+          <h3 className="caja-cc-planilla-zone-title">Planilla PDF · PLOT CENTER</h3>
+          <p className="caja-cc-sub caja-cc-planilla-zone-lead">
+            Importá el listado exportado: ventas, ingresos, egresos y MEC con medios de pago para movimientos y cierre.
+          </p>
+        </div>
+      </header>
       <input
         ref={fileRef}
         type="file"
@@ -276,23 +304,62 @@ export default function CajaImportPlanillaPdf({
             </>
           )}
 
-          <button
-            type="button"
-            className="caja-cc-planilla-toggle-detail"
-            onClick={() => setVerLineas((v) => !v)}
-          >
-            {verLineas ? 'Ocultar todas las líneas' : `Ver las ${totalLineas} líneas del PDF`}
-          </button>
+          <div className="caja-cc-planilla-lineas-toolbar">
+            <button
+              type="button"
+              className="caja-cc-planilla-toggle-detail"
+              onClick={() => setVerLineas((v) => !v)}
+            >
+              {verLineas ? 'Ocultar todas las líneas' : `Ver las ${totalLineas} líneas del PDF`}
+            </button>
+            {verLineas && (
+              <label className="caja-cc-search caja-cc-search--inline">
+                <span className="caja-cc-search-icon" aria-hidden>
+                  ⌕
+                </span>
+                <input
+                  type="search"
+                  className="caja-cc-search-input"
+                  placeholder="Buscar comprobante o concepto…"
+                  value={lineSearch}
+                  onChange={(e) => setLineSearch(e.target.value)}
+                  aria-label="Buscar en líneas del PDF"
+                />
+              </label>
+            )}
+          </div>
 
           {verLineas && (
             <div className="caja-cc-planilla-lineas-all">
-              <PlanillaLineasTable title="Ingresos varios (IV)" lineas={preview.ingresos_varios} />
-              <PlanillaLineasTable title="Ventas (FA / FB)" lineas={preview.ventas} />
-              <PlanillaLineasTable title="Pagos de clientes (IPC)" lineas={preview.ingresos_pagos_clientes} />
-              <PlanillaLineasTable title="Egresos varios" lineas={preview.egresos} />
-              <PlanillaLineasTable title="Compras" lineas={preview.egresos_compras} />
-              <PlanillaLineasTable title="Pagos a proveedores" lineas={preview.egresos_pagos_proveedores} />
-              <PlanillaLineasTable title="Movimientos entre cajas (MEC)" lineas={preview.movimientos_mec} />
+              {!hayCoincidenciasLineas ? (
+                <p className="caja-cc-empty">Ninguna línea coincide con «{qLine}».</p>
+              ) : (
+                <>
+                  <PlanillaLineasTable
+                    title="Ingresos varios (IV)"
+                    lineas={preview.ingresos_varios}
+                    searchQuery={lineSearch}
+                  />
+                  <PlanillaLineasTable title="Ventas (FA / FB)" lineas={preview.ventas} searchQuery={lineSearch} />
+                  <PlanillaLineasTable
+                    title="Pagos de clientes (IPC)"
+                    lineas={preview.ingresos_pagos_clientes}
+                    searchQuery={lineSearch}
+                  />
+                  <PlanillaLineasTable title="Egresos varios" lineas={preview.egresos} searchQuery={lineSearch} />
+                  <PlanillaLineasTable title="Compras" lineas={preview.egresos_compras} searchQuery={lineSearch} />
+                  <PlanillaLineasTable
+                    title="Pagos a proveedores"
+                    lineas={preview.egresos_pagos_proveedores}
+                    searchQuery={lineSearch}
+                  />
+                  <PlanillaLineasTable
+                    title="Movimientos entre cajas (MEC)"
+                    lineas={preview.movimientos_mec}
+                    searchQuery={lineSearch}
+                  />
+                </>
+              )}
             </div>
           )}
 

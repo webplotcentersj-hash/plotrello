@@ -8,17 +8,30 @@ type Props = {
   lineas: Linea[]
   /** Máximo de filas; `null` = mostrar todas las líneas del PDF. */
   maxRows?: number | null
+  /** Filtra por comprobante o concepto (insensible a mayúsculas). */
+  searchQuery?: string
 }
 
-export default function PlanillaLineasTable({ title, lineas, maxRows = null }: Props) {
+export default function PlanillaLineasTable({ title, lineas, maxRows = null, searchQuery = '' }: Props) {
+  const q = searchQuery.trim().toLowerCase()
+  const filtered = q
+    ? lineas.filter(
+        (row) =>
+          row.comprobante.toLowerCase().includes(q) || row.concepto.toLowerCase().includes(q)
+      )
+    : lineas
   if (!lineas.length) return null
-  const shown = maxRows == null ? lineas : lineas.slice(0, maxRows)
-  const rest = lineas.length - shown.length
+  if (!filtered.length) return null
+  const shown = maxRows == null ? filtered : filtered.slice(0, maxRows)
+  const rest = filtered.length - shown.length
 
   return (
     <div className="caja-cc-planilla-lineas">
       <h4>
-        {title} <span className="caja-cc-tag">({lineas.length})</span>
+        {title}{' '}
+        <span className="caja-cc-tag">
+          ({q ? `${filtered.length}/${lineas.length}` : lineas.length})
+        </span>
       </h4>
       <div className="caja-cc-table-scroll">
         <table className="caja-cc-table caja-cc-table-compact caja-cc-planilla-lineas-table">

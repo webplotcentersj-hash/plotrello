@@ -25,6 +25,7 @@ import CajaSectionConfig from './CajaSectionConfig'
 import CajaPlotAI from './CajaPlotAI'
 import CajaCentroInteligente from './CajaCentroInteligente'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaPlanillasRecibidasPanel from './CajaPlanillasRecibidasPanel'
 import CajaInteligenciaBar from './CajaInteligenciaBar'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import '../../../pages/CajaDashboardPage.css'
@@ -110,17 +111,27 @@ export default function ControlCajasModule() {
   const showPageTitle =
     section !== 'tablero_admin' && section !== 'centro_ia' && section !== 'cierres_new'
 
+  const SECCIONES_PLANILLA: CajaSectionId[] = [
+    'arqueo',
+    'movimientos',
+    'movimientos_admin',
+    'tablero_admin',
+    'cierres_new',
+    'cierres'
+  ]
+
   const goSection = (s: CajaSectionId) => {
     setEditCierreId(null)
     setSection(s)
-    if (s !== 'arqueo' && s !== 'movimientos' && s !== 'movimientos_admin') setPlanillaActiva(null)
+    if (!SECCIONES_PLANILLA.includes(s)) setPlanillaActiva(null)
   }
 
-  const seccionConPlanilla =
-    section === 'arqueo' || section === 'movimientos' || section === 'movimientos_admin'
+  const seccionConPlanilla = SECCIONES_PLANILLA.includes(section)
+  const adminVePlanillasRecibidas =
+    isAdmin && (section === 'tablero_admin' || section === 'cierres_new' || section === 'cierres')
 
   const panelPlanillaIntel = seccionConPlanilla ? (
-    <>
+    <section className="caja-cc-planilla-hub" aria-label="Planilla PDF y concordancia">
       <CajaCentroInteligente
         isAdmin={isAdmin}
         usuarioNombre={usuarioEtiqueta}
@@ -140,7 +151,13 @@ export default function ControlCajasModule() {
           bumpRefresh()
         }}
       />
-    </>
+      {adminVePlanillasRecibidas && (
+        <CajaPlanillasRecibidasPanel
+          titulo="Planillas recibidas de caja (mismo detalle que el PDF)"
+          onPlanillaLoaded={setPlanillaActiva}
+        />
+      )}
+    </section>
   ) : null
 
   const showIntelBar =
@@ -228,15 +245,7 @@ export default function ControlCajasModule() {
 
           {section === 'tablero_admin' && isAdmin && (
             <>
-              <CajaCentroInteligente
-                isAdmin
-                usuarioNombre={usuarioEtiqueta}
-                usuarioId={usuarioId}
-                onNavigate={goSection}
-                compact
-                collapsible
-                defaultExpanded={false}
-              />
+              {panelPlanillaIntel}
               <CajaTableroAdmin
                 onNuevoCierre={() => {
                   setEditCierreId(null)
@@ -257,31 +266,37 @@ export default function ControlCajasModule() {
           )}
 
           {section === 'cierres_new' && isAdmin && (
-            <CajaSectionCierreForm
-              editId={editCierreId}
-              onSaved={() => {
-                setEditCierreId(null)
-                bumpRefresh()
-                setSection('cierres')
-              }}
-              onCancel={() => {
-                setEditCierreId(null)
-                setSection('cierres')
-              }}
-            />
+            <>
+              {panelPlanillaIntel}
+              <CajaSectionCierreForm
+                editId={editCierreId}
+                onSaved={() => {
+                  setEditCierreId(null)
+                  bumpRefresh()
+                  setSection('cierres')
+                }}
+                onCancel={() => {
+                  setEditCierreId(null)
+                  setSection('cierres')
+                }}
+              />
+            </>
           )}
 
           {section === 'cierres' && isAdmin && (
-            <CajaSectionCierresList
-              onNuevo={() => {
-                setEditCierreId(null)
-                setSection('cierres_new')
-              }}
-              onEditar={(id) => {
-                setEditCierreId(id)
-                setSection('cierres_new')
-              }}
-            />
+            <>
+              {panelPlanillaIntel}
+              <CajaSectionCierresList
+                onNuevo={() => {
+                  setEditCierreId(null)
+                  setSection('cierres_new')
+                }}
+                onEditar={(id) => {
+                  setEditCierreId(id)
+                  setSection('cierres_new')
+                }}
+              />
+            </>
           )}
 
           {section === 'tablero' && isAdmin && <CajaSectionTablero canViewIngresos={canViewIngresos} />}
