@@ -1,8 +1,16 @@
 import { supabase } from '../../services/supabaseClient'
 import { DEFAULT_CAJAS, DEFAULT_PARAMS, LS_KEY } from './constants'
 import { getPlotlabLoginKeys, getStoredCajaSlug } from './cajaUsuarioDisplay'
+import { cierreFromCalculado } from './cierreCalculations'
 import { fondoFijoEfectivo } from './fondoCaja'
 import { newId } from './format'
+import {
+  calcularTotalesCaja,
+  cierreCerrado,
+  enrichCierreFromTotales,
+  movimientosEnPeriodoCaja,
+  snapshotTotalesCierre
+} from './movimientoCaja'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import type {
   CajaArqueo,
@@ -16,12 +24,15 @@ import type {
   CajaParams,
   CajaRegistro,
   CajaTransferenciaLote,
+  CajaTraspaso,
+  CajaTraspasoEstado,
   PlanillaCajaGuardada
 } from './types'
 
 type LocalStore = {
   cajas: CajaRegistro[]
   arqueos: CajaArqueo[]
+  traspasos: CajaTraspaso[]
   movimientos: CajaMovimiento[]
   planillas: PlanillaCajaGuardada[]
   cierres: CajaCierre[]
@@ -54,6 +65,7 @@ function readLocal(): LocalStore {
       return {
         cajas: parsed.cajas?.length ? parsed.cajas : [...DEFAULT_CAJAS],
         arqueos: parsed.arqueos ?? [],
+        traspasos: parsed.traspasos ?? [],
         movimientos: parsed.movimientos ?? [],
         planillas: parsed.planillas ?? [],
         cierres: parsed.cierres ?? [],
@@ -71,6 +83,7 @@ function readLocal(): LocalStore {
   return {
     cajas: [...DEFAULT_CAJAS],
     arqueos: [],
+    traspasos: [],
     movimientos: [],
     planillas: [],
     cierres: [],
@@ -152,6 +165,7 @@ export async function getUltimoArqueoCaja(
 }
 
 function mapArqueoRow(r: Record<string, unknown>): CajaArqueo {
+  const est = r.estado_arqueo
   return {
     id: String(r.id),
     fecha: String(r.fecha).slice(0, 10),
@@ -161,6 +175,14 @@ function mapArqueoRow(r: Record<string, unknown>): CajaArqueo {
     usuario_nombre: r.usuario_nombre != null ? String(r.usuario_nombre) : null,
     billetes: (r.billetes as Record<string, number>) ?? {},
     total: Number(r.total) || 0,
+    teorico_fisico: numOrNull(r.teorico_fisico) ?? numOrNull((r.saldos as Record<string, unknown>)?.teorico_fisico),
+    diferencia: numOrNull(r.diferencia),
+    estado_arqueo:
+      est === 'correcto' || est === 'sobrante' || est === 'faltante' ? est : null,
+    saldos:
+      r.saldos != null && typeof r.saldos === 'object'
+        ? (r.saldos as Record<string, unknown>)
+        : null,
     firma_data_url: r.firma_data_url != null ? String(r.firma_data_url) : null,
     created_at: r.created_at != null ? String(r.created_at) : undefined
   }
@@ -182,6 +204,9 @@ export async function saveArqueo(
       usuario_nombre: arqueo.usuario_nombre ?? null,
       billetes: arqueo.billetes,
       total: arqueo.total,
+      diferencia: arqueo.diferencia ?? null,
+      estado_arqueo: arqueo.estado_arqueo ?? null,
+      saldos: arqueo.saldos ?? null,
       firma_data_url: arqueo.firma_data_url ?? null
     }
     const { error } = await supabase!.from('control_caja_arqueos').upsert(row)
@@ -194,6 +219,121 @@ export async function saveArqueo(
   else store.arqueos.push(record)
   writeLocal(store)
   return record
+}
+
+// —— Traspasos entre cajas ——
+
+function mapTraspasoRow(r: Record<string, unknown>): CajaTraspaso {
+  const est = r.estado
+  return {
+    id: String(r.id),
+    fecha: String(r.fecha).slice(0, 10),
+    caja_origen_slug: String(r.caja_origen_slug),
+    caja_destino_slug: String(r.caja_destino_slug),
+    id_usuario: r.id_usuario != null ? Number(r.id_usuario) : null,
+    usuario_nombre: r.usuario_nombre != null ? String(r.usuario_nombre) : null,
+    comprobante: r.comprobante != null ? String(r.comprobante) : null,
+    monto_total: Number(r.monto_total) || 0,
+    efectivo: Number(r.efectivo) || 0,
+    tarjeta: Number(r.tarjeta) || 0,
+    transferencia_bancaria: Number(r.transferencia_bancaria) || 0,
+    cheque: Number(r.cheque) || 0,
+    documento: Number(r.documento) || 0,
+    otros: Number(r.otros) || 0,
+    estado:
+      est === 'confirmado' || est === 'anulado' ? est : 'pendiente',
+    observacion: r.observacion != null ? String(r.observacion) : null,
+    created_at: r.created_at != null ? String(r.created_at) : undefined,
+    updated_at: r.updated_at != null ? String(r.updated_at) : undefined
+  }
+}
+
+export async function listTraspasos(opts?: {
+  estado?: CajaTraspasoEstado
+  cajaSlug?: string
+}): Promise<CajaTraspaso[]> {
+  if (await checkRemote()) {
+    let q = supabase!.from('control_caja_traspasos').select('*').order('fecha', { ascending: false })
+    if (opts?.estado) q = q.eq('estado', opts.estado)
+    const { data, error } = await q
+    if (!error && data) {
+      let list = data.map(mapTraspasoRow)
+      if (opts?.cajaSlug) {
+        list = list.filter(
+          (t) => t.caja_origen_slug === opts.cajaSlug || t.caja_destino_slug === opts.cajaSlug
+        )
+      }
+      return list
+    }
+  }
+  let list = readLocal().traspasos
+  if (opts?.estado) list = list.filter((t) => t.estado === opts.estado)
+  if (opts?.cajaSlug) {
+    list = list.filter(
+      (t) => t.caja_origen_slug === opts.cajaSlug || t.caja_destino_slug === opts.cajaSlug
+    )
+  }
+  return [...list].sort((a, b) => b.fecha.localeCompare(a.fecha))
+}
+
+export async function saveTraspaso(
+  traspaso: Omit<CajaTraspaso, 'created_at' | 'updated_at'> & { id?: string }
+): Promise<CajaTraspaso> {
+  const id = traspaso.id ?? newId()
+  const record: CajaTraspaso = {
+    ...traspaso,
+    id,
+    updated_at: new Date().toISOString()
+  }
+
+  if (await checkRemote()) {
+    const { error } = await supabase!.from('control_caja_traspasos').upsert({
+      id,
+      fecha: traspaso.fecha,
+      caja_origen_slug: traspaso.caja_origen_slug,
+      caja_destino_slug: traspaso.caja_destino_slug,
+      id_usuario: traspaso.id_usuario ?? null,
+      usuario_nombre: traspaso.usuario_nombre ?? null,
+      comprobante: traspaso.comprobante ?? null,
+      monto_total: traspaso.monto_total,
+      efectivo: traspaso.efectivo,
+      tarjeta: traspaso.tarjeta,
+      transferencia_bancaria: traspaso.transferencia_bancaria,
+      cheque: traspaso.cheque,
+      documento: traspaso.documento,
+      otros: traspaso.otros,
+      estado: traspaso.estado,
+      observacion: traspaso.observacion ?? null,
+      updated_at: record.updated_at
+    })
+    if (!error) return record
+  }
+
+  const store = readLocal()
+  const idx = store.traspasos.findIndex((t) => t.id === id)
+  if (idx >= 0) store.traspasos[idx] = record
+  else store.traspasos.unshift(record)
+  writeLocal(store)
+  return record
+}
+
+export async function setTraspasoEstado(
+  id: string,
+  estado: CajaTraspasoEstado
+): Promise<CajaTraspaso> {
+  const list = await listTraspasos()
+  const t = list.find((x) => x.id === id)
+  if (!t) throw new Error('Traspaso no encontrado')
+
+  const updated = await saveTraspaso({ ...t, estado })
+
+  const movs = await listMovimientos()
+  const linked = movs.filter((m) => m.traspaso_id === id)
+  for (const m of linked) {
+    await saveMovimiento({ ...m, anulado: estado === 'anulado' })
+  }
+
+  return updated
 }
 
 export async function deleteArqueo(id: string): Promise<void> {
@@ -955,7 +1095,98 @@ export async function saveCierre(
   return record
 }
 
+export async function vincularMovimientosAlCierre(
+  cierreId: string,
+  cajaSlug: string,
+  fechaDesde: string,
+  fechaHasta: string,
+  movimientos: CajaMovimiento[]
+): Promise<number> {
+  const delPeriodo = movimientosEnPeriodoCaja(movimientos, cajaSlug, fechaDesde, fechaHasta)
+  let vinculados = 0
+  for (const m of delPeriodo) {
+    if (m.cierre_id === cierreId) continue
+    if (m.cierre_id) {
+      const otro = await getCierre(m.cierre_id)
+      if (otro && cierreCerrado(otro)) {
+        throw new Error(
+          `El movimiento ${m.nro_comprobante ?? m.id.slice(0, 8)} ya pertenece a otro cierre cerrado.`
+        )
+      }
+    }
+    await saveMovimiento({ ...m, cierre_id: cierreId })
+    vinculados++
+  }
+  return vinculados
+}
+
+export async function desvincularMovimientosCierre(cierreId: string): Promise<void> {
+  const movs = await listMovimientos()
+  for (const m of movs.filter((x) => x.cierre_id === cierreId)) {
+    await saveMovimiento({ ...m, cierre_id: null })
+  }
+}
+
+export async function listMovimientosPorCierre(cierreId: string): Promise<CajaMovimiento[]> {
+  const movs = await listMovimientos()
+  return movs.filter((m) => m.cierre_id === cierreId)
+}
+
+export async function cerrarCierreDefinitivo(
+  cierreId: string,
+  movimientos: CajaMovimiento[],
+  opts?: { observado?: boolean; tolerancia?: number }
+): Promise<CajaCierre> {
+  const c = await getCierre(cierreId)
+  if (!c) throw new Error('Cierre no encontrado')
+  if (cierreCerrado(c)) throw new Error('Este cierre ya está cerrado y no se puede modificar.')
+
+  const hasta = c.fecha_hasta ?? c.fecha
+  const totales = calcularTotalesCaja(movimientos, c.caja_slug, c.fecha, hasta)
+  const calc = enrichCierreFromTotales(
+    {
+      fondo_fijo: c.fondo_fijo,
+      ing_ef: c.ing_ef,
+      egr_ef: c.egr_ef,
+      ef_contado: c.ef_contado,
+      tarj_sist: c.tarj_sist,
+      tarj_fis: c.tarj_fis,
+      mp_qr: c.mp_qr,
+      trans: c.trans,
+      cta_cte: c.cta_cte
+    },
+    totales,
+    opts?.tolerancia ?? 0
+  )
+
+  const vinculados = await vincularMovimientosAlCierre(cierreId, c.caja_slug, c.fecha, hasta, movimientos)
+
+  const payload = cierreFromCalculado(
+    {
+      fecha: c.fecha,
+      caja_slug: c.caja_slug,
+      turno: c.turno,
+      cajera: c.cajera,
+      email_ok: c.email_ok,
+      observacion: c.observacion,
+      id_planilla: c.id_planilla
+    },
+    calc
+  )
+
+  return saveCierre({
+    ...payload,
+    id: cierreId,
+    fecha_hasta: hasta,
+    estado_cierre: opts?.observado ? 'observado' : 'cerrado',
+    snapshot_totales: snapshotTotalesCierre(c.caja_slug, c.fecha, hasta, movimientos, {
+      movimientos_vinculados: vinculados
+    })
+  })
+}
+
 export async function deleteCierre(id: string): Promise<void> {
+  await desvincularMovimientosCierre(id)
   if (await checkRemote()) {
     const { error } = await supabase!.from('control_caja_cierres').delete().eq('id', id)
     if (!error) return

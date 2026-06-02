@@ -65,6 +65,8 @@ export default function CajaMovimientosList({
                   : m.origen_importacion === 'excel'
                     ? ' · Excel'
                     : ''}
+                {m.anulado ? ' · Anulado' : ''}
+                {m.cierre_id ? ' · En cierre cerrado' : ''}
               </div>
               {m.observacion && <div className="caja-cc-meta italic">{m.observacion}</div>}
               {showPaseTrazabilidad && paseTieneTrazabilidad(m) && (
@@ -90,7 +92,7 @@ export default function CajaMovimientosList({
             </div>
             <div className="caja-cc-timeline-end">
               <div className="caja-cc-amount">$ {fmtArs(tot)}</div>
-              {onDelete && (
+              {onDelete && !m.cierre_id && !m.anulado && (
                 <button type="button" className="btn-small danger" onClick={() => onDelete(m.id)}>
                   Eliminar
                 </button>

@@ -49,7 +49,8 @@ export default function CajaSectionCierresList({ onNuevo, onEditar }: Props) {
                 <th>Cajera</th>
                 <th className="num">Total ventas</th>
                 <th className="num">Diferencia</th>
-                <th>Estado</th>
+                <th>Cuadre</th>
+                <th>Cierre</th>
                 <th />
               </tr>
             </thead>
@@ -64,21 +65,32 @@ export default function CajaSectionCierresList({ onNuevo, onEditar }: Props) {
                   <td>
                     <CajaBadge estado={c.estado} />
                   </td>
+                  <td>
+                    <span className={`caja-cc-tag ${c.estado_cierre === 'cerrado' ? 'ok' : c.estado_cierre === 'observado' ? 'warn' : ''}`}>
+                      {c.estado_cierre === 'cerrado'
+                        ? 'Cerrado'
+                        : c.estado_cierre === 'observado'
+                          ? 'Observado'
+                          : 'Abierto'}
+                    </span>
+                  </td>
                   <td className="caja-cc-actions-cell">
                     <button type="button" className="btn-small" onClick={() => onEditar(c.id)}>
-                      Editar
+                      {c.estado_cierre === 'cerrado' || c.estado_cierre === 'observado' ? 'Ver' : 'Editar'}
                     </button>
-                    <button
-                      type="button"
-                      className="btn-small danger"
-                      onClick={() => {
-                        if (confirm('¿Eliminar este cierre?')) {
-                          void deleteCierre(c.id).then(reload)
-                        }
-                      }}
-                    >
-                      Eliminar
-                    </button>
+                    {(c.estado_cierre === 'abierto' || !c.estado_cierre) && (
+                      <button
+                        type="button"
+                        className="btn-small danger"
+                        onClick={() => {
+                          if (confirm('¿Eliminar este cierre? Se desvincularán los movimientos.')) {
+                            void deleteCierre(c.id).then(reload)
+                          }
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

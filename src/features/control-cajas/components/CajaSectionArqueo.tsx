@@ -4,14 +4,17 @@ import { BILLETE_DENOMINACIONES, TURNOS_CAJA } from '../constants'
 import {
   getParams,
   listCajas,
+  listMovimientos,
   resolveCajaSlugForUsuario,
   resolveCajaSlugFromHistorial,
   saveArqueo
 } from '../cajaRepository'
+import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
+import { estadoArqueo } from '../movimientoCaja'
 import { DEFAULT_CAJERAS } from '../constants'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
-import { fondoMinimoCaja, requiereFondoMinimo, validarEfectivoFisicoVsFondo } from '../fondoCaja'
+import { fondoFijoEfectivo, fondoMinimoCaja, requiereFondoMinimo, validarEfectivoFisicoVsFondo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import type { CajaRegistro } from '../types'
 
@@ -43,6 +46,12 @@ export default function CajaSectionArqueo({
   const [firmaError, setFirmaError] = useState<string | undefined>()
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
+
+  useEffect(() => {
+    if (!cajaSlug || !fecha) return
+    void listMovimientos().then(setMovimientos)
+  }, [cajaSlug, fecha])
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +104,22 @@ export default function CajaSectionArqueo({
     }, 0)
   }, [billetes])
 
+  const cajaActiva = cajas.find((c) => c.slug === cajaSlug)
+  const fondoMin = cajaActiva ? fondoMinimoCaja(cajaActiva) : 0
+
+  const teorico = useMemo(() => {
+    if (!cajaSlug || !cajaActiva) return null
+    return calcularTeoricoFisicoCaja(
+      movimientos,
+      cajaSlug,
+      fecha,
+      fecha,
+      fondoFijoEfectivo(cajaActiva)
+    )
+  }, [movimientos, cajaSlug, fecha, cajaActiva])
+
+  const diferenciaFisica = teorico != null && total > 0 ? total - teorico.teorico : null
+
   const setCantidad = (denom: number, raw: string) => {
     const q = Math.max(0, Math.floor(parseNum(raw)))
     setBilletes((prev) => ({ ...prev, [`b${denom}`]: q }))
@@ -126,6 +151,7 @@ export default function CajaSectionArqueo({
     setSaving(true)
     setMsg(null)
     try {
+      const dif = teorico != null ? total - teorico.teorico : null
       await saveArqueo({
         fecha,
         caja_slug: cajaSlug,
@@ -134,6 +160,19 @@ export default function CajaSectionArqueo({
         usuario_nombre: usuarioNombre,
         billetes,
         total,
+        teorico_fisico: teorico?.teorico ?? null,
+        diferencia: dif,
+        estado_arqueo: dif != null ? estadoArqueo(dif) : null,
+        saldos: teorico
+          ? {
+              teorico_fisico: teorico.teorico,
+              contado: total,
+              fondo_fijo: teorico.fondo_fijo,
+              ingresos_fisicos: teorico.ingresos_fisicos,
+              egresos_fisicos: teorico.egresos_fisicos,
+              neto_fisico: teorico.neto_fisico
+            }
+          : null,
         firma_data_url: firmaDataUrl
       })
       if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
@@ -149,8 +188,6 @@ export default function CajaSectionArqueo({
     }
   }
 
-  const cajaActiva = cajas.find((c) => c.slug === cajaSlug)
-  const fondoMin = cajaActiva ? fondoMinimoCaja(cajaActiva) : 0
   const bajoFondo = fondoMin > 0 && total > 0 && total < fondoMin
 
   const cajaAsignadaNombre = cajaActiva?.nombre ?? ''
@@ -160,7 +197,7 @@ export default function CajaSectionArqueo({
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
       <div className="caja-cc-help">
-        Contá los billetes de tu caja (efectivo real). El total se calcula solo y queda firmado a tu nombre.
+        Contá solo billetes y efectivo físico. No incluyas tarjetas, transferencias ni cuenta corriente: eso se concilia aparte.
         {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (
           <>
             {' '}
@@ -237,12 +274,35 @@ export default function CajaSectionArqueo({
           )
         })}
       </div>
-      <div className={`caja-cc-result ${bajoFondo ? 'bad' : total > 0 ? 'ok' : 'neutral'}`}>
+      {teorico != null && (
+        <div className="caja-cc-result neutral">
+          <span>Efectivo físico teórico (fondo + mov. del día)</span>
+          <strong>$ {fmtArs(teorico.teorico)}</strong>
+        </div>
+      )}
+      <div
+        className={`caja-cc-result ${
+          bajoFondo
+            ? 'bad'
+            : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
+              ? 'bad'
+              : total > 0
+                ? 'ok'
+                : 'neutral'
+        }`}
+      >
         <span>
-          Total contado
+          Total contado (solo efectivo)
           {fondoMin > 0 && ` · mín. fondo $ ${fmtArs(fondoMin)}`}
         </span>
         <strong>$ {fmtArs(total)}</strong>
+        {diferenciaFisica != null && total > 0 && (
+          <span className="caja-cc-field-hint">
+            {diferenciaFisica === 0
+              ? 'Cuadra con teórico'
+              : `Δ físico $ ${fmtArs(diferenciaFisica)}`}
+          </span>
+        )}
       </div>
       {bajoFondo && cajaActiva && (
         <p className="caja-cc-error">

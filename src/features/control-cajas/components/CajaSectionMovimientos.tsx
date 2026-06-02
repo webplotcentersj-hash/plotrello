@@ -5,7 +5,8 @@ import {
   listCajas,
   listMovimientos,
   saveMovimiento,
-  saveMovimientosBulk
+  saveMovimientosBulk,
+  saveTraspaso
 } from '../cajaRepository'
 import { fmtArs, parseNum } from '../format'
 import {
@@ -13,7 +14,12 @@ import {
   parseMovimientosWorkbook
 } from '../parseMovimientosExcel'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
-import { crearTraspasoCaja, movimientoDesdeMedios, type MediosPagoInput } from '../movimientoCaja'
+import {
+  crearTraspasoCaja,
+  movimientoDesdeMedios,
+  registroTraspasoDesdeInput,
+  type MediosPagoInput
+} from '../movimientoCaja'
 import CajaMovimientosList from './CajaMovimientosList'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
 import CajaFormMovimientoMedios from './CajaFormMovimientoMedios'
@@ -143,7 +149,7 @@ export default function CajaSectionMovimientos({
     setSaving(true)
     try {
       if (tipoMov === 'traspaso') {
-        const { movimientos } = crearTraspasoCaja({
+        const input = {
           fecha,
           caja_origen_slug: origen,
           caja_destino_slug: destino,
@@ -152,8 +158,10 @@ export default function CajaSectionMovimientos({
           observacion: conceptoMedios || null,
           id_usuario: usuarioId ?? null,
           usuario_nombre: usuarioNombre,
-          confirmar: true
-        })
+          confirmar: false
+        }
+        const { traspaso_id, movimientos } = crearTraspasoCaja(input)
+        await saveTraspaso(registroTraspasoDesdeInput(input, traspaso_id, 'pendiente'))
         await saveMovimientosBulk(movimientos)
       } else {
         const caja = tipoMov === 'ingreso' ? destino : origen

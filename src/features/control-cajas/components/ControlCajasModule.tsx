@@ -15,6 +15,7 @@ import CajaSectionMovimientos from './CajaSectionMovimientos'
 import CajaSectionPaseCaja from './CajaSectionPaseCaja'
 import CajaSectionCierreTurno from './CajaSectionCierreTurno'
 import CajaSectionEgresos from './CajaSectionEgresos'
+import CajaSectionTraspasos from './CajaSectionTraspasos'
 import CajaSectionHistorial, { CajaSectionArqueosAdmin } from './CajaSectionHistorial'
 import CajaSectionConcilMP from './CajaSectionConcilMP'
 import CajaSectionConcilBanco from './CajaSectionConcilBanco'
@@ -35,6 +36,7 @@ const SECTION_TITLES: Record<CajaSectionId, string> = {
   arqueo: 'Mi arqueo',
   cierre_turno: 'Cierre de turno',
   pase_caja: 'Pase de caja',
+  traspasos: 'Traspasos',
   egresos: 'Egresos',
   movimientos: 'Mis movimientos',
   historial: 'Historial',
@@ -282,6 +284,14 @@ export default function ControlCajasModule() {
 
           {section === 'egresos' && (
             <CajaSectionEgresos
+              isAdmin={isAdmin}
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+            />
+          )}
+
+          {section === 'traspasos' && (
+            <CajaSectionTraspasos
               isAdmin={isAdmin}
               usuarioNombre={usuarioEtiqueta}
               usuarioId={usuarioId}

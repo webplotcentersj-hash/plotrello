@@ -2,7 +2,7 @@ import { calcularCierre } from './cierreCalculations'
 import { newId } from './format'
 import { validarCuadreMediosPago, type ValidacionMediosPago } from './planillaMediosPago'
 import type { PlanillaMontosLinea } from './parsePlanillaCajaPdf'
-import type { CajaCierre, CajaMovimiento, CajaRegistro } from './types'
+import type { CajaCierre, CajaMovimiento, CajaRegistro, CajaTraspaso, CajaTraspasoEstado } from './types'
 
 export type MediosPagoInput = {
   total: number
@@ -244,6 +244,32 @@ export type TraspasoGenerado = {
   movimientos: [Omit<CajaMovimiento, 'id' | 'created_at'>, Omit<CajaMovimiento, 'id' | 'created_at'>]
 }
 
+export function registroTraspasoDesdeInput(
+  input: CrearTraspasoInput,
+  traspaso_id: string,
+  estado: CajaTraspasoEstado = 'pendiente'
+): Omit<CajaTraspaso, 'created_at' | 'updated_at'> {
+  const linea = mediosToPlanillaLinea(input.medios)
+  return {
+    id: traspaso_id,
+    fecha: input.fecha,
+    caja_origen_slug: input.caja_origen_slug,
+    caja_destino_slug: input.caja_destino_slug,
+    id_usuario: input.id_usuario ?? null,
+    usuario_nombre: input.usuario_nombre ?? null,
+    comprobante: input.comprobante ?? null,
+    monto_total: linea.total,
+    efectivo: linea.efectivo,
+    tarjeta: linea.tarjetas,
+    transferencia_bancaria: linea.trans_b,
+    cheque: linea.ch_prop + linea.ch_terc,
+    documento: linea.docum,
+    otros: linea.otros + linea.cta_cte + linea.c_contab,
+    estado: input.confirmar ? 'confirmado' : estado,
+    observacion: input.observacion ?? null
+  }
+}
+
 export function crearTraspasoCaja(input: CrearTraspasoInput): TraspasoGenerado {
   if (input.caja_origen_slug === input.caja_destino_slug) {
     throw new Error('La caja origen y destino deben ser distintas.')
@@ -299,19 +325,36 @@ export type CerrarCajaInput = {
   tolerancia?: number
 }
 
+/** Movimientos de la caja en el rango de fechas (sin anulados). */
+export function movimientosEnPeriodoCaja(
+  movimientos: CajaMovimiento[],
+  cajaSlug: string,
+  fechaDesde: string,
+  fechaHasta: string
+): CajaMovimiento[] {
+  return movimientos.filter((m) => {
+    if (m.anulado) return false
+    if (m.fecha < fechaDesde || m.fecha > fechaHasta) return false
+    return m.origen_slug === cajaSlug || m.destino_slug === cajaSlug
+  })
+}
+
 export function snapshotTotalesCierre(
   cajaSlug: string,
   fechaDesde: string,
   fechaHasta: string,
-  movimientos: CajaMovimiento[]
+  movimientos: CajaMovimiento[],
+  extras?: { movimientos_vinculados?: number }
 ): Record<string, unknown> {
   const t = calcularTotalesCaja(movimientos, cajaSlug, fechaDesde, fechaHasta)
+  const delPeriodo = movimientosEnPeriodoCaja(movimientos, cajaSlug, fechaDesde, fechaHasta)
   return {
     periodo: { desde: fechaDesde, hasta: fechaHasta },
     caja_slug: cajaSlug,
     ingresos: t.ingresos,
     egresos: t.egresos,
     neto: t.neto,
+    movimientos_vinculados: extras?.movimientos_vinculados ?? delPeriodo.length,
     generado_en: new Date().toISOString()
   }
 }

@@ -3,15 +3,21 @@ import { TURNOS_CAJA } from '../constants'
 import { calcularCierre, cierreFromCalculado, type CierreFormInput } from '../cierreCalculations'
 import { fmtArs } from '../format'
 import {
+  cerrarCierreDefinitivo,
   getCierre,
   getParams,
   listCajas,
+  listMovimientos,
+  listMovimientosPorCierre,
   listPlanillas,
   resolveCajaSlug,
   saveCierre
 } from '../cajaRepository'
+import { calcularTotalesCaja, enrichCierreFromTotales } from '../movimientoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
+import type { CajaCierreEstadoCierre, CajaMovimiento } from '../types'
 import CajaBadge from './CajaBadge'
+import CajaCierreSnapshotPanel from './CajaCierreSnapshotPanel'
 import {
   FONDO_CAJA_BASE_MIN,
   fondoFijoEfectivo,
@@ -49,7 +55,12 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
   const [form, setForm] = useState<CierreFormInput>(emptyForm)
   const [observacion, setObservacion] = useState('')
   const [saving, setSaving] = useState(false)
+  const [cerrando, setCerrando] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [estadoCierre, setEstadoCierre] = useState<CajaCierreEstadoCierre>('abierto')
+  const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
+  const [snapshot, setSnapshot] = useState<Record<string, unknown> | null>(null)
+  const [movsVinculados, setMovsVinculados] = useState<CajaMovimiento[]>([])
 
   useEffect(() => {
     void Promise.all([listCajas(), getParams()]).then(([c, p]) => {
@@ -61,6 +72,10 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
   }, [cajaSlug])
 
   useEffect(() => {
+    void listMovimientos().then(setMovimientos)
+  }, [])
+
+  useEffect(() => {
     if (!editId) return
     void getCierre(editId).then((c) => {
       if (!c) return
@@ -70,6 +85,13 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
       setCajera(c.cajera ?? '')
       setEmailOk(c.email_ok === 'No' ? 'No' : 'Sí')
       setObservacion(c.observacion ?? '')
+      setEstadoCierre(c.estado_cierre ?? 'abierto')
+      setSnapshot(c.snapshot_totales ?? null)
+      if (c.estado_cierre === 'cerrado' || c.estado_cierre === 'observado') {
+        void listMovimientosPorCierre(c.id).then(setMovsVinculados)
+      } else {
+        setMovsVinculados([])
+      }
       const caja = cajas.find((x) => x.slug === c.caja_slug)
       setForm({
         fondo_fijo: caja ? fondoFijoEfectivo(caja) : c.fondo_fijo,
@@ -100,6 +122,28 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
 
   const cajaActiva = cajas.find((c) => c.slug === cajaSlug)
   const fondoMin = cajaActiva ? fondoFijoEfectivo(cajaActiva) : 0
+
+  const bloqueado = estadoCierre === 'cerrado' || estadoCierre === 'observado'
+
+  const cargarDesdeMovimientos = () => {
+    if (!cajaSlug) return
+    const totales = calcularTotalesCaja(movimientos, cajaSlug, fecha, fecha)
+    const calc = enrichCierreFromTotales(form, totales, tolerancia)
+    setForm({
+      fondo_fijo: form.fondo_fijo,
+      ing_ef: calc.ing_ef,
+      egr_ef: calc.egr_ef,
+      ef_contado: form.ef_contado,
+      tarj_sist: calc.tarj_sist,
+      tarj_fis: form.tarj_fis,
+      mp_qr: form.mp_qr,
+      trans: calc.trans,
+      cta_cte: calc.cta_cte
+    })
+    setMsg(
+      `Precargado desde ${totales.detalle.ingresos} ingreso(s) y ${totales.detalle.egresos} egreso(s) del día.`
+    )
+  }
 
   const cargarDesdePlanilla = async () => {
     const planillas = await listPlanillas(20)
@@ -160,7 +204,12 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
         },
         calc
       )
-      await saveCierre({ ...payload, id: editId ?? undefined })
+      await saveCierre({
+        ...payload,
+        id: editId ?? undefined,
+        estado_cierre: (editId ? estadoCierre : 'abierto') as CajaCierreEstadoCierre,
+        fecha_hasta: fecha
+      })
       onSaved()
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Error al guardar')
@@ -169,14 +218,49 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
     }
   }
 
+  const handleCerrarDefinitivo = async () => {
+    if (!editId) {
+      setMsg('Guardá el cierre primero, luego cerralo definitivamente.')
+      return
+    }
+    if (!confirm('¿Cerrar definitivamente? Se guardará un snapshot y no podrás editar movimientos vinculados.')) {
+      return
+    }
+    setCerrando(true)
+    setMsg(null)
+    try {
+      const observado = calc.estado === 'REVISAR'
+      const cerrado = await cerrarCierreDefinitivo(editId, movimientos, { observado, tolerancia })
+      setEstadoCierre(observado ? 'observado' : 'cerrado')
+      setSnapshot(cerrado.snapshot_totales ?? null)
+      void Promise.all([listMovimientos(), listMovimientosPorCierre(editId)]).then(([m, v]) => {
+        setMovimientos(m)
+        setMovsVinculados(v)
+      })
+      const snap = cerrado.snapshot_totales as { movimientos_vinculados?: number } | null
+      setMsg(`Cierre cerrado. ${snap?.movimientos_vinculados ?? 0} movimiento(s) vinculados.`)
+      onSaved()
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Error al cerrar')
+    } finally {
+      setCerrando(false)
+    }
+  }
+
   const resultClass =
     calc.estado === 'OK' ? (calc.dif_total === 0 ? 'neutral' : 'ok') : 'bad'
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)}>
+      {bloqueado && snapshot && <CajaCierreSnapshotPanel snapshot={snapshot} />}
+
+      <fieldset className="caja-cc-fieldset" disabled={bloqueado}>
       <div className="caja-cc-help">
         <b>Antes de cargar:</b> la cajera debe enviar el Listado de Planilla de Caja (PDF) y entregar
         hoja de conteo firmada, cupones POSNET y egresos firmados.
+        <button type="button" className="btn-secondary caja-cc-inline-btn" onClick={cargarDesdeMovimientos}>
+          Precargar desde movimientos
+        </button>
         <button type="button" className="btn-secondary caja-cc-inline-btn" onClick={() => void cargarDesdePlanilla()}>
           Precargar desde planilla PDF
         </button>
@@ -335,13 +419,34 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
         </label>
       </div>
 
+      </fieldset>
+
+      {bloqueado && (
+        <p className="caja-cc-help">
+          Este cierre está <strong>{estadoCierre}</strong>.{' '}
+          {movsVinculados.length > 0
+            ? `${movsVinculados.length} movimiento(s) vinculados y bloqueados para edición.`
+            : 'Los movimientos del período ya no se pueden modificar.'}
+        </p>
+      )}
+
       <div className="caja-cc-actions">
         <button type="button" className="btn-secondary" onClick={onCancel}>
           Cancelar
         </button>
-        <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Guardando…' : 'Guardar cierre'}
+        <button type="submit" className="btn-primary" disabled={saving || bloqueado}>
+          {saving ? 'Guardando…' : 'Guardar borrador'}
         </button>
+        {editId && !bloqueado && (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={cerrando}
+            onClick={() => void handleCerrarDefinitivo()}
+          >
+            {cerrando ? 'Cerrando…' : 'Cerrar definitivamente'}
+          </button>
+        )}
       </div>
     </form>
   )

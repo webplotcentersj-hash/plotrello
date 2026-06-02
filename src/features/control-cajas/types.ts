@@ -5,6 +5,8 @@ export type CajaRegistro = {
   activa: boolean
 }
 
+export type CajaArqueoEstado = 'correcto' | 'sobrante' | 'faltante'
+
 export type CajaArqueo = {
   id: string
   fecha: string
@@ -14,8 +16,35 @@ export type CajaArqueo = {
   usuario_nombre?: string | null
   billetes: Record<string, number>
   total: number
+  teorico_fisico?: number | null
+  diferencia?: number | null
+  estado_arqueo?: CajaArqueoEstado | null
+  saldos?: Record<string, unknown> | null
   firma_data_url?: string | null
   created_at?: string
+}
+
+export type CajaTraspasoEstado = 'pendiente' | 'confirmado' | 'anulado'
+
+export type CajaTraspaso = {
+  id: string
+  fecha: string
+  caja_origen_slug: string
+  caja_destino_slug: string
+  id_usuario?: number | null
+  usuario_nombre?: string | null
+  comprobante?: string | null
+  monto_total: number
+  efectivo: number
+  tarjeta: number
+  transferencia_bancaria: number
+  cheque: number
+  documento: number
+  otros: number
+  estado: CajaTraspasoEstado
+  observacion?: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 export type CajaMovimientoConcepto =
@@ -196,6 +225,7 @@ export type CajaSectionId =
   | 'cierres'
   | 'arqueo'
   | 'pase_caja'
+  | 'traspasos'
   | 'cierre_turno'
   | 'egresos'
   | 'movimientos'
