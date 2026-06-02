@@ -3,7 +3,7 @@ import { listCajas, resolveCajaSlug, saveMovimientosBulk, savePlanillaImport } f
 import { calcularTotalesDesdePlanilla } from '../cajaTotales'
 import { fmtArs, fmtDateAr } from '../format'
 import { parsePlanillaCajaPdf, type PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
-import { planillaAllToMovimientos } from '../planillaMovimientos'
+import { planillaAllToMovimientos, resumenImportacion } from '../planillaMovimientos'
 
 type Props = {
   usuarioNombre: string
@@ -60,12 +60,19 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
     try {
       const cajas = await listCajas()
       const cajaSlug = resolveCajaSlug(preview.caja_nombre, cajas)
-      await savePlanillaImport(preview, cajaSlug, usuarioNombre, usuarioId)
+      const guardada = await savePlanillaImport(preview, cajaSlug, usuarioNombre, usuarioId)
       const movs = planillaAllToMovimientos(preview, cajas, cajaSlug, usuarioNombre, usuarioId)
-      if (movs.length) await saveMovimientosBulk(movs)
+      if (movs.length) {
+        await saveMovimientosBulk(movs)
+      } else {
+        throw new Error(
+          'La planilla se guardó pero no se generaron movimientos. Revisá que el PDF tenga líneas FA/FB, EG o MEC con montos.'
+        )
+      }
 
+      const r = resumenImportacion(movs)
       setMsg(
-        `Listo: ${preview.cantidad_ventas} ventas para el cierre, ${movs.length} movimiento(s) importados.`
+        `Planilla guardada (${guardada.id.slice(0, 8)}…). Subidos al sistema: ${r.ventas} ventas, ${r.ingresos - r.ventas} otros ingresos, ${r.egresos} egresos, ${r.traspasos} traspasos (${r.total} movimientos). Usá «Precargar desde planilla» en el cierre.`
       )
       setPreview(null)
       onImported?.()
@@ -243,7 +250,8 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
             </button>
           </div>
           <p className="caja-cc-planilla-foot">
-            Las ventas quedan para el <strong>cierre</strong>. Solo se crean movimientos de egresos y pases MEC.
+            Al importar se suben <strong>todas las líneas</strong> del PDF como movimientos (ventas, ingresos, egresos y
+            MEC) con desglose por medio de pago. La planilla queda guardada para el cierre del día.
           </p>
         </div>
       )}

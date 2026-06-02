@@ -299,4 +299,6 @@ export type PlanillaCajaGuardada = {
   id_usuario?: number | null
   usuario_nombre?: string | null
   created_at?: string
+  /** Planilla parseada completa (ventas, egresos, MEC, etc.) para precarga de cierre. */
+  datos?: Record<string, unknown> | null
 }

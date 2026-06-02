@@ -9,10 +9,12 @@ import {
   listCajas,
   listMovimientos,
   listMovimientosPorCierre,
+  getPlanillaById,
   listPlanillas,
   resolveCajaSlug,
   saveCierre
 } from '../cajaRepository'
+import { cierrePrecargaDesdePlanilla } from '../cajaTotales'
 import { calcularTotalesCaja, enrichCierreFromTotales } from '../movimientoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import type { CajaCierreEstadoCierre, CajaMovimiento } from '../types'
@@ -153,11 +155,32 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
         p.fecha_desde === fecha ||
         resolveCajaSlug(p.caja_nombre, cajas) === cajaSlug
     )
-    if (!match?.totales) {
+    if (!match) {
       setMsg('No hay planilla PDF guardada para esta fecha/caja. Subila en Movimientos primero.')
       return
     }
+
+    const full = await getPlanillaById(match.id)
+    if (full) {
+      const precarga = cierrePrecargaDesdePlanilla(full)
+      setForm((prev) => ({
+        ...prev,
+        ing_ef: precarga.ing_ef ?? prev.ing_ef,
+        egr_ef: precarga.egr_ef ?? prev.egr_ef,
+        tarj_sist: precarga.tarj_sist ?? prev.tarj_sist,
+        trans: precarga.trans ?? prev.trans,
+        cta_cte: precarga.cta_cte ?? prev.cta_cte,
+        ef_contado: prev.ef_contado
+      }))
+      setMsg(`Cierre precargado desde planilla completa: ${match.archivo_nombre} (${full.ventas.length} ventas en sistema).`)
+      return
+    }
+
     const t = match.totales
+    if (!t) {
+      setMsg('Planilla sin totales. Volvé a importar el PDF en Movimientos.')
+      return
+    }
     setForm((prev) => ({
       ...prev,
       ing_ef: t.ingresos_efectivo ?? prev.ing_ef,
@@ -167,7 +190,7 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
       cta_cte: t.ingresos_cta_cte ?? prev.cta_cte,
       egr_ef: t.egresos_efectivo ?? prev.egr_ef
     }))
-    setMsg(`Datos precargados desde planilla: ${match.archivo_nombre}`)
+    setMsg(`Totales precargados desde planilla: ${match.archivo_nombre}`)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

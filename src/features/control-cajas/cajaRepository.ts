@@ -12,6 +12,7 @@ import {
   snapshotTotalesCierre
 } from './movimientoCaja'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
+import { datosJsonToPlanilla, planillaToDatosJson } from './planillaMovimientos'
 import type {
   CajaArqueo,
   CajaCajera,
@@ -511,7 +512,7 @@ export async function saveMovimientosBulk(
     saved.push(
       await saveMovimiento({
         ...row,
-        origen_importacion: 'excel'
+        origen_importacion: row.origen_importacion ?? 'manual'
       })
     )
   }
@@ -892,14 +893,7 @@ export async function savePlanillaImport(
       caja_nombre: planilla.caja_nombre,
       caja_slug: cajaSlug,
       totales: planilla.totales,
-      datos: {
-        ventas_count: planilla.ventas.length,
-        egresos_count: planilla.egresos.length,
-        mec: planilla.movimientos_mec,
-        lineas_cuadre_invalido: planilla.lineas_cuadre_invalido,
-        ingresos_varios: planilla.ingresos_varios.length,
-        ingresos_pagos_clientes: planilla.ingresos_pagos_clientes.length
-      },
+      datos: planillaToDatosJson(planilla),
       id_usuario: usuarioId ?? null,
       usuario_nombre: usuarioNombre
     }
@@ -908,9 +902,42 @@ export async function savePlanillaImport(
   }
 
   const store = readLocal()
-  store.planillas.unshift(record)
+  const localRecord = {
+    ...record,
+    datos: planillaToDatosJson(planilla)
+  }
+  store.planillas.unshift(localRecord as PlanillaCajaGuardada & { datos?: Record<string, unknown> })
   writeLocal(store)
   return record
+}
+
+export async function getPlanillaById(id: string): Promise<PlanillaCajaParsed | null> {
+  if (await checkRemote()) {
+    const { data, error } = await supabase!.from('control_caja_planillas').select('*').eq('id', id).maybeSingle()
+    if (!error && data?.datos) {
+      const parsed = datosJsonToPlanilla(data.datos as Record<string, unknown>, {
+        archivo_nombre: String(data.archivo_nombre),
+        caja_nombre: String(data.caja_nombre),
+        fecha_desde: data.fecha_desde ? String(data.fecha_desde).slice(0, 10) : '',
+        fecha_hasta: data.fecha_hasta ? String(data.fecha_hasta).slice(0, 10) : '',
+        totales: (data.totales as PlanillaCajaParsed['totales']) ?? null
+      })
+      if (parsed) return parsed
+    }
+  }
+  const local = readLocal().planillas.find((p) => p.id === id) as
+    | (PlanillaCajaGuardada & { datos?: Record<string, unknown> })
+    | undefined
+  if (local?.datos) {
+    return datosJsonToPlanilla(local.datos, {
+      archivo_nombre: local.archivo_nombre,
+      caja_nombre: local.caja_nombre,
+      fecha_desde: local.fecha_desde,
+      fecha_hasta: local.fecha_hasta,
+      totales: local.totales as PlanillaCajaParsed['totales'] | null
+    })
+  }
+  return null
 }
 
 export async function listPlanillas(limit = 10): Promise<PlanillaCajaGuardada[]> {
