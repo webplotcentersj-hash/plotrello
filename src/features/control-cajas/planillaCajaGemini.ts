@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
-import { extractTextFromPdfArrayBuffer } from '../../utils/pdfTextLines'
+import { copyPdfBytes, extractTextFromPdfArrayBuffer } from '../../utils/pdfTextLines'
 import { parseNum } from './format'
 import {
   mapMontosPlanillaLinea,
@@ -27,7 +27,7 @@ export function isPlanillaAiAvailable(): boolean {
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
+  const bytes = copyPdfBytes(buffer)
   let binary = ''
   const chunk = 0x8000
   for (let i = 0; i < bytes.length; i += chunk) {
@@ -318,7 +318,7 @@ export async function parsePlanillaCajaPdfWithGemini(
 
   const textoExtraido = await extractTextFromPdfArrayBuffer(buffer)
   const textoLocal = parsePlanillaCajaText(textoExtraido, archivoNombre)
-  const base64 = arrayBufferToBase64(buffer)
+  const base64 = arrayBufferToBase64(buffer.slice(0))
 
   const userText = `${PLANILLA_AI_SCHEMA}
 

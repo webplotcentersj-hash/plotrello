@@ -424,6 +424,7 @@ export async function parsePlanillaCajaPdf(
   archivoNombre: string,
   options?: ParsePlanillaOptions
 ): Promise<PlanillaCajaParsed> {
+  const pdfBuf = buffer.slice(0)
   const wantAi = options?.useAi !== false
 
   if (wantAi) {
@@ -432,11 +433,11 @@ export async function parsePlanillaCajaPdf(
         './planillaCajaGemini'
       )
       if (isPlanillaAiAvailable()) {
-        return await parsePlanillaCajaPdfWithGemini(buffer, archivoNombre)
+        return await parsePlanillaCajaPdfWithGemini(pdfBuf, archivoNombre)
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error en PlotAI'
-      const lines = await extractLinesFromPdfArrayBuffer(buffer)
+      const lines = await extractLinesFromPdfArrayBuffer(pdfBuf)
       const text = lines.join('\n')
       const parsed = parsePlanillaCajaText(text, archivoNombre)
       return {
@@ -446,7 +447,7 @@ export async function parsePlanillaCajaPdf(
     }
   }
 
-  const lines = await extractLinesFromPdfArrayBuffer(buffer)
+  const lines = await extractLinesFromPdfArrayBuffer(pdfBuf)
   const text = lines.join('\n')
   const parsed = parsePlanillaCajaText(text, archivoNombre)
 

@@ -11,10 +11,15 @@ function ensureWorker(): void {
 
 type TextItem = { str: string; x: number; y: number }
 
+/** Copia independiente: pdf.js puede transferir/detach el ArrayBuffer original al worker. */
+export function copyPdfBytes(buffer: ArrayBuffer): Uint8Array {
+  return new Uint8Array(buffer.slice(0))
+}
+
 /** Agrupa ítems del PDF por fila (coordenada Y) y ordena por X → una línea por fila real. */
 export async function extractLinesFromPdfArrayBuffer(buffer: ArrayBuffer): Promise<string[]> {
   ensureWorker()
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+  const loadingTask = pdfjsLib.getDocument({ data: copyPdfBytes(buffer) })
   const pdf = await loadingTask.promise
   const lines: string[] = []
 

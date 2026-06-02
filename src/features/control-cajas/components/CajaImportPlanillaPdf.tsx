@@ -48,7 +48,7 @@ export default function CajaImportPlanillaPdf({
     setPreviewAndNotify(null)
     setVerLineas(true)
     try {
-      const buf = await file.arrayBuffer()
+      const buf = (await file.arrayBuffer()).slice(0)
       const parsed = await parsePlanillaCajaPdf(buf, file.name, { useAi })
       setPreviewAndNotify(parsed)
       const totalLineas =
