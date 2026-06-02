@@ -235,15 +235,74 @@ function numOrNull(v: unknown): number | null {
   return Number.isNaN(n) ? null : n
 }
 
+function movRowFromRecord(mov: CajaMovimiento, id: string) {
+  return {
+    id,
+    fecha: mov.fecha,
+    hora: mov.hora || null,
+    concepto: mov.concepto,
+    tipo_movimiento: mov.tipo_movimiento ?? null,
+    categoria: mov.categoria ?? null,
+    tercero_nombre: mov.tercero_nombre ?? null,
+    monto_total: mov.monto_total ?? mov.efectivo + mov.otros,
+    cuenta_corriente: mov.cuenta_corriente ?? 0,
+    cheque_propio: mov.cheque_propio ?? 0,
+    cheque_tercero: mov.cheque_tercero ?? 0,
+    tarjeta: mov.tarjeta ?? 0,
+    documento: mov.documento ?? 0,
+    cuenta_contable: mov.cuenta_contable ?? 0,
+    transferencia_bancaria: mov.transferencia_bancaria ?? 0,
+    origen_slug: mov.origen_slug,
+    destino_slug: mov.destino_slug,
+    efectivo: mov.efectivo,
+    otros: mov.otros,
+    nro_comprobante: mov.nro_comprobante ?? null,
+    observacion: mov.observacion ?? null,
+    id_usuario: mov.id_usuario ?? null,
+    usuario_nombre: mov.usuario_nombre ?? null,
+    origen_importacion: mov.origen_importacion ?? 'manual',
+    id_lote: mov.id_lote ?? null,
+    traspaso_id: mov.traspaso_id ?? null,
+    cierre_id: mov.cierre_id ?? null,
+    anulado: mov.anulado ?? false,
+    medios: mov.medios ?? null,
+    subtipo_pase: mov.subtipo_pase ?? null,
+    origen_efectivo_antes: mov.origen_efectivo_antes ?? null,
+    origen_otros_antes: mov.origen_otros_antes ?? null,
+    destino_efectivo_antes: mov.destino_efectivo_antes ?? null,
+    destino_otros_antes: mov.destino_otros_antes ?? null,
+    origen_efectivo_despues: mov.origen_efectivo_despues ?? null,
+    origen_otros_despues: mov.origen_otros_despues ?? null,
+    destino_efectivo_despues: mov.destino_efectivo_despues ?? null,
+    destino_otros_despues: mov.destino_otros_despues ?? null,
+    updated_at: new Date().toISOString()
+  }
+}
+
 function mapMovRow(r: Record<string, unknown>): CajaMovimiento {
   const imp = r.origen_importacion
   const origen_importacion =
     imp === 'excel' ? 'excel' : imp === 'planilla_pdf' ? 'planilla_pdf' : 'manual'
+  const tipo = r.tipo_movimiento
   return {
     id: String(r.id),
     fecha: String(r.fecha).slice(0, 10),
     hora: r.hora != null ? String(r.hora).slice(0, 5) : null,
     concepto: String(r.concepto),
+    tipo_movimiento:
+      tipo === 'ingreso' || tipo === 'egreso' || tipo === 'traspaso' || tipo === 'ajuste'
+        ? tipo
+        : null,
+    categoria: r.categoria != null ? String(r.categoria) : null,
+    tercero_nombre: r.tercero_nombre != null ? String(r.tercero_nombre) : null,
+    monto_total: numOrNull(r.monto_total),
+    cuenta_corriente: numOrNull(r.cuenta_corriente),
+    cheque_propio: numOrNull(r.cheque_propio),
+    cheque_tercero: numOrNull(r.cheque_tercero),
+    tarjeta: numOrNull(r.tarjeta),
+    documento: numOrNull(r.documento),
+    cuenta_contable: numOrNull(r.cuenta_contable),
+    transferencia_bancaria: numOrNull(r.transferencia_bancaria),
     origen_slug: String(r.origen_slug),
     destino_slug: String(r.destino_slug),
     efectivo: Number(r.efectivo) || 0,
@@ -255,6 +314,9 @@ function mapMovRow(r: Record<string, unknown>): CajaMovimiento {
     origen_importacion,
     created_at: r.created_at != null ? String(r.created_at) : undefined,
     id_lote: r.id_lote != null ? String(r.id_lote) : null,
+    traspaso_id: r.traspaso_id != null ? String(r.traspaso_id) : null,
+    medios:
+      r.medios != null && typeof r.medios === 'object' ? (r.medios as Record<string, number>) : null,
     subtipo_pase:
       r.subtipo_pase === 'fondo' || r.subtipo_pase === 'resto_admin' || r.subtipo_pase === 'libre'
         ? r.subtipo_pase
@@ -266,42 +328,29 @@ function mapMovRow(r: Record<string, unknown>): CajaMovimiento {
     origen_efectivo_despues: numOrNull(r.origen_efectivo_despues),
     origen_otros_despues: numOrNull(r.origen_otros_despues),
     destino_efectivo_despues: numOrNull(r.destino_efectivo_despues),
-    destino_otros_despues: numOrNull(r.destino_otros_despues)
+    destino_otros_despues: numOrNull(r.destino_otros_despues),
+    cierre_id: r.cierre_id != null ? String(r.cierre_id) : null,
+    anulado: !!r.anulado
+  }
+}
+
+export async function assertMovimientoEditable(cierreId?: string | null): Promise<void> {
+  if (!cierreId) return
+  const c = await getCierre(cierreId)
+  if (c && (c.estado_cierre === 'cerrado' || c.estado_cierre === 'observado')) {
+    throw new Error('No se puede modificar: el movimiento pertenece a un cierre ya cerrado.')
   }
 }
 
 export async function saveMovimiento(
   mov: Omit<CajaMovimiento, 'id' | 'created_at'> & { id?: string }
 ): Promise<CajaMovimiento> {
+  await assertMovimientoEditable(mov.cierre_id)
   const id = mov.id ?? newId()
   const record: CajaMovimiento = { ...mov, id, origen_importacion: mov.origen_importacion ?? 'manual' }
 
   if (await checkRemote()) {
-    const row = {
-      id,
-      fecha: mov.fecha,
-      hora: mov.hora || null,
-      concepto: mov.concepto,
-      origen_slug: mov.origen_slug,
-      destino_slug: mov.destino_slug,
-      efectivo: mov.efectivo,
-      otros: mov.otros,
-      nro_comprobante: mov.nro_comprobante ?? null,
-      observacion: mov.observacion ?? null,
-      id_usuario: mov.id_usuario ?? null,
-      usuario_nombre: mov.usuario_nombre ?? null,
-      origen_importacion: record.origen_importacion,
-      id_lote: mov.id_lote ?? null,
-      subtipo_pase: mov.subtipo_pase ?? null,
-      origen_efectivo_antes: mov.origen_efectivo_antes ?? null,
-      origen_otros_antes: mov.origen_otros_antes ?? null,
-      destino_efectivo_antes: mov.destino_efectivo_antes ?? null,
-      destino_otros_antes: mov.destino_otros_antes ?? null,
-      origen_efectivo_despues: mov.origen_efectivo_despues ?? null,
-      origen_otros_despues: mov.origen_otros_despues ?? null,
-      destino_efectivo_despues: mov.destino_efectivo_despues ?? null,
-      destino_otros_despues: mov.destino_otros_despues ?? null
-    }
+    const row = movRowFromRecord(record, id)
     const { error } = await supabase!.from('control_caja_movimientos').upsert(row)
     if (!error) return record
   }
@@ -706,7 +755,10 @@ export async function savePlanillaImport(
       datos: {
         ventas_count: planilla.ventas.length,
         egresos_count: planilla.egresos.length,
-        mec: planilla.movimientos_mec
+        mec: planilla.movimientos_mec,
+        lineas_cuadre_invalido: planilla.lineas_cuadre_invalido,
+        ingresos_varios: planilla.ingresos_varios.length,
+        ingresos_pagos_clientes: planilla.ingresos_pagos_clientes.length
       },
       id_usuario: usuarioId ?? null,
       usuario_nombre: usuarioNombre
@@ -818,9 +870,21 @@ function mapCierreRow(r: Record<string, unknown>): CajaCierre {
     total_ventas: Number(r.total_ventas) || 0,
     dif_total: Number(r.dif_total) || 0,
     estado: r.estado === 'OK' ? 'OK' : 'REVISAR',
+    estado_cierre:
+      r.estado_cierre === 'cerrado' ||
+      r.estado_cierre === 'observado' ||
+      r.estado_cierre === 'anulado'
+        ? r.estado_cierre
+        : 'abierto',
+    fecha_hasta: r.fecha_hasta != null ? String(r.fecha_hasta).slice(0, 10) : null,
+    snapshot_totales:
+      r.snapshot_totales != null && typeof r.snapshot_totales === 'object'
+        ? (r.snapshot_totales as Record<string, unknown>)
+        : null,
     observacion: r.observacion != null ? String(r.observacion) : null,
     id_planilla: r.id_planilla != null ? String(r.id_planilla) : null,
-    created_at: r.created_at != null ? String(r.created_at) : undefined
+    created_at: r.created_at != null ? String(r.created_at) : undefined,
+    updated_at: r.updated_at != null ? String(r.updated_at) : undefined
   }
 }
 
@@ -873,8 +937,12 @@ export async function saveCierre(
       total_ventas: cierre.total_ventas,
       dif_total: cierre.dif_total,
       estado: cierre.estado,
+      estado_cierre: cierre.estado_cierre ?? 'abierto',
+      fecha_hasta: cierre.fecha_hasta ?? cierre.fecha,
+      snapshot_totales: cierre.snapshot_totales ?? null,
       observacion: cierre.observacion,
-      id_planilla: cierre.id_planilla
+      id_planilla: cierre.id_planilla,
+      updated_at: new Date().toISOString()
     })
     if (!error) return record
   }

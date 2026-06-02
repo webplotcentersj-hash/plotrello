@@ -13,9 +13,24 @@ import {
   parseMovimientosWorkbook
 } from '../parseMovimientosExcel'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
+import { crearTraspasoCaja, movimientoDesdeMedios, type MediosPagoInput } from '../movimientoCaja'
 import CajaMovimientosList from './CajaMovimientosList'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaFormMovimientoMedios from './CajaFormMovimientoMedios'
 import type { CajaMovimiento, CajaRegistro } from '../types'
+
+const MEDIOS_VACIOS: MediosPagoInput = {
+  total: 0,
+  cuenta_corriente: 0,
+  efectivo: 0,
+  cheque_propio: 0,
+  cheque_tercero: 0,
+  tarjeta: 0,
+  documento: 0,
+  cuenta_contable: 0,
+  transferencia_bancaria: 0,
+  otros: 0
+}
 
 type Props = {
   usuarioNombre: string
@@ -49,6 +64,10 @@ export default function CajaSectionMovimientos({
   const [observacion, setObservacion] = useState('')
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [modoForm, setModoForm] = useState<'simple' | 'medios'>('simple')
+  const [tipoMov, setTipoMov] = useState<'ingreso' | 'egreso' | 'traspaso'>('egreso')
+  const [conceptoMedios, setConceptoMedios] = useState('')
+  const [medios, setMedios] = useState<MediosPagoInput>({ ...MEDIOS_VACIOS })
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -120,6 +139,55 @@ export default function CajaSectionMovimientos({
     await reload()
   }
 
+  const handleSubmitMedios = async () => {
+    setSaving(true)
+    try {
+      if (tipoMov === 'traspaso') {
+        const { movimientos } = crearTraspasoCaja({
+          fecha,
+          caja_origen_slug: origen,
+          caja_destino_slug: destino,
+          comprobante: nro || null,
+          medios,
+          observacion: conceptoMedios || null,
+          id_usuario: usuarioId ?? null,
+          usuario_nombre: usuarioNombre,
+          confirmar: true
+        })
+        await saveMovimientosBulk(movimientos)
+      } else {
+        const caja = tipoMov === 'ingreso' ? destino : origen
+        const mov = movimientoDesdeMedios(
+          {
+            fecha,
+            hora,
+            caja_slug: caja,
+            tipo_movimiento: tipoMov,
+            categoria: conceptoMedios || tipoMov,
+            comprobante: nro || null,
+            concepto: conceptoMedios || tipoMov,
+            medios,
+            id_usuario: usuarioId ?? null,
+            usuario_nombre: usuarioNombre
+          },
+          {
+            origen_slug: tipoMov === 'ingreso' ? 'admin' : origen,
+            destino_slug: tipoMov === 'ingreso' ? destino : 'admin'
+          }
+        )
+        await saveMovimiento(mov)
+      }
+      setMedios({ ...MEDIOS_VACIOS })
+      setConceptoMedios('')
+      setNro('')
+      await reload()
+    } catch (e) {
+      setImportMsg(e instanceof Error ? e.message : 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este movimiento?')) return
     await deleteMovimiento(id)
@@ -164,6 +232,44 @@ export default function CajaSectionMovimientos({
         onImported={() => void reload()}
       />
 
+      <div className="caja-cc-tabs">
+        <button
+          type="button"
+          className={modoForm === 'simple' ? 'active' : ''}
+          onClick={() => setModoForm('simple')}
+        >
+          Efectivo / otros
+        </button>
+        <button
+          type="button"
+          className={modoForm === 'medios' ? 'active' : ''}
+          onClick={() => setModoForm('medios')}
+        >
+          Medios planilla (10 columnas)
+        </button>
+      </div>
+
+      {modoForm === 'medios' ? (
+        <CajaFormMovimientoMedios
+          cajas={cajas}
+          fecha={fecha}
+          setFecha={setFecha}
+          origen={origen}
+          setOrigen={setOrigen}
+          destino={destino}
+          setDestino={setDestino}
+          tipoMov={tipoMov}
+          setTipoMov={setTipoMov}
+          comprobante={nro}
+          setComprobante={setNro}
+          concepto={conceptoMedios}
+          setConcepto={setConceptoMedios}
+          medios={medios}
+          setMedios={setMedios}
+          onSubmit={() => void handleSubmitMedios()}
+          saving={saving}
+        />
+      ) : (
       <form className="caja-cc-card" onSubmit={(e) => void handleSubmit(e)}>
         <h3>Nuevo movimiento</h3>
         <div className="caja-cc-grid-2">
@@ -254,6 +360,7 @@ export default function CajaSectionMovimientos({
           </button>
         </div>
       </form>
+      )}
 
       <div className="caja-cc-card">
         <h3>{soloMisMovimientos ? 'Mis movimientos' : 'Todos los movimientos'}</h3>

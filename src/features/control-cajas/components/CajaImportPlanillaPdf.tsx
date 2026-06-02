@@ -1,13 +1,9 @@
 import { useRef, useState } from 'react'
 import { listCajas, resolveCajaSlug, saveMovimientosBulk, savePlanillaImport } from '../cajaRepository'
+import { calcularTotalesDesdePlanilla } from '../cajaTotales'
 import { fmtArs, fmtDateAr } from '../format'
-import {
-  parsePlanillaCajaPdf,
-  planillaEgresosToMovimientos,
-  planillaMecToMovimientos,
-  PLANILLA_LINEA_COLUMNAS,
-  type PlanillaCajaParsed
-} from '../parsePlanillaCajaPdf'
+import { parsePlanillaCajaPdf, PLANILLA_LINEA_COLUMNAS, type PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
+import { planillaAllToMovimientos } from '../planillaMovimientos'
 import { downloadPlanillaPdf } from '../exportPlanillaPdf'
 import PlanillaLineasTable from './PlanillaLineasTable'
 
@@ -26,7 +22,7 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
 
   const handleFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setMsg('Subí el PDF del listado «Planilla de Caja» (exportado del sistema).')
+      setMsg('Subí el PDF del listado «Planilla de Caja» (exportado del sistema PLOT CENTER).')
       return
     }
     setParsing(true)
@@ -48,6 +44,15 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
 
   const handleGuardar = async () => {
     if (!preview) return
+    if (preview.lineas_cuadre_invalido > 0) {
+      if (
+        !confirm(
+          `Hay ${preview.lineas_cuadre_invalido} línea(s) donde Total ≠ suma de medios. ¿Guardar igual?`
+        )
+      ) {
+        return
+      }
+    }
     setSaving(true)
     setMsg(null)
     try {
@@ -55,18 +60,13 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
       const cajaSlug = resolveCajaSlug(preview.caja_nombre, cajas)
       await savePlanillaImport(preview, cajaSlug, usuarioNombre, usuarioId)
 
-      const movsMec = planillaMecToMovimientos(preview, cajas, usuarioNombre, usuarioId)
-      const movsEg = planillaEgresosToMovimientos(preview, cajas, cajaSlug, usuarioNombre, usuarioId)
-      const movs = [...movsMec, ...movsEg]
+      const movs = planillaAllToMovimientos(preview, cajas, cajaSlug, usuarioNombre, usuarioId)
       if (movs.length) {
         await saveMovimientosBulk(movs)
       }
 
       setMsg(
-        `Planilla guardada (${preview.archivo_nombre}).` +
-          (movsMec.length ? ` ${movsMec.length} MEC.` : '') +
-          (movsEg.length ? ` ${movsEg.length} egreso(s) EG.` : '') +
-          (preview.cantidad_ventas ? ` ${preview.cantidad_ventas} ventas FA/FB en planilla.` : '')
+        `Planilla guardada (${preview.archivo_nombre}). ${movs.length} movimiento(s) importados. ${preview.cantidad_ventas} ventas FA/FB en planilla para cierre.`
       )
       setPreview(null)
       onImported?.()
@@ -78,6 +78,7 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
   }
 
   const t = preview?.totales
+  const resumen = preview ? calcularTotalesDesdePlanilla(preview) : null
 
   return (
     <div className="caja-cc-card caja-cc-planilla-import">
@@ -85,9 +86,9 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
         <div>
           <h3>Planilla de caja (PDF)</h3>
           <p className="caja-cc-sub">
-            Subí el <strong>Listado de Planilla de Caja</strong> de PLOT CENTER (mismo PDF del mail diario).
-            Columnas: Comprobante, Concepto, Total, Cta. cte., Efectivo, cheques, Tarjetas, Docum., C.
-            contab., Trans. B. y Otros.
+            Listado <strong>PLOT CENTER</strong>: bloques Ingresos (Varios, Ventas FA/FB, Pagos clientes), Egresos,
+            MEC entre cajas y <strong>Totales de caja</strong>. Cada línea valida: Total = Cta.Cte + Efectivo + cheques
+            + Tarjetas + Trans.B + Otros.
           </p>
         </div>
         <div className="caja-cc-page-actions">
@@ -119,15 +120,25 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
         <div className="caja-cc-planilla-preview">
           <div className="caja-cc-planilla-meta">
             <span>
-              <strong>{preview.caja_nombre || '—'}</strong>
+              <strong>{preview.empresa}</strong> · {preview.caja_nombre || '—'}
             </span>
             <span>
               {fmtDateAr(preview.fecha_desde)} → {fmtDateAr(preview.fecha_hasta)}
             </span>
             <span>{preview.cantidad_ventas} ventas FA/FB</span>
-            <span>{preview.egresos.length} egresos EG</span>
+            <span>{preview.egresos.length + preview.egresos_compras.length} egresos EG</span>
             <span>{preview.movimientos_mec.length} MEC</span>
+            {preview.lineas_cuadre_invalido > 0 && (
+              <span className="caja-cc-tag bad">{preview.lineas_cuadre_invalido} líneas sin cuadrar</span>
+            )}
           </div>
+
+          {resumen && (
+            <p className="caja-cc-sub">
+              Físico neto (efectivo+cheques+doc): $ {fmtArs(resumen.neto.fisico_neto)} · Electrónico: ${' '}
+              {fmtArs(resumen.neto.electronico_neto)} · Contable (cta.cte): $ {fmtArs(resumen.neto.contable_neto)}
+            </p>
+          )}
 
           {t && (
             <table className="caja-cc-table caja-cc-planilla-totales">
@@ -163,21 +174,36 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
                 </tr>
                 <tr className="caja-cc-row-neto">
                   <td>Ingresos − Egresos</td>
-                  <td className="num" colSpan={6}>
+                  <td className="num">
                     <strong>$ {fmtArs(t.neto)}</strong>
                   </td>
+                  <td className="num">
+                    $ {fmtArs(t.neto_por_columna?.cta_cte ?? resumen?.neto.cta_cte ?? 0)}
+                  </td>
+                  <td className="num">
+                    $ {fmtArs(t.neto_por_columna?.efectivo ?? resumen?.neto.efectivo ?? 0)}
+                  </td>
+                  <td className="num">
+                    $ {fmtArs(t.neto_por_columna?.tarjetas ?? resumen?.neto.tarjetas ?? 0)}
+                  </td>
+                  <td className="num">
+                    $ {fmtArs(t.neto_por_columna?.trans_b ?? resumen?.neto.trans_b ?? 0)}
+                  </td>
+                  <td className="num">—</td>
                 </tr>
               </tbody>
             </table>
           )}
 
           <p className="caja-cc-help caja-cc-planilla-cols-hint">
-            Columnas por línea (como en el PDF):{' '}
-            {PLANILLA_LINEA_COLUMNAS.map((c) => c.label).join(' · ')}
+            Columnas por línea: {PLANILLA_LINEA_COLUMNAS.map((c) => c.label).join(' · ')}
           </p>
 
+          <PlanillaLineasTable title="Ingresos varios (IV)" lineas={preview.ingresos_varios} />
           <PlanillaLineasTable title="Ingresos ventas (FA / FB)" lineas={preview.ventas} />
-          <PlanillaLineasTable title="Egresos (EG)" lineas={preview.egresos} maxRows={15} />
+          <PlanillaLineasTable title="Ingresos pagos clientes (IPC)" lineas={preview.ingresos_pagos_clientes} />
+          <PlanillaLineasTable title="Egresos varios (EG)" lineas={preview.egresos} maxRows={15} />
+          <PlanillaLineasTable title="Egresos compras" lineas={preview.egresos_compras} maxRows={10} />
           <PlanillaLineasTable title="Movimientos entre cajas (MEC)" lineas={preview.movimientos_mec} maxRows={10} />
 
           <div className="caja-cc-actions">
@@ -196,8 +222,8 @@ export default function CajaImportPlanillaPdf({ usuarioNombre, usuarioId, onImpo
             </button>
           </div>
           <p className="caja-cc-help">
-            Al guardar se importan como movimientos los <strong>MEC</strong> y los <strong>EG</strong> (egresos).
-            Las ventas FA/FB quedan en la planilla para cierre y conciliación.
+            Las ventas FA/FB quedan en la planilla para el <strong>cierre</strong> (ingresos por medio). Se importan
+            MEC y EG como movimientos con desglose JSON de medios de pago.
           </p>
         </div>
       )}

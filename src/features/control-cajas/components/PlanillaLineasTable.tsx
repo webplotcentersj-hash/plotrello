@@ -1,10 +1,7 @@
-import { PLANILLA_LINEA_COLUMNAS, type PlanillaMontosLinea } from '../parsePlanillaCajaPdf'
+import { PLANILLA_LINEA_COLUMNAS, type PlanillaLineaConMontos } from '../parsePlanillaCajaPdf'
 import { fmtArs } from '../format'
 
-type Linea = PlanillaMontosLinea & {
-  comprobante: string
-  concepto: string
-}
+type Linea = PlanillaLineaConMontos
 
 type Props = {
   title: string
@@ -37,7 +34,15 @@ export default function PlanillaLineasTable({ title, lineas, maxRows = 25 }: Pro
           </thead>
           <tbody>
             {shown.map((row, i) => (
-              <tr key={`${row.comprobante}-${i}`}>
+              <tr
+                key={`${row.comprobante}-${i}`}
+                className={'cuadre_valido' in row && !row.cuadre_valido ? 'caja-cc-row-cuadre-bad' : undefined}
+                title={
+                  'cuadre_valido' in row && !row.cuadre_valido
+                    ? `Total ≠ medios (Δ ${row.cuadre_diferencia})`
+                    : undefined
+                }
+              >
                 <td className="caja-cc-cell-comp">{row.comprobante}</td>
                 <td className="caja-cc-cell-concept" title={row.concepto}>
                   {row.concepto}

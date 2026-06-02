@@ -1704,3 +1704,41 @@
 .caja-dashboard-page .caja-cc-egreso-pendientes {
   border-left: 4px solid #eab308;
 }
+
+.caja-dashboard-page .caja-cc-row-cuadre-bad {
+  background: #fef2f2;
+}
+
+.caja-dashboard-page .caja-cc-tag.bad {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-left: 8px;
+}
+
+.caja-dashboard-page .caja-cc-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.caja-dashboard-page .caja-cc-tabs button {
+  padding: 8px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.caja-dashboard-page .caja-cc-tabs button.active {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-mov-medios .caja-cc-medios-grid {
+  margin-top: 12px;
+}

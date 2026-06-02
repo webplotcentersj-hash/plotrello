@@ -37,13 +37,28 @@ export type CajaMovimientoTrazabilidad = {
 
 export type CajaPaseSubtipo = 'fondo' | 'resto_admin' | 'libre'
 
+export type CajaTipoMovimiento = 'ingreso' | 'egreso' | 'traspaso' | 'ajuste'
+
 export type CajaMovimiento = {
   id: string
   fecha: string
   hora?: string | null
   concepto: CajaMovimientoConcepto | string
+  tipo_movimiento?: CajaTipoMovimiento | null
+  categoria?: string | null
+  tercero_nombre?: string | null
+  monto_total?: number | null
+  cuenta_corriente?: number | null
+  cheque_propio?: number | null
+  cheque_tercero?: number | null
+  tarjeta?: number | null
+  documento?: number | null
+  cuenta_contable?: number | null
+  transferencia_bancaria?: number | null
   subtipo_pase?: CajaPaseSubtipo | null
   id_lote?: string | null
+  cierre_id?: string | null
+  anulado?: boolean
   origen_slug: string
   destino_slug: string
   efectivo: number
@@ -53,14 +68,20 @@ export type CajaMovimiento = {
   id_usuario?: number | null
   usuario_nombre?: string | null
   origen_importacion: 'manual' | 'excel' | 'planilla_pdf'
+  traspaso_id?: string | null
+  /** Desglose por medio de pago (columnas planilla Plot Center). */
+  medios?: Record<string, number> | null
   created_at?: string
 } & CajaMovimientoTrazabilidad
 
 export type CajaCierreEstado = 'OK' | 'REVISAR'
 
+export type CajaCierreEstadoCierre = 'abierto' | 'cerrado' | 'observado' | 'anulado'
+
 export type CajaCierre = {
   id: string
   fecha: string
+  fecha_hasta?: string | null
   caja_slug: string
   turno: string
   cajera?: string | null
@@ -80,9 +101,12 @@ export type CajaCierre = {
   total_ventas: number
   dif_total: number
   estado: CajaCierreEstado
+  estado_cierre?: CajaCierreEstadoCierre
+  snapshot_totales?: Record<string, unknown> | null
   observacion?: string | null
   id_planilla?: string | null
   created_at?: string
+  updated_at?: string
 }
 
 export type CajaConcilMP = {

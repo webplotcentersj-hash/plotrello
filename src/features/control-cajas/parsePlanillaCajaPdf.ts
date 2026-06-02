@@ -1,21 +1,20 @@
 import { extractTextFromPdfArrayBuffer } from '../../utils/protocolosPdfText'
 import { parseNum } from './format'
-import type { CajaMovimiento, CajaRegistro } from './types'
-import { resolveCajaSlug } from './cajaRepository'
+import { validarCuadreMediosPago } from './planillaMediosPago'
 
 /** Monto argentino: 2.485.275,55 o 5305,33 */
 const AR_AMOUNT = /(\d{1,3}(?:\.\d{3})*,\d{2,3}|\d+,\d{2})/g
 
-/** Columnas de cada línea FA/FB/EG (orden del PDF «Ingresos Ventas» / «Egresos Varios»). */
+/** Columnas de cada línea (orden del PDF Plot Center). */
 export const PLANILLA_LINEA_COLUMNAS = [
   { key: 'total', label: 'Total' },
-  { key: 'cta_cte', label: 'Cta. cte.' },
+  { key: 'cta_cte', label: 'Cta. Cte.' },
   { key: 'efectivo', label: 'Efectivo' },
-  { key: 'ch_prop', label: 'Ch. prop.' },
-  { key: 'ch_terc', label: 'Ch. terc.' },
+  { key: 'ch_prop', label: 'Ch. Prop.' },
+  { key: 'ch_terc', label: 'Ch. Terc.' },
   { key: 'tarjetas', label: 'Tarjetas' },
   { key: 'docum', label: 'Docum.' },
-  { key: 'c_contab', label: 'C. contab.' },
+  { key: 'c_contab', label: 'C. Contab.' },
   { key: 'trans_b', label: 'Trans. B.' },
   { key: 'otros', label: 'Otros' }
 ] as const
@@ -23,6 +22,34 @@ export const PLANILLA_LINEA_COLUMNAS = [
 export type PlanillaColumnaKey = (typeof PLANILLA_LINEA_COLUMNAS)[number]['key']
 
 export type PlanillaMontosLinea = Record<PlanillaColumnaKey, number>
+
+export type PlanillaBloqueId =
+  | 'ingresos_varios'
+  | 'ingresos_ventas'
+  | 'ingresos_pagos_clientes'
+  | 'egresos_varios'
+  | 'egresos_compras'
+  | 'egresos_pagos_proveedores'
+  | 'movimientos_mec'
+  | 'otro'
+
+export type PlanillaLineaConMontos = PlanillaMontosLinea & {
+  comprobante: string
+  concepto: string
+  bloque: PlanillaBloqueId
+  tipo_movimiento: 'ingreso' | 'egreso' | 'traspaso'
+  categoria: string
+  tercero_nombre?: string
+  cuadre_valido: boolean
+  cuadre_diferencia: number
+}
+
+export type PlanillaLineaVenta = PlanillaLineaConMontos
+export type PlanillaLineaEgreso = PlanillaLineaConMontos
+export type PlanillaLineaMec = PlanillaLineaConMontos & {
+  origen_hint: string
+  destino_hint: string
+}
 
 export type PlanillaCajaTotales = {
   ingresos_total: number
@@ -38,23 +65,8 @@ export type PlanillaCajaTotales = {
   egresos_tarjetas: number
   egresos_trans_b: number
   egresos_otros: number
-}
-
-export type PlanillaLineaVenta = PlanillaMontosLinea & {
-  comprobante: string
-  concepto: string
-}
-
-export type PlanillaLineaEgreso = PlanillaMontosLinea & {
-  comprobante: string
-  concepto: string
-}
-
-export type PlanillaLineaMec = PlanillaMontosLinea & {
-  comprobante: string
-  concepto: string
-  origen_hint: string
-  destino_hint: string
+  /** Fila Ingresos − Egresos por columna (si se detecta en PDF). */
+  neto_por_columna?: Partial<PlanillaMontosLinea>
 }
 
 export type PlanillaCajaParsed = {
@@ -65,9 +77,14 @@ export type PlanillaCajaParsed = {
   caja_nombre: string
   cantidad_ventas: number
   totales: PlanillaCajaTotales | null
+  ingresos_varios: PlanillaLineaConMontos[]
   ventas: PlanillaLineaVenta[]
+  ingresos_pagos_clientes: PlanillaLineaConMontos[]
   egresos: PlanillaLineaEgreso[]
+  egresos_compras: PlanillaLineaConMontos[]
+  egresos_pagos_proveedores: PlanillaLineaConMontos[]
   movimientos_mec: PlanillaLineaMec[]
+  lineas_cuadre_invalido: number
   warnings: string[]
 }
 
@@ -94,7 +111,6 @@ function parseAmountsFromTail(tail: string): number[] {
   return matches.map(parseArAmount)
 }
 
-/** Mapea los montos del final de línea al orden de columnas del PDF. */
 export function mapMontosPlanillaLinea(amounts: number[]): PlanillaMontosLinea {
   const m = EMPTY_MONTOS()
   PLANILLA_LINEA_COLUMNAS.forEach((col, i) => {
@@ -122,30 +138,131 @@ function parseHeader(text: string): Pick<PlanillaCajaParsed, 'fecha_desde' | 'fe
   }
 }
 
+function detectBloqueFromHeader(line: string): PlanillaBloqueId | null {
+  const u = line.toUpperCase()
+  if (u.includes('INGRESOS VARIOS')) return 'ingresos_varios'
+  if (u.includes('INGRESOS VENTAS')) return 'ingresos_ventas'
+  if (u.includes('INGRESOS PAGOS CLIENTES') || u.includes('PAGOS CLIENTES')) return 'ingresos_pagos_clientes'
+  if (u.includes('EGRESOS COMPRAS')) return 'egresos_compras'
+  if (u.includes('EGRESOS PAGOS PROVEEDORES') || u.includes('PAGOS PROVEEDORES')) return 'egresos_pagos_proveedores'
+  if (u.includes('EGRESOS VARIOS')) return 'egresos_varios'
+  if (u.includes('MOVIMIENTO ENTRE CAJAS') || u.includes('ENTRE CAJAS')) return 'movimientos_mec'
+  return null
+}
+
+function conceptoSinMontos(rest: string): string {
+  return (
+    rest
+      .replace(AR_AMOUNT, '|')
+      .split('|')[0]
+      ?.replace(/\s+/g, ' ')
+      .trim() ?? ''
+  )
+}
+
+function categoriaDesdeBloque(bloque: PlanillaBloqueId): string {
+  const map: Record<PlanillaBloqueId, string> = {
+    ingresos_varios: 'gasto_vario',
+    ingresos_ventas: 'venta',
+    ingresos_pagos_clientes: 'pago_cliente',
+    egresos_varios: 'gasto_vario',
+    egresos_compras: 'compra',
+    egresos_pagos_proveedores: 'pago_proveedor',
+    movimientos_mec: 'movimiento_entre_cajas',
+    otro: 'otro'
+  }
+  return map[bloque] ?? 'otro'
+}
+
+function wrapLinea(
+  bloque: PlanillaBloqueId,
+  comprobante: string,
+  concepto: string,
+  montos: PlanillaMontosLinea,
+  extra?: Partial<PlanillaLineaConMontos>
+): PlanillaLineaConMontos {
+  const v = validarCuadreMediosPago(montos)
+  const tipo_movimiento: PlanillaLineaConMontos['tipo_movimiento'] =
+    bloque === 'movimientos_mec' ? 'traspaso' : bloque.startsWith('ingreso') ? 'ingreso' : 'egreso'
+
+  return {
+    comprobante,
+    concepto,
+    bloque,
+    tipo_movimiento,
+    categoria: categoriaDesdeBloque(bloque),
+    cuadre_valido: v.valido,
+    cuadre_diferencia: v.diferencia,
+    ...montos,
+    ...extra
+  }
+}
+
+function parseLineaComprobante(
+  line: string,
+  prefix: string,
+  bloque: PlanillaBloqueId
+): PlanillaLineaConMontos | null {
+  const m = line.match(new RegExp(`^${prefix}\\s+(\\S+)\\s+(.+)$`, 'i'))
+  if (!m) return null
+  const amounts = parseAmountsFromTail(m[2])
+  if (!amounts.length) return null
+  let montos = mapMontosPlanillaLinea(amounts)
+  const concepto = conceptoSinMontos(m[2]) || bloque
+  if (montos.total === 0 && montos.efectivo === 0 && amounts.length >= 1) {
+    const max = Math.max(...amounts)
+    if (max > 0 && bloque.startsWith('egreso')) montos.efectivo = max
+  }
+  return wrapLinea(bloque, `${prefix.toUpperCase()} ${m[1]}`, concepto, montos)
+}
+
+function parseMecLine(line: string): PlanillaLineaMec | null {
+  const base = parseLineaComprobante(line, 'MEC', 'movimientos_mec')
+  if (!base) return null
+  const conceptRaw = base.concepto
+  const paren = conceptRaw.match(/\(([^)]+)\)/)
+  let origen_hint = ''
+  let destino_hint = ''
+  if (paren) {
+    const parts = paren[1].split(/\s*-\s*/)
+    origen_hint = parts[0]?.trim() ?? ''
+    destino_hint = parts[1]?.trim() ?? ''
+  }
+  const montos = { ...base }
+  if (montos.total === 0) {
+    const amounts = parseAmountsFromTail(line)
+    if (amounts.length >= 6) {
+      montos.cta_cte = amounts[0] ?? 0
+      montos.efectivo = amounts[3] ?? 0
+      montos.total = amounts[5] ?? amounts[amounts.length - 1] ?? 0
+      const v = validarCuadreMediosPago(montos)
+      montos.cuadre_valido = v.valido
+      montos.cuadre_diferencia = v.diferencia
+    }
+  }
+  return { ...montos, origen_hint, destino_hint }
+}
+
 function parseTotalesDeCaja(text: string): PlanillaCajaTotales | null {
   const idx = text.indexOf('TOTALES DE CAJA')
   if (idx < 0) return null
-  const chunk = text.slice(idx, idx + 900)
+  const chunk = text.slice(idx, idx + 1200)
   const rows: number[][] = []
   for (const line of chunk.split(/\n/)) {
     const trimmed = line.trim()
-    if (!/^\d/.test(trimmed)) continue
-    const nums = parseAmountsFromTail(trimmed)
-    if (nums.length >= 6 && nums[0] > 1000) rows.push(nums)
+    if (!/^\d/.test(trimmed) && !/^Ingresos/i.test(trimmed)) continue
+    const nums = parseAmountsFromTail(trimmed.replace(/^Ingresos\s*-\s*Egresos\s*/i, ''))
+    if (nums.length >= 6 && (nums[0] > 500 || trimmed.includes('Ingresos'))) rows.push(nums)
   }
   if (rows.length < 2) return null
 
   const ing = rows[0]
   const egr = rows[1]
   const netoRow = rows[2]
-  const neto = netoRow?.[0] > 1000 ? netoRow[0] : (ing[0] ?? 0) - (egr[0] ?? 0)
+  const neto_por_columna = netoRow?.length >= 6 ? mapMontosPlanillaLinea(netoRow) : undefined
+  const neto = neto_por_columna?.total ?? netoRow?.[0] ?? (ing[0] ?? 0) - (egr[0] ?? 0)
 
-  let transB = 0
-  const transLines = chunk.match(/Trans\.\s*B\.?\s*([\d.,]+)/gi)
-  if (transLines?.length) {
-    const last = transLines[transLines.length - 1].match(/([\d.,]+)/)
-    if (last) transB = parseArAmount(last[1])
-  }
+  let transB = ing[8] ?? 0
   const transGlobal = text.match(/Trans\.\s*B\.?\s*\n\s*([\d.,]+)/i)
   if (transGlobal) transB = parseArAmount(transGlobal[1])
 
@@ -166,79 +283,8 @@ function parseTotalesDeCaja(text: string): PlanillaCajaTotales | null {
     egresos_tarjetas: egr[5] ?? 0,
     egresos_trans_b: egr[8] ?? 0,
     egresos_otros: egr[9] ?? egr[egr.length - 1] ?? 0,
-    neto
-  }
-}
-
-function conceptoSinMontos(rest: string): string {
-  return (
-    rest
-      .replace(AR_AMOUNT, '|')
-      .split('|')[0]
-      ?.replace(/\s+/g, ' ')
-      .trim() ?? ''
-  )
-}
-
-function parseVentasLine(line: string): PlanillaLineaVenta | null {
-  const m = line.match(/^(FA|FB)\s+(\S+)\s+(.+)$/i)
-  if (!m) return null
-  const amounts = parseAmountsFromTail(m[3])
-  if (amounts.length < 1) return null
-  const concepto = conceptoSinMontos(m[3]) || 'Venta'
-  return {
-    comprobante: `${m[1].toUpperCase()} ${m[2]}`,
-    concepto,
-    ...mapMontosPlanillaLinea(amounts)
-  }
-}
-
-function parseEgresoLine(line: string): PlanillaLineaEgreso | null {
-  const m = line.match(/^EG\s+(\S+)\s+(.+)$/i)
-  if (!m) return null
-  const amounts = parseAmountsFromTail(m[2])
-  if (!amounts.length) return null
-  const concepto = conceptoSinMontos(m[2]) || 'Egreso'
-  const montos = mapMontosPlanillaLinea(amounts)
-  if (montos.total === 0 && montos.efectivo === 0 && montos.cta_cte === 0) {
-    const max = Math.max(...amounts)
-    if (max > 0) montos.efectivo = max
-  }
-  return {
-    comprobante: `EG ${m[1]}`,
-    concepto,
-    ...montos
-  }
-}
-
-function parseMecLine(line: string): PlanillaLineaMec | null {
-  const m = line.match(/^MEC\s+(\S+)\s+(.+)$/i)
-  if (!m) return null
-  const amounts = parseAmountsFromTail(m[2])
-  if (!amounts.length) return null
-  const conceptRaw = conceptoSinMontos(m[2]) || ''
-  const paren = conceptRaw.match(/\(([^)]+)\)/)
-  let origen_hint = ''
-  let destino_hint = ''
-  if (paren) {
-    const parts = paren[1].split(/\s*-\s*/)
-    origen_hint = parts[0]?.trim() ?? ''
-    destino_hint = parts[1]?.trim() ?? ''
-  }
-
-  const montos = mapMontosPlanillaLinea(amounts)
-  if (montos.total === 0 && amounts.length >= 6) {
-    montos.cta_cte = amounts[0] ?? 0
-    montos.efectivo = amounts[3] ?? 0
-    montos.total = amounts[5] ?? amounts[amounts.length - 1] ?? 0
-  }
-
-  return {
-    comprobante: `MEC ${m[1]}`,
-    concepto: conceptRaw,
-    origen_hint,
-    destino_hint,
-    ...montos
+    neto,
+    neto_por_columna
   }
 }
 
@@ -248,22 +294,65 @@ export function parsePlanillaCajaText(text: string, archivoNombre: string): Plan
   const header = parseHeader(normalized)
   const totales = parseTotalesDeCaja(normalized)
 
+  const ingresos_varios: PlanillaLineaConMontos[] = []
   const ventas: PlanillaLineaVenta[] = []
+  const ingresos_pagos_clientes: PlanillaLineaConMontos[] = []
   const egresos: PlanillaLineaEgreso[] = []
+  const egresos_compras: PlanillaLineaConMontos[] = []
+  const egresos_pagos_proveedores: PlanillaLineaConMontos[] = []
   const movimientos_mec: PlanillaLineaMec[] = []
+
+  let bloque: PlanillaBloqueId = 'ingresos_ventas'
 
   for (const line of normalized.split('\n')) {
     const trimmed = line.trim()
-    if (/^(FA|FB)\s+/i.test(trimmed)) {
-      const v = parseVentasLine(trimmed)
-      if (v && v.total > 0) ventas.push(v)
+    if (!trimmed) continue
+
+    const hdr = detectBloqueFromHeader(trimmed)
+    if (hdr) {
+      bloque = hdr
+      continue
+    }
+
+    if (/^FB\s+/i.test(trimmed)) {
+      const v = parseLineaComprobante(trimmed, 'FB', 'ingresos_ventas')
+      if (v && v.total > 0) ventas.push(v as PlanillaLineaVenta)
+    } else if (/^FA\s+/i.test(trimmed)) {
+      const v = parseLineaComprobante(trimmed, 'FA', 'ingresos_ventas')
+      if (v && v.total > 0) ventas.push(v as PlanillaLineaVenta)
+    } else if (/^IV\s+/i.test(trimmed)) {
+      const v = parseLineaComprobante(trimmed, 'IV', 'ingresos_varios')
+      if (v && v.total > 0) ingresos_varios.push(v)
+    } else if (/^IPC\s+/i.test(trimmed)) {
+      const v = parseLineaComprobante(trimmed, 'IPC', 'ingresos_pagos_clientes')
+      if (v && v.total > 0) ingresos_pagos_clientes.push(v)
     } else if (/^EG\s+/i.test(trimmed)) {
-      const e = parseEgresoLine(trimmed)
-      if (e && (e.total > 0 || e.efectivo > 0 || e.cta_cte > 0)) egresos.push(e)
+      const v = parseLineaComprobante(trimmed, 'EG', bloque.startsWith('egreso') ? bloque : 'egresos_varios')
+      if (v && (v.total > 0 || v.efectivo > 0)) {
+        if (bloque === 'egresos_compras') egresos_compras.push(v)
+        else if (bloque === 'egresos_pagos_proveedores') egresos_pagos_proveedores.push(v)
+        else egresos.push(v)
+      }
     } else if (/^MEC\s+/i.test(trimmed)) {
       const mec = parseMecLine(trimmed)
       if (mec && mec.total > 0) movimientos_mec.push(mec)
     }
+  }
+
+  const todas = [
+    ...ingresos_varios,
+    ...ventas,
+    ...ingresos_pagos_clientes,
+    ...egresos,
+    ...egresos_compras,
+    ...egresos_pagos_proveedores,
+    ...movimientos_mec
+  ]
+  const lineas_cuadre_invalido = todas.filter((l) => !l.cuadre_valido).length
+  if (lineas_cuadre_invalido > 0) {
+    warnings.push(
+      `${lineas_cuadre_invalido} línea(s) donde Total ≠ suma de medios de pago (revisar PDF).`
+    )
   }
 
   if (!header.caja_nombre) warnings.push('No se detectó el nombre de caja en el encabezado.')
@@ -272,14 +361,26 @@ export function parsePlanillaCajaText(text: string, archivoNombre: string): Plan
     warnings.push('No se detectaron líneas FA/FB, EG ni MEC.')
   }
 
+  if (totales && lineas_cuadre_invalido === 0) {
+    const calcIng = ingresos_varios.reduce((s, l) => s + l.total, 0) + ventas.reduce((s, l) => s + l.total, 0) + ingresos_pagos_clientes.reduce((s, l) => s + l.total, 0)
+    if (calcIng > 0 && Math.abs(calcIng - totales.ingresos_total) > totales.ingresos_total * 0.05) {
+      warnings.push('La suma de líneas de ingreso difiere >5% del total de caja del PDF.')
+    }
+  }
+
   return {
     archivo_nombre: archivoNombre,
     ...header,
     cantidad_ventas: ventas.length,
     totales,
+    ingresos_varios,
     ventas,
+    ingresos_pagos_clientes,
     egresos,
+    egresos_compras,
+    egresos_pagos_proveedores,
     movimientos_mec,
+    lineas_cuadre_invalido,
     warnings
   }
 }
@@ -290,84 +391,4 @@ export async function parsePlanillaCajaPdf(
 ): Promise<PlanillaCajaParsed> {
   const text = await extractTextFromPdfArrayBuffer(buffer)
   return parsePlanillaCajaText(text, archivoNombre)
-}
-
-function hintToSlug(hint: string, cajas: CajaRegistro[], cajaPlanilla: string): string | null {
-  const h = hint.trim().toLowerCase()
-  if (!h) return null
-  if (h.includes('central') || h.includes('admin')) return resolveCajaSlug('admin', cajas) ?? 'admin'
-  if (h.includes('mostrador')) return resolveCajaSlug('mostrador', cajas) ?? resolveCajaSlug(cajaPlanilla, cajas)
-  return resolveCajaSlug(hint, cajas)
-}
-
-/** Convierte líneas MEC de la planilla a movimientos guardables. */
-export function planillaMecToMovimientos(
-  planilla: PlanillaCajaParsed,
-  cajas: CajaRegistro[],
-  usuarioNombre: string,
-  usuarioId?: number
-): Omit<CajaMovimiento, 'id' | 'created_at'>[] {
-  const cajaSlug =
-    resolveCajaSlug(planilla.caja_nombre, cajas) ??
-    cajas.find((c) => c.slug !== 'admin')?.slug ??
-    'noelia'
-  const fecha = planilla.fecha_hasta || planilla.fecha_desde
-
-  return planilla.movimientos_mec.map((mec) => {
-    const origen =
-      hintToSlug(mec.origen_hint, cajas, planilla.caja_nombre) ?? cajaSlug
-    const destino =
-      hintToSlug(mec.destino_hint, cajas, planilla.caja_nombre) ??
-      resolveCajaSlug('admin', cajas) ??
-      'admin'
-    const efectivo = mec.efectivo > 0 ? mec.efectivo : mec.total
-    const otros = mec.cta_cte + mec.tarjetas + mec.trans_b + mec.otros
-    return {
-      fecha,
-      hora: null,
-      concepto: 'Pase de caja',
-      origen_slug: origen,
-      destino_slug: destino,
-      efectivo,
-      otros,
-      nro_comprobante: mec.comprobante,
-      observacion: mec.concepto,
-      id_usuario: usuarioId ?? null,
-      usuario_nombre: usuarioNombre,
-      origen_importacion: 'planilla_pdf'
-    }
-  })
-}
-
-/** Egresos EG como salidas de caja (opcional al importar). */
-export function planillaEgresosToMovimientos(
-  planilla: PlanillaCajaParsed,
-  cajas: CajaRegistro[],
-  cajaSlug: string | null,
-  usuarioNombre: string,
-  usuarioId?: number
-): Omit<CajaMovimiento, 'id' | 'created_at'>[] {
-  const slug =
-    cajaSlug ??
-    resolveCajaSlug(planilla.caja_nombre, cajas) ??
-    cajas.find((c) => c.slug !== 'admin')?.slug ??
-    'noelia'
-  const fecha = planilla.fecha_hasta || planilla.fecha_desde
-  const destino =
-    resolveCajaSlug('admin', cajas) ?? cajas.find((c) => c.slug === 'admin')?.slug ?? slug
-
-  return planilla.egresos.map((eg) => ({
-    fecha,
-    hora: null,
-    concepto: eg.concepto || 'Egreso',
-    origen_slug: slug,
-    destino_slug: destino,
-    efectivo: eg.efectivo || eg.total,
-    otros: eg.cta_cte + eg.tarjetas + eg.trans_b + eg.ch_prop + eg.ch_terc + eg.otros,
-    nro_comprobante: eg.comprobante,
-    observacion: `Importado planilla PDF — ${eg.concepto}`,
-    id_usuario: usuarioId ?? null,
-    usuario_nombre: usuarioNombre,
-    origen_importacion: 'planilla_pdf'
-  }))
 }
