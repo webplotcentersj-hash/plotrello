@@ -1160,13 +1160,151 @@
   font-family: inherit;
 }
 
-.caja-dashboard-page .caja-cc-planilla-import .caja-cc-card-head-row {
+.caja-dashboard-page .caja-cc-planilla-zone {
+  margin-bottom: 20px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 120px;
+  padding: 24px 20px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  color: #0f172a;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.caja-dashboard-page .caja-cc-planilla-drop:hover,
+.caja-dashboard-page .caja-cc-planilla-drop.drag {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.caja-dashboard-page .caja-cc-planilla-drop-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.caja-dashboard-page .caja-cc-planilla-drop-hint {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 400;
+  max-width: 320px;
+  text-align: center;
+}
+
+.caja-dashboard-page .caja-cc-planilla-result {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.caja-dashboard-page .caja-cc-planilla-result-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-result h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-result-sub {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-planilla-warns {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #854d0e;
+  list-style: disc;
+  padding-left: 28px;
+}
+
+.caja-dashboard-page .caja-cc-metric.highlight {
+  border-color: #bfdbfe;
+  background: #f0f9ff;
+}
+
+.caja-dashboard-page .caja-cc-metric.warn {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.caja-dashboard-page .caja-cc-metric.warn .caja-cc-metric-v {
+  color: #b91c1c;
+}
+
+.caja-dashboard-page .caja-cc-planilla-fisico {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-toggle-detail {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 10px;
+  text-decoration: underline;
+}
+
+.caja-dashboard-page .caja-cc-planilla-bloques {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 13px;
+  list-style: none;
+}
+
+.caja-dashboard-page .caja-cc-planilla-bloques li {
+  padding: 4px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.caja-dashboard-page .caja-cc-planilla-bloques li:last-child {
+  border-bottom: none;
+}
+
+.caja-dashboard-page .caja-cc-planilla-actions {
+  margin-top: 8px;
+}
+
+.caja-dashboard-page .caja-cc-planilla-foot {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-ok {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #ecfdf5;
+  color: #166534;
+  border-radius: 8px;
+  font-size: 14px;
 }
 
 .caja-dashboard-page .caja-cc-planilla-import h3 {

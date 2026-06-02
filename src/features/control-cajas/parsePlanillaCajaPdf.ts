@@ -1,9 +1,11 @@
-import { extractTextFromPdfArrayBuffer } from '../../utils/protocolosPdfText'
+import { extractLinesFromPdfArrayBuffer } from '../../utils/pdfTextLines'
 import { parseNum } from './format'
 import { validarCuadreMediosPago } from './planillaMediosPago'
 
 /** Monto argentino: 2.485.275,55 o 5305,33 */
-const AR_AMOUNT = /(\d{1,3}(?:\.\d{3})*,\d{2,3}|\d+,\d{2})/g
+const AR_AMOUNT = /(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})/g
+
+const COMPROBANTE_PREFIX = /^(FA|FB|IV|IPC|EG|MEC)\s+(\S+)\s+(.+)$/i
 
 /** Columnas de cada línea (orden del PDF Plot Center). */
 export const PLANILLA_LINEA_COLUMNAS = [
@@ -65,7 +67,6 @@ export type PlanillaCajaTotales = {
   egresos_tarjetas: number
   egresos_trans_b: number
   egresos_otros: number
-  /** Fila Ingresos − Egresos por columna (si se detecta en PDF). */
   neto_por_columna?: Partial<PlanillaMontosLinea>
 }
 
@@ -113,9 +114,16 @@ function parseAmountsFromTail(tail: string): number[] {
 
 export function mapMontosPlanillaLinea(amounts: number[]): PlanillaMontosLinea {
   const m = EMPTY_MONTOS()
+  const slice =
+    amounts.length > PLANILLA_LINEA_COLUMNAS.length
+      ? amounts.slice(-PLANILLA_LINEA_COLUMNAS.length)
+      : amounts
   PLANILLA_LINEA_COLUMNAS.forEach((col, i) => {
-    m[col.key] = amounts[i] ?? 0
+    m[col.key] = slice[i] ?? 0
   })
+  if (m.total === 0 && slice.length > 0) {
+    m.total = slice[0]
+  }
   return m
 }
 
@@ -127,36 +135,47 @@ function dmYToIso(dmY: string): string {
 
 function parseHeader(text: string): Pick<PlanillaCajaParsed, 'fecha_desde' | 'fecha_hasta' | 'caja_nombre' | 'empresa'> {
   const periodo = text.match(
-    /Desde\s+(\d{2}\/\d{2}\/\d{4})\s+hasta\s+(\d{2}\/\d{2}\/\d{4})\s+CAJA\s+([A-ZÁÉÍÓÚÑ0-9\s]+?)(?:\s+Ingresos|\s+EGRESOS|$)/im
+    /Desde\s+(\d{2}\/\d{2}\/\d{4})\s+hasta\s+(\d{2}\/\d{2}\/\d{4})\s+CAJA\s+([A-ZÁÉÍÓÚÑ0-9\s]+?)(?:\s+Ingresos|\s+EGRESOS|\s+TOTALES|$)/im
   )
-  const empresa = text.includes('PLOT CENTER') ? 'PLOT CENTER' : 'Plot Lab'
+  const cajaAlt = text.match(/CAJA\s+(NOELIA|ROSA|ADMIN[A-ZÁÉÍÓÚÑ\s]*)/i)
   return {
-    empresa,
+    empresa: text.includes('PLOT CENTER') ? 'PLOT CENTER' : 'Plot Lab',
     fecha_desde: periodo ? dmYToIso(periodo[1]) : '',
     fecha_hasta: periodo ? dmYToIso(periodo[2]) : '',
-    caja_nombre: periodo ? periodo[3].trim() : ''
+    caja_nombre: periodo ? periodo[3].trim() : cajaAlt ? `CAJA ${cajaAlt[1].trim()}` : ''
   }
 }
 
 function detectBloqueFromHeader(line: string): PlanillaBloqueId | null {
   const u = line.toUpperCase()
-  if (u.includes('INGRESOS VARIOS')) return 'ingresos_varios'
-  if (u.includes('INGRESOS VENTAS')) return 'ingresos_ventas'
-  if (u.includes('INGRESOS PAGOS CLIENTES') || u.includes('PAGOS CLIENTES')) return 'ingresos_pagos_clientes'
-  if (u.includes('EGRESOS COMPRAS')) return 'egresos_compras'
-  if (u.includes('EGRESOS PAGOS PROVEEDORES') || u.includes('PAGOS PROVEEDORES')) return 'egresos_pagos_proveedores'
-  if (u.includes('EGRESOS VARIOS')) return 'egresos_varios'
-  if (u.includes('MOVIMIENTO ENTRE CAJAS') || u.includes('ENTRE CAJAS')) return 'movimientos_mec'
+  if (/INGRESOS\s+VARIOS/.test(u)) return 'ingresos_varios'
+  if (/INGRESOS\s+VENTAS/.test(u)) return 'ingresos_ventas'
+  if (/INGRESOS\s+PAGOS\s+CLIENTES|PAGOS\s+CLIENTES/.test(u)) return 'ingresos_pagos_clientes'
+  if (/EGRESOS\s+COMPRAS/.test(u)) return 'egresos_compras'
+  if (/EGRESOS\s+PAGOS\s+PROVEEDORES|PAGOS\s+PROVEEDORES/.test(u)) return 'egresos_pagos_proveedores'
+  if (/EGRESOS\s+VARIOS|^EGRESOS\s*$/i.test(u)) return 'egresos_varios'
+  if (/MOVIMIENTO\s+ENTRE\s+CAJAS|ENTRE\s+CAJAS/.test(u)) return 'movimientos_mec'
   return null
+}
+
+function isJunkLine(line: string): boolean {
+  const u = line.toUpperCase()
+  if (line.length < 4) return true
+  if (/^PLOT\s+CENTER|^LISTADO|^PLANILLA|^PÁGINA|^PAGE\s+\d/i.test(line)) return true
+  if (/^TOTAL\s+CTA\.?\s*CTE|^TOTAL\s+EFECTIVO|^CH\.\s+PROPIOS|^TRANS\.\s*B/i.test(line)) return true
+  if (/^COMPROBANTE\s+CONCEPTO/i.test(u)) return true
+  if (/^INGRESOS\s*-\s*EGRESOS\s*$/i.test(line)) return true
+  if (/^TOTALES\s+DE\s+CAJA/i.test(u)) return true
+  return false
 }
 
 function conceptoSinMontos(rest: string): string {
   return (
     rest
-      .replace(AR_AMOUNT, '|')
-      .split('|')[0]
-      ?.replace(/\s+/g, ' ')
-      .trim() ?? ''
+      .replace(AR_AMOUNT, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120) || ''
   )
 }
 
@@ -198,29 +217,30 @@ function wrapLinea(
   }
 }
 
-function parseLineaComprobante(
-  line: string,
-  prefix: string,
-  bloque: PlanillaBloqueId
-): PlanillaLineaConMontos | null {
-  const m = line.match(new RegExp(`^${prefix}\\s+(\\S+)\\s+(.+)$`, 'i'))
+function parseLineaComprobante(line: string, bloque: PlanillaBloqueId): PlanillaLineaConMontos | null {
+  const m = line.match(COMPROBANTE_PREFIX)
   if (!m) return null
-  const amounts = parseAmountsFromTail(m[2])
+  const prefix = m[1].toUpperCase()
+  const num = m[2]
+  const rest = m[3]
+  const amounts = parseAmountsFromTail(rest)
   if (!amounts.length) return null
+
   let montos = mapMontosPlanillaLinea(amounts)
-  const concepto = conceptoSinMontos(m[2]) || bloque
-  if (montos.total === 0 && montos.efectivo === 0 && amounts.length >= 1) {
+  const concepto = conceptoSinMontos(rest) || `${prefix} ${num}`
+
+  if (montos.total === 0) {
     const max = Math.max(...amounts)
-    if (max > 0 && bloque.startsWith('egreso')) montos.efectivo = max
+    if (max > 0) montos.total = max
   }
-  return wrapLinea(bloque, `${prefix.toUpperCase()} ${m[1]}`, concepto, montos)
+
+  return wrapLinea(bloque, `${prefix} ${num}`, concepto, montos)
 }
 
 function parseMecLine(line: string): PlanillaLineaMec | null {
-  const base = parseLineaComprobante(line, 'MEC', 'movimientos_mec')
+  const base = parseLineaComprobante(line, 'movimientos_mec')
   if (!base) return null
-  const conceptRaw = base.concepto
-  const paren = conceptRaw.match(/\(([^)]+)\)/)
+  const paren = base.concepto.match(/\(([^)]+)\)/)
   let origen_hint = ''
   let destino_hint = ''
   if (paren) {
@@ -228,71 +248,86 @@ function parseMecLine(line: string): PlanillaLineaMec | null {
     origen_hint = parts[0]?.trim() ?? ''
     destino_hint = parts[1]?.trim() ?? ''
   }
-  const montos = { ...base }
-  if (montos.total === 0) {
-    const amounts = parseAmountsFromTail(line)
-    if (amounts.length >= 6) {
-      montos.cta_cte = amounts[0] ?? 0
-      montos.efectivo = amounts[3] ?? 0
-      montos.total = amounts[5] ?? amounts[amounts.length - 1] ?? 0
-      const v = validarCuadreMediosPago(montos)
-      montos.cuadre_valido = v.valido
-      montos.cuadre_diferencia = v.diferencia
+  return { ...base, origen_hint, destino_hint }
+}
+
+function bloqueDesdePrefijo(prefix: string, current: PlanillaBloqueId): PlanillaBloqueId {
+  const p = prefix.toUpperCase()
+  if (p === 'FA' || p === 'FB') return 'ingresos_ventas'
+  if (p === 'IV') return 'ingresos_varios'
+  if (p === 'IPC') return 'ingresos_pagos_clientes'
+  if (p === 'MEC') return 'movimientos_mec'
+  if (p === 'EG') return current.startsWith('egreso') ? current : 'egresos_varios'
+  return current
+}
+
+function parseTotalesDeCaja(lines: string[]): PlanillaCajaTotales | null {
+  const idx = lines.findIndex((l) => /TOTALES\s+DE\s+CAJA/i.test(l))
+  if (idx < 0) return null
+
+  const chunk = lines.slice(idx, idx + 8)
+  const rows: number[][] = []
+  for (const line of chunk) {
+    const trimmed = line.trim()
+    if (/^Ingresos\s*-\s*Egresos/i.test(trimmed)) {
+      const nums = parseAmountsFromTail(trimmed.replace(/^Ingresos\s*-\s*Egresos\s*/i, ''))
+      if (nums.length >= 6) rows.push(nums)
+      continue
+    }
+    if (/^Ingresos/i.test(trimmed) && !/^Ingresos\s+Varios/i.test(trimmed)) {
+      const nums = parseAmountsFromTail(trimmed.replace(/^Ingresos\s*/i, ''))
+      if (nums.length >= 6) rows.push(nums)
+      continue
+    }
+    if (/^Egresos/i.test(trimmed) && !/^Egresos\s+Varios/i.test(trimmed)) {
+      const nums = parseAmountsFromTail(trimmed.replace(/^Egresos\s*/i, ''))
+      if (nums.length >= 6) rows.push(nums)
     }
   }
-  return { ...montos, origen_hint, destino_hint }
-}
 
-function parseTotalesDeCaja(text: string): PlanillaCajaTotales | null {
-  const idx = text.indexOf('TOTALES DE CAJA')
-  if (idx < 0) return null
-  const chunk = text.slice(idx, idx + 1200)
-  const rows: number[][] = []
-  for (const line of chunk.split(/\n/)) {
-    const trimmed = line.trim()
-    if (!/^\d/.test(trimmed) && !/^Ingresos/i.test(trimmed)) continue
-    const nums = parseAmountsFromTail(trimmed.replace(/^Ingresos\s*-\s*Egresos\s*/i, ''))
-    if (nums.length >= 6 && (nums[0] > 500 || trimmed.includes('Ingresos'))) rows.push(nums)
-  }
   if (rows.length < 2) return null
 
-  const ing = rows[0]
-  const egr = rows[1]
-  const netoRow = rows[2]
-  const neto_por_columna = netoRow?.length >= 6 ? mapMontosPlanillaLinea(netoRow) : undefined
-  const neto = neto_por_columna?.total ?? netoRow?.[0] ?? (ing[0] ?? 0) - (egr[0] ?? 0)
-
-  let transB = ing[8] ?? 0
-  const transGlobal = text.match(/Trans\.\s*B\.?\s*\n\s*([\d.,]+)/i)
-  if (transGlobal) transB = parseArAmount(transGlobal[1])
-
-  let tarjetasIngreso = ing[5] ?? 0
-  const tarjetaBlock = text.match(/Total\s+Tarjeta\s+([\d.,]+)/i)
-  if (tarjetaBlock) tarjetasIngreso = parseArAmount(tarjetaBlock[1])
+  const ing = mapMontosPlanillaLinea(rows[0])
+  const egr = mapMontosPlanillaLinea(rows[1])
+  const netoRow = rows[2] ? mapMontosPlanillaLinea(rows[2]) : undefined
 
   return {
-    ingresos_total: ing[0] ?? 0,
-    ingresos_cta_cte: ing[1] ?? 0,
-    ingresos_efectivo: ing[2] ?? 0,
-    ingresos_tarjetas: tarjetasIngreso,
-    ingresos_trans_b: transB,
-    ingresos_otros: ing[9] ?? ing[ing.length - 1] ?? 0,
-    egresos_total: egr[0] ?? 0,
-    egresos_cta_cte: egr[1] ?? 0,
-    egresos_efectivo: egr[2] ?? 0,
-    egresos_tarjetas: egr[5] ?? 0,
-    egresos_trans_b: egr[8] ?? 0,
-    egresos_otros: egr[9] ?? egr[egr.length - 1] ?? 0,
-    neto,
-    neto_por_columna
+    ingresos_total: ing.total,
+    ingresos_cta_cte: ing.cta_cte,
+    ingresos_efectivo: ing.efectivo,
+    ingresos_tarjetas: ing.tarjetas,
+    ingresos_trans_b: ing.trans_b,
+    ingresos_otros: ing.otros,
+    egresos_total: egr.total,
+    egresos_cta_cte: egr.cta_cte,
+    egresos_efectivo: egr.efectivo,
+    egresos_tarjetas: egr.tarjetas,
+    egresos_trans_b: egr.trans_b,
+    egresos_otros: egr.otros,
+    neto: netoRow?.total ?? ing.total - egr.total,
+    neto_por_columna: netoRow
   }
 }
 
-export function parsePlanillaCajaText(text: string, archivoNombre: string): PlanillaCajaParsed {
+/** Si el extractor falló, partir por prefijos de comprobante. */
+function splitFallbackLines(text: string): string[] {
+  return text
+    .split(/(?=\b(?:FA|FB|IV|IPC|EG|MEC)\s+\S+)/i)
+    .map((s) => s.replace(/\s+/g, ' ').trim())
+    .filter((s) => s.length > 8)
+}
+
+export function parsePlanillaCajaText(rawText: string, archivoNombre: string): PlanillaCajaParsed {
   const warnings: string[] = []
-  const normalized = text.replace(/\r\n/g, '\n')
+  const normalized = rawText.replace(/\r\n/g, '\n')
   const header = parseHeader(normalized)
-  const totales = parseTotalesDeCaja(normalized)
+
+  let physicalLines = normalized.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (physicalLines.length <= 3 && normalized.length > 500) {
+    physicalLines = splitFallbackLines(normalized)
+  }
+
+  const totales = parseTotalesDeCaja(physicalLines)
 
   const ingresos_varios: PlanillaLineaConMontos[] = []
   const ventas: PlanillaLineaVenta[] = []
@@ -304,9 +339,8 @@ export function parsePlanillaCajaText(text: string, archivoNombre: string): Plan
 
   let bloque: PlanillaBloqueId = 'ingresos_ventas'
 
-  for (const line of normalized.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
+  for (const trimmed of physicalLines) {
+    if (isJunkLine(trimmed)) continue
 
     const hdr = detectBloqueFromHeader(trimmed)
     if (hdr) {
@@ -314,26 +348,30 @@ export function parsePlanillaCajaText(text: string, archivoNombre: string): Plan
       continue
     }
 
-    if (/^FB\s+/i.test(trimmed)) {
-      const v = parseLineaComprobante(trimmed, 'FB', 'ingresos_ventas')
+    const comp = trimmed.match(COMPROBANTE_PREFIX)
+    if (!comp) continue
+
+    const prefix = comp[1].toUpperCase()
+    const bl = bloqueDesdePrefijo(prefix, bloque)
+    bloque = bl
+
+    if (prefix === 'FA' || prefix === 'FB') {
+      const v = parseLineaComprobante(trimmed, 'ingresos_ventas')
       if (v && v.total > 0) ventas.push(v as PlanillaLineaVenta)
-    } else if (/^FA\s+/i.test(trimmed)) {
-      const v = parseLineaComprobante(trimmed, 'FA', 'ingresos_ventas')
-      if (v && v.total > 0) ventas.push(v as PlanillaLineaVenta)
-    } else if (/^IV\s+/i.test(trimmed)) {
-      const v = parseLineaComprobante(trimmed, 'IV', 'ingresos_varios')
+    } else if (prefix === 'IV') {
+      const v = parseLineaComprobante(trimmed, 'ingresos_varios')
       if (v && v.total > 0) ingresos_varios.push(v)
-    } else if (/^IPC\s+/i.test(trimmed)) {
-      const v = parseLineaComprobante(trimmed, 'IPC', 'ingresos_pagos_clientes')
+    } else if (prefix === 'IPC') {
+      const v = parseLineaComprobante(trimmed, 'ingresos_pagos_clientes')
       if (v && v.total > 0) ingresos_pagos_clientes.push(v)
-    } else if (/^EG\s+/i.test(trimmed)) {
-      const v = parseLineaComprobante(trimmed, 'EG', bloque.startsWith('egreso') ? bloque : 'egresos_varios')
+    } else if (prefix === 'EG') {
+      const v = parseLineaComprobante(trimmed, bl.startsWith('egreso') ? bl : 'egresos_varios')
       if (v && (v.total > 0 || v.efectivo > 0)) {
-        if (bloque === 'egresos_compras') egresos_compras.push(v)
-        else if (bloque === 'egresos_pagos_proveedores') egresos_pagos_proveedores.push(v)
+        if (bl === 'egresos_compras') egresos_compras.push(v)
+        else if (bl === 'egresos_pagos_proveedores') egresos_pagos_proveedores.push(v)
         else egresos.push(v)
       }
-    } else if (/^MEC\s+/i.test(trimmed)) {
+    } else if (prefix === 'MEC') {
       const mec = parseMecLine(trimmed)
       if (mec && mec.total > 0) movimientos_mec.push(mec)
     }
@@ -349,23 +387,14 @@ export function parsePlanillaCajaText(text: string, archivoNombre: string): Plan
     ...movimientos_mec
   ]
   const lineas_cuadre_invalido = todas.filter((l) => !l.cuadre_valido).length
+
   if (lineas_cuadre_invalido > 0) {
-    warnings.push(
-      `${lineas_cuadre_invalido} línea(s) donde Total ≠ suma de medios de pago (revisar PDF).`
-    )
+    warnings.push(`${lineas_cuadre_invalido} línea(s) sin cuadrar (Total ≠ medios).`)
   }
-
-  if (!header.caja_nombre) warnings.push('No se detectó el nombre de caja en el encabezado.')
-  if (!totales) warnings.push('No se encontró el bloque TOTALES DE CAJA; revisá que sea el PDF completo.')
+  if (!header.caja_nombre) warnings.push('No se detectó la caja en el encabezado.')
+  if (!totales) warnings.push('No se encontró «TOTALES DE CAJA». Verificá que sea el PDF completo.')
   if (!ventas.length && !egresos.length && !movimientos_mec.length) {
-    warnings.push('No se detectaron líneas FA/FB, EG ni MEC.')
-  }
-
-  if (totales && lineas_cuadre_invalido === 0) {
-    const calcIng = ingresos_varios.reduce((s, l) => s + l.total, 0) + ventas.reduce((s, l) => s + l.total, 0) + ingresos_pagos_clientes.reduce((s, l) => s + l.total, 0)
-    if (calcIng > 0 && Math.abs(calcIng - totales.ingresos_total) > totales.ingresos_total * 0.05) {
-      warnings.push('La suma de líneas de ingreso difiere >5% del total de caja del PDF.')
-    }
+    warnings.push('No se detectaron comprobantes FA/FB, EG ni MEC. Probá exportar de nuevo desde PLOT CENTER.')
   }
 
   return {
@@ -389,6 +418,22 @@ export async function parsePlanillaCajaPdf(
   buffer: ArrayBuffer,
   archivoNombre: string
 ): Promise<PlanillaCajaParsed> {
-  const text = await extractTextFromPdfArrayBuffer(buffer)
-  return parsePlanillaCajaText(text, archivoNombre)
+  const lines = await extractLinesFromPdfArrayBuffer(buffer)
+  const text = lines.join('\n')
+  const parsed = parsePlanillaCajaText(text, archivoNombre)
+
+  if (!parsed.ventas.length && !parsed.egresos.length && lines.length > 5) {
+    const fallback = parsePlanillaCajaText(lines.join('\n\n'), archivoNombre)
+    if (
+      fallback.ventas.length + fallback.egresos.length >
+      parsed.ventas.length + parsed.egresos.length
+    ) {
+      return {
+        ...fallback,
+        warnings: [...fallback.warnings, 'Lectura mejorada con modo alternativo de filas.']
+      }
+    }
+  }
+
+  return parsed
 }
