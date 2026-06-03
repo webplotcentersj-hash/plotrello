@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CONCEPTOS_MOVIMIENTO } from '../constants'
 import {
   deleteMovimiento,
@@ -15,6 +15,8 @@ import {
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import CajaMovimientosList from './CajaMovimientosList'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
+import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 import type { CajaMovimiento, CajaRegistro } from '../types'
 
 type Props = {
@@ -52,6 +54,11 @@ export default function CajaSectionMovimientos({
   const [observacion, setObservacion] = useState('')
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [listSearch, setListSearch] = useState('')
+  const [filtConcepto, setFiltConcepto] = useState('')
+  const [filtDesde, setFiltDesde] = useState('')
+  const [filtHasta, setFiltHasta] = useState('')
+  const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE)
   const reload = useCallback(async () => {
     setLoading(true)
     const [c, m] = await Promise.all([
@@ -127,6 +134,101 @@ export default function CajaSectionMovimientos({
     await deleteMovimiento(id)
     await reload()
   }
+
+  const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
+
+  const movimientosFiltrados = useMemo(() => {
+    return movimientos.filter((m) => {
+      if (filtConcepto && m.concepto !== filtConcepto) return false
+      if (filtDesde && m.fecha < filtDesde) return false
+      if (filtHasta && m.fecha > filtHasta) return false
+      return matchSearchQuery(listSearch, [
+        m.concepto,
+        m.observacion,
+        m.nro_comprobante,
+        cajaNombre(m.origen_slug),
+        cajaNombre(m.destino_slug),
+        m.usuario_nombre,
+        fmtArs(m.efectivo + m.otros),
+        m.fecha
+      ])
+    })
+  }, [movimientos, listSearch, filtConcepto, filtDesde, filtHasta, cajas])
+
+  const movimientosVisibles = movimientosFiltrados.slice(0, listLimit)
+  const conceptosEnLista = useMemo(
+    () => [...new Set(movimientos.map((m) => m.concepto))].sort(),
+    [movimientos]
+  )
+
+  const listaToolbar = (
+    <div className="caja-cc-card-toolbar caja-cc-card-toolbar--stack">
+      <CajaListSearch
+        value={listSearch}
+        onChange={(v) => {
+          setListSearch(v)
+          setListLimit(LIST_PAGE_SIZE)
+        }}
+        placeholder="Buscar concepto, caja, monto, comprobante…"
+      />
+      <div className="caja-cc-filters-row">
+        <label className="caja-cc-filter-chip">
+          <span>Tipo</span>
+          <select
+            value={filtConcepto}
+            onChange={(e) => {
+              setFiltConcepto(e.target.value)
+              setListLimit(LIST_PAGE_SIZE)
+            }}
+          >
+            <option value="">Todos</option>
+            {conceptosEnLista.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="caja-cc-filter-chip">
+          <span>Desde</span>
+          <input
+            type="date"
+            value={filtDesde}
+            onChange={(e) => {
+              setFiltDesde(e.target.value)
+              setListLimit(LIST_PAGE_SIZE)
+            }}
+          />
+        </label>
+        <label className="caja-cc-filter-chip">
+          <span>Hasta</span>
+          <input
+            type="date"
+            value={filtHasta}
+            onChange={(e) => {
+              setFiltHasta(e.target.value)
+              setListLimit(LIST_PAGE_SIZE)
+            }}
+          />
+        </label>
+        {(listSearch || filtConcepto || filtDesde || filtHasta) && (
+          <button
+            type="button"
+            className="btn-tiny"
+            onClick={() => {
+              setListSearch('')
+              setFiltConcepto('')
+              setFiltDesde('')
+              setFiltHasta('')
+              setListLimit(LIST_PAGE_SIZE)
+            }}
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <div>
@@ -259,19 +361,34 @@ export default function CajaSectionMovimientos({
         </div>
       </form>
 
-      <div className="caja-cc-card">
-        <h3>{soloMisMovimientos ? 'Mis movimientos' : 'Todos los movimientos'}</h3>
+      <CajaCollapsibleCard
+        title={soloMisMovimientos ? 'Mis movimientos' : 'Todos los movimientos'}
+        count={movimientosFiltrados.length}
+        toolbar={listaToolbar}
+        bodyClassName="caja-cc-card-body-scroll"
+      >
         {loading ? (
           <p className="caja-cc-empty">Cargando…</p>
         ) : (
-          <CajaMovimientosList
-            movimientos={movimientos}
-            cajas={cajas}
-            showUsuario={!soloMisMovimientos}
-            onDelete={allowDelete ? handleDelete : undefined}
-          />
+          <>
+            <CajaMovimientosList
+              movimientos={movimientosVisibles}
+              cajas={cajas}
+              showUsuario={!soloMisMovimientos}
+              onDelete={allowDelete ? handleDelete : undefined}
+            />
+            {movimientosFiltrados.length > listLimit && (
+              <button
+                type="button"
+                className="btn-link caja-cc-show-more"
+                onClick={() => setListLimit((n) => n + LIST_PAGE_SIZE)}
+              >
+                Ver más ({movimientosFiltrados.length - listLimit} restantes)
+              </button>
+            )}
+          </>
         )}
-      </div>
+      </CajaCollapsibleCard>
     </div>
   )
 }

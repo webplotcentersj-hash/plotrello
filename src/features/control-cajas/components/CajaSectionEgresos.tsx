@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   createEgresoSolicitud,
   listCajas,
@@ -8,6 +8,8 @@ import {
 import { fmtArs, fmtDateAr } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import type { CajaEgresoSolicitud, CajaRegistro } from '../types'
+import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
+import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 
 type Props = {
   isAdmin: boolean
@@ -26,6 +28,11 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
   const [obs, setObs] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [histSearch, setHistSearch] = useState('')
+  const [histEstado, setHistEstado] = useState('')
+  const [histDesde, setHistDesde] = useState('')
+  const [histHasta, setHistHasta] = useState('')
+  const [histLimit, setHistLimit] = useState(LIST_PAGE_SIZE)
 
   const reload = useCallback(async () => {
     const [c, s] = await Promise.all([
@@ -90,6 +97,93 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
   const pendientes = lista.filter((s) => s.estado === 'pendiente')
+
+  const historialFiltrado = useMemo(() => {
+    return lista.filter((s) => {
+      if (histEstado && s.estado !== histEstado) return false
+      if (histDesde && s.fecha < histDesde) return false
+      if (histHasta && s.fecha > histHasta) return false
+      return matchSearchQuery(histSearch, [
+        s.concepto,
+        s.fecha,
+        cajaNombre(s.caja_slug),
+        s.estado,
+        s.solicitante_nombre,
+        s.aprobador_nombre,
+        s.observacion,
+        fmtArs(s.monto_efectivo + s.monto_otros)
+      ])
+    })
+  }, [lista, histSearch, histEstado, histDesde, histHasta, cajas])
+
+  const historialVisible = historialFiltrado.slice(0, histLimit)
+
+  const historialToolbar = (
+    <div className="caja-cc-card-toolbar caja-cc-card-toolbar--stack">
+      <CajaListSearch
+        value={histSearch}
+        onChange={(v) => {
+          setHistSearch(v)
+          setHistLimit(LIST_PAGE_SIZE)
+        }}
+        placeholder="Buscar concepto, caja, solicitante…"
+      />
+      <div className="caja-cc-filters-row">
+        <label className="caja-cc-filter-chip">
+          <span>Estado</span>
+          <select
+            value={histEstado}
+            onChange={(e) => {
+              setHistEstado(e.target.value)
+              setHistLimit(LIST_PAGE_SIZE)
+            }}
+          >
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="aprobado">Aprobado</option>
+            <option value="rechazado">Rechazado</option>
+          </select>
+        </label>
+        <label className="caja-cc-filter-chip">
+          <span>Desde</span>
+          <input
+            type="date"
+            value={histDesde}
+            onChange={(e) => {
+              setHistDesde(e.target.value)
+              setHistLimit(LIST_PAGE_SIZE)
+            }}
+          />
+        </label>
+        <label className="caja-cc-filter-chip">
+          <span>Hasta</span>
+          <input
+            type="date"
+            value={histHasta}
+            onChange={(e) => {
+              setHistHasta(e.target.value)
+              setHistLimit(LIST_PAGE_SIZE)
+            }}
+          />
+        </label>
+        {(histSearch || histEstado || histDesde || histHasta) && (
+          <button
+            type="button"
+            className="btn-tiny"
+            onClick={() => {
+              setHistSearch('')
+              setHistEstado('')
+              setHistDesde('')
+              setHistHasta('')
+              setHistLimit(LIST_PAGE_SIZE)
+            }}
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <div>
@@ -188,45 +282,68 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
         </div>
       )}
 
-      <div className="caja-cc-card">
-        <h3>Historial</h3>
-        {lista.length === 0 ? (
-          <p className="caja-cc-empty">Sin solicitudes.</p>
+      <CajaCollapsibleCard
+        title="Historial"
+        count={historialFiltrado.length}
+        toolbar={historialToolbar}
+        bodyClassName="caja-cc-card-body-scroll"
+      >
+        {historialVisible.length === 0 ? (
+          <p className="caja-cc-empty">
+            {histSearch || histEstado || histDesde || histHasta
+              ? 'Sin coincidencias.'
+              : 'Sin solicitudes.'}
+          </p>
         ) : (
-          <table className="caja-cc-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Caja</th>
-                <th>Concepto</th>
-                <th className="num">Monto</th>
-                <th>Estado</th>
-                <th>Trazabilidad</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.slice(0, 40).map((s) => (
-                <tr key={s.id}>
-                  <td>{fmtDateAr(s.fecha)}</td>
-                  <td>{cajaNombre(s.caja_slug)}</td>
-                  <td>{s.concepto}</td>
-                  <td className="num">$ {fmtArs(s.monto_efectivo + s.monto_otros)}</td>
-                  <td>
-                    <span className={`caja-cc-badge ${s.estado === 'aprobado' ? 'ok' : s.estado === 'rechazado' ? 'bad' : 'pen'}`}>
-                      {s.estado}
-                    </span>
-                  </td>
-                  <td className="caja-cc-meta">
-                    {s.solicitante_nombre}
-                    {s.aprobador_nombre ? ` → ${s.aprobador_nombre}` : ''}
-                    {s.id_movimiento ? ` · mov ${s.id_movimiento.slice(0, 8)}` : ''}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className="caja-cc-table-scroll">
+              <table className="caja-cc-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Caja</th>
+                    <th>Concepto</th>
+                    <th className="num">Monto</th>
+                    <th>Estado</th>
+                    <th>Trazabilidad</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historialVisible.map((s) => (
+                    <tr key={s.id}>
+                      <td>{fmtDateAr(s.fecha)}</td>
+                      <td>{cajaNombre(s.caja_slug)}</td>
+                      <td>{s.concepto}</td>
+                      <td className="num">$ {fmtArs(s.monto_efectivo + s.monto_otros)}</td>
+                      <td>
+                        <span
+                          className={`caja-cc-badge ${s.estado === 'aprobado' ? 'ok' : s.estado === 'rechazado' ? 'bad' : 'pen'}`}
+                        >
+                          {s.estado}
+                        </span>
+                      </td>
+                      <td className="caja-cc-meta">
+                        {s.solicitante_nombre}
+                        {s.aprobador_nombre ? ` → ${s.aprobador_nombre}` : ''}
+                        {s.id_movimiento ? ` · mov ${s.id_movimiento.slice(0, 8)}` : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {historialFiltrado.length > histLimit && (
+              <button
+                type="button"
+                className="btn-link caja-cc-show-more"
+                onClick={() => setHistLimit((n) => n + LIST_PAGE_SIZE)}
+              >
+                Ver más ({historialFiltrado.length - histLimit} restantes)
+              </button>
+            )}
+          </>
         )}
-      </div>
+      </CajaCollapsibleCard>
 
       {msg && <p className="caja-cc-help">{msg}</p>}
     </div>

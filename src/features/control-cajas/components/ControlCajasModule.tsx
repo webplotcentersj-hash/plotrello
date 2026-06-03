@@ -25,6 +25,7 @@ import CajaSectionConfig from './CajaSectionConfig'
 import CajaPlotAI from './CajaPlotAI'
 import CajaCentroInteligente from './CajaCentroInteligente'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import CajaPlanillasRecibidasPanel from './CajaPlanillasRecibidasPanel'
 import CajaInteligenciaBar from './CajaInteligenciaBar'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
@@ -132,6 +133,8 @@ export default function ControlCajasModule() {
   const adminVePlanillasRecibidas =
     isAdmin && (section === 'tablero_admin' || section === 'cierres_new' || section === 'cierres')
 
+  const refreshMovimientos = () => setMovimientosRefreshKey((k) => k + 1)
+
   const panelPlanillaIntel = seccionConPlanilla ? (
     <section className="caja-cc-planilla-hub" aria-label="Planilla PDF y concordancia">
       <CajaCentroInteligente
@@ -150,9 +153,16 @@ export default function ControlCajasModule() {
         onPlanillaParsed={setPlanillaActiva}
         onImported={() => {
           setPlanillaActiva(null)
-          setMovimientosRefreshKey((k) => k + 1)
+          refreshMovimientos()
         }}
       />
+      {section === 'arqueo' && (
+        <CajaImportComprobantesMedios
+          usuarioNombre={usuarioEtiqueta}
+          usuarioId={usuarioId}
+          onImported={refreshMovimientos}
+        />
+      )}
       {adminVePlanillasRecibidas && (
         <CajaPlanillasRecibidasPanel
           titulo="Planillas recibidas de caja (mismo detalle que el PDF)"
