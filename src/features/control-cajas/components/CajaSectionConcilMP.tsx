@@ -1,51 +1,111 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
+import { labelFuenteSistema, sistemaMpParaFecha } from '../cajaDashboardData'
 import { fmtArs, fmtDateAr } from '../format'
 import {
-  cierresEnFecha,
   getParams,
   listCierres,
   listConcilMP,
+  listMovimientos,
+  listPlanillas,
   saveConcilMP
 } from '../cajaRepository'
 import CajaBadge from './CajaBadge'
+import CajaMiniPlotAI from './CajaMiniPlotAI'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 import type { CajaCierreEstado } from '../types'
 
 export default function CajaSectionConcilMP() {
   const [historial, setHistorial] = useState<Awaited<ReturnType<typeof listConcilMP>>>([])
   const [cierres, setCierres] = useState<Awaited<ReturnType<typeof listCierres>>>([])
+  const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
+  const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [dashboard, setDashboard] = useState('')
   const [observacion, setObservacion] = useState('')
   const [tolerancia, setTolerancia] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
 
-  useEffect(() => {
-    void Promise.all([listConcilMP(), listCierres(), getParams()]).then(([h, c, p]) => {
+  const reload = () => {
+    void Promise.all([
+      listConcilMP(),
+      listCierres(),
+      listPlanillas(200),
+      listMovimientos(),
+      getParams()
+    ]).then(([h, c, p, m, par]) => {
       setHistorial(h)
       setCierres(c)
-      setTolerancia(p.tolerancia)
+      setPlanillas(p)
+      setMovimientos(m)
+      setTolerancia(par.tolerancia)
     })
+  }
+
+  useEffect(() => {
+    reload()
   }, [])
 
-  const sistema = useMemo(() => {
-    return cierresEnFecha(cierres, fecha).reduce((s, c) => s + c.tarj_sist + c.mp_qr, 0)
-  }, [cierres, fecha])
+  const sistemaInfo = useMemo(
+    () => sistemaMpParaFecha(fecha, cierres, planillas, movimientos),
+    [fecha, cierres, planillas, movimientos]
+  )
 
   const dashNum = parseFloat(dashboard) || 0
-  const dif = dashNum - sistema
+  const dif = dashNum - sistemaInfo.valor
   const estado: CajaCierreEstado = Math.abs(dif) <= tolerancia ? 'OK' : 'REVISAR'
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault()
-    await saveConcilMP({ fecha, sistema, dashboard: dashNum, diferencia: dif, estado, observacion })
-    setDashboard('')
-    setObservacion('')
-    setHistorial(await listConcilMP())
+    if (!dashboard.trim()) {
+      setMsg('Ingresá el monto del dashboard de Mercado Pago.')
+      return
+    }
+    setSaving(true)
+    setMsg(null)
+    try {
+      await saveConcilMP({
+        fecha,
+        sistema: sistemaInfo.valor,
+        dashboard: dashNum,
+        diferencia: dif,
+        estado,
+        observacion: observacion.trim() || undefined
+      })
+      setDashboard('')
+      setObservacion('')
+      setMsg('Conciliación MP guardada.')
+      reload()
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
   }
+
+  const ctxAi = `Conciliación MP — fecha ${fecha}.
+Sistema (${labelFuenteSistema(sistemaInfo.fuente)}): $${fmtArs(sistemaInfo.valor)}.
+Dashboard ingresado: $${fmtArs(dashNum)}. Diferencia: $${fmtArs(dif)}. Estado: ${estado}.
+Historial reciente: ${historial
+    .slice(0, 5)
+    .map((r) => `${r.fecha} sist $${fmtArs(r.sistema)} dash $${fmtArs(r.dashboard)}`)
+    .join('; ') || 'vacío'}.`
 
   return (
     <>
-      <p className="caja-cc-sub">Sistema vs dashboard de Mercado Pago, por día.</p>
+      <div className="caja-cc-inline-plotlab">
+        <CajaVolverPlotLab small />
+      </div>
+      <p className="caja-cc-sub">
+        Sistema vs dashboard de Mercado Pago, por día. El sistema se calcula desde cierres, planillas PDF o
+        movimientos importados.
+      </p>
+
+      {msg && (
+        <p className={msg.includes('Error') || msg.includes('Ingres') ? 'caja-cc-error' : 'caja-cc-ok'}>{msg}</p>
+      )}
+
       <form className="caja-cc-card" onSubmit={(e) => void guardar(e)}>
         <h3>Nueva conciliación MP</h3>
         <div className="caja-cc-grid-3">
@@ -54,12 +114,19 @@ export default function CajaSectionConcilMP() {
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
           </label>
           <label className="caja-cc-field">
-            Sistema (cierres del día) <span className="caja-cc-tag auto">auto</span>
-            <input readOnly value={`$ ${fmtArs(sistema)}`} />
+            Sistema <span className="caja-cc-tag auto">auto</span>
+            <input readOnly value={`$ ${fmtArs(sistemaInfo.valor)}`} />
+            <span className="caja-cc-help">{labelFuenteSistema(sistemaInfo.fuente)}</span>
           </label>
           <label className="caja-cc-field">
             Dashboard MP <span className="caja-cc-tag input">app MP</span>
-            <input type="number" step="0.01" value={dashboard} onChange={(e) => setDashboard(e.target.value)} required />
+            <input
+              type="number"
+              step="0.01"
+              value={dashboard}
+              onChange={(e) => setDashboard(e.target.value)}
+              required
+            />
           </label>
         </div>
         <div className={`caja-cc-result ${estado === 'OK' ? 'ok' : 'bad'}`}>
@@ -73,15 +140,22 @@ export default function CajaSectionConcilMP() {
           <textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} rows={2} />
         </label>
         <div className="caja-cc-actions">
-          <button type="submit" className="btn-primary">
-            Guardar conciliación
+          <button type="submit" className="btn-primary" disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar conciliación'}
           </button>
         </div>
       </form>
+
+      <CajaMiniPlotAI
+        titulo="PlotAI — conciliar Mercado Pago"
+        contexto={ctxAi}
+        preguntaDefault="¿Cómo concilio MP con la planilla y qué revisar si hay diferencia?"
+      />
+
       <div className="caja-cc-card">
         <h3>Historial</h3>
         {historial.length === 0 ? (
-          <p className="caja-cc-empty">Sin conciliaciones</p>
+          <p className="caja-cc-empty">Sin conciliaciones guardadas todavía.</p>
         ) : (
           <table className="caja-cc-table">
             <thead>

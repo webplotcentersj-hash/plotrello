@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listArqueos, listCajas, listMovimientos } from '../cajaRepository'
-import { fmtArs, fmtDateAr } from '../format'
+import { fmtArs, fmtDateAr, montoVisibleMovimiento } from '../format'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 import type { CajaArqueo, CajaMovimiento, CajaRegistro } from '../types'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
@@ -44,7 +44,7 @@ export default function CajaSectionHistorial({ usuarioNombre, usuarioId }: Props
         m.observacion,
         cajaNombre(m.origen_slug),
         cajaNombre(m.destino_slug),
-        fmtArs(m.efectivo + m.otros)
+        fmtArs(montoVisibleMovimiento(m))
       ])
     )
   }, [movimientos, qMovs, cajas])
@@ -133,7 +133,7 @@ export default function CajaSectionHistorial({ usuarioNombre, usuarioId }: Props
                     <tr key={m.id}>
                       <td>{fmtDateAr(m.fecha)}</td>
                       <td>{m.concepto}</td>
-                      <td className="num">$ {fmtArs(m.efectivo + m.otros)}</td>
+                      <td className="num">$ {fmtArs(montoVisibleMovimiento(m))}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -19,6 +19,7 @@ import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { calcularTotalesDesdePlanilla } from '../cajaTotales'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro } from '../types'
+import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
 type Props = {
   usuarioNombre: string
@@ -346,7 +347,14 @@ export default function CajaSectionArqueo({
           error={firmaError}
         />
       </div>
-      {msg && <p className={msg.startsWith('Arqueo') ? 'caja-cc-ok' : 'caja-cc-error'}>{msg}</p>}
+      {msg &&
+        (msg.startsWith('Arqueo') ? (
+          <CajaMensajeOkPlotLab>
+            <p className="caja-cc-ok">{msg}</p>
+          </CajaMensajeOkPlotLab>
+        ) : (
+          <p className="caja-cc-error">{msg}</p>
+        ))}
       <div className="caja-cc-actions">
         <button
           type="submit"

@@ -488,7 +488,13 @@ function movRowFromRecord(mov: CajaMovimiento, id: string) {
 function mapMovRow(r: Record<string, unknown>): CajaMovimiento {
   const imp = r.origen_importacion
   const origen_importacion =
-    imp === 'excel' ? 'excel' : imp === 'planilla_pdf' ? 'planilla_pdf' : 'manual'
+    imp === 'excel'
+      ? 'excel'
+      : imp === 'planilla_pdf'
+        ? 'planilla_pdf'
+        : imp === 'comprobante'
+          ? 'comprobante'
+          : 'manual'
   const tipo = r.tipo_movimiento
   return {
     id: String(r.id),

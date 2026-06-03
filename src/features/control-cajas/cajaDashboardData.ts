@@ -1,0 +1,332 @@
+import { getArgentinaDateString } from '../../utils/dateUtils'
+import { cierresEnFecha } from './cajaRepository'
+import type {
+  CajaArqueo,
+  CajaCierre,
+  CajaConcilBanco,
+  CajaConcilMP,
+  CajaDiferencia,
+  CajaMovimiento,
+  PlanillaCajaGuardada
+} from './types'
+
+export type VentasDiaCanal = {
+  ef: number
+  tj: number
+  mp: number
+  tr: number
+  cc: number
+  tot: number
+  planillas: number
+  cierres: number
+}
+
+export type SistemaDiaFuente = 'cierres' | 'planillas' | 'movimientos' | 'ninguno'
+
+export function mesArgentina(): string {
+  return getArgentinaDateString().slice(0, 7)
+}
+
+export function planillaEnFecha(p: PlanillaCajaGuardada, fecha: string): boolean {
+  const d = p.fecha_desde || p.fecha_hasta
+  const h = p.fecha_hasta || p.fecha_desde
+  if (!d && !h) return false
+  if (d && h) return fecha >= d && fecha <= h
+  return d === fecha || h === fecha
+}
+
+function totalesPlanilla(p: PlanillaCajaGuardada) {
+  const t = p.totales ?? {}
+  return {
+    ef: Number(t.ingresos_efectivo) || 0,
+    tj: Number(t.ingresos_tarjetas) || 0,
+    tr: Number(t.ingresos_trans_b) || 0,
+    cc: Number(t.ingresos_cta_cte) || 0,
+    tot: Number(t.ingresos_total) || 0
+  }
+}
+
+export function sistemaMpParaFecha(
+  fecha: string,
+  cierres: CajaCierre[],
+  planillas: PlanillaCajaGuardada[],
+  movimientos: CajaMovimiento[]
+): { valor: number; fuente: SistemaDiaFuente } {
+  const delCierre = cierresEnFecha(cierres, fecha).reduce(
+    (s, c) => s + (c.tarj_sist || 0) + (c.mp_qr || 0),
+    0
+  )
+  if (delCierre > 0) return { valor: delCierre, fuente: 'cierres' }
+
+  const delPlanilla = planillas
+    .filter((p) => planillaEnFecha(p, fecha))
+    .reduce((s, p) => s + totalesPlanilla(p).tj, 0)
+  if (delPlanilla > 0) return { valor: delPlanilla, fuente: 'planillas' }
+
+  const delMov = movimientos
+    .filter((m) => m.fecha === fecha && !m.anulado)
+    .reduce((s, m) => s + (m.tarjeta ?? 0) + (m.otros ?? 0), 0)
+  if (delMov > 0) return { valor: delMov, fuente: 'movimientos' }
+
+  return { valor: 0, fuente: 'ninguno' }
+}
+
+export function sistemaBancoParaFecha(
+  fecha: string,
+  cierres: CajaCierre[],
+  planillas: PlanillaCajaGuardada[],
+  movimientos: CajaMovimiento[]
+): { valor: number; fuente: SistemaDiaFuente } {
+  const delCierre = cierresEnFecha(cierres, fecha).reduce((s, c) => s + (c.trans || 0), 0)
+  if (delCierre > 0) return { valor: delCierre, fuente: 'cierres' }
+
+  const delPlanilla = planillas
+    .filter((p) => planillaEnFecha(p, fecha))
+    .reduce((s, p) => s + totalesPlanilla(p).tr, 0)
+  if (delPlanilla > 0) return { valor: delPlanilla, fuente: 'planillas' }
+
+  const delMov = movimientos
+    .filter((m) => m.fecha === fecha && !m.anulado)
+    .reduce((s, m) => s + (m.transferencia_bancaria ?? 0), 0)
+  if (delMov > 0) return { valor: delMov, fuente: 'movimientos' }
+
+  return { valor: 0, fuente: 'ninguno' }
+}
+
+/** Ventas por día: planillas (principal) + cierres en días sin planilla. */
+export function ventasDiariasAgregadas(
+  cierres: CajaCierre[],
+  planillas: PlanillaCajaGuardada[]
+): Record<string, VentasDiaCanal> {
+  const m: Record<string, VentasDiaCanal> = {}
+
+  const ensure = (fecha: string): VentasDiaCanal => {
+    if (!m[fecha]) {
+      m[fecha] = { ef: 0, tj: 0, mp: 0, tr: 0, cc: 0, tot: 0, planillas: 0, cierres: 0 }
+    }
+    return m[fecha]
+  }
+
+  for (const p of planillas) {
+    const fecha = p.fecha_hasta || p.fecha_desde
+    if (!fecha) continue
+    const t = totalesPlanilla(p)
+    const row = ensure(fecha)
+    row.ef += t.ef
+    row.tj += t.tj
+    row.mp += t.tj
+    row.tr += t.tr
+    row.cc += t.cc
+    row.tot += t.tot
+    row.planillas += 1
+  }
+
+  for (const c of cierres) {
+    const row = ensure(c.fecha)
+    if (row.planillas > 0) continue
+    row.ef += c.ing_ef
+    row.tj += c.tarj_sist
+    row.mp += c.mp_qr
+    row.tr += c.trans
+    row.cc += c.cta_cte
+    row.tot += c.total_ventas || c.ing_ef + c.tarj_sist + c.mp_qr + c.trans + c.cta_cte
+    row.cierres += 1
+  }
+
+  return m
+}
+
+export type KpisTablero = {
+  mes: string
+  cierresMes: number
+  planillasMes: number
+  ok: number
+  revisar: number
+  difNeta: number
+  ventasMes: number
+  tieneCierres: boolean
+  tienePlanillas: boolean
+}
+
+export function kpisTableroMes(
+  mes: string,
+  cierres: CajaCierre[],
+  planillas: PlanillaCajaGuardada[],
+  arqueos: CajaArqueo[],
+  concilMp: CajaConcilMP[],
+  concilBanco: CajaConcilBanco[]
+): KpisTablero {
+  const mc = cierres.filter((c) => c.fecha.startsWith(mes))
+  const pm = planillas.filter((p) => {
+    const f = p.fecha_hasta || p.fecha_desde
+    return f?.startsWith(mes)
+  })
+
+  const ventasPlanilla = pm.reduce((s, p) => s + (Number(p.totales?.ingresos_total) || 0), 0)
+  const ventasCierres = mc.reduce((s, c) => s + (c.total_ventas || 0), 0)
+  const ventasMes = ventasPlanilla > 0 ? ventasPlanilla : ventasCierres
+
+  const difCierres = mc.reduce((s, c) => s + (c.dif_total || 0), 0)
+  const difArqueos = arqueos
+    .filter((a) => a.fecha.startsWith(mes) && a.diferencia && Math.abs(a.diferencia) > 0.01)
+    .reduce((s, a) => s + (a.diferencia || 0), 0)
+  const ok =
+    mc.filter((c) => c.estado === 'OK').length +
+    concilMp.filter((c) => c.fecha.startsWith(mes) && c.estado === 'OK').length +
+    concilBanco.filter((c) => c.fecha.startsWith(mes) && c.estado === 'OK').length
+
+  const revisar =
+    mc.filter((c) => c.estado === 'REVISAR').length +
+    concilMp.filter((c) => c.fecha.startsWith(mes) && c.estado === 'REVISAR').length +
+    concilBanco.filter((c) => c.fecha.startsWith(mes) && c.estado === 'REVISAR').length +
+    arqueos.filter(
+      (a) =>
+        a.fecha.startsWith(mes) &&
+        (a.estado_arqueo === 'sobrante' || a.estado_arqueo === 'faltante')
+    ).length
+
+  return {
+    mes,
+    cierresMes: mc.length,
+    planillasMes: pm.length,
+    ok,
+    revisar,
+    difNeta: difCierres + difArqueos,
+    ventasMes,
+    tieneCierres: mc.length > 0,
+    tienePlanillas: pm.length > 0
+  }
+}
+
+export function recolectarDiferencias(
+  cierres: CajaCierre[],
+  manual: CajaDiferencia[],
+  arqueos: CajaArqueo[],
+  concilMp: CajaConcilMP[],
+  concilBanco: CajaConcilBanco[],
+  movimientos: CajaMovimiento[],
+  tolerancia: number
+): CajaDiferencia[] {
+  const out: CajaDiferencia[] = []
+  const seen = new Set<string>()
+
+  const push = (d: CajaDiferencia) => {
+    const key = `${d.fecha}|${d.caja_slug}|${d.tipo}|${d.monto}|${d.motivo}`
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(d)
+  }
+
+  for (const c of cierres.filter((x) => x.estado === 'REVISAR' || Math.abs(x.dif_total || 0) > tolerancia)) {
+    push({
+      id: `auto_cierre_${c.id}`,
+      fecha: c.fecha,
+      caja_slug: c.caja_slug,
+      tipo: (c.dif_total ?? 0) >= 0 ? 'Sobrante' : 'Faltante',
+      monto: Math.abs(c.dif_total ?? 0),
+      motivo: 'Cierre con diferencia',
+      responsable: c.cajera,
+      estado: 'Pendiente',
+      id_cierre: c.id,
+      auto_desde_cierre: true
+    })
+  }
+
+  for (const a of arqueos) {
+    const dif = a.diferencia ?? 0
+    if (Math.abs(dif) <= tolerancia && a.estado_arqueo !== 'sobrante' && a.estado_arqueo !== 'faltante') {
+      continue
+    }
+    const monto = Math.abs(dif) || Math.abs((a.total || 0) - (a.teorico_fisico || 0))
+    if (monto <= tolerancia) continue
+    push({
+      id: `auto_arqueo_${a.id}`,
+      fecha: a.fecha,
+      caja_slug: a.caja_slug,
+      tipo: dif >= 0 || a.estado_arqueo === 'sobrante' ? 'Sobrante' : 'Faltante',
+      monto,
+      motivo: `Arqueo ${a.estado_arqueo ?? 'con diferencia'}`,
+      responsable: a.usuario_nombre,
+      estado: 'Pendiente',
+      auto_desde_cierre: true
+    })
+  }
+
+  for (const r of concilMp.filter((c) => c.estado === 'REVISAR')) {
+    push({
+      id: `auto_mp_${r.id}`,
+      fecha: r.fecha,
+      tipo: (r.diferencia ?? 0) >= 0 ? 'Sobrante' : 'Faltante',
+      monto: Math.abs(r.diferencia ?? 0),
+      motivo: 'Conciliación Mercado Pago',
+      responsable: null,
+      estado: 'Pendiente',
+      auto_desde_cierre: true
+    })
+  }
+
+  for (const r of concilBanco.filter((c) => c.estado === 'REVISAR')) {
+    push({
+      id: `auto_banco_${r.id}`,
+      fecha: r.fecha,
+      tipo: (r.diferencia ?? 0) >= 0 ? 'Sobrante' : 'Faltante',
+      monto: Math.abs(r.diferencia ?? 0),
+      motivo: 'Conciliación bancaria',
+      responsable: null,
+      estado: 'Pendiente',
+      auto_desde_cierre: true
+    })
+  }
+
+  for (const m of movimientos.filter((x) => !x.anulado).slice(0, 200)) {
+    const v = validarCuadreMovimiento(m)
+    if (!v) continue
+    push({
+      id: `auto_mov_${m.id}`,
+      fecha: m.fecha,
+      caja_slug: m.destino_slug,
+      tipo: 'Faltante',
+      monto: v,
+      motivo: 'Movimiento: total ≠ medios de pago',
+      responsable: m.usuario_nombre,
+      estado: 'Pendiente',
+      auto_desde_cierre: true
+    })
+  }
+
+  for (const d of manual.filter((x) => x.estado === 'Pendiente')) {
+    push({ ...d, auto_desde_cierre: false })
+  }
+
+  return out.sort((a, b) => b.fecha.localeCompare(a.fecha))
+}
+
+function validarCuadreMovimiento(m: CajaMovimiento): number | null {
+  const total = m.monto_total ?? 0
+  if (total <= 0) return null
+  const suma =
+    (m.efectivo ?? 0) +
+    (m.otros ?? 0) +
+    (m.tarjeta ?? 0) +
+    (m.cuenta_corriente ?? 0) +
+    (m.transferencia_bancaria ?? 0) +
+    (m.cheque_propio ?? 0) +
+    (m.cheque_tercero ?? 0) +
+    (m.documento ?? 0) +
+    (m.cuenta_contable ?? 0)
+  const delta = Math.abs(total - suma)
+  return delta > 0.02 ? delta : null
+}
+
+export function labelFuenteSistema(fuente: SistemaDiaFuente): string {
+  switch (fuente) {
+    case 'cierres':
+      return 'cierres del día'
+    case 'planillas':
+      return 'planillas PDF importadas'
+    case 'movimientos':
+      return 'movimientos volcados'
+    default:
+      return 'sin datos — cargá planilla o cierre'
+  }
+}

@@ -8,7 +8,7 @@ import {
 } from '../cajaRepository'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
-import { fmtArs, fmtDateAr } from '../format'
+import { fmtArs, fmtDateAr, montoVisibleMovimiento } from '../format'
 import {
   comprobantesToMovimientos,
   resumenImportComprobantes
@@ -18,6 +18,7 @@ import {
   isComprobanteAiAvailable,
   parseComprobantesImagenes
 } from '../parseComprobanteImagenGemini'
+import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
 type Props = {
   usuarioNombre: string
@@ -114,11 +115,15 @@ export default function CajaImportComprobantesMedios({
       })
 
       const r = resumenImportComprobantes(movs)
-      let ok = `Importados ${r.total} movimiento(s): ${r.tickets} cobro(s) con tarjeta/MP`
-      if (r.resumenes) ok += `, ${r.resumenes} del resumen`
+      const totalVolcado = movs.reduce((s, m) => s + montoVisibleMovimiento(m), 0)
+      let ok =
+        `Volcado al sistema: ${r.total} movimiento(s) por $ ${fmtArs(totalVolcado)} ` +
+        `(${r.tickets} cobro(s) MP/tarjeta`
+      if (r.resumenes) ok += `, ${r.resumenes} línea(s) de resumen`
       if (r.egresos) ok += `, ${r.egresos} egreso(s)`
+      ok += '). Revisá en Mis movimientos o Historial.'
       if (!bulk.persistedRemote && bulk.remoteError) {
-        ok += `. Guardados en este navegador (${bulk.remoteError}).`
+        ok += ` Guardados en este navegador (${bulk.remoteError}).`
       }
       setPreview(null)
       setThumbs([])
@@ -146,9 +151,9 @@ export default function CajaImportComprobantesMedios({
         <div>
           <h3 className="caja-cc-planilla-zone-title">Comprobantes MP · POS · tarjetas</h3>
           <p className="caja-cc-sub caja-cc-planilla-zone-lead">
-            Subí fotos de tickets Mercado Pago (Point), POSnet o cierres de lote. PlotAI transcribe montos,
-            operación y tarjeta, y los importa como ingresos electrónicos en tu caja (no reemplazan el
-            conteo de billetes del arqueo).
+            Subí fotos de tickets Mercado Pago (Point), POSnet o cierres de lote. PlotAI lee los montos y,
+            al confirmar <strong>Volcar al sistema</strong>, se registran como movimientos de caja en PlotLab
+            (ingresos con tarjeta/MP, visibles en Mis movimientos). No suman al conteo de billetes del arqueo.
           </p>
         </div>
       </header>
@@ -257,20 +262,28 @@ export default function CajaImportComprobantesMedios({
           </ul>
 
           <div className="caja-cc-planilla-actions">
+            <p className="caja-cc-help caja-cc-comprobantes-volcar-hint">
+              Al volcar, cada monto aprobado del comprobante queda guardado en el sistema con fecha, operación
+              y concepto (Mercado Pago / tarjeta).
+            </p>
             <button
               type="button"
               className="btn-primary"
               disabled={saving}
               onClick={() => void handleImportar()}
             >
-              {saving ? progress ?? 'Importando…' : 'Importar a movimientos de caja'}
+              {saving ? progress ?? 'Volcando al sistema…' : 'Volcar al sistema'}
             </button>
           </div>
         </div>
       )}
 
       {err && <p className="caja-cc-error">{err}</p>}
-      {msg && <p className="caja-cc-ok">{msg}</p>}
+      {msg && (
+        <CajaMensajeOkPlotLab className="caja-cc-comprobantes-done">
+          <p className="caja-cc-ok">{msg}</p>
+        </CajaMensajeOkPlotLab>
+      )}
     </section>
   )
 }

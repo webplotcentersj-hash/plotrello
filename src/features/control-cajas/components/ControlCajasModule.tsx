@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { NAV_ADMIN, NAV_CAJA } from '../constants'
 import type { CajaSectionId } from '../types'
@@ -28,6 +28,7 @@ import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
 import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import CajaPlanillasRecibidasPanel from './CajaPlanillasRecibidasPanel'
 import CajaInteligenciaBar from './CajaInteligenciaBar'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import '../../../pages/CajaDashboardPage.css'
 
@@ -54,8 +55,21 @@ const SECTION_TITLES: Record<CajaSectionId, string> = {
   asistente: 'Asistente IA'
 }
 
+export type VistaCajaModulo = 'admin' | 'operativa'
+
+function vistaDesdePath(pathname: string): VistaCajaModulo | null {
+  if (pathname.endsWith('/admin')) return 'admin'
+  if (pathname.endsWith('/caja') && pathname.includes('/caja/dashboard/')) return 'operativa'
+  return null
+}
+
+function seccionInicial(vista: VistaCajaModulo): CajaSectionId {
+  return vista === 'admin' ? 'tablero_admin' : 'arqueo'
+}
+
 export default function ControlCajasModule() {
   const navigate = useNavigate()
+  const location = useLocation()
   const {
     usuario,
     isAdmin,
@@ -76,7 +90,16 @@ export default function ControlCajasModule() {
     })
   }, [usuario?.nombre])
 
-  const [section, setSection] = useState<CajaSectionId>(isAdmin ? 'tablero_admin' : 'arqueo')
+  const pathVista = useMemo(() => vistaDesdePath(location.pathname), [location.pathname])
+  const [vista, setVista] = useState<VistaCajaModulo>(() => {
+    if (!isAdmin) return 'operativa'
+    return pathVista ?? 'admin'
+  })
+  const enVistaAdmin = isAdmin && vista === 'admin'
+
+  const [section, setSection] = useState<CajaSectionId>(() =>
+    isAdmin ? seccionInicial(pathVista ?? 'admin') : 'arqueo'
+  )
   const [editCierreId, setEditCierreId] = useState<string | null>(null)
   const [remote, setRemote] = useState<boolean | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -84,20 +107,49 @@ export default function ControlCajasModule() {
   const [movimientosRefreshKey, setMovimientosRefreshKey] = useState(0)
   const [planillaActiva, setPlanillaActiva] = useState<PlanillaCajaParsed | null>(null)
 
-  const nav = useMemo(() => (isAdmin ? NAV_ADMIN : NAV_CAJA), [isAdmin])
+  const nav = useMemo(() => (enVistaAdmin ? NAV_ADMIN : NAV_CAJA), [enVistaAdmin])
+
+  const cambiarVista = (v: VistaCajaModulo) => {
+    setVista(v)
+    setEditCierreId(null)
+    setPlanillaActiva(null)
+    setSection(seccionInicial(v))
+    navigate(v === 'admin' ? '/caja/dashboard/admin' : '/caja/dashboard/caja', { replace: true })
+  }
 
   useEffect(() => {
     if (!authLoading && !canManageCaja) navigate('/')
   }, [authLoading, canManageCaja, navigate])
 
   useEffect(() => {
+    if (authLoading || !canManageCaja || !isAdmin) return
+    const p = location.pathname.replace(/\/$/, '')
+    if (p === '/caja/dashboard') {
+      navigate('/caja/dashboard/admin', { replace: true })
+    }
+  }, [authLoading, canManageCaja, isAdmin, location.pathname, navigate])
+
+  useEffect(() => {
+    if (pathVista) setVista(pathVista)
+  }, [pathVista])
+
+  useEffect(() => {
     void usesRemoteStorage().then(setRemote)
   }, [])
 
   useEffect(() => {
-    setSection(isAdmin ? 'tablero_admin' : 'arqueo')
-    setEditCierreId(null)
-  }, [isAdmin])
+    if (!isAdmin) {
+      setVista('operativa')
+      setSection('arqueo')
+      setEditCierreId(null)
+      return
+    }
+    if (pathVista) {
+      setVista(pathVista)
+      setSection(seccionInicial(pathVista))
+      setEditCierreId(null)
+    }
+  }, [isAdmin, pathVista])
 
   const bumpRefresh = () => setRefreshKey((k) => k + 1)
 
@@ -106,20 +158,23 @@ export default function ControlCajasModule() {
       <div className="caja-dashboard-page">
         <div className="caja-loading-container">
           <p>Verificando permisos…</p>
+          <CajaVolverPlotLab />
         </div>
       </div>
     )
   }
 
   const showPageTitle =
-    section !== 'tablero_admin' && section !== 'centro_ia' && section !== 'cierres_new'
+    section !== 'tablero_admin' &&
+    section !== 'centro_ia' &&
+    section !== 'cierres_new' &&
+    section !== 'cierres'
 
   const SECCIONES_PLANILLA: CajaSectionId[] = [
     'arqueo',
     'movimientos',
     'movimientos_admin',
     'tablero_admin',
-    'cierres_new',
     'cierres'
   ]
 
@@ -131,7 +186,7 @@ export default function ControlCajasModule() {
 
   const seccionConPlanilla = SECCIONES_PLANILLA.includes(section)
   const adminVePlanillasRecibidas =
-    isAdmin && (section === 'tablero_admin' || section === 'cierres_new' || section === 'cierres')
+    enVistaAdmin && (section === 'tablero_admin' || section === 'cierres')
 
   const refreshMovimientos = () => setMovimientosRefreshKey((k) => k + 1)
 
@@ -173,7 +228,11 @@ export default function ControlCajasModule() {
   ) : null
 
   const showIntelBar =
-    isAdmin && section !== 'tablero_admin' && section !== 'centro_ia' && section !== 'asistente'
+    enVistaAdmin &&
+    section !== 'tablero_admin' &&
+    section !== 'centro_ia' &&
+    section !== 'asistente' &&
+    section !== 'cierres_new'
 
   return (
     <div className="caja-dashboard-page caja-control-module">
@@ -182,9 +241,9 @@ export default function ControlCajasModule() {
           <div className="caja-header-title-block">
             <h1>Control de Cajas</h1>
             <p className="caja-header-lead">
-              {isAdmin
+              {enVistaAdmin
                 ? 'Cierre diario, conciliaciones MP y banco, movimientos entre cajas, seguimiento de diferencias.'
-                : 'Arqueo, movimientos y planilla PDF (vista caja).'}
+                : 'Arqueo, movimientos, comprobantes MP y planilla PDF (vista cajera).'}
             </p>
             {remote === false && (
               <p className="caja-cc-storage-hint">
@@ -193,6 +252,7 @@ export default function ControlCajasModule() {
             )}
           </div>
           <div className="caja-header-actions">
+            <CajaVolverPlotLab />
             <button type="button" className="btn-secondary" onClick={() => navigate('/crm-ventas')}>
               CRM ventas
             </button>
@@ -208,11 +268,33 @@ export default function ControlCajasModule() {
         </div>
       </header>
 
-      <div className={`caja-cc-role-banner ${isAdmin ? 'admin' : 'caja'}`}>
+      <div className={`caja-cc-role-banner ${enVistaAdmin ? 'admin' : 'caja'}`}>
         <span>
-          <strong>{isAdmin ? 'Administración' : 'Caja'}</strong> — {usuarioEtiqueta}
-          {!canViewIngresos && ' · Los ingresos del tablero ERP solo los ve administración.'}
+          <strong>{enVistaAdmin ? 'Administración' : 'Caja'}</strong> — {usuarioEtiqueta}
+          {!canViewIngresos && enVistaAdmin && ' · Los ingresos del tablero ERP solo los ve administración.'}
         </span>
+        {isAdmin && (
+          <div className="caja-cc-vista-switch" role="tablist" aria-label="Vista del módulo de caja">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={enVistaAdmin}
+              className={`caja-cc-vista-btn${enVistaAdmin ? ' active' : ''}`}
+              onClick={() => cambiarVista('admin')}
+            >
+              Administración
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!enVistaAdmin}
+              className={`caja-cc-vista-btn${!enVistaAdmin ? ' active' : ''}`}
+              onClick={() => cambiarVista('operativa')}
+            >
+              Operación caja
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="caja-cc-layout">
@@ -237,9 +319,15 @@ export default function ControlCajasModule() {
               </button>
             )
           )}
+          <div className="caja-cc-sidebar-foot">
+            <CajaVolverPlotLab block />
+          </div>
         </nav>
 
         <main className="caja-cc-content" key={refreshKey}>
+          <div className="caja-cc-content-plotlab-bar">
+            <CajaVolverPlotLab small />
+          </div>
           {showIntelBar && (
             <CajaInteligenciaBar
               isAdmin={isAdmin}
@@ -252,10 +340,11 @@ export default function ControlCajasModule() {
           {showPageTitle && (
             <div className="caja-cc-page-head compact">
               <h2>{SECTION_TITLES[section]}</h2>
+              <CajaVolverPlotLab small />
             </div>
           )}
 
-          {section === 'tablero_admin' && isAdmin && (
+          {section === 'tablero_admin' && enVistaAdmin && (
             <>
               {panelPlanillaIntel}
               <CajaTableroAdmin
@@ -268,7 +357,7 @@ export default function ControlCajasModule() {
             </>
           )}
 
-          {section === 'centro_ia' && isAdmin && (
+          {section === 'centro_ia' && enVistaAdmin && (
             <CajaCentroInteligente
               isAdmin
               usuarioNombre={usuarioEtiqueta}
@@ -277,25 +366,27 @@ export default function ControlCajasModule() {
             />
           )}
 
-          {section === 'cierres_new' && isAdmin && (
-            <>
-              {panelPlanillaIntel}
-              <CajaSectionCierreForm
-                editId={editCierreId}
-                onSaved={() => {
-                  setEditCierreId(null)
-                  bumpRefresh()
-                  setSection('cierres')
-                }}
-                onCancel={() => {
-                  setEditCierreId(null)
-                  setSection('cierres')
-                }}
-              />
-            </>
+          {section === 'cierres_new' && enVistaAdmin && (
+            <CajaSectionCierreForm
+              editId={editCierreId}
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              planillaActiva={planillaActiva}
+              onPlanillaParsed={setPlanillaActiva}
+              onSaved={() => {
+                setEditCierreId(null)
+                setPlanillaActiva(null)
+                bumpRefresh()
+                setSection('cierres')
+              }}
+              onCancel={() => {
+                setEditCierreId(null)
+                setSection('cierres')
+              }}
+            />
           )}
 
-          {section === 'cierres' && isAdmin && (
+          {section === 'cierres' && enVistaAdmin && (
             <>
               {panelPlanillaIntel}
               <CajaSectionCierresList
@@ -311,7 +402,7 @@ export default function ControlCajasModule() {
             </>
           )}
 
-          {section === 'tablero' && isAdmin && <CajaSectionTablero canViewIngresos={canViewIngresos} />}
+          {section === 'tablero' && enVistaAdmin && <CajaSectionTablero canViewIngresos={canViewIngresos} />}
 
           {section === 'arqueo' && (
             <>
@@ -373,9 +464,9 @@ export default function ControlCajasModule() {
             <CajaSectionHistorial usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
           )}
 
-          {section === 'arqueos_admin' && isAdmin && <CajaSectionArqueosAdmin />}
+          {section === 'arqueos_admin' && enVistaAdmin && <CajaSectionArqueosAdmin />}
 
-          {section === 'movimientos_admin' && isAdmin && (
+          {section === 'movimientos_admin' && enVistaAdmin && (
             <>
               {panelPlanillaIntel}
               <CajaSectionMovimientos
@@ -389,11 +480,11 @@ export default function ControlCajasModule() {
             </>
           )}
 
-          {section === 'concil_mp' && isAdmin && <CajaSectionConcilMP />}
-          {section === 'concil_banco' && isAdmin && <CajaSectionConcilBanco />}
-          {section === 'diferencias' && isAdmin && <CajaSectionDiferencias />}
-          {section === 'ventas' && isAdmin && <CajaSectionVentasDiarias />}
-          {section === 'config' && isAdmin && <CajaSectionConfig />}
+          {section === 'concil_mp' && enVistaAdmin && <CajaSectionConcilMP />}
+          {section === 'concil_banco' && enVistaAdmin && <CajaSectionConcilBanco />}
+          {section === 'diferencias' && enVistaAdmin && <CajaSectionDiferencias />}
+          {section === 'ventas' && enVistaAdmin && <CajaSectionVentasDiarias />}
+          {section === 'config' && enVistaAdmin && <CajaSectionConfig />}
           {section === 'asistente' && (
             <CajaPlotAI isAdmin={isAdmin} usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
           )}

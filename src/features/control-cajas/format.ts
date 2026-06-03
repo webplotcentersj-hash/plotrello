@@ -22,6 +22,23 @@ export const fmtDateAr = (iso: string) => {
   return d && m && y ? `${d}/${m}/${y}` : iso
 }
 
+/** Monto que debe mostrarse en listas (planilla, comprobante MP, Excel o manual). */
+export function montoVisibleMovimiento(m: {
+  monto_total?: number | null
+  efectivo?: number
+  otros?: number
+  tarjeta?: number | null
+  cuenta_corriente?: number | null
+  transferencia_bancaria?: number | null
+}): number {
+  if (m.monto_total != null && m.monto_total > 0) return m.monto_total
+  const tarj = m.tarjeta ?? 0
+  const ef = m.efectivo ?? 0
+  const ot = m.otros ?? 0
+  if (tarj > 0) return tarj + ef + ot
+  return ef + ot
+}
+
 export const newId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()

@@ -20,6 +20,9 @@ import { getArgentinaDateString } from '../../../utils/dateUtils'
 import type { CajaCierreEstadoCierre, CajaMovimiento } from '../types'
 import CajaBadge from './CajaBadge'
 import CajaCierreSnapshotPanel from './CajaCierreSnapshotPanel'
+import CajaCollapsibleCard from './CajaCollapsibleCard'
+import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import {
   FONDO_CAJA_BASE_MIN,
   fondoFijoEfectivo,
@@ -29,6 +32,10 @@ import {
 
 type Props = {
   editId?: string | null
+  usuarioNombre: string
+  usuarioId?: number
+  planillaActiva?: PlanillaCajaParsed | null
+  onPlanillaParsed?: (planilla: PlanillaCajaParsed | null) => void
   onSaved: () => void
   onCancel: () => void
 }
@@ -45,7 +52,15 @@ const emptyForm = (): CierreFormInput => ({
   cta_cte: 0
 })
 
-export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Props) {
+export default function CajaSectionCierreForm({
+  editId,
+  usuarioNombre,
+  usuarioId,
+  planillaActiva = null,
+  onPlanillaParsed,
+  onSaved,
+  onCancel
+}: Props) {
   const [cajas, setCajas] = useState<Awaited<ReturnType<typeof listCajas>>>([])
   const [cajeras, setCajeras] = useState<string[]>([])
   const [tolerancia, setTolerancia] = useState(0)
@@ -64,6 +79,7 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
   const [snapshot, setSnapshot] = useState<Record<string, unknown> | null>(null)
   const [movsVinculados, setMovsVinculados] = useState<CajaMovimiento[]>([])
   const [idPlanilla, setIdPlanilla] = useState<string | null>(null)
+  const [mostrarImportPdf, setMostrarImportPdf] = useState(false)
 
   useEffect(() => {
     void Promise.all([listCajas(), getParams()]).then(([c, p]) => {
@@ -149,7 +165,30 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
     )
   }
 
+  const aplicarPlanillaParsed = (full: PlanillaCajaParsed, archivoLabel: string) => {
+    const precarga = cierrePrecargaDesdePlanilla(full)
+    setForm((prev) => ({
+      ...prev,
+      ing_ef: precarga.ing_ef ?? prev.ing_ef,
+      egr_ef: precarga.egr_ef ?? prev.egr_ef,
+      tarj_sist: precarga.tarj_sist ?? prev.tarj_sist,
+      trans: precarga.trans ?? prev.trans,
+      cta_cte: precarga.cta_cte ?? prev.cta_cte,
+      ef_contado: prev.ef_contado
+    }))
+    setMsg(`Montos del cierre tomados de: ${archivoLabel}`)
+  }
+
+  const cargarPlanillaActiva = () => {
+    if (!planillaActiva) return
+    aplicarPlanillaParsed(planillaActiva, planillaActiva.archivo_nombre)
+  }
+
   const cargarDesdePlanilla = async () => {
+    if (planillaActiva) {
+      cargarPlanillaActiva()
+      return
+    }
     const planillas = await listPlanillas(20)
     const match = planillas.find(
       (p) =>
@@ -165,17 +204,7 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
     const full = await getPlanillaById(match.id)
     setIdPlanilla(match.id)
     if (full) {
-      const precarga = cierrePrecargaDesdePlanilla(full)
-      setForm((prev) => ({
-        ...prev,
-        ing_ef: precarga.ing_ef ?? prev.ing_ef,
-        egr_ef: precarga.egr_ef ?? prev.egr_ef,
-        tarj_sist: precarga.tarj_sist ?? prev.tarj_sist,
-        trans: precarga.trans ?? prev.trans,
-        cta_cte: precarga.cta_cte ?? prev.cta_cte,
-        ef_contado: prev.ef_contado
-      }))
-      setMsg(`Cierre precargado desde planilla completa: ${match.archivo_nombre} (${full.ventas.length} ventas en sistema).`)
+      aplicarPlanillaParsed(full, `${match.archivo_nombre} (${full.ventas.length} ventas)`)
       return
     }
 
@@ -277,24 +306,69 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
     calc.estado === 'OK' ? (calc.dif_total === 0 ? 'neutral' : 'ok') : 'bad'
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)}>
+    <form className="caja-cc-cierre-form" onSubmit={(e) => void handleSubmit(e)}>
+      <header className="caja-cc-cierre-page-head">
+        <div>
+          <h2>{editId ? 'Editar cierre' : 'Nuevo cierre'}</h2>
+          <p className="caja-cc-sub">
+            Completá fecha y caja, precargá si tenés planilla o movimientos del día, y guardá el borrador.
+          </p>
+        </div>
+        <button type="button" className="btn-secondary btn-small" onClick={onCancel}>
+          Volver a cierres
+        </button>
+      </header>
+
       {bloqueado && snapshot && <CajaCierreSnapshotPanel snapshot={snapshot} />}
 
-      <fieldset className="caja-cc-fieldset" disabled={bloqueado}>
-      <div className="caja-cc-help">
-        <b>Antes de cargar:</b> la cajera debe enviar el Listado de Planilla de Caja (PDF) y entregar
-        hoja de conteo firmada, cupones POSNET y egresos firmados.
-        <button type="button" className="btn-secondary caja-cc-inline-btn" onClick={cargarDesdeMovimientos}>
-          Precargar desde movimientos
-        </button>
-        <button type="button" className="btn-secondary caja-cc-inline-btn" onClick={() => void cargarDesdePlanilla()}>
-          Precargar desde planilla PDF
-        </button>
-      </div>
-      {msg && <p className="caja-cc-help">{msg}</p>}
+      {msg && (
+        <p className={msg.includes('Error') || msg.includes('debe') ? 'caja-cc-error' : 'caja-cc-ok'}>{msg}</p>
+      )}
 
-      <div className="caja-cc-card">
-        <h3>Identificación</h3>
+      <fieldset className="caja-cc-fieldset" disabled={bloqueado}>
+        {!bloqueado && (
+          <CajaCollapsibleCard title="Paso 1 — Precarga (opcional)" defaultOpen={!editId}>
+            <p className="caja-cc-sub caja-cc-cierre-paso-lead">
+              Podés traer montos desde movimientos del día o desde la planilla PDF. Después completás efectivo
+              contado y cupones en los pasos siguientes.
+            </p>
+            <div className="caja-cc-cierre-precarga-btns">
+              <button type="button" className="btn-primary btn-small" onClick={cargarDesdeMovimientos}>
+                Desde movimientos del día
+              </button>
+              <button type="button" className="btn-secondary btn-small" onClick={() => void cargarDesdePlanilla()}>
+                Desde planilla PDF
+              </button>
+              <button
+                type="button"
+                className="btn-link btn-small"
+                onClick={() => setMostrarImportPdf((v) => !v)}
+              >
+                {mostrarImportPdf ? 'Ocultar subida de PDF' : 'Subir planilla PDF nueva'}
+              </button>
+            </div>
+            {planillaActiva && (
+              <p className="caja-cc-help">
+                Planilla leída: <strong>{planillaActiva.archivo_nombre}</strong> —{' '}
+                <button type="button" className="btn-link" onClick={cargarPlanillaActiva}>
+                  usar en este cierre
+                </button>
+              </p>
+            )}
+            {mostrarImportPdf && onPlanillaParsed && (
+              <div className="caja-cc-cierre-import-pdf">
+                <CajaImportPlanillaPdf
+                  compact
+                  usuarioNombre={usuarioNombre}
+                  usuarioId={usuarioId}
+                  onPlanillaParsed={onPlanillaParsed}
+                />
+              </div>
+            )}
+          </CajaCollapsibleCard>
+        )}
+
+        <CajaCollapsibleCard title="Paso 2 — Identificación" defaultOpen>
         <div className="caja-cc-grid-3">
           <label className="caja-cc-field">
             Fecha
@@ -342,10 +416,9 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
             </select>
           </label>
         </div>
-      </div>
+        </CajaCollapsibleCard>
 
-      <div className="caja-cc-card">
-        <h3>Efectivo</h3>
+        <CajaCollapsibleCard title="Paso 3 — Efectivo" defaultOpen>
         <div className="caja-cc-grid-3">
           <label className="caja-cc-field">
             Fondo de caja <span className="caja-cc-tag cfg">real · base</span>
@@ -388,10 +461,9 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
             <input readOnly value={`$ ${fmtArs(calc.dif_ef)}`} />
           </label>
         </div>
-      </div>
+        </CajaCollapsibleCard>
 
-      <div className="caja-cc-card">
-        <h3>Tarjetas y POSNET</h3>
+        <CajaCollapsibleCard title="Paso 4 — Tarjetas y POSNET">
         <div className="caja-cc-grid-3">
           <label className="caja-cc-field">
             Tarjetas s/sistema <span className="caja-cc-tag input">listado</span>
@@ -406,11 +478,10 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
             <input readOnly value={`$ ${fmtArs(calc.dif_tarj)}`} />
           </label>
         </div>
-      </div>
+        </CajaCollapsibleCard>
 
-      <div className="caja-cc-card">
-        <h3>Otros canales del día</h3>
-        <p className="caja-cc-sub">Informativo · se concilian aparte (MP y banco)</p>
+        <CajaCollapsibleCard title="Paso 5 — Otros canales (informativo)">
+          <p className="caja-cc-sub">MP y transferencias se concilian en sus secciones del menú.</p>
         <div className="caja-cc-grid-3">
           <label className="caja-cc-field">
             QR Mercado Pago
@@ -425,26 +496,24 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
             <input type="number" step="0.01" value={form.cta_cte || ''} onChange={(e) => setNum('cta_cte', e.target.value)} />
           </label>
         </div>
-      </div>
+        </CajaCollapsibleCard>
 
-      <div className={`caja-cc-result ${resultClass}`}>
-        <span>Total ventas del día</span>
-        <strong>$ {fmtArs(calc.total_ventas)}</strong>
-      </div>
-      <div className={`caja-cc-result ${resultClass}`}>
-        <span>
-          Diferencia cierre físico · <CajaBadge estado={calc.estado} />
-        </span>
-        <strong>$ {fmtArs(calc.dif_total)}</strong>
-      </div>
-
-      <div className="caja-cc-card">
-        <label className="caja-cc-field">
-          Observación
-          <textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} rows={3} />
-        </label>
-      </div>
-
+        <CajaCollapsibleCard title="Resultado del cierre" defaultOpen>
+          <div className={`caja-cc-result ${resultClass}`}>
+            <span>Total ventas del día</span>
+            <strong>$ {fmtArs(calc.total_ventas)}</strong>
+          </div>
+          <div className={`caja-cc-result ${resultClass}`}>
+            <span>
+              Diferencia cierre físico · <CajaBadge estado={calc.estado} />
+            </span>
+            <strong>$ {fmtArs(calc.dif_total)}</strong>
+          </div>
+          <label className="caja-cc-field">
+            Observación
+            <textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} rows={2} />
+          </label>
+        </CajaCollapsibleCard>
       </fieldset>
 
       {bloqueado && (
@@ -456,12 +525,9 @@ export default function CajaSectionCierreForm({ editId, onSaved, onCancel }: Pro
         </p>
       )}
 
-      <div className="caja-cc-actions">
-        <button type="button" className="btn-secondary" onClick={onCancel}>
-          Cancelar
-        </button>
+      <div className="caja-cc-actions caja-cc-cierre-actions">
         <button type="submit" className="btn-primary" disabled={saving || bloqueado}>
-          {saving ? 'Guardando…' : 'Guardar borrador'}
+          {saving ? 'Guardando…' : editId ? 'Guardar cambios' : 'Guardar borrador'}
         </button>
         {editId && !bloqueado && (
           <button

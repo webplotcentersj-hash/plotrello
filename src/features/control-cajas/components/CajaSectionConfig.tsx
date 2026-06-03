@@ -5,6 +5,8 @@ import { getParams, listCajasAll, saveCajasMaestro, saveParams } from '../cajaRe
 import type { CajaCajera, CajaRegistro } from '../types'
 import { FONDO_CAJA_BASE_MIN, requiereFondoMinimo } from '../fondoCaja'
 import { fmtArs } from '../format'
+import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 export default function CajaSectionConfig() {
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -43,6 +45,9 @@ export default function CajaSectionConfig() {
 
   return (
     <>
+      <div className="caja-cc-inline-plotlab">
+        <CajaVolverPlotLab small />
+      </div>
       <div className="caja-cc-card">
         <h3>Cajas y fondo de caja</h3>
         <p className="caja-cc-sub">
@@ -204,7 +209,11 @@ export default function CajaSectionConfig() {
         </label>
       </div>
 
-      {msg && <p className="caja-cc-ok">{msg}</p>}
+      {msg && (
+        <CajaMensajeOkPlotLab>
+          <p className="caja-cc-ok">{msg}</p>
+        </CajaMensajeOkPlotLab>
+      )}
 
       <div className="caja-cc-actions spread">
         <button type="button" className="btn-secondary danger" onClick={resetDatos}>

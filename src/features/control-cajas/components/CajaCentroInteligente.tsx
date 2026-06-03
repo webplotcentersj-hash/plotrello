@@ -10,6 +10,7 @@ import {
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import { fmtArs } from '../format'
 import type { CajaAlerta, CajaSectionId } from '../types'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Props = {
   isAdmin: boolean
@@ -179,6 +180,7 @@ export default function CajaCentroInteligente({
           <span className="caja-cc-intel-score-l">{salud.etiqueta}</span>
         </div>
         <div className="caja-cc-intel-actions">
+          <CajaVolverPlotLab small />
           <button
             type="button"
             className="btn-tiny caja-cc-intel-btn"

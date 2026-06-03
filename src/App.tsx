@@ -1002,7 +1002,9 @@ function AppRoutes({
             onNavigateToHerramienta={() => navigate('/herramienta')}
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onNavigateToCompras={() => navigate('/compras/dashboard')}
-            onNavigateToCaja={() => navigate('/caja/dashboard')}
+            onNavigateToCaja={() =>
+              navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')
+            }
             onNavigateToDiseno={() => navigate('/diseno/dashboard')}
             onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
             onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
@@ -1182,6 +1184,14 @@ function AppRoutes({
       />
       <Route
         path="/caja/dashboard"
+        element={<CajaDashboardPage />}
+      />
+      <Route
+        path="/caja/dashboard/admin"
+        element={<CajaDashboardPage />}
+      />
+      <Route
+        path="/caja/dashboard/caja"
         element={<CajaDashboardPage />}
       />
       <Route

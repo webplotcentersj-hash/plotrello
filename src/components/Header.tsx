@@ -315,7 +315,7 @@ const Header = ({
             )}
             {canManageCaja && (
               <Link
-                to="/caja/dashboard"
+                to={isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja'}
                 className="brand-button"
                 onClick={() => {
                   setActionsOpen(false)

@@ -638,7 +638,7 @@ export default function AdminDashboard({
             <div className="admin-quick-action-icon">🧾</div>
             <div className="admin-quick-action-label">CRM ventas</div>
           </button>
-          <button className="admin-quick-action-card" onClick={() => window.open('/caja/dashboard', '_blank')}>
+          <button className="admin-quick-action-card" onClick={() => window.open('/caja/dashboard/admin', '_blank')}>
             <div className="admin-quick-action-icon">💳</div>
             <div className="admin-quick-action-label">Caja</div>
           </button>

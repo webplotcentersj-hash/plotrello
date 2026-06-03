@@ -7,7 +7,7 @@ import {
   saveMovimiento,
   saveMovimientosBulk
 } from '../cajaRepository'
-import { fmtArs, parseNum } from '../format'
+import { fmtArs, montoVisibleMovimiento, parseNum } from '../format'
 import {
   downloadMovimientosPlantilla,
   parseMovimientosWorkbook
@@ -16,6 +16,7 @@ import { getArgentinaDateString } from '../../../utils/dateUtils'
 import CajaMovimientosList from './CajaMovimientosList'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 import type { CajaMovimiento, CajaRegistro } from '../types'
 
@@ -149,7 +150,7 @@ export default function CajaSectionMovimientos({
         cajaNombre(m.origen_slug),
         cajaNombre(m.destino_slug),
         m.usuario_nombre,
-        fmtArs(m.efectivo + m.otros),
+        fmtArs(montoVisibleMovimiento(m)),
         m.fecha
       ])
     })
@@ -237,8 +238,10 @@ export default function CajaSectionMovimientos({
           <h2>{title}</h2>
           <p>Fondos, pases entre cajas y cierres de turno.</p>
         </div>
-        {allowExcelImport && (
-          <div className="caja-cc-page-actions">
+        <div className="caja-cc-page-actions">
+          <CajaVolverPlotLab small />
+          {allowExcelImport && (
+            <>
             <button type="button" className="btn-secondary" onClick={downloadMovimientosPlantilla}>
               Plantilla Excel (opcional)
             </button>
@@ -256,8 +259,9 @@ export default function CajaSectionMovimientos({
                 e.target.value = ''
               }}
             />
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {importMsg && <p className="caja-cc-help">{importMsg}</p>}

@@ -11,10 +11,13 @@ import {
   listConcilBanco,
   listConcilMP,
   listDiferencias,
-  listMovimientos
+  listMovimientos,
+  listPlanillas
 } from './cajaRepository'
+import { kpisTableroMes, mesArgentina } from './cajaDashboardData'
 import { calcularTotalesDesdePlanilla } from './cajaTotales'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
+import { sistemaBancoParaFecha, sistemaMpParaFecha } from './cajaDashboardData'
 import type {
   CajaAlerta,
   CajaArqueo,
@@ -24,7 +27,8 @@ import type {
   CajaDiferencia,
   CajaMovimiento,
   CajaRegistro,
-  CajaSaludResumen
+  CajaSaludResumen,
+  PlanillaCajaGuardada
 } from './types'
 
 export type CajaSnapshot = {
@@ -43,14 +47,6 @@ export type CajaSnapshot = {
 function uniqFechas(cierres: CajaCierre[], extra: string[] = []): string[] {
   const set = new Set<string>([...cierres.map((c) => c.fecha), ...extra])
   return [...set].sort((a, b) => b.localeCompare(a))
-}
-
-function sumMpSistemaDia(cierres: CajaCierre[]): number {
-  return cierres.reduce((s, c) => s + (c.tarj_sist || 0) + (c.mp_qr || 0), 0)
-}
-
-function sumTransDia(cierres: CajaCierre[]): number {
-  return cierres.reduce((s, c) => s + (c.trans || 0), 0)
 }
 
 function cajaLabel(cajas: CajaRegistro[], slug: string): string {
@@ -73,20 +69,23 @@ export function analizarConcordancia(input: {
   concilBanco: CajaConcilBanco[]
   diferencias: CajaDiferencia[]
   cajas: CajaRegistro[]
+  planillas?: PlanillaCajaGuardada[]
   tolerancia: number
   diasVentana?: number
 }): CajaSaludResumen {
   const { cierres, arqueos, movimientos, concilMp, concilBanco, diferencias, cajas, tolerancia } =
     input
+  const planillas = input.planillas ?? []
   const alertas: CajaAlerta[] = []
   const hoy = getArgentinaDateString()
-  const mes = hoy.slice(0, 7)
-  const mc = cierres.filter((c) => c.fecha.startsWith(mes))
+  const mes = mesArgentina()
 
-  const fechas = uniqFechas(cierres.slice(0, 80), [hoy]).slice(
-    0,
-    input.diasVentana ?? 14
-  )
+  const fechasExtra = [
+    hoy,
+    ...movimientos.slice(0, 60).map((m) => m.fecha),
+    ...planillas.map((p) => p.fecha_hasta || p.fecha_desde).filter(Boolean)
+  ]
+  const fechas = uniqFechas(cierres.slice(0, 80), fechasExtra).slice(0, input.diasVentana ?? 14)
 
   // —— Cierres con diferencia ——
   for (const c of cierres.slice(0, 30)) {
@@ -129,8 +128,8 @@ export function analizarConcordancia(input: {
   // —— Por fecha: MP y banco vs conciliaciones ——
   for (const fecha of fechas) {
     const delDia = cierresEnFecha(cierres, fecha)
-    const mpSistema = sumMpSistemaDia(delDia)
-    const transSistema = sumTransDia(delDia)
+    const mpSistema = sistemaMpParaFecha(fecha, cierres, planillas, movimientos).valor
+    const transSistema = sistemaBancoParaFecha(fecha, cierres, planillas, movimientos).valor
 
     const concMp = concilMp.find((x) => x.fecha === fecha)
     if (mpSistema > 0 && !concMp) {
@@ -348,13 +347,16 @@ export function analizarConcordancia(input: {
       return ord[a.severidad] - ord[b.severidad]
     }),
     fechasRecientes: fechas,
-    totalesMes: {
-      cierres: mc.length,
-      ok: mc.filter((c) => c.estado === 'OK').length,
-      revisar: mc.filter((c) => c.estado === 'REVISAR').length,
-      difNeta: mc.reduce((s, c) => s + (c.dif_total || 0), 0),
-      ventas: mc.reduce((s, c) => s + (c.total_ventas || 0), 0)
-    }
+    totalesMes: (() => {
+      const k = kpisTableroMes(mes, cierres, planillas, arqueos, concilMp, concilBanco)
+      return {
+        cierres: k.cierresMes,
+        ok: k.ok,
+        revisar: k.revisar,
+        difNeta: k.difNeta,
+        ventas: k.ventasMes
+      }
+    })()
   }
 }
 
@@ -465,7 +467,7 @@ export async function loadCajaSnapshot(opts?: {
   usuarioId?: number
   isAdmin?: boolean
 }): Promise<CajaSnapshot> {
-  const [params, cajas, cierres, arqueos, movimientos, concilMp, concilBanco, diferencias] =
+  const [params, cajas, cierres, arqueos, movimientos, concilMp, concilBanco, diferencias, planillas] =
     await Promise.all([
       getParams(),
       listCajas(),
@@ -474,7 +476,8 @@ export async function loadCajaSnapshot(opts?: {
       listMovimientos(opts?.isAdmin ? undefined : { usuario: opts?.usuario, usuarioId: opts?.usuarioId }),
       listConcilMP(),
       listConcilBanco(),
-      listDiferencias()
+      listDiferencias(),
+      listPlanillas(200)
     ])
 
   const salud = analizarConcordancia({
@@ -485,6 +488,7 @@ export async function loadCajaSnapshot(opts?: {
     concilBanco,
     diferencias,
     cajas,
+    planillas,
     tolerancia: params.tolerancia
   })
 

@@ -9,6 +9,7 @@ import { fmtArs, fmtDateAr } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import type { CajaEgresoSolicitud, CajaRegistro } from '../types'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 
 type Props = {
@@ -196,6 +197,7 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
               : 'Cada egreso requiere permiso de administración antes de descontarse del arqueo y del cierre.'}
           </p>
         </div>
+        <CajaVolverPlotLab small />
       </div>
 
       {!isAdmin && (

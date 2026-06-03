@@ -33,6 +33,7 @@ import { planillaAllToMovimientos } from '../planillaMovimientos'
 import { newId } from '../format'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro, CajaTransferenciaLote } from '../types'
+import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
 type Props = {
   usuarioNombre: string
@@ -483,7 +484,14 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         )}
       </div>
 
-      {msg && <p className={msg.includes('registrado') ? 'caja-cc-ok' : 'caja-cc-error'}>{msg}</p>}
+      {msg &&
+        (msg.includes('registrado') ? (
+          <CajaMensajeOkPlotLab>
+            <p className="caja-cc-ok">{msg}</p>
+          </CajaMensajeOkPlotLab>
+        ) : (
+          <p className="caja-cc-error">{msg}</p>
+        ))}
 
       <div className="caja-cc-actions">
         <button

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fmtArs, fmtDateAr } from '../format'
 import { deleteCierre, listCajas, listCierres } from '../cajaRepository'
 import CajaBadge from './CajaBadge'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 import type { CajaCierre, CajaRegistro } from '../types'
 
 type Props = {
@@ -33,9 +34,12 @@ export default function CajaSectionCierresList({ onNuevo, onEditar }: Props) {
           <h2>Cierres</h2>
           <p>Historial de cierres de caja</p>
         </div>
-        <button type="button" className="btn-primary" onClick={onNuevo}>
-          Nuevo cierre
-        </button>
+        <div className="caja-cc-page-actions">
+          <CajaVolverPlotLab small />
+          <button type="button" className="btn-primary" onClick={onNuevo}>
+            Nuevo cierre
+          </button>
+        </div>
       </div>
       <div className="caja-cc-card">
         {cierres.length === 0 ? (

@@ -21,6 +21,7 @@ import {
 import { planillaAllToMovimientos, resumenImportacion } from '../planillaMovimientos'
 import PlanillaLineasTable from './PlanillaLineasTable'
 import PlanillaMediosResumen from './PlanillaMediosResumen'
+import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
 type Props = {
   usuarioNombre: string
@@ -28,13 +29,16 @@ type Props = {
   onImported?: () => void
   /** Se dispara al leer el PDF (antes de importar) para alimentar concordancia / arqueo. */
   onPlanillaParsed?: (planilla: PlanillaCajaParsed | null) => void
+  /** Vista reducida para embeber en Nuevo cierre. */
+  compact?: boolean
 }
 
 export default function CajaImportPlanillaPdf({
   usuarioNombre,
   usuarioId,
   onImported,
-  onPlanillaParsed
+  onPlanillaParsed,
+  compact = false
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsing, setParsing] = useState(false)
@@ -208,15 +212,20 @@ export default function CajaImportPlanillaPdf({
     lineasCoinciden(preview?.movimientos_mec ?? [])
 
   return (
-    <section className="caja-cc-planilla-zone caja-cc-planilla-import" aria-label="Importar planilla PDF">
-      <header className="caja-cc-planilla-zone-head">
-        <div>
-          <h3 className="caja-cc-planilla-zone-title">Planilla PDF · PLOT CENTER</h3>
-          <p className="caja-cc-sub caja-cc-planilla-zone-lead">
-            Importá el listado exportado: ventas, ingresos, egresos y MEC con medios de pago para movimientos y cierre.
-          </p>
-        </div>
-      </header>
+    <section
+      className={`caja-cc-planilla-zone caja-cc-planilla-import${compact ? ' caja-cc-planilla-import--compact' : ''}`}
+      aria-label="Importar planilla PDF"
+    >
+      {!compact && (
+        <header className="caja-cc-planilla-zone-head">
+          <div>
+            <h3 className="caja-cc-planilla-zone-title">Planilla PDF · PLOT CENTER</h3>
+            <p className="caja-cc-sub caja-cc-planilla-zone-lead">
+              Importá el listado exportado: ventas, ingresos, egresos y MEC con medios de pago para movimientos y cierre.
+            </p>
+          </div>
+        </header>
+      )}
       <input
         ref={fileRef}
         type="file"
@@ -445,7 +454,11 @@ export default function CajaImportPlanillaPdf({
       )}
 
       {err && <p className="caja-cc-error">{err}</p>}
-      {msg && <p className="caja-cc-ok">{msg}</p>}
+      {msg && (
+        <CajaMensajeOkPlotLab>
+          <p className="caja-cc-ok">{msg}</p>
+        </CajaMensajeOkPlotLab>
+      )}
     </section>
   )
 }

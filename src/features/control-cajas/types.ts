@@ -96,7 +96,7 @@ export type CajaMovimiento = {
   observacion?: string | null
   id_usuario?: number | null
   usuario_nombre?: string | null
-  origen_importacion: 'manual' | 'excel' | 'planilla_pdf'
+  origen_importacion: 'manual' | 'excel' | 'planilla_pdf' | 'comprobante'
   traspaso_id?: string | null
   /** Desglose por medio de pago (columnas planilla Plot Center). */
   medios?: Record<string, number> | null

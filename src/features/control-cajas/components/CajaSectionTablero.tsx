@@ -21,6 +21,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Props = { canViewIngresos: boolean }
 
@@ -148,6 +149,9 @@ export default function CajaSectionTablero({ canViewIngresos }: Props) {
 
   return (
     <>
+      <div className="caja-cc-inline-plotlab">
+        <CajaVolverPlotLab small />
+      </div>
       <div className="caja-stats-grid">
         {canViewIngresos && (
           <div className="stat-card ingresos">

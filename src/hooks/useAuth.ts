@@ -73,8 +73,8 @@ export function useAuth() {
   /** Ver detalle de pedido de compra y recepción a stock (p. ej. desde ERP); gerencia incluida, sin dar acceso al dashboard clásico de compras. */
   const canViewPedidoCompraDetalle =
     !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion' || isGerencia)
-  // Puede gestionar caja: caja o administracion
-  const canManageCaja = !!usuario && (usuario.rol === 'caja' || usuario.rol === 'administracion')
+  // Puede gestionar caja: caja, administracion o gerencia (vista admin del módulo)
+  const canManageCaja = !!usuario && (usuario.rol === 'caja' || isAdmin)
   // Puede gestionar instalaciones: instalaciones o administracion
   const canManageInstalaciones = !!usuario && (usuario.rol === 'instalaciones' || usuario.rol === 'administracion')
   // Puede gestionar taller de imprenta: imprenta o administracion

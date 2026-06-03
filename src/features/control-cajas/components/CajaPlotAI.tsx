@@ -7,6 +7,7 @@ import {
   type CajaSnapshot
 } from '../cajaInteligencia'
 import { fmtArs } from '../format'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Msg = { role: 'user' | 'assistant'; text: string }
 
@@ -132,15 +133,18 @@ export default function CajaPlotAI({ isAdmin, usuarioNombre, usuarioId }: Props)
             <span className="caja-cc-ai-hero-score-l">{snap?.salud.etiqueta ?? 'Salud'}</span>
           </div>
         )}
-        <button
-          type="button"
-          className="btn-tiny caja-cc-ai-refresh"
-          disabled={snapLoading}
-          onClick={() => void refreshSnap()}
-          title="Actualizar datos de caja"
-        >
-          {snapLoading ? '…' : '↻'}
-        </button>
+        <div className="caja-cc-ai-hero-actions">
+          <button
+            type="button"
+            className="btn-tiny caja-cc-ai-refresh"
+            disabled={snapLoading}
+            onClick={() => void refreshSnap()}
+            title="Actualizar datos de caja"
+          >
+            {snapLoading ? '…' : '↻'}
+          </button>
+          <CajaVolverPlotLab small />
+        </div>
       </header>
 
       {snap && !snapLoading && (

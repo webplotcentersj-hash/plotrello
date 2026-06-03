@@ -1,4 +1,4 @@
-import { fmtArs, fmtDateAr } from '../format'
+import { fmtArs, fmtDateAr, montoVisibleMovimiento } from '../format'
 import { paseTieneTrazabilidad } from '../paseCaja'
 import type { CajaMovimiento, CajaRegistro } from '../types'
 
@@ -36,7 +36,7 @@ export default function CajaMovimientosList({
   return (
     <div className="caja-cc-timeline">
       {movimientos.map((m) => {
-        const tot = m.efectivo + m.otros
+        const tot = montoVisibleMovimiento(m)
         const cls =
           m.concepto === 'Fondo de caja'
             ? 'fondo'
@@ -62,9 +62,11 @@ export default function CajaMovimientosList({
                 {showUsuario && m.usuario_nombre ? ` · ${m.usuario_nombre}` : ''}
                 {m.origen_importacion === 'planilla_pdf'
                   ? ' · Planilla PDF'
-                  : m.origen_importacion === 'excel'
-                    ? ' · Excel'
-                    : ''}
+                  : m.origen_importacion === 'comprobante'
+                    ? ' · Comprobante MP/POS'
+                    : m.origen_importacion === 'excel'
+                      ? ' · Excel'
+                      : ''}
                 {m.anulado ? ' · Anulado' : ''}
                 {m.cierre_id ? ' · En cierre cerrado' : ''}
               </div>

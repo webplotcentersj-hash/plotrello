@@ -54,7 +54,7 @@ function movIngresoTarjeta(opts: {
     observacion: opts.observacion,
     id_usuario: opts.usuarioId ?? null,
     usuario_nombre: opts.usuarioNombre,
-    origen_importacion: 'manual',
+    origen_importacion: 'comprobante',
     traspaso_id: null,
     cierre_id: null,
     anulado: false,
@@ -89,7 +89,7 @@ function movEgreso(opts: {
     observacion: opts.observacion,
     id_usuario: opts.usuarioId ?? null,
     usuario_nombre: opts.usuarioNombre,
-    origen_importacion: 'manual',
+    origen_importacion: 'comprobante',
     traspaso_id: null,
     cierre_id: null,
     anulado: false

@@ -14,6 +14,7 @@ import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { calcularPaseTrazabilidad, validarPaseCaja } from '../paseCaja'
 import CajaMovimientosList from './CajaMovimientosList'
+import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 import type { CajaMovimiento, CajaRegistro } from '../types'
 
 type Props = {
@@ -426,7 +427,14 @@ export default function CajaSectionPaseCaja({
           <textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} rows={2} />
         </label>
 
-        {msg && <p className={msg.includes('registrado') ? 'caja-cc-ok' : 'caja-cc-error'}>{msg}</p>}
+        {msg &&
+          (msg.includes('registrado') ? (
+            <CajaMensajeOkPlotLab>
+              <p className="caja-cc-ok">{msg}</p>
+            </CajaMensajeOkPlotLab>
+          ) : (
+            <p className="caja-cc-error">{msg}</p>
+          ))}
 
         <div className="caja-cc-actions">
           <button type="submit" className="btn-primary" disabled={saving || !origen || !destino}>

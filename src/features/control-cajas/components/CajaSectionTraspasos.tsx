@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fmtArs, fmtDateAr } from '../format'
 import { listCajas, listTraspasos, setTraspasoEstado } from '../cajaRepository'
 import type { CajaRegistro, CajaTraspaso, CajaTraspasoEstado } from '../types'
+import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Props = {
   isAdmin?: boolean
@@ -79,6 +80,7 @@ export default function CajaSectionTraspasos({ isAdmin = false, usuarioNombre, u
             Movimientos con desglose por medio de pago. {isAdmin ? 'Administración confirma o anula.' : 'Consultá el estado de tus traspasos.'}
           </p>
         </div>
+        <CajaVolverPlotLab small />
       </div>
 
       <div className="caja-cc-card">
