@@ -5,9 +5,9 @@ export const MENU_ALMUERZO_CUPO_POR_TURNO = 10
  * Hora tope en Argentina para pedir o cancelar el menú del día.
  * Debe coincidir con `seleccionar_plato_menu` / `cancelar_seleccion_menu` en Supabase (patches SQL).
  */
-export const MENU_PEDIDO_HORA_TOPE_ARG = { hour: 9, minute: 30 } as const
+export const MENU_PEDIDO_HORA_TOPE_ARG = { hour: 10, minute: 15 } as const
 
-export const MENU_PEDIDO_HORA_TOPE_TEXTO = '9:30'
+export const MENU_PEDIDO_HORA_TOPE_TEXTO = '10:15'
 
 export type MenuTurnoAlmuerzoId = 1 | 2 | 3
 

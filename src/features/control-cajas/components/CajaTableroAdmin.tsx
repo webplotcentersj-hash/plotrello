@@ -3,7 +3,8 @@ import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { resumenAdminHoy } from '../cajaDashboardData'
 import { fmtArs, fmtDateAr } from '../format'
 import { listCajas, listEgresoSolicitudes, listPlanillas, listTransferenciaLotes } from '../cajaRepository'
-import type { CajaRegistro } from '../types'
+import type { CajaRegistro, CajaTransferenciaLote } from '../types'
+import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Props = {
@@ -15,6 +16,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
   const hoy = getArgentinaDateString()
   const [resumen, setResumen] = useState<Awaited<ReturnType<typeof resumenAdminHoy>> | null>(null)
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
+  const [detalleLote, setDetalleLote] = useState<CajaTransferenciaLote | null>(null)
 
   useEffect(() => {
     void Promise.all([
@@ -94,9 +96,11 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
       {resumen && resumen.cierresTurnoHoy.length > 0 && (
         <div className="caja-cc-card">
           <h3>Cierres de turno de hoy</h3>
-          <table className="caja-cc-table">
+          <p className="caja-cc-help">Tocá una fila para ver planilla, comprobantes, hora y quién cerró.</p>
+          <table className="caja-cc-table caja-cc-table-clickable">
             <thead>
               <tr>
+                <th>Hora</th>
                 <th>Caja origen</th>
                 <th>Fondo →</th>
                 <th className="num">A administración</th>
@@ -105,7 +109,13 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
             </thead>
             <tbody>
               {resumen.cierresTurnoHoy.map((l) => (
-                <tr key={l.id}>
+                <tr
+                  key={l.id}
+                  className="caja-cc-row-clickable"
+                  onClick={() => setDetalleLote(l)}
+                  title="Ver detalle del cierre"
+                >
+                  <td>{l.hora ?? '—'}</td>
                   <td>{cajaNombre(l.origen_slug)}</td>
                   <td>{cajaNombre(l.caja_fondo_destino_slug)}</td>
                   <td className="num">$ {fmtArs((l.resto_efectivo || 0) + (l.resto_otros || 0))}</td>
@@ -115,6 +125,10 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {detalleLote && (
+        <CajaCierreTurnoDetalleModal lote={detalleLote} cajas={cajas} onClose={() => setDetalleLote(null)} />
       )}
     </>
   )

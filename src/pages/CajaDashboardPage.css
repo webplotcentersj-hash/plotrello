@@ -976,6 +976,22 @@
   border: 1px solid #e2e8f0;
 }
 
+.caja-cc-modal.caja-cc-modal-wide,
+.caja-dashboard-page .caja-cc-modal.caja-cc-modal-wide {
+  width: min(920px, 100%);
+  max-height: min(92vh, 860px);
+}
+
+.caja-cc-comprobantes-embed-title {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.caja-cc-comprobantes-import--embed {
+  margin-top: 0.5rem;
+}
+
 .caja-cc-modal h2,
 .caja-cc-modal h3,
 .caja-cc-modal strong,

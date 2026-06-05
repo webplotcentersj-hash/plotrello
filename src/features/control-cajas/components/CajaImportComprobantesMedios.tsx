@@ -18,18 +18,24 @@ import {
   isComprobanteAiAvailable,
   parseComprobantesImagenes
 } from '../parseComprobanteImagenGemini'
+import { notifyAdminsCaja } from '../cajaNotificaciones'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
 type Props = {
   usuarioNombre: string
   usuarioId?: number
   onImported?: () => void
+  /** Embebido en cierre de turno: no volcar hasta que el padre registre el cierre. */
+  embedEnCierre?: boolean
+  onPreviewChange?: (lote: ComprobanteLoteParsed | null) => void
 }
 
 export default function CajaImportComprobantesMedios({
   usuarioNombre,
   usuarioId,
-  onImported
+  onImported,
+  embedEnCierre = false,
+  onPreviewChange
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsing, setParsing] = useState(false)
@@ -66,6 +72,7 @@ export default function CajaImportComprobantesMedios({
         return
       }
       setPreview(lote)
+      onPreviewChange?.(lote)
       if (lote.warnings.length) {
         setErr(lote.warnings.slice(0, 4).join(' · '))
       }
@@ -129,6 +136,13 @@ export default function CajaImportComprobantesMedios({
       setThumbs([])
       setMsg(ok)
       onImported?.()
+
+      void notifyAdminsCaja({
+        titulo: 'Comprobantes MP/POS volcados',
+        descripcion: `${usuarioNombre} importó ${r.total} movimiento(s) por $ ${fmtArs(totalVolcado)} desde comprobantes.`,
+        tipo: 'info',
+        excluirUsuarioId: usuarioId
+      })
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al importar')
     } finally {
@@ -146,17 +160,22 @@ export default function CajaImportComprobantesMedios({
   }
 
   return (
-    <section className="caja-cc-planilla-import caja-cc-comprobantes-import" aria-label="Comprobantes MP y tarjetas">
-      <header className="caja-cc-planilla-zone-head">
-        <div>
-          <h3 className="caja-cc-planilla-zone-title">Comprobantes MP · POS · tarjetas</h3>
-          <p className="caja-cc-sub caja-cc-planilla-zone-lead">
-            Subí fotos de tickets Mercado Pago (Point), POSnet o cierres de lote. PlotAI lee los montos y,
-            al confirmar <strong>Volcar al sistema</strong>, se registran como movimientos de caja en PlotLab
-            (ingresos con tarjeta/MP, visibles en Mis movimientos). No suman al conteo de billetes del arqueo.
-          </p>
-        </div>
-      </header>
+    <section
+      className={`caja-cc-planilla-import caja-cc-comprobantes-import${embedEnCierre ? ' caja-cc-comprobantes-import--embed' : ''}`}
+      aria-label="Comprobantes MP y tarjetas"
+    >
+      {!embedEnCierre && (
+        <header className="caja-cc-planilla-zone-head">
+          <div>
+            <h3 className="caja-cc-planilla-zone-title">Comprobantes MP · POS · tarjetas</h3>
+            <p className="caja-cc-sub caja-cc-planilla-zone-lead">
+              Subí fotos de tickets Mercado Pago (Point), POSnet o cierres de lote. PlotAI lee los montos y,
+              al confirmar <strong>Volcar al sistema</strong>, se registran como movimientos de caja en PlotLab
+              (ingresos con tarjeta/MP, visibles en Mis movimientos). No suman al conteo de billetes del arqueo.
+            </p>
+          </div>
+        </header>
+      )}
 
       <input
         ref={fileRef}
@@ -217,6 +236,7 @@ export default function CajaImportComprobantesMedios({
               className="btn-secondary btn-small"
               onClick={() => {
                 setPreview(null)
+                onPreviewChange?.(null)
                 thumbs.forEach((u) => URL.revokeObjectURL(u))
                 setThumbs([])
               }}
@@ -262,18 +282,27 @@ export default function CajaImportComprobantesMedios({
           </ul>
 
           <div className="caja-cc-planilla-actions">
-            <p className="caja-cc-help caja-cc-comprobantes-volcar-hint">
-              Al volcar, cada monto aprobado del comprobante queda guardado en el sistema con fecha, operación
-              y concepto (Mercado Pago / tarjeta).
-            </p>
-            <button
-              type="button"
-              className="btn-primary"
-              disabled={saving}
-              onClick={() => void handleImportar()}
-            >
-              {saving ? progress ?? 'Volcando al sistema…' : 'Volcar al sistema'}
-            </button>
+            {embedEnCierre ? (
+              <p className="caja-cc-help caja-cc-comprobantes-volcar-hint">
+                Los comprobantes se volcarán al sistema al pulsar <strong>Registrar cierre de turno</strong> y quedarán
+                vinculados a este cierre para administración.
+              </p>
+            ) : (
+              <>
+                <p className="caja-cc-help caja-cc-comprobantes-volcar-hint">
+                  Al volcar, cada monto aprobado del comprobante queda guardado en el sistema con fecha, operación
+                  y concepto (Mercado Pago / tarjeta).
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={saving}
+                  onClick={() => void handleImportar()}
+                >
+                  {saving ? progress ?? 'Volcando al sistema…' : 'Volcar al sistema'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

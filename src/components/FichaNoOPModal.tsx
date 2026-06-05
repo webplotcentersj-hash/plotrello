@@ -6,6 +6,7 @@ import { notifyOrdenChangedLocally } from '../utils/ordenLocalSync'
 import type { ClienteRecord, OrdenTrabajo } from '../types/api'
 import type { Task } from '../types/board'
 import { parseTaskIdToOrdenId, taskToOrdenPayload } from '../utils/dataMappers'
+import { normalizarDniCuit } from '../utils/buscarClienteMatch'
 import QRPrintView from './QRPrintView'
 import './FichaNoOPModal.css'
 
@@ -77,6 +78,8 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   /** Tras elegir de la lista: no re-buscar ni reabrir el dropdown. */
   const omitirBusquedaClienteRef = useRef(false)
   const clienteSearchGenRef = useRef(0)
+  /** Cliente elegido del listado (evita re-buscar y ambigüedades con nombres repetidos). */
+  const clienteSeleccionadoRef = useRef<ClienteRecord | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -196,6 +199,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
       setPresupuestoEnEspera(false)
       setAdjuntos([])
       setHydratedFichaPdfUrl(null)
+      clienteSeleccionadoRef.current = null
     }
   }, [editTask, canShowMotivos])
 
@@ -277,6 +281,7 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
   const handleSelectCliente = (clienteSeleccionado: ClienteRecord) => {
     omitirBusquedaClienteRef.current = true
     clienteSearchGenRef.current += 1
+    clienteSeleccionadoRef.current = clienteSeleccionado
     setNombreCliente(clienteSeleccionado.nombre)
     setDniCuit(clienteSeleccionado.dni_cuit?.trim() || '')
     setDatosContacto(clienteSeleccionado.telefono || '')
@@ -458,18 +463,26 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
     }
 
     // Buscar o crear el cliente si no existe
-    let clienteFinal: ClienteRecord | null = null
-    
-    // Primero buscar si el cliente existe
-    const buscarResponse = await apiService.buscarClientes(nombreCliente.trim())
-    if (buscarResponse.success && buscarResponse.data && buscarResponse.data.length > 0) {
-      // Buscar coincidencia exacta por nombre
-      clienteFinal = buscarResponse.data.find(c => 
-        c.nombre.toLowerCase().trim() === nombreCliente.toLowerCase().trim()
-      ) || buscarResponse.data[0]
+    let clienteFinal: ClienteRecord | null = clienteSeleccionadoRef.current
+
+    if (!clienteFinal) {
+      const buscarResponse = await apiService.buscarClientes(nombreCliente.trim())
+      if (buscarResponse.success && buscarResponse.data && buscarResponse.data.length > 0) {
+        const dniNorm = normalizarDniCuit(dniCuit)
+        const nombreNorm = nombreCliente.toLowerCase().trim()
+        clienteFinal =
+          (dniNorm
+            ? buscarResponse.data.find(
+                (c) => normalizarDniCuit(c.dni_cuit) === dniNorm
+              )
+            : undefined) ??
+          buscarResponse.data.find(
+            (c) => c.nombre.toLowerCase().trim() === nombreNorm
+          ) ??
+          null
+      }
     }
 
-    // Si no existe, crearlo
     if (!clienteFinal) {
       const crearResponse = await apiService.buscarOCrearCliente({
         nombre: nombreCliente.trim(),
@@ -749,7 +762,10 @@ const FichaNoOPModal = ({ onClose, onSuccess, editTask = null }: FichaNoOPModalP
                 type="text"
                 placeholder="Nombre del Cliente"
                 value={nombreCliente}
-                onChange={(e) => setNombreCliente(e.target.value)}
+                onChange={(e) => {
+                  setNombreCliente(e.target.value)
+                  clienteSeleccionadoRef.current = null
+                }}
                 onFocus={() => {
                   if (
                     !omitirBusquedaClienteRef.current &&

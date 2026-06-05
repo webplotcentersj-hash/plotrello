@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getCierreFechaCaja,
   getParams,
@@ -17,6 +17,11 @@ import {
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS, FONDO_CAJA_BASE_MIN } from '../constants'
 import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
+import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
+import { notifyAdminsCaja } from '../cajaNotificaciones'
+import { comprobantesToMovimientos } from '../comprobantesMediosImport'
+import type { ComprobanteLoteParsed } from '../comprobanteMediosTypes'
 import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
@@ -29,7 +34,6 @@ import {
   hayEgresosPendientes,
   type EgresosDelDiaResumen
 } from '../cierreTurno'
-import { parsePlanillaCajaPdf } from '../parsePlanillaCajaPdf'
 import { planillaAllToMovimientos } from '../planillaMovimientos'
 import { newId } from '../format'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
@@ -42,7 +46,6 @@ type Props = {
 }
 
 export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null)
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lotes, setLotes] = useState<CajaTransferenciaLote[]>([])
   const [tolerancia, setTolerancia] = useState(0)
@@ -51,6 +54,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   const [cajaResolviendo, setCajaResolviendo] = useState(true)
   const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
   const [historialOpen, setHistorialOpen] = useState(false)
+  const [detalleLote, setDetalleLote] = useState<CajaTransferenciaLote | null>(null)
 
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [hora, setHora] = useState(() => new Date().toTimeString().slice(0, 5))
@@ -62,6 +66,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   const [egresosLoading, setEgresosLoading] = useState(false)
   const [planillaPreview, setPlanillaPreview] = useState<PlanillaCajaParsed | null>(null)
   const [planillaId, setPlanillaId] = useState<string | null>(null)
+  const [comprobantesPreview, setComprobantesPreview] = useState<ComprobanteLoteParsed | null>(null)
 
   const reload = useCallback(async () => {
     const [c, lot, p] = await Promise.all([listCajas(), listTransferenciaLotes(20), getParams()])
@@ -196,22 +201,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
     return 'sin registros'
   }
 
-  const handlePdf = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setMsg('Subí el PDF del listado de transacciones (planilla de caja).')
-      return
-    }
-    try {
-      const buf = (await file.arrayBuffer()).slice(0)
-      const parsed = await parsePlanillaCajaPdf(buf, file.name)
-      setPlanillaPreview(parsed)
-      setPlanillaId(null)
-      setMsg(null)
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'No se pudo leer el PDF')
-    }
-  }
-
   const ejecutar = async () => {
     setMsg(null)
     if (!origen) {
@@ -266,6 +255,17 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         admin_dest_otros: 0
       }
 
+      const detalleInicial = {
+        comprobantes: comprobantesPreview?.comprobantes ?? [],
+        planilla_resumen: {
+          archivo_nombre: planillaPreview.archivo_nombre,
+          cantidad_ventas: planillaPreview.ventas.length,
+          ingresos_total: planillaPreview.totales?.ingresos_total ?? 0,
+          egresos_total: planillaPreview.totales?.egresos_total ?? 0
+        },
+        movimientos_ids: [] as string[]
+      }
+
       const lote: Omit<CajaTransferenciaLote, 'created_at'> = {
         id: loteId,
         fecha,
@@ -281,10 +281,28 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         id_planilla: idPlanilla,
         id_usuario: usuarioId ?? null,
         usuario_nombre: usuarioNombre,
-        observacion: `Cierre de turno ${cajaNombre(origen)} → fondo ${cajaNombre(cajaFondoDestino)} + admin`
+        observacion: `Cierre de turno ${cajaNombre(origen)} → fondo ${cajaNombre(cajaFondoDestino)} + admin`,
+        detalle: detalleInicial
       }
 
       await saveTransferenciaLote(lote)
+
+      const movIds: string[] = []
+
+      if (comprobantesPreview?.comprobantes.length) {
+        const compMovs = comprobantesToMovimientos(
+          comprobantesPreview,
+          origen,
+          usuarioNombre,
+          usuarioId,
+          cajas,
+          loteId
+        )
+        if (compMovs.length) {
+          const bulk = await saveMovimientosBulk(compMovs, { cajas })
+          movIds.push(...bulk.records.map((r) => r.id))
+        }
+      }
 
       const movs = buildMovimientosCierreTurno({
         lote: { ...lote, id: loteId },
@@ -297,14 +315,35 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
       })
 
       for (const m of movs) {
-        await saveMovimiento(m)
+        const saved = await saveMovimiento(m)
+        movIds.push(saved.id)
       }
+
+      if (movIds.length) {
+        await saveTransferenciaLote({
+          ...lote,
+          detalle: { ...detalleInicial, movimientos_ids: movIds }
+        })
+      }
+
+      const compCount = comprobantesPreview?.comprobantes.length ?? 0
+      void notifyAdminsCaja({
+        titulo: 'Cierre de turno registrado',
+        descripcion:
+          `${usuarioNombre} cerró turno en ${cajaNombre(origen)}: fondo $ ${fmtArs(calc.fondo_monto)}, ` +
+          `admin $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)}. ` +
+          `Planilla: ${planillaPreview.archivo_nombre}` +
+          (compCount ? ` · ${compCount} comprobante(s).` : '.'),
+        tipo: 'info',
+        excluirUsuarioId: usuarioId
+      })
 
       setMsg(
         `Cierre de turno registrado: fondo $ ${fmtArs(calc.fondo_monto)} a ${cajaNombre(cajaFondoDestino)}, resto $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)} a administración (planilla adjunta).`
       )
       setPlanillaPreview(null)
       setPlanillaId(null)
+      setComprobantesPreview(null)
       await reload()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error al registrar cierre de turno')
@@ -451,28 +490,23 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         <p className="caja-cc-sub">
           Subí el listado del día (PDF) y los comprobantes de Mercado Pago / POS para que administración cuadre.
         </p>
-        <button type="button" className="btn-secondary btn-small" onClick={() => fileRef.current?.click()}>
-          Adjuntar PDF planilla
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf"
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) void handlePdf(f)
-            e.target.value = ''
+        <CajaImportPlanillaPdf
+          usuarioNombre={usuarioNombre}
+          usuarioId={usuarioId}
+          compact
+          deferImport
+          onPlanillaParsed={(p) => {
+            setPlanillaPreview(p)
+            setPlanillaId(null)
+            if (p) setMsg(null)
           }}
         />
-        {planillaPreview && (
-          <p className="caja-cc-ok">
-            ✓ {planillaPreview.archivo_nombre} — {planillaPreview.cantidad_ventas} ventas
-          </p>
-        )}
+        <h4 className="caja-cc-comprobantes-embed-title">Comprobantes MP · POS · tarjetas</h4>
         <CajaImportComprobantesMedios
           usuarioNombre={usuarioNombre}
           usuarioId={usuarioId}
+          embedEnCierre
+          onPreviewChange={setComprobantesPreview}
           onImported={() => setMsg(null)}
         />
       </div>
@@ -538,7 +572,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
           {historialOpen && (
             <div className="caja-cc-card-collapsible-body">
               <div className="caja-cc-table-scroll">
-                <table className="caja-cc-table">
+                <table className="caja-cc-table caja-cc-table-clickable">
                   <thead>
                     <tr>
                       <th>Fecha</th>
@@ -550,8 +584,16 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
                   </thead>
                   <tbody>
                     {lotes.map((l) => (
-                      <tr key={l.id}>
-                        <td>{l.fecha}</td>
+                      <tr
+                        key={l.id}
+                        className="caja-cc-row-clickable"
+                        onClick={() => setDetalleLote(l)}
+                        title="Ver detalle del cierre"
+                      >
+                        <td>
+                          {l.fecha}
+                          {l.hora ? ` ${l.hora}` : ''}
+                        </td>
                         <td>{cajaNombre(l.origen_slug)}</td>
                         <td>{cajaNombre(l.caja_fondo_destino_slug)}</td>
                         <td className="num">$ {fmtArs(l.resto_efectivo + l.resto_otros)}</td>
@@ -564,6 +606,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
             </div>
           )}
         </div>
+      )}
+      {detalleLote && (
+        <CajaCierreTurnoDetalleModal lote={detalleLote} cajas={cajas} onClose={() => setDetalleLote(null)} />
       )}
     </div>
   )

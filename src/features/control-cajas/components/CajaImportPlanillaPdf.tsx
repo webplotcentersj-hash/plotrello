@@ -31,6 +31,8 @@ type Props = {
   onPlanillaParsed?: (planilla: PlanillaCajaParsed | null) => void
   /** Vista reducida para embeber en Nuevo cierre. */
   compact?: boolean
+  /** Solo leer PDF; la importación al sistema la hace el cierre de turno. */
+  deferImport?: boolean
 }
 
 export default function CajaImportPlanillaPdf({
@@ -38,7 +40,8 @@ export default function CajaImportPlanillaPdf({
   usuarioId,
   onImported,
   onPlanillaParsed,
-  compact = false
+  compact = false,
+  deferImport = false
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsing, setParsing] = useState(false)
@@ -436,20 +439,29 @@ export default function CajaImportPlanillaPdf({
             </div>
           )}
 
-          <div className="caja-cc-planilla-actions">
-            <button type="button" className="btn-primary" disabled={saving} onClick={() => void handleGuardar()}>
-              {saving ? importProgress ?? 'Importando…' : 'Importar todo al sistema'}
-            </button>
-            {saving && importProgress && (
-              <p className="caja-cc-help" role="status">
-                {importProgress}
-              </p>
-            )}
-          </div>
-          <p className="caja-cc-planilla-foot">
-            Se importan <strong>todas las líneas</strong> con desglose por medio. La planilla alimenta movimientos, el
-            motor de concordancia y el cierre del día.
-          </p>
+          {!deferImport && (
+            <div className="caja-cc-planilla-actions">
+              <button type="button" className="btn-primary" disabled={saving} onClick={() => void handleGuardar()}>
+                {saving ? importProgress ?? 'Importando…' : 'Importar todo al sistema'}
+              </button>
+              {saving && importProgress && (
+                <p className="caja-cc-help" role="status">
+                  {importProgress}
+                </p>
+              )}
+            </div>
+          )}
+          {deferImport ? (
+            <p className="caja-cc-planilla-foot">
+              La planilla quedará vinculada al <strong>Registrar cierre de turno</strong> (movimientos + detalle para
+              administración).
+            </p>
+          ) : (
+            <p className="caja-cc-planilla-foot">
+              Se importan <strong>todas las líneas</strong> con desglose por medio. La planilla alimenta movimientos, el
+              motor de concordancia y el cierre del día.
+            </p>
+          )}
         </div>
       )}
 

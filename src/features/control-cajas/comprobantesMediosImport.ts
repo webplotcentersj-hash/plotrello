@@ -30,6 +30,7 @@ function movIngresoTarjeta(opts: {
   usuarioNombre: string
   usuarioId?: number
   archivo: string
+  idLote?: string
 }): Omit<CajaMovimiento, 'id' | 'created_at'> {
   return {
     fecha: opts.fecha,
@@ -57,6 +58,7 @@ function movIngresoTarjeta(opts: {
     origen_importacion: 'comprobante',
     traspaso_id: null,
     cierre_id: null,
+    id_lote: opts.idLote ?? null,
     anulado: false,
     medios: { tarjetas: opts.monto, total: opts.monto }
   }
@@ -71,6 +73,7 @@ function movEgreso(opts: {
   observacion: string
   usuarioNombre: string
   usuarioId?: number
+  idLote?: string
 }): Omit<CajaMovimiento, 'id' | 'created_at'> {
   return {
     fecha: opts.fecha,
@@ -92,6 +95,7 @@ function movEgreso(opts: {
     origen_importacion: 'comprobante',
     traspaso_id: null,
     cierre_id: null,
+    id_lote: opts.idLote ?? null,
     anulado: false
   }
 }
@@ -102,7 +106,8 @@ export function comprobantesToMovimientos(
   cajaSlug: string,
   usuarioNombre: string,
   usuarioId?: number,
-  cajas?: CajaRegistro[]
+  cajas?: CajaRegistro[],
+  idLote?: string
 ): Omit<CajaMovimiento, 'id' | 'created_at'>[] {
   const adminSlug = cajas?.find((c) => c.slug === 'admin')?.slug ?? 'admin'
   const out: Omit<CajaMovimiento, 'id' | 'created_at'>[] = []
@@ -127,7 +132,8 @@ export function comprobantesToMovimientos(
             observacion: `${obsBase} · línea resumen`,
             usuarioNombre,
             usuarioId,
-            archivo: c.archivo_nombre
+            archivo: c.archivo_nombre,
+            idLote
           })
         )
       }
@@ -144,7 +150,8 @@ export function comprobantesToMovimientos(
           nro: c.operacion_numero ?? null,
           observacion: obsBase,
           usuarioNombre,
-          usuarioId
+          usuarioId,
+          idLote
         })
       )
       continue
@@ -169,7 +176,8 @@ export function comprobantesToMovimientos(
         observacion: obsBase,
         usuarioNombre,
         usuarioId,
-        archivo: c.archivo_nombre
+        archivo: c.archivo_nombre,
+        idLote
       })
     )
   }

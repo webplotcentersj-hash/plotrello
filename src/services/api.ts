@@ -16107,7 +16107,7 @@ class ApiService {
     }
 
     try {
-      // Calendario "hoy" = mismo criterio que el plazo 9:30 menú (Intl AR), no el reloj del servidor Postgres.
+      // Calendario "hoy" = mismo criterio que el plazo 10:15 menú (Intl AR), no el reloj del servidor Postgres.
       const hoyYmd = getArgentinaDateString()
       const { data, error } = await supabase.rpc('obtener_menus_diarios', {
         p_fecha_desde: hoyYmd,

@@ -835,8 +835,21 @@ function mapLoteRow(r: Record<string, unknown>): CajaTransferenciaLote {
     id_usuario: r.id_usuario != null ? Number(r.id_usuario) : null,
     usuario_nombre: r.usuario_nombre != null ? String(r.usuario_nombre) : null,
     observacion: r.observacion != null ? String(r.observacion) : null,
+    detalle: (r.detalle as CajaTransferenciaLote['detalle']) ?? null,
     created_at: r.created_at != null ? String(r.created_at) : undefined
   }
+}
+
+export async function getTransferenciaLoteById(id: string): Promise<CajaTransferenciaLote | null> {
+  if (await checkRemote()) {
+    const { data, error } = await supabase!
+      .from('control_caja_transferencia_lotes')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    if (!error && data) return mapLoteRow(data)
+  }
+  return readLocal().transferencia_lotes.find((l) => l.id === id) ?? null
 }
 
 export async function listTransferenciaLotes(limit = 30): Promise<CajaTransferenciaLote[]> {
@@ -875,7 +888,8 @@ export async function saveTransferenciaLote(
       id_planilla: lote.id_planilla ?? null,
       id_usuario: lote.id_usuario ?? null,
       usuario_nombre: lote.usuario_nombre ?? null,
-      observacion: lote.observacion ?? null
+      observacion: lote.observacion ?? null,
+      detalle: lote.detalle ?? null
     })
     if (!error) return record
   }
@@ -1334,6 +1348,18 @@ export async function desvincularMovimientosCierre(cierreId: string): Promise<vo
 export async function listMovimientosPorCierre(cierreId: string): Promise<CajaMovimiento[]> {
   const movs = await listMovimientos()
   return movs.filter((m) => m.cierre_id === cierreId)
+}
+
+export async function listMovimientosPorLote(loteId: string): Promise<CajaMovimiento[]> {
+  if (await checkRemote()) {
+    const { data, error } = await supabase!
+      .from('control_caja_movimientos')
+      .select('*')
+      .eq('id_lote', loteId)
+      .order('created_at', { ascending: true })
+    if (!error && data) return data.map((r) => mapMovRow(r))
+  }
+  return readLocal().movimientos.filter((m) => m.id_lote === loteId)
 }
 
 export async function cerrarCierreDefinitivo(

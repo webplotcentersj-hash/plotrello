@@ -260,6 +260,17 @@ export type CajaEgresoSolicitud = {
   updated_at?: string
 }
 
+export type CajaTransferenciaLoteDetalle = {
+  comprobantes?: import('./comprobanteMediosTypes').ComprobanteMedioParsed[]
+  planilla_resumen?: {
+    archivo_nombre: string
+    cantidad_ventas: number
+    ingresos_total: number
+    egresos_total: number
+  }
+  movimientos_ids?: string[]
+}
+
 export type CajaTransferenciaLote = {
   id: string
   fecha: string
@@ -276,6 +287,7 @@ export type CajaTransferenciaLote = {
   id_usuario?: number | null
   usuario_nombre?: string | null
   observacion?: string | null
+  detalle?: CajaTransferenciaLoteDetalle | null
   created_at?: string
 }
 
