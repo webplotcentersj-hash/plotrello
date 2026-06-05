@@ -55,27 +55,19 @@ export const DEFAULT_PARAMS = {
 }
 
 export const NAV_ADMIN: NavItem[] = [
-  { section: 'tablero_admin', label: 'Tablero', icon: '📊', adminOnly: true },
-  { section: 'centro_ia', label: 'Centro IA', icon: '✨', adminOnly: true },
-  { header: 'Operación diaria' },
-  { section: 'cierres_new', label: 'Nuevo cierre', icon: '➕', adminOnly: true },
-  { section: 'cierres', label: 'Cierres', icon: '✅', adminOnly: true },
-  { section: 'arqueos_admin', label: 'Arqueos', icon: '💵', adminOnly: true },
+  { section: 'tablero_admin', label: 'Hoy', icon: '📊', adminOnly: true },
   { section: 'cierre_turno', label: 'Cierre de turno', icon: '🔁', adminOnly: true },
-  { section: 'pase_caja', label: 'Pase de caja', icon: '↔️', adminOnly: true },
-  { section: 'traspasos', label: 'Traspasos', icon: '🔀', adminOnly: true },
   { section: 'egresos', label: 'Egresos', icon: '📤', adminOnly: true },
+  { section: 'arqueos_admin', label: 'Arqueos', icon: '💵', adminOnly: true },
   { section: 'movimientos_admin', label: 'Movimientos', icon: '📋', adminOnly: true },
-  { header: 'Conciliaciones' },
+  { section: 'cierres', label: 'Cierres', icon: '✅', adminOnly: true },
+  { header: 'Avanzado' },
+  { section: 'cierres_new', label: 'Nuevo cierre', icon: '➕', adminOnly: true },
   { section: 'concil_mp', label: 'Mercado Pago', icon: '💳', adminOnly: true },
   { section: 'concil_banco', label: 'Banco', icon: '🏦', adminOnly: true },
-  { header: 'Seguimiento' },
-  { section: 'diferencias', label: 'Diferencias', icon: '⚠️', adminOnly: true },
   { section: 'ventas', label: 'Ventas diarias', icon: '📈', adminOnly: true },
-  { section: 'tablero', label: 'Tablero ERP', icon: '🏢', adminOnly: true },
-  { header: 'Configuración' },
-  { section: 'config', label: 'Maestros', icon: '⚙️', adminOnly: true },
-  { section: 'asistente', label: 'Asistente IA', icon: '✨' }
+  { section: 'centro_ia', label: 'Centro IA', icon: '✨', adminOnly: true },
+  { section: 'config', label: 'Maestros', icon: '⚙️', adminOnly: true }
 ]
 
 export const LS_KEY = 'plotlab_control_cajas_v1'

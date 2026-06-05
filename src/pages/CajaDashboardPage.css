@@ -2130,6 +2130,64 @@
   color: #64748b;
 }
 
+.caja-dashboard-page .caja-cc-hoy-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-card {
+  padding: 20px 22px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-card.ingreso {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #f0fdf4, #fff);
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-card.egreso {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #fef2f2, #fff);
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-value {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  line-height: 1.1;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-hint {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.caja-dashboard-page .caja-cc-fondo-regla ol.caja-cc-steps-simple {
+  margin: 0 0 16px;
+  padding-left: 1.25rem;
+  line-height: 1.5;
+}
+
+.caja-dashboard-page .caja-cc-cierre-hero {
+  margin-top: 0;
+}
+
 .caja-dashboard-page .caja-cc-card-collapsed-hint {
   margin: 0;
   padding: 8px 18px 14px;

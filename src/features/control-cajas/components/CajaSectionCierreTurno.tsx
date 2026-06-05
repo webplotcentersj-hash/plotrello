@@ -15,7 +15,8 @@ import {
   saveTransferenciaLote
 } from '../cajaRepository'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS } from '../constants'
+import { DEFAULT_CAJERAS, FONDO_CAJA_BASE_MIN } from '../constants'
+import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
@@ -166,14 +167,15 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
     })
   }, [calc, fecha, origen, arqueoEf, arqueoOt, tolerancia])
 
+  const [concilOpen, setConcilOpen] = useState(false)
   const [concilState, setConcilState] = useState<{ ok: boolean; alertas: string[] }>({
-    ok: false,
+    ok: true,
     alertas: []
   })
 
   useEffect(() => {
-    void concil.then(setConcilState)
-  }, [concil])
+    if (concilOpen) void concil.then(setConcilState)
+  }, [concil, concilOpen])
 
   const adminSlug = cajas.find((c) => c.slug === 'admin')?.slug ?? 'admin'
   const cajaNombre = (s: string) => cajas.find((c) => c.slug === s)?.nombre ?? s
@@ -311,15 +313,34 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
     }
   }
 
+  const restoAdmin = calc.resto_efectivo + calc.resto_otros
+
   return (
     <div className="caja-cc-cierre-turno">
-      <p className="caja-cc-intro caja-cc-sub">
-        Al cerrar el turno, el <strong>fondo</strong> pasa a la otra caja operativa y el <strong>resto</strong> va a
-        administración con el PDF de transacciones. Debe cuadrar con arqueo, egresos y cierre del día.
-      </p>
+      <div className="caja-cc-hoy-hero caja-cc-cierre-hero">
+        <div className="caja-cc-hoy-hero-card">
+          <span className="caja-cc-hoy-hero-label">Fondo → otra caja</span>
+          <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
+          <span className="caja-cc-hoy-hero-hint">
+            Fijo $ {fmtArs(FONDO_CAJA_BASE_MIN)} a {cajaNombre(cajaFondoDestino) || '…'}
+          </span>
+        </div>
+        <div className="caja-cc-hoy-hero-card ingreso">
+          <span className="caja-cc-hoy-hero-label">Resto → administración</span>
+          <span className="caja-cc-hoy-hero-value">$ {fmtArs(restoAdmin)}</span>
+          <span className="caja-cc-hoy-hero-hint">Ingreso del día para administración</span>
+        </div>
+        <div className="caja-cc-hoy-hero-card egreso">
+          <span className="caja-cc-hoy-hero-label">Egresos hoy</span>
+          <span className="caja-cc-hoy-hero-value">
+            $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
+          </span>
+          <span className="caja-cc-hoy-hero-hint">Descontados del arqueo antes del pase</span>
+        </div>
+      </div>
 
       <div className="caja-cc-card">
-        <h3>1 · Arqueo y cajas</h3>
+        <h3>Cajas y arqueo</h3>
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Fecha
@@ -384,7 +405,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
       </div>
 
       <div className="caja-cc-card">
-        <h3>2 · Egresos del día</h3>
+        <h3>Egresos del día</h3>
         {egresosLoading ? (
           <p className="caja-cc-help">Cargando egresos…</p>
         ) : hayEgresosPendientes(egresosLista) ? (
@@ -425,30 +446,11 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         )}
       </div>
 
-      <div className="caja-cc-card caja-cc-pase-block highlight">
-        <h3>3 · Transferencias calculadas</h3>
-        <table className="caja-cc-table">
-          <tbody>
-            <tr>
-              <td>Fondo permanente → {cajaNombre(cajaFondoDestino)}</td>
-              <td className="num">$ {fmtArs(calc.fondo_monto)}</td>
-            </tr>
-            <tr>
-              <td>Resto → Administración</td>
-              <td className="num">
-                $ {fmtArs(calc.resto_efectivo)} + $ {fmtArs(calc.resto_otros)} otros
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p className="caja-cc-sub">
-          Fórmula efectivo: arqueo − egresos aprobados − fondo = resto a administración ($ {fmtArs(calc.resto_efectivo)})
-        </p>
-      </div>
-
       <div className="caja-cc-card">
-        <h3>4 · PDF planilla (obligatorio para administración)</h3>
-        <p className="caja-cc-sub">Detalle de todas las transacciones del turno, como envían por email a administración.</p>
+        <h3>Planilla PDF y comprobantes</h3>
+        <p className="caja-cc-sub">
+          Subí el listado del día (PDF) y los comprobantes de Mercado Pago / POS para que administración cuadre.
+        </p>
         <button type="button" className="btn-secondary btn-small" onClick={() => fileRef.current?.click()}>
           Adjuntar PDF planilla
         </button>
@@ -465,22 +467,37 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         />
         {planillaPreview && (
           <p className="caja-cc-ok">
-            ✓ {planillaPreview.archivo_nombre} — {planillaPreview.cantidad_ventas} ventas,{' '}
-            {planillaPreview.egresos.length} egresos en planilla
+            ✓ {planillaPreview.archivo_nombre} — {planillaPreview.cantidad_ventas} ventas
           </p>
         )}
+        <CajaImportComprobantesMedios
+          usuarioNombre={usuarioNombre}
+          usuarioId={usuarioId}
+          onImported={() => setMsg(null)}
+        />
       </div>
 
-      <div className={`caja-cc-card ${concilState.ok ? 'caja-cc-result ok' : 'caja-cc-result bad'}`}>
-        <h3>5 · Concordancia arqueo / cierre</h3>
-        {concilState.alertas.length === 0 ? (
-          <p>Cuadre coherente con cierre y arqueo.</p>
-        ) : (
-          <ul className="caja-cc-concil-list">
-            {concilState.alertas.map((a, i) => (
-              <li key={i}>{a}</li>
-            ))}
-          </ul>
+      <div className="caja-cc-card caja-cc-card-collapsible">
+        <button
+          type="button"
+          className="caja-cc-card-collapsible-head"
+          onClick={() => setConcilOpen((v) => !v)}
+        >
+          <span aria-hidden>{concilOpen ? '▼' : '▶'}</span>
+          <h3>Revisión opcional (arqueo vs cierre)</h3>
+        </button>
+        {concilOpen && (
+          <div className={`caja-cc-card-collapsible-body ${concilState.ok ? 'caja-cc-result ok' : 'caja-cc-result bad'}`}>
+            {concilState.alertas.length === 0 ? (
+              <p>Sin alertas.</p>
+            ) : (
+              <ul className="caja-cc-concil-list">
+                {concilState.alertas.map((a, i) => (
+                  <li key={i}>{a}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
 

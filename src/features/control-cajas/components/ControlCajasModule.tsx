@@ -33,7 +33,7 @@ import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import '../../../pages/CajaDashboardPage.css'
 
 const SECTION_TITLES: Record<CajaSectionId, string> = {
-  tablero_admin: 'Tablero',
+  tablero_admin: 'Hoy',
   centro_ia: 'Centro de inteligencia',
   tablero: 'Tablero ERP',
   cierres_new: 'Nuevo cierre',
@@ -170,13 +170,7 @@ export default function ControlCajasModule() {
     section !== 'cierres_new' &&
     section !== 'cierres'
 
-  const SECCIONES_PLANILLA: CajaSectionId[] = [
-    'arqueo',
-    'movimientos',
-    'movimientos_admin',
-    'tablero_admin',
-    'cierres'
-  ]
+  const SECCIONES_PLANILLA: CajaSectionId[] = ['arqueo', 'movimientos', 'movimientos_admin', 'cierres']
 
   const goSection = (s: CajaSectionId) => {
     setEditCierreId(null)
@@ -185,8 +179,7 @@ export default function ControlCajasModule() {
   }
 
   const seccionConPlanilla = SECCIONES_PLANILLA.includes(section)
-  const adminVePlanillasRecibidas =
-    enVistaAdmin && (section === 'tablero_admin' || section === 'cierres')
+  const adminVePlanillasRecibidas = enVistaAdmin && section === 'cierres'
 
   const refreshMovimientos = () => setMovimientosRefreshKey((k) => k + 1)
 
@@ -229,10 +222,7 @@ export default function ControlCajasModule() {
 
   const showIntelBar =
     enVistaAdmin &&
-    section !== 'tablero_admin' &&
-    section !== 'centro_ia' &&
-    section !== 'asistente' &&
-    section !== 'cierres_new'
+    (section === 'concil_mp' || section === 'concil_banco' || section === 'centro_ia')
 
   return (
     <div className="caja-dashboard-page caja-control-module">
@@ -242,8 +232,8 @@ export default function ControlCajasModule() {
             <h1>Control de Cajas</h1>
             <p className="caja-header-lead">
               {enVistaAdmin
-                ? 'Cierre diario, conciliaciones MP y banco, movimientos entre cajas, seguimiento de diferencias.'
-                : 'Arqueo, movimientos, comprobantes MP y planilla PDF (vista cajera).'}
+                ? 'Fondo $100.000 entre cajas, resto a administración, egresos e ingresos de hoy.'
+                : 'Arqueo, cierre de turno con PDF y comprobantes MP/POS.'}
             </p>
             {remote === false && (
               <p className="caja-cc-storage-hint">
@@ -345,16 +335,10 @@ export default function ControlCajasModule() {
           )}
 
           {section === 'tablero_admin' && enVistaAdmin && (
-            <>
-              {panelPlanillaIntel}
-              <CajaTableroAdmin
-                onNuevoCierre={() => {
-                  setEditCierreId(null)
-                  setSection('cierres_new')
-                }}
-                onVerCierres={() => setSection('cierres')}
-              />
-            </>
+            <CajaTableroAdmin
+              onCierreTurno={() => setSection('cierre_turno')}
+              onEgresos={() => setSection('egresos')}
+            />
           )}
 
           {section === 'centro_ia' && enVistaAdmin && (

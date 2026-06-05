@@ -1,175 +1,121 @@
-import { useEffect, useMemo, useState } from 'react'
-import { kpisTableroMes, mesArgentina } from '../cajaDashboardData'
+import { useEffect, useState } from 'react'
+import { getArgentinaDateString } from '../../../utils/dateUtils'
+import { resumenAdminHoy } from '../cajaDashboardData'
 import { fmtArs, fmtDateAr } from '../format'
-import { LIST_PAGE_SIZE } from '../listFilters'
-import {
-  listArqueos,
-  listCajas,
-  listCierres,
-  listConcilBanco,
-  listConcilMP,
-  listMovimientos,
-  listPlanillas
-} from '../cajaRepository'
-import CajaCollapsibleCard from './CajaCollapsibleCard'
-import CajaMovimientosList from './CajaMovimientosList'
-import CajaBadge from './CajaBadge'
+import { listCajas, listEgresoSolicitudes, listPlanillas, listTransferenciaLotes } from '../cajaRepository'
+import type { CajaRegistro } from '../types'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
-import type { CajaCierre, CajaMovimiento, CajaRegistro } from '../types'
 
 type Props = {
-  onNuevoCierre: () => void
-  onVerCierres: () => void
+  onCierreTurno: () => void
+  onEgresos: () => void
 }
 
-export default function CajaTableroAdmin({ onNuevoCierre, onVerCierres }: Props) {
-  const [cierres, setCierres] = useState<CajaCierre[]>([])
-  const [movimientos, setMovimientos] = useState<CajaMovimiento[]>([])
-  const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
-  const [arqueos, setArqueos] = useState<Awaited<ReturnType<typeof listArqueos>>>([])
-  const [concilMp, setConcilMp] = useState<Awaited<ReturnType<typeof listConcilMP>>>([])
-  const [concilBanco, setConcilBanco] = useState<Awaited<ReturnType<typeof listConcilBanco>>>([])
+export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
+  const hoy = getArgentinaDateString()
+  const [resumen, setResumen] = useState<Awaited<ReturnType<typeof resumenAdminHoy>> | null>(null)
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
 
   useEffect(() => {
     void Promise.all([
-      listCierres(),
-      listMovimientos(),
-      listPlanillas(200),
-      listArqueos(),
-      listConcilMP(),
-      listConcilBanco(),
+      listTransferenciaLotes(50),
+      listPlanillas(100),
+      listEgresoSolicitudes({ fecha: hoy }),
       listCajas()
-    ]).then(([c, m, p, a, mp, b, ca]) => {
-      setCierres(c)
-      setMovimientos(m)
-      setPlanillas(p)
-      setArqueos(a)
-      setConcilMp(mp)
-      setConcilBanco(b)
-      setCajas(ca)
+    ]).then(([lotes, planillas, egresos, c]) => {
+      setCajas(c)
+      setResumen(resumenAdminHoy(hoy, lotes, planillas, egresos))
     })
-  }, [])
+  }, [hoy])
 
-  const mes = mesArgentina()
-  const kpis = useMemo(
-    () => kpisTableroMes(mes, cierres, planillas, arqueos, concilMp, concilBanco),
-    [mes, cierres, planillas, arqueos, concilMp, concilBanco]
-  )
+  const cajaNombre = (slug: string) => cajas.find((x) => x.slug === slug)?.nombre ?? slug
 
-  const ultimos = cierres.slice(0, 6)
-  const movsRecientes = movimientos.slice(0, LIST_PAGE_SIZE)
-  const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
-
-  const mesLabel = new Date(`${mes}-15T12:00:00`).toLocaleDateString('es-AR', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'America/Argentina/Buenos_Aires'
-  })
-
-  const fuenteVentas = kpis.tienePlanillas
-    ? `${kpis.planillasMes} planilla(s) del mes`
-    : kpis.tieneCierres
-      ? `${kpis.cierresMes} cierre(s) del mes`
-      : 'sin planillas ni cierres'
+  const ingresoLabel =
+    resumen?.ingresoFuente === 'cierre_turno'
+      ? 'Resto enviado a administración (cierres de turno de hoy)'
+      : resumen?.ingresoFuente === 'planilla'
+        ? 'Ingresos en planillas PDF de hoy (aún sin cierre de turno)'
+        : 'Sin cierres de turno ni planillas hoy'
 
   return (
     <>
       <div className="caja-cc-page-head">
         <div>
-          <h2>Tablero</h2>
-          <p>Resumen del mes en curso ({mesLabel})</p>
+          <h2>Hoy — {fmtDateAr(hoy)}</h2>
+          <p className="caja-cc-sub">
+            Fondo fijo $ {fmtArs(resumen?.fondoFijo ?? 100_000)}: una caja (Rosa o Noelia) lo traspasa a la otra;
+            el resto ingresa a administración.
+          </p>
         </div>
-        <div className="caja-cc-page-actions">
-          <CajaVolverPlotLab small />
-          <button type="button" className="btn-primary" onClick={onNuevoCierre}>
-            Nuevo cierre
-          </button>
-        </div>
+        <CajaVolverPlotLab small />
       </div>
 
-      <div className="caja-cc-metrics">
-        <div className="caja-cc-metric">
-          <span className="caja-cc-metric-l">Cierres / planillas</span>
-          <span className="caja-cc-metric-v">
-            {kpis.cierresMes}
-            {kpis.planillasMes > 0 ? ` · ${kpis.planillasMes} PDF` : ''}
+      <div className="caja-cc-hoy-hero">
+        <div className="caja-cc-hoy-hero-card ingreso">
+          <span className="caja-cc-hoy-hero-label">Ingreso hoy</span>
+          <span className="caja-cc-hoy-hero-value">$ {fmtArs(resumen?.ingresoHoy ?? 0)}</span>
+          <span className="caja-cc-hoy-hero-hint">{ingresoLabel}</span>
+        </div>
+        <div className="caja-cc-hoy-hero-card egreso">
+          <span className="caja-cc-hoy-hero-label">Egresos hoy</span>
+          <span className="caja-cc-hoy-hero-value">$ {fmtArs(resumen?.egresosHoy ?? 0)}</span>
+          <span className="caja-cc-hoy-hero-hint">
+            {resumen && resumen.egresosPendientes > 0
+              ? `${resumen.egresosPendientes} egreso(s) pendiente(s) de aprobar`
+              : 'Egresos aprobados del día (todas las cajas)'}
           </span>
-        </div>
-        <div className="caja-cc-metric">
-          <span className="caja-cc-metric-l">OK</span>
-          <span className="caja-cc-metric-v ok">{kpis.ok}</span>
-        </div>
-        <div className="caja-cc-metric">
-          <span className="caja-cc-metric-l">A revisar</span>
-          <span className="caja-cc-metric-v bad">{kpis.revisar}</span>
-        </div>
-        <div className="caja-cc-metric">
-          <span className="caja-cc-metric-l">Diferencia neta</span>
-          <span className="caja-cc-metric-v">$ {fmtArs(kpis.difNeta)}</span>
-        </div>
-      </div>
-
-      <div className="caja-cc-card">
-        <h3>Ventas del mes</h3>
-        <p className="caja-cc-ventas-mes">$ {fmtArs(kpis.ventasMes)}</p>
-        <p className="caja-cc-sub">Fuente: {fuenteVentas}</p>
-      </div>
-
-      <div className="caja-cc-grid-2">
-        <CajaCollapsibleCard
-          title="Últimos cierres"
-          count={cierres.length}
-          defaultOpen={ultimos.length > 0 && ultimos.length <= 6}
-        >
-          <div className="caja-cc-card-head-row">
-            <button type="button" className="btn-link" onClick={onVerCierres}>
-              Ver todos →
+          {resumen && resumen.egresosPendientes > 0 && (
+            <button type="button" className="btn-secondary btn-small" onClick={onEgresos}>
+              Ver egresos
             </button>
-          </div>
-          {ultimos.length === 0 ? (
-            <p className="caja-cc-empty">
-              Sin cierres. Las ventas del mes pueden venir de {planillas.length} planilla(s) importada(s).
-            </p>
-          ) : (
-            <table className="caja-cc-table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Caja</th>
-                  <th className="num">Dif.</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ultimos.map((c) => (
-                  <tr key={c.id}>
-                    <td>{fmtDateAr(c.fecha)}</td>
-                    <td>{cajaNombre(c.caja_slug)}</td>
-                    <td className="num">{c.dif_total ? fmtArs(c.dif_total) : '—'}</td>
-                    <td>
-                      <CajaBadge estado={c.estado} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           )}
-        </CajaCollapsibleCard>
-
-        <CajaCollapsibleCard
-          title="Últimos movimientos"
-          count={movimientos.length}
-          defaultOpen={false}
-          bodyClassName="caja-cc-card-body-scroll"
-        >
-          {movsRecientes.length === 0 ? (
-            <p className="caja-cc-empty">Sin movimientos</p>
-          ) : (
-            <CajaMovimientosList movimientos={movsRecientes} cajas={cajas} showUsuario />
-          )}
-        </CajaCollapsibleCard>
+        </div>
       </div>
+
+      <div className="caja-cc-card caja-cc-fondo-regla">
+        <h3>Regla del cierre de turno</h3>
+        <ol className="caja-cc-steps-simple">
+          <li>
+            <strong>Fondo $ {fmtArs(100_000)}</strong> — se traspasa a la otra caja operativa (ej. Rosa → Noelia).
+          </li>
+          <li>
+            <strong>Resto del arqueo</strong> (menos egresos del día) — va a <strong>Caja Administración</strong> (es el
+            ingreso hoy de arriba).
+          </li>
+          <li>
+            En el cierre se sube el <strong>PDF planilla</strong> y los <strong>comprobantes</strong> MP / tarjetas.
+          </li>
+        </ol>
+        <button type="button" className="btn-primary" onClick={onCierreTurno}>
+          Ir a cierre de turno
+        </button>
+      </div>
+
+      {resumen && resumen.cierresTurnoHoy.length > 0 && (
+        <div className="caja-cc-card">
+          <h3>Cierres de turno de hoy</h3>
+          <table className="caja-cc-table">
+            <thead>
+              <tr>
+                <th>Caja origen</th>
+                <th>Fondo →</th>
+                <th className="num">A administración</th>
+                <th>Cajera</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resumen.cierresTurnoHoy.map((l) => (
+                <tr key={l.id}>
+                  <td>{cajaNombre(l.origen_slug)}</td>
+                  <td>{cajaNombre(l.caja_fondo_destino_slug)}</td>
+                  <td className="num">$ {fmtArs((l.resto_efectivo || 0) + (l.resto_otros || 0))}</td>
+                  <td>{l.usuario_nombre ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   )
 }

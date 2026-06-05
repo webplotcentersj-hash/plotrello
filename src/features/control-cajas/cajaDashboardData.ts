@@ -1,12 +1,15 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { cierresEnFecha } from './cajaRepository'
+import { FONDO_CAJA_BASE_MIN } from './fondoCaja'
 import type {
   CajaArqueo,
   CajaCierre,
   CajaConcilBanco,
   CajaConcilMP,
   CajaDiferencia,
+  CajaEgresoSolicitud,
   CajaMovimiento,
+  CajaTransferenciaLote,
   PlanillaCajaGuardada
 } from './types'
 
@@ -316,6 +319,61 @@ function validarCuadreMovimiento(m: CajaMovimiento): number | null {
     (m.cuenta_contable ?? 0)
   const delta = Math.abs(total - suma)
   return delta > 0.02 ? delta : null
+}
+
+export type ResumenAdminHoy = {
+  fecha: string
+  ingresoHoy: number
+  ingresoFuente: 'cierre_turno' | 'planilla' | 'ninguno'
+  egresosHoy: number
+  egresosPendientes: number
+  fondoFijo: number
+  cierresTurnoHoy: CajaTransferenciaLote[]
+}
+
+/** Ingreso hoy = resto que pasó a administración; egresos = aprobados del día (todas las cajas). */
+export function resumenAdminHoy(
+  fecha: string,
+  lotes: CajaTransferenciaLote[],
+  planillas: PlanillaCajaGuardada[],
+  egresos: CajaEgresoSolicitud[]
+): ResumenAdminHoy {
+  const cierresTurnoHoy = lotes.filter((l) => l.fecha === fecha)
+  const ingresoLotes = cierresTurnoHoy.reduce(
+    (s, l) => s + (l.resto_efectivo || 0) + (l.resto_otros || 0),
+    0
+  )
+
+  let ingresoPlanilla = 0
+  if (ingresoLotes <= 0) {
+    for (const p of planillas) {
+      if (planillaEnFecha(p, fecha)) {
+        ingresoPlanilla += Number(p.totales?.ingresos_total) || 0
+      }
+    }
+  }
+
+  const ingresoHoy = ingresoLotes > 0 ? ingresoLotes : ingresoPlanilla
+  const ingresoFuente: ResumenAdminHoy['ingresoFuente'] =
+    ingresoLotes > 0 ? 'cierre_turno' : ingresoPlanilla > 0 ? 'planilla' : 'ninguno'
+
+  const delDia = egresos.filter((e) => e.fecha === fecha)
+  const aprobados = delDia.filter((e) => e.estado === 'aprobado')
+  const egresosHoy = aprobados.reduce(
+    (s, e) => s + (e.monto_efectivo || 0) + (e.monto_otros || 0),
+    0
+  )
+  const egresosPendientes = delDia.filter((e) => e.estado === 'pendiente').length
+
+  return {
+    fecha,
+    ingresoHoy,
+    ingresoFuente,
+    egresosHoy,
+    egresosPendientes,
+    fondoFijo: FONDO_CAJA_BASE_MIN,
+    cierresTurnoHoy
+  }
 }
 
 export function labelFuenteSistema(fuente: SistemaDiaFuente): string {
