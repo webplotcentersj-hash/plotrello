@@ -2051,7 +2051,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
         <div className="rrhh-section-header">
           <h2>🕘 Horarios del reloj</h2>
           <div className="rrhh-fijos-header-right">
-            <button type="button" className="btn-secondary" onClick={onIrAReloj}>
+            <button type="button" className="btn-secondary rrhh-btn-oscuro" onClick={onIrAReloj}>
               🕒 Importar / ver informes
             </button>
             <label className="rrhh-fijos-mes">
@@ -2344,11 +2344,11 @@ const AsistenciaTab = ({
         <h2>Control de Asistencia</h2>
         <div className="rrhh-asistencia-actions">
           {empleados.length > 0 && (
-            <button type="button" className="btn-secondary" onClick={exportar}>
+            <button type="button" className="btn-secondary rrhh-btn-oscuro" onClick={exportar}>
               📥 Exportar Excel
             </button>
           )}
-          <button type="button" className="btn-secondary" onClick={onIrNovedades}>
+          <button type="button" className="btn-secondary rrhh-btn-oscuro" onClick={onIrNovedades}>
             📋 Novedades RRHH
           </button>
           {usuario && (

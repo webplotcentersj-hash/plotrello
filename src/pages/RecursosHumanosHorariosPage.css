@@ -1244,6 +1244,18 @@
   flex-wrap: wrap;
 }
 
+.rrhh-btn-oscuro {
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.rrhh-btn-oscuro:hover {
+  background: rgba(30, 41, 59, 0.98);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #f8fafc;
+}
+
 .rrhh-fijos-mes {
   display: inline-flex;
   align-items: center;
@@ -1513,13 +1525,26 @@ thead .rrhh-asis-sticky {
   padding: 16px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(15, 23, 42, 0.92);
+  color: #f1f5f9;
+}
+
+.rrhh-permisos-cal .reloj-historial-head h3 {
+  color: #ffffff;
 }
 
 .rrhh-permisos-cal-help {
   margin: 0 0 12px;
   font-size: 0.88rem;
-  color: #94a3b8;
+  color: #f8fafc;
+}
+
+.rrhh-permisos-cal .reloj-historial-weekdays {
+  color: #ffffff;
+}
+
+.rrhh-permisos-cal .reloj-historial-empty {
+  color: #f8fafc;
 }
 
 .rrhh-permisos-cal-grid {
@@ -1532,8 +1557,8 @@ thead .rrhh-asis-sticky {
   min-height: 88px;
   padding: 6px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1548,6 +1573,7 @@ thead .rrhh-asis-sticky {
 .rrhh-permisos-cal-daynum {
   font-weight: 700;
   font-size: 0.85rem;
+  color: #f8fafc;
 }
 
 .rrhh-permisos-cal-chips {
@@ -1587,7 +1613,7 @@ thead .rrhh-asis-sticky {
 
 .rrhh-permisos-cal-more {
   font-size: 0.6rem;
-  color: #94a3b8;
+  color: #cbd5e1;
 }
 
 .rrhh-permisos-cal-lista {
@@ -1601,6 +1627,35 @@ thead .rrhh-asis-sticky {
 
 .rrhh-permisos-detalle {
   max-width: 480px;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55);
+}
+
+.rrhh-permisos-detalle h2 {
+  color: #ffffff;
+}
+
+.rrhh-permisos-detalle p {
+  margin: 0 0 12px;
+  color: #e2e8f0;
+  line-height: 1.45;
+}
+
+.rrhh-permisos-detalle strong {
+  color: #f8fafc;
+}
+
+.rrhh-permisos-detalle .btn-secondary {
+  background: rgba(30, 41, 59, 0.95);
+  color: #f1f5f9;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.rrhh-permisos-detalle .btn-secondary:hover {
+  background: rgba(51, 65, 85, 0.98);
+  border-color: rgba(59, 130, 246, 0.4);
 }
 
 .rrhh-asis-celda.celda-click {
