@@ -19,9 +19,17 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import VerLegajoModal from '../components/VerLegajoModal'
 import RelojHistorialCalendario from '../components/RelojHistorialCalendario'
-import RrhhHorariosReportesTab from '../components/RrhhHorariosReportesTab'
-import type { UsuarioRecord, Turno, Asistencia, RrhhRelojReporteSemanal } from '../types/api'
+import PermisosAutorizadosCalendario from '../components/PermisosAutorizadosCalendario'
+import RrhhNovedadDetailModal from '../components/RrhhNovedadDetailModal'
+import type { UsuarioRecord, Asistencia, RrhhRelojReporteSemanal, RrhhNovedad, SolicitudPermiso } from '../types/api'
 import { crearSnapshotReloj, parseSnapshotReloj } from '../utils/relojReporteSnapshot'
+import { exportarAsistenciaPlanillaXlsx } from '../utils/exportAsistenciaPlanillaXlsx'
+import {
+  abreviaturaCodigoNovedad,
+  esDiaHabil,
+  novedadEnDia
+} from '../utils/rrhhNovedadDates'
+import { etiquetaCodigoRrhhNovedad } from '../utils/rrhhNovedadCatalog'
 import {
   procesarArchivoReloj,
   exportarRelojXlsx,
@@ -45,7 +53,7 @@ import {
 } from '../services/relojBiometricoService'
 import './RecursosHumanosHorariosPage.css'
 
-type TabType = 'horarios' | 'turnos' | 'asistencia' | 'reportes' | 'reloj'
+type TabType = 'horarios' | 'permisos' | 'asistencia' | 'reloj'
 
 const RecursosHumanosHorariosPage = () => {
   const navigate = useNavigate()
@@ -56,8 +64,9 @@ const RecursosHumanosHorariosPage = () => {
   
   // Datos
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
-  const [turnos, setTurnos] = useState<Turno[]>([])
   const [asistencia, setAsistencia] = useState<Asistencia[]>([])
+  const [novedades, setNovedades] = useState<RrhhNovedad[]>([])
+  const [permisos, setPermisos] = useState<SolicitudPermiso[]>([])
   
   // Filtros
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<number | null>(null)
@@ -84,10 +93,11 @@ const RecursosHumanosHorariosPage = () => {
   }, [canManageRecursosHumanos, navigate, authLoading])
 
   useEffect(() => {
-    if (activeTab === 'turnos') {
-      loadTurnos()
-    } else if (activeTab === 'asistencia' || activeTab === 'reportes') {
+    if (activeTab === 'permisos') {
+      loadPermisos()
+    } else if (activeTab === 'asistencia') {
       loadAsistencia()
+      loadNovedades()
     }
   }, [activeTab, usuarioSeleccionado, fechaDesde, fechaHasta])
 
@@ -105,14 +115,35 @@ const RecursosHumanosHorariosPage = () => {
     }
   }
 
-  const loadTurnos = async () => {
+  const loadPermisos = async () => {
     try {
-      const response = await apiService.obtenerTurnos(usuarioSeleccionado, fechaDesde, fechaHasta)
+      const response = await apiService.obtenerSolicitudesPermisos(
+        usuarioSeleccionado,
+        'aprobado',
+        null,
+        fechaDesde,
+        fechaHasta
+      )
       if (response.success && response.data) {
-        setTurnos(response.data)
+        setPermisos(response.data)
       }
     } catch (error) {
-      console.error('Error cargando turnos:', error)
+      console.error('Error cargando permisos:', error)
+    }
+  }
+
+  const loadNovedades = async () => {
+    try {
+      const response = await apiService.rrhhNovedadesListar({
+        idUsuario: usuarioSeleccionado ?? undefined,
+        fechaDesde,
+        fechaHasta
+      })
+      if (response.success && response.data) {
+        setNovedades(response.data)
+      }
+    } catch (error) {
+      console.error('Error cargando novedades:', error)
     }
   }
 
@@ -205,22 +236,16 @@ const RecursosHumanosHorariosPage = () => {
             🕘 Horarios reloj
           </button>
           <button
-            className={`rrhh-tab ${activeTab === 'turnos' ? 'active' : ''}`}
-            onClick={() => setActiveTab('turnos')}
+            className={`rrhh-tab ${activeTab === 'permisos' ? 'active' : ''}`}
+            onClick={() => setActiveTab('permisos')}
           >
-            🗓️ Turnos
+            🗓️ Permisos
           </button>
           <button
             className={`rrhh-tab ${activeTab === 'asistencia' ? 'active' : ''}`}
             onClick={() => setActiveTab('asistencia')}
           >
             ✅ Asistencia
-          </button>
-          <button
-            className={`rrhh-tab ${activeTab === 'reportes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('reportes')}
-          >
-            📊 Reportes
           </button>
           <button
             className={`rrhh-tab ${activeTab === 'reloj' ? 'active' : ''}`}
@@ -243,7 +268,7 @@ const RecursosHumanosHorariosPage = () => {
               <option key={u.id} value={u.id}>{u.nombre}</option>
             ))}
           </select>
-          {(activeTab === 'turnos' || activeTab === 'asistencia' || activeTab === 'reportes') && (
+          {(activeTab === 'permisos' || activeTab === 'asistencia') && (
             <>
               <input
                 type="date"
@@ -271,35 +296,31 @@ const RecursosHumanosHorariosPage = () => {
           />
         )}
 
-        {activeTab === 'turnos' && (
-          <TurnosTab
-            usuarios={usuarios}
-            turnos={turnos}
-            onLoad={loadTurnos}
-          />
+        {activeTab === 'permisos' && (
+          <div className="rrhh-tab-content">
+            <div className="rrhh-section-header">
+              <h2>Permisos autorizados</h2>
+            </div>
+            <PermisosAutorizadosCalendario
+              usuarios={usuarios}
+              permisos={permisos}
+              mesInicial={new Date(fechaDesde + 'T12:00:00')}
+            />
+          </div>
         )}
 
         {activeTab === 'asistencia' && (
           <AsistenciaTab
             asistencia={asistencia}
+            novedades={novedades}
+            usuarios={usuarios}
+            fechaDesde={fechaDesde}
+            fechaHasta={fechaHasta}
             usuario={usuario}
             onMarcarEntrada={handleMarcarEntrada}
             onMarcarSalida={handleMarcarSalida}
             onEliminar={handleEliminarAsistencia}
-          />
-        )}
-
-        {activeTab === 'reportes' && (
-          <RrhhHorariosReportesTab
-            usuarios={usuarios}
-            asistencia={asistencia}
-            fechaDesde={fechaDesde}
-            fechaHasta={fechaHasta}
-            usuarioSeleccionado={usuarioSeleccionado}
-            onIrAReloj={(rep) => {
-              if (rep) setRelojReporteJump(rep)
-              setActiveTab('reloj')
-            }}
+            onIrNovedades={() => navigate('/rrhh/novedades')}
           />
         )}
 
@@ -2131,172 +2152,6 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
   )
 }
 
-// Componente de Turnos
-const TurnosTab = ({ usuarios, turnos, onLoad }: {
-  usuarios: UsuarioRecord[]
-  turnos: Turno[]
-  onLoad: () => void
-}) => {
-  const [showModal, setShowModal] = useState(false)
-  const [formData, setFormData] = useState({
-    id_usuario: 0,
-    fecha: '',
-    hora_entrada: '',
-    hora_salida: '',
-    tipo_turno: 'normal' as 'normal' | 'extra' | 'nocturno',
-    observaciones: ''
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const response = await apiService.crearTurno(
-        formData.id_usuario,
-        formData.fecha,
-        formData.hora_entrada,
-        formData.hora_salida,
-        formData.tipo_turno,
-        formData.observaciones || null
-      )
-
-      if (response.success) {
-        alert('Turno creado correctamente')
-        setShowModal(false)
-        onLoad()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al crear turno')
-      console.error(error)
-    }
-  }
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar este turno?')) return
-    try {
-      const response = await apiService.eliminarTurno(id)
-      if (response.success) {
-        alert('Turno eliminado')
-        onLoad()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al eliminar turno')
-      console.error(error)
-    }
-  }
-
-  return (
-    <div className="rrhh-tab-content">
-      <div className="rrhh-section-header">
-        <h2>Calendario de Turnos</h2>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          + Crear Turno
-        </button>
-      </div>
-
-      <div className="rrhh-turnos-list">
-        {turnos.length === 0 ? (
-          <p>No hay turnos registrados</p>
-        ) : (
-          turnos.map(t => (
-            <div key={t.id} className="rrhh-turno-card">
-              <div className="rrhh-turno-info">
-                <h3>{t.nombre_usuario || 'Usuario'}</h3>
-                <p>Fecha: {new Date(t.fecha).toLocaleDateString()}</p>
-                <p>Horario: {t.hora_entrada} - {t.hora_salida}</p>
-                <p>Tipo: {t.tipo_turno}</p>
-                {t.observaciones && <p>Obs: {t.observaciones}</p>}
-              </div>
-              <button className="btn-danger" onClick={() => handleDelete(t.id)}>
-                Eliminar
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      {showModal && (
-        <div className="rrhh-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Crear Turno</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Usuario</label>
-                <select
-                  value={formData.id_usuario}
-                  onChange={(e) => setFormData({ ...formData, id_usuario: parseInt(e.target.value) })}
-                  required
-                >
-                  <option value="">Selecciona un usuario</option>
-                  {usuarios.map(u => (
-                    <option key={u.id} value={u.id}>{u.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Fecha</label>
-                <input
-                  type="date"
-                  value={formData.fecha}
-                  onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Hora de Entrada</label>
-                <input
-                  type="time"
-                  value={formData.hora_entrada}
-                  onChange={(e) => setFormData({ ...formData, hora_entrada: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Hora de Salida</label>
-                <input
-                  type="time"
-                  value={formData.hora_salida}
-                  onChange={(e) => setFormData({ ...formData, hora_salida: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Tipo de Turno</label>
-                <select
-                  value={formData.tipo_turno}
-                  onChange={(e) => setFormData({ ...formData, tipo_turno: e.target.value as any })}
-                >
-                  <option value="normal">Normal</option>
-                  <option value="extra">Extra</option>
-                  <option value="nocturno">Nocturno</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Observaciones</label>
-                <textarea
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                />
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary">
-                  Guardar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Componente de Asistencia
 /** Extrae 'HH:mm' de un timestamp/hora guardado (timestamptz, ISO o 'YYYY-MM-DD HH:mm:ss'). */
 const asisHoraCorta = (ts: string | null): string => {
@@ -2309,14 +2164,32 @@ const asisHoraCorta = (ts: string | null): string => {
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
-const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, onEliminar }: {
+const ASIS_DOW_CORTO = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa']
+
+const AsistenciaTab = ({
+  asistencia,
+  novedades,
+  usuarios,
+  fechaDesde,
+  fechaHasta,
+  usuario,
+  onMarcarEntrada,
+  onMarcarSalida,
+  onEliminar,
+  onIrNovedades
+}: {
   asistencia: Asistencia[]
-  usuario: any
+  novedades: RrhhNovedad[]
+  usuarios: UsuarioRecord[]
+  fechaDesde: string
+  fechaHasta: string
+  usuario: { id: number } | null
   onMarcarEntrada: () => void
   onMarcarSalida: () => void
   onEliminar: (id: number) => void
+  onIrNovedades: () => void
 }) => {
-  const [vista, setVista] = useState<'planilla' | 'lista'>('planilla')
+  const [novedadDetalle, setNovedadDetalle] = useState<RrhhNovedad | null>(null)
 
   const eliminar = (a: Asistencia) => {
     if (!a?.id) return
@@ -2324,14 +2197,9 @@ const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, o
     onEliminar(a.id)
   }
 
-  // Días (ISO) del período cubierto por los registros guardados.
   const dias = useMemo(() => {
-    if (!asistencia.length) return []
-    const fechas = asistencia.map((a) => a.fecha.slice(0, 10)).sort()
-    const min = fechas[0]
-    const max = fechas[fechas.length - 1]
-    const [y, m, d] = min.split('-').map(Number)
-    const [Y, M, D] = max.split('-').map(Number)
+    const [y, m, d] = fechaDesde.split('-').map(Number)
+    const [Y, M, D] = fechaHasta.split('-').map(Number)
     const cur = new Date(y, m - 1, d)
     const fin = new Date(Y, M - 1, D)
     const out: string[] = []
@@ -2340,59 +2208,179 @@ const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, o
       cur.setDate(cur.getDate() + 1)
     }
     return out
-  }, [asistencia])
+  }, [fechaDesde, fechaHasta])
 
-  // Empleados con sus registros indexados por fecha.
+  const nombres = useMemo(() => {
+    const m = new Map<number, string>()
+    usuarios.forEach((u) => m.set(u.id, u.nombre))
+    asistencia.forEach((a) => {
+      if (a.nombre_usuario) m.set(a.id_usuario, a.nombre_usuario)
+    })
+    return m
+  }, [usuarios, asistencia])
+
   const empleados = useMemo(() => {
+    const ids = new Set<number>()
+    asistencia.forEach((a) => ids.add(a.id_usuario))
+    novedades
+      .filter((n) => n.grupo === 'falta' || n.grupo === 'licencia' || n.grupo === 'tardanza_retiro')
+      .forEach((n) => ids.add(n.id_usuario))
+
     const map = new Map<number, { id: number; nombre: string; dias: Record<string, Asistencia>; horas: number }>()
+    for (const id of ids) {
+      map.set(id, {
+        id,
+        nombre: nombres.get(id) || `Usuario ${id}`,
+        dias: {},
+        horas: 0
+      })
+    }
     for (const a of asistencia) {
-      if (!map.has(a.id_usuario)) {
-        map.set(a.id_usuario, { id: a.id_usuario, nombre: a.nombre_usuario || `Usuario ${a.id_usuario}`, dias: {}, horas: 0 })
-      }
-      const emp = map.get(a.id_usuario)!
+      const emp = map.get(a.id_usuario)
+      if (!emp) continue
       emp.dias[a.fecha.slice(0, 10)] = a
       emp.horas += a.horas_trabajadas || 0
     }
     return [...map.values()].sort((x, y) => x.nombre.localeCompare(y.nombre))
-  }, [asistencia])
+  }, [asistencia, novedades, nombres])
+
+  const novedadesPorUsuarioDia = useMemo(() => {
+    const m = new Map<string, RrhhNovedad[]>()
+    for (const n of novedades) {
+      for (const f of dias) {
+        if (!novedadEnDia(n, f)) continue
+        const k = `${n.id_usuario}|${f}`
+        const prev = m.get(k) ?? []
+        prev.push(n)
+        m.set(k, prev)
+      }
+    }
+    return m
+  }, [novedades, dias])
+
+  const exportar = () => {
+    if (!empleados.length) return
+    exportarAsistenciaPlanillaXlsx({ empleados, dias, novedades, fechaDesde, fechaHasta })
+  }
+
+  type CeldaRender = {
+    cls: string
+    contenido: React.ReactNode
+    title: string
+    onClick?: () => void
+  }
+
+  const renderCelda = (empId: number, f: string, a: Asistencia | undefined): CeldaRender => {
+    const novs = novedadesPorUsuarioDia.get(`${empId}|${f}`) ?? []
+    const finde = !esDiaHabil(f)
+
+    if (a) {
+      if (a.tipo_registro === 'ausente' || a.tipo_registro === 'justificado') {
+        const nov = novs[0]
+        const label = nov
+          ? abreviaturaCodigoNovedad(nov.codigo)
+          : a.tipo_registro === 'justificado'
+            ? 'JUS'
+            : 'AUS'
+        return {
+          cls: `celda-aus${nov ? ' celda-nov-vinc' : ''}`,
+          contenido: <span className="celda-nov-label">{label}</span>,
+          title: [
+            nov ? etiquetaCodigoRrhhNovedad(nov.codigo) : a.tipo_registro,
+            a.observaciones,
+            nov?.observaciones,
+            a.tipo_registro === 'ausente' ? '(clic en registro para eliminar)' : ''
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          onClick: () => eliminar(a)
+        }
+      }
+      const e = asisHoraCorta(a.hora_entrada)
+      const s = asisHoraCorta(a.hora_salida)
+      const tardeNov = novs.find((n) => n.codigo === 'tardanza')
+      return {
+        cls: `${a.tipo_registro === 'tarde' || tardeNov ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}`,
+        contenido: (
+          <>
+            <span className="celda-h">{e || '—'}</span>
+            <span className="celda-h">{s || '—'}</span>
+            {tardeNov ? <span className="celda-nov-mini">T</span> : null}
+          </>
+        ),
+        title: [e && s ? `${e}–${s}` : e ? `Entrada ${e}` : '', a.observaciones, tardeNov ? etiquetaCodigoRrhhNovedad(tardeNov.codigo) : '', '(clic para eliminar)']
+          .filter(Boolean)
+          .join(' · '),
+        onClick: () => eliminar(a)
+      }
+    }
+
+    if (novs.length) {
+      const n = novs[0]
+      return {
+        cls: `celda-nov celda-nov--${n.grupo}`,
+        contenido: (
+          <span className="celda-nov-label">{abreviaturaCodigoNovedad(n.codigo)}</span>
+        ),
+        title: `${etiquetaCodigoRrhhNovedad(n.codigo)}${n.observaciones ? ` · ${n.observaciones}` : ''} (clic para ver novedad)`,
+        onClick: () => setNovedadDetalle(n)
+      }
+    }
+
+    if (finde) {
+      return { cls: 'celda-vacia finde', contenido: <span>—</span>, title: 'Fin de semana' }
+    }
+
+    return {
+      cls: 'celda-sin-marca',
+      contenido: <span className="celda-sm">S/M</span>,
+      title: 'Sin marca ni novedad registrada'
+    }
+  }
 
   return (
     <div className="rrhh-tab-content">
       <div className="rrhh-section-header">
         <h2>Control de Asistencia</h2>
-        {usuario && (
-          <div className="rrhh-asistencia-actions">
-            <button className="btn-success" onClick={onMarcarEntrada}>
-              🕐 Marcar Entrada
+        <div className="rrhh-asistencia-actions">
+          {empleados.length > 0 && (
+            <button type="button" className="btn-secondary" onClick={exportar}>
+              📥 Exportar Excel
             </button>
-            <button className="btn-warning" onClick={onMarcarSalida}>
-              🕐 Marcar Salida
-            </button>
-          </div>
-        )}
+          )}
+          <button type="button" className="btn-secondary" onClick={onIrNovedades}>
+            📋 Novedades RRHH
+          </button>
+          {usuario && (
+            <>
+              <button className="btn-success" onClick={onMarcarEntrada}>
+                🕐 Marcar Entrada
+              </button>
+              <button className="btn-warning" onClick={onMarcarSalida}>
+                🕐 Marcar Salida
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {asistencia.length > 0 && (
-        <div className="rrhh-asis-toggle">
-          <button className={`rrhh-asis-vbtn ${vista === 'planilla' ? 'active' : ''}`} onClick={() => setVista('planilla')}>
-            📋 Planilla
-          </button>
-          <button className={`rrhh-asis-vbtn ${vista === 'lista' ? 'active' : ''}`} onClick={() => setVista('lista')}>
-            📃 Lista
-          </button>
-        </div>
-      )}
-
-      {asistencia.length === 0 ? (
+      {asistencia.length === 0 && novedades.length === 0 ? (
         <div className="rrhh-asistencia-list">
-          <p>No hay registros de asistencia</p>
+          <p>No hay registros de asistencia ni novedades en el período.</p>
         </div>
-      ) : vista === 'planilla' ? (
+      ) : (
         <div className="rrhh-asis-planilla">
           <p className="rrhh-asis-help">
-            Asistencia guardada (incluye lo importado del reloj). Cada celda muestra entrada / salida; "AUS" = ausente.
-            Hacé clic en una celda para eliminar ese registro.
+            Planilla del período filtrado. Las celdas muestran entrada/salida, ausencias y novedades de legajo
+            (faltas, licencias, tardanzas). <strong>S/M</strong> = sin marca en día hábil. Clic en novedad para
+            ver detalle; clic en registro de asistencia para eliminar.
           </p>
+          <div className="rrhh-asis-leyenda">
+            <span className="leyenda-ok">✓ Presente</span>
+            <span className="leyenda-aus">F.I. / AUS</span>
+            <span className="leyenda-nov">Novedad</span>
+            <span className="leyenda-sm">S/M sin marca</span>
+          </div>
           <div className="rrhh-asis-scroll">
             <table className="rrhh-asis-tabla">
               <thead>
@@ -2404,7 +2392,7 @@ const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, o
                     const finde = dow === 0 || dow === 6
                     return (
                       <th key={f} className={`rrhh-asis-dia ${finde ? 'finde' : ''}`}>
-                        <span className="dia-dow">{DOW_CORTO[dow]}</span>
+                        <span className="dia-dow">{ASIS_DOW_CORTO[dow]}</span>
                         <span className="dia-num">{d}</span>
                       </th>
                     )
@@ -2418,37 +2406,16 @@ const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, o
                     <td className="rrhh-asis-sticky rrhh-asis-emp" title={emp.nombre}>{emp.nombre}</td>
                     {dias.map((f) => {
                       const a = emp.dias[f]
+                      const cell = renderCelda(emp.id, f, a)
                       const [y, m, d] = f.split('-').map(Number)
                       const dow = new Date(y, m - 1, d).getDay()
                       const finde = dow === 0 || dow === 6
-                      let cls = 'rrhh-asis-celda'
-                      let contenido: React.ReactNode = <span className="celda-vacia">·</span>
-                      if (a) {
-                        if (a.tipo_registro === 'ausente') {
-                          cls += ' celda-aus'
-                          contenido = <span>AUS</span>
-                        } else {
-                          const e = asisHoraCorta(a.hora_entrada)
-                          const s = asisHoraCorta(a.hora_salida)
-                          cls += a.tipo_registro === 'tarde' ? ' celda-tarde' : ' celda-ok'
-                          contenido = (
-                            <>
-                              <span className="celda-h">{e || '—'}</span>
-                              <span className="celda-h">{s || '—'}</span>
-                            </>
-                          )
-                        }
-                      }
+                      let cls = `rrhh-asis-celda ${cell.cls}`
                       if (finde) cls += ' finde'
-                      if (a) cls += ' celda-click'
+                      if (cell.onClick) cls += ' celda-click'
                       return (
-                        <td
-                          key={f}
-                          className={cls}
-                          title={a ? `${a.observaciones || ''} (clic para eliminar)`.trim() : ''}
-                          onClick={a ? () => eliminar(a) : undefined}
-                        >
-                          {contenido}
+                        <td key={f} className={cls} title={cell.title} onClick={cell.onClick}>
+                          {cell.contenido}
                         </td>
                       )
                     })}
@@ -2459,27 +2426,15 @@ const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, o
             </table>
           </div>
         </div>
-      ) : (
-        <div className="rrhh-asistencia-list">
-          {asistencia.map(a => (
-            <div key={a.id} className="rrhh-asistencia-card">
-              <div className="rrhh-asistencia-info">
-                <h3>{a.nombre_usuario || 'Usuario'}</h3>
-                <p>Fecha: {new Date(a.fecha).toLocaleDateString()}</p>
-                {a.hora_entrada && <p>Entrada: {asisHoraCorta(a.hora_entrada)}</p>}
-                {a.hora_salida && <p>Salida: {asisHoraCorta(a.hora_salida)}</p>}
-                {a.horas_trabajadas != null && <p>Horas trabajadas: {a.horas_trabajadas.toFixed(2)}</p>}
-                <span className={`rrhh-badge ${a.tipo_registro}`}>
-                  {a.tipo_registro}
-                </span>
-              </div>
-              <button className="rrhh-asis-del-btn" title="Eliminar registro" onClick={() => eliminar(a)}>
-                🗑️ Eliminar
-              </button>
-            </div>
-          ))}
-        </div>
       )}
+
+      {novedadDetalle ? (
+        <RrhhNovedadDetailModal
+          novedad={novedadDetalle}
+          empleadoNombre={nombres.get(novedadDetalle.id_usuario) || 'Empleado'}
+          onClose={() => setNovedadDetalle(null)}
+        />
+      ) : null}
     </div>
   )
 }

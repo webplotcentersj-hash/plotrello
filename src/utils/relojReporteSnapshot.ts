@@ -68,3 +68,107 @@ export function periodoDesdeSnapshot(snapshot: RelojReporteSnapshot): { desde: s
   }
   return { desde: '', hasta: '' }
 }
+
+export type RelojDiaCalendarioResumen = {
+  presentes: number
+  ausentes: number
+  tardanzas: number
+  sinMarca: number
+  totalEmpleados: number
+  esInicioPeriodo: boolean
+  esFinPeriodo: boolean
+  tieneInformeIa: boolean
+}
+
+function parseHoraMin(h: string): number | null {
+  const m = String(h || '').match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+function diasEnSnapshot(snapshot: RelojReporteSnapshot): string[] {
+  if (snapshot.diasPeriodo.length) return [...snapshot.diasPeriodo].sort()
+  const set = new Set<string>()
+  for (const emp of snapshot.planilla) {
+    for (const f of Object.keys(emp.dias ?? {})) set.add(f)
+  }
+  return [...set].sort()
+}
+
+function baselineEntradaEmpleado(
+  snapshot: RelojReporteSnapshot,
+  idUsuarioReloj: string
+): number | null {
+  const plotId = snapshot.override[idUsuarioReloj]
+  const fijo = plotId != null ? snapshot.horariosFijos[plotId] : undefined
+  if (fijo?.entrada) return parseHoraMin(fijo.entrada)
+  if (snapshot.config.horaEntradaEsperada) return parseHoraMin(snapshot.config.horaEntradaEsperada)
+  return null
+}
+
+/** Totales del día a partir del snapshot guardado (planilla + horarios fijos). */
+export function resumenDiaCalendario(
+  snapshot: RelojReporteSnapshot,
+  dayStr: string
+): RelojDiaCalendarioResumen | null {
+  const dias = diasEnSnapshot(snapshot)
+  if (!dias.length || !dias.includes(dayStr)) return null
+
+  const tolerancia = snapshot.config.toleranciaTardanzaMin ?? 15
+  let presentes = 0
+  let ausentes = 0
+  let tardanzas = 0
+  let sinMarca = 0
+
+  for (const emp of snapshot.planilla) {
+    const celda = emp.dias[dayStr]
+    if (!celda) {
+      sinMarca++
+      continue
+    }
+    if (celda.ausente) {
+      ausentes++
+      continue
+    }
+    if (celda.entrada || celda.salida) {
+      presentes++
+      const entradaMin = celda.entrada ? parseHoraMin(celda.entrada) : null
+      const baseline = baselineEntradaEmpleado(snapshot, emp.idUsuario)
+      if (entradaMin != null && baseline != null && entradaMin > baseline + tolerancia) {
+        tardanzas++
+      } else if (/tarde/i.test(celda.obs)) {
+        tardanzas++
+      }
+      continue
+    }
+    sinMarca++
+  }
+
+  return {
+    presentes,
+    ausentes,
+    tardanzas,
+    sinMarca,
+    totalEmpleados: snapshot.planilla.length,
+    esInicioPeriodo: dayStr === dias[0],
+    esFinPeriodo: dayStr === dias[dias.length - 1],
+    tieneInformeIa: Boolean(snapshot.informeIa?.trim())
+  }
+}
+
+export function tooltipDiaCalendario(
+  dayStr: string,
+  reporte: { periodo_desde: string; periodo_hasta: string; archivo_nombre: string | null; created_at?: string },
+  resumen: RelojDiaCalendarioResumen
+): string {
+  const partes = [
+    `${dayStr} · Informe ${reporte.periodo_desde} → ${reporte.periodo_hasta}`,
+    `Presentes: ${resumen.presentes}`,
+    resumen.ausentes ? `Ausentes: ${resumen.ausentes}` : null,
+    resumen.tardanzas ? `Tardanzas: ${resumen.tardanzas}` : null,
+    resumen.sinMarca ? `Sin marca: ${resumen.sinMarca}` : null,
+    reporte.archivo_nombre ? `Archivo: ${reporte.archivo_nombre}` : null,
+    resumen.tieneInformeIa ? 'Incluye informe PlotAI' : null
+  ].filter(Boolean)
+  return partes.join('\n')
+}
