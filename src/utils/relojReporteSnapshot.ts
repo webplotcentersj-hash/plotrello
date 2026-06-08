@@ -61,6 +61,10 @@ export function parseSnapshotReloj(raw: unknown): RelojReporteSnapshot | null {
   }
 }
 
+export function fechaYmd(s: string): string {
+  return String(s || '').slice(0, 10)
+}
+
 export function periodoDesdeSnapshot(snapshot: RelojReporteSnapshot): { desde: string; hasta: string } {
   if (snapshot.diasPeriodo.length) {
     const sorted = [...snapshot.diasPeriodo].sort()
@@ -109,10 +113,16 @@ function baselineEntradaEmpleado(
 /** Totales del día a partir del snapshot guardado (planilla + horarios fijos). */
 export function resumenDiaCalendario(
   snapshot: RelojReporteSnapshot,
-  dayStr: string
+  dayStr: string,
+  periodo?: { desde: string; hasta: string }
 ): RelojDiaCalendarioResumen | null {
   const dias = diasEnSnapshot(snapshot)
-  if (!dias.length || !dias.includes(dayStr)) return null
+  const pDesde = fechaYmd(periodo?.desde ?? dias[0] ?? '')
+  const pHasta = fechaYmd(periodo?.hasta ?? dias[dias.length - 1] ?? '')
+  const enLista = dias.includes(dayStr)
+  const enPeriodo = Boolean(pDesde && pHasta && dayStr >= pDesde && dayStr <= pHasta)
+  if (!enLista && !enPeriodo) return null
+  if (!snapshot.planilla.length) return null
 
   const tolerancia = snapshot.config.toleranciaTardanzaMin ?? 15
   let presentes = 0
@@ -150,8 +160,8 @@ export function resumenDiaCalendario(
     tardanzas,
     sinMarca,
     totalEmpleados: snapshot.planilla.length,
-    esInicioPeriodo: dayStr === dias[0],
-    esFinPeriodo: dayStr === dias[dias.length - 1],
+    esInicioPeriodo: dayStr === pDesde,
+    esFinPeriodo: dayStr === pHasta,
     tieneInformeIa: Boolean(snapshot.informeIa?.trim())
   }
 }

@@ -95,7 +95,11 @@ const RecursosHumanosHorariosPage = () => {
   useEffect(() => {
     if (activeTab === 'permisos') {
       loadPermisos()
-    } else if (activeTab === 'asistencia') {
+    }
+  }, [activeTab, usuarioSeleccionado])
+
+  useEffect(() => {
+    if (activeTab === 'asistencia') {
       loadAsistencia()
       loadNovedades()
     }
@@ -121,8 +125,8 @@ const RecursosHumanosHorariosPage = () => {
         usuarioSeleccionado,
         'aprobado',
         null,
-        fechaDesde,
-        fechaHasta
+        null,
+        null
       )
       if (response.success && response.data) {
         setPermisos(response.data)
@@ -168,38 +172,6 @@ const RecursosHumanosHorariosPage = () => {
       }
     } catch (error) {
       alert('Error al eliminar el registro')
-      console.error(error)
-    }
-  }
-
-  const handleMarcarEntrada = async () => {
-    if (!usuario) return
-    try {
-      const response = await apiService.registrarEntrada(usuario.id)
-      if (response.success) {
-        alert('Entrada registrada correctamente')
-        loadAsistencia()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al registrar entrada')
-      console.error(error)
-    }
-  }
-
-  const handleMarcarSalida = async () => {
-    if (!usuario) return
-    try {
-      const response = await apiService.registrarSalida(usuario.id)
-      if (response.success) {
-        alert('Salida registrada correctamente')
-        loadAsistencia()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al registrar salida')
       console.error(error)
     }
   }
@@ -256,7 +228,7 @@ const RecursosHumanosHorariosPage = () => {
         </div>
 
         {/* Filtros */}
-        {activeTab !== 'reloj' && (
+        {activeTab === 'asistencia' && (
         <div className="rrhh-filters-section">
           <select
             value={usuarioSeleccionado || ''}
@@ -268,22 +240,48 @@ const RecursosHumanosHorariosPage = () => {
               <option key={u.id} value={u.id}>{u.nombre}</option>
             ))}
           </select>
-          {(activeTab === 'permisos' || activeTab === 'asistencia') && (
-            <>
-              <input
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-                className="rrhh-date-input"
-              />
-              <input
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-                className="rrhh-date-input"
-              />
-            </>
-          )}
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => setFechaDesde(e.target.value)}
+            className="rrhh-date-input"
+          />
+          <input
+            type="date"
+            value={fechaHasta}
+            onChange={(e) => setFechaHasta(e.target.value)}
+            className="rrhh-date-input"
+          />
+        </div>
+        )}
+
+        {activeTab === 'permisos' && (
+        <div className="rrhh-filters-section">
+          <select
+            value={usuarioSeleccionado || ''}
+            onChange={(e) => setUsuarioSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
+            className="rrhh-filter-select"
+          >
+            <option value="">Todos los empleados</option>
+            {usuarios.map(u => (
+              <option key={u.id} value={u.id}>{u.nombre}</option>
+            ))}
+          </select>
+        </div>
+        )}
+
+        {activeTab === 'horarios' && (
+        <div className="rrhh-filters-section">
+          <select
+            value={usuarioSeleccionado || ''}
+            onChange={(e) => setUsuarioSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
+            className="rrhh-filter-select"
+          >
+            <option value="">Todos los usuarios</option>
+            {usuarios.map(u => (
+              <option key={u.id} value={u.id}>{u.nombre}</option>
+            ))}
+          </select>
         </div>
         )}
 
@@ -304,7 +302,6 @@ const RecursosHumanosHorariosPage = () => {
             <PermisosAutorizadosCalendario
               usuarios={usuarios}
               permisos={permisos}
-              mesInicial={new Date(fechaDesde + 'T12:00:00')}
             />
           </div>
         )}
@@ -316,9 +313,6 @@ const RecursosHumanosHorariosPage = () => {
             usuarios={usuarios}
             fechaDesde={fechaDesde}
             fechaHasta={fechaHasta}
-            usuario={usuario}
-            onMarcarEntrada={handleMarcarEntrada}
-            onMarcarSalida={handleMarcarSalida}
             onEliminar={handleEliminarAsistencia}
             onIrNovedades={() => navigate('/rrhh/novedades')}
           />
@@ -460,14 +454,10 @@ const RelojImportTab = ({
     return map
   }
 
-  const cargarReportesGuardados = async (mesRef: Date = calendarioMes) => {
+  const cargarReportesGuardados = async () => {
     setCargandoReportes(true)
     try {
-      const inicio = new Date(mesRef.getFullYear(), mesRef.getMonth(), 1)
-      const fin = new Date(mesRef.getFullYear(), mesRef.getMonth() + 1, 0)
-      const desde = `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, '0')}-01`
-      const hasta = `${fin.getFullYear()}-${String(fin.getMonth() + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`
-      const r = await apiService.listarRelojReportesSemanales(desde, hasta)
+      const r = await apiService.listarRelojReportesSemanales()
       if (r.success && r.data) setReportesGuardados(r.data)
     } finally {
       setCargandoReportes(false)
@@ -475,8 +465,8 @@ const RelojImportTab = ({
   }
 
   useEffect(() => {
-    void cargarReportesGuardados(calendarioMes)
-  }, [calendarioMes])
+    void cargarReportesGuardados()
+  }, [])
 
   const aplicarSnapshot = (snap: ReturnType<typeof parseSnapshotReloj>, meta?: RrhhRelojReporteSemanal) => {
     if (!snap) return
@@ -568,7 +558,7 @@ const RelojImportTab = ({
     })
     if (resp.success && resp.data) {
       setReporteActivoId(resp.data.id)
-      await cargarReportesGuardados(calendarioMes)
+      await cargarReportesGuardados()
       return resp.data.id
     }
     return null
@@ -2172,9 +2162,6 @@ const AsistenciaTab = ({
   usuarios,
   fechaDesde,
   fechaHasta,
-  usuario,
-  onMarcarEntrada,
-  onMarcarSalida,
   onEliminar,
   onIrNovedades
 }: {
@@ -2183,9 +2170,6 @@ const AsistenciaTab = ({
   usuarios: UsuarioRecord[]
   fechaDesde: string
   fechaHasta: string
-  usuario: { id: number } | null
-  onMarcarEntrada: () => void
-  onMarcarSalida: () => void
   onEliminar: (id: number) => void
   onIrNovedades: () => void
 }) => {
@@ -2351,16 +2335,6 @@ const AsistenciaTab = ({
           <button type="button" className="btn-secondary rrhh-btn-oscuro" onClick={onIrNovedades}>
             📋 Novedades RRHH
           </button>
-          {usuario && (
-            <>
-              <button className="btn-success" onClick={onMarcarEntrada}>
-                🕐 Marcar Entrada
-              </button>
-              <button className="btn-warning" onClick={onMarcarSalida}>
-                🕐 Marcar Salida
-              </button>
-            </>
-          )}
         </div>
       </div>
 

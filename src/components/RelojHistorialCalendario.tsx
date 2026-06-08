@@ -12,6 +12,7 @@ import {
 import { es } from 'date-fns/locale'
 import type { RrhhRelojReporteSemanal } from '../types/api'
 import {
+  fechaYmd,
   parseSnapshotReloj,
   resumenDiaCalendario,
   tooltipDiaCalendario,
@@ -32,12 +33,22 @@ type DiaCalendarioMeta = {
 }
 
 function reporteContieneDia(r: RrhhRelojReporteSemanal, dayStr: string): boolean {
-  return r.periodo_desde <= dayStr && r.periodo_hasta >= dayStr
+  const desde = fechaYmd(r.periodo_desde)
+  const hasta = fechaYmd(r.periodo_hasta)
+  return desde <= dayStr && hasta >= dayStr
+}
+
+function reporteSolapaMes(r: RrhhRelojReporteSemanal, monthStart: Date, monthEnd: Date): boolean {
+  const desde = fechaYmd(r.periodo_desde)
+  const hasta = fechaYmd(r.periodo_hasta)
+  const mesDesde = format(monthStart, 'yyyy-MM-dd')
+  const mesHasta = format(monthEnd, 'yyyy-MM-dd')
+  return desde <= mesHasta && hasta >= mesDesde
 }
 
 function formatPeriodoCorto(desde: string, hasta: string): string {
-  const d0 = parseISO(desde)
-  const d1 = parseISO(hasta)
+  const d0 = parseISO(fechaYmd(desde))
+  const d1 = parseISO(fechaYmd(hasta))
   if (format(d0, 'yyyy-MM') === format(d1, 'yyyy-MM')) {
     return `${format(d0, 'd')}–${format(d1, 'd/M')}`
   }
@@ -57,10 +68,7 @@ const RelojHistorialCalendario = ({
   const padStart = (monthStart.getDay() + 6) % 7
 
   const reportesDelMes = useMemo(
-    () =>
-      reportes.filter(
-        (r) => r.periodo_desde <= format(monthEnd, 'yyyy-MM-dd') && r.periodo_hasta >= format(monthStart, 'yyyy-MM-dd')
-      ),
+    () => reportes.filter((r) => reporteSolapaMes(r, monthStart, monthEnd)),
     [reportes, monthStart, monthEnd]
   )
 
@@ -69,17 +77,12 @@ const RelojHistorialCalendario = ({
     for (const reporte of reportesDelMes) {
       const snap = parseSnapshotReloj(reporte.payload)
       if (!snap) continue
-      const dias =
-        snap.diasPeriodo.length > 0
-          ? snap.diasPeriodo
-          : eachDayOfInterval({
-              start: parseISO(reporte.periodo_desde),
-              end: parseISO(reporte.periodo_hasta)
-            }).map((d) => format(d, 'yyyy-MM-dd'))
+      const periodo = { desde: fechaYmd(reporte.periodo_desde), hasta: fechaYmd(reporte.periodo_hasta) }
 
-      for (const dayStr of dias) {
-        if (!isSameMonth(parseISO(dayStr), mes)) continue
-        const resumen = resumenDiaCalendario(snap, dayStr)
+      for (const day of days) {
+        const dayStr = format(day, 'yyyy-MM-dd')
+        if (dayStr < periodo.desde || dayStr > periodo.hasta) continue
+        const resumen = resumenDiaCalendario(snap, dayStr, periodo)
         if (!resumen) continue
         const prev = map.get(dayStr)
         if (!prev || reporte.id > prev.reporte.id) {
@@ -88,7 +91,7 @@ const RelojHistorialCalendario = ({
       }
     }
     return map
-  }, [reportesDelMes, mes])
+  }, [reportesDelMes, days])
 
   return (
     <div className="reloj-historial">
@@ -141,7 +144,7 @@ const RelojHistorialCalendario = ({
                 reporte && resumen
                   ? tooltipDiaCalendario(dayStr, reporte, resumen)
                   : reporte
-                    ? `Informe ${reporte.periodo_desde} → ${reporte.periodo_hasta} (sin detalle diario)`
+                    ? `Informe ${fechaYmd(reporte.periodo_desde)} → ${fechaYmd(reporte.periodo_hasta)} (sin detalle diario)`
                     : 'Sin informe guardado'
               }
             >
@@ -212,8 +215,8 @@ const RelojHistorialCalendario = ({
           <ul>
             {reportesDelMes.map((r) => {
               const snap = parseSnapshotReloj(r.payload)
-              const desde = parseISO(r.periodo_desde)
-              const hasta = parseISO(r.periodo_hasta)
+              const desde = parseISO(fechaYmd(r.periodo_desde))
+              const hasta = parseISO(fechaYmd(r.periodo_hasta))
               const label =
                 isSameMonth(desde, hasta) && format(desde, 'yyyy-MM') === format(hasta, 'yyyy-MM')
                   ? `${format(desde, 'd/M')} – ${format(hasta, 'd/M/yyyy')}`
@@ -237,7 +240,7 @@ const RelojHistorialCalendario = ({
                     </span>
                     <span className="reloj-historial-item-meta">
                       {r.archivo_nombre || 'Importación reloj'}
-                      {r.created_at ? ` · ${format(parseISO(r.created_at.slice(0, 10)), 'd/M/yy')}` : ''}
+                      {r.created_at ? ` · ${format(parseISO(fechaYmd(r.created_at)), 'd/M/yy')}` : ''}
                     </span>
                   </button>
                 </li>

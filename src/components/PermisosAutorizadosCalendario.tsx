@@ -16,7 +16,6 @@ import { permisoEnDia } from '../utils/rrhhNovedadDates'
 type Props = {
   usuarios: UsuarioRecord[]
   permisos: SolicitudPermiso[]
-  mesInicial?: Date
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -36,10 +35,9 @@ function nombreCorto(nombre: string | undefined, max = 10): string {
 
 const PermisosAutorizadosCalendario = ({
   usuarios,
-  permisos,
-  mesInicial
+  permisos
 }: Props) => {
-  const [mes, setMes] = useState(() => mesInicial ?? new Date())
+  const [mes, setMes] = useState(() => new Date())
   const [detalle, setDetalle] = useState<SolicitudPermiso | null>(null)
 
   const nombres = useMemo(() => {
@@ -62,8 +60,8 @@ const PermisosAutorizadosCalendario = ({
     () =>
       aprobados.filter((p) => {
         if (!p.fecha_inicio) return false
-        const desde = p.fecha_inicio.slice(0, 10)
-        const hasta = (p.fecha_fin || p.fecha_inicio).slice(0, 10)
+        const desde = String(p.fecha_inicio).slice(0, 10)
+        const hasta = String(p.fecha_fin || p.fecha_inicio).slice(0, 10)
         return (
           desde <= format(monthEnd, 'yyyy-MM-dd') &&
           hasta >= format(monthStart, 'yyyy-MM-dd')

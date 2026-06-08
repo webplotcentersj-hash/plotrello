@@ -6,8 +6,8 @@ export function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
 
 export function permisoEnDia(p: SolicitudPermiso, dayStr: string): boolean {
   if (!p.fecha_inicio) return false
-  const desde = p.fecha_inicio.slice(0, 10)
-  const hasta = (p.fecha_fin || p.fecha_inicio).slice(0, 10)
+  const desde = String(p.fecha_inicio).slice(0, 10)
+  const hasta = String(p.fecha_fin || p.fecha_inicio).slice(0, 10)
   return desde <= dayStr && hasta >= dayStr
 }
 
