@@ -1,4 +1,4 @@
-import { eachMonthOfInterval, format, startOfMonth, subMonths } from 'date-fns'
+import { differenceInCalendarMonths, eachMonthOfInterval, format, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { RrhhNovedad } from '../types/api'
 import {
@@ -23,13 +23,15 @@ export type PuntoEvolucionNovedad = {
 
 const DIAS_LABORABLES_MES = 22
 
-export function calcularEvolucionHistoricaNovedades(
+export function calcularEvolucionEnRango(
   novedades: RrhhNovedad[],
-  meses = 12,
-  ref: Date = new Date()
+  desde: Date,
+  hasta: Date
 ): PuntoEvolucionNovedad[] {
-  const fin = startOfMonth(ref)
-  const inicio = subMonths(fin, meses - 1)
+  const inicio = startOfMonth(desde)
+  const fin = startOfMonth(hasta)
+  if (fin < inicio) return []
+
   const intervalo = eachMonthOfInterval({ start: inicio, end: fin })
 
   return intervalo.map((mesDate) => {
@@ -61,6 +63,29 @@ export function calcularEvolucionHistoricaNovedades(
       totalEventos
     }
   })
+}
+
+export function calcularEvolucionHistoricaNovedades(
+  novedades: RrhhNovedad[],
+  meses = 12,
+  ref: Date = new Date()
+): PuntoEvolucionNovedad[] {
+  const fin = startOfMonth(ref)
+  const inicio = subMonths(fin, meses - 1)
+  return calcularEvolucionEnRango(novedades, inicio, fin)
+}
+
+export function mesesEnRango(desde: Date, hasta: Date): number {
+  return Math.max(1, differenceInCalendarMonths(startOfMonth(hasta), startOfMonth(desde)) + 1)
+}
+
+export function parseFechaFiltro(ymd: string, fallback: Date): Date {
+  try {
+    const d = parseISO(ymd.slice(0, 10))
+    return Number.isNaN(d.getTime()) ? fallback : d
+  } catch {
+    return fallback
+  }
 }
 
 export function indiceAusentismoPct(diasAusencia: number, headcount: number): number {

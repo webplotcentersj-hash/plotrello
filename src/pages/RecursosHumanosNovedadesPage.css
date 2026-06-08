@@ -1423,6 +1423,21 @@
   max-width: 720px;
 }
 
+.rrhh-novedades-gestion-filtro {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.rrhh-novedades-gestion-loading,
+.rrhh-novedades-gestion-empty {
+  margin: 0;
+  padding: 16px 0 4px;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
 .rrhh-novedades-gestion-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

@@ -1267,6 +1267,18 @@ export interface Asistencia {
   updated_at: string
 }
 
+/** Reporte semanal guardado del importador de reloj biométrico. */
+export interface RrhhRelojReporteSemanal {
+  id: number
+  periodo_desde: string
+  periodo_hasta: string
+  archivo_nombre: string | null
+  payload: Record<string, unknown>
+  registrado_por: number | null
+  created_at: string
+  updated_at: string
+}
+
 /** Grupo de categoría para novedades RRHH (liquidación / reportes). */
 export type RrhhNovedadGrupo =
   | 'falta'

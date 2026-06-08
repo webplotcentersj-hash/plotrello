@@ -1,11 +1,13 @@
 import type { RrhhNovedad, UsuarioRecord } from '../types/api'
 import {
-  calcularEvolucionHistoricaNovedades,
+  calcularEvolucionEnRango,
   indiceAusentismoPct,
+  mesesEnRango,
   type PuntoEvolucionNovedad
 } from './rrhhNovedadesLegajoStats'
 import {
   clasificarNovedadLegajo,
+  diasNovedad,
   diasNovedadEnMes,
   esDisciplinaria,
   novedadEnMes
@@ -56,6 +58,13 @@ export type IndicadoresNovedadesOrganizacion = {
   totalNovedadesMes: number
   tardanzasMes: number
   disciplinariasMes: number
+  mesesPeriodo: number
+}
+
+export type OpcionesIndicadoresNovedadesOrg = {
+  usuariosScope?: UsuarioRecord[]
+  periodoDesde?: Date
+  periodoHasta?: Date
 }
 
 export function sectorDeColaborador(
@@ -85,6 +94,52 @@ function diasAusenciaMes(n: RrhhNovedad, ref: Date): number {
   const clas = clasificarNovedadLegajo(n)
   if (clas !== 'ausencia_injustificada' && clas !== 'licencia_medica') return 0
   return diasNovedadEnMes(n, ref)
+}
+
+export function calcularAusentismoPorSectorEnPeriodo(
+  novedades: RrhhNovedad[],
+  legajos: Record<number, LegajoSectorBasico>,
+  usuarios: UsuarioRecord[],
+  mesesPeriodo: number
+): SectorAusentismoRow[] {
+  const headcounts = headcountPorSector(usuarios, legajos)
+  const diasPorSector = new Map<string, number>()
+  const tardanzasPorSector = new Map<string, number>()
+  const disciplinariasPorSector = new Map<string, number>()
+
+  for (const n of novedades) {
+    const sector = sectorDeColaborador(n.id_usuario, legajos)
+    const clas = clasificarNovedadLegajo(n)
+    if (clas === 'ausencia_injustificada' || clas === 'licencia_medica') {
+      diasPorSector.set(sector, (diasPorSector.get(sector) ?? 0) + diasNovedad(n))
+    }
+    if (clas === 'llegada_tarde') {
+      tardanzasPorSector.set(sector, (tardanzasPorSector.get(sector) ?? 0) + 1)
+    }
+    if (esDisciplinaria(n)) {
+      disciplinariasPorSector.set(sector, (disciplinariasPorSector.get(sector) ?? 0) + 1)
+    }
+  }
+
+  const sectores = new Set([...headcounts.keys(), ...diasPorSector.keys()])
+  const rows: SectorAusentismoRow[] = []
+  const divisorMeses = Math.max(1, mesesPeriodo)
+
+  for (const sector of sectores) {
+    const headcount = headcounts.get(sector) ?? 0
+    const diasAusenciaMes = diasPorSector.get(sector) ?? 0
+    const diasPromedioMes = diasAusenciaMes / divisorMeses
+    rows.push({
+      sector,
+      headcount,
+      diasAusenciaMes,
+      indiceAusentismo: indiceAusentismoPct(diasPromedioMes, headcount),
+      tardanzasMes: tardanzasPorSector.get(sector) ?? 0,
+      disciplinariasMes: disciplinariasPorSector.get(sector) ?? 0
+    })
+  }
+
+  return rows.sort((a, b) => b.indiceAusentismo - a.indiceAusentismo)
 }
 
 export function calcularAusentismoPorSector(
@@ -174,24 +229,32 @@ export function calcularIndicadoresNovedadesOrganizacion(
   novedades: RrhhNovedad[],
   legajos: Record<number, LegajoSectorBasico>,
   usuarios: UsuarioRecord[],
-  ref: Date = new Date()
+  opts: OpcionesIndicadoresNovedadesOrg = {}
 ): IndicadoresNovedadesOrganizacion {
-  const porSector = calcularAusentismoPorSector(novedades, legajos, usuarios, ref)
-  const evolucionMensual = calcularEvolucionHistoricaNovedades(novedades, 12, ref)
+  const usuariosScope = opts.usuariosScope ?? usuarios
+  const periodoHasta = opts.periodoHasta ?? new Date()
+  const periodoDesde = opts.periodoDesde ?? periodoHasta
+  const mesesPeriodo = mesesEnRango(periodoDesde, periodoHasta)
+
+  const porSector = calcularAusentismoPorSectorEnPeriodo(
+    novedades,
+    legajos,
+    usuariosScope,
+    mesesPeriodo
+  )
+  const evolucionMensual = calcularEvolucionEnRango(novedades, periodoDesde, periodoHasta)
 
   const totalDias = porSector.reduce((s, r) => s + r.diasAusenciaMes, 0)
   const totalHead = porSector.reduce((s, r) => s + r.headcount, 0)
-  const indiceEmpresaMes = indiceAusentismoPct(totalDias, totalHead)
+  const diasPromedioMesEmpresa = totalDias / mesesPeriodo
+  const indiceEmpresaMes = indiceAusentismoPct(diasPromedioMesEmpresa, totalHead)
 
   const sectorMasAusentismo =
     porSector.length > 0 && porSector[0].indiceAusentismo > 0 ? porSector[0].sector : null
 
-  let totalNovedadesMes = 0
   let tardanzasMes = 0
   let disciplinariasMes = 0
   for (const n of novedades) {
-    if (!novedadEnMes(n, ref)) continue
-    totalNovedadesMes++
     if (clasificarNovedadLegajo(n) === 'llegada_tarde') tardanzasMes++
     if (esDisciplinaria(n)) disciplinariasMes++
   }
@@ -201,8 +264,9 @@ export function calcularIndicadoresNovedadesOrganizacion(
     porSector,
     indiceEmpresaMes,
     sectorMasAusentismo,
-    totalNovedadesMes,
+    totalNovedadesMes: novedades.length,
     tardanzasMes,
-    disciplinariasMes
+    disciplinariasMes,
+    mesesPeriodo
   }
 }

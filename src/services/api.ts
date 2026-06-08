@@ -64,6 +64,7 @@ import type {
   Turno,
   Ausencia,
   Asistencia,
+  RrhhRelojReporteSemanal,
   SolicitudPermiso,
   RrhhNovedad,
   RrhhNovedadAdjunto,
@@ -14814,6 +14815,52 @@ class ApiService {
       }
 
       return { success: true, data: data as { insertados: number; actualizados: number; total: number } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async listarRelojReportesSemanales(fechaDesde?: string, fechaHasta?: string): Promise<
+    ApiResponse<RrhhRelojReporteSemanal[]>
+  > {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+    try {
+      let q = supabase
+        .from('rrhh_reloj_reportes_semanales')
+        .select('*')
+        .order('periodo_desde', { ascending: false })
+      if (fechaDesde) q = q.gte('periodo_hasta', fechaDesde)
+      if (fechaHasta) q = q.lte('periodo_desde', fechaHasta)
+      const { data, error } = await q
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data ?? []) as RrhhRelojReporteSemanal[] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async guardarRelojReporteSemanal(params: {
+    periodoDesde: string
+    periodoHasta: string
+    archivoNombre?: string | null
+    payload: Record<string, unknown>
+    registradoPor: number
+  }): Promise<ApiResponse<{ id: number }>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+    try {
+      const { data, error } = await supabase.rpc('guardar_reloj_reporte_semanal', {
+        p_periodo_desde: params.periodoDesde,
+        p_periodo_hasta: params.periodoHasta,
+        p_archivo_nombre: params.archivoNombre ?? null,
+        p_payload: params.payload,
+        p_registrado_por: params.registradoPor
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { id: Number(data) } }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
     }

@@ -189,7 +189,7 @@ BEGIN
   RETURNING id INTO v_log_id;
 
   UPDATE public.usuarios
-  SET activo = false, updated_at = now()
+  SET activo = false
   WHERE id = p_id;
 
   SELECT EXISTS (

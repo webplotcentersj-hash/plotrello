@@ -1,0 +1,218 @@
+.rrhh-reportes-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.rrhh-reportes-sub {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  max-width: 720px;
+}
+
+.rrhh-reportes-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rrhh-reportes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.rrhh-reportes-search {
+  min-width: 220px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+}
+
+.rrhh-reportes-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+
+.rrhh-reportes-hint {
+  font-size: 0.8rem;
+  color: #93c5fd;
+}
+
+.rrhh-reportes-loading {
+  color: var(--text-muted);
+}
+
+.rrhh-reportes-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.rrhh-reportes-kpi {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rrhh-reportes-kpi-val {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.rrhh-reportes-kpi-lbl {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.rrhh-reportes-kpi--extra .rrhh-reportes-kpi-val {
+  color: #f59e0b;
+}
+
+.rrhh-reportes-kpi--tarde .rrhh-reportes-kpi-val {
+  color: #fbbf24;
+}
+
+.rrhh-reportes-kpi--warn .rrhh-reportes-kpi-val {
+  color: #f87171;
+}
+
+.rrhh-reportes-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.rrhh-reportes-chart {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.rrhh-reportes-chart h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.rrhh-reportes-tabla-wrap h3,
+.rrhh-reportes-semanas h3,
+.rrhh-reportes-ia h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.rrhh-reportes-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.rrhh-reportes-tabla th,
+.rrhh-reportes-tabla td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.rrhh-reportes-semanas-list,
+.rrhh-reportes-ia ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rrhh-reportes-semana-btn,
+.rrhh-reportes-ia-btn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rrhh-reportes-semana-btn:hover,
+.rrhh-reportes-ia-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.rrhh-reportes-semana-meta {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.rrhh-reportes-ia li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+.rrhh-reportes-ia-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.rrhh-reportes-ia-modal-inner {
+  max-width: 720px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: auto;
+  background: #1e293b;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 16px;
+}
+
+.rrhh-reportes-ia-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rrhh-reportes-ia-modal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.rrhh-reportes-ia-body {
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.rrhh-reportes-ia-body h1,
+.rrhh-reportes-ia-body h2,
+.rrhh-reportes-ia-body h3 {
+  margin-top: 1em;
+}

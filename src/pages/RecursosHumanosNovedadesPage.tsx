@@ -43,6 +43,7 @@ import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import { calcularIndicadoresNovedadesOrganizacion } from '../utils/rrhhNovedadesSectorStats'
 import type { LegajoSectorBasico } from '../utils/rrhhNovedadesSectorStats'
+import { parseFechaFiltro } from '../utils/rrhhNovedadesLegajoStats'
 import './RecursosHumanosNovedadesPage.css'
 
 function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
@@ -87,7 +88,6 @@ const RecursosHumanosNovedadesPage = () => {
 
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [novedades, setNovedades] = useState<RrhhNovedad[]>([])
-  const [novedadesStats, setNovedadesStats] = useState<RrhhNovedad[]>([])
   const [legajos, setLegajos] = useState<Record<number, LegajoSectorBasico>>({})
   const [solicitudes, setSolicitudes] = useState<SolicitudPermiso[]>([])
   const [loading, setLoading] = useState(true)
@@ -130,9 +130,7 @@ const RecursosHumanosNovedadesPage = () => {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const desde12m = format(addMonths(new Date(), -11), 'yyyy-MM-dd')
-      const hastaHoy = format(new Date(), 'yyyy-MM-dd')
-      const [u, n, s, statsRes, legajosRes] = await Promise.all([
+      const [u, n, s, legajosRes] = await Promise.all([
         apiService.getUsuarios(),
         apiService.rrhhNovedadesListar({
           idUsuario: filtroUsuario || undefined,
@@ -141,13 +139,11 @@ const RecursosHumanosNovedadesPage = () => {
           fechaHasta: filtroHasta
         }),
         apiService.obtenerSolicitudesPermisos(null, null, null, null, null),
-        apiService.rrhhNovedadesListar({ fechaDesde: desde12m, fechaHasta: hastaHoy }),
         apiService.obtenerLegajosBasico()
       ])
       if (u.success && u.data) setUsuarios(u.data)
       if (n.success && n.data) setNovedades(n.data)
       if (s.success && s.data) setSolicitudes(s.data)
-      if (statsRes.success && statsRes.data) setNovedadesStats(statsRes.data)
       if (legajosRes.success && legajosRes.data) {
         const map: Record<number, LegajoSectorBasico> = {}
         for (const [id, row] of Object.entries(legajosRes.data)) {
@@ -175,15 +171,57 @@ const RecursosHumanosNovedadesPage = () => {
     return m
   }, [usuarios])
 
+  /** Nombre para mostrar: sin dominio si el dato es un email. */
+  const empleadoMostrar = useCallback(
+    (idUsuario: number, sinNombre: 'id' | 'usuario-hash' = 'id') => {
+      const raw = nombreUsuario.get(idUsuario)
+      if (raw == null || String(raw).trim() === '') {
+        return sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario)
+      }
+      const v = nombreSinDominioCorreo(raw)
+      return v || (sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario))
+    },
+    [nombreUsuario]
+  )
+
+  const usuariosScope = useMemo(() => {
+    if (filtroUsuario !== '') {
+      const u = usuarios.find((x) => x.id === filtroUsuario)
+      return u ? [u] : []
+    }
+    return usuarios
+  }, [filtroUsuario, usuarios])
+
+  const filtroContexto = useMemo(() => {
+    const partes: string[] = []
+    if (filtroUsuario !== '') {
+      partes.push(empleadoMostrar(filtroUsuario, 'usuario-hash'))
+    } else {
+      partes.push('Todos los empleados')
+    }
+    if (filtroGrupo !== '') {
+      partes.push(GRUPOS.find((g) => g.value === filtroGrupo)?.label ?? filtroGrupo)
+    } else {
+      partes.push('Todos los grupos')
+    }
+    partes.push(`${filtroDesde} → ${filtroHasta}`)
+    return partes.join(' · ')
+  }, [filtroUsuario, filtroGrupo, filtroDesde, filtroHasta, empleadoMostrar])
+
   const indicadoresOrg = useMemo(
-    () => calcularIndicadoresNovedadesOrganizacion(novedadesStats, legajos, usuarios),
-    [novedadesStats, legajos, usuarios]
+    () =>
+      calcularIndicadoresNovedadesOrganizacion(novedades, legajos, usuarios, {
+        usuariosScope,
+        periodoDesde: parseFechaFiltro(filtroDesde, addMonths(new Date(), -2)),
+        periodoHasta: parseFechaFiltro(filtroHasta, new Date())
+      }),
+    [novedades, legajos, usuarios, usuariosScope, filtroDesde, filtroHasta]
   )
 
   const chartSector = useMemo(
     () =>
       indicadoresOrg.porSector
-        .filter((s) => s.headcount > 0)
+        .filter((s) => s.diasAusenciaMes > 0 || s.tardanzasMes > 0 || s.disciplinariasMes > 0)
         .slice(0, 10)
         .map((s) => ({
           sector: s.sector.length > 16 ? `${s.sector.slice(0, 14)}…` : s.sector,
@@ -209,19 +247,6 @@ const RecursosHumanosNovedadesPage = () => {
     if (!calendarDayOpen) return []
     return novedades.filter((n) => novedadEnDia(n, calendarDayOpen))
   }, [calendarDayOpen, novedades])
-
-  /** Nombre para mostrar: sin dominio si el dato es un email. */
-  const empleadoMostrar = useCallback(
-    (idUsuario: number, sinNombre: 'id' | 'usuario-hash' = 'id') => {
-      const raw = nombreUsuario.get(idUsuario)
-      if (raw == null || String(raw).trim() === '') {
-        return sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario)
-      }
-      const v = nombreSinDominioCorreo(raw)
-      return v || (sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario))
-    },
-    [nombreUsuario]
-  )
 
   const solicitudesEmpleado = useMemo(() => {
     if (!form.id_usuario) return []
@@ -567,123 +592,6 @@ const RecursosHumanosNovedadesPage = () => {
         </button>
       </header>
 
-      <section className="rrhh-novedades-gestion" aria-label="Indicadores de gestión de personas">
-        <div className="rrhh-novedades-gestion-head">
-          <div>
-            <h2>Indicadores de gestión</h2>
-            <p className="rrhh-novedades-gestion-sub">
-              Seguimiento del comportamiento laboral, detección temprana de situaciones recurrentes y
-              métricas por sector.
-            </p>
-          </div>
-        </div>
-
-        <div className="rrhh-novedades-gestion-kpis">
-          <article className="rrhh-nov-gestion-kpi">
-            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.indiceEmpresaMes}%</span>
-            <span className="rrhh-nov-gestion-kpi-label">Índice ausentismo empresa</span>
-            <span className="rrhh-nov-gestion-kpi-hint">Mes actual · base 22 días laborables</span>
-          </article>
-          <article className="rrhh-nov-gestion-kpi">
-            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.totalNovedadesMes}</span>
-            <span className="rrhh-nov-gestion-kpi-label">Novedades del mes</span>
-          </article>
-          <article className="rrhh-nov-gestion-kpi">
-            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.tardanzasMes}</span>
-            <span className="rrhh-nov-gestion-kpi-label">Llegadas tarde (mes)</span>
-          </article>
-          <article className="rrhh-nov-gestion-kpi">
-            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.disciplinariasMes}</span>
-            <span className="rrhh-nov-gestion-kpi-label">Disciplinarias (mes)</span>
-          </article>
-          {indicadoresOrg.sectorMasAusentismo ? (
-            <article className="rrhh-nov-gestion-kpi rrhh-nov-gestion-kpi--alert">
-              <span className="rrhh-nov-gestion-kpi-value rrhh-nov-gestion-kpi-value--text">
-                {indicadoresOrg.sectorMasAusentismo}
-              </span>
-              <span className="rrhh-nov-gestion-kpi-label">Sector con mayor ausentismo</span>
-            </article>
-          ) : null}
-        </div>
-
-        <div className="rrhh-novedades-gestion-charts">
-          {chartSector.length > 0 ? (
-            <div className="rrhh-nov-gestion-chart">
-              <h3>Índice de ausentismo por sector</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={chartSector} margin={{ left: 4, right: 8, bottom: 48 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis
-                    dataKey="sector"
-                    tick={{ fill: '#94a3b8', fontSize: 10 }}
-                    angle={-30}
-                    textAnchor="end"
-                    height={56}
-                  />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} unit="%" />
-                  <Tooltip
-                    contentStyle={{
-                      background: '#1e293b',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: 8
-                    }}
-                    formatter={(v: number, name: string) =>
-                      name === 'indice' ? [`${v}%`, 'Índice ausentismo'] : [v, 'Días ausencia']
-                    }
-                  />
-                  <Bar dataKey="indice" name="indice" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : null}
-
-          {chartEvolucion.some((e) => e.total > 0) ? (
-            <div className="rrhh-nov-gestion-chart">
-              <h3>Evolución histórica de novedades</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={chartEvolucion}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                  <YAxis allowDecimals={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      background: '#1e293b',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: 8
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line
-                    type="monotone"
-                    dataKey="ausentismo"
-                    name="Días ausencia"
-                    stroke="#f87171"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="tardanzas"
-                    name="Tardanzas"
-                    stroke="#fbbf24"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="disciplinarias"
-                    name="Disciplinarias"
-                    stroke="#fb923c"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
       <section className="rrhh-novedades-toolbar">
         <div className="rrhh-novedades-filters">
           <label>
@@ -747,6 +655,136 @@ const RecursosHumanosNovedadesPage = () => {
             PDF
           </button>
         </div>
+      </section>
+
+      <section className="rrhh-novedades-gestion" aria-label="Indicadores de gestión de personas">
+        <div className="rrhh-novedades-gestion-head">
+          <div>
+            <h2>Indicadores de gestión</h2>
+            <p className="rrhh-novedades-gestion-sub">
+              Seguimiento del comportamiento laboral según los filtros aplicados.
+            </p>
+            <p className="rrhh-novedades-gestion-filtro">{filtroContexto}</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="rrhh-novedades-gestion-loading">Actualizando indicadores…</p>
+        ) : novedades.length === 0 ? (
+          <p className="rrhh-novedades-gestion-empty">
+            No hay novedades para el filtro seleccionado. Ajustá empleado, grupo o fechas y pulsá Aplicar.
+          </p>
+        ) : (
+          <>
+            <div className="rrhh-novedades-gestion-kpis">
+              <article className="rrhh-nov-gestion-kpi">
+                <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.indiceEmpresaMes}%</span>
+                <span className="rrhh-nov-gestion-kpi-label">Índice ausentismo</span>
+                <span className="rrhh-nov-gestion-kpi-hint">
+                  Promedio mensual · {indicadoresOrg.mesesPeriodo} mes
+                  {indicadoresOrg.mesesPeriodo === 1 ? '' : 'es'} · base 22 días laborables
+                </span>
+              </article>
+              <article className="rrhh-nov-gestion-kpi">
+                <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.totalNovedadesMes}</span>
+                <span className="rrhh-nov-gestion-kpi-label">Novedades en el período</span>
+              </article>
+              <article className="rrhh-nov-gestion-kpi">
+                <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.tardanzasMes}</span>
+                <span className="rrhh-nov-gestion-kpi-label">Llegadas tarde</span>
+              </article>
+              <article className="rrhh-nov-gestion-kpi">
+                <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.disciplinariasMes}</span>
+                <span className="rrhh-nov-gestion-kpi-label">Disciplinarias</span>
+              </article>
+              {indicadoresOrg.sectorMasAusentismo && filtroUsuario === '' ? (
+                <article className="rrhh-nov-gestion-kpi rrhh-nov-gestion-kpi--alert">
+                  <span className="rrhh-nov-gestion-kpi-value rrhh-nov-gestion-kpi-value--text">
+                    {indicadoresOrg.sectorMasAusentismo}
+                  </span>
+                  <span className="rrhh-nov-gestion-kpi-label">Sector con mayor ausentismo</span>
+                </article>
+              ) : null}
+            </div>
+
+            <div className="rrhh-novedades-gestion-charts">
+              {chartSector.length > 0 ? (
+                <div className="rrhh-nov-gestion-chart">
+                  <h3>Índice de ausentismo por sector</h3>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={chartSector} margin={{ left: 4, right: 8, bottom: 48 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                      <XAxis
+                        dataKey="sector"
+                        tick={{ fill: '#94a3b8', fontSize: 10 }}
+                        angle={-30}
+                        textAnchor="end"
+                        height={56}
+                      />
+                      <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} unit="%" />
+                      <Tooltip
+                        contentStyle={{
+                          background: '#1e293b',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: 8
+                        }}
+                        formatter={(v: number, name: string) =>
+                          name === 'indice' ? [`${v}%`, 'Índice ausentismo'] : [v, 'Días ausencia']
+                        }
+                      />
+                      <Bar dataKey="indice" name="indice" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+
+              {chartEvolucion.length > 0 ? (
+                <div className="rrhh-nov-gestion-chart">
+                  <h3>Evolución histórica de novedades</h3>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={chartEvolucion}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                      <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                      <YAxis allowDecimals={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: '#1e293b',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: 8
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Line
+                        type="monotone"
+                        dataKey="ausentismo"
+                        name="Días ausencia"
+                        stroke="#f87171"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="tardanzas"
+                        name="Tardanzas"
+                        stroke="#fbbf24"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="disciplinarias"
+                        name="Disciplinarias"
+                        stroke="#fb923c"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
       </section>
 
       <section className="rrhh-novedades-calendar-wrap">

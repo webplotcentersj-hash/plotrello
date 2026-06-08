@@ -1739,6 +1739,179 @@ thead .rrhh-asis-sticky {
   font-style: italic;
 }
 
+.reloj-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reloj-subnav-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.reloj-subnav-btn.active {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.reloj-historial {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.reloj-historial-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.reloj-historial-head h3 {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.reloj-historial-nav {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  cursor: pointer;
+}
+
+.reloj-historial-weekdays,
+.reloj-historial-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.reloj-historial-weekdays {
+  margin-bottom: 6px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.reloj-historial-day {
+  min-height: 52px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.15);
+  color: inherit;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.reloj-historial-day--empty {
+  border: none;
+  background: transparent;
+}
+
+.reloj-historial-day--reporte {
+  cursor: pointer;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.reloj-historial-day--reporte:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.reloj-historial-day--active {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+.reloj-historial-day:disabled {
+  opacity: 0.45;
+}
+
+.reloj-historial-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #38bdf8;
+}
+
+.reloj-historial-lista {
+  margin-top: 18px;
+}
+
+.reloj-historial-lista h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.reloj-historial-lista ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reloj-historial-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reloj-historial-item.active {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.reloj-historial-item-fechas {
+  font-weight: 700;
+}
+
+.reloj-historial-item-meta {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.reloj-historial-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+.reloj-historial-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.reloj-reporte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 @media (max-width: 900px) {
   .reloj-charts {
     grid-template-columns: 1fr;

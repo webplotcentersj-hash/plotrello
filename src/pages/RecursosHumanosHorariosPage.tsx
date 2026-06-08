@@ -18,7 +18,10 @@ import {
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import VerLegajoModal from '../components/VerLegajoModal'
-import type { UsuarioRecord, HorarioEmpleado, Turno, Ausencia, Asistencia } from '../types/api'
+import RelojHistorialCalendario from '../components/RelojHistorialCalendario'
+import RrhhHorariosReportesTab from '../components/RrhhHorariosReportesTab'
+import type { UsuarioRecord, Turno, Asistencia, RrhhRelojReporteSemanal } from '../types/api'
+import { crearSnapshotReloj, parseSnapshotReloj } from '../utils/relojReporteSnapshot'
 import {
   procesarArchivoReloj,
   exportarRelojXlsx,
@@ -42,21 +45,18 @@ import {
 } from '../services/relojBiometricoService'
 import './RecursosHumanosHorariosPage.css'
 
-type TabType = 'horarios' | 'turnos' | 'ausencias' | 'asistencia' | 'reportes' | 'reloj'
-
-const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+type TabType = 'horarios' | 'turnos' | 'asistencia' | 'reportes' | 'reloj'
 
 const RecursosHumanosHorariosPage = () => {
   const navigate = useNavigate()
   const { canManageRecursosHumanos, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>('horarios')
+  const [relojReporteJump, setRelojReporteJump] = useState<RrhhRelojReporteSemanal | null>(null)
   
   // Datos
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
-  const [horarios, setHorarios] = useState<HorarioEmpleado[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
-  const [ausencias, setAusencias] = useState<Ausencia[]>([])
   const [asistencia, setAsistencia] = useState<Asistencia[]>([])
   
   // Filtros
@@ -84,13 +84,9 @@ const RecursosHumanosHorariosPage = () => {
   }, [canManageRecursosHumanos, navigate, authLoading])
 
   useEffect(() => {
-    if (activeTab === 'horarios') {
-      loadHorarios()
-    } else if (activeTab === 'turnos') {
+    if (activeTab === 'turnos') {
       loadTurnos()
-    } else if (activeTab === 'ausencias') {
-      loadAusencias()
-    } else if (activeTab === 'asistencia') {
+    } else if (activeTab === 'asistencia' || activeTab === 'reportes') {
       loadAsistencia()
     }
   }, [activeTab, usuarioSeleccionado, fechaDesde, fechaHasta])
@@ -109,18 +105,6 @@ const RecursosHumanosHorariosPage = () => {
     }
   }
 
-  const loadHorarios = async () => {
-    if (!usuarioSeleccionado) return
-    try {
-      const response = await apiService.obtenerHorariosUsuario(usuarioSeleccionado)
-      if (response.success && response.data) {
-        setHorarios(response.data)
-      }
-    } catch (error) {
-      console.error('Error cargando horarios:', error)
-    }
-  }
-
   const loadTurnos = async () => {
     try {
       const response = await apiService.obtenerTurnos(usuarioSeleccionado, fechaDesde, fechaHasta)
@@ -129,17 +113,6 @@ const RecursosHumanosHorariosPage = () => {
       }
     } catch (error) {
       console.error('Error cargando turnos:', error)
-    }
-  }
-
-  const loadAusencias = async () => {
-    try {
-      const response = await apiService.obtenerAusencias(usuarioSeleccionado, fechaDesde, fechaHasta, null)
-      if (response.success && response.data) {
-        setAusencias(response.data)
-      }
-    } catch (error) {
-      console.error('Error cargando ausencias:', error)
     }
   }
 
@@ -229,19 +202,13 @@ const RecursosHumanosHorariosPage = () => {
             className={`rrhh-tab ${activeTab === 'horarios' ? 'active' : ''}`}
             onClick={() => setActiveTab('horarios')}
           >
-            📅 Horarios
+            🕘 Horarios reloj
           </button>
           <button
             className={`rrhh-tab ${activeTab === 'turnos' ? 'active' : ''}`}
             onClick={() => setActiveTab('turnos')}
           >
             🗓️ Turnos
-          </button>
-          <button
-            className={`rrhh-tab ${activeTab === 'ausencias' ? 'active' : ''}`}
-            onClick={() => setActiveTab('ausencias')}
-          >
-            🏖️ Ausencias
           </button>
           <button
             className={`rrhh-tab ${activeTab === 'asistencia' ? 'active' : ''}`}
@@ -259,7 +226,7 @@ const RecursosHumanosHorariosPage = () => {
             className={`rrhh-tab ${activeTab === 'reloj' ? 'active' : ''}`}
             onClick={() => setActiveTab('reloj')}
           >
-            🕒 Importar Reloj
+            🕒 Reloj
           </button>
         </div>
 
@@ -276,7 +243,7 @@ const RecursosHumanosHorariosPage = () => {
               <option key={u.id} value={u.id}>{u.nombre}</option>
             ))}
           </select>
-          {(activeTab === 'turnos' || activeTab === 'ausencias' || activeTab === 'asistencia' || activeTab === 'reportes') && (
+          {(activeTab === 'turnos' || activeTab === 'asistencia' || activeTab === 'reportes') && (
             <>
               <input
                 type="date"
@@ -300,8 +267,7 @@ const RecursosHumanosHorariosPage = () => {
           <HorariosTab
             usuarios={usuarios}
             usuarioSeleccionado={usuarioSeleccionado}
-            horarios={horarios}
-            onLoad={loadHorarios}
+            onIrAReloj={() => setActiveTab('reloj')}
           />
         )}
 
@@ -310,15 +276,6 @@ const RecursosHumanosHorariosPage = () => {
             usuarios={usuarios}
             turnos={turnos}
             onLoad={loadTurnos}
-          />
-        )}
-
-        {activeTab === 'ausencias' && (
-          <AusenciasTab
-            usuarios={usuarios}
-            ausencias={ausencias}
-            usuario={usuario}
-            onLoad={loadAusencias}
           />
         )}
 
@@ -333,17 +290,26 @@ const RecursosHumanosHorariosPage = () => {
         )}
 
         {activeTab === 'reportes' && (
-          <ReportesTab
+          <RrhhHorariosReportesTab
+            usuarios={usuarios}
             asistencia={asistencia}
-            ausencias={ausencias}
-            turnos={turnos}
             fechaDesde={fechaDesde}
             fechaHasta={fechaHasta}
+            usuarioSeleccionado={usuarioSeleccionado}
+            onIrAReloj={(rep) => {
+              if (rep) setRelojReporteJump(rep)
+              setActiveTab('reloj')
+            }}
           />
         )}
 
         {activeTab === 'reloj' && (
-          <RelojImportTab usuarios={usuarios} usuarioActual={usuario} />
+          <RelojImportTab
+            usuarios={usuarios}
+            usuarioActual={usuario}
+            reporteInicial={relojReporteJump}
+            onReporteInicialConsumido={() => setRelojReporteJump(null)}
+          />
         )}
       </div>
     </div>
@@ -353,14 +319,26 @@ const RecursosHumanosHorariosPage = () => {
 // ============================================================
 // Importar Reloj Biométrico
 // ============================================================
+type ModoRelojTab = 'calendario' | 'importar' | 'reporte'
+
 const RelojImportTab = ({
   usuarios,
-  usuarioActual
+  usuarioActual,
+  reporteInicial,
+  onReporteInicialConsumido
 }: {
   usuarios: UsuarioRecord[]
   usuarioActual: { id: number } | null
+  reporteInicial?: RrhhRelojReporteSemanal | null
+  onReporteInicialConsumido?: () => void
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [modo, setModo] = useState<ModoRelojTab>('calendario')
+  const [calendarioMes, setCalendarioMes] = useState(() => new Date())
+  const [reportesGuardados, setReportesGuardados] = useState<RrhhRelojReporteSemanal[]>([])
+  const [reporteActivoId, setReporteActivoId] = useState<number | null>(null)
+  const [cargandoReportes, setCargandoReportes] = useState(false)
+  const [autoGuardando, setAutoGuardando] = useState(false)
   const [fileName, setFileName] = useState('')
   const [config, setConfig] = useState<ConfigCalculo>({ ...CONFIG_CALCULO_DEFAULT })
   const [marcaciones, setMarcaciones] = useState<MarcacionReloj[]>([])
@@ -443,7 +421,139 @@ const RelojImportTab = ({
     return map
   }, [planilla, override, usuariosLite])
 
-  // Recompute central: cada vez que cambian la planilla, los vínculos, los
+  const construirVinculosInline = (
+    pl: PlanillaEmpleado[],
+    ov: Record<string, number>
+  ): Record<string, { id: number; nombre: string }> => {
+    const map: Record<string, { id: number; nombre: string }> = {}
+    for (const emp of pl) {
+      if (emp.idUsuario in ov) {
+        const id = ov[emp.idUsuario]
+        const u = usuariosLite.find((x) => x.id === id)
+        map[emp.idUsuario] = u ? { id: u.id, nombre: u.nombre } : { id: 0, nombre: '' }
+      } else {
+        const auto = matchearUsuario(emp.nombre, usuariosLite)
+        map[emp.idUsuario] = auto ? { id: auto.id, nombre: auto.nombre } : { id: 0, nombre: '' }
+      }
+    }
+    return map
+  }
+
+  const cargarReportesGuardados = async (mesRef: Date = calendarioMes) => {
+    setCargandoReportes(true)
+    try {
+      const inicio = new Date(mesRef.getFullYear(), mesRef.getMonth(), 1)
+      const fin = new Date(mesRef.getFullYear(), mesRef.getMonth() + 1, 0)
+      const desde = `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, '0')}-01`
+      const hasta = `${fin.getFullYear()}-${String(fin.getMonth() + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`
+      const r = await apiService.listarRelojReportesSemanales(desde, hasta)
+      if (r.success && r.data) setReportesGuardados(r.data)
+    } finally {
+      setCargandoReportes(false)
+    }
+  }
+
+  useEffect(() => {
+    void cargarReportesGuardados(calendarioMes)
+  }, [calendarioMes])
+
+  const aplicarSnapshot = (snap: ReturnType<typeof parseSnapshotReloj>, meta?: RrhhRelojReporteSemanal) => {
+    if (!snap) return
+    setConfig(snap.config)
+    setPlanilla(snap.planilla)
+    setDiasPeriodo(snap.diasPeriodo)
+    setOverride(snap.override)
+    setHorariosFijos(snap.horariosFijos)
+    setFileName(snap.fileName || meta?.archivo_nombre || '')
+    setInformeIa(snap.informeIa ?? '')
+    setRegistrarTardanzas(snap.registrarTardanzas ?? true)
+    setMarcaciones(planillaToMarcaciones(snap.planilla))
+    setCeldaEdit(null)
+    setEmpleadoExpandido(null)
+    setVista('resumen')
+    if (meta) setReporteActivoId(meta.id)
+    if (snap.guardadoAsistencia) {
+      setResultadoGuardado(
+        `✓ Informe guardado · ${snap.guardadoAsistencia.total} registros de asistencia (${snap.guardadoAsistencia.insertados} nuevos, ${snap.guardadoAsistencia.actualizados} actualizados).`
+      )
+    }
+  }
+
+  const abrirReporteGuardado = (r: RrhhRelojReporteSemanal) => {
+    const snap = parseSnapshotReloj(r.payload)
+    if (!snap) {
+      setError('No se pudo leer el informe guardado.')
+      return
+    }
+    setError('')
+    aplicarSnapshot(snap, r)
+    setModo('reporte')
+  }
+
+  useEffect(() => {
+    if (!reporteInicial) return
+    abrirReporteGuardado(reporteInicial)
+    onReporteInicialConsumido?.()
+  }, [reporteInicial])
+
+  const persistirReporteSemanal = async (opts?: {
+    pl?: PlanillaEmpleado[]
+    dias?: string[]
+    cfg?: ConfigCalculo
+    ov?: Record<string, number>
+    fijos?: typeof horariosFijos
+    fname?: string
+    informe?: string
+    guardadoAsistencia?: { insertados: number; actualizados: number; total: number } | null
+    registrarAsistencia?: boolean
+    registrarTardanzasFlag?: boolean
+    resumenes?: ResumenEmpleado[]
+  }): Promise<number | null> => {
+    const pl = opts?.pl ?? planilla
+    const dias = opts?.dias ?? diasPeriodo
+    if (!pl.length || !dias.length) return null
+    const periodoDesde = dias[0]
+    const periodoHasta = dias[dias.length - 1]
+    const resParaSnap = opts?.resumenes ?? resumenes
+    const snapshot = crearSnapshotReloj({
+      config: opts?.cfg ?? config,
+      planilla: pl,
+      diasPeriodo: dias,
+      override: opts?.ov ?? override,
+      horariosFijos: opts?.fijos ?? horariosFijos,
+      fileName: opts?.fname ?? fileName,
+      informeIa: opts?.informe ?? informeIa,
+      resumenesCompactos: resParaSnap.map((e) => ({
+        idUsuario: e.idUsuario,
+        nombre: e.nombre,
+        departamento: e.departamento,
+        totalHoras: e.totalHoras,
+        totalExtra: e.totalExtra,
+        tardanzas: e.tardanzas,
+        anomalias: e.anomalias,
+        puntualidadPct: e.puntualidadPct,
+        diasTrabajados: e.diasTrabajados
+      })),
+      registrarTardanzas: opts?.registrarTardanzasFlag ?? registrarTardanzas,
+      guardadoAsistencia: opts?.guardadoAsistencia ?? null
+    })
+    if (!usuarioActual?.id) return null
+    const resp = await apiService.guardarRelojReporteSemanal({
+      periodoDesde,
+      periodoHasta,
+      archivoNombre: snapshot.fileName,
+      payload: snapshot as unknown as Record<string, unknown>,
+      registradoPor: usuarioActual.id
+    })
+    if (resp.success && resp.data) {
+      setReporteActivoId(resp.data.id)
+      await cargarReportesGuardados(calendarioMes)
+      return resp.data.id
+    }
+    return null
+  }
+
+  // Recompute central: cada vez que cambian la planilla, los vínculos, los vínculos, los
   // horarios fijos o la configuración, recalcula los resúmenes aplicando el
   // horario fijo de cada empleado (entrada esperada + jornada esperada).
   useEffect(() => {
@@ -482,6 +592,10 @@ const RelojImportTab = ({
           }
         }
         setResultadoGuardado(msg)
+        await persistirReporteSemanal({
+          guardadoAsistencia: resp.data ?? null,
+          registrarTardanzasFlag: registrarTardanzas
+        })
       } else {
         setErrorGuardado(
           (resp.error || 'No se pudo guardar.') +
@@ -498,8 +612,11 @@ const RelojImportTab = ({
   }
 
   /** Registra cada tardanza como novedad RRHH (aparece en el legajo). Evita duplicados por usuario+fecha. */
-  const registrarTardanzasEnLegajo = async (): Promise<{ creadas: number; omitidas: number; error?: string }> => {
-    const tardanzas = construirTardanzas(resumenes, vinculos)
+  const registrarTardanzasEnLegajo = async (
+    resOverride?: ResumenEmpleado[],
+    vincOverride?: Record<string, { id: number; nombre: string }>
+  ): Promise<{ creadas: number; omitidas: number; error?: string }> => {
+    const tardanzas = construirTardanzas(resOverride ?? resumenes, vincOverride ?? vinculos)
     if (!tardanzas.length) return { creadas: 0, omitidas: 0 }
     if (!usuarioActual?.id) return { creadas: 0, omitidas: 0, error: 'sin usuario para registrar.' }
 
@@ -548,7 +665,61 @@ const RelojImportTab = ({
     return { creadas, omitidas }
   }
 
-  const procesar = (buffer: ArrayBuffer, cfg: ConfigCalculo) => {
+  const autoGuardarImportacion = async (
+    pl: PlanillaEmpleado[],
+    dias: string[],
+    cfg: ConfigCalculo,
+    fname: string
+  ) => {
+    setAutoGuardando(true)
+    setErrorGuardado('')
+    setResultadoGuardado('')
+    try {
+      const vinc = construirVinculosInline(pl, {})
+      const mapaFijos = construirMapaHorariosFijos(vinc, horariosFijos)
+      const res = procesarMarcaciones(planillaToMarcaciones(pl), cfg, mapaFijos)
+      const { registros, vinculados, noVinculados } = construirRegistrosAsistencia(res, vinc)
+
+      let guardadoAsistencia: { insertados: number; actualizados: number; total: number } | null = null
+      let msg = '✓ Informe semanal guardado automáticamente.'
+
+      if (registros.length) {
+        const resp = await apiService.registrarAsistenciaReloj(registros)
+        if (resp.success && resp.data) {
+          guardadoAsistencia = resp.data
+          msg += ` Asistencia: ${resp.data.total} registros (${vinculados.length} empleados).`
+          if (registrarTardanzas) {
+            const tardRes = await registrarTardanzasEnLegajo(res, vinc)
+            if (tardRes.error) msg += ` Tardanzas: ${tardRes.error}`
+            else msg += ` Tardanzas en legajo: ${tardRes.creadas} nuevas.`
+          }
+        } else {
+          msg += ` Asistencia: ${resp.error || 'no se pudo registrar'}.`
+        }
+      } else if (noVinculados.length) {
+        msg += ` Sin asistencia: ningún empleado vinculado (${noVinculados.length} sin match).`
+      }
+
+      await persistirReporteSemanal({
+        pl,
+        dias,
+        cfg,
+        ov: {},
+        fname,
+        guardadoAsistencia,
+        registrarTardanzasFlag: registrarTardanzas,
+        resumenes: res
+      })
+      setResultadoGuardado(msg)
+      setModo('reporte')
+    } catch (e) {
+      setErrorGuardado(e instanceof Error ? e.message : 'Error al guardar el informe.')
+    } finally {
+      setAutoGuardando(false)
+    }
+  }
+
+  const procesar = (buffer: ArrayBuffer, cfg: ConfigCalculo, nombreArchivo: string) => {
     setProcesando(true)
     setError('')
     try {
@@ -562,11 +733,13 @@ const RelojImportTab = ({
       setMarcaciones(marc)
       setResumenes(res)
       setPlanilla(construirPlanilla(res))
-      setDiasPeriodo(diasDelPeriodo(marc))
+      const dias = diasDelPeriodo(marc)
+      setDiasPeriodo(dias)
       setCeldaEdit(null)
       setInformeIa('')
-      setResultadoGuardado('')
       setErrorGuardado('')
+      setModo('reporte')
+      void autoGuardarImportacion(construirPlanilla(res), dias, cfg, nombreArchivo)
     } catch (e) {
       console.error(e)
       setError('No se pudo leer el archivo. Probá exportarlo de nuevo en formato Excel.')
@@ -581,7 +754,7 @@ const RelojImportTab = ({
     setFileName(file.name)
     setOverride({})
     const buffer = await file.arrayBuffer()
-    procesar(buffer, config)
+    procesar(buffer, config, file.name)
   }
 
   // El recompute lo dispara el efecto central; aquí solo cambia la configuración.
@@ -791,6 +964,7 @@ const RelojImportTab = ({
     try {
       const informe = await generarInformeAsistenciaIa(resumenes, periodo, config)
       setInformeIa(informe)
+      await persistirReporteSemanal({ informe, resumenes })
     } catch (e) {
       setErrorIa(e instanceof Error ? e.message : 'No se pudo generar el informe con IA.')
     } finally {
@@ -800,11 +974,61 @@ const RelojImportTab = ({
 
   return (
     <div className="rrhh-reloj-tab">
+      <div className="reloj-subnav">
+        <button
+          type="button"
+          className={`reloj-subnav-btn${modo === 'calendario' ? ' active' : ''}`}
+          onClick={() => setModo('calendario')}
+        >
+          📅 Informes semanales
+        </button>
+        <button
+          type="button"
+          className={`reloj-subnav-btn${modo === 'importar' ? ' active' : ''}`}
+          onClick={() => setModo('importar')}
+        >
+          📂 Importar Excel
+        </button>
+        {resumenes.length > 0 && modo === 'reporte' ? (
+          <button type="button" className="reloj-subnav-btn active" disabled>
+            📊 Reporte del período
+          </button>
+        ) : null}
+      </div>
+
+      {modo === 'calendario' && (
+        <>
+          <div className="reloj-intro">
+            <h2>🕒 Informes del reloj biométrico</h2>
+            <p>
+              Calendario de reportes semanales guardados. Tocá un día con informe para ver el mismo
+              desglose que al importar (KPIs, gráficos, planilla y detalle por empleado).
+            </p>
+          </div>
+          {cargandoReportes ? <div className="reloj-procesando">Cargando informes…</div> : null}
+          <RelojHistorialCalendario
+            mes={calendarioMes}
+            reportes={reportesGuardados}
+            reporteActivoId={reporteActivoId}
+            onMesChange={setCalendarioMes}
+            onSeleccionarReporte={abrirReporteGuardado}
+          />
+          <div className="reloj-historial-actions">
+            <button type="button" className="btn-primary" onClick={() => setModo('importar')}>
+              📂 Importar nuevo Excel del reloj
+            </button>
+          </div>
+        </>
+      )}
+
+      {modo === 'importar' && (
+        <>
       <div className="reloj-intro">
         <h2>🕒 Importar asistencia del reloj biométrico</h2>
         <p>
-          Subí el Excel que exporta el reloj. El sistema empareja entrada/salida (incluso turnos que
-          cruzan la medianoche), calcula horas trabajadas y horas extra, y detecta marcaciones faltantes.
+          Subí el Excel que exporta el reloj. Al procesarlo se guarda automáticamente el informe
+          semanal con todo el desglose, la asistencia en Plot Lab y las tardanzas en el legajo (si
+          está activado).
         </p>
       </div>
 
@@ -880,6 +1104,7 @@ const RelojImportTab = ({
           📂 Seleccionar Excel del reloj
         </button>
         {fileName && <span className="reloj-filename">{fileName}</span>}
+        {autoGuardando && <span className="reloj-filename">Guardando informe…</span>}
       </div>
 
       {/* Importar horarios reales (PERSONAL ACTUAL) → guardar como horarios fijos */}
@@ -993,8 +1218,21 @@ const RelojImportTab = ({
 
       {procesando && <div className="reloj-procesando">Procesando archivo...</div>}
       {error && <div className="reloj-error">{error}</div>}
+        </>
+      )}
 
-      {resumenes.length > 0 && (
+      {modo === 'reporte' && resumenes.length > 0 ? (
+        <div className="reloj-reporte-toolbar">
+          <button type="button" className="btn-secondary" onClick={() => setModo('calendario')}>
+            ← Volver al calendario
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => setModo('importar')}>
+            📂 Importar otro Excel
+          </button>
+        </div>
+      ) : null}
+
+      {(modo === 'reporte' || (modo === 'importar' && resumenes.length > 0)) && resumenes.length > 0 && (
         <>
           {/* Totales */}
           <div className="reloj-totales">
@@ -1037,8 +1275,8 @@ const RelojImportTab = ({
             <button className="btn-primary" onClick={handleInformeIa} disabled={generandoIa}>
               {generandoIa ? '🤖 Analizando...' : '🤖 Analizar con IA'}
             </button>
-            <button className="btn-primary reloj-btn-guardar" onClick={handleGuardar} disabled={guardando}>
-              {guardando ? '💾 Guardando...' : '💾 Guardar en Plot Lab'}
+            <button className="btn-primary reloj-btn-guardar" onClick={handleGuardar} disabled={guardando || autoGuardando}>
+              {guardando ? '💾 Guardando...' : '💾 Actualizar en Plot Lab'}
             </button>
             <label className="reloj-check-tardanzas">
               <input
@@ -1662,13 +1900,11 @@ const horasEntre = (entrada: string, salida: string): number | null => {
   return Math.round((diff / 60) * 100) / 100
 }
 
-const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
+const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
   usuarios: UsuarioRecord[]
   usuarioSeleccionado: number | null
-  horarios: HorarioEmpleado[]
-  onLoad: () => void
+  onIrAReloj: () => void
 }) => {
-  const [showModal, setShowModal] = useState(false)
   // Horarios fijos (planilla editable): entrada/salida/jornada estándar por empleado.
   const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }>>({})
   const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
@@ -1723,8 +1959,6 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
           return next
         })
         alert('Error al guardar el horario fijo: ' + (r.error || ''))
-      } else {
-        onLoad()
       }
     } finally {
       setGuardandoFijo(null)
@@ -1746,8 +1980,6 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
       if (!r.success) {
         setFijos((prev) => ({ ...prev, [idUsuario]: previo }))
         alert('Error al eliminar: ' + (r.error || ''))
-      } else {
-        onLoad()
       }
     } finally {
       setGuardandoFijo(null)
@@ -1791,74 +2023,16 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
     () => usuariosFijos.filter((u) => fijos[u.id]?.entrada && fijos[u.id]?.salida).length,
     [usuariosFijos, fijos]
   )
-  const [formData, setFormData] = useState({
-    id_usuario: usuarioSeleccionado || 0,
-    tipo_horario: 'fijo' as 'fijo' | 'flexible' | 'turnos',
-    dia_semana: null as number | null,
-    hora_entrada: '',
-    hora_salida: '',
-    horas_semanales: null as number | null,
-    fecha_inicio: '',
-    fecha_fin: '',
-    observaciones: ''
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.id_usuario) {
-      alert('Selecciona un usuario')
-      return
-    }
-
-    try {
-      const response = await apiService.crearHorario(
-        formData.id_usuario,
-        formData.tipo_horario,
-        formData.dia_semana,
-        formData.hora_entrada || null,
-        formData.hora_salida || null,
-        formData.horas_semanales,
-        formData.fecha_inicio || null,
-        formData.fecha_fin || null,
-        formData.observaciones || null
-      )
-
-      if (response.success) {
-        alert('Horario creado correctamente')
-        setShowModal(false)
-        onLoad()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al crear horario')
-      console.error(error)
-    }
-  }
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar este horario?')) return
-    try {
-      const response = await apiService.eliminarHorario(id)
-      if (response.success) {
-        alert('Horario eliminado')
-        onLoad()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al eliminar horario')
-      console.error(error)
-    }
-  }
 
   return (
     <div className="rrhh-tab-content">
-      {/* Planilla editable de horarios fijos (se completa al importar y desde el reloj) */}
       <div className="rrhh-fijos-planilla">
         <div className="rrhh-section-header">
-          <h2>🕘 Horarios fijos (planilla)</h2>
+          <h2>🕘 Horarios del reloj</h2>
           <div className="rrhh-fijos-header-right">
+            <button type="button" className="btn-secondary" onClick={onIrAReloj}>
+              🕒 Importar / ver informes
+            </button>
             <label className="rrhh-fijos-mes">
               Mes:
               <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
@@ -1871,9 +2045,9 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
           </div>
         </div>
         <p className="rrhh-fijos-help">
-          Entrada/salida estándar de cada empleado para el <strong>mes seleccionado</strong>. Quedan fijos hasta que
-          los cambies y son la referencia para puntualidad y horas extra al importar el reloj de ese mes. Se completan
-          al importar la planilla "PERSONAL ACTUAL".
+          Misma planilla de horarios fijos que usa el importador del reloj biométrico. Entrada, salida y jornada
+          por mes son la referencia para puntualidad y horas extra. Se completan al importar la planilla
+          &quot;PERSONAL ACTUAL&quot; o desde la pestaña Reloj.
         </p>
         <div className="rrhh-fijos-tabla-wrap">
           <table className="rrhh-fijos-tabla">
@@ -1952,158 +2126,6 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, horarios, onLoad }: {
 
       {legajoUsuario && (
         <VerLegajoModal usuario={legajoUsuario} isOpen onClose={() => setLegajoUsuario(null)} />
-      )}
-
-      <div className="rrhh-section-header">
-        <h2>Horarios de Empleados</h2>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          + Crear Horario
-        </button>
-      </div>
-
-      {!usuarioSeleccionado && (
-        <div className="rrhh-info-box">
-          <p>Selecciona un usuario para ver sus horarios detallados (por día)</p>
-        </div>
-      )}
-
-      {usuarioSeleccionado && (
-        <div className="rrhh-horarios-list">
-          {horarios.length === 0 ? (
-            <p>No hay horarios registrados</p>
-          ) : (
-            horarios.map(h => (
-              <div key={h.id} className="rrhh-horario-card">
-                <div className="rrhh-horario-info">
-                  <h3>{h.tipo_horario === 'fijo' ? 'Horario Fijo' : h.tipo_horario === 'flexible' ? 'Horario Flexible' : 'Turnos'}</h3>
-                  {h.dia_semana !== null && <p>Día: {DIAS_SEMANA[h.dia_semana]}</p>}
-                  {h.hora_entrada && h.hora_salida && (
-                    <p>Horario: {h.hora_entrada} - {h.hora_salida}</p>
-                  )}
-                  {h.horas_semanales && <p>Horas semanales: {h.horas_semanales}</p>}
-                  {h.fecha_inicio && <p>Desde: {new Date(h.fecha_inicio).toLocaleDateString()}</p>}
-                  {h.fecha_fin && <p>Hasta: {new Date(h.fecha_fin).toLocaleDateString()}</p>}
-                  {h.observaciones && <p>Obs: {h.observaciones}</p>}
-                  <span className={`rrhh-badge ${h.activo ? 'active' : 'inactive'}`}>
-                    {h.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
-                <button className="btn-danger" onClick={() => handleDelete(h.id)}>
-                  Eliminar
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {showModal && (
-        <div className="rrhh-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Crear Horario</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Usuario</label>
-                <select
-                  value={formData.id_usuario}
-                  onChange={(e) => setFormData({ ...formData, id_usuario: parseInt(e.target.value) })}
-                  required
-                >
-                  <option value="">Selecciona un usuario</option>
-                  {usuarios.map(u => (
-                    <option key={u.id} value={u.id}>{u.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Tipo de Horario</label>
-                <select
-                  value={formData.tipo_horario}
-                  onChange={(e) => setFormData({ ...formData, tipo_horario: e.target.value as any })}
-                  required
-                >
-                  <option value="fijo">Fijo</option>
-                  <option value="flexible">Flexible</option>
-                  <option value="turnos">Turnos</option>
-                </select>
-              </div>
-              {formData.tipo_horario === 'fijo' && (
-                <>
-                  <div className="form-group">
-                    <label>Día de la Semana</label>
-                    <select
-                      value={formData.dia_semana || ''}
-                      onChange={(e) => setFormData({ ...formData, dia_semana: e.target.value ? parseInt(e.target.value) : null })}
-                    >
-                      <option value="">Selecciona un día</option>
-                      {DIAS_SEMANA.map((dia, idx) => (
-                        <option key={idx} value={idx}>{dia}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Hora de Entrada</label>
-                    <input
-                      type="time"
-                      value={formData.hora_entrada}
-                      onChange={(e) => setFormData({ ...formData, hora_entrada: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Hora de Salida</label>
-                    <input
-                      type="time"
-                      value={formData.hora_salida}
-                      onChange={(e) => setFormData({ ...formData, hora_salida: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
-              {formData.tipo_horario === 'flexible' && (
-                <div className="form-group">
-                  <label>Horas Semanales</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={formData.horas_semanales || ''}
-                    onChange={(e) => setFormData({ ...formData, horas_semanales: e.target.value ? parseFloat(e.target.value) : null })}
-                  />
-                </div>
-              )}
-              <div className="form-group">
-                <label>Fecha Inicio</label>
-                <input
-                  type="date"
-                  value={formData.fecha_inicio}
-                  onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Fecha Fin (opcional)</label>
-                <input
-                  type="date"
-                  value={formData.fecha_fin}
-                  onChange={(e) => setFormData({ ...formData, fecha_fin: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Observaciones</label>
-                <textarea
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                />
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary">
-                  Guardar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   )
@@ -2251,206 +2273,6 @@ const TurnosTab = ({ usuarios, turnos, onLoad }: {
                   <option value="extra">Extra</option>
                   <option value="nocturno">Nocturno</option>
                 </select>
-              </div>
-              <div className="form-group">
-                <label>Observaciones</label>
-                <textarea
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                />
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary">
-                  Guardar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Componente de Ausencias
-const AusenciasTab = ({ usuarios, ausencias, usuario, onLoad }: {
-  usuarios: UsuarioRecord[]
-  ausencias: Ausencia[]
-  usuario: any
-  onLoad: () => void
-}) => {
-  const [showModal, setShowModal] = useState(false)
-  const [formData, setFormData] = useState({
-    id_usuario: 0,
-    tipo_ausencia: 'vacaciones' as 'vacaciones' | 'licencia' | 'inasistencia' | 'permiso' | 'enfermedad',
-    fecha_inicio: '',
-    fecha_fin: '',
-    motivo: '',
-    observaciones: ''
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const response = await apiService.crearAusencia(
-        formData.id_usuario,
-        formData.tipo_ausencia,
-        formData.fecha_inicio,
-        formData.fecha_fin,
-        formData.motivo || null,
-        formData.observaciones || null
-      )
-
-      if (response.success) {
-        alert('Ausencia registrada correctamente')
-        setShowModal(false)
-        onLoad()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al registrar ausencia')
-      console.error(error)
-    }
-  }
-
-  const handleAprobarRechazar = async (id: number, estado: 'aprobado' | 'rechazado') => {
-    if (!usuario) return
-    try {
-      const response = await apiService.aprobarRechazarAusencia(id, estado, usuario.id)
-      if (response.success) {
-        alert(`Ausencia ${estado}`)
-        onLoad()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al procesar ausencia')
-      console.error(error)
-    }
-  }
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar esta ausencia?')) return
-    try {
-      const response = await apiService.eliminarAusencia(id)
-      if (response.success) {
-        alert('Ausencia eliminada')
-        onLoad()
-      } else {
-        alert('Error: ' + response.error)
-      }
-    } catch (error) {
-      alert('Error al eliminar ausencia')
-      console.error(error)
-    }
-  }
-
-  return (
-    <div className="rrhh-tab-content">
-      <div className="rrhh-section-header">
-        <h2>Gestión de Ausencias</h2>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          + Registrar Ausencia
-        </button>
-      </div>
-
-      <div className="rrhh-ausencias-list">
-        {ausencias.length === 0 ? (
-          <p>No hay ausencias registradas</p>
-        ) : (
-          ausencias.map(a => (
-            <div key={a.id} className="rrhh-ausencia-card">
-              <div className="rrhh-ausencia-info">
-                <h3>{a.nombre_usuario || 'Usuario'}</h3>
-                <p>Tipo: {a.tipo_ausencia}</p>
-                <p>Período: {new Date(a.fecha_inicio).toLocaleDateString()} - {new Date(a.fecha_fin).toLocaleDateString()}</p>
-                <p>Días: {a.dias}</p>
-                {a.motivo && <p>Motivo: {a.motivo}</p>}
-                <span className={`rrhh-badge ${a.estado}`}>
-                  {a.estado}
-                </span>
-                {a.aprobado_por_nombre && <p>Aprobado por: {a.aprobado_por_nombre}</p>}
-              </div>
-              <div className="rrhh-ausencia-actions">
-                {a.estado === 'pendiente' && usuario && (
-                  <>
-                    <button className="btn-success" onClick={() => handleAprobarRechazar(a.id, 'aprobado')}>
-                      Aprobar
-                    </button>
-                    <button className="btn-danger" onClick={() => handleAprobarRechazar(a.id, 'rechazado')}>
-                      Rechazar
-                    </button>
-                  </>
-                )}
-                <button className="btn-danger" onClick={() => handleDelete(a.id)}>
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {showModal && (
-        <div className="rrhh-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="rrhh-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Registrar Ausencia</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Usuario</label>
-                <select
-                  value={formData.id_usuario}
-                  onChange={(e) => setFormData({ ...formData, id_usuario: parseInt(e.target.value) })}
-                  required
-                >
-                  <option value="">Selecciona un usuario</option>
-                  {usuarios.map(u => (
-                    <option key={u.id} value={u.id}>{u.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Tipo de Ausencia</label>
-                <select
-                  value={formData.tipo_ausencia}
-                  onChange={(e) => setFormData({ ...formData, tipo_ausencia: e.target.value as any })}
-                  required
-                >
-                  <option value="vacaciones">Vacaciones</option>
-                  <option value="licencia">Licencia</option>
-                  <option value="inasistencia">Inasistencia</option>
-                  <option value="permiso">Permiso</option>
-                  <option value="enfermedad">Enfermedad</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Fecha Inicio</label>
-                <input
-                  type="date"
-                  value={formData.fecha_inicio}
-                  onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Fecha Fin</label>
-                <input
-                  type="date"
-                  value={formData.fecha_fin}
-                  onChange={(e) => setFormData({ ...formData, fecha_fin: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Motivo</label>
-                <textarea
-                  value={formData.motivo}
-                  onChange={(e) => setFormData({ ...formData, motivo: e.target.value })}
-                />
               </div>
               <div className="form-group">
                 <label>Observaciones</label>
@@ -2658,47 +2480,6 @@ const AsistenciaTab = ({ asistencia, usuario, onMarcarEntrada, onMarcarSalida, o
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-// Componente de Reportes
-const ReportesTab = ({ asistencia, ausencias, turnos, fechaDesde, fechaHasta }: {
-  asistencia: Asistencia[]
-  ausencias: Ausencia[]
-  turnos: Turno[]
-  fechaDesde: string
-  fechaHasta: string
-}) => {
-  const totalHorasTrabajadas = asistencia.reduce((sum, a) => sum + (a.horas_trabajadas || 0), 0)
-  const totalAusencias = ausencias.filter(a => a.estado === 'aprobado').reduce((sum, a) => sum + a.dias, 0)
-  const totalTurnos = turnos.length
-
-  return (
-    <div className="rrhh-tab-content">
-      <div className="rrhh-section-header">
-        <h2>Reportes de Horarios</h2>
-      </div>
-
-      <div className="rrhh-reportes-grid">
-        <div className="rrhh-reporte-card">
-          <h3>Total Horas Trabajadas</h3>
-          <p className="rrhh-reporte-value">{totalHorasTrabajadas.toFixed(2)}</p>
-          <p className="rrhh-reporte-periodo">
-            {new Date(fechaDesde).toLocaleDateString()} - {new Date(fechaHasta).toLocaleDateString()}
-          </p>
-        </div>
-        <div className="rrhh-reporte-card">
-          <h3>Total Ausencias</h3>
-          <p className="rrhh-reporte-value">{totalAusencias}</p>
-          <p className="rrhh-reporte-periodo">Días aprobados</p>
-        </div>
-        <div className="rrhh-reporte-card">
-          <h3>Total Turnos</h3>
-          <p className="rrhh-reporte-value">{totalTurnos}</p>
-          <p className="rrhh-reporte-periodo">En el período</p>
-        </div>
-      </div>
     </div>
   )
 }
