@@ -192,7 +192,7 @@ export async function getCompleteSystemContext(
       
       // Usuarios
       supabase
-        .from('usuarios')
+        .from('usuarios_publico')
         .select('id, rol, last_seen')
         .then(r => r.data || []),
       

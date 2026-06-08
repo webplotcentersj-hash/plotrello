@@ -32,9 +32,21 @@ export interface OpGaleriaSlide {
   nombre: string
 }
 
+/** Campos expuestos en /op-public y firma cliente (RPC acotada). */
+export interface OrdenSeguimientoPublico {
+  id: number
+  numero_op: string
+  seguimiento_token?: string | null
+  cliente: string
+  estado: string
+  descripcion?: string | null
+  fecha_entrega?: string | null
+}
+
 export interface OrdenTrabajo {
   id: number
   numero_op: string
+  seguimiento_token?: string | null
   cliente: string
   dni_cuit?: string | null
   descripcion?: string | null
@@ -926,6 +938,8 @@ export interface ConfiguracionAFIPRecord {
   actividad_principal?: string | null
   certificado_afip?: string | null
   clave_certificado?: string | null
+  /** Indicador: hay certificado cargado en servidor (sin exponer el archivo). */
+  tiene_certificado?: boolean
   webservice: 'wsfev1' | 'wsmtxca' | 'wsfexv1' // wsmtxca recomendado para facturas con items
   ambiente: 'Testing' | 'Homologación' | 'Producción'
   homologacion_aprobada: boolean

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { marked } from 'marked'
+import { sanitizeHtml } from '../utils/sanitizeHtml'
 import {
   BarChart,
   Bar,
@@ -1168,7 +1169,7 @@ const RelojImportTab = ({
               </div>
               <div
                 className="reloj-informe-body"
-                dangerouslySetInnerHTML={{ __html: marked.parse(informeIa) as string }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(informeIa) as string) }}
               />
             </div>
           )}

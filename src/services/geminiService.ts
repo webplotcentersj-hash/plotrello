@@ -56,18 +56,9 @@ export async function generateSprintReport(analysisData: SprintAnalysisData): Pr
     // continue to fallback below
   }
 
-  const key = (import.meta as any)?.env?.VITE_GEMINI_API_KEY || ''
-  if (!key) {
-    throw new Error(
-      'No se pudo generar el informe. En producción configurá GEMINI_API_KEY en el servidor. En desarrollo, usá `vercel dev` o configurá VITE_GEMINI_API_KEY.'
-    )
-  }
+  const { callGeminiGenerateContent } = await import('./geminiApiClient')
 
-  const { GoogleGenerativeAI } = await import('@google/generative-ai')
-  const genAI = new GoogleGenerativeAI(key)
-  const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
-
-  // Mantener el prompt del modo cliente para desarrollo local.
+  // Fallback local (vite sin vercel dev): mismo prompt vía servidor o dev key.
   const workloadSummary = analysisData.workloadByPerson
     .map(
       (w) =>
@@ -129,8 +120,6 @@ Por favor, genera un informe detallado que incluya:
 
 El informe debe ser profesional, claro, accionable y específico para el contexto de producción gráfica e imprenta. Usa formato markdown para mejor legibilidad.`
 
-  const result = await model.generateContent(prompt)
-  const response = await result.response
-  return response.text()
+  return callGeminiGenerateContent({ model: 'gemini-2.5-flash', contents: prompt })
 }
 

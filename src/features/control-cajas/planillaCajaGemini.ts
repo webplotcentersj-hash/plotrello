@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai'
+import { callGeminiGenerateContent, isGeminiApiAvailable } from '../../services/geminiApiClient'
 import { copyPdfBytes, extractTextFromPdfArrayBuffer } from '../../utils/pdfTextLines'
 import { parseNum } from './format'
 import {
@@ -12,20 +12,12 @@ import {
 } from './parsePlanillaCajaPdf'
 import { validarCuadreMediosPago } from './planillaMediosPago'
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
 /** Flash lite: más rápido para extracción estructurada de planillas. */
 const MODEL = 'gemini-2.5-flash-lite'
 const MODEL_FALLBACK = 'gemini-2.5-flash'
 
-let aiClient: GoogleGenAI | null = null
-try {
-  if (GEMINI_API_KEY) aiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
-} catch {
-  aiClient = null
-}
-
 export function isPlanillaAiAvailable(): boolean {
-  return Boolean(aiClient && GEMINI_API_KEY)
+  return isGeminiApiAvailable()
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -311,8 +303,6 @@ async function generatePlanillaJson(
   userText: string,
   opts?: { withPdf?: string }
 ): Promise<string> {
-  if (!aiClient) throw new Error('PlotAI no configurado')
-
   const models = opts?.withPdf ? [MODEL, MODEL_FALLBACK] : [MODEL, MODEL_FALLBACK]
   let lastErr: unknown
 
@@ -330,14 +320,13 @@ async function generatePlanillaJson(
           ]
         : userText
 
-      const response = await withTimeout(
-        aiClient.models.generateContent({ model, contents }),
+      const text = await withTimeout(
+        callGeminiGenerateContent({ model, contents }),
         opts?.withPdf ? 90_000 : 55_000,
         opts?.withPdf
           ? 'PlotAI tardó demasiado con el PDF adjunto.'
           : 'PlotAI tardó demasiado leyendo el texto (máx. ~1 min).'
       )
-      const text = response.text || ''
       if (text.trim()) return text
     } catch (e) {
       lastErr = e
@@ -355,10 +344,6 @@ export async function parsePlanillaCajaPdfWithGemini(
   buffer: ArrayBuffer,
   archivoNombre: string
 ): Promise<PlanillaCajaParsed> {
-  if (!aiClient) {
-    throw new Error('PlotAI no configurado. Agregá VITE_GEMINI_API_KEY en .env')
-  }
-
   const pdfBuf = buffer.slice(0)
   const textoExtraido = await extractTextFromPdfArrayBuffer(pdfBuf)
   const textoLocal = parsePlanillaCajaText(textoExtraido, archivoNombre)

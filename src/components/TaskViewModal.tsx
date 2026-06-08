@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { marked } from 'marked'
+import { sanitizeHtml } from '../utils/sanitizeHtml'
 import type { Task, TeamMember } from '../types/board'
 import type {
   ComentarioOrden,
@@ -361,7 +362,7 @@ export default function TaskViewModal({
     const t = plotAIRecoText.trim()
     if (!t) return ''
     try {
-      return marked.parse(t, { async: false }) as string
+      return sanitizeHtml(marked.parse(t, { async: false }) as string)
     } catch {
       return ''
     }

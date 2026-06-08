@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import apiService from '../services/api'
-import type { OrdenTrabajo } from '../types/api'
+import type { OrdenSeguimientoPublico } from '../types/api'
 import './OpPublicPage.css'
 
 const OpPublicPage = () => {
   const { opNumber } = useParams<{ opNumber: string }>()
-  const [orden, setOrden] = useState<OrdenTrabajo | null>(null)
+  const [orden, setOrden] = useState<OrdenSeguimientoPublico | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,10 +23,9 @@ const OpPublicPage = () => {
     else setLoading(true)
     setError(null)
     try {
-      const response = await apiService.getOrdenByOpNumber(opNumber)
+      const response = await apiService.getOrdenSeguimientoPublico(opNumber)
       if (response.success && response.data) {
-        const ordenData = response.data as OrdenTrabajo
-        setOrden(ordenData)
+        setOrden(response.data)
       } else {
         setError('No se encontró la orden de trabajo')
       }

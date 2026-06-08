@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai'
+import { callGeminiGenerateContent } from './geminiApiClient'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { formatAgenticContextForPrompt } from '../utils/agentInsights'
@@ -15,25 +15,7 @@ import {
 import { formatManualForPrompt } from './plotAIManualService'
 import { findTeamMemberForActorId } from '../utils/activityTaskResolve'
 
-// El nuevo SDK de Google GenAI puede usar la API key desde variable de entorno
-// o se puede pasar en el constructor si es necesario
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
-
-// Inicializar el cliente de Google GenAI
-// El constructor puede recibir { apiKey } o usar la variable de entorno automáticamente
-let ai: GoogleGenAI | null = null
-try {
-  if (GEMINI_API_KEY) {
-    // Intentar con API key explícita primero
-    ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
-  } else {
-    // Si no hay API key, intentar sin parámetros (usará variable de entorno si existe)
-    ai = new GoogleGenAI({})
-  }
-} catch (error) {
-  console.warn('No se pudo inicializar GoogleGenAI:', error)
-  ai = null
-}
+/** PlotAI usa /api/plotai/generate-content (GEMINI_API_KEY en servidor). */
 
 /** Conocimiento actual del sistema para que PlotAI esté al día con las últimas funcionalidades */
 const PLOTAI_SYSTEM_KNOWLEDGE = `
@@ -137,10 +119,6 @@ export interface GenerateContentOptions {
 }
 
 export async function generateContent(options: GenerateContentOptions): Promise<string> {
-  if (!ai) {
-    throw new Error('API key de Gemini no configurada. Por favor, configura VITE_GEMINI_API_KEY en tu archivo .env')
-  }
-
   const {
     model = 'gemini-2.5-flash',
     contents,
@@ -666,12 +644,10 @@ INSTRUCCIONES AGÉNTICAS:
       const visionModel = 'gemini-2.5-flash'
       
       try {
-        const response = await ai.models.generateContent({
+        responseText = await callGeminiGenerateContent({
           model: visionModel,
-          contents: contents
+          contents
         })
-        
-        responseText = response.text || ''
         console.log('✅ Respuesta recibida de Gemini:', responseText.substring(0, 100))
       } catch (error: any) {
         // Manejar error de cuota (429)
@@ -703,39 +679,32 @@ INSTRUCCIONES AGÉNTICAS:
                   ]
                 }]
                 
-                const retryResponse = await ai.models.generateContent({
+                responseText = await callGeminiGenerateContent({
                   model: visionModel,
                   contents: singleImageContents
                 })
-                
-                responseText = retryResponse.text || ''
                 console.log('✅ Respuesta recibida con imagen única')
               } catch (retryError) {
                 console.warn('⚠️ También falló con imagen única, usando solo texto...')
                 const textOnlyPrompt = prompt + '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas (máximo 4MB), en formato JPG o PNG, o convierte las imágenes a un formato más compatible.'
-                const response = await ai.models.generateContent({
+                responseText = await callGeminiGenerateContent({
                   model: model || 'gemini-2.5-flash',
                   contents: textOnlyPrompt
                 })
-                responseText = response.text || ''
               }
             } else {
-              // Sin imágenes válidas, usar solo texto
               const textOnlyPrompt = prompt + '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas (máximo 4MB), en formato JPG o PNG.'
-              const response = await ai.models.generateContent({
+              responseText = await callGeminiGenerateContent({
                 model: model || 'gemini-2.5-flash',
                 contents: textOnlyPrompt
               })
-              responseText = response.text || ''
             }
           } else {
-            // Sin imágenes válidas, usar solo texto
             const textOnlyPrompt = prompt + '\n\nNota: Hubo un problema procesando las imágenes adjuntas. Por favor, intenta con imágenes más pequeñas (máximo 4MB), en formato JPG o PNG.'
-            const response = await ai.models.generateContent({
+            responseText = await callGeminiGenerateContent({
               model: model || 'gemini-2.5-flash',
               contents: textOnlyPrompt
             })
-            responseText = response.text || ''
           }
         } else {
           throw error
@@ -762,20 +731,15 @@ INSTRUCCIONES AGÉNTICAS:
         }
       }
       
-      const response = await ai.models.generateContent({
+      responseText = await callGeminiGenerateContent({
         model: model || 'gemini-2.5-flash',
         contents: textPrompt
       })
-      
-      responseText = response.text || ''
     } else {
-      // Sin imágenes ni PDFs, usar el método normal (contents puede ser string directamente)
-      const response = await ai.models.generateContent({
+      responseText = await callGeminiGenerateContent({
         model: model || 'gemini-2.5-flash',
         contents: prompt
       })
-      
-      responseText = response.text || ''
     }
 
     // Aprender de la respuesta si está habilitado

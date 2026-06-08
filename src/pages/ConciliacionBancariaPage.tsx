@@ -926,7 +926,7 @@ Reglas:
           includeAppManual: false
         }),
         600_000,
-        'Gemini tardó más de 10 minutos. Reintentá con archivos más chicos, o revisá VITE_GEMINI_API_KEY y la conexión.'
+        'Gemini tardó más de 10 minutos. Reintentá con archivos más chicos, o revisá GEMINI_API_KEY en Vercel y la conexión.'
       )
 
       const parsed = parseGeminiConciliacionJson(text)

@@ -215,7 +215,7 @@ async function loadSystemData() {
       : 0
 
     // Cargar usuarios
-    const { data: usuarios } = await supabase.from('usuarios').select('id')
+    const { data: usuarios } = await supabase.from('usuarios_publico').select('id')
     const teamMembers = usuarios ? usuarios.length : 0
 
     // Cargar historial

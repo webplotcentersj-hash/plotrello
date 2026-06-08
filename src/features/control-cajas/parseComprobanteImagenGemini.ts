@@ -1,19 +1,11 @@
-import { GoogleGenAI } from '@google/genai'
+import { callGeminiGenerateContent, isGeminiApiAvailable } from '../../services/geminiApiClient'
 import { parseNum } from './format'
 import type { ComprobanteLoteParsed, ComprobanteMedioParsed } from './comprobanteMediosTypes'
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
 const MODEL = 'gemini-2.5-flash-lite'
 
-let aiClient: GoogleGenAI | null = null
-try {
-  if (GEMINI_API_KEY) aiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
-} catch {
-  aiClient = null
-}
-
 export function isComprobanteAiAvailable(): boolean {
-  return Boolean(aiClient && GEMINI_API_KEY)
+  return isGeminiApiAvailable()
 }
 
 const SCHEMA = `Sos un extractor de comprobantes de cobro con tarjeta en Argentina (Mercado Pago Point, POSnet, tickets de vendedor).
@@ -181,14 +173,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 export async function parseComprobanteImagenGemini(
   file: File
 ): Promise<ComprobanteMedioParsed> {
-  if (!aiClient) {
-    throw new Error('PlotAI no configurado. Agregá VITE_GEMINI_API_KEY en .env')
-  }
   const { mimeType, data } = await fileToBase64(file)
   const prompt = `${SCHEMA}\n\nArchivo: ${file.name}\nTranscribí el comprobante de la imagen.`
 
-  const response = await withTimeout(
-    aiClient.models.generateContent({
+  const text = await withTimeout(
+    callGeminiGenerateContent({
       model: MODEL,
       contents: [
         {
@@ -203,8 +192,6 @@ export async function parseComprobanteImagenGemini(
     45_000,
     'PlotAI tardó demasiado leyendo la foto del comprobante.'
   )
-
-  const text = response.text || ''
   if (!text.trim()) throw new Error('PlotAI no devolvió datos del comprobante.')
   const parsed = comprobanteFromAiJson(parseJson(text), file.name)
   parsed.warnings.push('Leído con PlotAI desde foto.')

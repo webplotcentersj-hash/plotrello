@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import apiService from '../services/api'
-import type { OrdenTrabajo } from '../types/api'
+import type { OrdenSeguimientoPublico } from '../types/api'
 import { SATISFACCION_RATINGS } from '../data/satisfaccionRatings'
 import './FirmaClientePage.css'
 
@@ -10,7 +10,7 @@ const STORAGE_KEY_PREFIX = 'firma_cliente_'
 export default function FirmaClientePage() {
   const { opNumber } = useParams<{ opNumber: string }>()
   const [loading, setLoading] = useState(true)
-  const [orden, setOrden] = useState<OrdenTrabajo | null>(null)
+  const [orden, setOrden] = useState<OrdenSeguimientoPublico | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [firmaDataUrl, setFirmaDataUrl] = useState<string | null>(null)
   const [entregadoA, setEntregadoA] = useState('')
@@ -29,7 +29,7 @@ export default function FirmaClientePage() {
     setLoading(true)
     setError(null)
     try {
-      const response = await apiService.getOrdenByOpNumber(opNumber!)
+      const response = await apiService.getOrdenSeguimientoPublico(opNumber!)
       if (response.success && response.data) {
         setOrden(response.data)
         setEntregadoA(response.data.cliente || '')

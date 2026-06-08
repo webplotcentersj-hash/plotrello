@@ -27,7 +27,8 @@ export default defineConfig({
     })
   ],
   server: {
-    host: true
+    // LAN solo si VITE_DEV_LAN=1 (evita exponer dev en toda la red)
+    host: process.env.VITE_DEV_LAN === '1'
   },
   build: {
     // Agregar hash a los nombres de archivos para evitar cache

@@ -727,10 +727,9 @@ SALIDA:
         const descripcionEspecial =
           `${clienteNombre} solicitó hablar con ${solicitudAtencion.sectorLabel} desde el chat de la web.\n\nMensaje: "${mensajeCorto}"\n\nAbrí esta notificación para ver la conversación y responder.`
 
-        const { data: usuariosRol } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('rol', solicitudAtencion.rol)
+        const { data: usuariosRol } = await supabase.rpc('usuarios_ids_por_roles', {
+          p_roles: [solicitudAtencion.rol]
+        })
 
         if (usuariosRol && usuariosRol.length > 0) {
           for (const u of usuariosRol) {

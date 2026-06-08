@@ -24,29 +24,52 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Cargar usuario desde localStorage
-    const usuarioStr = localStorage.getItem('usuario')
-    if (usuarioStr) {
-      try {
-        const usuarioData = JSON.parse(usuarioStr)
-        setUsuario(usuarioData)
-      } catch (error) {
-        console.error('Error al parsear usuario:', error)
-        localStorage.removeItem('usuario')
-        localStorage.removeItem('auth_token')
+    const load = async () => {
+      const usuarioStr = localStorage.getItem('usuario')
+      const hasToken = Boolean(localStorage.getItem('auth_token'))
+
+      if (usuarioStr && hasToken) {
+        try {
+          const { verifyStaffSession, clearStaffSession } = await import('../services/staffSession')
+          const v = await verifyStaffSession()
+          if (v.ok && v.usuario) {
+            setUsuario(v.usuario as Usuario)
+          } else if (!v.ok) {
+            clearStaffSession()
+          } else {
+            setUsuario(JSON.parse(usuarioStr) as Usuario)
+          }
+        } catch (error) {
+          console.error('Error al validar sesión staff:', error)
+          localStorage.removeItem('usuario')
+          localStorage.removeItem('auth_token')
+        }
+      } else if (usuarioStr) {
+        try {
+          const { isStaffJwtEnabledOnServer, clearStaffSession } = await import('../services/staffSession')
+          const jwtOn = await isStaffJwtEnabledOnServer()
+          if (jwtOn) {
+            // Sesión vieja sin auth_token: forzar re-login cuando JWT está activo
+            clearStaffSession()
+          } else {
+            setUsuario(JSON.parse(usuarioStr) as Usuario)
+          }
+        } catch (error) {
+          console.error('Error al parsear usuario:', error)
+          localStorage.removeItem('usuario')
+        }
+      } else if (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH === '1') {
+        const mockUsuario: Usuario = {
+          id: 1,
+          nombre: 'Usuario Dev',
+          rol: 'administracion'
+        }
+        setUsuario(mockUsuario)
+        console.warn('⚠️ VITE_DEV_MOCK_AUTH=1: usuario mock de administración')
       }
-    } else if (import.meta.env.DEV) {
-      // Modo desarrollo: crear un usuario mock si no hay usuario
-      // Para pruebas, puedes cambiar el rol aquí
-      const mockUsuario: Usuario = {
-        id: 1,
-        nombre: 'Usuario Dev',
-        rol: 'administracion' // Cambia esto para probar diferentes roles
-      }
-      setUsuario(mockUsuario)
-      console.log('⚠️ Modo desarrollo: Usando usuario mock', mockUsuario)
+      setLoading(false)
     }
-    setLoading(false)
+    void load()
   }, [])
 
   const adminRoles: Usuario['rol'][] = ['administracion', 'gerencia']

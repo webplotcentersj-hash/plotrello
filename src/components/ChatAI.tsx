@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
+import { callGeminiGenerateContent } from '../services/geminiApiClient'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { findTaskForActivityEvent } from '../utils/activityTaskResolve'
 import './ChatAI.css'
@@ -34,9 +34,6 @@ const ChatAI = ({ tasks, teamMembers, activity, onClose }: ChatAIProps) => {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
-  const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -127,19 +124,6 @@ const ChatAI = ({ tasks, teamMembers, activity, onClose }: ChatAIProps) => {
 
   const handleSend = async () => {
     if (!input.trim() && attachedFiles.length === 0) return
-    if (!genAI) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: '❌ Error: API key de Gemini no configurada. Por favor, configura VITE_GEMINI_API_KEY en tu archivo .env',
-          timestamp: new Date()
-        }
-      ])
-      return
-    }
-
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -161,9 +145,7 @@ const ChatAI = ({ tasks, teamMembers, activity, onClose }: ChatAIProps) => {
 
     try {
       const systemContext = getSystemContext()
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
 
-      // Construir el contexto del sistema
       const systemPrompt = `Sos PlotAI, el asistente inteligente de toda la plataforma Plotlab (producción, ventas, clientes, compras, RRHH, dashboards, chat y herramientas). Tenés acceso completo al sistema Plotlab.
 
 CONTEXTO DEL SISTEMA:
@@ -206,9 +188,10 @@ ${userMessage.attachments && userMessage.attachments.length > 0 ? `\nARCHIVOS AD
 
 Pregunta del usuario: ${userMessage.content}`
 
-      const result = await model.generateContent(systemPrompt)
-      const response = await result.response
-      const text = response.text()
+      const text = await callGeminiGenerateContent({
+        model: 'gemini-2.5-flash',
+        contents: systemPrompt
+      })
 
       setMessages((prev) => [
         ...prev,

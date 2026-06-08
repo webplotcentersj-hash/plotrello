@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { marked } from 'marked'
+import { sanitizeHtml } from '../utils/sanitizeHtml'
 import {
   Bar,
   BarChart,
@@ -257,7 +258,7 @@ const AtencionSatisfaccionEntregaPanel = ({ active }: Props) => {
         {informeIA && (
           <div
             className="atencion-sat-ia-report"
-            dangerouslySetInnerHTML={{ __html: marked.parse(informeIA) as string }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(informeIA) as string) }}
           />
         )}
       </section>

@@ -1,14 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
+import { getGeminiServerKey } from '../_lib/security'
 
 type Body = {
   prompt?: string
   aspectRatio?: '1:1' | '16:9' | '9:16'
-}
-
-function getEnvKey() {
-  // Prefer server-side secret (NO VITE_ prefix)
-  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -17,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const apiKey = getEnvKey()
+  const apiKey = getGeminiServerKey()
   if (!apiKey) {
     res.status(500).json({ error: 'GEMINI_API_KEY no configurada en el servidor.' })
     return

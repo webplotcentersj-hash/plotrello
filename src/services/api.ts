@@ -30,6 +30,7 @@ import type {
   MaterialRecord,
   Notification,
   OrdenTrabajo,
+  OrdenSeguimientoPublico,
   OrdenLineaM2,
   ImpresoraUsoReportFila,
   OrdenRelevamientoRecord,
@@ -577,6 +578,44 @@ class ApiService {
   }
 
   // ========== ORDENES DE TRABAJO ==========
+
+  /**
+   * Seguimiento público cliente (QR / op-public). Solo campos seguros vía RPC.
+   * Fallback a getOrdenByOpNumber si la RPC aún no está desplegada.
+   */
+  async getOrdenSeguimientoPublico(ref: string): Promise<ApiResponse<OrdenSeguimientoPublico>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    let raw: string
+    try {
+      raw = typeof ref === 'string' ? decodeURIComponent(ref).trim() : String(ref).trim()
+    } catch {
+      raw = String(ref).trim()
+    }
+    if (!raw) return { success: false, error: 'Referencia no válida' }
+
+    const { data, error } = await supabase.rpc('get_orden_seguimiento_publico', { p_ref: raw })
+    if (error) {
+      console.warn('get_orden_seguimiento_publico:', error.message)
+      return { success: false, error: 'No se pudo consultar el estado de la orden' }
+    }
+    if (!data || typeof data !== 'object') {
+      return { success: false, error: 'Orden no encontrada' }
+    }
+    const j = data as Record<string, unknown>
+    return {
+      success: true,
+      data: {
+        id: Number(j.id) || 0,
+        numero_op: String(j.numero_op ?? ''),
+        seguimiento_token: j.seguimiento_token != null ? String(j.seguimiento_token) : null,
+        cliente: String(j.cliente ?? ''),
+        estado: String(j.estado ?? ''),
+        descripcion: j.descripcion != null ? String(j.descripcion) : null,
+        fecha_entrega: j.fecha_entrega != null ? String(j.fecha_entrega) : null
+      }
+    }
+  }
+
   async getOrdenByOpNumber(opNumber: string): Promise<ApiResponse<OrdenTrabajo>> {
     if (supabase) {
       // Normalizar: decode URI, quitar espacios, y opcionalmente quitar prefijo "OP-" (la BD suele tener "1", "2")
@@ -3531,7 +3570,7 @@ class ApiService {
         }
 
         const { data: uRow } = await supabase
-          .from('usuarios')
+          .from('usuarios_publico')
           .select('nombre')
           .eq('id', idUsuario)
           .maybeSingle()
@@ -3933,7 +3972,7 @@ class ApiService {
   async getUsuario(id: number): Promise<ApiResponse<UsuarioRecord>> {
     if (supabase) {
       const { data, error } = await supabase
-        .from('usuarios')
+        .from('usuarios_publico')
         .select('id, nombre, rol')
         .eq('id', id)
         .maybeSingle()
@@ -4062,45 +4101,6 @@ class ApiService {
         lastError = 'La función RPC no retornó datos'
       }
 
-      // Fallback: hash en servidor (igual que crear_usuario / login_usuario). bcryptjs en cliente rompía el login.
-      try {
-        const { data: passwordHash, error: hashErr } = await supabase.rpc('generar_password_hash', {
-          p_password: usuario.password
-        })
-        const hashStr = typeof passwordHash === 'string' ? passwordHash : null
-        if (hashErr || !hashStr) {
-          lastError =
-            hashErr?.message ||
-            lastError ||
-            'No se pudo generar la contraseña en el servidor. Ejecutá el parche SQL generar_password_hash en Supabase.'
-          console.error('❌ generar_password_hash:', hashErr)
-        } else {
-          const { data: insertData, error: insertError } = await supabase
-            .from('usuarios')
-            .insert({
-              nombre: usuario.nombre.trim(),
-              password_hash: hashStr,
-              rol: usuario.rol
-            })
-            .select('id, nombre, rol')
-            .single()
-
-          if (!insertError && insertData) {
-            console.warn('ℹ️ Usuario creado por inserción directa (hash compatible con login).')
-            return { success: true, data: insertData as UsuarioRecord }
-          }
-
-          if (insertError) {
-            lastError = insertError.message || lastError
-            console.error('❌ Inserción directa falló:', insertError)
-          }
-        }
-      } catch (hashError) {
-        lastError =
-          (hashError instanceof Error ? hashError.message : null) ||
-          'No se pudo completar el fallback de creación de usuario'
-        console.error('❌ Error en fallback crear usuario:', hashError)
-      }
     }
 
     // Solo intentar backend legacy si Supabase no está disponible
@@ -6079,9 +6079,56 @@ class ApiService {
   }
 
   // ========== AUTENTICACIÓN ==========
+  private async loginViaStaffApi(
+    usuario: string,
+    password: string
+  ): Promise<ApiResponse<{ usuario: UsuarioRecord; token?: string }> | null> {
+    try {
+      const resp = await fetch('/api/auth/staff-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, password })
+      })
+
+      if (resp.status === 503) return null
+
+      const json = (await resp.json().catch(() => ({}))) as {
+        error?: string
+        token?: string
+        usuario?: UsuarioRecord
+      }
+
+      if (!resp.ok) {
+        return { success: false, error: json.error || 'Usuario o contraseña incorrectos' }
+      }
+
+      if (!json.usuario?.id || !json.token) {
+        return { success: false, error: 'Respuesta de login inválida' }
+      }
+
+      return { success: true, data: { usuario: json.usuario, token: json.token } }
+    } catch {
+      return null
+    }
+  }
+
+  private async finalizeStaffLogin(usuarioDb: UsuarioRecord, token?: string): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
+    await this.ensureUsuarioExists(usuarioDb.id, usuarioDb.nombre, usuarioDb.rol)
+    localStorage.setItem('usuario', JSON.stringify(usuarioDb))
+    localStorage.setItem('usuario_id', usuarioDb.id.toString())
+    if (token) localStorage.setItem('auth_token', token)
+    return { success: true, data: { usuario: usuarioDb } }
+  }
+
   async login(usuario: string, password: string): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
     if (supabase) {
       try {
+        const staffResult = await this.loginViaStaffApi(usuario, password)
+        if (staffResult) {
+          if (!staffResult.success || !staffResult.data) return staffResult
+          return this.finalizeStaffLogin(staffResult.data.usuario, staffResult.data.token)
+        }
+
         const { data, error } = await supabase.rpc('login_usuario', {
           p_usuario: usuario,
           p_password: password
@@ -6092,7 +6139,6 @@ class ApiService {
           return { success: false, error: `Error de autenticación: ${error.message}` }
         }
 
-        // La función puede retornar un array vacío o null si las credenciales son inválidas
         if (!data || (Array.isArray(data) && data.length === 0)) {
           console.warn('Login fallido: credenciales inválidas o usuario no encontrado')
           return { success: false, error: 'Usuario o contraseña incorrectos' }
@@ -6105,18 +6151,12 @@ class ApiService {
           return { success: false, error: 'Error al obtener datos del usuario' }
         }
 
-        // Asegurar que el usuario existe en la tabla usuarios para notificaciones
-        await this.ensureUsuarioExists(usuarioDb.id, usuarioDb.nombre, usuarioDb.rol)
-
-        localStorage.setItem('usuario', JSON.stringify(usuarioDb))
-        localStorage.setItem('usuario_id', usuarioDb.id.toString())
-
-        return { success: true, data: { usuario: usuarioDb } }
+        return this.finalizeStaffLogin(usuarioDb as UsuarioRecord)
       } catch (err) {
         console.error('Excepción en login:', err)
-        return { 
-          success: false, 
-          error: err instanceof Error ? err.message : 'Error inesperado al iniciar sesión' 
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Error inesperado al iniciar sesión'
         }
       }
     }
@@ -6156,6 +6196,13 @@ class ApiService {
 
   async verificarToken() {
     if (supabase) {
+      const token = localStorage.getItem('auth_token')
+      if (token) {
+        const { verifyStaffSession } = await import('./staffSession')
+        const v = await verifyStaffSession()
+        if (!v.ok) return { success: false }
+        if (v.usuario) return { success: true, data: v.usuario }
+      }
       const usuario = localStorage.getItem('usuario')
       return usuario ? { success: true, data: JSON.parse(usuario) } : { success: false }
     }
@@ -7685,10 +7732,9 @@ class ApiService {
       console.log('🔍 Buscando usuarios con rol compras o administracion...')
       
       // Primero intentar con compras y administracion
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nombre, rol')
-        .in('rol', ['compras', 'administracion'])
+      const { data, error } = await supabase.rpc('usuarios_ids_por_roles', {
+        p_roles: ['compras', 'administracion']
+      })
       
       if (error) {
         console.error('❌ Error obteniendo usuarios de compras/admin:', error)
@@ -7697,20 +7743,19 @@ class ApiService {
       }
       
       if (data && data.length > 0) {
-        console.log(`✅ Encontrados ${data.length} usuarios de compras/admin:`, data.map(u => `${u.nombre} (${u.rol})`))
-        return data.map(u => u.id)
+        console.log(`✅ Encontrados ${data.length} usuarios de compras/admin`)
+        return (data as { id: number }[]).map((u) => u.id)
       }
       
       // Si no hay usuarios de compras/admin, intentar con gerencia
       console.warn('⚠️ No se encontraron usuarios con rol compras o administracion, buscando gerencia...')
-      const { data: dataGerencia, error: errorGerencia } = await supabase
-        .from('usuarios')
-        .select('id, nombre, rol')
-        .in('rol', ['gerencia'])
+      const { data: dataGerencia, error: errorGerencia } = await supabase.rpc('usuarios_ids_por_roles', {
+        p_roles: ['gerencia']
+      })
       
       if (!errorGerencia && dataGerencia && dataGerencia.length > 0) {
-        console.log(`✅ Encontrados ${dataGerencia.length} usuarios de gerencia:`, dataGerencia.map(u => `${u.nombre} (${u.rol})`))
-        return dataGerencia.map(u => u.id)
+        console.log(`✅ Encontrados ${dataGerencia.length} usuarios de gerencia`)
+        return (dataGerencia as { id: number }[]).map((u) => u.id)
       }
       
       // Si tampoco hay gerencia, obtener TODOS los usuarios como último recurso
@@ -7728,100 +7773,31 @@ class ApiService {
     if (!supabase) return []
     
     try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nombre, rol')
+      const { data, error } = await supabase.from('usuarios_publico').select('id')
       
       if (error || !data || data.length === 0) {
         console.warn('⚠️ No se encontraron usuarios en la base de datos')
         return []
       }
       
-      console.log(`✅ Encontrados ${data.length} usuarios totales para notificar:`, data.map(u => `${u.nombre} (${u.rol})`))
-      return data.map(u => u.id)
+      console.log(`✅ Encontrados ${data.length} usuarios totales para notificar`)
+      return data.map((u) => u.id)
     } catch (error) {
       console.error('❌ Error obteniendo todos los usuarios:', error)
       return []
     }
   }
 
-  // Helper para asegurar que un usuario existe en la tabla usuarios
+  /** Sincroniza usuario en BD (RPC server-side; sin INSERT directo desde cliente). */
   private async ensureUsuarioExists(id: number, nombre: string, rol: string): Promise<void> {
     if (!supabase) return
-    
     try {
-      // Verificar si el usuario ya existe
-      const { data: existingUser, error: checkError } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('id', id)
-        .single()
-      
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.error('Error verificando usuario:', checkError)
-        return
-      }
-      
-      // Si el usuario no existe, intentar crearlo
-      if (!existingUser) {
-        console.log(`📝 Usuario ${id} (${nombre}) no existe en tabla usuarios, intentando crear...`)
-        
-        // Obtener el password_hash del usuario desde la función de login si es posible
-        // Como no tenemos acceso directo, usamos un hash placeholder que no será usado para login
-        // El usuario ya está autenticado, así que esto es solo para mantener la integridad de la tabla
-        const placeholderHash = '$2a$10$placeholder.hash.for.notification.user.sync'
-        
-        // Intentar insertar el usuario
-        const { error: insertError } = await supabase
-          .from('usuarios')
-          .insert({
-            id: id,
-            nombre: nombre,
-            rol: rol,
-            password_hash: placeholderHash
-          })
-          .select()
-        
-        if (insertError) {
-          // Si falla por constraint de id único, intentar actualizar
-          if (insertError.code === '23505') {
-            console.log(`ℹ️ Usuario ${id} ya existe, actualizando...`)
-            const { error: updateError } = await supabase
-              .from('usuarios')
-              .update({ nombre, rol })
-              .eq('id', id)
-            
-            if (updateError) {
-              console.error('Error actualizando usuario:', updateError)
-            } else {
-              console.log(`✅ Usuario ${id} actualizado en tabla usuarios`)
-            }
-          } else {
-            console.error('Error creando usuario:', insertError)
-            // Si falla por otro motivo, al menos intentar actualizar nombre y rol
-            const { error: updateError } = await supabase
-              .from('usuarios')
-              .update({ nombre, rol })
-              .eq('id', id)
-            
-            if (!updateError) {
-              console.log(`✅ Usuario ${id} actualizado como fallback`)
-            }
-          }
-        } else {
-          console.log(`✅ Usuario ${id} creado en tabla usuarios`)
-        }
-      } else {
-        // Si el usuario existe, asegurarse de que nombre y rol estén actualizados
-        const { error: updateError } = await supabase
-          .from('usuarios')
-          .update({ nombre, rol })
-          .eq('id', id)
-        
-        if (!updateError) {
-          console.log(`✅ Usuario ${id} sincronizado en tabla usuarios`)
-        }
-      }
+      const { error } = await supabase.rpc('sync_usuario_notificacion', {
+        p_id: id,
+        p_nombre: nombre,
+        p_rol: rol
+      })
+      if (error) console.error('sync_usuario_notificacion:', error)
     } catch (error) {
       console.error('Excepción en ensureUsuarioExists:', error)
     }
@@ -7934,7 +7910,7 @@ class ApiService {
       let idSolicitanteFinal: number | null = null
       if (pedido.id_solicitante && pedido.id_solicitante > 0) {
         const { data: usuarioExiste, error: errorUsuario } = await supabase
-          .from('usuarios')
+          .from('usuarios_publico')
           .select('id')
           .eq('id', pedido.id_solicitante)
           .single()
@@ -8568,10 +8544,9 @@ class ApiService {
       }
 
       // Crear notificación para usuarios de compras y admin
-      const { data: usuariosCompras } = await supabase
-        .from('usuarios')
-        .select('id')
-        .in('rol', ['compras', 'administracion', 'gerencia'])
+      const { data: usuariosCompras } = await supabase.rpc('usuarios_ids_por_roles', {
+        p_roles: ['compras', 'administracion', 'gerencia']
+      })
 
       if (usuariosCompras) {
         for (const usuario of usuariosCompras) {
@@ -8611,10 +8586,9 @@ class ApiService {
       }
 
       // Crear notificación para usuarios de compras y admin
-      const { data: usuariosCompras } = await supabase
-        .from('usuarios')
-        .select('id')
-        .in('rol', ['compras', 'administracion', 'gerencia'])
+      const { data: usuariosCompras } = await supabase.rpc('usuarios_ids_por_roles', {
+        p_roles: ['compras', 'administracion', 'gerencia']
+      })
 
       if (usuariosCompras) {
         for (const usuario of usuariosCompras) {
@@ -18265,13 +18239,14 @@ class ApiService {
     if (supabase) {
       try {
         // Obtener configuración AFIP
-        const { data: configAFIP } = await supabase
-          .from('configuracion_afip')
-          .select('*')
-          .eq('activo', true)
-          .single()
+        const { data: configAFIP, error: errAfip } = await supabase.rpc(
+          'get_configuracion_afip_facturacion'
+        )
 
-        if (!configAFIP) {
+        if (errAfip) {
+          return { success: false, error: errAfip.message }
+        }
+        if (!configAFIP || typeof configAFIP !== 'object') {
           return { success: false, error: 'No hay configuración AFIP activa' }
         }
 
@@ -19338,16 +19313,18 @@ class ApiService {
   async getConfiguracionAFIP(): Promise<ApiResponse<import('../types/api').ConfiguracionAFIPRecord>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase
-          .from('configuracion_afip')
-          .select('*')
-          .eq('activo', true)
-          .single()
+        const { data, error } = await supabase.rpc('get_configuracion_afip_resumen')
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
           return { success: false, error: error.message }
         }
-        return { success: true, data: data ? (data as import('../types/api').ConfiguracionAFIPRecord) : undefined }
+        if (!data || typeof data !== 'object') {
+          return { success: true, data: undefined }
+        }
+        return {
+          success: true,
+          data: data as import('../types/api').ConfiguracionAFIPRecord
+        }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
@@ -19360,37 +19337,22 @@ class ApiService {
   ): Promise<ApiResponse<import('../types/api').ConfiguracionAFIPRecord>> {
     if (supabase) {
       try {
-        // Obtener configuración actual
-        const { data: configActual } = await supabase
-          .from('configuracion_afip')
-          .select('id')
-          .eq('activo', true)
-          .single()
+        const { certificado_afip: _c, clave_certificado: _k, token_afip: _t, sign_afip: _s, ...safe } =
+          updates as Record<string, unknown>
+        void _c
+        void _k
+        void _t
+        void _s
 
-        if (configActual) {
-          // Actualizar existente
-          const { data, error } = await supabase
-            .from('configuracion_afip')
-            .update({ ...updates, updated_at: new Date().toISOString() })
-            .eq('id', configActual.id)
-            .select()
-            .single()
+        const { data, error } = await supabase.rpc('guardar_configuracion_afip', {
+          p_payload: safe
+        })
 
-          if (error) return { success: false, error: error.message }
-          return { success: true, data: data as import('../types/api').ConfiguracionAFIPRecord }
-        } else {
-          // Crear nueva
-          const { data, error } = await supabase
-            .from('configuracion_afip')
-            .insert({
-              ...updates,
-              activo: true
-            })
-            .select()
-            .single()
-
-          if (error) return { success: false, error: error.message }
-          return { success: true, data: data as import('../types/api').ConfiguracionAFIPRecord }
+        if (error) return { success: false, error: error.message }
+        if (!data) return { success: false, error: 'No se recibió configuración guardada' }
+        return {
+          success: true,
+          data: data as import('../types/api').ConfiguracionAFIPRecord
         }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }

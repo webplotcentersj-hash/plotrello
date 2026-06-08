@@ -99,7 +99,7 @@ export default function CajaPlotAI({ isAdmin, usuarioNombre, usuarioId }: Props)
         ...prev,
         {
           role: 'assistant',
-          text: e instanceof Error ? e.message : 'No pude responder. Revisá VITE_GEMINI_API_KEY.'
+          text: e instanceof Error ? e.message : 'No pude responder. Revisá GEMINI_API_KEY en Vercel.'
         }
       ])
     } finally {
