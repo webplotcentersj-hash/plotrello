@@ -72,6 +72,20 @@
   padding: 32px;
 }
 
+.ver-legajo-modal-content--wide {
+  max-width: 980px;
+}
+
+.ver-legajo-linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #60a5fa;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
 .ver-legajo-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -401,7 +415,9 @@
 /* Botones */
 .ver-legajo-modal-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   padding-top: 24px;
   margin-top: 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -431,6 +447,17 @@
 
 .ver-legajo-btn-primary:active {
   transform: translateY(0);
+}
+
+.ver-legajo-btn-danger {
+  background: rgba(220, 38, 38, 0.18);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #fca5a5;
+}
+
+.ver-legajo-btn-danger:hover {
+  background: rgba(220, 38, 38, 0.32);
+  color: #fecaca;
 }
 
 /* Responsive */

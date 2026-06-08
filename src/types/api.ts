@@ -272,6 +272,44 @@ export interface UsuarioRecord {
   rol: UserRole
 }
 
+/** Adjunto de documentación de baja laboral (bucket archivos / rrhh-bajas/). */
+export interface RrhhBajaAdjunto {
+  url: string
+  nombre: string
+  mime: string
+}
+
+/** Evento formal de hoja de vida laboral (cambio de puesto, reconocimiento, sanción). */
+export type RrhhEventoLaboralTipo = 'cambio_puesto' | 'reconocimiento' | 'sancion'
+
+export interface RrhhEventoLaboral {
+  id: number
+  id_usuario: number
+  tipo: RrhhEventoLaboralTipo
+  fecha: string
+  titulo: string
+  descripcion: string | null
+  sector_anterior: string | null
+  sector_nuevo: string | null
+  registrado_por: number | null
+  created_at: string
+}
+
+/** Registro formal de baja laboral (auditoría RRHH, historial preservado). */
+export interface UsuarioBajaLog {
+  id: number
+  id_usuario: number
+  nombre_snapshot: string
+  motivo: string
+  registrado_por: number | null
+  created_at: string
+  fecha_desvinculacion: string | null
+  tipo_desvinculacion: string | null
+  observaciones_finales: string | null
+  adjuntos: RrhhBajaAdjunto[]
+  rol_snapshot: string | null
+}
+
 export interface ProtocoloBaseRecord {
   id: string
   titulo: string
@@ -289,6 +327,24 @@ export interface ProtocoloBaseRecord {
 
 /** Pregunta de prueba de conocimiento (RRHH) */
 export type PruebaPreguntaTipo = 'multiple_choice' | 'desarrollo' | 'verdadero_falso'
+
+/** Asignación de prueba de conocimiento para un colaborador (legajo / mis pruebas). */
+export interface PruebaAsignacionColaborador {
+  id_asignacion: string
+  id_prueba: string
+  titulo: string
+  descripcion?: string | null
+  tiempo_total_segundos?: number | null
+  porcentaje_aprobacion?: number | null
+  estado: string
+  iniciado_at?: string | null
+  finalizado_at?: string | null
+  tiempo_limite_fin?: string | null
+  puntaje_obtenido?: number | null
+  puntaje_maximo?: number | null
+  aprobado?: boolean | null
+  calificacion_pendiente?: boolean
+}
 
 export interface PruebaPreguntaInput {
   orden: number
@@ -1218,6 +1274,8 @@ export type RrhhNovedadGrupo =
   | 'licencia'
   | 'horas_extra'
   | 'beneficio_comida'
+  | 'parte_diario'
+  | 'anticipacion_sueldo'
 
 /** Código cerrado para filtros exactos. */
 export type RrhhNovedadCodigo =
@@ -1235,6 +1293,8 @@ export type RrhhNovedadCodigo =
   | 'licencia_otro'
   | 'horas_extra_50'
   | 'horas_extra_100'
+  | 'parte_diario'
+  | 'anticipacion_sueldo'
 
 export interface RrhhNovedadAdjunto {
   url: string
@@ -1255,6 +1315,8 @@ export interface RrhhNovedad {
   observaciones: string | null
   adjuntos: RrhhNovedadAdjunto[]
   registrado_por: number | null
+  firma_data_url: string | null
+  firmado_at: string | null
   created_at: string
   updated_at: string
 }

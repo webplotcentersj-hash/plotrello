@@ -1,33 +1,46 @@
 import { useMemo, useState, useEffect } from 'react'
+import { addMonths, format } from 'date-fns'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type {
   Capacitacion,
   Evaluacion,
   HistorialMovimiento,
   LegajoEmpleado,
+  PruebaAsignacionColaborador,
+  RrhhEventoLaboral,
   RrhhNovedad,
   SolicitudPermiso,
+  UsuarioBajaLog,
   UsuarioRecord
 } from '../types/api'
 import RrhhNovedadDetailModal from './RrhhNovedadDetailModal'
-import {
-  RRHH_NOVEDAD_GRUPOS,
-  etiquetaCodigoRrhhNovedad
-} from '../utils/rrhhNovedadCatalog'
 import type { PedidoCompra } from '../types/pedidos'
 import { isoToArgentinaDateKey } from '../utils/dateUtils'
 import { jsPDF } from 'jspdf'
+import LegajoTimeline from './LegajoTimeline'
+import LegajoCapacitacionesPanel from './LegajoCapacitacionesPanel'
+import LegajoPruebasPanel from './LegajoPruebasPanel'
+import LegajoNovedadesPanel from './LegajoNovedadesPanel'
+import { construirHojaVidaLaboral, type HojaVidaEvento } from '../utils/hojaVidaLaboral'
+import {
+  calcularBenchmarkSectorColaborador,
+  type BenchmarkSectorColaborador,
+  type LegajoSectorBasico
+} from '../utils/rrhhNovedadesSectorStats'
 import './VerLegajoModal.css'
 
 type VerLegajoModalProps = {
   usuario: UsuarioRecord
   isOpen: boolean
   onClose: () => void
+  onDarDeBaja?: () => void
 }
 
 type LegajoTabId =
   | 'legajo'
+  | 'hoja_vida'
   | 'movimientos'
   | 'capacitaciones'
   | 'pruebas'
@@ -44,30 +57,16 @@ type PruebaRow = {
   created_at?: string
 }
 
-type ResultadoAsignacion = {
-  id_asignacion: string
-  id_usuario?: number
-  nombre_usuario?: string
-  estado?: string
-  iniciado_at?: string | null
-  finalizado_at?: string | null
-  puntaje_obtenido?: number | null
-  puntaje_maximo?: number | null
-  aprobado?: boolean | null
-  calificacion_pendiente?: boolean
-}
-
 type ResultadoPayload = {
-  prueba: {
-    id?: string
-    titulo?: string
-    descripcion?: string | null
-    porcentaje_aprobacion?: number
-  }
-  asignaciones: ResultadoAsignacion[]
+  prueba: { id?: string; titulo?: string; descripcion?: string | null; porcentaje_aprobacion?: number }
+  asignaciones: { id_usuario?: number; aprobado?: boolean | null; puntaje_obtenido?: number | null; puntaje_maximo?: number | null; estado?: string }[]
 }
 
-const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
+const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModalProps) => {
+  const { usuario: authUsuario, canManageRecursosHumanos } = useAuth()
+  const puedeGestionarHojaVida =
+    !!authUsuario && (canManageRecursosHumanos || authUsuario.rol === 'gerencia')
+
   const [loading, setLoading] = useState(false)
   const [legajo, setLegajo] = useState<LegajoEmpleado | null>(null)
   const [tab, setTab] = useState<LegajoTabId>('legajo')
@@ -96,21 +95,29 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
 
   const [prueLoading, setPrueLoading] = useState(false)
   const [prueError, setPrueError] = useState<string | null>(null)
-  const [pruebas, setPruebas] = useState<PruebaRow[]>([])
-  const [pruebaResultadoLoadingById, setPruebaResultadoLoadingById] = useState<Record<string, boolean>>({})
-  const [pruebaResultadoById, setPruebaResultadoById] = useState<Record<string, ResultadoPayload | null>>({})
+  const [pruebas, setPruebas] = useState<PruebaAsignacionColaborador[]>([])
 
   const [novLoading, setNovLoading] = useState(false)
   const [novError, setNovError] = useState<string | null>(null)
   const [novedadesRRHH, setNovedadesRRHH] = useState<RrhhNovedad[]>([])
   const [novedadDetail, setNovedadDetail] = useState<RrhhNovedad | null>(null)
+  const [novBenchmark, setNovBenchmark] = useState<BenchmarkSectorColaborador | null>(null)
+
+  const [hvLoading, setHvLoading] = useState(false)
+  const [hvError, setHvError] = useState<string | null>(null)
+  const [hojaVidaEventos, setHojaVidaEventos] = useState<HojaVidaEvento[]>([])
+  const [hvLoaded, setHvLoaded] = useState(false)
 
   useEffect(() => {
     if (isOpen && usuario.id) {
       setTab('legajo')
       setNovedadesRRHH([])
       setNovedadDetail(null)
+      setNovBenchmark(null)
       setNovError(null)
+      setHvLoaded(false)
+      setHojaVidaEventos([])
+      setHvError(null)
       loadLegajo()
     }
   }, [isOpen, usuario.id])
@@ -147,9 +154,9 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
     try {
       const r = await apiService.getHistorialMovimientos({ usuarioId: usuario.id, limit: 200 })
       if (r.success && r.data) setMovimientos(r.data)
-      else setMovError(r.error || 'No se pudieron cargar los movimientos')
+      else setMovError(r.error || 'No se pudo cargar la actividad operativa')
     } catch (e) {
-      setMovError(e instanceof Error ? e.message : 'Error al cargar movimientos')
+      setMovError(e instanceof Error ? e.message : 'Error al cargar actividad operativa')
     } finally {
       setMovLoading(false)
     }
@@ -211,13 +218,81 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
     }
   }
 
+  const loadHojaVida = async () => {
+    setHvLoading(true)
+    setHvError(null)
+    try {
+      const [capR, evalR, permR, novR, evR, bajasR] = await Promise.all([
+        apiService.obtenerCapacitacionesUsuario(usuario.id, null),
+        apiService.obtenerEvaluaciones(usuario.id, null, null, null, null, null),
+        apiService.obtenerSolicitudesPermisos(usuario.id, null, null, null, null),
+        apiService.rrhhNovedadesListar({ idUsuario: usuario.id }),
+        apiService.rrhhEventosLaboralesListar(usuario.id),
+        apiService.getUsuariosBajasLog()
+      ])
+
+      const baja: UsuarioBajaLog | null =
+        bajasR.success && bajasR.data
+          ? bajasR.data.find((b) => b.id_usuario === usuario.id) ?? null
+          : null
+
+      const eventosLaborales: RrhhEventoLaboral[] =
+        evR.success && evR.data ? evR.data : []
+
+      if (!capR.success && !evalR.success && !novR.success && !evR.success) {
+        setHvError('No se pudo cargar la hoja de vida laboral')
+      }
+
+      setHojaVidaEventos(
+        construirHojaVidaLaboral({
+          legajo,
+          usuario,
+          capacitaciones: capR.success && capR.data ? capR.data : [],
+          evaluaciones: evalR.success && evalR.data ? evalR.data : [],
+          permisos: permR.success && permR.data ? permR.data : [],
+          novedades: novR.success && novR.data ? novR.data : [],
+          eventosLaborales,
+          baja
+        })
+      )
+      setHvLoaded(true)
+    } catch (e) {
+      setHvError(e instanceof Error ? e.message : 'Error al cargar hoja de vida')
+    } finally {
+      setHvLoading(false)
+    }
+  }
+
   const loadNovedadesRRHH = async () => {
     setNovLoading(true)
     setNovError(null)
     try {
-      const r = await apiService.rrhhNovedadesListar({ idUsuario: usuario.id })
+      const desde12m = format(addMonths(new Date(), -11), 'yyyy-MM-dd')
+      const [r, orgRes, legajosRes, usuariosRes] = await Promise.all([
+        apiService.rrhhNovedadesListar({ idUsuario: usuario.id }),
+        apiService.rrhhNovedadesListar({ fechaDesde: desde12m }),
+        apiService.obtenerLegajosBasico(),
+        apiService.getUsuarios()
+      ])
       if (r.success && r.data) setNovedadesRRHH(r.data)
       else setNovError(r.error || 'No se pudieron cargar las novedades laborales')
+
+      if (orgRes.success && orgRes.data && legajosRes.success && legajosRes.data && usuariosRes.success && usuariosRes.data) {
+        const legajosMap: Record<number, LegajoSectorBasico> = {}
+        for (const [id, row] of Object.entries(legajosRes.data)) {
+          legajosMap[Number(id)] = { sector: row.sector }
+        }
+        setNovBenchmark(
+          calcularBenchmarkSectorColaborador(
+            orgRes.data,
+            usuario.id,
+            legajosMap,
+            usuariosRes.data
+          )
+        )
+      } else {
+        setNovBenchmark(null)
+      }
     } catch (e) {
       setNovError(e instanceof Error ? e.message : 'Error al cargar novedades')
     } finally {
@@ -229,32 +304,24 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
     setPrueLoading(true)
     setPrueError(null)
     try {
-      const r = await apiService.rrhhPruebasListar()
-      if (!r.success) {
-        setPrueError(r.error || 'No se pudieron cargar las pruebas')
+      const [pruebasRes, capRes] = await Promise.all([
+        apiService.obtenerPruebasColaborador(usuario.id),
+        capacitaciones.length === 0
+          ? apiService.obtenerCapacitacionesUsuario(usuario.id, null)
+          : Promise.resolve({ success: true as const, data: capacitaciones })
+      ])
+      if (!pruebasRes.success) {
+        setPrueError(pruebasRes.error || 'No se pudieron cargar las evaluaciones')
         return
       }
-      const list = Array.isArray(r.data) ? (r.data as PruebaRow[]) : []
-      setPruebas(list)
+      setPruebas(pruebasRes.data ?? [])
+      if (capRes.success && capRes.data && capacitaciones.length === 0) {
+        setCapacitaciones(capRes.data)
+      }
     } catch (e) {
-      setPrueError(e instanceof Error ? e.message : 'Error al cargar pruebas')
+      setPrueError(e instanceof Error ? e.message : 'Error al cargar evaluaciones')
     } finally {
       setPrueLoading(false)
-    }
-  }
-
-  const loadResultadoPrueba = async (idPrueba: string) => {
-    setPruebaResultadoLoadingById((prev) => ({ ...prev, [idPrueba]: true }))
-    try {
-      const r = await apiService.rrhhPruebaResultados(idPrueba)
-      if (!r.success) {
-        setPruebaResultadoById((prev) => ({ ...prev, [idPrueba]: null }))
-        return
-      }
-      const data = (r.data ?? null) as ResultadoPayload | null
-      setPruebaResultadoById((prev) => ({ ...prev, [idPrueba]: data }))
-    } finally {
-      setPruebaResultadoLoadingById((prev) => ({ ...prev, [idPrueba]: false }))
     }
   }
 
@@ -354,7 +421,10 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
       kv('Funciones', legajo.funciones || '—')
 
       section('Resumen de actividad')
-      kv('Movimientos (últimos 200)', movimientosCount == null ? 'No disponible' : String(movimientosCount))
+      kv(
+        'Actividad operativa (últimos 200)',
+        movimientosCount == null ? 'No disponible' : String(movimientosCount)
+      )
       kv('Capacitaciones (asociadas)', capacitacionesCount == null ? 'No disponible' : String(capacitacionesCount))
       kv('Pedidos (Compras)', pedidosCount == null ? 'No disponible' : String(pedidosCount))
       kv('Permisos solicitados', permisosCount == null ? 'No disponible' : String(permisosCount))
@@ -417,13 +487,14 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
 
   const tabs: Array<{ id: LegajoTabId; label: string }> = [
     { id: 'legajo', label: '📋 Legajo' },
-    { id: 'movimientos', label: '📈 Movimientos' },
-    { id: 'capacitaciones', label: '🎓 Capacitaciones' },
-    { id: 'pruebas', label: '📝 Pruebas' },
+    { id: 'hoja_vida', label: '📅 Hoja de vida' },
+    { id: 'movimientos', label: '📈 Actividad operativa' },
+    { id: 'capacitaciones', label: '🎓 Formación' },
+    { id: 'pruebas', label: '📝 Evaluaciones' },
     { id: 'pedidos', label: '🧾 Pedidos' },
     { id: 'permisos', label: '🗓️ Permisos' },
     { id: 'evaluaciones', label: '⭐ Evaluaciones' },
-    { id: 'novedades', label: '📌 Novedades' }
+    { id: 'novedades', label: '📌 Novedades RRHH' }
   ]
 
   return (
@@ -436,7 +507,10 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="ver-legajo-modal-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`ver-legajo-modal-content${tab === 'hoja_vida' || tab === 'pruebas' || tab === 'capacitaciones' || tab === 'novedades' ? ' ver-legajo-modal-content--wide' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="ver-legajo-modal-header">
           <h2>📋 Legajo de Empleado</h2>
           <button className="ver-legajo-close-btn" onClick={onClose}>
@@ -448,13 +522,6 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
           <div className="ver-legajo-loading">
             <div className="spinner"></div>
             <p>Cargando legajo...</p>
-          </div>
-        ) : !legajo ? (
-          <div className="ver-legajo-empty">
-            <p>⚠️ No se encontró información del legajo para este empleado.</p>
-            <p className="ver-legajo-empty-hint">
-              El legajo aún no ha sido creado. Contacta a Recursos Humanos para completar la información.
-            </p>
           </div>
         ) : (
           <div className="ver-legajo-body">
@@ -474,6 +541,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
                     if (t.id === 'pedidos' && pedidos.length === 0 && !pedLoading) void loadPedidos()
                     if (t.id === 'pruebas' && pruebas.length === 0 && !prueLoading) void loadPruebas()
                     if (t.id === 'novedades' && novedadesRRHH.length === 0 && !novLoading) void loadNovedadesRRHH()
+                    if (t.id === 'hoja_vida' && !hvLoaded && !hvLoading) void loadHojaVida()
                   }}
                 >
                   {t.label}
@@ -509,22 +577,52 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
               </div>
             )}
 
+            {tab === 'hoja_vida' && (
+              <div className="ver-legajo-section">
+                <h3 className="ver-legajo-section-title">📅 Hoja de vida laboral</h3>
+                <LegajoTimeline
+                  eventos={hojaVidaEventos}
+                  loading={hvLoading}
+                  error={hvError}
+                  idUsuario={usuario.id}
+                  puedeGestionar={puedeGestionarHojaVida}
+                  registradoPorId={authUsuario?.id}
+                  onRefresh={() => {
+                    setHvLoaded(false)
+                    void loadHojaVida()
+                  }}
+                />
+              </div>
+            )}
+
             {tab === 'movimientos' && (
               <div className="ver-legajo-section">
-                <h3 className="ver-legajo-section-title">📈 Movimientos en la app</h3>
+                <h3 className="ver-legajo-section-title">📈 Actividad operativa</h3>
+                <p className="ver-legajo-hint">
+                  Historial de producción en Plot Lab: cambios de estado, etapas y avances en órdenes de
+                  trabajo. Complementa la{' '}
+                  <button type="button" className="ver-legajo-linklike" onClick={() => setTab('hoja_vida')}>
+                    hoja de vida
+                  </button>{' '}
+                  (gestión RRHH), sin reemplazarla.
+                </p>
                 {movError && <div className="ver-legajo-alert ver-legajo-alert--error">⚠️ {movError}</div>}
                 {movLoading ? (
-                  <div className="ver-legajo-subloading">Cargando movimientos…</div>
+                  <div className="ver-legajo-subloading">Cargando actividad operativa…</div>
+                ) : movimientos.length === 0 ? (
+                  <div className="ver-legajo-empty-small">
+                    Sin registros de actividad operativa para este colaborador.
+                  </div>
                 ) : (
                   <>
                     <div className="ver-legajo-stats-row">
                       <div className="ver-legajo-stat">
                         <div className="ver-legajo-stat-value">{movimientos.length}</div>
-                        <div className="ver-legajo-stat-label">Eventos (últimos 200)</div>
+                        <div className="ver-legajo-stat-label">Registros (últimos 200)</div>
                       </div>
                       <div className="ver-legajo-stat">
                         <div className="ver-legajo-stat-value">{movimientoStats.length}</div>
-                        <div className="ver-legajo-stat-label">Tipos distintos</div>
+                        <div className="ver-legajo-stat-label">Tipos de acción</div>
                       </div>
                     </div>
                     {movimientoStats.length > 0 && (
@@ -541,18 +639,26 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
                         <thead>
                           <tr>
                             <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Comentario</th>
+                            <th>Acción</th>
+                            <th>Estado</th>
+                            <th>Detalle</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {movimientos.map((m) => (
-                            <tr key={m.id}>
-                              <td>{formatDate(m.timestamp)}</td>
-                              <td>{m.accion_tipo || '—'}</td>
-                              <td>{m.comentario || '—'}</td>
-                            </tr>
-                          ))}
+                          {movimientos.map((m) => {
+                            const transicion =
+                              m.estado_anterior || m.estado_nuevo
+                                ? [m.estado_anterior, m.estado_nuevo].filter(Boolean).join(' → ')
+                                : '—'
+                            return (
+                              <tr key={m.id}>
+                                <td>{formatDate(m.timestamp)}</td>
+                                <td>{m.accion_tipo || '—'}</td>
+                                <td>{transicion}</td>
+                                <td>{m.comentario || '—'}</td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -563,107 +669,40 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
 
             {tab === 'capacitaciones' && (
               <div className="ver-legajo-section">
-                <h3 className="ver-legajo-section-title">🎓 Capacitaciones</h3>
+                <h3 className="ver-legajo-section-title">🎓 Capacitaciones y competencias</h3>
+                <p className="ver-legajo-hint">
+                  Seguimiento del plan de formación, horas acumuladas y competencias vinculadas al perfil de
+                  puesto del colaborador.
+                </p>
                 {capError && <div className="ver-legajo-alert ver-legajo-alert--error">⚠️ {capError}</div>}
                 {capLoading ? (
                   <div className="ver-legajo-subloading">Cargando capacitaciones…</div>
-                ) : capacitaciones.length === 0 ? (
-                  <div className="ver-legajo-empty-small">No hay capacitaciones asociadas.</div>
                 ) : (
-                  <div className="ver-legajo-table-wrap">
-                    <table className="ver-legajo-table">
-                      <thead>
-                        <tr>
-                          <th>Título</th>
-                          <th>Estado</th>
-                          <th>Inscripción</th>
-                          <th>Asistió</th>
-                          <th>Calificación</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {capacitaciones.map((c) => (
-                          <tr key={c.id}>
-                            <td>{c.titulo}</td>
-                            <td>{c.estado}</td>
-                            <td>{c.estado_inscripcion ?? '—'}</td>
-                            <td>{c.asistio === true ? 'Sí' : c.asistio === false ? 'No' : '—'}</td>
-                            <td>{c.calificacion != null ? String(c.calificacion) : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <LegajoCapacitacionesPanel
+                    capacitaciones={capacitaciones}
+                    sectorLegajo={legajo?.sector}
+                    rolUsuario={usuario.rol}
+                    formatDate={formatDate}
+                  />
                 )}
               </div>
             )}
 
             {tab === 'pruebas' && (
               <div className="ver-legajo-section">
-                <h3 className="ver-legajo-section-title">📝 Pruebas de conocimiento</h3>
-                <p className="ver-legajo-hint">Seleccioná una prueba para ver el resultado del usuario.</p>
+                <h3 className="ver-legajo-section-title">📝 Evaluaciones de conocimiento</h3>
+                <p className="ver-legajo-hint">
+                  Indicadores de aprendizaje, evolución por temática y vínculo con capacitaciones cursadas.
+                </p>
                 {prueError && <div className="ver-legajo-alert ver-legajo-alert--error">⚠️ {prueError}</div>}
                 {prueLoading ? (
-                  <div className="ver-legajo-subloading">Cargando pruebas…</div>
-                ) : pruebas.length === 0 ? (
-                  <div className="ver-legajo-empty-small">No hay pruebas disponibles.</div>
+                  <div className="ver-legajo-subloading">Cargando evaluaciones…</div>
                 ) : (
-                  <div className="ver-legajo-table-wrap">
-                    <table className="ver-legajo-table">
-                      <thead>
-                        <tr>
-                          <th>Prueba</th>
-                          <th>% aprobación</th>
-                          <th>Acción</th>
-                          <th>Resultado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pruebas.map((p) => {
-                          const isLoading = Boolean(pruebaResultadoLoadingById[p.id])
-                          const payload = pruebaResultadoById[p.id]
-                          const asig = payload?.asignaciones?.find((a) => a.id_usuario === usuario.id) ?? null
-                          return (
-                            <tr key={p.id}>
-                              <td>{p.titulo}</td>
-                              <td>{p.porcentaje_aprobacion != null ? `${p.porcentaje_aprobacion}%` : '—'}</td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="ver-legajo-btn-inline"
-                                  onClick={() => void loadResultadoPrueba(p.id)}
-                                  disabled={isLoading}
-                                >
-                                  {isLoading ? 'Cargando…' : 'Ver resultado'}
-                                </button>
-                              </td>
-                              <td>
-                                {!payload ? (
-                                  <span className="ver-legajo-muted">—</span>
-                                ) : !asig ? (
-                                  <span className="ver-legajo-muted">Sin asignación</span>
-                                ) : (
-                                  <div className="ver-legajo-inline-result">
-                                    <span className="ver-legajo-badge">{asig.estado ?? '—'}</span>
-                                    <span className="ver-legajo-muted">
-                                      Puntaje: {asig.puntaje_obtenido ?? '—'} / {asig.puntaje_maximo ?? '—'}
-                                    </span>
-                                    {asig.aprobado === true ? (
-                                      <span className="ver-legajo-badge ver-legajo-badge--ok">Aprobado</span>
-                                    ) : asig.aprobado === false ? (
-                                      <span className="ver-legajo-badge ver-legajo-badge--no">No aprobado</span>
-                                    ) : (
-                                      <span className="ver-legajo-muted">Pendiente</span>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <LegajoPruebasPanel
+                    pruebas={pruebas}
+                    capacitaciones={capacitaciones}
+                    formatDate={formatDate}
+                  />
                 )}
               </div>
             )}
@@ -779,7 +818,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
               <div className="ver-legajo-section">
                 <h3 className="ver-legajo-section-title">📌 Novedades laborales</h3>
                 <p className="ver-legajo-hint">
-                  Faltas, licencias, tardanzas y horas extra registradas en Plotrello.{' '}
+                  Clasificación, indicadores y alertas de ausentismo, tardanzas, licencias y sanciones.{' '}
                   <Link to="/rrhh/novedades" className="ver-legajo-link" onClick={onClose}>
                     Abrir módulo completo
                   </Link>
@@ -787,49 +826,34 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
                 {novError && <div className="ver-legajo-alert ver-legajo-alert--error">⚠️ {novError}</div>}
                 {novLoading ? (
                   <div className="ver-legajo-subloading">Cargando novedades…</div>
-                ) : novedadesRRHH.length === 0 ? (
-                  <div className="ver-legajo-empty-small">No hay novedades registradas para este empleado.</div>
                 ) : (
-                  <div className="ver-legajo-table-wrap">
-                    <table className="ver-legajo-table ver-legajo-table--clickable">
-                      <thead>
-                        <tr>
-                          <th>Fechas</th>
-                          <th>Grupo</th>
-                          <th>Categoría</th>
-                          <th>Detalle</th>
-                          <th>Adj.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {novedadesRRHH.map((n) => (
-                          <tr key={n.id} onClick={() => setNovedadDetail(n)}>
-                            <td>
-                              {n.fecha_desde}
-                              {n.fecha_hasta !== n.fecha_desde ? ` → ${n.fecha_hasta}` : ''}
-                            </td>
-                            <td>{RRHH_NOVEDAD_GRUPOS.find((g) => g.value === n.grupo)?.label ?? n.grupo}</td>
-                            <td>{etiquetaCodigoRrhhNovedad(n.codigo)}</td>
-                            <td className="ver-legajo-cell-ellipsis">
-                              {n.grupo === 'tardanza_retiro' && n.duracion_minutos != null
-                                ? `${n.duracion_minutos} min · `
-                                : ''}
-                              {n.grupo === 'horas_extra' && n.horas_extra_cantidad != null
-                                ? `${n.horas_extra_cantidad} h · `
-                                : ''}
-                              {n.observaciones ?? '—'}
-                            </td>
-                            <td>{(n.adjuntos?.length ?? 0) || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <LegajoNovedadesPanel
+                    novedades={novedadesRRHH}
+                    onSelectNovedad={setNovedadDetail}
+                    benchmarkSector={novBenchmark}
+                  />
                 )}
               </div>
             )}
 
-            {tab === 'legajo' && (
+            {tab === 'legajo' && !legajo ? (
+              <div className="ver-legajo-empty">
+                <p>⚠️ No se encontró información del legajo para este empleado.</p>
+                <p className="ver-legajo-empty-hint">
+                  El legajo aún no ha sido creado. Podés consultar la{' '}
+                  <button
+                    type="button"
+                    className="ver-legajo-linklike"
+                    onClick={() => setTab('hoja_vida')}
+                  >
+                    hoja de vida
+                  </button>{' '}
+                  con los datos disponibles del sistema.
+                </p>
+              </div>
+            ) : null}
+
+            {tab === 'legajo' && legajo ? (
               <>
             {/* Foto del empleado */}
             {legajo.foto_url && (
@@ -995,10 +1019,17 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
               </div>
             </div>
               </>
-            )}
+            ) : null}
 
             {/* Botón de cerrar */}
             <div className="ver-legajo-modal-actions">
+              {onDarDeBaja ? (
+                <button type="button" className="ver-legajo-btn ver-legajo-btn-danger" onClick={onDarDeBaja}>
+                  Dar de Baja
+                </button>
+              ) : (
+                <span />
+              )}
               <button className="ver-legajo-btn ver-legajo-btn-primary" onClick={onClose}>
                 Cerrar
               </button>
@@ -1009,6 +1040,12 @@ const VerLegajoModal = ({ usuario, isOpen, onClose }: VerLegajoModalProps) => {
                 novedad={novedadDetail}
                 empleadoNombre={usuario.nombre}
                 onClose={() => setNovedadDetail(null)}
+                onNovedadUpdated={(actualizada) => {
+                  setNovedadDetail(actualizada)
+                  setNovedadesRRHH((prev) =>
+                    prev.map((n) => (n.id === actualizada.id ? actualizada : n))
+                  )
+                }}
               />
             ) : null}
           </div>

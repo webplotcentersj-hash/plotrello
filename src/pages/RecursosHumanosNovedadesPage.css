@@ -1,3 +1,15 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .rrhh-novedades-page {
   min-height: 100vh;
   background: var(--bg-primary);
@@ -73,14 +85,25 @@
   font-size: 0.85rem;
 }
 
+.rrhh-novedades-page select,
+.rrhh-novedades-page input[type='date'],
+.rrhh-novedades-page input[type='search'] {
+  color-scheme: dark;
+}
+
 .rrhh-novedades-filters select,
 .rrhh-novedades-filters input[type='date'] {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: #1e293b;
+  color: #f1f5f9;
   min-width: 140px;
+}
+
+.rrhh-novedades-filters select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
 }
 
 .rrhh-novedades-actions {
@@ -174,7 +197,7 @@
 }
 
 .rrhh-novedades-cal-cell {
-  min-height: 92px;
+  min-height: 108px;
   padding: 6px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -200,8 +223,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .rrhh-novedades-cal-chip {
@@ -247,6 +269,12 @@
 .rrhh-novedades-cal-chip--beneficio_comida {
   border-left: 2px solid rgba(168, 85, 247, 0.95);
 }
+.rrhh-novedades-cal-chip--parte_diario {
+  border-left: 2px solid rgba(6, 182, 212, 0.9);
+}
+.rrhh-novedades-cal-chip--anticipacion_sueldo {
+  border-left: 2px solid rgba(236, 72, 153, 0.9);
+}
 
 .rrhh-novedades-cal-chip-dot {
   width: 7px;
@@ -275,6 +303,14 @@
   background: #a855f7;
   box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.45);
 }
+.rrhh-novedades-cal-chip-dot--parte_diario {
+  background: #06b6d4;
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.45);
+}
+.rrhh-novedades-cal-chip-dot--anticipacion_sueldo {
+  background: #ec4899;
+  box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.45);
+}
 
 .rrhh-novedades-cal-chip-name {
   overflow: hidden;
@@ -285,26 +321,392 @@
 }
 
 .rrhh-novedades-cal-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: 1px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
   font-size: 0.62rem;
   font-weight: 700;
+  line-height: 1.15;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.rrhh-novedades-cal-more:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.rrhh-novedades-cal-stats {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rrhh-novedades-cal-stats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.rrhh-novedades-cal-stats-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.rrhh-novedades-cal-stats-total {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.rrhh-novedades-cal-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.rrhh-novedades-cal-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.18) 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.rrhh-novedades-cal-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+.rrhh-novedades-cal-stat-card--zero {
+  opacity: 0.55;
+}
+
+.rrhh-novedades-cal-stat-num {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.rrhh-novedades-cal-stat-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: 0.9;
+}
+
+.rrhh-novedades-cal-stat-card--falta {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.18) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--falta .rrhh-novedades-cal-stat-num {
+  color: #fca5a5;
+}
+
+.rrhh-novedades-cal-stat-card--tardanza_retiro {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.18) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--tardanza_retiro .rrhh-novedades-cal-stat-num {
+  color: #fcd34d;
+}
+
+.rrhh-novedades-cal-stat-card--licencia {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.18) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--licencia .rrhh-novedades-cal-stat-num {
+  color: #93c5fd;
+}
+
+.rrhh-novedades-cal-stat-card--horas_extra {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: linear-gradient(145deg, rgba(34, 197, 94, 0.18) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--horas_extra .rrhh-novedades-cal-stat-num {
+  color: #86efac;
+}
+
+.rrhh-novedades-cal-stat-card--beneficio_comida {
+  border-color: rgba(168, 85, 247, 0.45);
+  background: linear-gradient(145deg, rgba(168, 85, 247, 0.2) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--beneficio_comida .rrhh-novedades-cal-stat-num {
+  color: #d8b4fe;
+}
+
+.rrhh-novedades-cal-stat-card--parte_diario {
+  border-color: rgba(6, 182, 212, 0.4);
+  background: linear-gradient(145deg, rgba(6, 182, 212, 0.18) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--parte_diario .rrhh-novedades-cal-stat-num {
+  color: #67e8f9;
+}
+
+.rrhh-novedades-cal-stat-card--anticipacion_sueldo {
+  border-color: rgba(236, 72, 153, 0.4);
+  background: linear-gradient(145deg, rgba(236, 72, 153, 0.18) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--anticipacion_sueldo .rrhh-novedades-cal-stat-num {
+  color: #f9a8d4;
+}
+
+.rrhh-novedades-cal-day-panel {
+  width: 100%;
+  max-width: 420px;
+  max-height: min(80vh, 560px);
+  margin: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(
+    165deg,
+    rgba(30, 41, 59, 0.98) 0%,
+    rgba(15, 23, 42, 0.99) 100%
+  );
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rrhh-novedades-cal-day-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-novedades-cal-day-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  text-transform: capitalize;
+}
+
+.rrhh-novedades-cal-day-sub {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.rrhh-novedades-cal-day-list {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rrhh-novedades-cal-day-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.rrhh-novedades-cal-day-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.rrhh-novedades-cal-day-item--falta {
+  border-left: 3px solid rgba(239, 68, 68, 0.9);
+}
+.rrhh-novedades-cal-day-item--tardanza_retiro {
+  border-left: 3px solid rgba(245, 158, 11, 0.9);
+}
+.rrhh-novedades-cal-day-item--licencia {
+  border-left: 3px solid rgba(59, 130, 246, 0.9);
+}
+.rrhh-novedades-cal-day-item--horas_extra {
+  border-left: 3px solid rgba(34, 197, 94, 0.9);
+}
+.rrhh-novedades-cal-day-item--beneficio_comida {
+  border-left: 3px solid rgba(168, 85, 247, 0.95);
+}
+.rrhh-novedades-cal-day-item--parte_diario {
+  border-left: 3px solid rgba(6, 182, 212, 0.9);
+}
+.rrhh-novedades-cal-day-item--anticipacion_sueldo {
+  border-left: 3px solid rgba(236, 72, 153, 0.9);
+}
+
+.rrhh-novedades-cal-day-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rrhh-novedades-cal-day-item-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.rrhh-novedades-cal-day-item-code {
+  font-size: 0.78rem;
   opacity: 0.75;
-  padding: 1px 2px;
-  align-self: flex-start;
 }
 
 .rrhh-novedades-table-section {
   max-width: 1400px;
-  margin: 0 auto;
+  margin: 0 auto 32px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
+  overflow: hidden;
 }
 
-.rrhh-novedades-table-section h2 {
-  margin-bottom: 12px;
+.rrhh-novedades-table-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.rrhh-novedades-table-toggle:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rrhh-novedades-table-toggle-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rrhh-novedades-table-toggle-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.rrhh-novedades-table-toggle-meta {
+  font-size: 0.82rem;
+  opacity: 0.7;
+}
+
+.rrhh-novedades-table-toggle-chevron {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  opacity: 0.75;
+}
+
+.rrhh-novedades-table-panel {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 20px 20px;
+}
+
+.rrhh-novedades-table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  padding: 16px 0 14px;
+}
+
+.rrhh-novedades-table-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.85;
+  min-width: 130px;
+}
+
+.rrhh-novedades-table-toolbar select,
+.rrhh-novedades-table-search input {
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: #1e293b;
+  color: #f1f5f9;
+  font-size: 0.88rem;
+}
+
+.rrhh-novedades-table-toolbar select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+.rrhh-novedades-table-search {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.rrhh-novedades-table-search input {
+  width: 100%;
+}
+
+.rrhh-novedades-table-clear {
+  align-self: flex-end;
+  white-space: nowrap;
+}
+
+.rrhh-novedades-table-empty {
+  margin: 0 0 8px;
+  padding: 20px 12px;
+  text-align: center;
+  font-size: 0.9rem;
+  opacity: 0.75;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .rrhh-novedades-table-wrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(58vh, 520px);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rrhh-novedades-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .rrhh-novedades-table {
@@ -505,9 +907,14 @@
 .rrhh-novedades-modal textarea {
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(0, 0, 0, 0.25);
-  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+.rrhh-novedades-modal select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
 }
 
 .rrhh-novedades-beneficio-hint {
@@ -577,11 +984,11 @@
   flex-shrink: 0;
 }
 
-/* Vista detalle (solo lectura) */
+/* Vista detalle — notificación con firma */
 .rrhh-novedades-detail-card {
   width: 100%;
-  max-width: 480px;
-  max-height: min(90vh, 720px);
+  max-width: 560px;
+  max-height: min(92vh, 820px);
   margin: auto;
   border-radius: 16px;
   background: linear-gradient(
@@ -641,6 +1048,14 @@
 .rrhh-novedades-detail-badge--beneficio_comida {
   background: rgba(168, 85, 247, 0.28);
   color: #e9d5ff;
+}
+.rrhh-novedades-detail-badge--parte_diario {
+  background: rgba(6, 182, 212, 0.28);
+  color: #a5f3fc;
+}
+.rrhh-novedades-detail-badge--anticipacion_sueldo {
+  background: rgba(236, 72, 153, 0.28);
+  color: #fbcfe8;
 }
 
 .rrhh-novedades-detail-head h3 {
@@ -796,11 +1211,281 @@
 .rrhh-novedades-detail-foot {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 16px 22px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
+}
+
+.rrhh-novedades-notif-kicker {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+}
+
+.rrhh-novedades-detail-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rrhh-novedades-notif-doc {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #0f172a;
+  padding: 18px 18px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.rrhh-novedades-notif-doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.rrhh-novedades-notif-doc-brand {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ea580c;
+}
+
+.rrhh-novedades-notif-doc .rrhh-novedades-detail-badge {
+  margin-bottom: 0;
+}
+
+.rrhh-novedades-notif-doc-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.rrhh-novedades-notif-doc-intro {
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.rrhh-novedades-notif-fields {
+  margin: 0 0 12px;
+  display: grid;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+
+.rrhh-novedades-notif-fields div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.rrhh-novedades-notif-fields dt {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.rrhh-novedades-notif-fields dd {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.rrhh-novedades-notif-obs {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.rrhh-novedades-notif-obs .rrhh-novedades-detail-obs-label {
+  color: #64748b;
+  opacity: 1;
+}
+
+.rrhh-novedades-notif-obs p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #1e293b;
+  white-space: pre-wrap;
+}
+
+.rrhh-novedades-notif-firma-block {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(15, 23, 42, 0.15);
+}
+
+.rrhh-novedades-notif-firma-block .rrhh-novedades-detail-obs-label {
+  color: #64748b;
+  opacity: 1;
+}
+
+.rrhh-novedades-notif-firma-hint {
+  margin: 6px 0 8px;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.rrhh-novedades-notif-canvas-wrap {
+  border-radius: 8px;
+  border: 2px dashed #cbd5e1;
+  background: #fff;
+  overflow: hidden;
+}
+
+.rrhh-novedades-notif-canvas {
+  display: block;
+  width: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.rrhh-novedades-notif-firma-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.rrhh-novedades-notif-firma-ok {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.rrhh-novedades-notif-firma-guardada img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  max-height: 120px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+}
+
+.rrhh-novedades-notif-firma-fecha {
+  margin: 8px 0 4px;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.rrhh-novedades-detail-adj {
+  padding: 0;
+  flex: none;
+  min-height: 0;
+  overflow: visible;
+}
+
+.rrhh-novedades-gestion {
+  max-width: 1400px;
+  margin: 0 auto 28px;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.rrhh-novedades-gestion-head h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+}
+
+.rrhh-novedades-gestion-sub {
+  margin: 0;
+  font-size: 0.88rem;
+  opacity: 0.85;
+  max-width: 720px;
+}
+
+.rrhh-novedades-gestion-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.rrhh-nov-gestion-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.rrhh-nov-gestion-kpi-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.rrhh-nov-gestion-kpi-value--text {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.rrhh-nov-gestion-kpi-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.rrhh-nov-gestion-kpi-hint {
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.rrhh-nov-gestion-kpi--alert .rrhh-nov-gestion-kpi-value {
+  color: #fbbf24;
+}
+
+.rrhh-novedades-gestion-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.rrhh-nov-gestion-chart {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.rrhh-nov-gestion-chart h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #cbd5e1;
 }
 
 @media (max-width: 640px) {
@@ -811,5 +1496,18 @@
   .rrhh-novedades-detail-dl div {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+
+  .rrhh-novedades-notif-fields div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .rrhh-novedades-detail-foot {
+    justify-content: stretch;
+  }
+
+  .rrhh-novedades-detail-foot button {
+    flex: 1 1 auto;
   }
 }

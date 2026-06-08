@@ -1,11 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { UsuarioRecord } from '../types/api'
+import type { UsuarioBajaLog, UsuarioRecord, UserRole } from '../types/api'
+import { calcularIndicadoresPersonal, fmtRotacion } from '../utils/rrhhPersonalStats'
+import { etiquetaTipoDesvinculacion } from '../utils/rrhhBajaCatalog'
 import LegajoEmpleadoModal from '../components/LegajoEmpleadoModal'
 import VerLegajoModal from '../components/VerLegajoModal'
+import DarDeBajaEmpleadoModal from '../components/DarDeBajaEmpleadoModal'
 import './RecursosHumanosUsuariosPage.css'
+
+type VistaLegajos = 'activo' | 'baja'
 
 const RecursosHumanosUsuariosPage = () => {
   const navigate = useNavigate()
@@ -14,7 +21,9 @@ const RecursosHumanosUsuariosPage = () => {
   const canAccessUsuarios =
     !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
+  const [bajas, setBajas] = useState<UsuarioBajaLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [vistaLegajos, setVistaLegajos] = useState<VistaLegajos>('activo')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showLegajoModal, setShowLegajoModal] = useState(false)
@@ -22,10 +31,8 @@ const RecursosHumanosUsuariosPage = () => {
   const [selectedUsuario, setSelectedUsuario] = useState<UsuarioRecord | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRol, setFilterRol] = useState<string>('todos')
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<UsuarioRecord | null>(null)
-  const [motivoBaja, setMotivoBaja] = useState('')
-  const [deleting, setDeleting] = useState(false)
+  const [showDarDeBajaModal, setShowDarDeBajaModal] = useState(false)
+  const [usuarioParaBaja, setUsuarioParaBaja] = useState<UsuarioRecord | null>(null)
 
   // Formulario
   const [formData, setFormData] = useState({
@@ -80,9 +87,15 @@ const RecursosHumanosUsuariosPage = () => {
   const loadUsuarios = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getUsuarios()
-      if (response.success && response.data) {
-        setUsuarios(response.data)
+      const [usuariosRes, bajasRes] = await Promise.all([
+        apiService.getUsuarios(),
+        apiService.getUsuariosBajasLog()
+      ])
+      if (usuariosRes.success && usuariosRes.data) {
+        setUsuarios(usuariosRes.data)
+      }
+      if (bajasRes.success && bajasRes.data) {
+        setBajas(bajasRes.data)
       }
     } catch (error) {
       console.error('Error cargando usuarios:', error)
@@ -90,6 +103,20 @@ const RecursosHumanosUsuariosPage = () => {
       setLoading(false)
     }
   }
+
+  const indicadores = useMemo(
+    () => calcularIndicadoresPersonal(usuarios.length, bajas),
+    [usuarios.length, bajas]
+  )
+
+  const nombreRegistrador = useMemo(() => {
+    const m = new Map<number, string>()
+    usuarios.forEach((u) => m.set(u.id, u.nombre))
+    return (id: number | null) => {
+      if (id == null) return '—'
+      return m.get(id) ?? `Usuario #${id}`
+    }
+  }, [usuarios])
 
   const handleCreate = async () => {
     if (!formData.nombre.trim() || !formData.password.trim()) {
@@ -156,44 +183,50 @@ const RecursosHumanosUsuariosPage = () => {
     }
   }
 
-  const openDeleteModal = (user: UsuarioRecord) => {
-    setUserToDelete(user)
-    setMotivoBaja('')
-    setShowDeleteModal(true)
+  const openDarDeBajaModal = (user: UsuarioRecord) => {
+    setUsuarioParaBaja(user)
+    setShowDarDeBajaModal(true)
   }
 
-  const confirmDeleteUsuario = async () => {
-    if (!userToDelete || !usuario?.id) return
-    const m = motivoBaja.trim()
-    if (m.length < 5) {
-      alert('El motivo de baja es obligatorio (mínimo 5 caracteres).')
-      return
-    }
+  const handleBajaCompletada = async () => {
+    setShowDarDeBajaModal(false)
+    setUsuarioParaBaja(null)
+    setShowLegajoModal(false)
+    setShowVerLegajoModal(false)
+    setSelectedUsuario(null)
+    await loadUsuarios()
+  }
 
-    setDeleting(true)
+  const usuarioDesdeBaja = (b: UsuarioBajaLog): UsuarioRecord => ({
+    id: b.id_usuario,
+    nombre: b.nombre_snapshot,
+    rol: (b.rol_snapshot || 'mostrador') as UserRole
+  })
+
+  const fechaBajaLabel = (b: UsuarioBajaLog) => {
+    const raw = b.fecha_desvinculacion || b.created_at.slice(0, 10)
     try {
-      const response = await apiService.deleteUsuario(userToDelete.id, m, usuario.id)
-      if (response.success) {
-        setShowDeleteModal(false)
-        setUserToDelete(null)
-        setMotivoBaja('')
-        await loadUsuarios()
-        alert('Usuario dado de baja correctamente')
-      } else {
-        alert(`Error: ${response.error}`)
-      }
-    } catch (error) {
-      console.error('Error eliminando usuario:', error)
-      alert('Error al eliminar usuario')
-    } finally {
-      setDeleting(false)
+      return format(parseISO(raw), 'd MMM yyyy', { locale: es })
+    } catch {
+      return raw
     }
   }
 
-  const filteredUsuarios = usuarios.filter(u => {
+  const filteredUsuarios = usuarios.filter((u) => {
     const matchesSearch = u.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesRol = filterRol === 'todos' || u.rol === filterRol
     return matchesSearch && matchesRol
+  })
+
+  const filteredBajas = bajas.filter((b) => {
+    const q = searchTerm.toLowerCase()
+    const tipo = b.tipo_desvinculacion ? etiquetaTipoDesvinculacion(b.tipo_desvinculacion) : ''
+    return (
+      b.nombre_snapshot.toLowerCase().includes(q) ||
+      b.motivo.toLowerCase().includes(q) ||
+      tipo.toLowerCase().includes(q) ||
+      (b.observaciones_finales?.toLowerCase().includes(q) ?? false)
+    )
   })
 
   if (loading) {
@@ -214,6 +247,13 @@ const RecursosHumanosUsuariosPage = () => {
             <h1>👤 Gestión de usuarios</h1>
           </div>
           <div className="rrhh-header-actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate('/rrhh/desvinculaciones')}
+            >
+              📉 Historial de bajas
+            </button>
             <button className="btn-back" onClick={() => navigate('/rrhh/dashboard')}>
               ← Volver
             </button>
@@ -231,6 +271,61 @@ const RecursosHumanosUsuariosPage = () => {
       </header>
 
       <div className="rrhh-usuarios-content">
+        <section className="rrhh-personal-kpis" aria-label="Indicadores de personal">
+          <article className="rrhh-personal-kpi rrhh-personal-kpi--total">
+            <span className="rrhh-personal-kpi-value">{indicadores.totalColaboradores}</span>
+            <span className="rrhh-personal-kpi-label">Total colaboradores</span>
+            <span className="rrhh-personal-kpi-hint">Activos + desvinculados históricos</span>
+          </article>
+          <article className="rrhh-personal-kpi rrhh-personal-kpi--activo">
+            <span className="rrhh-personal-kpi-value">{indicadores.activos}</span>
+            <span className="rrhh-personal-kpi-label">Personal activo</span>
+            <span className="rrhh-personal-kpi-hint">Legajos vigentes en el sistema</span>
+          </article>
+          <article className="rrhh-personal-kpi rrhh-personal-kpi--baja">
+            <span className="rrhh-personal-kpi-value">{indicadores.desvinculados}</span>
+            <span className="rrhh-personal-kpi-label">Personal de baja</span>
+            <span className="rrhh-personal-kpi-hint">
+              {indicadores.bajasMes} baja{indicadores.bajasMes === 1 ? '' : 's'} este mes
+            </span>
+          </article>
+          <article className="rrhh-personal-kpi rrhh-personal-kpi--rot-mes">
+            <span className="rrhh-personal-kpi-value">{fmtRotacion(indicadores.rotacionMensual)}</span>
+            <span className="rrhh-personal-kpi-label">Rotación mensual</span>
+            <span className="rrhh-personal-kpi-hint">Bajas del mes / plantilla activa</span>
+          </article>
+          <article className="rrhh-personal-kpi rrhh-personal-kpi--rot-anio">
+            <span className="rrhh-personal-kpi-value">{fmtRotacion(indicadores.rotacionAnual)}</span>
+            <span className="rrhh-personal-kpi-label">Rotación anual</span>
+            <span className="rrhh-personal-kpi-hint">
+              {indicadores.bajasAnio} baja{indicadores.bajasAnio === 1 ? '' : 's'} últimos 12 meses
+            </span>
+          </article>
+        </section>
+
+        <div className="rrhh-personal-tabs" role="tablist" aria-label="Clasificación de legajos">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={vistaLegajos === 'activo'}
+            className={`rrhh-personal-tab${vistaLegajos === 'activo' ? ' rrhh-personal-tab--active' : ''}`}
+            onClick={() => setVistaLegajos('activo')}
+          >
+            Personal activo
+            <span className="rrhh-personal-tab-count">{indicadores.activos}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={vistaLegajos === 'baja'}
+            className={`rrhh-personal-tab${vistaLegajos === 'baja' ? ' rrhh-personal-tab--active' : ''}`}
+            onClick={() => setVistaLegajos('baja')}
+          >
+            Personal de baja
+            <span className="rrhh-personal-tab-count">{indicadores.desvinculados}</span>
+          </button>
+        </div>
+
         {/* Filtros */}
         <div className="rrhh-filters">
           <input
@@ -240,172 +335,197 @@ const RecursosHumanosUsuariosPage = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="rrhh-search-input"
           />
-          <select
-            value={filterRol}
-            onChange={(e) => setFilterRol(e.target.value)}
-            className="rrhh-filter-select"
-          >
-            <option value="todos">Todos los roles</option>
-            {roleOptions.map(role => (
-              <option key={role.value} value={role.value}>
-                {role.label}
-              </option>
-            ))}
-          </select>
+          {vistaLegajos === 'activo' ? (
+            <select
+              value={filterRol}
+              onChange={(e) => setFilterRol(e.target.value)}
+              className="rrhh-filter-select"
+            >
+              <option value="todos">Todos los roles</option>
+              {roleOptions.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
         </div>
 
         <p className="rrhh-usuarios-meta">
-          {filteredUsuarios.length === usuarios.length
-            ? `${usuarios.length} usuario${usuarios.length === 1 ? '' : 's'}`
-            : `Mostrando ${filteredUsuarios.length} de ${usuarios.length} usuarios`}
+          {vistaLegajos === 'activo'
+            ? filteredUsuarios.length === usuarios.length
+              ? `${usuarios.length} colaborador${usuarios.length === 1 ? '' : 'es'} activo${usuarios.length === 1 ? '' : 's'}`
+              : `Mostrando ${filteredUsuarios.length} de ${usuarios.length} activos`
+            : filteredBajas.length === bajas.length
+              ? `${bajas.length} baja${bajas.length === 1 ? '' : 's'} registrada${bajas.length === 1 ? '' : 's'}`
+              : `Mostrando ${filteredBajas.length} de ${bajas.length} bajas`}
         </p>
 
-        {/* Tabla de usuarios */}
-        <div className="rrhh-users-table-container">
-          <table className="rrhh-users-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Rol</th>
-                <th>Última Actividad</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsuarios.length === 0 ? (
+        {vistaLegajos === 'activo' ? (
+          <div className="rrhh-users-table-container">
+            <table className="rrhh-users-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="rrhh-users-empty">
-                    {usuarios.length === 0
-                      ? 'No hay usuarios cargados.'
-                      : 'Ningún usuario coincide con la búsqueda o el filtro.'}
-                  </td>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Estado</th>
+                  <th>Rol</th>
+                  <th>Última Actividad</th>
+                  <th>Acciones</th>
                 </tr>
-              ) : (
-                filteredUsuarios.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.nombre}</td>
-                    <td>
-                      <span
-                        className="rrhh-role-badge"
-                        style={{
-                          backgroundColor: `${roleOptions.find(r => r.value === user.rol)?.color}20`,
-                          color: roleOptions.find(r => r.value === user.rol)?.color
-                        }}
-                      >
-                        {roleOptions.find(r => r.value === user.rol)?.label || user.rol}
-                      </span>
+              </thead>
+              <tbody>
+                {filteredUsuarios.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="rrhh-users-empty">
+                      {usuarios.length === 0
+                        ? 'No hay personal activo cargado.'
+                        : 'Ningún colaborador coincide con la búsqueda o el filtro.'}
                     </td>
-                    <td>Hoy</td>
-                    <td>
-                      <div className="rrhh-actions-buttons">
+                  </tr>
+                ) : (
+                  filteredUsuarios.map((user) => (
+                    <tr key={user.id} className="rrhh-users-row--activo">
+                      <td>{user.id}</td>
+                      <td>{user.nombre}</td>
+                      <td>
+                        <span className="rrhh-estado-badge rrhh-estado-badge--activo">Activo</span>
+                      </td>
+                      <td>
+                        <span
+                          className="rrhh-role-badge"
+                          style={{
+                            backgroundColor: `${roleOptions.find((r) => r.value === user.rol)?.color}20`,
+                            color: roleOptions.find((r) => r.value === user.rol)?.color
+                          }}
+                        >
+                          {roleOptions.find((r) => r.value === user.rol)?.label || user.rol}
+                        </span>
+                      </td>
+                      <td>Hoy</td>
+                      <td>
+                        <div className="rrhh-actions-buttons">
+                          <button
+                            className="btn-ver-legajo"
+                            onClick={() => {
+                              setSelectedUsuario(user)
+                              setShowVerLegajoModal(true)
+                            }}
+                            title="Ver Legajo Completo"
+                          >
+                            👁️ Ver Legajo
+                          </button>
+                          <button
+                            className="btn-legajo"
+                            onClick={() => {
+                              setSelectedUsuario(user)
+                              setShowLegajoModal(true)
+                            }}
+                            title="Editar Legajo Completo"
+                          >
+                            📝 Editar Legajo
+                          </button>
+                          <button
+                            className="btn-edit"
+                            onClick={() => {
+                              setSelectedUsuario(user)
+                              setFormData({
+                                nombre: user.nombre,
+                                password: '',
+                                rol: user.rol
+                              })
+                              setShowEditModal(true)
+                            }}
+                          >
+                            Editar
+                          </button>
+                          <button className="btn-dar-baja" onClick={() => openDarDeBajaModal(user)}>
+                            Dar de Baja
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rrhh-users-table-container">
+            <table className="rrhh-users-table">
+              <thead>
+                <tr>
+                  <th>ID legajo</th>
+                  <th>Nombre</th>
+                  <th>Estado</th>
+                  <th>Desvinculación</th>
+                  <th>Tipo</th>
+                  <th>Motivo</th>
+                  <th>Docs</th>
+                  <th>Registrado por</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBajas.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="rrhh-users-empty">
+                      {bajas.length === 0
+                        ? 'No hay bajas registradas en el historial.'
+                        : 'Ninguna baja coincide con la búsqueda.'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBajas.map((b) => (
+                    <tr key={b.id} className="rrhh-users-row--baja">
+                      <td>{b.id_usuario}</td>
+                      <td>{b.nombre_snapshot}</td>
+                      <td>
+                        <span className="rrhh-estado-badge rrhh-estado-badge--baja">De baja</span>
+                      </td>
+                      <td>{fechaBajaLabel(b)}</td>
+                      <td>
+                        {b.tipo_desvinculacion
+                          ? etiquetaTipoDesvinculacion(b.tipo_desvinculacion)
+                          : '—'}
+                      </td>
+                      <td className="rrhh-baja-motivo">{b.motivo}</td>
+                      <td>{b.adjuntos.length > 0 ? b.adjuntos.length : '—'}</td>
+                      <td>{nombreRegistrador(b.registrado_por)}</td>
+                      <td>
                         <button
+                          type="button"
                           className="btn-ver-legajo"
                           onClick={() => {
-                            setSelectedUsuario(user)
+                            setSelectedUsuario(usuarioDesdeBaja(b))
                             setShowVerLegajoModal(true)
                           }}
-                          title="Ver Legajo Completo"
+                          title="Ver legajo histórico"
                         >
                           👁️ Ver Legajo
                         </button>
-                        <button
-                          className="btn-legajo"
-                          onClick={() => {
-                            setSelectedUsuario(user)
-                            setShowLegajoModal(true)
-                          }}
-                          title="Editar Legajo Completo"
-                        >
-                          📝 Editar Legajo
-                        </button>
-                        <button
-                          className="btn-edit"
-                          onClick={() => {
-                            setSelectedUsuario(user)
-                            setFormData({
-                              nombre: user.nombre,
-                              password: '',
-                              rol: user.rol
-                            })
-                            setShowEditModal(true)
-                          }}
-                        >
-                          Editar
-                        </button>
-                      <button
-                        className="btn-delete"
-                        onClick={() => openDeleteModal(user)}
-                      >
-                        Eliminar
-                      </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Modal motivo de baja */}
-      {showDeleteModal && userToDelete && (
-        <div
-          className="modal-overlay"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !deleting) {
-              setShowDeleteModal(false)
-              setUserToDelete(null)
-            }
+      {showDarDeBajaModal && usuarioParaBaja && usuario?.id ? (
+        <DarDeBajaEmpleadoModal
+          usuario={usuarioParaBaja}
+          isOpen={showDarDeBajaModal}
+          registradoPorId={usuario.id}
+          onClose={() => {
+            setShowDarDeBajaModal(false)
+            setUsuarioParaBaja(null)
           }}
-        >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <header className="modal-header">
-              <h3>Dar de baja usuario</h3>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => !deleting && setShowDeleteModal(false)}
-                disabled={deleting}
-              >
-                ×
-              </button>
-            </header>
-            <div className="modal-body">
-              <p className="rrhh-delete-intro">
-                Vas a eliminar a <strong>{userToDelete.nombre}</strong>. Esta acción no se puede deshacer. El
-                motivo queda registrado para auditoría de RRHH.
-              </p>
-              <div className="form-group">
-                <label>Motivo de la baja *</label>
-                <textarea
-                  className="rrhh-motivo-baja"
-                  rows={4}
-                  value={motivoBaja}
-                  onChange={(e) => setMotivoBaja(e.target.value)}
-                  placeholder="Ej.: Renuncia voluntaria, fin de contrato, etc."
-                  disabled={deleting}
-                />
-              </div>
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowDeleteModal(false)}
-                  disabled={deleting}
-                >
-                  Cancelar
-                </button>
-                <button type="button" className="btn-delete" onClick={confirmDeleteUsuario} disabled={deleting}>
-                  {deleting ? 'Procesando…' : 'Confirmar baja'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          onSuccess={() => void handleBajaCompletada()}
+        />
+      ) : null}
 
       {/* Modal Crear Usuario */}
       {showCreateModal && (
@@ -542,6 +662,11 @@ const RecursosHumanosUsuariosPage = () => {
             setShowVerLegajoModal(false)
             setSelectedUsuario(null)
           }}
+          onDarDeBaja={
+            vistaLegajos === 'activo' && usuarios.some((u) => u.id === selectedUsuario.id)
+              ? () => openDarDeBajaModal(selectedUsuario)
+              : undefined
+          }
         />
       )}
 
@@ -557,6 +682,7 @@ const RecursosHumanosUsuariosPage = () => {
           onSave={() => {
             loadUsuarios()
           }}
+          onDarDeBaja={() => openDarDeBajaModal(selectedUsuario)}
         />
       )}
     </div>

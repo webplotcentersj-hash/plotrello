@@ -1,0 +1,230 @@
+.legajo-nov-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.legajo-nov-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 10px;
+}
+
+.legajo-nov-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.legajo-nov-kpi-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.legajo-nov-kpi-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.legajo-nov-kpi-hint {
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.legajo-nov-kpi--ausencia .legajo-nov-kpi-value {
+  color: #f87171;
+}
+
+.legajo-nov-kpi--tarde .legajo-nov-kpi-value {
+  color: #fbbf24;
+}
+
+.legajo-nov-kpi--medica .legajo-nov-kpi-value {
+  color: #38bdf8;
+}
+
+.legajo-nov-kpi--disc .legajo-nov-kpi-value {
+  color: #fb923c;
+}
+
+.legajo-nov-alertas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legajo-nov-alerta {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.legajo-nov-alerta--info {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.legajo-nov-alerta--warning {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+
+.legajo-nov-alerta--critical {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.legajo-nov-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legajo-nov-chip {
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.legajo-nov-toolbar {
+  margin-bottom: 4px;
+}
+
+.legajo-nov-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legajo-nov-filter {
+  padding: 6px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.legajo-nov-filter.active {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.legajo-nov-clasif {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.legajo-nov-codigo {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.legajo-nov-clasif--ausencia_injustificada {
+  color: #f87171;
+}
+
+.legajo-nov-clasif--licencia_medica {
+  color: #38bdf8;
+}
+
+.legajo-nov-clasif--llegada_tarde {
+  color: #fbbf24;
+}
+
+.legajo-nov-clasif--sancion_disciplinaria {
+  color: #fb923c;
+}
+
+.legajo-nov-clasif--perdida_beneficio {
+  color: #c084fc;
+}
+
+.legajo-nov-clasif--accidente_incidente {
+  color: #f472b6;
+}
+
+.legajo-nov-sector {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.legajo-nov-sector h4 {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.legajo-nov-sector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.legajo-nov-sector-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.legajo-nov-sector-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.legajo-nov-sector-label {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.legajo-nov-sector-hint {
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.legajo-nov-sector-alerta {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: #fcd34d;
+}
+
+.legajo-nov-chart-section {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.legajo-nov-chart-section h4 {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}

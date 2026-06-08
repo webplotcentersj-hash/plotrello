@@ -1,0 +1,196 @@
+.dar-baja-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11000;
+  padding: 20px;
+}
+
+.dar-baja-modal {
+  background: #1a1d2e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  color: var(--text-primary, #e2e8f0);
+}
+
+.dar-baja-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dar-baja-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.dar-baja-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.dar-baja-close {
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.dar-baja-close:hover:not(:disabled) {
+  color: #fff;
+}
+
+.dar-baja-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dar-baja-intro {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-muted, #94a3b8);
+}
+
+.dar-baja-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .dar-baja-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dar-baja-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.dar-baja-field--full {
+  width: 100%;
+}
+
+.dar-baja-field span {
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+}
+
+.dar-baja-field input,
+.dar-baja-field select,
+.dar-baja-field textarea {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: inherit;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  color-scheme: dark;
+}
+
+.dar-baja-field textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.dar-baja-upload {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.dar-baja-upload-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.dar-baja-upload-hint {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.dar-baja-adj-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+}
+
+.dar-baja-adj-remove {
+  background: none;
+  border: none;
+  color: #f87171;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.dar-baja-upload-status {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: #38bdf8;
+}
+
+.dar-baja-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dar-baja-btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.dar-baja-btn--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dar-baja-btn--danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.dar-baja-btn--danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.dar-baja-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

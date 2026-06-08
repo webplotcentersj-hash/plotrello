@@ -198,10 +198,16 @@
 .legajo-modal-actions {
   display: flex;
   gap: 12px;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   padding-top: 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 24px;
+}
+
+.legajo-modal-actions-right {
+  display: flex;
+  gap: 12px;
 }
 
 .legajo-btn {
@@ -237,6 +243,17 @@
 
 .legajo-btn-secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.15);
+}
+
+.legajo-btn-danger {
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #fca5a5;
+}
+
+.legajo-btn-danger:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.28);
+  color: #fecaca;
 }
 
 @media (max-width: 768px) {

@@ -157,6 +157,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/desvinculaciones')}
+            >
+              <div className="rrhh-action-icon">📉</div>
+              <h3>Historial de desvinculaciones</h3>
+              <p>Tendencias de bajas, antigüedad, sectores y evolución mensual</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/incidencias')}
             >
               <div className="rrhh-action-icon">⚠️</div>

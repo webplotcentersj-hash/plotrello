@@ -9,9 +9,10 @@ type LegajoEmpleadoModalProps = {
   isOpen: boolean
   onClose: () => void
   onSave: () => void
+  onDarDeBaja?: () => void
 }
 
-const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmpleadoModalProps) => {
+const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: LegajoEmpleadoModalProps) => {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [legajo, setLegajo] = useState<Partial<LegajoEmpleado>>({
@@ -434,12 +435,26 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave }: LegajoEmplead
 
             {/* Botones de acción */}
             <div className="legajo-modal-actions">
-              <button className="legajo-btn legajo-btn-secondary" onClick={onClose} disabled={saving}>
-                Cancelar
-              </button>
-              <button className="legajo-btn legajo-btn-primary" onClick={handleSave} disabled={saving}>
-                {saving ? 'Guardando...' : 'Guardar Legajo'}
-              </button>
+              {onDarDeBaja ? (
+                <button
+                  type="button"
+                  className="legajo-btn legajo-btn-danger"
+                  onClick={onDarDeBaja}
+                  disabled={saving}
+                >
+                  Dar de Baja
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="legajo-modal-actions-right">
+                <button className="legajo-btn legajo-btn-secondary" onClick={onClose} disabled={saving}>
+                  Cancelar
+                </button>
+                <button className="legajo-btn legajo-btn-primary" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Guardando...' : 'Guardar Legajo'}
+                </button>
+              </div>
             </div>
           </div>
         )}

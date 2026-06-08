@@ -39,6 +39,10 @@ import type {
   TareaSubitem,
   TareaRecord,
   UsuarioRecord,
+  UsuarioBajaLog,
+  RrhhBajaAdjunto,
+  RrhhEventoLaboral,
+  RrhhEventoLaboralTipo,
   UserRole,
   LegajoEmpleado,
   FechaPlotHoyItem,
@@ -77,7 +81,8 @@ import type {
   ReservaVehiculoFlota,
   CitaAsesorTecnico,
   ProtocoloBaseRecord,
-  PruebaPreguntaInput
+  PruebaPreguntaInput,
+  PruebaAsignacionColaborador
   // Types used in function signatures and return types
   // OportunidadVenta,
   // Venta,
@@ -3732,6 +3737,242 @@ class ApiService {
     }
 
     return this.handleFallback(fallbackUsuarios)
+  }
+
+  async getUsuariosBajasLog(): Promise<ApiResponse<UsuarioBajaLog[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('usuarios_bajas_log')
+        .select(
+          'id, id_usuario, nombre_snapshot, motivo, registrado_por, created_at, fecha_desvinculacion, tipo_desvinculacion, observaciones_finales, adjuntos, rol_snapshot'
+        )
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      const rows = (data ?? []) as Record<string, unknown>[]
+      return {
+        success: true,
+        data: rows.map((r) => {
+          let adjuntos: RrhhBajaAdjunto[] = []
+          const rawAdj = r.adjuntos
+          if (Array.isArray(rawAdj)) {
+            adjuntos = rawAdj
+              .filter((a) => a && typeof a === 'object')
+              .map((a) => {
+                const o = a as Record<string, unknown>
+                return {
+                  url: String(o.url ?? ''),
+                  nombre: String(o.nombre ?? 'archivo'),
+                  mime: String(o.mime ?? 'application/octet-stream')
+                }
+              })
+              .filter((a) => a.url.length > 0)
+          }
+          return {
+            id: Number(r.id),
+            id_usuario: Number(r.id_usuario),
+            nombre_snapshot: String(r.nombre_snapshot),
+            motivo: String(r.motivo),
+            registrado_por: r.registrado_por == null ? null : Number(r.registrado_por),
+            created_at: String(r.created_at),
+            fecha_desvinculacion:
+              r.fecha_desvinculacion == null ? null : String(r.fecha_desvinculacion),
+            tipo_desvinculacion:
+              r.tipo_desvinculacion == null ? null : String(r.tipo_desvinculacion),
+            observaciones_finales:
+              r.observaciones_finales == null ? null : String(r.observaciones_finales),
+            adjuntos,
+            rol_snapshot: r.rol_snapshot == null ? null : String(r.rol_snapshot)
+          }
+        })
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al listar bajas de personal')
+      }
+    }
+  }
+
+  /** Baja formal: conserva legajo e historial, marca usuario como inactivo. */
+  async darDeBajaUsuario(params: {
+    id: number
+    fechaDesvinculacion: string
+    motivo: string
+    tipoDesvinculacion: string
+    observacionesFinales?: string | null
+    adjuntos?: RrhhBajaAdjunto[]
+    registradoPor: number
+  }): Promise<ApiResponse<{ logId: number }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
+    }
+    try {
+      const { data, error } = await supabase.rpc('dar_de_baja_usuario', {
+        p_id: params.id,
+        p_fecha_desvinculacion: params.fechaDesvinculacion,
+        p_motivo: params.motivo.trim(),
+        p_tipo_desvinculacion: params.tipoDesvinculacion,
+        p_observaciones_finales: params.observacionesFinales?.trim() || null,
+        p_adjuntos: params.adjuntos ?? [],
+        p_registrado_por: params.registradoPor
+      })
+      if (error) {
+        return { success: false, error: error.message }
+      }
+      return { success: true, data: { logId: Number(data) } }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al dar de baja al colaborador'
+      }
+    }
+  }
+
+  /** Sube documentación de baja al bucket `archivos` bajo `rrhh-bajas/`. */
+  async rrhhBajaSubirAdjunto(
+    file: File,
+    idUsuarioEmpleado: number
+  ): Promise<ApiResponse<RrhhBajaAdjunto>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    const maxBytes = 12 * 1024 * 1024
+    if (file.size > maxBytes) {
+      return { success: false, error: 'El archivo supera 12 MB' }
+    }
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const allowedExt = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'doc', 'docx'])
+    if (!allowedExt.has(ext)) {
+      return { success: false, error: 'Formato no permitido (PDF, imagen o documento Word).' }
+    }
+    const safeBase = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .slice(0, 80)
+    const path = `rrhh-bajas/${idUsuarioEmpleado}/${Date.now()}_${safeBase}.${ext}`
+    try {
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || `application/${ext === 'pdf' ? 'pdf' : 'octet-stream'}`
+      })
+      if (uploadError) {
+        return { success: false, error: uploadError.message }
+      }
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) {
+        return { success: false, error: 'No se pudo obtener la URL del archivo' }
+      }
+      return {
+        success: true,
+        data: {
+          url: publicUrl,
+          nombre: file.name,
+          mime: file.type || 'application/octet-stream'
+        }
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al subir archivo'
+      }
+    }
+  }
+
+  async rrhhEventosLaboralesListar(idUsuario: number): Promise<ApiResponse<RrhhEventoLaboral[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_eventos_laborales')
+        .select(
+          'id, id_usuario, tipo, fecha, titulo, descripcion, sector_anterior, sector_nuevo, registrado_por, created_at'
+        )
+        .eq('id_usuario', idUsuario)
+        .order('fecha', { ascending: true })
+      if (error) throw error
+      const rows = (data ?? []) as Record<string, unknown>[]
+      return {
+        success: true,
+        data: rows.map((r) => ({
+          id: Number(r.id),
+          id_usuario: Number(r.id_usuario),
+          tipo: String(r.tipo) as RrhhEventoLaboralTipo,
+          fecha: String(r.fecha).slice(0, 10),
+          titulo: String(r.titulo),
+          descripcion: r.descripcion == null ? null : String(r.descripcion),
+          sector_anterior: r.sector_anterior == null ? null : String(r.sector_anterior),
+          sector_nuevo: r.sector_nuevo == null ? null : String(r.sector_nuevo),
+          registrado_por: r.registrado_por == null ? null : Number(r.registrado_por),
+          created_at: String(r.created_at)
+        }))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al listar eventos de hoja de vida')
+      }
+    }
+  }
+
+  async rrhhEventoLaboralCrear(input: {
+    id_usuario: number
+    tipo: RrhhEventoLaboralTipo
+    fecha: string
+    titulo: string
+    descripcion?: string | null
+    sector_anterior?: string | null
+    sector_nuevo?: string | null
+    registrado_por: number
+  }): Promise<ApiResponse<RrhhEventoLaboral>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_eventos_laborales')
+        .insert({
+          id_usuario: input.id_usuario,
+          tipo: input.tipo,
+          fecha: input.fecha,
+          titulo: input.titulo.trim(),
+          descripcion: input.descripcion?.trim() || null,
+          sector_anterior: input.sector_anterior?.trim() || null,
+          sector_nuevo: input.sector_nuevo?.trim() || null,
+          registrado_por: input.registrado_por
+        })
+        .select(
+          'id, id_usuario, tipo, fecha, titulo, descripcion, sector_anterior, sector_nuevo, registrado_por, created_at'
+        )
+        .single()
+      if (error) throw error
+      const r = data as Record<string, unknown>
+      return {
+        success: true,
+        data: {
+          id: Number(r.id),
+          id_usuario: Number(r.id_usuario),
+          tipo: String(r.tipo) as RrhhEventoLaboralTipo,
+          fecha: String(r.fecha).slice(0, 10),
+          titulo: String(r.titulo),
+          descripcion: r.descripcion == null ? null : String(r.descripcion),
+          sector_anterior: r.sector_anterior == null ? null : String(r.sector_anterior),
+          sector_nuevo: r.sector_nuevo == null ? null : String(r.sector_nuevo),
+          registrado_por: r.registrado_por == null ? null : Number(r.registrado_por),
+          created_at: String(r.created_at)
+        }
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al registrar evento de hoja de vida')
+      }
+    }
   }
 
   async getSectores(): Promise<ApiResponse<SectorRecord[]>> {
@@ -14710,7 +14951,9 @@ class ApiService {
    * para mostrar nombre completo y área en planillas.
    */
   async obtenerLegajosBasico(): Promise<
-    ApiResponse<Record<number, { nombre: string; apellido: string; sector: string }>>
+    ApiResponse<
+      Record<number, { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null }>
+    >
   > {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
@@ -14719,18 +14962,28 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('legajos_empleados')
-        .select('id_usuario, nombre, apellido, sector')
+        .select('id_usuario, nombre, apellido, sector, fecha_ingreso')
 
       if (error) {
         return { success: false, error: error.message }
       }
 
-      const mapa: Record<number, { nombre: string; apellido: string; sector: string }> = {}
-      for (const row of (data as Array<{ id_usuario: number; nombre: string | null; apellido: string | null; sector: string | null }>) || []) {
+      const mapa: Record<
+        number,
+        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null }
+      > = {}
+      for (const row of (data as Array<{
+        id_usuario: number
+        nombre: string | null
+        apellido: string | null
+        sector: string | null
+        fecha_ingreso: string | null
+      }>) || []) {
         mapa[row.id_usuario] = {
           nombre: row.nombre || '',
           apellido: row.apellido || '',
-          sector: row.sector || ''
+          sector: row.sector || '',
+          fecha_ingreso: row.fecha_ingreso ?? null
         }
       }
 
@@ -14998,6 +15251,8 @@ class ApiService {
       observaciones: row.observaciones == null ? null : String(row.observaciones),
       adjuntos: Array.isArray(adj) ? (adj as RrhhNovedadAdjunto[]) : [],
       registrado_por: row.registrado_por == null ? null : Number(row.registrado_por),
+      firma_data_url: row.firma_data_url == null ? null : String(row.firma_data_url),
+      firmado_at: row.firmado_at == null ? null : String(row.firmado_at),
       created_at: String(row.created_at),
       updated_at: String(row.updated_at)
     }
@@ -15094,6 +15349,8 @@ class ApiService {
       horas_extra_cantidad: number | null
       observaciones: string | null
       adjuntos: RrhhNovedadAdjunto[]
+      firma_data_url: string | null
+      firmado_at: string | null
     }>
   ): Promise<ApiResponse<RrhhNovedad>> {
     if (!supabase) {
@@ -15118,6 +15375,16 @@ class ApiService {
         error: supabaseErrorMessage(e, 'Error al actualizar novedad')
       }
     }
+  }
+
+  async rrhhNovedadGuardarFirma(
+    id: number,
+    firmaDataUrl: string
+  ): Promise<ApiResponse<RrhhNovedad>> {
+    return this.rrhhNovedadActualizar(id, {
+      firma_data_url: firmaDataUrl,
+      firmado_at: new Date().toISOString()
+    })
   }
 
   async rrhhNovedadEliminar(id: number): Promise<ApiResponse<boolean>> {
@@ -19602,14 +19869,29 @@ class ApiService {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     const usuarioId = this.getUsuarioIdFromStorage()
     if (usuarioId == null) return { success: false, error: 'Sesión no disponible' }
+    return this.obtenerPruebasColaborador(usuarioId)
+  }
+
+  /** Pruebas asignadas a un colaborador (legajo RRHH, mis pruebas). */
+  async obtenerPruebasColaborador(
+    idColaborador: number
+  ): Promise<ApiResponse<PruebaAsignacionColaborador[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
       const { data, error } = await supabase.rpc('usuario_mis_pruebas', {
-        p_usuario_id: usuarioId
+        p_usuario_id: idColaborador
       })
       if (error) return { success: false, error: error.message }
-      return { success: true, data }
+      const rows = Array.isArray(data) ? data : []
+      return {
+        success: true,
+        data: rows as PruebaAsignacionColaborador[]
+      }
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al obtener pruebas del colaborador'
+      }
     }
   }
 

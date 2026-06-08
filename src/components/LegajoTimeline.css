@@ -1,0 +1,244 @@
+.legajo-timeline-loading {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted, #94a3b8);
+}
+
+.legajo-timeline-intro {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.5;
+}
+
+.legajo-timeline-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+
+.legajo-timeline-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.legajo-timeline-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.legajo-timeline-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legajo-timeline-filter {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.legajo-timeline-filter.active {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.legajo-timeline-add-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.legajo-timeline-form {
+  margin-bottom: 24px;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.legajo-timeline-form h4 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+}
+
+.legajo-timeline-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.legajo-timeline-form-full {
+  grid-column: 1 / -1;
+}
+
+.legajo-timeline-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.legajo-timeline-form input,
+.legajo-timeline-form select,
+.legajo-timeline-form textarea {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: inherit;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  color-scheme: dark;
+}
+
+.legajo-timeline-save-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.legajo-timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.legajo-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.legajo-timeline-marker {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.legajo-timeline-marker span {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  z-index: 1;
+}
+
+.legajo-timeline-item--ingreso .legajo-timeline-marker span {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.legajo-timeline-item--baja .legajo-timeline-marker span {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.legajo-timeline-item--reconocimiento .legajo-timeline-marker span {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.legajo-timeline-item--sancion .legajo-timeline-marker span {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.legajo-timeline-connector {
+  position: absolute;
+  left: 23px;
+  top: 44px;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.35), rgba(148, 163, 184, 0.08));
+}
+
+.legajo-timeline-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.legajo-timeline-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.legajo-timeline-card-head time {
+  font-size: 0.82rem;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+}
+
+.legajo-timeline-badge {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.legajo-timeline-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.legajo-timeline-detail {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  color: var(--text-primary, #e2e8f0);
+  line-height: 1.45;
+}
+
+.legajo-timeline-meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #38bdf8;
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .legajo-timeline-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

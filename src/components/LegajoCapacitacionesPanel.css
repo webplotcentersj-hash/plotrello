@@ -1,0 +1,164 @@
+.legajo-cap-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.legajo-cap-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.legajo-cap-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.legajo-cap-kpi-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.legajo-cap-kpi-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.legajo-cap-kpi-hint {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.legajo-cap-kpi--ok .legajo-cap-kpi-value {
+  color: #4ade80;
+}
+
+.legajo-cap-kpi--pct .legajo-cap-kpi-value {
+  color: #38bdf8;
+}
+
+.legajo-cap-kpi--plan .legajo-cap-kpi-value {
+  color: #a78bfa;
+}
+
+.legajo-cap-perfil {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.legajo-cap-perfil h4 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+}
+
+.legajo-cap-perfil-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .legajo-cap-perfil-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.legajo-cap-perfil-sub {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.legajo-cap-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.legajo-cap-muted {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.legajo-cap-muted--ok {
+  color: #4ade80;
+}
+
+.legajo-cap-tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legajo-cap-tags--inline {
+  display: inline-flex;
+}
+
+.legajo-cap-tag {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.legajo-cap-tag--sm {
+  font-size: 0.68rem;
+  padding: 2px 6px;
+}
+
+.legajo-cap-tag--ok {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.legajo-cap-tag--gap {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+
+.legajo-cap-titulo {
+  display: block;
+  font-weight: 600;
+}
+
+.legajo-cap-oblig {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  vertical-align: middle;
+}
+
+.legajo-cap-fecha {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.legajo-cap-row--done {
+  background: rgba(16, 185, 129, 0.04);
+}

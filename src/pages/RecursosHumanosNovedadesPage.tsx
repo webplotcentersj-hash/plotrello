@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts'
+import {
   addDays,
   addMonths,
   eachDayOfInterval,
@@ -10,8 +22,8 @@ import {
   startOfMonth
 } from 'date-fns'
 import { es } from 'date-fns/locale'
-import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
+import { downloadRrhhNovedadesListadoPdf } from '../utils/rrhhNovedadesExportPdf'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type {
@@ -29,10 +41,31 @@ import {
 } from '../utils/rrhhNovedadCatalog'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
+import { calcularIndicadoresNovedadesOrganizacion } from '../utils/rrhhNovedadesSectorStats'
+import type { LegajoSectorBasico } from '../utils/rrhhNovedadesSectorStats'
 import './RecursosHumanosNovedadesPage.css'
 
 function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
   return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
+}
+
+type GrupoCounts = Partial<Record<RrhhNovedadGrupo, number>>
+
+function contarPorGrupo(list: RrhhNovedad[]): GrupoCounts {
+  const counts: GrupoCounts = {}
+  for (const n of list) {
+    counts[n.grupo] = (counts[n.grupo] ?? 0) + 1
+  }
+  return counts
+}
+
+/** Primer nombre o apodo corto para el calendario (sin dominio si era email). */
+function nombreParaChipCalendario(nombreCompleto: string | undefined, maxLen = 11): string {
+  const s = nombreSinDominioCorreo(nombreCompleto)
+  if (!s) return '—'
+  const first = s.split(/\s+/)[0] ?? s
+  if (first.length <= maxLen) return first
+  return `${first.slice(0, Math.max(1, maxLen - 1))}…`
 }
 
 /** Último día del mes calendario de `fechaDesde` (YYYY-MM-DD). */
@@ -46,15 +79,6 @@ function fechaHastaFinMesDesde(fechaDesdeYmd: string): string {
   }
 }
 
-/** Primer nombre o apodo corto para el calendario (sin dominio si era email). */
-function nombreParaChipCalendario(nombreCompleto: string | undefined, maxLen = 11): string {
-  const s = nombreSinDominioCorreo(nombreCompleto)
-  if (!s) return '—'
-  const first = s.split(/\s+/)[0] ?? s
-  if (first.length <= maxLen) return first
-  return `${first.slice(0, Math.max(1, maxLen - 1))}…`
-}
-
 const RecursosHumanosNovedadesPage = () => {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
@@ -63,6 +87,8 @@ const RecursosHumanosNovedadesPage = () => {
 
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [novedades, setNovedades] = useState<RrhhNovedad[]>([])
+  const [novedadesStats, setNovedadesStats] = useState<RrhhNovedad[]>([])
+  const [legajos, setLegajos] = useState<Record<number, LegajoSectorBasico>>({})
   const [solicitudes, setSolicitudes] = useState<SolicitudPermiso[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroUsuario, setFiltroUsuario] = useState<number | ''>('')
@@ -74,7 +100,15 @@ const RecursosHumanosNovedadesPage = () => {
 
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
 
+  const [listadoExpandido, setListadoExpandido] = useState(false)
+  const [busquedaListado, setBusquedaListado] = useState('')
+  const [filtroListadoEmpleado, setFiltroListadoEmpleado] = useState<number | ''>('')
+  const [filtroListadoGrupo, setFiltroListadoGrupo] = useState<RrhhNovedadGrupo | ''>('')
+  const [filtroListadoCodigo, setFiltroListadoCodigo] = useState('')
+  const [filtroListadoFirma, setFiltroListadoFirma] = useState<'' | 'si' | 'no'>('')
+
   const [modalOpen, setModalOpen] = useState(false)
+  const [calendarDayOpen, setCalendarDayOpen] = useState<string | null>(null)
   const [detailNovedad, setDetailNovedad] = useState<RrhhNovedad | null>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -96,7 +130,9 @@ const RecursosHumanosNovedadesPage = () => {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [u, n, s] = await Promise.all([
+      const desde12m = format(addMonths(new Date(), -11), 'yyyy-MM-dd')
+      const hastaHoy = format(new Date(), 'yyyy-MM-dd')
+      const [u, n, s, statsRes, legajosRes] = await Promise.all([
         apiService.getUsuarios(),
         apiService.rrhhNovedadesListar({
           idUsuario: filtroUsuario || undefined,
@@ -104,11 +140,21 @@ const RecursosHumanosNovedadesPage = () => {
           fechaDesde: filtroDesde,
           fechaHasta: filtroHasta
         }),
-        apiService.obtenerSolicitudesPermisos(null, null, null, null, null)
+        apiService.obtenerSolicitudesPermisos(null, null, null, null, null),
+        apiService.rrhhNovedadesListar({ fechaDesde: desde12m, fechaHasta: hastaHoy }),
+        apiService.obtenerLegajosBasico()
       ])
       if (u.success && u.data) setUsuarios(u.data)
       if (n.success && n.data) setNovedades(n.data)
       if (s.success && s.data) setSolicitudes(s.data)
+      if (statsRes.success && statsRes.data) setNovedadesStats(statsRes.data)
+      if (legajosRes.success && legajosRes.data) {
+        const map: Record<number, LegajoSectorBasico> = {}
+        for (const [id, row] of Object.entries(legajosRes.data)) {
+          map[Number(id)] = { sector: row.sector }
+        }
+        setLegajos(map)
+      }
     } finally {
       setLoading(false)
     }
@@ -128,6 +174,41 @@ const RecursosHumanosNovedadesPage = () => {
     usuarios.forEach((u) => m.set(u.id, u.nombre))
     return m
   }, [usuarios])
+
+  const indicadoresOrg = useMemo(
+    () => calcularIndicadoresNovedadesOrganizacion(novedadesStats, legajos, usuarios),
+    [novedadesStats, legajos, usuarios]
+  )
+
+  const chartSector = useMemo(
+    () =>
+      indicadoresOrg.porSector
+        .filter((s) => s.headcount > 0)
+        .slice(0, 10)
+        .map((s) => ({
+          sector: s.sector.length > 16 ? `${s.sector.slice(0, 14)}…` : s.sector,
+          indice: s.indiceAusentismo,
+          dias: s.diasAusenciaMes
+        })),
+    [indicadoresOrg.porSector]
+  )
+
+  const chartEvolucion = useMemo(
+    () =>
+      indicadoresOrg.evolucionMensual.map((e) => ({
+        mes: e.mesLabel,
+        ausentismo: e.ausentismoDias,
+        tardanzas: e.tardanzas,
+        disciplinarias: e.disciplinarias,
+        total: e.totalEventos
+      })),
+    [indicadoresOrg.evolucionMensual]
+  )
+
+  const novedadesDiaCalendario = useMemo(() => {
+    if (!calendarDayOpen) return []
+    return novedades.filter((n) => novedadEnDia(n, calendarDayOpen))
+  }, [calendarDayOpen, novedades])
 
   /** Nombre para mostrar: sin dominio si el dato es un email. */
   const empleadoMostrar = useCallback(
@@ -375,28 +456,12 @@ const RecursosHumanosNovedadesPage = () => {
   }
 
   const exportPdf = () => {
-    const doc = new jsPDF({ orientation: 'landscape' })
-    doc.setFontSize(11)
-    doc.text('Novedades RRHH — Plotrello', 14, 16)
-    doc.setFontSize(8)
-    let y = 26
-    const line = (t: string) => {
-      if (y > 180) {
-        doc.addPage()
-        y = 16
-      }
-      doc.text(t, 14, y)
-      y += 5
-    }
-    for (const n of novedades) {
-      line(
-        `${n.fecha_desde}→${n.fecha_hasta} | ${empleadoMostrar(n.id_usuario)} | ${n.grupo} | ${etiquetaCodigo(n.codigo)} | ${n.observaciones ?? ''}`.slice(
-          0,
-          180
-        )
-      )
-    }
-    doc.save(`rrhh-novedades-${format(new Date(), 'yyyy-MM-dd')}.pdf`)
+    downloadRrhhNovedadesListadoPdf({
+      novedades,
+      empleadoLabel: (id) => empleadoMostrar(id),
+      fechaDesde: filtroDesde,
+      fechaHasta: filtroHasta
+    })
   }
 
   const monthDays = useMemo(() => {
@@ -410,6 +475,72 @@ const RecursosHumanosNovedadesPage = () => {
     const dow = first.getDay()
     return dow === 0 ? 6 : dow - 1
   }, [calendarMonth])
+
+  const resumenMesCalendario = useMemo(() => {
+    const monthStart = format(startOfMonth(calendarMonth), 'yyyy-MM-dd')
+    const monthEnd = format(endOfMonth(calendarMonth), 'yyyy-MM-dd')
+    const enMes = novedades.filter(
+      (n) => n.fecha_desde <= monthEnd && n.fecha_hasta >= monthStart
+    )
+    const porGrupo = contarPorGrupo(enMes)
+    const total = enMes.length
+    return { porGrupo, total }
+  }, [calendarMonth, novedades])
+
+  const codigosListado = useMemo(() => {
+    if (!filtroListadoGrupo) {
+      return Object.values(CODIGOS_POR_GRUPO).flat()
+    }
+    return CODIGOS_POR_GRUPO[filtroListadoGrupo] ?? []
+  }, [filtroListadoGrupo])
+
+  const hayFiltrosListado =
+    busquedaListado.trim() !== '' ||
+    filtroListadoEmpleado !== '' ||
+    filtroListadoGrupo !== '' ||
+    filtroListadoCodigo !== '' ||
+    filtroListadoFirma !== ''
+
+  const limpiarFiltrosListado = () => {
+    setBusquedaListado('')
+    setFiltroListadoEmpleado('')
+    setFiltroListadoGrupo('')
+    setFiltroListadoCodigo('')
+    setFiltroListadoFirma('')
+  }
+
+  const novedadesListado = useMemo(() => {
+    const q = busquedaListado.trim().toLowerCase()
+    return novedades.filter((n) => {
+      if (filtroListadoEmpleado !== '' && n.id_usuario !== filtroListadoEmpleado) return false
+      if (filtroListadoGrupo !== '' && n.grupo !== filtroListadoGrupo) return false
+      if (filtroListadoCodigo !== '' && n.codigo !== filtroListadoCodigo) return false
+      if (filtroListadoFirma === 'si' && !n.firma_data_url) return false
+      if (filtroListadoFirma === 'no' && n.firma_data_url) return false
+      if (!q) return true
+      const haystack = [
+        empleadoMostrar(n.id_usuario),
+        GRUPOS.find((g) => g.value === n.grupo)?.label,
+        etiquetaCodigo(n.codigo),
+        n.observaciones,
+        n.fecha_desde,
+        n.fecha_hasta,
+        String(n.id)
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [
+    novedades,
+    busquedaListado,
+    filtroListadoEmpleado,
+    filtroListadoGrupo,
+    filtroListadoCodigo,
+    filtroListadoFirma,
+    empleadoMostrar
+  ])
 
   if (authLoading) {
     return (
@@ -427,14 +558,131 @@ const RecursosHumanosNovedadesPage = () => {
         <div>
           <h1>Novedades laborales</h1>
           <p className="rrhh-novedades-sub">
-            Faltas, tardanzas, licencias, horas extra y beneficio de comida — categorías cerradas para filtros y
-            liquidación.
+            Clasificación, indicadores por sector, evolución histórica y alertas para la gestión del
+            comportamiento laboral.
           </p>
         </div>
         <button type="button" className="btn-back-rrhh" onClick={() => navigate('/rrhh/dashboard')}>
           ← RRHH
         </button>
       </header>
+
+      <section className="rrhh-novedades-gestion" aria-label="Indicadores de gestión de personas">
+        <div className="rrhh-novedades-gestion-head">
+          <div>
+            <h2>Indicadores de gestión</h2>
+            <p className="rrhh-novedades-gestion-sub">
+              Seguimiento del comportamiento laboral, detección temprana de situaciones recurrentes y
+              métricas por sector.
+            </p>
+          </div>
+        </div>
+
+        <div className="rrhh-novedades-gestion-kpis">
+          <article className="rrhh-nov-gestion-kpi">
+            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.indiceEmpresaMes}%</span>
+            <span className="rrhh-nov-gestion-kpi-label">Índice ausentismo empresa</span>
+            <span className="rrhh-nov-gestion-kpi-hint">Mes actual · base 22 días laborables</span>
+          </article>
+          <article className="rrhh-nov-gestion-kpi">
+            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.totalNovedadesMes}</span>
+            <span className="rrhh-nov-gestion-kpi-label">Novedades del mes</span>
+          </article>
+          <article className="rrhh-nov-gestion-kpi">
+            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.tardanzasMes}</span>
+            <span className="rrhh-nov-gestion-kpi-label">Llegadas tarde (mes)</span>
+          </article>
+          <article className="rrhh-nov-gestion-kpi">
+            <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.disciplinariasMes}</span>
+            <span className="rrhh-nov-gestion-kpi-label">Disciplinarias (mes)</span>
+          </article>
+          {indicadoresOrg.sectorMasAusentismo ? (
+            <article className="rrhh-nov-gestion-kpi rrhh-nov-gestion-kpi--alert">
+              <span className="rrhh-nov-gestion-kpi-value rrhh-nov-gestion-kpi-value--text">
+                {indicadoresOrg.sectorMasAusentismo}
+              </span>
+              <span className="rrhh-nov-gestion-kpi-label">Sector con mayor ausentismo</span>
+            </article>
+          ) : null}
+        </div>
+
+        <div className="rrhh-novedades-gestion-charts">
+          {chartSector.length > 0 ? (
+            <div className="rrhh-nov-gestion-chart">
+              <h3>Índice de ausentismo por sector</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartSector} margin={{ left: 4, right: 8, bottom: 48 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis
+                    dataKey="sector"
+                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                    angle={-30}
+                    textAnchor="end"
+                    height={56}
+                  />
+                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} unit="%" />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1e293b',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: 8
+                    }}
+                    formatter={(v: number, name: string) =>
+                      name === 'indice' ? [`${v}%`, 'Índice ausentismo'] : [v, 'Días ausencia']
+                    }
+                  />
+                  <Bar dataKey="indice" name="indice" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : null}
+
+          {chartEvolucion.some((e) => e.total > 0) ? (
+            <div className="rrhh-nov-gestion-chart">
+              <h3>Evolución histórica de novedades</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={chartEvolucion}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                  <YAxis allowDecimals={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1e293b',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: 8
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="ausentismo"
+                    name="Días ausencia"
+                    stroke="#f87171"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="tardanzas"
+                    name="Tardanzas"
+                    stroke="#fbbf24"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="disciplinarias"
+                    name="Disciplinarias"
+                    stroke="#fb923c"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <section className="rrhh-novedades-toolbar">
         <div className="rrhh-novedades-filters">
@@ -511,6 +759,7 @@ const RecursosHumanosNovedadesPage = () => {
             →
           </button>
         </div>
+
         <div className="rrhh-novedades-calendar-weekdays">
           {['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'].map((d) => (
             <div key={d} className="rrhh-novedades-cal-wd">
@@ -525,106 +774,313 @@ const RecursosHumanosNovedadesPage = () => {
           {monthDays.map((day) => {
             const key = format(day, 'yyyy-MM-dd')
             const list = novedades.filter((n) => novedadEnDia(n, key))
+            const maxVisible = list.length > 4 ? 3 : 4
+            const hidden = list.length - maxVisible
             return (
-              <div
-                key={key}
-                className="rrhh-novedades-cal-cell"
-              >
+              <div key={key} className="rrhh-novedades-cal-cell">
                 <div className="rrhh-novedades-cal-daynum">{format(day, 'd')}</div>
                 <div className="rrhh-novedades-cal-chips">
-                  {list.slice(0, 4).map((n) => (
-                      <button
-                        key={n.id}
-                        type="button"
-                        className={`rrhh-novedades-cal-chip rrhh-novedades-cal-chip--${n.grupo}`}
-                        title={`${empleadoMostrar(n.id_usuario, 'usuario-hash')} · ${etiquetaCodigo(n.codigo)}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDetailNovedad(n)
-                        }}
-                      >
-                        <span
-                          className={`rrhh-novedades-cal-chip-dot rrhh-novedades-cal-chip-dot--${n.grupo}`}
-                          aria-hidden
-                        />
-                        <span className="rrhh-novedades-cal-chip-name">
-                          {nombreParaChipCalendario(nombreUsuario.get(n.id_usuario))}
-                        </span>
-                      </button>
+                  {list.slice(0, maxVisible).map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`rrhh-novedades-cal-chip rrhh-novedades-cal-chip--${n.grupo}`}
+                      title={`${empleadoMostrar(n.id_usuario, 'usuario-hash')} · ${etiquetaCodigo(n.codigo)}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDetailNovedad(n)
+                      }}
+                    >
+                      <span
+                        className={`rrhh-novedades-cal-chip-dot rrhh-novedades-cal-chip-dot--${n.grupo}`}
+                        aria-hidden
+                      />
+                      <span className="rrhh-novedades-cal-chip-name">
+                        {nombreParaChipCalendario(nombreUsuario.get(n.id_usuario))}
+                      </span>
+                    </button>
                   ))}
-                  {list.length > 4 ? (
-                    <span className="rrhh-novedades-cal-more">+{list.length - 4}</span>
+                  {hidden > 0 ? (
+                    <button
+                      type="button"
+                      className="rrhh-novedades-cal-more"
+                      title={`Ver las ${list.length} novedades de este día`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCalendarDayOpen(key)
+                      }}
+                    >
+                      +{hidden} más
+                    </button>
                   ) : null}
                 </div>
               </div>
             )
           })}
         </div>
+
+        <div className="rrhh-novedades-cal-stats" aria-label="Resumen mensual por grupo">
+          <div className="rrhh-novedades-cal-stats-head">
+            <h3 className="rrhh-novedades-cal-stats-title">
+              Resumen de {format(calendarMonth, 'MMMM yyyy', { locale: es })}
+            </h3>
+            <span className="rrhh-novedades-cal-stats-total">
+              {resumenMesCalendario.total} novedad{resumenMesCalendario.total === 1 ? '' : 'es'}
+            </span>
+          </div>
+          <div className="rrhh-novedades-cal-stats-grid">
+            {GRUPOS.map((g) => {
+              const n = resumenMesCalendario.porGrupo[g.value] ?? 0
+              return (
+                <div
+                  key={g.value}
+                  className={`rrhh-novedades-cal-stat-card rrhh-novedades-cal-stat-card--${g.value}${n === 0 ? ' rrhh-novedades-cal-stat-card--zero' : ''}`}
+                >
+                  <span className="rrhh-novedades-cal-stat-num">{n}</span>
+                  <span className="rrhh-novedades-cal-stat-label">{g.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </section>
 
-      <section className="rrhh-novedades-table-section">
-        <h2>Listado</h2>
-        {loading ? (
-          <p>Cargando…</p>
-        ) : (
-          <div className="rrhh-novedades-table-wrap">
-            <table className="rrhh-novedades-table">
-              <thead>
-                <tr>
-                  <th>Fechas</th>
-                  <th>Empleado</th>
-                  <th>Grupo</th>
-                  <th>Categoría</th>
-                  <th>Detalle</th>
-                  <th>Adj.</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {novedades.map((n) => (
-                  <tr
-                    key={n.id}
-                    className="rrhh-novedades-table-row"
-                    onClick={() => setDetailNovedad(n)}
-                  >
-                    <td>
-                      {n.fecha_desde}
-                      {n.fecha_hasta !== n.fecha_desde ? ` → ${n.fecha_hasta}` : ''}
-                    </td>
-                    <td>{empleadoMostrar(n.id_usuario)}</td>
-                    <td>{GRUPOS.find((g) => g.value === n.grupo)?.label ?? n.grupo}</td>
-                    <td>{etiquetaCodigo(n.codigo)}</td>
-                    <td className="rrhh-novedades-obs">
-                      {n.grupo === 'tardanza_retiro' && n.duracion_minutos != null
-                        ? `${n.duracion_minutos} min · `
-                        : ''}
-                      {n.grupo === 'horas_extra' && n.horas_extra_cantidad != null
-                        ? `${n.horas_extra_cantidad} h · `
-                        : ''}
-                      {n.observaciones ?? '—'}
-                    </td>
-                    <td>{(n.adjuntos?.length ?? 0) || '—'}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button type="button" className="linklike" onClick={() => openEdit(n)}>
-                        Editar
-                      </button>{' '}
-                      <button type="button" className="linklike danger" onClick={() => void eliminar(n.id)}>
-                        Borrar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <section
+        className={`rrhh-novedades-table-section${listadoExpandido ? ' rrhh-novedades-table-section--open' : ''}`}
+      >
+        <button
+          type="button"
+          className="rrhh-novedades-table-toggle"
+          aria-expanded={listadoExpandido}
+          onClick={() => setListadoExpandido((v) => !v)}
+        >
+          <span className="rrhh-novedades-table-toggle-main">
+            <span className="rrhh-novedades-table-toggle-title">Listado de novedades</span>
+            <span className="rrhh-novedades-table-toggle-meta">
+              {loading
+                ? 'Cargando…'
+                : `${novedadesListado.length}${hayFiltrosListado ? ` de ${novedades.length}` : ''} registro${novedadesListado.length === 1 ? '' : 's'}`}
+            </span>
+          </span>
+          <span className="rrhh-novedades-table-toggle-chevron" aria-hidden>
+            {listadoExpandido ? '▾' : '▸'}
+          </span>
+        </button>
+
+        {listadoExpandido ? (
+          <div className="rrhh-novedades-table-panel">
+            <div className="rrhh-novedades-table-toolbar">
+              <label className="rrhh-novedades-table-search">
+                <span className="sr-only">Buscar en el listado</span>
+                <input
+                  type="search"
+                  value={busquedaListado}
+                  onChange={(e) => setBusquedaListado(e.target.value)}
+                  placeholder="Buscar empleado, categoría, observación…"
+                />
+              </label>
+              <label>
+                Empleado
+                <select
+                  value={filtroListadoEmpleado === '' ? '' : filtroListadoEmpleado}
+                  onChange={(e) =>
+                    setFiltroListadoEmpleado(e.target.value === '' ? '' : Number(e.target.value))
+                  }
+                >
+                  <option value="">Todos</option>
+                  {usuarios.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Grupo
+                <select
+                  value={filtroListadoGrupo}
+                  onChange={(e) => {
+                    const g = (e.target.value || '') as RrhhNovedadGrupo | ''
+                    setFiltroListadoGrupo(g)
+                    setFiltroListadoCodigo('')
+                  }}
+                >
+                  <option value="">Todos</option>
+                  {GRUPOS.map((g) => (
+                    <option key={g.value} value={g.value}>
+                      {g.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Categoría
+                <select
+                  value={filtroListadoCodigo}
+                  onChange={(e) => setFiltroListadoCodigo(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {codigosListado.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Firma
+                <select
+                  value={filtroListadoFirma}
+                  onChange={(e) => setFiltroListadoFirma((e.target.value || '') as '' | 'si' | 'no')}
+                >
+                  <option value="">Todas</option>
+                  <option value="si">Con firma</option>
+                  <option value="no">Sin firma</option>
+                </select>
+              </label>
+              {hayFiltrosListado ? (
+                <button type="button" className="btn-secondary rrhh-novedades-table-clear" onClick={limpiarFiltrosListado}>
+                  Limpiar
+                </button>
+              ) : null}
+            </div>
+
+            {loading ? (
+              <p className="rrhh-novedades-table-empty">Cargando…</p>
+            ) : novedadesListado.length === 0 ? (
+              <p className="rrhh-novedades-table-empty">
+                {hayFiltrosListado
+                  ? 'No hay novedades que coincidan con la búsqueda o los filtros.'
+                  : 'No hay novedades en el período seleccionado.'}
+              </p>
+            ) : (
+              <div className="rrhh-novedades-table-wrap">
+                <table className="rrhh-novedades-table">
+                  <thead>
+                    <tr>
+                      <th>Fechas</th>
+                      <th>Empleado</th>
+                      <th>Grupo</th>
+                      <th>Categoría</th>
+                      <th>Detalle</th>
+                      <th>Adj.</th>
+                      <th>Firma</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {novedadesListado.map((n) => (
+                      <tr
+                        key={n.id}
+                        className="rrhh-novedades-table-row"
+                        onClick={() => setDetailNovedad(n)}
+                      >
+                        <td>
+                          {n.fecha_desde}
+                          {n.fecha_hasta !== n.fecha_desde ? ` → ${n.fecha_hasta}` : ''}
+                        </td>
+                        <td>{empleadoMostrar(n.id_usuario)}</td>
+                        <td>{GRUPOS.find((g) => g.value === n.grupo)?.label ?? n.grupo}</td>
+                        <td>{etiquetaCodigo(n.codigo)}</td>
+                        <td className="rrhh-novedades-obs">
+                          {n.grupo === 'tardanza_retiro' && n.duracion_minutos != null
+                            ? `${n.duracion_minutos} min · `
+                            : ''}
+                          {n.grupo === 'horas_extra' && n.horas_extra_cantidad != null
+                            ? `${n.horas_extra_cantidad} h · `
+                            : ''}
+                          {n.observaciones ?? '—'}
+                        </td>
+                        <td>{(n.adjuntos?.length ?? 0) || '—'}</td>
+                        <td>{n.firma_data_url ? '✓' : '—'}</td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <button type="button" className="linklike" onClick={() => openEdit(n)}>
+                            Editar
+                          </button>{' '}
+                          <button type="button" className="linklike danger" onClick={() => void eliminar(n.id)}>
+                            Borrar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
+        ) : null}
       </section>
+
+      {calendarDayOpen ? (
+        <div
+          className="rrhh-novedades-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rrhh-cal-day-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCalendarDayOpen(null)
+          }}
+        >
+          <div className="rrhh-novedades-cal-day-panel" onClick={(e) => e.stopPropagation()}>
+            <header className="rrhh-novedades-cal-day-head">
+              <div>
+                <h3 id="rrhh-cal-day-title">
+                  {format(parseISO(calendarDayOpen), "EEEE d 'de' MMMM", { locale: es })}
+                </h3>
+                <p className="rrhh-novedades-cal-day-sub">
+                  {novedadesDiaCalendario.length} novedad
+                  {novedadesDiaCalendario.length === 1 ? '' : 'es'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rrhh-novedades-modal-close"
+                aria-label="Cerrar"
+                onClick={() => setCalendarDayOpen(null)}
+              >
+                ×
+              </button>
+            </header>
+            <ul className="rrhh-novedades-cal-day-list">
+              {novedadesDiaCalendario.map((n) => (
+                <li key={n.id}>
+                  <button
+                    type="button"
+                    className={`rrhh-novedades-cal-day-item rrhh-novedades-cal-day-item--${n.grupo}`}
+                    onClick={() => {
+                      setCalendarDayOpen(null)
+                      setDetailNovedad(n)
+                    }}
+                  >
+                    <span
+                      className={`rrhh-novedades-cal-chip-dot rrhh-novedades-cal-chip-dot--${n.grupo}`}
+                      aria-hidden
+                    />
+                    <span className="rrhh-novedades-cal-day-item-main">
+                      <span className="rrhh-novedades-cal-day-item-name">
+                        {empleadoMostrar(n.id_usuario, 'usuario-hash')}
+                      </span>
+                      <span className="rrhh-novedades-cal-day-item-code">
+                        {etiquetaCodigo(n.codigo)}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
 
       {detailNovedad && (
         <RrhhNovedadDetailModal
           novedad={detailNovedad}
           empleadoNombre={empleadoMostrar(detailNovedad.id_usuario, 'usuario-hash')}
           onClose={() => setDetailNovedad(null)}
+          onNovedadUpdated={(actualizada) => {
+            setDetailNovedad(actualizada)
+            setNovedades((prev) => prev.map((n) => (n.id === actualizada.id ? actualizada : n)))
+          }}
           onEdit={() => {
             const row = detailNovedad
             setDetailNovedad(null)

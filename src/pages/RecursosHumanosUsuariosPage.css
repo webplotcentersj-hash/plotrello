@@ -94,6 +94,148 @@
   margin: 0 auto;
 }
 
+.rrhh-personal-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.rrhh-personal-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(0, 0, 0, 0.15) 100%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.rrhh-personal-kpi-value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.rrhh-personal-kpi-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.rrhh-personal-kpi-hint {
+  font-size: 0.72rem;
+  opacity: 0.65;
+  line-height: 1.35;
+}
+
+.rrhh-personal-kpi--total .rrhh-personal-kpi-value {
+  color: #93c5fd;
+}
+.rrhh-personal-kpi--activo .rrhh-personal-kpi-value {
+  color: #4ade80;
+}
+.rrhh-personal-kpi--baja .rrhh-personal-kpi-value {
+  color: #f87171;
+}
+.rrhh-personal-kpi--rot-mes .rrhh-personal-kpi-value {
+  color: #fbbf24;
+}
+.rrhh-personal-kpi--rot-anio .rrhh-personal-kpi-value {
+  color: #c4b5fd;
+}
+
+.rrhh-personal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.rrhh-personal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.rrhh-personal-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-personal-tab--active {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.rrhh-personal-tab-count {
+  min-width: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.rrhh-estado-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.rrhh-estado-badge--activo {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.rrhh-estado-badge--baja {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.rrhh-users-row--baja {
+  opacity: 0.92;
+}
+
+.rrhh-baja-motivo {
+  max-width: 360px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  font-size: 0.88rem;
+}
+
+.btn-edit {
+  padding: 6px 12px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  color: #60a5fa;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
 .rrhh-filters {
   display: flex;
   gap: 16px;
@@ -232,6 +374,23 @@
 }
 
 .btn-delete:hover {
+  background: rgba(239, 68, 68, 0.3);
+  transform: scale(1.05);
+}
+
+.btn-dar-baja {
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-dar-baja:hover {
   background: rgba(239, 68, 68, 0.3);
   transform: scale(1.05);
 }
