@@ -224,7 +224,13 @@ const Header = ({
             </button>
           </div>
 
-          <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`}>
+          <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`} role="menu" aria-label="Menú de navegación">
+            <div className="actions-dropdown-head">
+              <span className="actions-dropdown-eyebrow">PlotLab</span>
+              <strong>Explorar módulos</strong>
+            </div>
+            <div className="actions-dropdown-scroll">
+            <div className="actions-dropdown-grid">
             {onNavigateToMensajeria && (
               <span className="header-mensajeria-btn-wrap">
                 <button
@@ -461,6 +467,8 @@ const Header = ({
                 🚪 Salir
               </button>
             )}
+            </div>
+            </div>
           </div>
           {currentUserName && (
             <div className="user-chip header-user-chip" title="Usuario conectado">

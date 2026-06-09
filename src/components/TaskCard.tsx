@@ -112,14 +112,6 @@ const formatShortDate = (value: string) => {
   return shortDateFormatter.format(new Date(value))
 }
 
-const fullDateTimeFormatter = new Intl.DateTimeFormat('es-AR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'America/Argentina/Buenos_Aires'
-})
 const compactDateTimeFormatter = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
   month: '2-digit',
@@ -127,7 +119,6 @@ const compactDateTimeFormatter = new Intl.DateTimeFormat('es-AR', {
   minute: '2-digit',
   timeZone: 'America/Argentina/Buenos_Aires'
 })
-const formatFullDateTime = (value: string) => fullDateTimeFormatter.format(new Date(value))
 const formatCompactDateTime = (value: string) => compactDateTimeFormatter.format(new Date(value))
 
 const stripEmailDomain = (value?: string | null) => {
@@ -1486,29 +1477,13 @@ const TaskCardInner = ({
             <div className="task-timings">
               <div>
                 <span>Creado</span>
-                <strong>{formatFullDateTime(task.createdAt)}</strong>
+                <strong>{formatCompactDateTime(task.createdAt)}</strong>
               </div>
               <div>
                 <span>Entrega</span>
                 <strong>{formatShortDate(task.dueDate)}</strong>
               </div>
             </div>
-
-            <footer>
-              <div className="owner-chip">
-                <div className="owner-avatar">{owner?.avatar ?? 'TP'}</div>
-                <div>
-                  <strong>{owner?.name ?? 'Sin asignar'}</strong>
-                  <small>{owner?.role ?? 'Trabajador no asignado'}</small>
-                </div>
-              </div>
-              <div className="footer-right">
-                <div className="due-date">
-                  <span>Último movimiento</span>
-                  <strong>{formatCompactDateTime(task.updatedAt)}</strong>
-                </div>
-              </div>
-            </footer>
           </div>}
 
           {!isMinimized && !isDragLightMode && <button
