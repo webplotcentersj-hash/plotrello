@@ -32,7 +32,8 @@
   }
 
   .library-button-container .brand-button,
-  .library-button-container .library-button {
+  .library-button-container .library-button,
+  .library-button-container .brief-link-button {
     min-width: 0;
     width: 100%;
   }

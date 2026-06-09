@@ -214,7 +214,7 @@ const FiltersBar = ({
             {onMisTrabajosChange && (
               <button
                 type="button"
-                className={misTrabajosFilter ? 'active' : ''}
+                className={`priority-mis-trabajos${misTrabajosFilter ? ' active' : ''}`}
                 onClick={() => onMisTrabajosChange(!misTrabajosFilter)}
                 title="Solo fichas donde estás asignado como operario o figuras como quien trabaja la OP"
               >
