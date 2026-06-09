@@ -6321,10 +6321,8 @@ class ApiService {
   }
 
   // ========== AUTENTICACIÓN ==========
-  private async loginViaStaffApi(
-    usuario: string,
-    password: string
-  ): Promise<ApiResponse<{ usuario: UsuarioRecord; token?: string }> | null> {
+  /** Emite JWT staff tras validar credenciales (no bloquea login si falla). */
+  private async fetchStaffToken(usuario: string, password: string): Promise<string | undefined> {
     try {
       const resp = await fetch('/api/auth/staff-login', {
         method: 'POST',
@@ -6332,32 +6330,46 @@ class ApiService {
         body: JSON.stringify({ usuario, password })
       })
 
-      if (resp.status === 503) return null
+      if (resp.status === 503) return undefined
 
-      const json = (await resp.json().catch(() => ({}))) as {
-        error?: string
-        token?: string
-        usuario?: UsuarioRecord
-      }
+      const json = (await resp.json().catch(() => ({}))) as { token?: string; error?: string }
 
       if (!resp.ok) {
-        return { success: false, error: json.error || 'Usuario o contraseña incorrectos' }
+        console.warn('[login] staff-login sin token:', resp.status, json.error)
+        return undefined
       }
 
-      if (!json.usuario?.id || !json.token) {
-        return { success: false, error: 'Respuesta de login inválida' }
-      }
+      return typeof json.token === 'string' ? json.token : undefined
+    } catch (err) {
+      console.warn('[login] staff-login error:', err)
+      return undefined
+    }
+  }
 
-      return { success: true, data: { usuario: json.usuario, token: json.token } }
+  private async getInactiveUsuarioLoginHint(usuario: string): Promise<string | null> {
+    if (!supabase) return null
+    const trimmed = usuario.trim()
+    if (!trimmed) return null
+    try {
+      const { data, error } = await supabase.rpc('usuario_inactivo_login_hint', {
+        p_usuario: trimmed
+      })
+      if (error || data !== true) return null
+      return 'Tu usuario fue dado de baja. Contactá a Recursos Humanos si necesitás acceso.'
     } catch {
       return null
     }
   }
 
-  private async finalizeStaffLogin(usuarioDb: UsuarioRecord, token?: string): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
+  private async finalizeStaffLogin(
+    usuarioDb: UsuarioRecord,
+    token?: string,
+    loginName?: string
+  ): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
     await this.ensureUsuarioExists(usuarioDb.id, usuarioDb.nombre, usuarioDb.rol)
     localStorage.setItem('usuario', JSON.stringify(usuarioDb))
     localStorage.setItem('usuario_id', usuarioDb.id.toString())
+    if (loginName) localStorage.setItem('plotlab_login_usuario', loginName)
     if (token) localStorage.setItem('auth_token', token)
     return { success: true, data: { usuario: usuarioDb } }
   }
@@ -6365,12 +6377,6 @@ class ApiService {
   async login(usuario: string, password: string): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
     if (supabase) {
       try {
-        const staffResult = await this.loginViaStaffApi(usuario, password)
-        if (staffResult) {
-          if (!staffResult.success || !staffResult.data) return staffResult
-          return this.finalizeStaffLogin(staffResult.data.usuario, staffResult.data.token)
-        }
-
         const { data, error } = await supabase.rpc('login_usuario', {
           p_usuario: usuario,
           p_password: password
@@ -6383,7 +6389,13 @@ class ApiService {
 
         if (!data || (Array.isArray(data) && data.length === 0)) {
           console.warn('Login fallido: credenciales inválidas o usuario no encontrado')
-          return { success: false, error: 'Usuario o contraseña incorrectos' }
+          const inactiveMsg = await this.getInactiveUsuarioLoginHint(usuario)
+          return {
+            success: false,
+            error:
+              inactiveMsg ||
+              'Usuario o contraseña incorrectos. Si tu usuario fue dado de baja, contactá a RRHH.'
+          }
         }
 
         const usuarioDb = Array.isArray(data) ? data[0] : data
@@ -6393,7 +6405,24 @@ class ApiService {
           return { success: false, error: 'Error al obtener datos del usuario' }
         }
 
-        return this.finalizeStaffLogin(usuarioDb as UsuarioRecord)
+        const token = await this.fetchStaffToken(usuario, password)
+        if (!token) {
+          try {
+            const { isStaffJwtEnabledOnServer } = await import('./staffSession')
+            const jwtOn = await isStaffJwtEnabledOnServer()
+            if (jwtOn) {
+              return {
+                success: false,
+                error:
+                  'Contraseña correcta, pero no se pudo abrir sesión segura. Entrá desde trello.plotcenter.com.ar o contactá soporte.'
+              }
+            }
+          } catch {
+            /* seguir sin JWT */
+          }
+        }
+
+        return this.finalizeStaffLogin(usuarioDb as UsuarioRecord, token, usuario.trim())
       } catch (err) {
         console.error('Excepción en login:', err)
         return {
