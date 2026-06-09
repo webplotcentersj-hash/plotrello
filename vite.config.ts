@@ -21,8 +21,19 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,ttf,txt,md}'],
-        // Chunks muy grandes: precachearlos rompe a veces el SW (bytes corruptos / "Bad uncompressed size") tras deploys.
-        globIgnores: ['**/xlsx*.js', '**/pdf.worker*.js', '**/pdf.worker*.mjs']
+        // Chunks pesados: no precachear (carga inicial + riesgo SW corrupto tras deploy).
+        globIgnores: [
+          '**/xlsx*.js',
+          '**/jspdf*.js',
+          '**/html2canvas*.js',
+          '**/CategoricalChart*.js',
+          '**/pdf.worker*.js',
+          '**/pdf.worker*.mjs',
+          '**/main*.js',
+          '**/api*.js',
+          '**/vendor-*.js'
+        ],
+        maximumFileSizeToCacheInBytes: 400_000
       }
     })
   ],
@@ -41,7 +52,23 @@ export default defineConfig({
       output: {
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]'
+        assetFileNames: 'assets/[name].[hash].[ext]',
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            if (id.includes('/src/services/api.ts')) return 'api'
+            if (id.includes('/src/services/supabaseClient.ts')) return 'supabase-client'
+            if (id.includes('/src/utils/plotLabApiOrigin')) return 'plotlab-api'
+            return undefined
+          }
+          if (id.includes('@supabase')) return 'vendor-supabase'
+          if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('dompurify')) {
+            return 'vendor-pdf'
+          }
+          if (id.includes('xlsx') || id.includes('sheetjs')) return 'vendor-xlsx'
+          if (id.includes('pdfjs-dist')) return 'vendor-pdfjs'
+          if (id.includes('@google/genai') || id.includes('@google/generative-ai')) return 'vendor-google-ai'
+          if (id.includes('date-fns')) return 'vendor-date'
+        }
       }
     }
   }

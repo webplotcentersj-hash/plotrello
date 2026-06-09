@@ -1,6 +1,8 @@
+import { lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
-import BriefPublicoPage from './BriefPublicoPage'
+
+const BriefPublicoPage = lazy(() => import('./BriefPublicoPage'))
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageLoading from '../components/cliente/ClientePageLoading'
@@ -39,13 +41,15 @@ export default function ClienteBriefFormPage() {
       />
 
       <div className="cliente-brief-form-main">
-        <BriefPublicoPage
-          token={token}
-          clientePrefill={cliente}
-          idCliente={cliente.id}
-          onSuccess={() => navigate('/cliente/disenos')}
-          variant="cliente"
-        />
+        <Suspense fallback={<ClientePageLoading />}>
+          <BriefPublicoPage
+            token={token}
+            clientePrefill={cliente}
+            idCliente={cliente.id}
+            onSuccess={() => navigate('/cliente/disenos')}
+            variant="cliente"
+          />
+        </Suspense>
       </div>
     </ClientePageLayout>
   )

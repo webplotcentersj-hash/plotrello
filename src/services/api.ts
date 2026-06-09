@@ -9,11 +9,8 @@ import {
 } from '../utils/dateUtils'
 import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
-import { isOrdenVisibleOnTablero, ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
-import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
-import { extractCvMetadataPlotAI, filterPostulacionesPlotAI } from './rrhhPostulacionesPlotAI'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
-import { plotLabFetch, plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 import type {
   AltaCuentaCorrientePayload,
   CcCuentaMovimiento,
@@ -136,20 +133,9 @@ import {
   type TallerGraficoPedidoEntregaInput
 } from '../constants/tallerGraficoPedidoEntrega'
 
-/** Mensaje para la UI cuando Postgres cancela por tiempo (tablero / getOrdenes). */
-export function formatSupabaseStatementTimeoutError(raw: string): string {
-  const m = (raw || '').toLowerCase()
-  if (
-    m.includes('statement timeout') ||
-    m.includes('canceling statement') ||
-    m.includes('tardó demasiado') ||
-    m.includes('timeout') ||
-    m.includes('aborted')
-  ) {
-    return 'Supabase no responde (plan NANO saturado o spend cap). En dashboard.supabase.com: reiniciá el proyecto, subí Compute o desactivá spend cap. Luego recargá Plotrello.'
-  }
-  return raw
-}
+import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
+
+export { formatSupabaseStatementTimeoutError }
 
 /** Columnas para listado del tablero (sin `*` ni JSON pesado). */
 const ORDENES_TABLERO_SELECT =
@@ -849,6 +835,7 @@ class ApiService {
           drive_link: orden.drive_link || null
         }))
 
+        const { isOrdenVisibleOnTablero } = await import('../utils/dataMappers')
         normalizedData = normalizedData.filter((orden) => isOrdenVisibleOnTablero(orden))
 
         if (options?.attachLineasM2 === true) {
@@ -986,11 +973,9 @@ class ApiService {
     const createdNotifyBoard = (row: OrdenTrabajo): ApiResponse<OrdenTrabajo> => {
       // Otras pestañas / ventanas: Supabase Realtime a veces no entrega el INSERT a tiempo; mismo patrón que deleteOrden.
       // El refetch silencioso usa getOrdenes({ skipInFlightDedupe: true }) y no compite con promesas viejas deduplicadas.
-      try {
-        broadcastOrdenesChanged()
-      } catch {
-        /* sin BroadcastChannel */
-      }
+      void import('../utils/ordenesBroadcast')
+        .then((m) => m.broadcastOrdenesChanged())
+        .catch(() => {})
       return { success: true, data: row }
     }
     if (supabase) {
@@ -1007,6 +992,7 @@ class ApiService {
       )
       const hasMultipleSectors = Boolean(orden.sectores && orden.sectores.length > 0)
       const usesCreateOrdenRpc = hasContactFields || hasMultipleSectors
+      const { ordenUsaCorrelativoFichaNoOP } = await import('../utils/dataMappers')
       const usaCorrelativoFichaNoOP = ordenUsaCorrelativoFichaNoOP(orden.numero_op, orden.es_ficha_no_op)
       if (usaCorrelativoFichaNoOP) {
         orden.es_ficha_no_op = true
@@ -2303,19 +2289,15 @@ class ApiService {
           console.warn(
             '[deleteOrden] La BD no tiene columna ordenes_trabajo.eliminada; se ocultó del tablero. Aplicá supabase/patches/2026-04-27_ordenes_soft_delete_eliminada.sql para borrado lógico completo.'
           )
-          try {
-            broadcastOrdenesChanged()
-          } catch {
-            /* sin BroadcastChannel */
-          }
+          void import('../utils/ordenesBroadcast')
+            .then((m) => m.broadcastOrdenesChanged())
+            .catch(() => {})
           return { success: true }
         }
         if (error) return { success: false, error: error.message }
-        try {
-          broadcastOrdenesChanged()
-        } catch {
-          /* sin BroadcastChannel */
-        }
+        void import('../utils/ordenesBroadcast')
+          .then((m) => m.broadcastOrdenesChanged())
+          .catch(() => {})
         return { success: true }
       } catch (e: any) {
         console.error('Error eliminando orden con auditoría:', e)
@@ -6328,148 +6310,14 @@ class ApiService {
   }
 
   // ========== AUTENTICACIÓN ==========
-  /** Emite JWT staff tras validar credenciales (no bloquea login si falla). */
-  private async fetchStaffToken(usuario: string, password: string): Promise<string | undefined> {
-    try {
-      const resp = await plotLabFetch('/api/auth/staff-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario, password })
-      })
-
-      if (resp.status === 503) return undefined
-
-      const json = (await resp.json().catch(() => ({}))) as { token?: string; error?: string }
-
-      if (!resp.ok) {
-        console.warn('[login] staff-login sin token:', resp.status, json.error)
-        return undefined
-      }
-
-      return typeof json.token === 'string' ? json.token : undefined
-    } catch (err) {
-      console.warn('[login] staff-login error:', err)
-      return undefined
-    }
-  }
-
-  private async getInactiveUsuarioLoginHint(usuario: string): Promise<string | null> {
-    if (!supabase) return null
-    const trimmed = usuario.trim()
-    if (!trimmed) return null
-    try {
-      const { data, error } = await supabase.rpc('usuario_inactivo_login_hint', {
-        p_usuario: trimmed
-      })
-      if (error || data !== true) return null
-      return 'Tu usuario fue dado de baja. Contactá a Recursos Humanos si necesitás acceso.'
-    } catch {
-      return null
-    }
-  }
-
-  private async finalizeStaffLogin(
-    usuarioDb: UsuarioRecord,
-    token?: string,
-    loginName?: string
-  ): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
-    await this.ensureUsuarioExists(usuarioDb.id, usuarioDb.nombre, usuarioDb.rol)
-    localStorage.setItem('usuario', JSON.stringify(usuarioDb))
-    localStorage.setItem('usuario_id', usuarioDb.id.toString())
-    if (loginName) localStorage.setItem('plotlab_login_usuario', loginName)
-    if (token) localStorage.setItem('auth_token', token)
-    return { success: true, data: { usuario: usuarioDb } }
-  }
-
   async login(usuario: string, password: string): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.rpc('login_usuario', {
-          p_usuario: usuario,
-          p_password: password
-        })
-
-        if (error) {
-          console.error('Error en login_usuario RPC:', error)
-          return { success: false, error: `Error de autenticación: ${error.message}` }
-        }
-
-        if (!data || (Array.isArray(data) && data.length === 0)) {
-          console.warn('Login fallido: credenciales inválidas o usuario no encontrado')
-          const inactiveMsg = await this.getInactiveUsuarioLoginHint(usuario)
-          return {
-            success: false,
-            error:
-              inactiveMsg ||
-              'Usuario o contraseña incorrectos. Si tu usuario fue dado de baja, contactá a RRHH.'
-          }
-        }
-
-        const usuarioDb = Array.isArray(data) ? data[0] : data
-
-        if (!usuarioDb || !usuarioDb.id) {
-          console.error('Login fallido: datos de usuario inválidos', usuarioDb)
-          return { success: false, error: 'Error al obtener datos del usuario' }
-        }
-
-        const token = await this.fetchStaffToken(usuario, password)
-        if (!token) {
-          try {
-            const { isStaffJwtEnabledOnServer } = await import('./staffSession')
-            const jwtOn = await isStaffJwtEnabledOnServer()
-            if (jwtOn) {
-              return {
-                success: false,
-                error:
-                  'Contraseña correcta, pero no se pudo abrir sesión segura. Entrá desde trello.plotcenter.com.ar o contactá soporte.'
-              }
-            }
-          } catch {
-            /* seguir sin JWT */
-          }
-        }
-
-        return this.finalizeStaffLogin(usuarioDb as UsuarioRecord, token, usuario.trim())
-      } catch (err) {
-        console.error('Excepción en login:', err)
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Error inesperado al iniciar sesión'
-        }
-      }
-    }
-
-    if (hasLegacyBackend) {
-      return this.legacyRequest('/auth/login.php', {
-        method: 'POST',
-        body: JSON.stringify({ usuario, password })
-      })
-    }
-
-    const mockUsuario: UsuarioRecord = {
-      id: 1,
-      nombre: usuario || 'Dev',
-      rol: 'administracion'
-    }
-
-    localStorage.setItem('usuario', JSON.stringify(mockUsuario))
-    return { success: true, data: { usuario: mockUsuario } }
+    const { staffLogin } = await import('./staffAuthApi')
+    return staffLogin(usuario, password)
   }
 
   async logout() {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('usuario')
-
-    if (supabase) {
-      await supabase.rpc('logout_usuario')
-      return { success: true }
-    }
-
-    if (hasLegacyBackend) {
-      return this.legacyRequest('/auth/logout.php', { method: 'POST' })
-    }
-
-    return { success: true }
+    const { staffLogout } = await import('./staffAuthApi')
+    return staffLogout()
   }
 
   async verificarToken() {
@@ -8063,21 +7911,6 @@ class ApiService {
     } catch (error) {
       console.error('❌ Error obteniendo todos los usuarios:', error)
       return []
-    }
-  }
-
-  /** Sincroniza usuario en BD (RPC server-side; sin INSERT directo desde cliente). */
-  private async ensureUsuarioExists(id: number, nombre: string, rol: string): Promise<void> {
-    if (!supabase) return
-    try {
-      const { error } = await supabase.rpc('sync_usuario_notificacion', {
-        p_id: id,
-        p_nombre: nombre,
-        p_rol: rol
-      })
-      if (error) console.error('sync_usuario_notificacion:', error)
-    } catch (error) {
-      console.error('Excepción en ensureUsuarioExists:', error)
     }
   }
 
@@ -20395,6 +20228,7 @@ class ApiService {
               reader.onload = () => resolve(String(reader.result))
               reader.readAsDataURL(blob)
             })
+            const { extractCvMetadataPlotAI } = await import('./rrhhPostulacionesPlotAI')
             const meta = await extractCvMetadataPlotAI(dataUrl, payload.puesto)
             await supabase.rpc('rrhh_postulacion_set_metadata_ia', {
               p_id: postulacionId,
@@ -20526,6 +20360,7 @@ class ApiService {
       return { success: false, error: 'No hay candidatos para filtrar. Buscá primero.' }
     }
     try {
+      const { filterPostulacionesPlotAI } = await import('./rrhhPostulacionesPlotAI')
       const resultados = await filterPostulacionesPlotAI(query, candidatos)
       return { success: true, data: { resultados } }
     } catch (e) {
@@ -20554,6 +20389,7 @@ class ApiService {
         reader.readAsDataURL(blob)
       })
 
+      const { extractCvMetadataPlotAI } = await import('./rrhhPostulacionesPlotAI')
       const data = await extractCvMetadataPlotAI(dataUrl, puesto)
       const score = data.score_plot
       const { error } = await supabase.rpc('rrhh_postulacion_set_metadata_ia', {

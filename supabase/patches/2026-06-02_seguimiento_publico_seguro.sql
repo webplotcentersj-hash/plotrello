@@ -49,7 +49,7 @@ BEGIN
 
   -- Quitar prefijo OP- / FICHA para compatibilidad QR existentes
   v_ref := regexp_replace(v_ref, '^OP-?', '', 'i');
-  v_ref := regexp_replace(v_ref, '^FICHA[\s-_#:]*', '', 'i');
+  v_ref := regexp_replace(v_ref, '^FICHA[\s_#:\-]*', '', 'i');
 
   SELECT * INTO v_row
   FROM public.ordenes_trabajo o
@@ -61,7 +61,8 @@ BEGIN
     AND COALESCE(o.eliminada, false) = false
   ORDER BY
     CASE WHEN COALESCE(o.visible_en_tablero, true) THEN 0 ELSE 1 END,
-    o.updated_at DESC NULLS LAST
+    o.fecha_creacion DESC NULLS LAST,
+    o.id DESC
   LIMIT 1;
 
   IF NOT FOUND THEN

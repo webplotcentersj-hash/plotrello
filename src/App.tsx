@@ -25,7 +25,6 @@ const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
 const CvPublicoPage = lazy(() => import('./pages/CvPublicoPage'))
 const SatisfaccionClientePublicPage = lazy(() => import('./pages/SatisfaccionClientePublicPage'))
-const ClienteAyudaPage = lazy(() => import('./pages/ClienteAyudaPage'))
 const BriefsPendientesPage = lazy(() => import('./pages/BriefsPendientesPage'))
 const OrdenesListasPage = lazy(() => import('./pages/OrdenesListasPage'))
 const BuscarClientePage = lazy(() => import('./pages/BuscarClientePage'))
@@ -117,37 +116,20 @@ const TotemPantallaPage = lazy(() => import('./pages/TotemPantallaPage'))
 const OpEliminadasPage = lazy(() => import('./pages/OpEliminadasPage'))
 const SectorEtapaKanbanPage = lazy(() => import('./pages/SectorEtapaKanbanPage'))
 const InstalacionesMetalurgicaCampoPage = lazy(() => import('./pages/InstalacionesMetalurgicaCampoPage'))
-import ClienteLoginPage from './pages/ClienteLoginPage'
-import ClienteDashboardPage from './pages/ClienteDashboardPage'
-import ClienteBuscarOpPage from './pages/ClienteBuscarOpPage'
-import ClienteMensajesPage from './pages/ClienteMensajesPage'
-import ClienteNuevoPedidoPage from './pages/ClienteNuevoPedidoPage'
-import ClientePedidoDetallePage from './pages/ClientePedidoDetallePage'
-import ClienteCatalogoPage from './pages/ClienteCatalogoPage'
-import ClienteCarritoPage from './pages/ClienteCarritoPage'
-import ClienteCheckoutPage from './pages/ClienteCheckoutPage'
-import ClientePresupuestosPage from './pages/ClientePresupuestosPage'
-import ClientePresupuestoFormPage from './pages/ClientePresupuestoFormPage'
-import ClientePresupuestoDetallePage from './pages/ClientePresupuestoDetallePage'
-import ClienteBriefsPage from './pages/ClienteBriefsPage'
-import ClienteBriefFormPage from './pages/ClienteBriefFormPage'
-import ClienteReclamosPage from './pages/ClienteReclamosPage'
-import ClienteChatPage from './pages/ClienteChatPage'
-import ClienteNotificacionesPage from './pages/ClienteNotificacionesPage'
-import ClienteProtectedRoute from './components/ClienteProtectedRoute'
-import ClientePortalShell from './components/cliente/ClientePortalShell'
-import PresupuestosClientesAdminPage from './pages/PresupuestosClientesAdminPage'
-import PresupuestoClienteDetalleAdminPage from './pages/PresupuestoClienteDetalleAdminPage'
-import PedidoClienteDetalleAdminPage from './pages/PedidoClienteDetalleAdminPage'
-import ConvertirPedidoAOpPage from './pages/ConvertirPedidoAOpPage'
-import LibroActasSectorPage from './pages/LibroActasSectorPage'
-import LibroActasPage from './pages/LibroActasPage'
-import ProtocolosBasesPage from './pages/ProtocolosBasesPage'
-import AsesorPresupuestosPage from './pages/AsesorPresupuestosPage'
+const ClienteLoginPage = lazy(() => import('./pages/ClienteLoginPage'))
+const ClientePortalRoutes = lazy(() => import('./routes/ClientePortalRoutes'))
+const PresupuestosClientesAdminPage = lazy(() => import('./pages/PresupuestosClientesAdminPage'))
+const PresupuestoClienteDetalleAdminPage = lazy(() => import('./pages/PresupuestoClienteDetalleAdminPage'))
+const PedidoClienteDetalleAdminPage = lazy(() => import('./pages/PedidoClienteDetalleAdminPage'))
+const ConvertirPedidoAOpPage = lazy(() => import('./pages/ConvertirPedidoAOpPage'))
+const LibroActasSectorPage = lazy(() => import('./pages/LibroActasSectorPage'))
+const LibroActasPage = lazy(() => import('./pages/LibroActasPage'))
+const ProtocolosBasesPage = lazy(() => import('./pages/ProtocolosBasesPage'))
+const AsesorPresupuestosPage = lazy(() => import('./pages/AsesorPresupuestosPage'))
+const SolicitudesPermisosFloatingButton = lazy(() => import('./components/SolicitudesPermisosFloatingButton'))
+const TallerGraficoPedidoEntregaOverlay = lazy(() => import('./components/TallerGraficoPedidoEntregaOverlay'))
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
-import SolicitudesPermisosFloatingButton from './components/SolicitudesPermisosFloatingButton'
-import TallerGraficoPedidoEntregaOverlay from './components/TallerGraficoPedidoEntregaOverlay'
 import { useAuth } from './hooks/useAuth'
 import { usePhoneBoardLayout } from './hooks/usePhoneBoardLayout'
 import type { ActivityEvent, Task, TeamMember } from './types/board'
@@ -160,7 +142,8 @@ import type {
 } from './types/api'
 import './app.css'
 import './plotlab-mobile.css'
-import apiService, { formatSupabaseStatementTimeoutError } from './services/api'
+import { getApiService } from './services/apiLoader'
+import { formatSupabaseStatementTimeoutError } from './utils/supabaseErrors'
 import {
   historialToActivity,
   isOrdenMarcadaEliminada,
@@ -172,7 +155,6 @@ import { subscribeOrdenesBroadcast } from './utils/ordenesBroadcast'
 import { readOrdenesTableroCache, writeOrdenesTableroCache } from './utils/ordenesTableroCache'
 import { ordenesTableroFingerprint, syncTasksFromOrdenesFetch } from './utils/syncTasksFromOrdenes'
 import { supabase } from './services/supabaseClient'
-import { initializeManual } from './services/plotAIManualService'
 
 /** App campo: sin panel de debug fijo (debe vivir dentro de BrowserRouter). */
 function EnvDebugGate() {
@@ -236,9 +218,11 @@ function App() {
   // Manual PlotAI: no bloquear primer paint (idle o timeout corto).
   useEffect(() => {
     const run = () => {
-      void initializeManual().catch((error) => {
-        console.warn('Error precargando manual:', error)
-      })
+      void import('./services/plotAIManualService')
+        .then((m) => m.initializeManual())
+        .catch((error) => {
+          console.warn('Error precargando manual:', error)
+        })
     }
     const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback(run, { timeout: 4000 }) : null
     const tid = ric == null ? window.setTimeout(run, 1) : null
@@ -267,7 +251,9 @@ function App() {
   }
 
   const handleLogout = () => {
-    void apiService.logout().catch(() => {})
+    void import('./services/staffAuthApi')
+      .then((m) => m.staffLogout())
+      .catch(() => {})
     localStorage.removeItem('usuario')
     localStorage.removeItem('auth_token')
     localStorage.removeItem('usuario_id')
@@ -324,7 +310,8 @@ function App() {
         }
         silentReloadBusyRef.current = true
         try {
-          const ordenesResp = await apiService.getOrdenes({
+          const api = await getApiService()
+          const ordenesResp = await api.getOrdenes({
             skipInFlightDedupe: true,
             attachLineasM2: false
           })
@@ -368,12 +355,13 @@ function App() {
         )
       }
 
+      const api = await getApiService()
       const [ordenesResp, historialResp, usuariosResp, sectoresResp, materialesResp] = await Promise.all([
-        apiService.getOrdenes({ attachLineasM2: false }),
-        apiService.getHistorialMovimientos({ limit: 80 }),
-        apiService.getUsuarios(),
-        apiService.getSectores(),
-        apiService.getMateriales()
+        api.getOrdenes({ attachLineasM2: false }),
+        api.getHistorialMovimientos({ limit: 80 }),
+        api.getUsuarios(),
+        api.getSectores(),
+        api.getMateriales()
       ])
 
       if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
@@ -816,35 +804,20 @@ function App() {
           />
 
           {/* Rutas de clientes web */}
-          <Route path="/cliente/login" element={<ClienteLoginPage />} />
+          <Route
+            path="/cliente/login"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
+                <ClienteLoginPage />
+              </Suspense>
+            }
+          />
           <Route
             path="/cliente/*"
             element={
-              <ClienteProtectedRoute>
-                <ClientePortalShell>
-                <Routes>
-                  <Route path="dashboard" element={<ClienteDashboardPage />} />
-                  <Route path="catalogo" element={<ClienteCatalogoPage />} />
-                  <Route path="carrito" element={<ClienteCarritoPage />} />
-                  <Route path="checkout" element={<ClienteCheckoutPage />} />
-                  <Route path="nuevo-pedido" element={<ClienteNuevoPedidoPage />} />
-                  <Route path="pedido/:id" element={<ClientePedidoDetallePage />} />
-                  <Route path="presupuestos" element={<ClientePresupuestosPage />} />
-                  <Route path="presupuesto/nuevo" element={<ClientePresupuestoFormPage />} />
-                  <Route path="presupuesto/:id" element={<ClientePresupuestoDetallePage />} />
-                  <Route path="presupuesto/:id/editar" element={<ClientePresupuestoFormPage />} />
-                  <Route path="buscar-op/:numeroOp?" element={<ClienteBuscarOpPage />} />
-                  <Route path="mensajes/:idPedido?" element={<ClienteMensajesPage />} />
-                  <Route path="disenos" element={<ClienteBriefsPage />} />
-                  <Route path="brief/:token" element={<ClienteBriefFormPage />} />
-                  <Route path="reclamos" element={<ClienteReclamosPage />} />
-                  <Route path="ayuda" element={<ClienteAyudaPage />} />
-                  <Route path="chat" element={<ClienteChatPage />} />
-                  <Route path="notificaciones" element={<ClienteNotificacionesPage />} />
-                  <Route path="*" element={<Navigate to="/cliente/dashboard" replace />} />
-                </Routes>
-                </ClientePortalShell>
-              </ClienteProtectedRoute>
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando portal...</div>}>
+                <ClientePortalRoutes />
+              </Suspense>
             }
           />
 
@@ -940,7 +913,9 @@ function AppRoutes({
 
   return (
     <>
-      <TallerGraficoPedidoEntregaOverlay />
+      <Suspense fallback={null}>
+        <TallerGraficoPedidoEntregaOverlay />
+      </Suspense>
       {!hideGlobalFloaters && (
         <>
           {/* Botón flotante para acceder a impresoras */}
@@ -982,7 +957,9 @@ function AppRoutes({
             </button>
           )}
           {/* Botón flotante para solicitudes y permisos */}
-          <SolicitudesPermisosFloatingButton />
+          <Suspense fallback={null}>
+            <SolicitudesPermisosFloatingButton />
+          </Suspense>
         </>
       )}
       <Suspense

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import apiService from '../services/api'
+import { staffLogin } from '../services/staffAuthApi'
 import './Login.css'
 
 type LoginProps = {
@@ -18,7 +18,7 @@ const Login = ({ onLogin }: LoginProps) => {
     setError('')
 
     try {
-      const response = await apiService.login(usuario, password)
+      const response = await staffLogin(usuario, password)
       
       if (response.success && response.data) {
         // Guardar usuario en localStorage en el formato esperado por useAuth
