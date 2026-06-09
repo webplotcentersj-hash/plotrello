@@ -19,6 +19,58 @@
   font-size: 1.65rem;
 }
 
+.rrhh-post-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.rrhh-post-title-row h1 {
+  margin: 0;
+}
+
+.rrhh-post-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e8ecf4;
+  white-space: nowrap;
+}
+
+.rrhh-post-count-badge--results {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #bfdbfe;
+}
+
+.rrhh-post-count-badge--ai {
+  background: rgba(139, 92, 246, 0.22);
+  border-color: rgba(167, 139, 250, 0.35);
+  color: #ddd6fe;
+}
+
+.rrhh-post-results-bar {
+  margin: -8px 0 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #c7d7f5;
+  font-size: 0.9rem;
+}
+
+.rrhh-post-results-bar strong {
+  color: #fff;
+}
+
 .rrhh-post-header p {
   margin: 0;
   color: #9aa3b5;
@@ -387,6 +439,12 @@
   text-align: center;
   padding: 48px 20px;
   color: #9aa3b5;
+}
+
+.rrhh-post-empty-hint {
+  font-size: 0.85rem;
+  color: #7a8498;
+  margin-top: 8px;
 }
 
 @media (max-width: 768px) {

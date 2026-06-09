@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (supabaseUrl && supabaseKey) {
       const supabase = createClient(supabaseUrl, supabaseKey)
       const { data } = await supabase.rpc('rrhh_postulaciones_listar', {
-        p_usuario_id: staff.id,
+        p_usuario_id: staff.sub,
         p_limite: 200
       })
       const rows = Array.isArray(data) ? data : []

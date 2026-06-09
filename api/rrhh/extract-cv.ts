@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import {
+  getBearerToken,
   getGeminiServerKey,
   getSupabaseServerKey,
   getSupabaseServerUrl,
@@ -9,6 +10,7 @@ import {
   isProduction,
   setCorsRestricted
 } from '../_lib/security'
+import { verifyStaffJwt } from '../_lib/staffJwt'
 import { extractCvMetadata, stripDataUrl } from './_cvExtract'
 
 type Body = {
@@ -40,9 +42,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  if (isProduction() && !isPlotLabSameOrigin(req)) {
-    res.status(403).json({ success: false, error: 'Forbidden' })
-    return
+  const staff = verifyStaffJwt(getBearerToken(req))
+  if (isProduction()) {
+    if (staff) {
+      if (!['recursos-humanos', 'administracion', 'gerencia'].includes(staff.rol)) {
+        res.status(403).json({ success: false, error: 'No autorizado' })
+        return
+      }
+    } else if (!isPlotLabSameOrigin(req)) {
+      res.status(403).json({ success: false, error: 'Forbidden' })
+      return
+    }
   }
 
   const apiKey = getGeminiServerKey()

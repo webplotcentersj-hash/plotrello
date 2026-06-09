@@ -11,6 +11,7 @@ import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { isOrdenVisibleOnTablero, ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
 import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
+import { getStaffAuthToken } from './staffSession'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
 import type {
   AltaCuentaCorrientePayload,
@@ -20205,26 +20206,68 @@ class ApiService {
     cv_mime?: string
     website?: string
   }): Promise<ApiResponse<{ id: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    const cvUrl = (payload.cv_url || '').trim()
+    if (!cvUrl.includes('/archivos/cv-postulaciones')) {
+      return { success: false, error: 'URL de CV no válida' }
+    }
+
     try {
-      const resp = await fetch('/api/rrhh/submit-cv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const { data, error } = await supabase.rpc('crear_postulacion_cv_public', {
+        p_nombre: payload.nombre,
+        p_email: payload.email,
+        p_telefono: payload.telefono || null,
+        p_puesto: payload.puesto,
+        p_categoria_puesto: payload.categoria_puesto || null,
+        p_mensaje: payload.mensaje || null,
+        p_cv_url: cvUrl,
+        p_cv_nombre: payload.cv_nombre || null,
+        p_cv_mime: payload.cv_mime || null,
+        p_honeypot: payload.website || null
       })
-      const json = (await resp.json().catch(() => ({}))) as {
-        success?: boolean
-        error?: string
-        data?: { id?: number }
+      if (error) throw error
+
+      const postulacionId = Number(data) || 0
+      if (postulacionId > 0) {
+        void fetch('/api/rrhh/extract-cv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postulacionId,
+            cvUrl,
+            puestoPostulado: payload.puesto
+          })
+        }).catch(() => {
+          /* IA opcional; el alta ya quedó en Supabase */
+        })
       }
-      if (!resp.ok || !json.success) {
-        return { success: false, error: json.error || 'No se pudo enviar la postulación' }
-      }
-      return { success: true, data: { id: Number(json.data?.id) || 0 } }
+
+      return { success: true, data: { id: postulacionId } }
     } catch (e) {
-      return {
-        success: false,
-        error: e instanceof Error ? e.message : 'Error de conexión'
-      }
+      const msg = e instanceof Error ? e.message : 'No se pudo enviar la postulación'
+      return { success: false, error: msg }
+    }
+  }
+
+  async rrhhPostulacionesContar(filters: {
+    usuarioId: number
+    busqueda?: string
+    estado?: string
+    puesto?: string
+  }): Promise<ApiResponse<number>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_postulaciones_contar', {
+        p_usuario_id: filters.usuarioId,
+        p_busqueda: filters.busqueda || null,
+        p_estado: filters.estado || null,
+        p_puesto: filters.puesto || null
+      })
+      if (error) throw error
+      return { success: true, data: Number(data) || 0 }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al contar postulaciones') }
     }
   }
 
@@ -20302,18 +20345,34 @@ class ApiService {
     }
   }
 
-  async rrhhPostulacionesFiltrarPlotAI(query: string): Promise<
+  async rrhhPostulacionesFiltrarPlotAI(
+    query: string,
+    candidatos?: Array<{
+      id: number
+      nombre: string
+      puesto: string
+      resumen?: string | null
+      habilidades?: string[]
+      score_plot?: number | null
+    }>
+  ): Promise<
     ApiResponse<{ resultados: Array<{ id: number; match_score: number; motivo: string }> }>
   > {
     try {
-      const token = localStorage.getItem('auth_token')
+      const token = getStaffAuthToken()
+      if (!token) {
+        return {
+          success: false,
+          error: 'Sesión expirada. Cerrá sesión e ingresá de nuevo para usar PlotAI.'
+        }
+      }
       const resp = await fetch('/api/rrhh/filter-postulaciones', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query, candidatos })
       })
       const json = (await resp.json().catch(() => ({}))) as {
         success?: boolean
@@ -20321,7 +20380,12 @@ class ApiService {
         data?: { resultados?: Array<{ id: number; match_score: number; motivo: string }> }
       }
       if (!resp.ok || !json.success) {
-        return { success: false, error: json.error || 'Error en filtro PlotAI' }
+        const err =
+          json.error ||
+          (resp.status === 503
+            ? 'PlotAI no disponible (¿GEMINI_API_KEY en Vercel?)'
+            : 'Error en filtro PlotAI')
+        return { success: false, error: err }
       }
       return { success: true, data: { resultados: json.data?.resultados || [] } }
     } catch (e) {
@@ -20337,21 +20401,66 @@ class ApiService {
     cvUrl: string,
     puesto: string
   ): Promise<ApiResponse<Record<string, unknown>>> {
+    const token = getStaffAuthToken()
+    if (!token) {
+      return {
+        success: false,
+        error: 'Sesión expirada. Cerrá sesión e ingresá de nuevo.'
+      }
+    }
+
     try {
+      let dataUrl: string | undefined
+      try {
+        const cvResp = await fetch(cvUrl)
+        if (!cvResp.ok) throw new Error('No se pudo descargar el CV')
+        const blob = await cvResp.blob()
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
+          reader.onload = () => resolve(String(reader.result))
+          reader.readAsDataURL(blob)
+        })
+      } catch (e) {
+        return {
+          success: false,
+          error: e instanceof Error ? e.message : 'No se pudo leer el CV'
+        }
+      }
+
       const resp = await fetch('/api/rrhh/extract-cv', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postulacionId, cvUrl, puestoPostulado: puesto })
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ dataUrl, puestoPostulado: puesto })
       })
       const json = (await resp.json().catch(() => ({}))) as {
         success?: boolean
         error?: string
         data?: Record<string, unknown>
       }
-      if (!resp.ok || !json.success) {
-        return { success: false, error: json.error || 'Error al analizar CV' }
+      if (!resp.ok || !json.success || !json.data) {
+        const err =
+          json.error ||
+          (resp.status === 503
+            ? 'PlotAI no disponible (¿GEMINI_API_KEY en Vercel?)'
+            : 'Error al analizar CV')
+        return { success: false, error: err }
       }
-      return { success: true, data: json.data || {} }
+
+      if (supabase) {
+        const score = json.data.score_plot
+        const { error } = await supabase.rpc('rrhh_postulacion_set_metadata_ia', {
+          p_id: postulacionId,
+          p_metadata: json.data,
+          p_score: score == null ? null : Number(score)
+        })
+        if (error) throw error
+      }
+
+      return { success: true, data: json.data }
     } catch (e) {
       return {
         success: false,

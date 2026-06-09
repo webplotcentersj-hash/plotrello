@@ -38,13 +38,19 @@ function isPdf(cv: RrhhPostulacion): boolean {
   return mime.includes('pdf') || name.toLowerCase().endsWith('.pdf')
 }
 
+function fmtCount(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return '—'
+  return n.toLocaleString('es-AR')
+}
+
 const RecursosHumanosPostulacionesPage = () => {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
   const canAccess = !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
 
   const [rows, setRows] = useState<RrhhPostulacion[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('')
   const [puestoFilter, setPuestoFilter] = useState('')
@@ -58,18 +64,43 @@ const RecursosHumanosPostulacionesPage = () => {
   const [detailEstado, setDetailEstado] = useState<RrhhPostulacionEstado>('nuevo')
   const [saving, setSaving] = useState(false)
   const [reanalizando, setReanalizando] = useState(false)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+  const [resultCount, setResultCount] = useState<number | null>(null)
 
-  const load = useCallback(async () => {
+  const refreshTotalCount = useCallback(async () => {
     if (!usuario?.id) return
+    const res = await apiService.rrhhPostulacionesContar({ usuarioId: usuario.id })
+    if (res.success && res.data != null) setTotalCount(res.data)
+  }, [usuario?.id])
+
+  const load = useCallback(async (): Promise<RrhhPostulacion[]> => {
+    if (!usuario?.id) return []
     setLoading(true)
-    const res = await apiService.rrhhPostulacionesListar({
+    const filters = {
       usuarioId: usuario.id,
       busqueda: busqueda.trim() || undefined,
       estado: estadoFilter || undefined,
       puesto: puestoFilter || undefined
-    })
-    if (res.success && res.data) setRows(res.data)
+    }
+    const [res, countRes] = await Promise.all([
+      apiService.rrhhPostulacionesListar(filters),
+      apiService.rrhhPostulacionesContar(filters)
+    ])
+    const data = res.success && res.data ? res.data : []
+    if (res.success) {
+      setRows(data)
+      setHasSearched(true)
+      setAiScores({})
+    } else if (res.error) {
+      alert(res.error)
+    }
+    if (countRes.success && countRes.data != null) {
+      setResultCount(countRes.data)
+    } else {
+      setResultCount(data.length)
+    }
     setLoading(false)
+    return data
   }, [usuario?.id, busqueda, estadoFilter, puestoFilter])
 
   useEffect(() => {
@@ -78,8 +109,8 @@ const RecursosHumanosPostulacionesPage = () => {
       navigate('/')
       return
     }
-    void load()
-  }, [authLoading, canAccess, navigate, load])
+    void refreshTotalCount()
+  }, [authLoading, canAccess, navigate, refreshTotalCount])
 
   const puestosFlat = useMemo(
     () => PUESTOS_POSTULACION.flatMap((g) => g.puestos),
@@ -87,29 +118,72 @@ const RecursosHumanosPostulacionesPage = () => {
   )
 
   const sortedRows = useMemo(() => {
-    if (!Object.keys(aiScores).length) return rows
-    return [...rows].sort((a, b) => {
+    let list = rows
+    if (Object.keys(aiScores).length > 0) {
+      list = rows.filter((r) => aiScores[r.id] != null)
+    }
+    if (!Object.keys(aiScores).length) return list
+    return [...list].sort((a, b) => {
       const sa = aiScores[a.id]?.score ?? -1
       const sb = aiScores[b.id]?.score ?? -1
       return sb - sa
     })
   }, [rows, aiScores])
 
+  const buildCandidatosParaIA = (list: RrhhPostulacion[]) =>
+    list.map((r) => {
+      const meta = (r.metadata_ia || {}) as Record<string, unknown>
+      return {
+        id: r.id,
+        nombre: r.nombre,
+        puesto: r.puesto,
+        resumen: typeof meta.resumen === 'string' ? meta.resumen : null,
+        habilidades: Array.isArray(meta.habilidades) ? (meta.habilidades as string[]) : [],
+        score_plot: r.score_ia ?? (typeof meta.score_plot === 'number' ? meta.score_plot : null)
+      }
+    })
+
   const runAiFilter = async () => {
     const q = aiQuery.trim()
-    if (!q) return
-    setAiLoading(true)
-    const res = await apiService.rrhhPostulacionesFiltrarPlotAI(q)
-    if (res.success && res.data?.resultados) {
-      const map: Record<number, { score: number; motivo: string }> = {}
-      res.data.resultados.forEach((r) => {
-        map[r.id] = { score: r.match_score, motivo: r.motivo }
-      })
-      setAiScores(map)
-    } else {
-      alert(res.error || 'No se pudo aplicar el filtro PlotAI')
+    if (!q) {
+      alert('Escribí qué perfil buscás (ej: diseñador con Illustrator).')
+      return
     }
-    setAiLoading(false)
+
+    setAiLoading(true)
+    try {
+      let candidatos = rows
+      if (!hasSearched || candidatos.length === 0) {
+        if (!busqueda.trim() && !estadoFilter && !puestoFilter) {
+          alert('Primero pulsá Buscar con un criterio (nombre, estado o puesto) para acotar candidatos.')
+          setAiLoading(false)
+          return
+        }
+        candidatos = await load()
+      }
+
+      if (!candidatos.length) {
+        alert('No hay postulaciones con esos filtros.')
+        setAiLoading(false)
+        return
+      }
+
+      const res = await apiService.rrhhPostulacionesFiltrarPlotAI(q, buildCandidatosParaIA(candidatos))
+      if (res.success && res.data?.resultados) {
+        const map: Record<number, { score: number; motivo: string }> = {}
+        res.data.resultados.forEach((r) => {
+          map[r.id] = { score: r.match_score, motivo: r.motivo }
+        })
+        setAiScores(map)
+        if (!Object.keys(map).length) {
+          alert('PlotAI no encontró candidatos que encajen con esa búsqueda.')
+        }
+      } else {
+        alert(res.error || 'No se pudo aplicar el filtro PlotAI')
+      }
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   const clearAiFilter = () => {
@@ -159,7 +233,12 @@ const RecursosHumanosPostulacionesPage = () => {
       selected.puesto
     )
     if (res.success) {
-      const listRes = await apiService.rrhhPostulacionesListar({ usuarioId: usuario.id })
+      const listRes = await apiService.rrhhPostulacionesListar({
+        usuarioId: usuario.id,
+        busqueda: busqueda.trim() || undefined,
+        estado: estadoFilter || undefined,
+        puesto: puestoFilter || undefined
+      })
       if (listRes.success && listRes.data) {
         setRows(listRes.data)
         const updated = listRes.data.find((r) => r.id === selected.id)
@@ -179,11 +258,35 @@ const RecursosHumanosPostulacionesPage = () => {
 
   const meta = (selected?.metadata_ia || {}) as Record<string, unknown>
 
+  const aiMatchCount = Object.keys(aiScores).length
+  const visibleCount = sortedRows.length
+  const listLimitNote =
+    hasSearched && resultCount != null && resultCount > rows.length
+      ? ` (mostrando ${fmtCount(rows.length)} de ${fmtCount(resultCount)})`
+      : ''
+
   return (
     <div className="rrhh-post-page">
       <header className="rrhh-post-header">
         <div>
-          <h1>📄 Postulaciones y CVs</h1>
+          <div className="rrhh-post-title-row">
+            <h1>📄 Postulaciones y CVs</h1>
+            {totalCount != null && (
+              <span className="rrhh-post-count-badge" title="Total en la base">
+                {fmtCount(totalCount)} en total
+              </span>
+            )}
+            {hasSearched && resultCount != null && (
+              <span className="rrhh-post-count-badge rrhh-post-count-badge--results" title="Resultados de la búsqueda">
+                {fmtCount(resultCount)} resultado{resultCount === 1 ? '' : 's'}
+              </span>
+            )}
+            {aiMatchCount > 0 && (
+              <span className="rrhh-post-count-badge rrhh-post-count-badge--ai" title="Coincidencias PlotAI">
+                {fmtCount(visibleCount)} con PlotAI
+              </span>
+            )}
+          </div>
           <p>Bandeja de candidatos · PlotAI · Vista previa al pasar el mouse</p>
         </div>
         <div className="rrhh-post-header-actions">
@@ -245,14 +348,41 @@ const RecursosHumanosPostulacionesPage = () => {
         </div>
       </div>
 
+      {hasSearched && resultCount != null && !loading && (
+        <p className="rrhh-post-results-bar">
+          {aiMatchCount > 0 ? (
+            <>
+              Mostrando <strong>{fmtCount(visibleCount)}</strong> candidatos con PlotAI
+              {resultCount > visibleCount ? ` (de ${fmtCount(resultCount)} en la búsqueda)` : ''}
+            </>
+          ) : (
+            <>
+              <strong>{fmtCount(resultCount)}</strong> postulación{resultCount === 1 ? '' : 'es'} encontrada
+              {resultCount === 1 ? '' : 's'}
+              {listLimitNote}
+            </>
+          )}
+        </p>
+      )}
+
       {loading ? (
-        <div className="rrhh-post-loading">Cargando postulaciones…</div>
-      ) : sortedRows.length === 0 ? (
+        <div className="rrhh-post-loading">Buscando postulaciones…</div>
+      ) : !hasSearched ? (
         <div className="rrhh-post-empty">
-          <p>No hay postulaciones todavía.</p>
+          <p>Usá la barra de búsqueda o los filtros y pulsá <strong>Buscar</strong> para ver candidatos.</p>
+          <p className="rrhh-post-empty-hint">Las postulaciones no se listan solas: acotá con búsqueda o filtros.</p>
           <button type="button" className="rrhh-post-btn-primary" onClick={copyPublicLink}>
             Copiar link del formulario público
           </button>
+        </div>
+      ) : sortedRows.length === 0 ? (
+        <div className="rrhh-post-empty">
+          <p>No hay postulaciones con esos criterios.</p>
+          {Object.keys(aiScores).length > 0 && (
+            <button type="button" className="rrhh-post-btn-outline" onClick={clearAiFilter}>
+              Limpiar filtro PlotAI
+            </button>
+          )}
         </div>
       ) : (
         <div className="rrhh-post-grid">

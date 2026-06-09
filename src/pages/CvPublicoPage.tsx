@@ -12,6 +12,7 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]
 const HR_WHATSAPP = '2646212163'
+const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
 
 const CvPublicoPage = () => {
   const [nombre, setNombre] = useState('')
@@ -102,7 +103,7 @@ const CvPublicoPage = () => {
     return (
       <div className="cv-publico-page">
         <div className="cv-publico-card cv-publico-success">
-          <img src="/logo.png" alt="Plot Center" className="cv-publico-logo" />
+          <img src={LOGO_URL} alt="Plot Center" className="cv-publico-logo" />
           <h1>¡Gracias por postularte!</h1>
           <p>Recibimos tu CV. El equipo de Recursos Humanos lo revisará y te contactará si tu perfil encaja.</p>
           {waLink && (
@@ -122,7 +123,7 @@ const CvPublicoPage = () => {
     <div className="cv-publico-page">
       <div className="cv-publico-card">
         <header className="cv-publico-header">
-          <img src="/logo.png" alt="Plot Center" className="cv-publico-logo" />
+          <img src={LOGO_URL} alt="Plot Center" className="cv-publico-logo" />
           <div>
             <h1>Trabajá con Nosotros</h1>
             <p>
