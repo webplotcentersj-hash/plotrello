@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { supabase } from '../services/supabaseClient'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
@@ -200,7 +201,7 @@ export default function ErpGastosPage() {
 
       // Extraer datos con IA (servidor)
       setTicketExtracting(true)
-      const res = await fetch('/api/erp/extract-ticket', {
+      const res = await plotLabFetch('/api/erp/extract-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

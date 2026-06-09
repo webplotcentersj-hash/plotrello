@@ -76,11 +76,9 @@ export function getSupabaseServerUrl(): string {
 }
 
 /** Clave Gemini solo server-side (nunca VITE_ en producción). */
+/** Clave Gemini solo server-side. Acepta GEMINI_API_KEY o VITE_GEMINI_API_KEY (Vercel). */
 export function getGeminiServerKey(): string {
-  const key = process.env.GEMINI_API_KEY || ''
-  if (key) return key
-  if (isProduction()) return ''
-  return process.env.VITE_GEMINI_API_KEY || ''
+  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
 }
 
 const DEFAULT_ALLOWED_ORIGINS = [

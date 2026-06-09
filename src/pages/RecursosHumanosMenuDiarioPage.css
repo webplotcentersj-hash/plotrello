@@ -467,3 +467,144 @@
   background: #dc2626;
 }
 
+.rrhh-menu-planilla {
+  margin-bottom: 24px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.rrhh-menu-planilla-toggle {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 18px;
+  border: none;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.rrhh-menu-planilla-toggle-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.rrhh-menu-planilla-toggle-meta {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.rrhh-menu-planilla-chevron {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.rrhh-menu-planilla-body {
+  padding: 16px 18px 20px;
+}
+
+.rrhh-menu-planilla-hint {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.rrhh-menu-planilla-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.rrhh-menu-planilla-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.rrhh-menu-planilla-filters input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #1e293b;
+  color: #f1f5f9;
+  color-scheme: dark;
+}
+
+.rrhh-menu-planilla-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.rrhh-menu-planilla-kpi {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-menu-planilla-kpi span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.rrhh-menu-planilla-kpi strong {
+  font-size: 22px;
+  color: #fbbf24;
+}
+
+.rrhh-menu-planilla-kpi--total strong {
+  color: #f59e0b;
+}
+
+.rrhh-menu-planilla-table-wrap {
+  margin-bottom: 18px;
+}
+
+.rrhh-menu-planilla-table-wrap h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.rrhh-menu-planilla-table-wrap .rrhh-table {
+  width: 100%;
+}
+
+.rrhh-menu-planilla-monto {
+  color: #fbbf24;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rrhh-menu-planilla-table--detail {
+  max-height: 360px;
+  display: block;
+  overflow: auto;
+}
+
+.rrhh-menu-planilla-empty,
+.rrhh-menu-planilla-error {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.rrhh-menu-planilla-error {
+  color: #fca5a5;
+  margin-bottom: 12px;
+}
+

@@ -1,3 +1,5 @@
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
+
 export type BriefCamposIa = 'all' | 'objetivo' | 'brief_publico' | 'estilo_diseno'
 
 export type BriefIaResult = {
@@ -11,7 +13,7 @@ export async function generarBriefCamposIa(input: {
   campo?: BriefCamposIa
   indicacion?: string
 }): Promise<BriefIaResult> {
-  const resp = await fetch('/api/plotai/brief-completo', {
+  const resp = await plotLabFetch('/api/plotai/brief-completo', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

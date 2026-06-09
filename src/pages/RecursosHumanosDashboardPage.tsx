@@ -180,7 +180,8 @@ const RecursosHumanosDashboardPage = () => {
               <div className="rrhh-action-icon">📋</div>
               <h3>Novedades</h3>
               <p>
-                Faltas, tardanzas, licencias y horas extra — calendario, comprobantes y reportes
+                Faltas, tardanzas, licencias, horas extra, pérdida del beneficio de comida, parte diario y
+                anticipación de sueldo — calendario, firma y reportes
               </p>
             </button>
 
@@ -244,7 +245,10 @@ const RecursosHumanosDashboardPage = () => {
             >
               <div className="rrhh-action-icon">🍽️</div>
               <h3>Menú Diario</h3>
-              <p>Gestionar menú del día y selecciones de empleados</p>
+              <p>
+                Menú del día, pedidos y planilla acumulativa de descuentos ($7.000 por pedido con pérdida de
+                beneficio de comida)
+              </p>
             </button>
 
             <button

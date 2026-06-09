@@ -2,9 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { MenuDiario, MenuSeleccion } from '../types/api'
+import type { MenuDiario, MenuDescuentoBeneficioComida, MenuDescuentoBeneficioResumen, MenuSeleccion } from '../types/api'
 import { formatArgentinaDate, formatArgentinaTime } from '../utils/dateUtils'
-import { getTurnoAlmuerzoLabel, MENU_TURNOS_ALMUERZO } from '../constants/menuDiario'
+import {
+  formatMenuDescuentoArs,
+  getTurnoAlmuerzoLabel,
+  MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS,
+  MENU_TURNOS_ALMUERZO
+} from '../constants/menuDiario'
 import jsPDF from 'jspdf'
 import './RecursosHumanosMenuDiarioPage.css'
 
@@ -52,6 +57,17 @@ const RecursosHumanosMenuDiarioPage = () => {
   })
   const [filtroDesde, setFiltroDesde] = useState<string>('')
   const [filtroHasta, setFiltroHasta] = useState<string>('')
+  const [planillaMes, setPlanillaMes] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [planillaDesde, setPlanillaDesde] = useState('')
+  const [planillaHasta, setPlanillaHasta] = useState('')
+  const [descuentosDetalle, setDescuentosDetalle] = useState<MenuDescuentoBeneficioComida[]>([])
+  const [descuentosResumen, setDescuentosResumen] = useState<MenuDescuentoBeneficioResumen[]>([])
+  const [planillaLoading, setPlanillaLoading] = useState(false)
+  const [planillaError, setPlanillaError] = useState<string | null>(null)
+  const [planillaAbierta, setPlanillaAbierta] = useState(true)
 
   useEffect(() => {
     if (authLoading) return
@@ -62,6 +78,25 @@ const RecursosHumanosMenuDiarioPage = () => {
     loadMenuHoy()
     // Historial inicia colapsado; se carga cuando se abre o cuando se ajustan filtros.
   }, [canManageRecursosHumanos, navigate, authLoading])
+
+  useEffect(() => {
+    if (!planillaMes) return
+    const [yyRaw, mmRaw] = planillaMes.split('-')
+    const yy = parseInt(yyRaw || '', 10)
+    const mm = parseInt(mmRaw || '', 10)
+    if (!Number.isFinite(yy) || !Number.isFinite(mm) || mm < 1 || mm > 12) return
+    const first = `${yy}-${String(mm).padStart(2, '0')}-01`
+    const lastDate = new Date(yy, mm, 0)
+    const last = `${yy}-${String(mm).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`
+    setPlanillaDesde(first)
+    setPlanillaHasta(last)
+  }, [planillaMes])
+
+  useEffect(() => {
+    if (!canManageRecursosHumanos || !planillaDesde || !planillaHasta) return
+    void loadPlanillaDescuentos(planillaDesde, planillaHasta)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageRecursosHumanos, planillaDesde, planillaHasta])
 
   const loadMenuHoy = async () => {
     setLoading(true)
@@ -84,6 +119,31 @@ const RecursosHumanosMenuDiarioPage = () => {
       setLoading(false)
     }
   }
+
+  const loadPlanillaDescuentos = async (desde: string, hasta: string) => {
+    setPlanillaLoading(true)
+    setPlanillaError(null)
+    try {
+      const res = await apiService.menuDescuentosBeneficioListar({ fechaDesde: desde, fechaHasta: hasta })
+      if (!res.success || !res.data) {
+        setDescuentosDetalle([])
+        setDescuentosResumen([])
+        setPlanillaError(res.error || 'No se pudo cargar la planilla de descuentos')
+        return
+      }
+      setDescuentosDetalle(res.data)
+      setDescuentosResumen(apiService.menuDescuentosBeneficioResumenPorEmpleado(res.data))
+    } catch (e: unknown) {
+      setDescuentosDetalle([])
+      setDescuentosResumen([])
+      setPlanillaError(e instanceof Error ? e.message : 'Error al cargar planilla')
+    } finally {
+      setPlanillaLoading(false)
+    }
+  }
+
+  const totalPlanillaMonto = descuentosResumen.reduce((s, r) => s + r.total_monto, 0)
+  const totalPlanillaPedidos = descuentosDetalle.length
 
   const loadSelecciones = async () => {
     const m = menuSeleccionado ?? menuHoy
@@ -507,6 +567,152 @@ const RecursosHumanosMenuDiarioPage = () => {
             </button>
           </div>
         )}
+
+        {/* Planilla descuentos — pérdida beneficio comida */}
+        <section className="rrhh-menu-planilla">
+          <button
+            type="button"
+            className="rrhh-menu-planilla-toggle"
+            onClick={() => setPlanillaAbierta((v) => !v)}
+            aria-expanded={planillaAbierta}
+          >
+            <span className="rrhh-menu-planilla-toggle-title">
+              💰 Planilla descuentos — pérdida beneficio comida
+            </span>
+            <span className="rrhh-menu-planilla-toggle-meta">
+              {formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)} por pedido ·{' '}
+              {totalPlanillaPedidos} registro{totalPlanillaPedidos === 1 ? '' : 's'} en el período
+            </span>
+            <span className="rrhh-menu-planilla-chevron">{planillaAbierta ? '▼' : '▶'}</span>
+          </button>
+
+          {planillaAbierta && (
+            <div className="rrhh-menu-planilla-body">
+              <p className="rrhh-menu-planilla-hint">
+                Empleados con novedad de pérdida del beneficio de comida que pidieron menú: cada pedido suma{' '}
+                <strong>{formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)}</strong> al descuento
+                acumulado (se registra al confirmar en /menu-diario).
+              </p>
+
+              <div className="rrhh-menu-planilla-filters">
+                <label>
+                  Mes
+                  <input type="month" value={planillaMes} onChange={(e) => setPlanillaMes(e.target.value)} />
+                </label>
+                <label>
+                  Desde
+                  <input
+                    type="date"
+                    value={planillaDesde}
+                    onChange={(e) => setPlanillaDesde(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Hasta
+                  <input
+                    type="date"
+                    value={planillaHasta}
+                    onChange={(e) => setPlanillaHasta(e.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={planillaLoading || !planillaDesde || !planillaHasta}
+                  onClick={() => void loadPlanillaDescuentos(planillaDesde, planillaHasta)}
+                >
+                  {planillaLoading ? 'Cargando…' : 'Aplicar'}
+                </button>
+              </div>
+
+              {planillaError ? <p className="rrhh-menu-planilla-error">⚠️ {planillaError}</p> : null}
+
+              {planillaLoading ? (
+                <p className="rrhh-menu-planilla-empty">Cargando planilla…</p>
+              ) : descuentosResumen.length === 0 ? (
+                <p className="rrhh-menu-planilla-empty">
+                  No hay descuentos registrados en este período.
+                </p>
+              ) : (
+                <>
+                  <div className="rrhh-menu-planilla-kpis">
+                    <div className="rrhh-menu-planilla-kpi">
+                      <span>Empleados con descuento</span>
+                      <strong>{descuentosResumen.length}</strong>
+                    </div>
+                    <div className="rrhh-menu-planilla-kpi">
+                      <span>Total pedidos descontados</span>
+                      <strong>{totalPlanillaPedidos}</strong>
+                    </div>
+                    <div className="rrhh-menu-planilla-kpi rrhh-menu-planilla-kpi--total">
+                      <span>Acumulado a descontar</span>
+                      <strong>{formatMenuDescuentoArs(totalPlanillaMonto)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="rrhh-menu-planilla-table-wrap">
+                    <h4>Acumulado por empleado</h4>
+                    <table className="rrhh-table rrhh-menu-planilla-table">
+                      <thead>
+                        <tr>
+                          <th>Empleado</th>
+                          <th>Pedidos</th>
+                          <th>Acumulado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {descuentosResumen.map((r) => (
+                          <tr key={r.id_usuario}>
+                            <td>{r.nombre_usuario}</td>
+                            <td>{r.cantidad_pedidos}</td>
+                            <td className="rrhh-menu-planilla-monto">{formatMenuDescuentoArs(r.total_monto)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td>
+                            <strong>Total general</strong>
+                          </td>
+                          <td>
+                            <strong>{totalPlanillaPedidos}</strong>
+                          </td>
+                          <td className="rrhh-menu-planilla-monto">
+                            <strong>{formatMenuDescuentoArs(totalPlanillaMonto)}</strong>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div className="rrhh-menu-planilla-table-wrap">
+                    <h4>Detalle por pedido</h4>
+                    <table className="rrhh-table rrhh-menu-planilla-table rrhh-menu-planilla-table--detail">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Empleado</th>
+                          <th>Plato</th>
+                          <th>Descuento</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {descuentosDetalle.map((d) => (
+                          <tr key={d.id}>
+                            <td>{formatArgentinaDate(d.fecha)}</td>
+                            <td>{d.nombre_usuario || `Usuario ${d.id_usuario}`}</td>
+                            <td>{d.nombre_plato || '—'}</td>
+                            <td className="rrhh-menu-planilla-monto">{formatMenuDescuentoArs(d.monto)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </section>
 
         {/* Historial de menús */}
         <div className="rrhh-menu-history">

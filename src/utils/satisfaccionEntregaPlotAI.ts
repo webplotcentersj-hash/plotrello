@@ -1,9 +1,10 @@
 import type { SatisfaccionEntregaAnalisisPayload } from './satisfaccionEntregaAnalisisData'
+import { plotLabFetch } from './plotLabApiOrigin'
 
 export async function fetchSatisfaccionEntregaInformeIA(
   analisis: SatisfaccionEntregaAnalisisPayload
 ): Promise<string> {
-  const resp = await fetch('/api/plotai/satisfaccion-entrega-informe', {
+  const resp = await plotLabFetch('/api/plotai/satisfaccion-entrega-informe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ analisis })

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import {
   Bar,
   BarChart,
@@ -415,7 +416,7 @@ const RecursosHumanosNovedadesPage = () => {
         reader.onload = () => resolve(String(reader.result))
         reader.readAsDataURL(file)
       })
-      const res = await fetch('/api/rrhh/extract-certificado', {
+      const res = await plotLabFetch('/api/rrhh/extract-certificado', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dataUrl })

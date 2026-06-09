@@ -1,3 +1,5 @@
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
+
 const AUTH_TOKEN_KEY = 'auth_token'
 const USUARIO_KEY = 'usuario'
 
@@ -20,7 +22,7 @@ export function clearStaffSession(): void {
 /** true si PLOT_LAB_STAFF_JWT_SECRET está configurado en Vercel. */
 export async function isStaffJwtEnabledOnServer(): Promise<boolean> {
   try {
-    const resp = await fetch('/api/auth/staff-jwt-status')
+    const resp = await plotLabFetch('/api/auth/staff-jwt-status')
     if (!resp.ok) return false
     const json = (await resp.json()) as { enabled?: boolean }
     return json.enabled === true
@@ -38,7 +40,7 @@ export async function verifyStaffSession(): Promise<{
   if (!token) return { ok: false }
 
   try {
-    const resp = await fetch('/api/auth/staff-session', {
+    const resp = await plotLabFetch('/api/auth/staff-session', {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (resp.status === 503) {

@@ -25,9 +25,18 @@ export function writeOrdenesTableroCache(rows: OrdenTrabajo[]): void {
   if (typeof window === 'undefined' || rows.length === 0) return
   const visible = rows.filter((row) => isOrdenVisibleOnTablero(row))
   if (visible.length === 0) return
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), rows: visible }))
-  } catch {
-    /* quota */
+
+  const persist = () => {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), rows: visible }))
+    } catch {
+      /* quota */
+    }
+  }
+
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(persist, { timeout: 3000 })
+  } else {
+    window.setTimeout(persist, 0)
   }
 }

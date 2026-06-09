@@ -1,6 +1,17 @@
 /** Cupo por turno de almuerzo (comedor) */
 export const MENU_ALMUERZO_CUPO_POR_TURNO = 10
 
+/** Descuento por pedido de menú con pérdida del beneficio de comida (RRHH Novedades). */
+export const MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS = 7000
+
+export function formatMenuDescuentoArs(monto: number): string {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0
+  }).format(monto)
+}
+
 /**
  * Hora tope en Argentina para pedir o cancelar el menú del día.
  * Debe coincidir con `seleccionar_plato_menu` / `cancelar_seleccion_menu` en Supabase (patches SQL).

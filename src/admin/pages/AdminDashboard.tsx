@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { plotLabFetch } from '../../utils/plotLabApiOrigin'
 import type { Task, TeamMember, ActivityEvent } from '../../types/board'
 import PlotAIChat from '../../components/PlotAIChat'
 import { useAuth } from '../../hooks/useAuth'
@@ -372,7 +373,7 @@ export default function AdminDashboard({
         clean
       ].join('\n')
 
-      const res = await fetch('/api/plotai/chat-public', {
+      const res = await plotLabFetch('/api/plotai/chat-public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: prompt, modo: 'admin' })

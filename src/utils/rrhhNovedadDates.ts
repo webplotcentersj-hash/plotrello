@@ -4,6 +4,25 @@ export function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
   return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
 }
 
+/** Novedad activa de pérdida de beneficio de comida para un empleado en una fecha (YYYY-MM-DD). */
+export function findPerdidaBeneficioComidaActiva(
+  novedades: RrhhNovedad[],
+  idUsuario: number,
+  dayStr: string
+): RrhhNovedad | null {
+  for (const n of novedades) {
+    if (
+      n.id_usuario === idUsuario &&
+      n.grupo === 'beneficio_comida' &&
+      n.codigo === 'perdida_beneficio_comida' &&
+      novedadEnDia(n, dayStr)
+    ) {
+      return n
+    }
+  }
+  return null
+}
+
 export function permisoEnDia(p: SolicitudPermiso, dayStr: string): boolean {
   if (!p.fecha_inicio) return false
   const desde = String(p.fecha_inicio).slice(0, 10)

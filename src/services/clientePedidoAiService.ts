@@ -1,3 +1,5 @@
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
+
 export type PedidoEspecificacionIaResult = {
   descripcion_articulo: string
   brief_publico: string
@@ -11,7 +13,7 @@ export async function generarPedidoDesdeEspecificacion(input: {
   digital_o_impresion?: string
   cantidades?: string
 }): Promise<PedidoEspecificacionIaResult> {
-  const resp = await fetch('/api/plotai/pedido-especificacion', {
+  const resp = await plotLabFetch('/api/plotai/pedido-especificacion', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input)
@@ -28,7 +30,7 @@ export async function generarPedidoDesdeEspecificacion(input: {
 }
 
 export async function generarMockupImagenIa(prompt: string): Promise<string> {
-  const resp = await fetch('/api/plotai/generate-image', {
+  const resp = await plotLabFetch('/api/plotai/generate-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, aspectRatio: '16:9' })

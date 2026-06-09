@@ -119,7 +119,7 @@ SCHEMA:
     ]
   } as any)
 
-  const text = String((response as any)?.text ?? '').trim()
+  const text = String(response.text ?? '').trim()
   const data = tryParseJsonFromModelText(text)
   if (!data) return null
   return data as CvMetadataIa
@@ -164,7 +164,7 @@ Ordená por match_score descendente. Incluí solo candidatos con match_score >= 
     contents: [{ role: 'user', parts: [{ text: prompt }] }]
   } as any)
 
-  const text = String((response as any)?.text ?? '').trim()
+  const text = String(response.text ?? '').trim()
   const data = tryParseJsonFromModelText(text)
   const arr = (data?.resultados as Array<{ id: number; match_score: number; motivo: string }>) || []
   return arr.filter((r) => r?.id != null && Number.isFinite(r.match_score))

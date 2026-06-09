@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import './EmbedChatPage.css'
 import './EmbedChatWidgetPage.css'
+import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 
 const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
 const POLL_INTERVAL_MS = 4000
@@ -124,7 +125,7 @@ export default function EmbedChatWidgetPage() {
   }, [open])
 
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
-  const respuestasApi = `${apiBase}/api/plotai/conversation-respuestas`
+  const respuestasApi = plotLabApiUrl('/api/plotai/conversation-respuestas')
 
   const prevStaffCountRef = useRef(0)
 
@@ -166,7 +167,7 @@ export default function EmbedChatWidgetPage() {
     return () => clearInterval(interval)
   }, [open, conversationId])
 
-  const chatApi = `${apiBase}/api/plotai/chat-public`
+  const chatApi = plotLabApiUrl('/api/plotai/chat-public')
 
   const renderMessageText = (text: string) => {
     const urlRegex = /((https?:\/\/|www\.)\S+|\/brief\/[A-Za-z0-9._-]+)/g

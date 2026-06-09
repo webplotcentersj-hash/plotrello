@@ -1,4 +1,5 @@
 import type { Task } from '../types/board'
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
 
 export type PlotAiPrediction = {
   has_data: boolean
@@ -13,7 +14,7 @@ export type PlotAiPrediction = {
 }
 
 export async function plotAiRecordSprintSnapshot(tasks: Task[], sprintKey?: string | null) {
-  const resp = await fetch('/api/plotai/sprint-snapshot', {
+  const resp = await plotLabFetch('/api/plotai/sprint-snapshot', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -39,7 +40,7 @@ export async function plotAiRecordSprintSnapshot(tasks: Task[], sprintKey?: stri
 export async function plotAiGetSprintPrediction(sprintKey?: string | null): Promise<PlotAiPrediction | null> {
   const qs = new URLSearchParams()
   if (sprintKey) qs.set('sprint_key', sprintKey)
-  const resp = await fetch(`/api/plotai/sprint-predict?${qs.toString()}`)
+  const resp = await plotLabFetch(`/api/plotai/sprint-predict?${qs.toString()}`)
   if (!resp.ok) return null
   const json = (await resp.json().catch(() => null)) as any
   return (json?.prediction as PlotAiPrediction) || null

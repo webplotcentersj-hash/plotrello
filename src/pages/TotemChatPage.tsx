@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import './TotemChatPage.css'
 import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
+import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 
 /** Saludo de mostrador: claro al leer en voz alta (sin comas/puntos por formatTotemVoiceText). */
 const GREETING_SPEECH =
   'Hola bienvenido a Plot Center soy el asistente del mostrador decime en qué te puedo ayudar hoy'
-const CHAT_API = '/api/plotai/chat-public'
-const IMAGE_API = '/api/plotai/generate-image'
+const CHAT_API_PATH = '/api/plotai/chat-public'
+const IMAGE_API_PATH = '/api/plotai/generate-image'
 /** TTS del tótem: solo esta ruta usa ElevenLabs (API servidor + reproducción acá). */
-const ELEVENLABS_TTS_API = '/api/plotai/elevenlabs-tts'
+const ELEVENLABS_TTS_API_PATH = '/api/plotai/elevenlabs-tts'
 const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
@@ -146,8 +147,6 @@ export default function TotemChatPage() {
       const clean = formatTotemVoiceText(text)
       if (!clean) return Promise.resolve()
 
-      const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
-
       return new Promise<void>((resolve) => {
         const finish = () => {
           speakDoneRef.current = null
@@ -162,7 +161,7 @@ export default function TotemChatPage() {
           console.warn(
             `[Plotrello /totem TTS] Usando voz del NAVEGADOR (no ElevenLabs). Motivo: ${reason}. ` +
               `Si querés ElevenLabs: Vercel → ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID o ELEVENLABS_VOICE_NAME. ` +
-              `En Red (F12) buscá POST ${ELEVENLABS_TTS_API}`
+              `En Red (F12) buscá POST ${ELEVENLABS_TTS_API_PATH}`
           )
           if (!('speechSynthesis' in window)) {
             finish()
@@ -179,11 +178,11 @@ export default function TotemChatPage() {
         }
 
         const tryElevenLabs = async (): Promise<boolean> => {
-          const urlTts = `${apiBase}${ELEVENLABS_TTS_API}`
+          const urlTts = plotLabApiUrl(ELEVENLABS_TTS_API_PATH)
           for (let attempt = 0; attempt < 2; attempt++) {
             try {
               if (attempt === 0) {
-                console.info(`[Plotrello /totem TTS] Llamando ElevenLabs vía ${ELEVENLABS_TTS_API} (${clean.length} caracteres)`)
+                console.info(`[Plotrello /totem TTS] Llamando ElevenLabs vía ${ELEVENLABS_TTS_API_PATH} (${clean.length} caracteres)`)
               }
               const res = await fetch(urlTts, {
                 method: 'POST',
@@ -279,10 +278,9 @@ export default function TotemChatPage() {
   )
 
   const sendToChat = useCallback(async (userText: string): Promise<string | null> => {
-    const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
     const currentHistory = historyRef.current
     const currentConvId = conversationIdRef.current
-    const res = await fetch(`${apiBase}${CHAT_API}`, {
+    const res = await fetch(plotLabApiUrl(CHAT_API_PATH), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -332,9 +330,8 @@ export default function TotemChatPage() {
       const wantsImage = IMAGE_TRIGGER.test(userText)
       let reply: string | null = null
       if (wantsImage) {
-        const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
         try {
-          const imgRes = await fetch(`${apiBase}${IMAGE_API}`, {
+          const imgRes = await fetch(plotLabApiUrl(IMAGE_API_PATH), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: userText, aspectRatio: '1:1' })

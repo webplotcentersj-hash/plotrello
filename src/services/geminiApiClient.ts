@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
 
 export type GeminiContentPart = {
   text?: string
@@ -52,7 +53,7 @@ export async function callGeminiGenerateContent(opts: {
   const contents = opts.contents
 
   try {
-    const resp = await fetch('/api/plotai/generate-content', {
+    const resp = await plotLabFetch('/api/plotai/generate-content', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, contents })

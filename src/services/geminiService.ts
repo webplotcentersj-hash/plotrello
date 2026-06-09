@@ -1,5 +1,6 @@
 import type { Task, TeamMember } from '../types/board'
 import { BOARD_COLUMNS } from '../data/mockData'
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
 
 export interface SprintAnalysisData {
   tasks: Task[]
@@ -34,7 +35,7 @@ export async function generateSprintReport(analysisData: SprintAnalysisData): Pr
   // En producción, generamos el informe desde el servidor (Vercel /api) para no exponer API keys en el navegador.
   // Nota: en dev con `vite`, las rutas `/api/*` no existen y devuelve 404 (ahí hacemos fallback al modo cliente).
   try {
-    const resp = await fetch('/api/plotai/sprint-report', {
+    const resp = await plotLabFetch('/api/plotai/sprint-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

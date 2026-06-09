@@ -6,6 +6,8 @@
  * - Proveedor único: Gemini (Google).
  */
 
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
+
 export interface ImageGenerationOptions {
   prompt: string
   // Algunos modelos permiten parámetros extra; por ahora lo mantenemos simple
@@ -36,7 +38,7 @@ export interface GenerationResult {
  */
 export async function generateImage(options: ImageGenerationOptions): Promise<GenerationResult> {
   try {
-    const response = await fetch('/api/plotai/generate-image', {
+    const response = await plotLabFetch('/api/plotai/generate-image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -69,7 +71,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Ge
  */
 export async function generateVideo(options: VideoGenerationOptions): Promise<GenerationResult> {
   try {
-    const response = await fetch('/api/plotai/generate-video', {
+    const response = await plotLabFetch('/api/plotai/generate-video', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

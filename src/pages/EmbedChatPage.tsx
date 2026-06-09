@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import './EmbedChatPage.css'
+import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 
 type ChatMessage = { role: 'user' | 'model'; parts: { text: string }[] }
 
@@ -63,7 +64,7 @@ export default function EmbedChatPage() {
   }, [isClientePortal, clienteNombreFromUrl, messages.length])
 
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
-  const chatApi = `${apiBase}/api/plotai/chat-public`
+  const chatApi = plotLabApiUrl('/api/plotai/chat-public')
 
   const renderMessageText = (text: string) => {
     const urlRegex = /((https?:\/\/|www\.)\S+|\/brief\/[A-Za-z0-9._-]+)/g

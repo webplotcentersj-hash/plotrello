@@ -170,6 +170,7 @@ import {
 } from './utils/dataMappers'
 import { subscribeOrdenesBroadcast } from './utils/ordenesBroadcast'
 import { readOrdenesTableroCache, writeOrdenesTableroCache } from './utils/ordenesTableroCache'
+import { ordenesTableroFingerprint, syncTasksFromOrdenesFetch } from './utils/syncTasksFromOrdenes'
 import { supabase } from './services/supabaseClient'
 import { initializeManual } from './services/plotAIManualService'
 
@@ -224,6 +225,7 @@ function App() {
   const silentReloadBusyRef = useRef(false)
   const silentReloadAgainRef = useRef(false)
   const ordenBroadcastRefreshTimerRef = useRef<number | null>(null)
+  const lastOrdenesFingerprintRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!loading) {
@@ -327,14 +329,15 @@ function App() {
             attachLineasM2: false
           })
           if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
-            writeOrdenesTableroCache(ordenesResp.data)
-            const mapped = ordenesResp.data
-              .map((orden) => ordenToTask(orden))
-              .filter((task) => !isTaskHiddenFromKanban(task))
-            startTransition(() => {
-              setTasks(mapped)
-              setDataError(null)
-            })
+            const fp = ordenesTableroFingerprint(ordenesResp.data)
+            if (fp !== lastOrdenesFingerprintRef.current) {
+              lastOrdenesFingerprintRef.current = fp
+              writeOrdenesTableroCache(ordenesResp.data)
+              startTransition(() => {
+                setTasks((prev) => syncTasksFromOrdenesFetch(prev, ordenesResp.data!))
+                setDataError(null)
+              })
+            }
           } else if (!ordenesResp.success) {
             if (import.meta.env.DEV) {
               console.warn('🔄 Actualización silenciosa: órdenes no disponibles', ordenesResp.error)
@@ -365,9 +368,16 @@ function App() {
         )
       }
 
-      const ordenesResp = await apiService.getOrdenes({ attachLineasM2: false })
+      const [ordenesResp, historialResp, usuariosResp, sectoresResp, materialesResp] = await Promise.all([
+        apiService.getOrdenes({ attachLineasM2: false }),
+        apiService.getHistorialMovimientos({ limit: 80 }),
+        apiService.getUsuarios(),
+        apiService.getSectores(),
+        apiService.getMateriales()
+      ])
 
       if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
+        lastOrdenesFingerprintRef.current = ordenesTableroFingerprint(ordenesResp.data)
         writeOrdenesTableroCache(ordenesResp.data)
         const tasksWithCorrectStatus = ordenesResp.data
           .map((orden) => ordenToTask(orden))
@@ -399,13 +409,6 @@ function App() {
       if (!silent) {
         setDataLoading(false)
       }
-
-      const [historialResp, usuariosResp, sectoresResp, materialesResp] = await Promise.all([
-        apiService.getHistorialMovimientos({ limit: 80 }),
-        apiService.getUsuarios(),
-        apiService.getSectores(),
-        apiService.getMateriales()
-      ])
 
       if (historialResp.success && historialResp.data) {
         const act = historialResp.data.map((registro) => historialToActivity(registro))

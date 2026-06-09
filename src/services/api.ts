@@ -11,8 +11,9 @@ import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { isOrdenVisibleOnTablero, ordenUsaCorrelativoFichaNoOP } from '../utils/dataMappers'
 import { broadcastOrdenesChanged } from '../utils/ordenesBroadcast'
-import { getStaffAuthToken } from './staffSession'
+import { extractCvMetadataPlotAI, filterPostulacionesPlotAI } from './rrhhPostulacionesPlotAI'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
+import { plotLabFetch, plotLabApiUrl } from '../utils/plotLabApiOrigin'
 import type {
   AltaCuentaCorrientePayload,
   CcCuentaMovimiento,
@@ -78,6 +79,8 @@ import type {
   InscripcionCapacitacion,
   MenuDiario,
   MenuSeleccion,
+  MenuDescuentoBeneficioComida,
+  MenuDescuentoBeneficioResumen,
   MenuIntercambioTurno,
   Vehiculo,
   VehiculoEstadoParque,
@@ -783,6 +786,8 @@ class ApiService {
     skipInFlightDedupe?: boolean
     /** false en listado masivo del tablero (evita N consultas a orden_lineas_m2). */
     attachLineasM2?: boolean
+    /** Refresco silencioso: solo OP activas (menos filas y menos trabajo en cliente). */
+    soloActivasEnTablero?: boolean
   }): Promise<ApiResponse<OrdenTrabajo[]>> {
     const skip = options?.skipInFlightDedupe === true
     if (!skip && this.getOrdenesInFlight) return this.getOrdenesInFlight
@@ -798,21 +803,22 @@ class ApiService {
 
   private async fetchOrdenesOnce(options?: {
     attachLineasM2?: boolean
+    soloActivasEnTablero?: boolean
   }): Promise<ApiResponse<OrdenTrabajo[]>> {
     if (supabase) {
       try {
         const sb = supabase
-        const runQuery = (select: string) =>
-          withQueryTimeout(
-            Promise.resolve(
-              sb
-                .from('ordenes_trabajo')
-                .select(select)
-                .order('id', { ascending: false })
-                .limit(ORDENES_TABLERO_LIMIT)
-            ),
-            'getOrdenes'
-          )
+        const runQuery = (select: string) => {
+          let q = sb
+            .from('ordenes_trabajo')
+            .select(select)
+            .order('id', { ascending: false })
+            .limit(ORDENES_TABLERO_LIMIT)
+          if (options?.soloActivasEnTablero) {
+            q = q.or('entregado.is.null,entregado.eq.false')
+          }
+          return withQueryTimeout(Promise.resolve(q), 'getOrdenes')
+        }
 
         let { data, error } = await runQuery(ORDENES_TABLERO_SELECT)
         if (
@@ -1384,9 +1390,7 @@ class ApiService {
     if (typeof window === 'undefined') return
     if (ordenActualizada.estado !== 'Almacén de Entrega' || estadoAnterior === 'Almacén de Entrega') return
     if (!ordenActualizada.email_cliente?.trim()) return
-    const origin = (window as Window).location?.origin
-    if (!origin) return
-    fetch(`${origin}/api/notify-orden-lista`, {
+    fetch(plotLabApiUrl('/api/notify-orden-lista'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ordenId })
@@ -6327,7 +6331,7 @@ class ApiService {
   /** Emite JWT staff tras validar credenciales (no bloquea login si falla). */
   private async fetchStaffToken(usuario: string, password: string): Promise<string | undefined> {
     try {
-      const resp = await fetch('/api/auth/staff-login', {
+      const resp = await plotLabFetch('/api/auth/staff-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario, password })
@@ -16640,6 +16644,156 @@ class ApiService {
     }
   }
 
+  private mapMenuDescuentoBeneficioRow(row: Record<string, unknown>): MenuDescuentoBeneficioComida {
+    const u = row.usuarios as { nombre?: string } | { nombre?: string }[] | null | undefined
+    const nombre =
+      Array.isArray(u) ? u[0]?.nombre : u && typeof u === 'object' ? u.nombre : undefined
+    return {
+      id: Number(row.id),
+      id_usuario: Number(row.id_usuario),
+      nombre_usuario: nombre ?? undefined,
+      id_menu: Number(row.id_menu),
+      id_seleccion: row.id_seleccion != null ? Number(row.id_seleccion) : null,
+      id_novedad: row.id_novedad != null ? Number(row.id_novedad) : null,
+      fecha: String(row.fecha ?? '').slice(0, 10),
+      monto: Number(row.monto) || 7000,
+      nombre_plato: row.nombre_plato != null ? String(row.nombre_plato) : null,
+      created_at: String(row.created_at ?? '')
+    }
+  }
+
+  async menuDescuentoBeneficioRegistrar(input: {
+    id_usuario: number
+    id_menu: number
+    id_seleccion: number
+    id_novedad: number | null
+    fecha: string
+    nombre_plato?: string | null
+    monto?: number
+  }): Promise<ApiResponse<MenuDescuentoBeneficioComida>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('menu_descuentos_beneficio_comida')
+        .insert({
+          id_usuario: input.id_usuario,
+          id_menu: input.id_menu,
+          id_seleccion: input.id_seleccion,
+          id_novedad: input.id_novedad,
+          fecha: input.fecha,
+          monto: input.monto ?? 7000,
+          nombre_plato: input.nombre_plato ?? null
+        })
+        .select('*, usuarios(nombre)')
+        .single()
+      if (error) throw error
+      return {
+        success: true,
+        data: this.mapMenuDescuentoBeneficioRow(data as Record<string, unknown>)
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'No se pudo registrar el descuento de comida')
+      }
+    }
+  }
+
+  async menuDescuentosBeneficioListar(filters?: {
+    idUsuario?: number
+    idNovedad?: number
+    fechaDesde?: string
+    fechaHasta?: string
+  }): Promise<ApiResponse<MenuDescuentoBeneficioComida[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      let q = supabase
+        .from('menu_descuentos_beneficio_comida')
+        .select('*, usuarios(nombre)')
+        .order('fecha', { ascending: false })
+        .order('id', { ascending: false })
+      if (filters?.idUsuario) q = q.eq('id_usuario', filters.idUsuario)
+      if (filters?.idNovedad) q = q.eq('id_novedad', filters.idNovedad)
+      if (filters?.fechaDesde) q = q.gte('fecha', filters.fechaDesde)
+      if (filters?.fechaHasta) q = q.lte('fecha', filters.fechaHasta)
+      const { data, error } = await q
+      if (error) throw error
+      const rows = (data ?? []) as Record<string, unknown>[]
+      return {
+        success: true,
+        data: rows.map((r) => this.mapMenuDescuentoBeneficioRow(r))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'No se pudieron listar descuentos de comida')
+      }
+    }
+  }
+
+  async menuDescuentosBeneficioAcumulado(filters: {
+    idUsuario: number
+    idNovedad?: number
+    fechaDesde?: string
+    fechaHasta?: string
+  }): Promise<ApiResponse<{ cantidad: number; total: number }>> {
+    const res = await this.menuDescuentosBeneficioListar(filters)
+    if (!res.success || !res.data) {
+      return { success: false, error: res.error ?? 'Error al calcular acumulado' }
+    }
+    const cantidad = res.data.length
+    const total = res.data.reduce((s, r) => s + (r.monto || 0), 0)
+    return { success: true, data: { cantidad, total } }
+  }
+
+  async menuDescuentoBeneficioEliminarPorSeleccion(
+    idSeleccion: number
+  ): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { error } = await supabase
+        .from('menu_descuentos_beneficio_comida')
+        .delete()
+        .eq('id_seleccion', idSeleccion)
+      if (error) throw error
+      return { success: true, data: true }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'No se pudo anular el descuento')
+      }
+    }
+  }
+
+  menuDescuentosBeneficioResumenPorEmpleado(
+    rows: MenuDescuentoBeneficioComida[]
+  ): MenuDescuentoBeneficioResumen[] {
+    const map = new Map<number, MenuDescuentoBeneficioResumen>()
+    for (const r of rows) {
+      const prev = map.get(r.id_usuario)
+      if (prev) {
+        prev.cantidad_pedidos += 1
+        prev.total_monto += r.monto
+      } else {
+        map.set(r.id_usuario, {
+          id_usuario: r.id_usuario,
+          nombre_usuario: r.nombre_usuario || `Usuario ${r.id_usuario}`,
+          cantidad_pedidos: 1,
+          total_monto: r.monto,
+          fecha_desde_novedad: null,
+          fecha_hasta_novedad: null
+        })
+      }
+    }
+    return [...map.values()].sort((a, b) => b.total_monto - a.total_monto)
+  }
+
   async solicitarIntercambioTurnoMenu(
     idMenu: number,
     idSolicita: number,
@@ -20230,17 +20384,27 @@ class ApiService {
 
       const postulacionId = Number(data) || 0
       if (postulacionId > 0) {
-        void fetch('/api/rrhh/extract-cv', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            postulacionId,
-            cvUrl,
-            puestoPostulado: payload.puesto
-          })
-        }).catch(() => {
-          /* IA opcional; el alta ya quedó en Supabase */
-        })
+        void (async () => {
+          try {
+            const cvResp = await fetch(cvUrl)
+            if (!cvResp.ok) return
+            const blob = await cvResp.blob()
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader()
+              reader.onerror = () => reject(new Error('read'))
+              reader.onload = () => resolve(String(reader.result))
+              reader.readAsDataURL(blob)
+            })
+            const meta = await extractCvMetadataPlotAI(dataUrl, payload.puesto)
+            await supabase.rpc('rrhh_postulacion_set_metadata_ia', {
+              p_id: postulacionId,
+              p_metadata: meta,
+              p_score: meta.score_plot == null ? null : Number(meta.score_plot)
+            })
+          } catch {
+            /* IA opcional */
+          }
+        })()
       }
 
       return { success: true, data: { id: postulacionId } }
@@ -20358,40 +20522,16 @@ class ApiService {
   ): Promise<
     ApiResponse<{ resultados: Array<{ id: number; match_score: number; motivo: string }> }>
   > {
+    if (!candidatos?.length) {
+      return { success: false, error: 'No hay candidatos para filtrar. Buscá primero.' }
+    }
     try {
-      const token = getStaffAuthToken()
-      if (!token) {
-        return {
-          success: false,
-          error: 'Sesión expirada. Cerrá sesión e ingresá de nuevo para usar PlotAI.'
-        }
-      }
-      const resp = await fetch('/api/rrhh/filter-postulaciones', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ query, candidatos })
-      })
-      const json = (await resp.json().catch(() => ({}))) as {
-        success?: boolean
-        error?: string
-        data?: { resultados?: Array<{ id: number; match_score: number; motivo: string }> }
-      }
-      if (!resp.ok || !json.success) {
-        const err =
-          json.error ||
-          (resp.status === 503
-            ? 'PlotAI no disponible (¿GEMINI_API_KEY en Vercel?)'
-            : 'Error en filtro PlotAI')
-        return { success: false, error: err }
-      }
-      return { success: true, data: { resultados: json.data?.resultados || [] } }
+      const resultados = await filterPostulacionesPlotAI(query, candidatos)
+      return { success: true, data: { resultados } }
     } catch (e) {
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Error de conexión'
+        error: e instanceof Error ? e.message : 'Error en filtro PlotAI'
       }
     }
   }
@@ -20401,70 +20541,33 @@ class ApiService {
     cvUrl: string,
     puesto: string
   ): Promise<ApiResponse<Record<string, unknown>>> {
-    const token = getStaffAuthToken()
-    if (!token) {
-      return {
-        success: false,
-        error: 'Sesión expirada. Cerrá sesión e ingresá de nuevo.'
-      }
-    }
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
 
     try {
-      let dataUrl: string | undefined
-      try {
-        const cvResp = await fetch(cvUrl)
-        if (!cvResp.ok) throw new Error('No se pudo descargar el CV')
-        const blob = await cvResp.blob()
-        dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
-          reader.onload = () => resolve(String(reader.result))
-          reader.readAsDataURL(blob)
-        })
-      } catch (e) {
-        return {
-          success: false,
-          error: e instanceof Error ? e.message : 'No se pudo leer el CV'
-        }
-      }
-
-      const resp = await fetch('/api/rrhh/extract-cv', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ dataUrl, puestoPostulado: puesto })
+      const cvResp = await fetch(cvUrl)
+      if (!cvResp.ok) throw new Error('No se pudo descargar el CV')
+      const blob = await cvResp.blob()
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
+        reader.onload = () => resolve(String(reader.result))
+        reader.readAsDataURL(blob)
       })
-      const json = (await resp.json().catch(() => ({}))) as {
-        success?: boolean
-        error?: string
-        data?: Record<string, unknown>
-      }
-      if (!resp.ok || !json.success || !json.data) {
-        const err =
-          json.error ||
-          (resp.status === 503
-            ? 'PlotAI no disponible (¿GEMINI_API_KEY en Vercel?)'
-            : 'Error al analizar CV')
-        return { success: false, error: err }
-      }
 
-      if (supabase) {
-        const score = json.data.score_plot
-        const { error } = await supabase.rpc('rrhh_postulacion_set_metadata_ia', {
-          p_id: postulacionId,
-          p_metadata: json.data,
-          p_score: score == null ? null : Number(score)
-        })
-        if (error) throw error
-      }
+      const data = await extractCvMetadataPlotAI(dataUrl, puesto)
+      const score = data.score_plot
+      const { error } = await supabase.rpc('rrhh_postulacion_set_metadata_ia', {
+        p_id: postulacionId,
+        p_metadata: data,
+        p_score: score == null ? null : Number(score)
+      })
+      if (error) throw error
 
-      return { success: true, data: json.data }
+      return { success: true, data: data as Record<string, unknown> }
     } catch (e) {
       return {
         success: false,
-        error: e instanceof Error ? e.message : 'Error de conexión'
+        error: e instanceof Error ? e.message : 'Error al analizar CV'
       }
     }
   }

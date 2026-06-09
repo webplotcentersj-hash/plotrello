@@ -1501,6 +1501,29 @@ export interface MenuSeleccion {
   emoji_estado: string
 }
 
+/** Descuento acumulativo por pedido de menú con pérdida del beneficio de comida. */
+export interface MenuDescuentoBeneficioComida {
+  id: number
+  id_usuario: number
+  nombre_usuario?: string
+  id_menu: number
+  id_seleccion: number | null
+  id_novedad: number | null
+  fecha: string
+  monto: number
+  nombre_plato: string | null
+  created_at: string
+}
+
+export interface MenuDescuentoBeneficioResumen {
+  id_usuario: number
+  nombre_usuario: string
+  cantidad_pedidos: number
+  total_monto: number
+  fecha_desde_novedad: string | null
+  fecha_hasta_novedad: string | null
+}
+
 /** Solicitud de intercambio de turno de almuerzo (menú diario) */
 export interface MenuIntercambioTurno {
   id: number

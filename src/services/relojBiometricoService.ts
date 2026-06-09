@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
 
 // ============================================================
 // Importador de reloj biométrico (asistencia) + cálculo de horas
@@ -1114,7 +1115,7 @@ export async function generarInformeAsistenciaIa(
       }))
   }))
 
-  const resp = await fetch('/api/plotai/asistencia-reloj', {
+  const resp = await plotLabFetch('/api/plotai/asistencia-reloj', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

@@ -2,14 +2,23 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { MenuDiario, MenuIntercambioTurno, MenuSeleccion } from '../types/api'
-import { getArgentinaDate, formatArgentinaTime, formatArgentinaDate, isBeforeArgentinaTime } from '../utils/dateUtils'
+import type { MenuDiario, MenuIntercambioTurno, MenuSeleccion, RrhhNovedad } from '../types/api'
+import {
+  getArgentinaDate,
+  getArgentinaDateString,
+  formatArgentinaTime,
+  formatArgentinaDate,
+  isBeforeArgentinaTime
+} from '../utils/dateUtils'
+import { findPerdidaBeneficioComidaActiva } from '../utils/rrhhNovedadDates'
 import {
   MENU_TURNOS_ALMUERZO,
   MENU_ALMUERZO_CUPO_POR_TURNO,
   MENU_EMOJIS_ESTADO,
   MENU_PEDIDO_HORA_TOPE_ARG,
   MENU_PEDIDO_HORA_TOPE_TEXTO,
+  MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS,
+  formatMenuDescuentoArs,
   getTurnoAlmuerzoLabel,
   type MenuTurnoAlmuerzoId
 } from '../constants/menuDiario'
@@ -52,6 +61,8 @@ const MenuDiarioPage = () => {
   const [swapBusy, setSwapBusy] = useState(false)
   const [turnoSoloEdit, setTurnoSoloEdit] = useState<MenuTurnoAlmuerzoId>(1)
   const [guardandoTurno, setGuardandoTurno] = useState(false)
+  const [perdidaBeneficioComida, setPerdidaBeneficioComida] = useState<RrhhNovedad | null>(null)
+  const [acumuladoDescuento, setAcumuladoDescuento] = useState({ cantidad: 0, total: 0 })
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 720px)')
@@ -108,6 +119,47 @@ const MenuDiarioPage = () => {
     return () => clearInterval(t)
   }, [menu?.id, usuario?.id, loadSeleccionesMesa])
 
+  const loadAcumuladoDescuento = useCallback(
+    async (idUsuario: number, novedad: RrhhNovedad | null) => {
+      if (!novedad) {
+        setAcumuladoDescuento({ cantidad: 0, total: 0 })
+        return
+      }
+      const res = await apiService.menuDescuentosBeneficioAcumulado({
+        idUsuario,
+        idNovedad: novedad.id,
+        fechaDesde: novedad.fecha_desde,
+        fechaHasta: novedad.fecha_hasta
+      })
+      if (res.success && res.data) {
+        setAcumuladoDescuento(res.data)
+      } else {
+        setAcumuladoDescuento({ cantidad: 0, total: 0 })
+      }
+    },
+    []
+  )
+
+  const loadPerdidaBeneficioComida = useCallback(
+    async (idUsuario: number) => {
+      const hoy = getArgentinaDateString()
+      const res = await apiService.rrhhNovedadesListar({
+        idUsuario,
+        grupo: 'beneficio_comida',
+        codigo: 'perdida_beneficio_comida',
+        fechaDesde: hoy,
+        fechaHasta: hoy
+      })
+      const activa =
+        res.success && res.data?.length
+          ? findPerdidaBeneficioComidaActiva(res.data, idUsuario, hoy)
+          : null
+      setPerdidaBeneficioComida(activa)
+      await loadAcumuladoDescuento(idUsuario, activa)
+    },
+    [loadAcumuladoDescuento]
+  )
+
   const loadMenu = async () => {
     setLoading(true)
     try {
@@ -115,12 +167,18 @@ const MenuDiarioPage = () => {
       if (response.success && response.data) {
         setMenu(response.data)
         if (usuario?.id) {
-          await loadMiSeleccion(response.data.id, usuario.id)
+          await Promise.all([
+            loadMiSeleccion(response.data.id, usuario.id),
+            loadPerdidaBeneficioComida(usuario.id)
+          ])
         }
         await loadSeleccionesMesa(response.data.id)
       } else {
         setMenu(null)
         setSeleccionesMesa([])
+        if (usuario?.id) {
+          await loadPerdidaBeneficioComida(usuario.id)
+        }
       }
     } catch (error) {
       console.error('Error cargando menú:', error)
@@ -153,6 +211,16 @@ const MenuDiarioPage = () => {
 
   const handleConfirmarPedido = async () => {
     if (!usuario?.id || !menu) return
+    if (perdidaBeneficioComida) {
+      const nuevoTotal = acumuladoDescuento.total + MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS
+      const ok = confirm(
+        `Tenés registrada la pérdida del beneficio de comida (hasta el ${perdidaBeneficioComida.fecha_hasta}).\n\n` +
+          `Este pedido se descontará ${formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)} de tu sueldo.\n` +
+          `Acumulado en el período: ${formatMenuDescuentoArs(nuevoTotal)} (${acumuladoDescuento.cantidad + 1} pedido${acumuladoDescuento.cantidad + 1 === 1 ? '' : 's'}).\n\n` +
+          `¿Confirmás el pedido?`
+      )
+      if (!ok) return
+    }
     if (!puedeSeleccionar) {
       alert(
         `El plazo para seleccionar el menú ha expirado. Debes hacerlo antes de las ${MENU_PEDIDO_HORA_TOPE_TEXTO} AM (hora Argentina)`
@@ -181,7 +249,23 @@ const MenuDiarioPage = () => {
       )
       if (response.success && response.data) {
         setMiSeleccion(response.data)
-        alert('Pedido registrado correctamente')
+        if (perdidaBeneficioComida) {
+          const platoNom =
+            menu.platos?.find((p) => p.id === platoElegido)?.nombre_plato ?? response.data.nombre_plato
+          await apiService.menuDescuentoBeneficioRegistrar({
+            id_usuario: usuario.id,
+            id_menu: menu.id,
+            id_seleccion: response.data.id,
+            id_novedad: perdidaBeneficioComida.id,
+            fecha: menu.fecha,
+            nombre_plato: platoNom ?? null
+          })
+        }
+        alert(
+          perdidaBeneficioComida
+            ? `Pedido registrado. Se descontarán ${formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)} de tu sueldo.`
+            : 'Pedido registrado correctamente'
+        )
         await loadMenu()
       } else {
         alert('Error: ' + response.error)
@@ -232,8 +316,10 @@ const MenuDiarioPage = () => {
 
     if (!confirm('¿Cancelar tu pedido del menú?')) return
 
+    const idSeleccion = miSeleccion.id
     const response = await apiService.cancelarSeleccionMenu(menu.id, usuario.id)
     if (response.success) {
+      await apiService.menuDescuentoBeneficioEliminarPorSeleccion(idSeleccion)
       setMiSeleccion(null)
       setPlatoElegido(null)
       setTurnoElegido(null)
@@ -349,6 +435,27 @@ const MenuDiarioPage = () => {
       </div>
 
       <div className="menu-diario-content">
+        {perdidaBeneficioComida ? (
+          <div className="menu-beneficio-aviso" role="alert">
+            <strong>⚠️ Pérdida del beneficio de comida</strong>
+            <p>
+              RRHH registró la sanción desde el{' '}
+              <strong>{formatArgentinaDate(perdidaBeneficioComida.fecha_desde)}</strong> hasta el{' '}
+              <strong>{formatArgentinaDate(perdidaBeneficioComida.fecha_hasta)}</strong>
+              {perdidaBeneficioComida.observaciones ? <> — {perdidaBeneficioComida.observaciones}</> : null}.
+            </p>
+            <p>
+              Si pedís comida, cada pedido se descontará{' '}
+              <strong>{formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)}</strong> de tu sueldo.
+            </p>
+            <p className="menu-beneficio-acumulado">
+              Acumulado en este período:{' '}
+              <strong>{formatMenuDescuentoArs(acumuladoDescuento.total)}</strong>
+              {' '}({acumuladoDescuento.cantidad} pedido{acumuladoDescuento.cantidad === 1 ? '' : 's'})
+            </p>
+          </div>
+        ) : null}
+
         <div className="menu-horario-info">
           <div className={`horario-badge ${puedeSeleccionar ? 'horario-activo' : 'horario-expirado'}`}>
             {puedeSeleccionar ? (

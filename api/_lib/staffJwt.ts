@@ -1,4 +1,4 @@
-import crypto from 'crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 function isProduction(): boolean {
   return process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production'
@@ -52,7 +52,7 @@ export function signStaffJwt(usuario: { id: number; nombre: string; rol: string 
   const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
   const body = base64UrlEncode(JSON.stringify(payload))
   const data = `${header}.${body}`
-  const sig = crypto.createHmac('sha256', secret).update(data).digest('base64url')
+  const sig = createHmac('sha256', secret).update(data).digest('base64url')
   return `${data}.${sig}`
 }
 
@@ -65,9 +65,9 @@ export function verifyStaffJwt(token: string): StaffJwtPayload | null {
 
   const [header, body, sig] = parts
   const data = `${header}.${body}`
-  const expected = crypto.createHmac('sha256', secret).update(data).digest('base64url')
+  const expected = createHmac('sha256', secret).update(data).digest('base64url')
   if (sig.length !== expected.length) return null
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
+  if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
 
   try {
     const payload = JSON.parse(base64UrlDecode(body)) as StaffJwtPayload

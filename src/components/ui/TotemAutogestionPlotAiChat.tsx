@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TotemPlotAiInput } from '@/components/ui/totem-plotai-input'
+import { plotLabApiUrl } from '@/utils/plotLabApiOrigin'
 import styles from './TotemAutogestionPlotAiChat.module.css'
 
-const CHAT_API = '/api/plotai/chat-public'
+const CHAT_API_PATH = '/api/plotai/chat-public'
 const DEFAULT_MODO = 'totem_autogestion'
 const DEFAULT_LS_CONV = 'plotrello_totem_autogestion_plotai_conv'
 
@@ -100,7 +101,7 @@ export function TotemAutogestionPlotAiChat({
       setLoading(true)
 
       try {
-        const res = await fetch(`${apiBase}${CHAT_API}`, {
+        const res = await fetch(plotLabApiUrl(CHAT_API_PATH), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

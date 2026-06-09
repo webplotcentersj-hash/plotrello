@@ -40,6 +40,40 @@
   gap: 20px;
 }
 
+.menu-beneficio-aviso {
+  padding: 14px 18px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fde68a;
+}
+
+.menu-beneficio-aviso strong {
+  color: #fcd34d;
+}
+
+.menu-beneficio-aviso > strong:first-child {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.menu-beneficio-aviso p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #fef3c7;
+}
+
+.menu-beneficio-aviso p:last-child {
+  margin-bottom: 0;
+}
+
+.menu-beneficio-acumulado {
+  padding-top: 6px;
+  border-top: 1px dashed rgba(245, 158, 11, 0.35);
+}
+
 .menu-horario-info {
   margin-bottom: 20px;
 }
