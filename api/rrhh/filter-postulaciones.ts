@@ -8,8 +8,8 @@ import {
   isPlotLabSameOrigin,
   isProduction,
   setCorsRestricted
-} from '../_lib/security'
-import { requireStaffSession } from '../_lib/staffAuth'
+} from '../../lib/api/security'
+import { requireStaffSession } from '../../lib/api/staffAuth'
 import { filterPostulacionesWithPlotAI } from './_cvExtract'
 
 type Body = {

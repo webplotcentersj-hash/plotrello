@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { handleOptions, setCorsRestricted } from '../_lib/security'
-import { isStaffJwtConfigured } from '../_lib/staffJwt'
+import { handleOptions, setCorsRestricted } from '../../lib/api/security'
+import { isStaffJwtConfigured } from '../../lib/api/staffJwt'
 
 /** Indica si el servidor emite/verifica JWT staff (PLOT_LAB_STAFF_JWT_SECRET configurado). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {

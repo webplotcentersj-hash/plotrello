@@ -5,8 +5,8 @@ import {
   isPlotLabSameOrigin,
   isProduction,
   setCorsRestricted
-} from '../_lib/security'
-import { isStaffJwtConfigured, verifyStaffJwt } from '../_lib/staffJwt'
+} from '../../lib/api/security'
+import { isStaffJwtConfigured, verifyStaffJwt } from '../../lib/api/staffJwt'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handleOptions(req, res)) return

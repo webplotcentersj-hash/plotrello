@@ -9,8 +9,8 @@ import {
   isPlotLabSameOrigin,
   isProduction,
   setCorsRestricted
-} from '../_lib/security'
-import { verifyStaffJwt } from '../_lib/staffJwt'
+} from '../../lib/api/security'
+import { verifyStaffJwt } from '../../lib/api/staffJwt'
 import { extractCvMetadata, stripDataUrl } from './_cvExtract'
 
 type Body = {

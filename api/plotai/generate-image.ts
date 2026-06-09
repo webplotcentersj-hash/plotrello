@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
-import { getGeminiServerKey } from '../_lib/security'
+import { getGeminiServerKey } from '../../lib/api/security'
 
 type Body = {
   prompt?: string

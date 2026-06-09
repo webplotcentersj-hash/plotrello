@@ -4,7 +4,7 @@ import {
   authorizeNotifyOrdenLista,
   getSupabaseServerKey,
   getSupabaseServerUrl
-} from './_lib/security'
+} from '../lib/api/security'
 
 const supabaseUrl = getSupabaseServerUrl()
 const supabaseKey = getSupabaseServerKey()

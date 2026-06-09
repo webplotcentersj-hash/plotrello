@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
-import { getGeminiServerKey, handleOptions, setCorsRestricted } from '../_lib/security'
+import { getGeminiServerKey, handleOptions, setCorsRestricted } from '../../lib/api/security'
 
 type ContentPart = {
   text?: string

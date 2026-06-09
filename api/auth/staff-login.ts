@@ -7,8 +7,8 @@ import {
   isPlotLabSameOrigin,
   isProduction,
   setCorsRestricted
-} from '../_lib/security'
-import { isStaffJwtConfigured, signStaffJwt } from '../_lib/staffJwt'
+} from '../../lib/api/security'
+import { isStaffJwtConfigured, signStaffJwt } from '../../lib/api/staffJwt'
 
 type LoginRow = { id: number; nombre: string; rol: string }
 

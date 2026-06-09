@@ -7,7 +7,7 @@ import {
   handleOptions,
   requireBearerSecret,
   setCorsRestricted
-} from '../_lib/security'
+} from '../../lib/api/security'
 
 function splitLines(doc: jsPDF, text: string, maxWidth: number): string[] {
   const t = String(text || '').trim()
