@@ -1,0 +1,226 @@
+.cv-publico-page {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #f4f6f8 0%, #e8ecf0 50%, #dfe5eb 100%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px 60px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #1a1d24;
+}
+
+.cv-publico-card {
+  width: 100%;
+  max-width: 560px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.cv-publico-header {
+  text-align: center;
+  padding: 36px 32px 20px;
+}
+
+.cv-publico-logo {
+  height: 56px;
+  width: auto;
+  margin-bottom: 20px;
+  object-fit: contain;
+}
+
+.cv-publico-header h1 {
+  margin: 0 0 10px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.cv-publico-header p {
+  margin: 0;
+  color: #5c6370;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.cv-publico-form {
+  padding: 8px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cv-field label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  color: #2a2f38;
+}
+
+.cv-field-hint {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: #7a8290;
+}
+
+.cv-field input,
+.cv-field select,
+.cv-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid #d8dde5;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: #fafbfc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.cv-field input:focus,
+.cv-field select:focus,
+.cv-field textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background: #fff;
+}
+
+.cv-field textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.cv-file-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cv-file-btn {
+  padding: 10px 16px;
+  border: 1px solid #d8dde5;
+  border-radius: 10px;
+  background: #f5f7fa;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.cv-file-btn:hover:not(:disabled) {
+  background: #eef1f6;
+}
+
+.cv-file-name {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.cv-error {
+  padding: 12px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.cv-submit {
+  margin-top: 4px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.cv-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+.cv-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.cv-honeypot {
+  position: absolute;
+  left: -9999px;
+  opacity: 0;
+  height: 0;
+  width: 0;
+}
+
+.cv-publico-footer {
+  text-align: center;
+  padding: 0 32px 28px;
+}
+
+.cv-publico-wa-link {
+  color: #16a34a;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.cv-publico-wa-link:hover {
+  text-decoration: underline;
+}
+
+.cv-publico-success {
+  padding: 48px 32px;
+  text-align: center;
+}
+
+.cv-publico-success h1 {
+  margin: 16px 0 12px;
+  font-size: 1.6rem;
+}
+
+.cv-publico-success p {
+  color: #5c6370;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.cv-publico-wa-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: #25d366;
+  color: #fff;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.cv-publico-wa-btn:hover {
+  background: #1ebe57;
+}
+
+.cv-publico-secondary {
+  display: block;
+  margin: 0 auto;
+  padding: 10px 18px;
+  border: 1px solid #d8dde5;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  color: #4b5563;
+}
+
+@media (max-width: 480px) {
+  .cv-publico-form {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}

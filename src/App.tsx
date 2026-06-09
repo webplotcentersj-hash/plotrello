@@ -23,6 +23,7 @@ const DisenoDashboardPage = lazy(() => import('./pages/DisenoDashboardPage'))
 const GaleriaTrabajosPage = lazy(() => import('./pages/GaleriaTrabajosPage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
+const CvPublicoPage = lazy(() => import('./pages/CvPublicoPage'))
 const SatisfaccionClientePublicPage = lazy(() => import('./pages/SatisfaccionClientePublicPage'))
 const ClienteAyudaPage = lazy(() => import('./pages/ClienteAyudaPage'))
 const BriefsPendientesPage = lazy(() => import('./pages/BriefsPendientesPage'))
@@ -74,6 +75,7 @@ const RecursosHumanosMenuDiarioPage = lazy(() => import('./pages/RecursosHumanos
 const RecursosHumanosPruebasPage = lazy(() => import('./pages/RecursosHumanosPruebasPage'))
 const RecursosHumanosIncidenciasPage = lazy(() => import('./pages/RecursosHumanosIncidenciasPage'))
 const RecursosHumanosNovedadesPage = lazy(() => import('./pages/RecursosHumanosNovedadesPage'))
+const RecursosHumanosPostulacionesPage = lazy(() => import('./pages/RecursosHumanosPostulacionesPage'))
 const RecursosHumanosDesvinculacionesPage = lazy(
   () => import('./pages/RecursosHumanosDesvinculacionesPage')
 )
@@ -776,6 +778,14 @@ function App() {
           <Route path="/brief/:token" element={<BriefPublicoPage />} />
           <Route path="/reclamos" element={<Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}><ReclamosPublicoPage /></Suspense>} />
           <Route
+            path="/trabaja-con-nosotros"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
+                <CvPublicoPage />
+              </Suspense>
+            }
+          />
+          <Route
             path="/satisfaccion-cliente"
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
@@ -1349,6 +1359,10 @@ function AppRoutes({
       <Route
         path="/rrhh/novedades"
         element={<RecursosHumanosNovedadesPage />}
+      />
+      <Route
+        path="/rrhh/postulaciones"
+        element={<RecursosHumanosPostulacionesPage />}
       />
       <Route
         path="/rrhh/desvinculaciones"

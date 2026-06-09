@@ -69,6 +69,8 @@ import type {
   RrhhNovedad,
   RrhhNovedadAdjunto,
   RrhhNovedadGrupo,
+  RrhhPostulacion,
+  RrhhPostulacionEstado,
   Evaluacion,
   CriterioEvaluacion,
   Capacitacion,
@@ -20187,6 +20189,175 @@ class ApiService {
       }
     }
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== RRHH POSTULACIONES / CVs ==========
+
+  async submitPostulacionPublica(payload: {
+    nombre: string
+    email: string
+    telefono?: string
+    puesto: string
+    categoria_puesto?: string
+    mensaje?: string
+    cv_url: string
+    cv_nombre: string
+    cv_mime?: string
+    website?: string
+  }): Promise<ApiResponse<{ id: number }>> {
+    try {
+      const resp = await fetch('/api/rrhh/submit-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      const json = (await resp.json().catch(() => ({}))) as {
+        success?: boolean
+        error?: string
+        data?: { id?: number }
+      }
+      if (!resp.ok || !json.success) {
+        return { success: false, error: json.error || 'No se pudo enviar la postulación' }
+      }
+      return { success: true, data: { id: Number(json.data?.id) || 0 } }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error de conexión'
+      }
+    }
+  }
+
+  async rrhhPostulacionesListar(filters: {
+    usuarioId: number
+    busqueda?: string
+    estado?: string
+    puesto?: string
+  }): Promise<ApiResponse<RrhhPostulacion[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_postulaciones_listar', {
+        p_usuario_id: filters.usuarioId,
+        p_busqueda: filters.busqueda || null,
+        p_estado: filters.estado || null,
+        p_puesto: filters.puesto || null,
+        p_limite: 300
+      })
+      if (error) throw error
+      const rows = Array.isArray(data) ? data : []
+      return {
+        success: true,
+        data: rows.map((r) => this.mapRrhhPostulacionRow(r as Record<string, unknown>))
+      }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al listar postulaciones') }
+    }
+  }
+
+  mapRrhhPostulacionRow(row: Record<string, unknown>): RrhhPostulacion {
+    return {
+      id: Number(row.id),
+      legacy_id: row.legacy_id == null ? null : Number(row.legacy_id),
+      nombre: String(row.nombre || ''),
+      email: String(row.email || ''),
+      telefono: row.telefono == null ? null : String(row.telefono),
+      puesto: String(row.puesto || ''),
+      categoria_puesto: row.categoria_puesto == null ? null : String(row.categoria_puesto),
+      mensaje: row.mensaje == null ? null : String(row.mensaje),
+      cv_url: String(row.cv_url || ''),
+      cv_nombre: row.cv_nombre == null ? null : String(row.cv_nombre),
+      cv_mime: row.cv_mime == null ? null : String(row.cv_mime),
+      estado: String(row.estado || 'nuevo') as RrhhPostulacionEstado,
+      metadata_ia: (row.metadata_ia as Record<string, unknown>) || {},
+      score_ia: row.score_ia == null ? null : Number(row.score_ia),
+      notas_rrhh: row.notas_rrhh == null ? null : String(row.notas_rrhh),
+      created_at: String(row.created_at || ''),
+      updated_at: String(row.updated_at || ''),
+      revisado_por: row.revisado_por == null ? null : Number(row.revisado_por),
+      revisado_at: row.revisado_at == null ? null : String(row.revisado_at)
+    }
+  }
+
+  async rrhhPostulacionActualizarEstado(
+    usuarioId: number,
+    id: number,
+    estado: RrhhPostulacionEstado,
+    notas?: string
+  ): Promise<ApiResponse<RrhhPostulacion>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('rrhh_postulacion_actualizar_estado', {
+        p_usuario_id: usuarioId,
+        p_id: id,
+        p_estado: estado,
+        p_notas_rrhh: notas || null
+      })
+      if (error) throw error
+      return {
+        success: true,
+        data: this.mapRrhhPostulacionRow((data || {}) as Record<string, unknown>)
+      }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al actualizar estado') }
+    }
+  }
+
+  async rrhhPostulacionesFiltrarPlotAI(query: string): Promise<
+    ApiResponse<{ resultados: Array<{ id: number; match_score: number; motivo: string }> }>
+  > {
+    try {
+      const token = localStorage.getItem('auth_token')
+      const resp = await fetch('/api/rrhh/filter-postulaciones', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ query })
+      })
+      const json = (await resp.json().catch(() => ({}))) as {
+        success?: boolean
+        error?: string
+        data?: { resultados?: Array<{ id: number; match_score: number; motivo: string }> }
+      }
+      if (!resp.ok || !json.success) {
+        return { success: false, error: json.error || 'Error en filtro PlotAI' }
+      }
+      return { success: true, data: { resultados: json.data?.resultados || [] } }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error de conexión'
+      }
+    }
+  }
+
+  async rrhhPostulacionReanalizarCv(
+    postulacionId: number,
+    cvUrl: string,
+    puesto: string
+  ): Promise<ApiResponse<Record<string, unknown>>> {
+    try {
+      const resp = await fetch('/api/rrhh/extract-cv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postulacionId, cvUrl, puestoPostulado: puesto })
+      })
+      const json = (await resp.json().catch(() => ({}))) as {
+        success?: boolean
+        error?: string
+        data?: Record<string, unknown>
+      }
+      if (!resp.ok || !json.success) {
+        return { success: false, error: json.error || 'Error al analizar CV' }
+      }
+      return { success: true, data: json.data || {} }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error de conexión'
+      }
+    }
   }
 }
 

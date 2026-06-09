@@ -1333,6 +1333,35 @@ export interface RrhhNovedad {
   updated_at: string
 }
 
+export type RrhhPostulacionEstado =
+  | 'nuevo'
+  | 'en_revision'
+  | 'entrevista'
+  | 'aprobado'
+  | 'descartado'
+
+export interface RrhhPostulacion {
+  id: number
+  legacy_id?: number | null
+  nombre: string
+  email: string
+  telefono: string | null
+  puesto: string
+  categoria_puesto: string | null
+  mensaje: string | null
+  cv_url: string
+  cv_nombre: string | null
+  cv_mime: string | null
+  estado: RrhhPostulacionEstado
+  metadata_ia: Record<string, unknown>
+  score_ia: number | null
+  notas_rrhh: string | null
+  created_at: string
+  updated_at: string
+  revisado_por: number | null
+  revisado_at: string | null
+}
+
 export interface SolicitudPermiso {
   id: number
   id_usuario: number

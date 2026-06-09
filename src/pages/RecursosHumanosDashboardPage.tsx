@@ -186,6 +186,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/postulaciones')}
+            >
+              <div className="rrhh-action-icon">📄</div>
+              <h3>Postulaciones / CVs</h3>
+              <p>Bandeja de candidatos, filtro PlotAI, vista previa y contacto WhatsApp</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/reportes')}
             >
               <div className="rrhh-action-icon">📊</div>
