@@ -42,6 +42,12 @@ export default defineConfig({
     host: process.env.VITE_DEV_LAN === '1'
   },
   build: {
+    modulePreload: {
+      // El polyfill compartido terminaba en el chunk `api` y lo arrastraba al login.
+      polyfill: false,
+      resolveDependencies: (_filename, deps) =>
+        deps.filter((dep) => !dep.includes('/api.') && !dep.includes('vendor-pdf'))
+    },
     // Agregar hash a los nombres de archivos para evitar cache
     rollupOptions: {
       input: {
@@ -55,6 +61,7 @@ export default defineConfig({
         assetFileNames: 'assets/[name].[hash].[ext]',
         manualChunks(id) {
           if (!id.includes('node_modules')) {
+            // El helper de preload de Vite termina aquí (mejor que en vendor-pdf).
             if (id.includes('/src/services/api.ts')) return 'api'
             if (id.includes('/src/services/supabaseClient.ts')) return 'supabase-client'
             if (id.includes('/src/utils/plotLabApiOrigin')) return 'plotlab-api'
