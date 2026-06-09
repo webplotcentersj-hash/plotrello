@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getGeminiServerKey, handleOptions, setCorsRestricted } from '../../lib/api/security'
+import { getGeminiServerKey, handleOptions, setCorsRestricted } from './_http'
 
 /** Diagnóstico rápido: API viva + Gemini configurado (sin llamar a Google). */
 export default function handler(req: VercelRequest, res: VercelResponse) {
