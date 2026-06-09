@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { verifyStaffJwt, type StaffJwtPayload } from './staffJwt'
 
 /** Producción Vercel o NODE_ENV=production */
 export function isProduction(): boolean {
@@ -101,23 +100,7 @@ export function isPlotLabSameOrigin(req: VercelRequest): boolean {
   return false
 }
 
-/**
- * Auth para notify-orden-lista: Bearer secret (webhooks) o mismo origen PlotLab en producción.
- */
-/** Valida JWT staff (Bearer). Devuelve payload o null y responde 401. */
-export function requireStaffSession(
-  req: VercelRequest,
-  res: VercelResponse
-): StaffJwtPayload | null {
-  const token = getBearerToken(req)
-  const payload = verifyStaffJwt(token)
-  if (!payload) {
-    res.status(401).json({ error: 'Sesión staff inválida o expirada' })
-    return null
-  }
-  return payload
-}
-
+/** Auth para notify-orden-lista: Bearer secret (webhooks) o mismo origen PlotLab en producción. */
 export function authorizeNotifyOrdenLista(req: VercelRequest, res: VercelResponse): boolean {
   const expected = (process.env.NOTIFY_ORDEN_WEBHOOK_SECRET || '').trim()
   if (expected) {
