@@ -68,7 +68,7 @@ const toThreadMsg = (m: {
 
 export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   const navigate = useNavigate()
-  const { usuario } = useAuth()
+  const { usuario, loading: authLoading } = useAuth()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [rooms, setRooms] = useState<DmRoom[]>([])
   const [unreadByRoomId, setUnreadByRoomId] = useState<Record<number, number>>({})
@@ -380,13 +380,27 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     return out
   }, [messages])
 
+  if (authLoading) {
+    return (
+      <div className="mensajeria-page">
+        <div className="mensajeria-wrap mensajeria-wrap--center">
+          <div className="mensajeria-loading-spinner" aria-hidden />
+          <p>Cargando mensajería…</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!usuario) {
     return (
       <div className="mensajeria-page">
-        <div className="mensajeria-wrap">
+        <div className="mensajeria-wrap mensajeria-wrap--center">
           <h1>Mensajería</h1>
           <p>Iniciá sesión para ver tus mensajes.</p>
-          <button type="button" className="mensajeria-btn" onClick={() => navigate('/')}>
+          <button type="button" className="mensajeria-btn" onClick={() => navigate('/login')}>
+            Ir a iniciar sesión
+          </button>
+          <button type="button" className="mensajeria-btn mensajeria-btn-ghost" onClick={() => navigate('/')}>
             Volver
           </button>
         </div>

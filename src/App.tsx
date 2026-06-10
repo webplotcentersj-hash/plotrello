@@ -96,16 +96,15 @@ function App() {
     setUsuario(usuarioData)
   }
 
-  if (loading) {
-    return <LoadingScreen />
-  }
-
   return (
     <PwaUpdateProvider>
       <GlobalAlertScreen />
       <PwaUpdateBanner />
       <PwaUpdateModalHost />
       <PwaUpdateToast />
+      {loading ? (
+        <LoadingScreen />
+      ) : (
       <BrowserRouter>
         <EnvDebugGate />
         <Routes>
@@ -300,6 +299,7 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
+      )}
     </PwaUpdateProvider>
   )
 }

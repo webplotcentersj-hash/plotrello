@@ -19,8 +19,19 @@ export type Usuario = {
     | 'presupuestos'
 }
 
+function readStoredUsuario(): Usuario | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const usuarioStr = localStorage.getItem('usuario')
+    if (!usuarioStr) return null
+    return JSON.parse(usuarioStr) as Usuario
+  } catch {
+    return null
+  }
+}
+
 export function useAuth() {
-  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [usuario, setUsuario] = useState<Usuario | null>(readStoredUsuario)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

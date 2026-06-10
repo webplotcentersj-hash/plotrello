@@ -63,28 +63,53 @@
     <div id="app">
       <div id="loading-fallback">
         <div class="spinner"></div>
-        <p>Cargando aplicación...</p>
+        <p id="loading-fallback-text">Cargando aplicación...</p>
       </div>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/main.tsx" id="plotlab-app-entry"></script>
     <script>
-      // Remover el fallback cuando React se monte
-      window.addEventListener('load', function() {
-        setTimeout(function() {
-          const fallback = document.getElementById('loading-fallback');
-          if (fallback && document.getElementById('app').children.length > 1) {
-            fallback.remove();
-          }
-        }, 100);
-      });
-      
-      // Mostrar error si JavaScript falla
-      window.addEventListener('error', function(e) {
-        const app = document.getElementById('app');
-        if (app) {
-          app.innerHTML = '<div style="padding: 20px; text-align: center;"><h1>Error al cargar la aplicación</h1><p>' + (e.message || 'Error desconocido') + '</p><p style="color: #b7bed3;">Revisa la consola del navegador (F12) para más detalles.</p></div>';
+      (function () {
+        var BOOT = '__plotlab_booted__';
+        var app = document.getElementById('app');
+        var fallback = document.getElementById('loading-fallback');
+        var text = document.getElementById('loading-fallback-text');
+
+        function showBootError(message) {
+          if (!app || window[BOOT]) return;
+          app.innerHTML =
+            '<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;padding:24px;text-align:center;background:linear-gradient(135deg,#0b0d17 0%,#1a1d2e 100%);color:#fff;font-family:system-ui,sans-serif;">' +
+            '<h1 style="color:#ff8a65;margin:0 0 12px;font-size:1.25rem;">No se pudo cargar la app</h1>' +
+            '<p style="color:#b7bed3;max-width:420px;line-height:1.5;margin:0 0 20px;">' +
+            (message || 'Puede ser una actualización reciente. Recargá para bajar la versión nueva.') +
+            '</p>' +
+            '<button type="button" onclick="window.location.reload()" style="padding:12px 22px;background:#eb671b;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-weight:700;">Recargar</button>' +
+            '</div>';
         }
-      });
+
+        var entry = document.getElementById('plotlab-app-entry');
+        if (entry) {
+          entry.addEventListener('error', function () {
+            showBootError('No se pudo descargar el código de la aplicación (archivos de una versión anterior).');
+          });
+        }
+
+        window.setTimeout(function () {
+          if (fallback && fallback.parentNode && !window[BOOT]) {
+            if (text) text.textContent = 'Sigue cargando… si no avanza, recargá la página.';
+            window.setTimeout(function () {
+              if (!window[BOOT]) {
+                showBootError('La carga tardó demasiado después de una actualización.');
+              }
+            }, 12000);
+          }
+        }, 15000);
+
+        window.addEventListener('error', function (e) {
+          if (!window[BOOT]) {
+            showBootError(e.message || 'Error al iniciar la aplicación');
+          }
+        });
+      })();
     </script>
   </body>
 </html>

@@ -478,12 +478,6 @@ const Header = ({
               📖 Descargar Manual
             </button>
             <a
-              href="/menu-diario"
-              className="brand-button"
-            >
-              🍽️ Menú Diario
-            </a>
-            <a
               href="/mis-pedidos"
               className="brand-button"
             >

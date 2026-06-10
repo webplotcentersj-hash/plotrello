@@ -20,7 +20,20 @@ export default defineConfig({
       manifest: false,
       workbox: {
         navigateFallback: '/index.html',
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,ttf,txt,md}'],
+        // No precachear HTML: tras un deploy el index viejo apunta a chunks que ya no existen.
+        globPatterns: ['**/*.{js,css,ico,png,svg,webp,woff,woff2,ttf,txt,md}'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'plotlab-pages',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ],
         // Chunks pesados: no precachear (carga inicial + riesgo SW corrupto tras deploy).
         globIgnores: [
           '**/xlsx*.js',

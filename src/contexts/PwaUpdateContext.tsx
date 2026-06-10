@@ -164,9 +164,13 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+
+    // updateServiceWorker(true) activa el SW nuevo y recarga en `controllerchange`.
+    // No forzar reload acá: si recargamos antes del cambio de controlador queda
+    // index.html viejo + chunks nuevos → pantalla "Cargando aplicación..." infinita.
     try {
       await updateServiceWorker(true)
-    } finally {
+    } catch {
       window.location.reload()
     }
   }, [updateServiceWorker])

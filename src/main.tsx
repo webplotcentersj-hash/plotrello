@@ -14,11 +14,19 @@ window.addEventListener('unhandledrejection', (event) => {
   event.preventDefault() // Prevenir que aparezca en consola como error no manejado
 })
 
+declare global {
+  interface Window {
+    __plotlab_booted__?: boolean
+  }
+}
+
 const rootElement = document.getElementById('app')
 
 if (!rootElement) {
   throw new Error('No se encontró el elemento #app en el DOM')
 }
+
+window.__plotlab_booted__ = true
 
 // Remover el fallback de carga si existe
 const loadingFallback = document.getElementById('loading-fallback')

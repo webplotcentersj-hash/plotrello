@@ -13,6 +13,31 @@
   padding: 18px 20px 40px;
 }
 
+.mensajeria-wrap--center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  text-align: center;
+  gap: 12px;
+}
+
+.mensajeria-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #eb671b;
+  border-radius: 50%;
+  animation: mensajeria-spin 0.9s linear infinite;
+}
+
+@keyframes mensajeria-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .mensajeria-head {
   display: flex;
   align-items: flex-start;
