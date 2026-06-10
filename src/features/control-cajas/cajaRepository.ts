@@ -2,7 +2,6 @@ import { supabase } from '../../services/supabaseClient'
 import { DEFAULT_CAJAS, DEFAULT_PARAMS, LS_KEY } from './constants'
 import { getPlotlabLoginKeys, getStoredCajaSlug } from './cajaUsuarioDisplay'
 import { cierreFromCalculado } from './cierreCalculations'
-import { fondoFijoEfectivo } from './fondoCaja'
 import { newId } from './format'
 import {
   calcularTotalesCaja,
@@ -176,13 +175,12 @@ function mapCajaRegistro(r: {
   fondo_fijo: unknown
   activa: boolean
 }): CajaRegistro {
-  const row: CajaRegistro = {
+  return {
     slug: r.slug,
     nombre: r.nombre,
     fondo_fijo: Number(r.fondo_fijo) || 0,
     activa: !!r.activa
   }
-  return { ...row, fondo_fijo: fondoFijoEfectivo(row) }
 }
 
 export async function listCajas(): Promise<CajaRegistro[]> {
@@ -1173,6 +1171,25 @@ export async function listCajasAll(): Promise<CajaRegistro[]> {
     }
   }
   return readLocal().cajas.map((c) => mapCajaRegistro(c))
+}
+
+/** Actualiza el fondo fijo de una caja (p. ej. desde cierre de turno por la cajera). */
+export async function updateCajaFondoFijo(slug: string, fondo_fijo: number): Promise<void> {
+  const monto = Math.max(0, fondo_fijo)
+  if (await checkRemote()) {
+    const { error } = await supabase!
+      .from('control_caja_cajas')
+      .update({ fondo_fijo: monto, updated_at: new Date().toISOString() })
+      .eq('slug', slug)
+    if (error) throw new Error(error.message)
+    return
+  }
+  const store = readLocal()
+  const idx = store.cajas.findIndex((c) => c.slug === slug)
+  if (idx >= 0) {
+    store.cajas[idx] = { ...store.cajas[idx], fondo_fijo: monto }
+    writeLocal(store)
+  }
 }
 
 export async function saveCajasMaestro(cajas: CajaRegistro[]): Promise<void> {

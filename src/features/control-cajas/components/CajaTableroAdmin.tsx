@@ -26,11 +26,16 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
       listCajas()
     ]).then(([lotes, planillas, egresos, c]) => {
       setCajas(c)
-      setResumen(resumenAdminHoy(hoy, lotes, planillas, egresos))
+      setResumen(resumenAdminHoy(hoy, lotes, planillas, egresos, c))
     })
   }, [hoy])
 
   const cajaNombre = (slug: string) => cajas.find((x) => x.slug === slug)?.nombre ?? slug
+
+  const fondosTxt =
+    resumen && resumen.fondosOperativas.length > 0
+      ? resumen.fondosOperativas.map((f) => `${f.nombre} $ ${fmtArs(f.monto)}`).join(' · ')
+      : `recomendado $ ${fmtArs(resumen?.fondoRecomendado ?? 100_000)}`
 
   const ingresoLabel =
     resumen?.ingresoFuente === 'cierre_turno'
@@ -45,7 +50,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
         <div>
           <h2>Hoy — {fmtDateAr(hoy)}</h2>
           <p className="caja-cc-sub">
-            Fondo fijo $ {fmtArs(resumen?.fondoFijo ?? 100_000)}: una caja (Rosa o Noelia) lo traspasa a la otra;
+            Fondo entre cajas ({fondosTxt}, editable por cajeras): una caja (Rosa o Noelia) lo traspasa a la otra;
             el resto ingresa a administración.
           </p>
         </div>
@@ -78,7 +83,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
         <h3>Regla del cierre de turno</h3>
         <ol className="caja-cc-steps-simple">
           <li>
-            <strong>Fondo $ {fmtArs(100_000)}</strong> — se traspasa a la otra caja operativa (ej. Rosa → Noelia).
+            <strong>Fondo</strong> (recomendado $ {fmtArs(resumen?.fondoRecomendado ?? 100_000)}, editable por la
+            cajera) — se traspasa a la otra caja operativa (ej. Rosa → Noelia).
           </li>
           <li>
             <strong>Resto del arqueo</strong> (menos egresos del día) — va a <strong>Caja Administración</strong> (es el

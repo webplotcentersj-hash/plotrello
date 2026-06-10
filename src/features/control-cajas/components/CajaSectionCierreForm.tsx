@@ -24,7 +24,7 @@ import CajaCollapsibleCard from './CajaCollapsibleCard'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import {
-  FONDO_CAJA_BASE_MIN,
+  FONDO_CAJA_RECOMENDADO,
   fondoFijoEfectivo,
   requiereFondoMinimo,
   validarEfectivoFisicoVsFondo
@@ -230,11 +230,8 @@ export default function CajaSectionCierreForm({
     if (!cajaSlug) return
     const caja = cajas.find((c) => c.slug === cajaSlug)
     if (caja) {
-      const fondoOk = fondoFijoEfectivo(caja)
-      if (requiereFondoMinimo(caja.slug) && (form.fondo_fijo || 0) < fondoOk) {
-        setMsg(
-          `El fondo de caja debe ser al menos $ ${fmtArs(fondoOk)} (efectivo real permanente en la caja).`
-        )
+      if (requiereFondoMinimo(caja.slug) && (form.fondo_fijo || 0) <= 0) {
+        setMsg('Indicá el fondo de caja (efectivo que permanece en la caja).')
         return
       }
       if (form.ef_contado > 0) {
@@ -421,17 +418,18 @@ export default function CajaSectionCierreForm({
         <CajaCollapsibleCard title="Paso 3 — Efectivo" defaultOpen>
         <div className="caja-cc-grid-3">
           <label className="caja-cc-field">
-            Fondo de caja <span className="caja-cc-tag cfg">real · base</span>
+            Fondo de caja <span className="caja-cc-tag cfg">real · editable</span>
             <input
               type="number"
               step="0.01"
-              readOnly={!!cajaActiva && requiereFondoMinimo(cajaActiva.slug)}
+              min="0"
               value={form.fondo_fijo || ''}
               onChange={(e) => setNum('fondo_fijo', e.target.value)}
             />
             {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (
               <span className="caja-cc-field-hint">
-                Efectivo permanente en caja. Base mínima $ {fmtArs(FONDO_CAJA_BASE_MIN)}.
+                Efectivo que permanece en caja. Recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)}; podés cambiarlo según
+                tu operación.
               </span>
             )}
           </label>

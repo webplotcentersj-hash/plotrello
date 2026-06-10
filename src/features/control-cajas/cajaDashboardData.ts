@@ -1,6 +1,7 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { cierresEnFecha } from './cajaRepository'
-import { FONDO_CAJA_BASE_MIN } from './fondoCaja'
+import { FONDO_CAJA_RECOMENDADO, fondoFijoEfectivo, requiereFondoMinimo } from './fondoCaja'
+import type { CajaRegistro } from './types'
 import type {
   CajaArqueo,
   CajaCierre,
@@ -328,6 +329,8 @@ export type ResumenAdminHoy = {
   egresosHoy: number
   egresosPendientes: number
   fondoFijo: number
+  fondoRecomendado: number
+  fondosOperativas: { slug: string; nombre: string; monto: number }[]
   cierresTurnoHoy: CajaTransferenciaLote[]
 }
 
@@ -336,7 +339,8 @@ export function resumenAdminHoy(
   fecha: string,
   lotes: CajaTransferenciaLote[],
   planillas: PlanillaCajaGuardada[],
-  egresos: CajaEgresoSolicitud[]
+  egresos: CajaEgresoSolicitud[],
+  cajas: CajaRegistro[] = []
 ): ResumenAdminHoy {
   const cierresTurnoHoy = lotes.filter((l) => l.fecha === fecha)
   const ingresoLotes = cierresTurnoHoy.reduce(
@@ -365,13 +369,19 @@ export function resumenAdminHoy(
   )
   const egresosPendientes = delDia.filter((e) => e.estado === 'pendiente').length
 
+  const fondosOperativas = cajas
+    .filter((c) => c.activa && requiereFondoMinimo(c.slug))
+    .map((c) => ({ slug: c.slug, nombre: c.nombre, monto: fondoFijoEfectivo(c) }))
+
   return {
     fecha,
     ingresoHoy,
     ingresoFuente,
     egresosHoy,
     egresosPendientes,
-    fondoFijo: FONDO_CAJA_BASE_MIN,
+    fondoFijo: fondosOperativas[0]?.monto ?? FONDO_CAJA_RECOMENDADO,
+    fondoRecomendado: FONDO_CAJA_RECOMENDADO,
+    fondosOperativas,
     cierresTurnoHoy
   }
 }

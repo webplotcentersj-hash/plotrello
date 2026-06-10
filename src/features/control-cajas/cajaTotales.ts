@@ -109,9 +109,25 @@ export function cierrePrecargaDesdePlanilla(planilla: PlanillaCajaParsed): Parti
   }
 }
 
+/** Neto del día solo en columna Efectivo (ingresos − egresos en efectivo). */
+export function netoEfectivoDesdePlanilla(planilla: PlanillaCajaParsed): number {
+  return calcularTotalesDesdePlanilla(planilla).neto.efectivo
+}
+
+/**
+ * Efectivo que queda en caja según el PDF: fondo configurado + movimiento neto en efectivo del día.
+ * El arqueo de billetes debe cuadrar con este monto (no tarjetas, MP ni cheques).
+ */
+export function efectivoQuedaEnCajaDesdePlanilla(
+  planilla: PlanillaCajaParsed,
+  fondoFijo = 0
+): number {
+  return fondoFijo + netoEfectivoDesdePlanilla(planilla)
+}
+
+/** @deprecated Usar efectivoQuedaEnCajaDesdePlanilla — el arqueo es solo efectivo, no cheques/doc. */
 export function arqueoTeoricoFisicoDesdePlanilla(planilla: PlanillaCajaParsed): number {
-  const calc = calcularTotalesDesdePlanilla(planilla)
-  return calc.neto.fisico_neto
+  return netoEfectivoDesdePlanilla(planilla)
 }
 
 export function contarLineasInvalidasPlanilla(planilla: PlanillaCajaParsed): number {

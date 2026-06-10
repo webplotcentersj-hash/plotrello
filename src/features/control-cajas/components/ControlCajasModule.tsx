@@ -198,12 +198,19 @@ export default function ControlCajasModule() {
       <CajaImportPlanillaPdf
         usuarioNombre={usuarioEtiqueta}
         usuarioId={usuarioId}
+        modoArqueo={section === 'arqueo'}
         onPlanillaParsed={setPlanillaActiva}
         onImported={() => {
           setPlanillaActiva(null)
           refreshMovimientos()
         }}
       />
+      {section === 'arqueo' && (
+        <p className="caja-cc-help caja-cc-arqueo-mp-hint">
+          Los comprobantes MP / POS son para conciliar tarjetas y transferencias; no forman parte del conteo de
+          billetes.
+        </p>
+      )}
       {section === 'arqueo' && (
         <CajaImportComprobantesMedios
           usuarioNombre={usuarioEtiqueta}
@@ -232,8 +239,8 @@ export default function ControlCajasModule() {
             <h1>Control de Cajas</h1>
             <p className="caja-header-lead">
               {enVistaAdmin
-                ? 'Fondo $100.000 entre cajas, resto a administración, egresos e ingresos de hoy.'
-                : 'Arqueo, cierre de turno con PDF y comprobantes MP/POS.'}
+                ? 'Fondo recomendado $100.000 entre cajas (editable por cajeras), resto a administración, egresos e ingresos de hoy.'
+                : 'Arqueo y cierre de turno. Podés ajustar el fondo de caja en cada cierre (recomendado $100.000).'}
             </p>
             {remote === false && (
               <p className="caja-cc-storage-hint">

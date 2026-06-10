@@ -16,7 +16,7 @@ import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
 import { fondoFijoEfectivo, fondoMinimoCaja, requiereFondoMinimo, validarEfectivoFisicoVsFondo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
-import { calcularTotalesDesdePlanilla } from '../cajaTotales'
+import { efectivoQuedaEnCajaDesdePlanilla, netoEfectivoDesdePlanilla } from '../cajaTotales'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro } from '../types'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
@@ -129,6 +129,18 @@ export default function CajaSectionArqueo({
 
   const diferenciaFisica = teorico != null && total > 0 ? total - teorico.teorico : null
 
+  const planillaMismaFecha =
+    planillaActiva &&
+    (planillaActiva.fecha_hasta === fecha || planillaActiva.fecha_desde === fecha)
+  const efectivoQuedaPlanilla =
+    planillaActiva && planillaMismaFecha
+      ? efectivoQuedaEnCajaDesdePlanilla(planillaActiva, fondoMin)
+      : null
+  const netoEfectivoPlanilla =
+    planillaActiva && planillaMismaFecha ? netoEfectivoDesdePlanilla(planillaActiva) : null
+  const diferenciaPlanilla =
+    efectivoQuedaPlanilla != null && total > 0 ? total - efectivoQuedaPlanilla : null
+
   const setCantidad = (denom: number, raw: string) => {
     const q = Math.max(0, Math.floor(parseNum(raw)))
     setBilletes((prev) => ({ ...prev, [`b${denom}`]: q }))
@@ -199,34 +211,33 @@ export default function CajaSectionArqueo({
 
   const bajoFondo = fondoMin > 0 && total > 0 && total < fondoMin
 
-  const planillaResumen = planillaActiva ? calcularTotalesDesdePlanilla(planillaActiva) : null
-  const planillaMismaFecha =
-    planillaActiva &&
-    (planillaActiva.fecha_hasta === fecha || planillaActiva.fecha_desde === fecha)
-
   const cajaAsignadaNombre = cajaActiva?.nombre ?? ''
   const mostrarSelectorCaja =
     fijarCajaUsuario && !cajaResolviendo && (!cajaAutoAsignada || !cajaSlug)
 
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
-      {planillaResumen && planillaMismaFecha && (
+      {efectivoQuedaPlanilla != null && (
         <div className="caja-cc-planilla-arqueo-hint">
-          <strong>Según planilla PDF:</strong> efectivo neto del día{' '}
-          <strong>$ {fmtArs(planillaResumen.neto.efectivo)}</strong>
-          {' · '}
-          físico clasificado (billetes/cheques/doc.){' '}
-          <strong>$ {fmtArs(planillaResumen.neto.fisico_neto)}</strong>
-          . Contá billetes para validar contra estos totales.
+          <strong>Según planilla PDF — efectivo que queda en caja:</strong>{' '}
+          <strong>$ {fmtArs(efectivoQuedaPlanilla)}</strong>
+          {fondoMin > 0 && netoEfectivoPlanilla != null && (
+            <>
+              {' '}
+              (fondo $ {fmtArs(fondoMin)} + mov. del día $ {fmtArs(netoEfectivoPlanilla)})
+            </>
+          )}
+          . Contá billetes hasta llegar a ese monto; tarjetas, MP y transferencias no van en el arqueo.
         </div>
       )}
 
       <div className="caja-cc-help">
-        Contá solo billetes y efectivo físico. No incluyas tarjetas, transferencias ni cuenta corriente: eso se concilia aparte.
+        Subí arriba el PDF del día: ahí está el efectivo que queda. Contá solo billetes y monedas; no incluyas
+        tarjetas, transferencias ni cuenta corriente (eso se concilia aparte).
         {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (
           <>
             {' '}
-            El <strong>fondo de caja</strong> es el dinero que debe permanecer siempre en la caja; la base es{' '}
+            El <strong>fondo de caja</strong> es el dinero que debe permanecer siempre en la caja; el configurado es{' '}
             <strong>$ {fmtArs(fondoMin)}</strong> (no puede haber menos en el arqueo).
           </>
         )}
@@ -299,9 +310,15 @@ export default function CajaSectionArqueo({
           )
         })}
       </div>
-      {teorico != null && (
+      {efectivoQuedaPlanilla != null && (
         <div className="caja-cc-result neutral">
-          <span>Efectivo físico teórico (fondo + mov. del día)</span>
+          <span>Efectivo que queda (planilla PDF)</span>
+          <strong>$ {fmtArs(efectivoQuedaPlanilla)}</strong>
+        </div>
+      )}
+      {teorico != null && efectivoQuedaPlanilla == null && (
+        <div className="caja-cc-result neutral">
+          <span>Efectivo teórico (fondo + mov. del día)</span>
           <strong>$ {fmtArs(teorico.teorico)}</strong>
         </div>
       )}
@@ -309,23 +326,32 @@ export default function CajaSectionArqueo({
         className={`caja-cc-result ${
           bajoFondo
             ? 'bad'
-            : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
+            : diferenciaPlanilla != null && Math.abs(diferenciaPlanilla) > 0.02
               ? 'bad'
-              : total > 0
-                ? 'ok'
-                : 'neutral'
+              : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
+                ? 'bad'
+                : total > 0
+                  ? 'ok'
+                  : 'neutral'
         }`}
       >
         <span>
-          Total contado (solo efectivo)
-          {fondoMin > 0 && ` · mín. fondo $ ${fmtArs(fondoMin)}`}
+          Total contado (solo billetes)
+          {fondoMin > 0 && ` · fondo configurado $ ${fmtArs(fondoMin)}`}
         </span>
         <strong>$ {fmtArs(total)}</strong>
-        {diferenciaFisica != null && total > 0 && (
+        {diferenciaPlanilla != null && total > 0 && (
+          <span className="caja-cc-field-hint">
+            {Math.abs(diferenciaPlanilla) <= 0.02
+              ? 'Cuadra con planilla PDF'
+              : `Δ vs planilla $ ${fmtArs(diferenciaPlanilla)}`}
+          </span>
+        )}
+        {diferenciaPlanilla == null && diferenciaFisica != null && total > 0 && (
           <span className="caja-cc-field-hint">
             {diferenciaFisica === 0
               ? 'Cuadra con teórico'
-              : `Δ físico $ ${fmtArs(diferenciaFisica)}`}
+              : `Δ teórico $ ${fmtArs(diferenciaFisica)}`}
           </span>
         )}
       </div>

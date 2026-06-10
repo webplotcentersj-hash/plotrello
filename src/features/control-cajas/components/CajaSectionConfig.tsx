@@ -3,7 +3,7 @@ import { DEFAULT_CAJERAS } from '../constants'
 import { newId } from '../format'
 import { getParams, listCajasAll, saveCajasMaestro, saveParams } from '../cajaRepository'
 import type { CajaCajera, CajaRegistro } from '../types'
-import { FONDO_CAJA_BASE_MIN, requiereFondoMinimo } from '../fondoCaja'
+import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
 import { fmtArs } from '../format'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
@@ -23,13 +23,9 @@ export default function CajaSectionConfig() {
   }, [])
 
   const guardar = async () => {
-    const invalida = cajas.find(
-      (c) => requiereFondoMinimo(c.slug) && (c.fondo_fijo || 0) < FONDO_CAJA_BASE_MIN
-    )
+    const invalida = cajas.find((c) => (c.fondo_fijo || 0) < 0)
     if (invalida) {
-      setMsg(
-        `Fondo de "${invalida.nombre}" no puede ser menor a $ ${fmtArs(FONDO_CAJA_BASE_MIN)} (efectivo real en caja).`
-      )
+      setMsg(`Fondo de "${invalida.nombre}" no puede ser negativo.`)
       return
     }
     await saveCajasMaestro(cajas)
@@ -51,8 +47,8 @@ export default function CajaSectionConfig() {
       <div className="caja-cc-card">
         <h3>Cajas y fondo de caja</h3>
         <p className="caja-cc-sub">
-          El fondo es el efectivo real que debe permanecer siempre en caja operativa. Base mínima:{' '}
-          $ {fmtArs(FONDO_CAJA_BASE_MIN)} (Noelia / Rosa).
+          El fondo es el efectivo real que debe permanecer siempre en caja operativa. Recomendado:{' '}
+          $ {fmtArs(FONDO_CAJA_RECOMENDADO)} (Noelia / Rosa). Las cajeras también pueden ajustarlo en cierre de turno.
         </p>
         <table className="caja-cc-table">
           <thead>
@@ -126,7 +122,7 @@ export default function CajaSectionConfig() {
               {
                 slug: newId().slice(0, 8),
                 nombre: 'Nueva caja',
-                fondo_fijo: FONDO_CAJA_BASE_MIN,
+                fondo_fijo: FONDO_CAJA_RECOMENDADO,
                 activa: true
               }
             ])

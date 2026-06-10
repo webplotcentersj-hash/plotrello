@@ -5,7 +5,7 @@ import {
   listMovimientos
 } from './cajaRepository'
 import { calcularPaseTrazabilidad } from './paseCaja'
-import { FONDO_CAJA_BASE_MIN, fondoFijoEfectivo } from './fondoCaja'
+import { fondoFijoEfectivo } from './fondoCaja'
 import type { CajaCierre, CajaEgresoSolicitud, CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from './types'
 
 export type CierreTurnoInput = {
@@ -143,7 +143,7 @@ export function buildMovimientosCierreTurno(opts: {
       destino_slug: lote.caja_fondo_destino_slug,
       efectivo: calc.fondo_monto,
       otros: 0,
-      observacion: `Cierre de turno — traspaso de fondo de caja ($${FONDO_CAJA_BASE_MIN.toLocaleString('es-AR')})`,
+      observacion: `Cierre de turno — traspaso de fondo de caja ($${calc.fondo_monto.toLocaleString('es-AR')})`,
       ...spreadTrazabilidad(paseFondo)
     })
   }

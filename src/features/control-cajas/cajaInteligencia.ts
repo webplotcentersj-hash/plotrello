@@ -1,6 +1,6 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { calcularCierre } from './cierreCalculations'
-import { FONDO_CAJA_BASE_MIN, fondoMinimoCaja, requiereFondoMinimo } from './fondoCaja'
+import { FONDO_CAJA_RECOMENDADO, fondoMinimoCaja, requiereFondoMinimo } from './fondoCaja'
 import { fmtArs } from './format'
 import {
   cierresEnFecha,
@@ -213,15 +213,15 @@ export function analizarConcordancia(input: {
     }
   }
 
-  // —— Fondo de caja (efectivo real permanente, base $100.000) ——
+  // —— Fondo de caja sin configurar ——
   for (const caja of cajas) {
-    if (requiereFondoMinimo(caja.slug) && (caja.fondo_fijo || 0) < FONDO_CAJA_BASE_MIN) {
+    if (requiereFondoMinimo(caja.slug) && (caja.fondo_fijo || 0) <= 0) {
       pushAlert(alertas, {
-        severidad: 'warn',
+        severidad: 'info',
         dominio: 'efectivo',
-        titulo: `Fondo de caja desactualizado · ${caja.nombre}`,
-        detalle: `Maestro con $${fmtArs(caja.fondo_fijo)}; la base operativa es $${fmtArs(FONDO_CAJA_BASE_MIN)}.`,
-        accion: { label: 'Maestros', section: 'config' }
+        titulo: `Fondo de caja sin definir · ${caja.nombre}`,
+        detalle: `Se usará el recomendado $${fmtArs(FONDO_CAJA_RECOMENDADO)} hasta que la cajera lo ajuste en cierre de turno.`,
+        accion: { label: 'Cierre de turno', section: 'cierre_turno' }
       })
     }
   }
@@ -235,8 +235,8 @@ export function analizarConcordancia(input: {
         severidad: 'warn',
         dominio: 'efectivo',
         fecha: c.fecha,
-        titulo: 'Cierre con fondo bajo la base',
-        detalle: `${cajaLabel(cajas, c.caja_slug)} ${c.fecha}: fondo registrado $${fmtArs(c.fondo_fijo)} (mín. $${fmtArs(min)}).`,
+        titulo: 'Cierre con fondo distinto al configurado',
+        detalle: `${cajaLabel(cajas, c.caja_slug)} ${c.fecha}: fondo registrado $${fmtArs(c.fondo_fijo)} (configurado $${fmtArs(min)}).`,
         accion: { label: 'Ver cierres', section: 'cierres' }
       })
     }
@@ -263,7 +263,7 @@ export function analizarConcordancia(input: {
           dominio: 'arqueo',
           fecha: a.fecha,
           titulo: 'Arqueo por debajo del fondo de caja',
-          detalle: `${cajaLabel(cajas, a.caja_slug)} ${a.fecha}: $${fmtArs(a.total)} contados; fondo mínimo $${fmtArs(min)}.`,
+          detalle: `${cajaLabel(cajas, a.caja_slug)} ${a.fecha}: $${fmtArs(a.total)} contados; fondo configurado $${fmtArs(min)}.`,
           accion: { label: 'Ver arqueos', section: 'arqueos_admin' }
         })
       }
@@ -402,13 +402,13 @@ export function alertasDesdePlanilla(
     }
   }
 
-  if (resumen.neto.fisico_neto !== 0) {
+  if (resumen.neto.efectivo !== 0) {
     pushAlert(alertas, {
       severidad: 'info',
       dominio: 'efectivo',
       fecha,
-      titulo: 'Efectivo físico según planilla',
-      detalle: `Neto efectivo (ing − egr) $${fmtArs(resumen.neto.efectivo)} · Físico neto clasificado $${fmtArs(resumen.neto.fisico_neto)}. Usá este dato al arquear billetes.`,
+      titulo: 'Efectivo que queda según planilla',
+      detalle: `Movimiento neto en efectivo $${fmtArs(resumen.neto.efectivo)}. Sumá el fondo de caja y contá billetes hasta ese total; tarjetas y MP no entran en el arqueo.`,
       accion: { label: 'Arqueo', section: 'arqueo' }
     })
   }
@@ -540,7 +540,7 @@ Conciliaciones banco:
 ${ultBanco.map((x) => `${x.fecha} sist $${fmtArs(x.sistema)} ext $${fmtArs(x.extracto)} Δ $${fmtArs(x.diferencia)} ${x.estado}`).join('\n') || 'ninguna'}
 
 REGLAS DE NEGOCIO:
-- Fondo de caja = efectivo REAL que debe permanecer siempre en la caja operativa. Base mínima $${fmtArs(FONDO_CAJA_BASE_MIN)} (Noelia/Rosa). El arqueo y el efectivo contado no pueden ser menores a ese fondo.
+- Fondo de caja = efectivo REAL que debe permanecer siempre en la caja operativa. Recomendado $${fmtArs(FONDO_CAJA_RECOMENDADO)} (Noelia/Rosa), editable por cajeras en cierre de turno. El arqueo y el efectivo contado no pueden ser menores al fondo configurado de cada caja.
 - Efectivo teórico = fondo fijo + ingresos efectivo − egresos efectivo; debe coincidir con efectivo contado (tolerancia).
 - MP: en cierres, tarjeta sistema + MP/QR debe alinearse con conciliación MP (sistema vs dashboard de la app MP).
 - Banco: transferencias en cierres vs conciliación con extracto bancario.

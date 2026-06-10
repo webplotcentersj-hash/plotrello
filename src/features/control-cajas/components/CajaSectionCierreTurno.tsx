@@ -12,10 +12,12 @@ import {
   saveMovimiento,
   saveMovimientosBulk,
   savePlanillaImport,
-  saveTransferenciaLote
+  saveTransferenciaLote,
+  updateCajaFondoFijo
 } from '../cajaRepository'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS, FONDO_CAJA_BASE_MIN } from '../constants'
+import { DEFAULT_CAJERAS } from '../constants'
+import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
 import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
@@ -67,6 +69,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   const [planillaPreview, setPlanillaPreview] = useState<PlanillaCajaParsed | null>(null)
   const [planillaId, setPlanillaId] = useState<string | null>(null)
   const [comprobantesPreview, setComprobantesPreview] = useState<ComprobanteLoteParsed | null>(null)
+  const [fondoMontoInput, setFondoMontoInput] = useState('')
 
   const reload = useCallback(async () => {
     const [c, lot, p] = await Promise.all([listCajas(), listTransferenciaLotes(20), getParams()])
@@ -148,7 +151,13 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   }, [origen, fecha])
 
   const cajaOrigen = cajas.find((c) => c.slug === origen)
-  const fondoMonto = cajaOrigen ? fondoMontoParaCaja(cajaOrigen) : 100_000
+
+  useEffect(() => {
+    if (!cajaOrigen) return
+    setFondoMontoInput(String(fondoMontoParaCaja(cajaOrigen)))
+  }, [origen, cajaOrigen?.slug, cajaOrigen?.fondo_fijo])
+
+  const fondoMonto = fondoMontoInput.trim() ? parseNum(fondoMontoInput) : cajaOrigen ? fondoMontoParaCaja(cajaOrigen) : FONDO_CAJA_RECOMENDADO
   const egresosLista = egresosResumen?.solicitudes ?? []
   const egresosTot = egresosResumen?.totales ?? { efectivo: 0, otros: 0 }
 
@@ -215,6 +224,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
       setMsg('Hay egresos pendientes de aprobación. Resolvelos en la sección Egresos antes del cierre de turno.')
       return
     }
+    if (fondoMonto <= 0) {
+      setMsg('Indicá el fondo de caja que queda en la otra caja operativa (recomendado $100.000).')
+      return
+    }
     if (!planillaPreview) {
       setMsg('Adjuntá el PDF de la planilla con el detalle de transacciones para el pase a administración.')
       return
@@ -226,6 +239,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
 
     setSaving(true)
     try {
+      if (cajaOrigen) {
+        await updateCajaFondoFijo(cajaOrigen.slug, fondoMonto)
+      }
       const loteId = newId()
       let idPlanilla = planillaId
       if (!idPlanilla) {
@@ -361,7 +377,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
           <span className="caja-cc-hoy-hero-label">Fondo → otra caja</span>
           <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
           <span className="caja-cc-hoy-hero-hint">
-            Fijo $ {fmtArs(FONDO_CAJA_BASE_MIN)} a {cajaNombre(cajaFondoDestino) || '…'}
+            A {cajaNombre(cajaFondoDestino) || '…'} (recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)})
           </span>
         </div>
         <div className="caja-cc-hoy-hero-card ingreso">
@@ -433,9 +449,25 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         </div>
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
+            Fondo que queda en la otra caja
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={fondoMontoInput}
+              onChange={(e) => setFondoMontoInput(e.target.value)}
+              required
+            />
+            <span className="caja-cc-field-hint">
+              Recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)}. Se guarda para tu caja al confirmar el cierre.
+            </span>
+          </label>
+          <label className="caja-cc-field">
             Arqueo efectivo (contado)
             <input type="number" step="0.01" value={arqueoEf} onChange={(e) => setArqueoEf(e.target.value)} required />
           </label>
+        </div>
+        <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Arqueo tarjetas/otros
             <input type="number" step="0.01" value={arqueoOt} onChange={(e) => setArqueoOt(e.target.value)} />

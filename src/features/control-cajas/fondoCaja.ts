@@ -1,7 +1,10 @@
 import type { CajaRegistro } from './types'
 
-/** Efectivo permanente en caja operativa (billetes que siempre deben estar). */
-export const FONDO_CAJA_BASE_MIN = 100_000
+/** Monto sugerido al crear una caja operativa (Noelia / Rosa). Las cajeras pueden cambiarlo. */
+export const FONDO_CAJA_RECOMENDADO = 100_000
+
+/** Alias histórico — mismo valor recomendado, no es un mínimo obligatorio. */
+export const FONDO_CAJA_BASE_MIN = FONDO_CAJA_RECOMENDADO
 
 /** Cajas sin regla de fondo mínimo (administración / vuelto). */
 export const CAJAS_EXENTAS_FONDO_MIN = new Set(['admin', 'vuelto'])
@@ -10,10 +13,11 @@ export function requiereFondoMinimo(cajaSlug: string): boolean {
   return !CAJAS_EXENTAS_FONDO_MIN.has(cajaSlug)
 }
 
-/** Fondo fijo efectivo para cálculos y validación (nunca bajo la base en cajas operativas). */
+/** Fondo configurado en la caja; si no hay valor, usa el recomendado como sugerencia inicial. */
 export function fondoFijoEfectivo(caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'>): number {
   if (!requiereFondoMinimo(caja.slug)) return caja.fondo_fijo || 0
-  return Math.max(caja.fondo_fijo || 0, FONDO_CAJA_BASE_MIN)
+  const v = Number(caja.fondo_fijo) || 0
+  return v > 0 ? v : FONDO_CAJA_RECOMENDADO
 }
 
 export function fondoMinimoCaja(caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'>): number {

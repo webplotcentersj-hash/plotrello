@@ -33,6 +33,8 @@ type Props = {
   compact?: boolean
   /** Solo leer PDF; la importación al sistema la hace el cierre de turno. */
   deferImport?: boolean
+  /** En Mi arqueo: el PDF documenta el efectivo que queda en caja. */
+  modoArqueo?: boolean
 }
 
 export default function CajaImportPlanillaPdf({
@@ -41,7 +43,8 @@ export default function CajaImportPlanillaPdf({
   onImported,
   onPlanillaParsed,
   compact = false,
-  deferImport = false
+  deferImport = false,
+  modoArqueo = false
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsing, setParsing] = useState(false)
@@ -224,7 +227,9 @@ export default function CajaImportPlanillaPdf({
           <div>
             <h3 className="caja-cc-planilla-zone-title">Planilla PDF · PLOT CENTER</h3>
             <p className="caja-cc-sub caja-cc-planilla-zone-lead">
-              Importá el listado exportado: ventas, ingresos, egresos y MEC con medios de pago para movimientos y cierre.
+              {modoArqueo
+                ? 'Subí el PDF del día: la columna Efectivo indica cuánto queda en caja. Contá billetes contra ese monto.'
+                : 'Importá el listado exportado: ventas, ingresos, egresos y MEC con medios de pago para movimientos y cierre.'}
             </p>
           </div>
         </header>
@@ -268,8 +273,17 @@ export default function CajaImportPlanillaPdf({
               : 'Subir planilla de caja (PDF)'}
           </strong>
           <span className="caja-cc-planilla-drop-hint">
-            Exportá el listado desde PLOT CENTER. {iaDisponible ? 'PlotAI (Gemini) interpreta el PDF' : 'Lectura local'}{' '}
-            y extrae <strong>todas</strong> las líneas (FA, FB, IV, IPC, EG, MEC) con cada medio de pago para PlotLab.
+            {modoArqueo ? (
+              <>
+                Exportá el listado desde PLOT CENTER. PlotLab lee el <strong>efectivo que queda</strong> para que lo
+                compares con tu conteo de billetes.
+              </>
+            ) : (
+              <>
+                Exportá el listado desde PLOT CENTER. {iaDisponible ? 'PlotAI (Gemini) interpreta el PDF' : 'Lectura local'}{' '}
+                y extrae <strong>todas</strong> las líneas (FA, FB, IV, IPC, EG, MEC) con cada medio de pago para PlotLab.
+              </>
+            )}
           </span>
         </button>
       )}
