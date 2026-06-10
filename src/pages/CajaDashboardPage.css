@@ -1484,6 +1484,16 @@
   margin-left: 6px;
 }
 
+.caja-dashboard-page .caja-cc-planilla-imported-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+}
+
 .caja-dashboard-page .caja-cc-planillas-recibidas {
   margin-top: 20px;
   padding: 20px 22px;

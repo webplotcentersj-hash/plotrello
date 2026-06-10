@@ -1099,6 +1099,21 @@ export async function getPlanillaById(id: string): Promise<PlanillaCajaParsed | 
   return null
 }
 
+/** Mismo PDF (nombre + rango de fechas) ya importado para la caja. */
+export async function planillaYaImportada(
+  planilla: Pick<PlanillaCajaParsed, 'archivo_nombre' | 'fecha_desde' | 'fecha_hasta'>,
+  cajaSlug?: string | null
+): Promise<boolean> {
+  const planillas = await listPlanillas(200)
+  return planillas.some(
+    (p) =>
+      p.archivo_nombre === planilla.archivo_nombre &&
+      p.fecha_desde === planilla.fecha_desde &&
+      p.fecha_hasta === planilla.fecha_hasta &&
+      (!cajaSlug || !p.caja_slug || p.caja_slug === cajaSlug)
+  )
+}
+
 export async function listPlanillas(limit = 10): Promise<PlanillaCajaGuardada[]> {
   const mapRow = (r: Record<string, unknown>): PlanillaCajaGuardada => {
     const datos = (r.datos as Record<string, unknown> | null) ?? null

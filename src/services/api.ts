@@ -3729,6 +3729,24 @@ class ApiService {
     return this.handleFallback(fallbackUsuarios)
   }
 
+  /** Solo los IDs pedidos (p. ej. interlocutores de DMs) — más rápido que listar_usuarios. */
+  async getUsuariosPorIds(ids: number[]): Promise<ApiResponse<UsuarioRecord[]>> {
+    const unique = [...new Set(ids.filter((n) => Number.isFinite(n) && n > 0))]
+    if (unique.length === 0) return { success: true, data: [] }
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, nombre, rol')
+        .in('id', unique)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as UsuarioRecord[]) ?? [] }
+    }
+    const all = await this.getUsuarios()
+    if (!all.success || !all.data) return all
+    const wanted = new Set(unique)
+    return { success: true, data: all.data.filter((u) => wanted.has(u.id)) }
+  }
+
   async getUsuariosBajasLog(): Promise<ApiResponse<UsuarioBajaLog[]>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no configurado' }

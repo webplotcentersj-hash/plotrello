@@ -724,6 +724,7 @@ function AppRoutes({
     hideCampoFloaters ||
     isBoardRoute ||
     pathname === '/statistics' ||
+    pathname.startsWith('/mensajeria') ||
     pathname.startsWith('/mostrador') ||
     pathname.startsWith('/rrhh') ||
     pathname.startsWith('/caja')

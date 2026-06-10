@@ -1,7 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
   getParams,
+  getPlanillaById,
   listCajas,
+  listPlanillas,
+  planillaYaImportada,
   resolveCajaSlug,
   resolveCajaSlugForUsuario,
   resolveCajaSlugFromHistorial,
@@ -10,7 +14,7 @@ import {
 } from '../cajaRepository'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
-import { calcularTotalesDesdePlanilla } from '../cajaTotales'
+import { calcularTotalesDesdePlanilla, efectivoQuedaEnCajaDesdePlanilla } from '../cajaTotales'
 import { fmtArs, fmtDateAr } from '../format'
 import { countPlanillaLineas, isPlanillaAiAvailable, mergePlanillaPreferComplete } from '../planillaCajaGemini'
 import {
@@ -57,14 +61,54 @@ export default function CajaImportPlanillaPdf({
   const [verLineas, setVerLineas] = useState(true)
   const [lineSearch, setLineSearch] = useState('')
   const [useAi, setUseAi] = useState(() => isPlanillaAiAvailable())
+  const [importLocked, setImportLocked] = useState(false)
+  const restoredPlanillaRef = useRef(false)
   const iaDisponible = isPlanillaAiAvailable()
+
+  useEffect(() => {
+    if (!modoArqueo || restoredPlanillaRef.current || preview) return
+    restoredPlanillaRef.current = true
+    void (async () => {
+      const hoy = getArgentinaDateString()
+      const list = await listPlanillas(40)
+      const match = list.find(
+        (p) =>
+          (p.fecha_hasta === hoy || p.fecha_desde === hoy) &&
+          (usuarioId == null || p.id_usuario == null || p.id_usuario === usuarioId)
+      )
+      if (!match) return
+      const full = await getPlanillaById(match.id)
+      if (!full) return
+      setPreviewAndNotify(full)
+      setImportLocked(true)
+      setMsg(`Planilla del día ya importada (${match.archivo_nombre}). Completá el conteo de billetes abajo.`)
+    })()
+  }, [modoArqueo, usuarioId, preview])
 
   const setPreviewAndNotify = (p: PlanillaCajaParsed | null) => {
     setPreview(p)
     onPlanillaParsed?.(p)
   }
 
+  const resolverCajaSlugPlanilla = async (parsed: PlanillaCajaParsed): Promise<string | null> => {
+    const [cajas, params] = await Promise.all([listCajas(), getParams()])
+    const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+    const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
+    let cajaSlug =
+      resolveCajaSlug(parsed.caja_nombre, cajas) ??
+      resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ??
+      null
+    if (!cajaSlug && usuarioId) {
+      cajaSlug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? null
+    }
+    return cajaSlug ?? operativas[0]?.slug ?? null
+  }
+
   const handleFile = async (file: File) => {
+    if (importLocked) {
+      setErr('Esta planilla ya fue importada. Continuá con el conteo de billetes abajo.')
+      return
+    }
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setErr('Elegí un archivo PDF exportado desde PLOT CENTER.')
       return
@@ -94,6 +138,19 @@ export default function CajaImportPlanillaPdf({
       } else {
         setParsingEtapa('Leyendo PDF…')
         parsed = await parsePlanillaCajaPdf(buf, file.name, { useAi: false })
+      }
+
+      const cajaSlug = await resolverCajaSlugPlanilla(parsed)
+      const duplicada = await planillaYaImportada(parsed, cajaSlug)
+      if (duplicada) {
+        setErr(
+          `«${parsed.archivo_nombre}» ya está importada para este día. No podés subir el mismo PDF otra vez.`
+        )
+        if (modoArqueo) {
+          setPreviewAndNotify(parsed)
+          setImportLocked(true)
+        }
+        return
       }
 
       setPreviewAndNotify(parsed)
@@ -127,27 +184,21 @@ export default function CajaImportPlanillaPdf({
         return
       }
     }
+    if (importLocked) {
+      setErr('Esta planilla ya fue importada.')
+      return
+    }
     setSaving(true)
     setErr(null)
     setImportProgress(null)
     try {
-      const [cajas, params] = await Promise.all([listCajas(), getParams()])
-      const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-      const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-
-      let cajaSlug =
-        resolveCajaSlug(preview.caja_nombre, cajas) ??
-        resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ??
-        null
-
-      if (!cajaSlug && usuarioId) {
-        cajaSlug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? null
-      }
-      if (!cajaSlug) {
-        cajaSlug = operativas[0]?.slug ?? null
-      }
+      const [cajas] = await Promise.all([listCajas()])
+      const cajaSlug = await resolverCajaSlugPlanilla(preview)
       if (!cajaSlug) {
         throw new Error('No se pudo determinar la caja. Revisá Maestros → Cajeras o el nombre en el PDF.')
+      }
+      if (await planillaYaImportada(preview, cajaSlug)) {
+        throw new Error(`«${preview.archivo_nombre}» ya está importada. No podés importar el mismo PDF otra vez.`)
       }
       if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
 
@@ -167,14 +218,23 @@ export default function CajaImportPlanillaPdf({
       })
 
       const r = resumenImportacion(movs)
+      const efectivoQ = efectivoQuedaEnCajaDesdePlanilla(preview)
       let okMsg = `Planilla guardada (${guardada.id.slice(0, 8)}…). Importados: ${r.total} movimientos (${r.ventas} ventas, ${r.egresos} egresos, ${r.traspasos} traspasos) en ${cajas.find((c) => c.slug === cajaSlug)?.nombre ?? cajaSlug}.`
+      if (modoArqueo && efectivoQ > 0) {
+        okMsg += ` Efectivo que queda: $ ${fmtArs(efectivoQ)} — contá billetes abajo.`
+      }
       if (!bulk.persistedRemote && bulk.remoteError) {
         okMsg += ` Quedaron en este navegador (servidor: ${bulk.remoteError}).`
       } else if (!bulk.persistedRemote) {
         okMsg += ' Guardados en este navegador.'
       }
 
-      setPreviewAndNotify(null)
+      if (modoArqueo) {
+        onPlanillaParsed?.(preview)
+        setImportLocked(true)
+      } else {
+        setPreviewAndNotify(null)
+      }
       setMsg(okMsg)
       onImported?.()
     } catch (e) {
@@ -246,7 +306,13 @@ export default function CajaImportPlanillaPdf({
         }}
       />
 
-      {!preview && (
+      {importLocked && !preview && (
+        <p className="caja-cc-help caja-cc-planilla-locked">
+          La planilla del día ya fue importada. Completá el conteo de billetes en el formulario de arqueo.
+        </p>
+      )}
+
+      {!preview && !importLocked && (
         <button
           type="button"
           className="caja-cc-planilla-drop"
@@ -315,13 +381,18 @@ export default function CajaImportPlanillaPdf({
                 {preview.empresa ? ` · ${preview.empresa}` : ''}
               </p>
             </div>
-            <button
-              type="button"
-              className="btn-secondary btn-small"
-              onClick={() => setPreviewAndNotify(null)}
-            >
-              Cambiar PDF
-            </button>
+            {!importLocked && (
+              <button
+                type="button"
+                className="btn-secondary btn-small"
+                onClick={() => setPreviewAndNotify(null)}
+              >
+                Cambiar PDF
+              </button>
+            )}
+            {importLocked && (
+              <span className="caja-cc-planilla-imported-badge">Importada</span>
+            )}
           </div>
 
           {preview.warnings.length > 0 && (
@@ -380,11 +451,20 @@ export default function CajaImportPlanillaPdf({
           {resumen && (
             <>
               <p className="caja-cc-planilla-fisico">
-                Efectivo físico neto: <strong>$ {fmtArs(resumen.neto.fisico_neto)}</strong>
-                <span className="caja-cc-field-hint">
-                  {' '}
-                  · Tarjetas/MP: $ {fmtArs(resumen.neto.electronico_neto)} · Cta. cte.: $ {fmtArs(resumen.neto.cta_cte)}
-                </span>
+                {modoArqueo ? (
+                  <>
+                    Efectivo que queda (columna Efectivo del PDF):{' '}
+                    <strong>$ {fmtArs(efectivoQuedaEnCajaDesdePlanilla(preview))}</strong>
+                  </>
+                ) : (
+                  <>
+                    Efectivo físico neto: <strong>$ {fmtArs(resumen.neto.fisico_neto)}</strong>
+                    <span className="caja-cc-field-hint">
+                      {' '}
+                      · Tarjetas/MP: $ {fmtArs(resumen.neto.electronico_neto)} · Cta. cte.: $ {fmtArs(resumen.neto.cta_cte)}
+                    </span>
+                  </>
+                )}
               </p>
               <PlanillaMediosResumen
                 ingresos={resumen.ingresos}
@@ -453,7 +533,7 @@ export default function CajaImportPlanillaPdf({
             </div>
           )}
 
-          {!deferImport && (
+          {!deferImport && !importLocked && (
             <div className="caja-cc-planilla-actions">
               <button type="button" className="btn-primary" disabled={saving} onClick={() => void handleGuardar()}>
                 {saving ? importProgress ?? 'Importando…' : 'Importar todo al sistema'}

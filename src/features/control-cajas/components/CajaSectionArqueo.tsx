@@ -16,7 +16,7 @@ import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
 import { fondoFijoEfectivo, fondoMinimoCaja, requiereFondoMinimo, validarEfectivoFisicoVsFondo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
-import { efectivoQuedaEnCajaDesdePlanilla, netoEfectivoDesdePlanilla } from '../cajaTotales'
+import { efectivoQuedaEnCajaDesdePlanilla } from '../cajaTotales'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro } from '../types'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
@@ -61,6 +61,12 @@ export default function CajaSectionArqueo({
     if (!cajaSlug || !fecha) return
     void listMovimientos().then(setMovimientos)
   }, [cajaSlug, fecha, movimientosRefreshKey])
+
+  useEffect(() => {
+    if (!planillaActiva) return
+    const f = planillaActiva.fecha_hasta || planillaActiva.fecha_desde
+    if (f) setFecha(f)
+  }, [planillaActiva?.archivo_nombre, planillaActiva?.fecha_desde, planillaActiva?.fecha_hasta])
 
   useEffect(() => {
     let cancelled = false
@@ -129,15 +135,7 @@ export default function CajaSectionArqueo({
 
   const diferenciaFisica = teorico != null && total > 0 ? total - teorico.teorico : null
 
-  const planillaMismaFecha =
-    planillaActiva &&
-    (planillaActiva.fecha_hasta === fecha || planillaActiva.fecha_desde === fecha)
-  const efectivoQuedaPlanilla =
-    planillaActiva && planillaMismaFecha
-      ? efectivoQuedaEnCajaDesdePlanilla(planillaActiva, fondoMin)
-      : null
-  const netoEfectivoPlanilla =
-    planillaActiva && planillaMismaFecha ? netoEfectivoDesdePlanilla(planillaActiva) : null
+  const efectivoQuedaPlanilla = planillaActiva ? efectivoQuedaEnCajaDesdePlanilla(planillaActiva) : null
   const diferenciaPlanilla =
     efectivoQuedaPlanilla != null && total > 0 ? total - efectivoQuedaPlanilla : null
 
@@ -220,14 +218,8 @@ export default function CajaSectionArqueo({
       {efectivoQuedaPlanilla != null && (
         <div className="caja-cc-planilla-arqueo-hint">
           <strong>Según planilla PDF — efectivo que queda en caja:</strong>{' '}
-          <strong>$ {fmtArs(efectivoQuedaPlanilla)}</strong>
-          {fondoMin > 0 && netoEfectivoPlanilla != null && (
-            <>
-              {' '}
-              (fondo $ {fmtArs(fondoMin)} + mov. del día $ {fmtArs(netoEfectivoPlanilla)})
-            </>
-          )}
-          . Contá billetes hasta llegar a ese monto; tarjetas, MP y transferencias no van en el arqueo.
+          <strong>$ {fmtArs(efectivoQuedaPlanilla)}</strong>. Contá billetes hasta llegar a ese monto; tarjetas, MP y
+          transferencias no van en el arqueo.
         </div>
       )}
 

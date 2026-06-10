@@ -201,7 +201,6 @@ export default function ControlCajasModule() {
         modoArqueo={section === 'arqueo'}
         onPlanillaParsed={setPlanillaActiva}
         onImported={() => {
-          setPlanillaActiva(null)
           refreshMovimientos()
         }}
       />

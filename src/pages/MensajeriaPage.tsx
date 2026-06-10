@@ -117,6 +117,29 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
 
   const selected = useMemo(() => peers.find((p) => p.room.id === selectedRoomId) || null, [peers, selectedRoomId])
 
+  const peerIdsFromRooms = (roomList: DmRoom[], userId: number) =>
+    roomList
+      .map((r) => parseDmPeerId(r.nombre, userId))
+      .filter((id): id is number => id != null)
+
+  const loadPeerProfiles = async (roomList: DmRoom[], userId: number) => {
+    const peerIds = peerIdsFromRooms(roomList, userId)
+    if (peerIds.length === 0) return
+    const res = await apiService.getUsuariosPorIds(peerIds)
+    if (res.success && res.data) {
+      setUsuarios((prev) => {
+        const byId = new Map(prev.map((u) => [u.id, u]))
+        for (const u of res.data!) byId.set(u.id, u)
+        return [...byId.values()]
+      })
+    }
+  }
+
+  const loadAllUsuarios = async () => {
+    const res = await apiService.getUsuarios()
+    if (res.success && res.data) setUsuarios(res.data)
+  }
+
   const loadIndex = async (opts?: { silent?: boolean }) => {
     if (!usuario) return
     const silent = opts?.silent ?? false
@@ -124,23 +147,27 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
       setLoading(true)
       setError(null)
     }
-    const [uRes, rRes] = await Promise.all([
-      apiService.getUsuarios(),
-      apiService.listarRoomsDmParaUsuario(usuario.id, 250)
-    ])
-    if (uRes.success && uRes.data) setUsuarios(uRes.data)
+
+    const rRes = await apiService.listarRoomsDmParaUsuario(usuario.id, 250)
     if (rRes.success && rRes.data) {
       const nextRooms = rRes.data as DmRoom[]
       setRooms(nextRooms)
+      if (!silent) setLoading(false)
+
       const roomIds = nextRooms.map((r) => r.id)
-      const unreadRes = await apiService.contarNoLeidosPorRooms(usuario.id, roomIds)
-      if (unreadRes.success && unreadRes.data) setUnreadByRoomId(unreadRes.data)
+      void apiService.contarNoLeidosPorRooms(usuario.id, roomIds).then((unreadRes) => {
+        if (unreadRes.success && unreadRes.data) setUnreadByRoomId(unreadRes.data)
+        dispatchMensajeriaDmUnreadRefresh()
+      })
+      void loadPeerProfiles(nextRooms, usuario.id)
+    } else if (!silent) {
+      setLoading(false)
+      setError(rRes.error || 'No se pudo cargar mensajería')
     }
-    if (!silent && ((!uRes.success && uRes.error) || (!rRes.success && rRes.error))) {
-      setError(uRes.error || rRes.error || 'No se pudo cargar mensajería')
+
+    if (!rRes.success && !silent) {
+      dispatchMensajeriaDmUnreadRefresh()
     }
-    if (!silent) setLoading(false)
-    dispatchMensajeriaDmUnreadRefresh()
   }
 
   const searchRecipients = useMemo(() => {
@@ -243,6 +270,11 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     if (!usuario) return
     void loadIndex()
   }, [usuario?.id])
+
+  useEffect(() => {
+    if (!showNewChat || !usuario || usuarios.length > 8) return
+    void loadAllUsuarios()
+  }, [showNewChat, usuario?.id, usuarios.length])
 
   useEffect(() => {
     if (selectedRoomId == null) {
@@ -380,7 +412,7 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     return out
   }, [messages])
 
-  if (authLoading) {
+  if (authLoading && !usuario) {
     return (
       <div className="mensajeria-page">
         <div className="mensajeria-wrap mensajeria-wrap--center">

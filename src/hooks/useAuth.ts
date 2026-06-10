@@ -30,9 +30,18 @@ function readStoredUsuario(): Usuario | null {
   }
 }
 
+function hasCachedStaffSession(): boolean {
+  if (typeof window === 'undefined') return false
+  return Boolean(localStorage.getItem('usuario') && localStorage.getItem('auth_token'))
+}
+
 export function useAuth() {
   const [usuario, setUsuario] = useState<Usuario | null>(readStoredUsuario)
-  const [loading, setLoading] = useState(true)
+  /** Con usuario + token en localStorage, mostrar la UI al instante y validar en segundo plano. */
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return !hasCachedStaffSession()
+  })
 
   useEffect(() => {
     const load = async () => {
