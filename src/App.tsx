@@ -1,8 +1,11 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import GlobalAlertScreen from './components/GlobalAlertScreen'
+import PwaUpdateBanner from './components/PwaUpdateBanner'
+import PwaUpdateToast from './components/PwaUpdateToast'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
+import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
 import { useAuth } from './hooks/useAuth'
 import type { Usuario } from './hooks/useAuth'
 import './app.css'
@@ -97,8 +100,10 @@ function App() {
   }
 
   return (
-    <>
+    <PwaUpdateProvider>
       <GlobalAlertScreen />
+      <PwaUpdateBanner />
+      <PwaUpdateToast />
       <BrowserRouter>
         <EnvDebugGate />
         <Routes>
@@ -293,7 +298,7 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
-    </>
+    </PwaUpdateProvider>
   )
 }
 

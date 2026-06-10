@@ -1,66 +1,62 @@
-import { useRegisterSW } from 'virtual:pwa-register/react'
-import { useEffect, useState } from 'react'
+import clsx from 'clsx'
+import { usePwaUpdateOptional } from '../contexts/PwaUpdateContext'
+import './PwaUpdate.css'
 
 type PwaUpdateButtonProps = {
   className?: string
 }
 
 export default function PwaUpdateButton({ className }: PwaUpdateButtonProps) {
-  const {
-    needRefresh: [needRefresh],
-    updateServiceWorker
-  } = useRegisterSW({
-    immediate: false
-  })
+  const pwa = usePwaUpdateOptional()
 
-  const [checking, setChecking] = useState(false)
+  if (!pwa) {
+    return (
+      <button type="button" className={className} disabled title="Actualizaciones no disponibles">
+        ⟳ Versión
+      </button>
+    )
+  }
 
-  useEffect(() => {
-    if (needRefresh) setChecking(false)
-  }, [needRefresh])
+  const { needRefresh, checking, checkForUpdate } = pwa
+
+  const label = needRefresh
+    ? 'Nueva versión'
+    : checking
+      ? 'Comprobando…'
+      : 'App al día'
+
+  const title = needRefresh
+    ? 'Hay una nueva versión lista. Clic para actualizar ahora.'
+    : checking
+      ? 'Buscando actualizaciones en el servidor…'
+      : 'Tu app está actualizada. Clic para buscar de nuevo.'
 
   return (
     <button
       type="button"
-      className={className}
-      onClick={async () => {
-        if (needRefresh) {
-          try {
-            await updateServiceWorker(true)
-          } finally {
-            // Forzar recarga total incluso si SW no activa de inmediato
-            window.location.reload()
-          }
-          return
-        }
-        setChecking(true)
-        try {
-          // Intenta buscar una nueva versión sin recargar.
-          await updateServiceWorker(false)
-          setTimeout(() => {
-            // Si no apareció el flag de actualización, avisar.
-            if (!needRefresh) {
-              // Fallback: pedir al navegador que actualice el SW si existe.
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {})
-              }
-              window.alert('No hay actualizaciones disponibles (o todavía no fueron detectadas).')
-              setChecking(false)
-            }
-          }, 1200)
-        } catch {
-          window.alert('No se pudo buscar actualización. Intenta de nuevo.')
-          setChecking(false)
-        }
-      }}
-      title={
-        needRefresh
-          ? 'Hay una nueva versión disponible. Actualizar.'
-          : 'Buscar si hay una nueva versión disponible.'
-      }
+      className={clsx(
+        className,
+        needRefresh && 'header-util-btn--pwa-update-available',
+        checking && 'header-util-btn--pwa-checking',
+        !needRefresh && !checking && 'header-util-btn--pwa-idle'
+      )}
+      onClick={() => void checkForUpdate()}
+      disabled={checking}
+      title={title}
+      aria-label={title}
     >
-      {needRefresh ? '⟳ Actualizar app' : checking ? '⟳ Buscando…' : '⟳ Actualizar app'}
+      <span
+        className={clsx('pwa-update-btn-icon', checking && 'pwa-update-btn-icon--spin')}
+        aria-hidden
+      >
+        ⟳
+      </span>{' '}
+      {label}
+      {needRefresh && (
+        <span className="pwa-update-btn-badge" aria-hidden>
+          1
+        </span>
+      )}
     </button>
   )
 }
-

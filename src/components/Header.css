@@ -806,8 +806,7 @@
     font-size: 0;
   }
 
-  .header-util-btn--pwa::after {
-    content: '⟳';
+  .header-util-btn--pwa .pwa-update-btn-icon {
     font-size: 1.15rem;
   }
 }
