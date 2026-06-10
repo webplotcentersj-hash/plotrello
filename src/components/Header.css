@@ -108,6 +108,26 @@
   color: #fff;
 }
 
+.header-quick-nav-btn--has-badge {
+  padding-right: 10px;
+}
+
+.header-quick-nav-badge {
+  margin-left: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px rgba(15, 20, 36, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+
 .header-brand {
   display: flex;
   align-items: center;

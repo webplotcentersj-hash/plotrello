@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   addDays,
   endOfMonth,
@@ -11,6 +12,7 @@ import {
   startOfWeek
 } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { BOARD_COLUMNS } from '../data/mockData'
 import type { Task } from '../types/board'
 import './CalendarPage.css'
 
@@ -18,6 +20,9 @@ type CalendarPageProps = {
   tasks: Task[]
   onBack: () => void
 }
+
+const SIDEBAR_VISIBLE = 3
+const GRID_VISIBLE = 4
 
 const normalizeDateKey = (value?: string) => {
   if (!value) return null
@@ -29,15 +34,53 @@ const normalizeDateKey = (value?: string) => {
 const dayLabel = (date: Date) => format(date, 'EEE dd', { locale: es })
 const monthLabel = (date: Date) => format(date, 'MMMM yyyy', { locale: es })
 
+function taskColumnLabel(task: Task): string {
+  const col = BOARD_COLUMNS.find((c) => c.id === task.status)
+  return col?.label || task.assignedSector || 'Sin columna'
+}
+
+function priorityLabel(priority: Task['priority']): string {
+  if (priority === 'alta') return 'Alta'
+  if (priority === 'baja') return 'Baja'
+  return 'Media'
+}
+
 const CalendarPage = ({ tasks, onBack }: CalendarPageProps) => {
+  const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
+  const [expandedSidebarDays, setExpandedSidebarDays] = useState<Set<string>>(() => new Set())
+  const [expandedGridDays, setExpandedGridDays] = useState<Set<string>>(() => new Set())
+
+  const openTaskFicha = useCallback(
+    (task: Task) => {
+      if (!task.opNumber?.trim()) return
+      navigate(`/op/${encodeURIComponent(task.opNumber.trim())}`)
+    },
+    [navigate]
+  )
+
+  const toggleSidebarDay = useCallback((dateKey: string) => {
+    setExpandedSidebarDays((prev) => {
+      const next = new Set(prev)
+      if (next.has(dateKey)) next.delete(dateKey)
+      else next.add(dateKey)
+      return next
+    })
+  }, [])
+
+  const toggleGridDay = useCallback((dateKey: string) => {
+    setExpandedGridDays((prev) => {
+      const next = new Set(prev)
+      if (next.has(dateKey)) next.delete(dateKey)
+      else next.add(dateKey)
+      return next
+    })
+  }, [])
 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Task[]>()
     tasks.forEach((task) => {
-      const key =
-        normalizeDateKey(task.dueDate) ??
-        normalizeDateKey(task.createdAt)
+      const key = normalizeDateKey(task.dueDate) ?? normalizeDateKey(task.createdAt)
       if (!key) return
       const existing = map.get(key) ?? []
       existing.push(task)
@@ -79,9 +122,15 @@ const CalendarPage = ({ tasks, onBack }: CalendarPageProps) => {
             ← Volver al tablero
           </button>
           <div className="month-nav">
-            <button onClick={goToPrevMonth} className="ghost-button">◀</button>
-            <button onClick={goToToday} className="ghost-button">Hoy</button>
-            <button onClick={goToNextMonth} className="ghost-button">▶</button>
+            <button onClick={goToPrevMonth} className="ghost-button">
+              ◀
+            </button>
+            <button onClick={goToToday} className="ghost-button">
+              Hoy
+            </button>
+            <button onClick={goToNextMonth} className="ghost-button">
+              ▶
+            </button>
           </div>
           <div className="month-title">{monthLabel(currentMonth)}</div>
         </div>
@@ -99,32 +148,50 @@ const CalendarPage = ({ tasks, onBack }: CalendarPageProps) => {
             const dayTasks = tasksByDate.get(key) ?? []
             const isCurrent = isSameMonth(date, monthStart)
             const highlight = isToday(date)
+            const expanded = expandedGridDays.has(key)
+            const visibleTasks = expanded ? dayTasks : dayTasks.slice(0, GRID_VISIBLE)
+            const hiddenCount = dayTasks.length - GRID_VISIBLE
 
             return (
               <div
                 key={key + format(date, 'd')}
-                className={`calendar-cell ${highlight ? 'today' : ''} ${
-                  isCurrent ? '' : 'muted'
-                }`}
+                className={`calendar-cell ${highlight ? 'today' : ''} ${isCurrent ? '' : 'muted'}`}
               >
                 <div className="cell-header">
                   <span className="cell-date">{dayLabel(date)}</span>
-                  {dayTasks.length > 0 && (
-                    <span className="cell-count">{dayTasks.length}</span>
-                  )}
+                  {dayTasks.length > 0 && <span className="cell-count">{dayTasks.length}</span>}
                 </div>
                 <div className="cell-tasks">
-                  {dayTasks.slice(0, 4).map((task) => (
-                    <div
+                  {visibleTasks.map((task) => (
+                    <button
                       key={task.id}
+                      type="button"
                       className={`task-pill priority-${task.priority}`}
                       title={`${task.opNumber} • ${task.title}`}
+                      onClick={() => openTaskFicha(task)}
                     >
                       <strong>{task.opNumber}</strong> {task.title}
-                    </div>
+                    </button>
                   ))}
-                  {dayTasks.length > 4 && (
-                    <div className="more-pill">+{dayTasks.length - 4} más</div>
+                  {!expanded && hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      className="more-pill"
+                      onClick={() => toggleGridDay(key)}
+                      aria-expanded={false}
+                    >
+                      +{hiddenCount} más
+                    </button>
+                  )}
+                  {expanded && hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      className="more-pill more-pill--collapse"
+                      onClick={() => toggleGridDay(key)}
+                      aria-expanded
+                    >
+                      Ver menos
+                    </button>
                   )}
                 </div>
               </div>
@@ -134,28 +201,91 @@ const CalendarPage = ({ tasks, onBack }: CalendarPageProps) => {
 
         <aside className="calendar-sidebar">
           <div className="sidebar-card">
-            <div className="sidebar-title">Próximas entregas</div>
-            {upcoming.length === 0 && (
-              <div className="sidebar-empty">Sin próximas entregas</div>
-            )}
-            {upcoming.map(([dateKey, dateTasks]) => (
-              <div key={dateKey} className="sidebar-day">
-                <div className="sidebar-day-header">
-                  <span>{format(parseISO(dateKey), 'EEEE d', { locale: es })}</span>
-                  <span className="sidebar-count">{dateTasks.length}</span>
-                </div>
-                <div className="sidebar-tasks">
-                  {dateTasks.slice(0, 3).map((task) => (
-                    <div key={task.id} className={`sidebar-pill priority-${task.priority}`}>
-                      <strong>{task.opNumber}</strong> {task.title}
-                    </div>
-                  ))}
-                  {dateTasks.length > 3 && (
-                    <div className="more-pill small">+{dateTasks.length - 3} más</div>
-                  )}
-                </div>
+            <div className="sidebar-card-head">
+              <div>
+                <div className="sidebar-title">Próximas entregas</div>
+                <p className="sidebar-subtitle">Tocá una OP para abrir la ficha completa</p>
               </div>
-            ))}
+              {upcoming.length > 0 && (
+                <span className="sidebar-total-badge">
+                  {upcoming.reduce((acc, [, list]) => acc + list.length, 0)} OP
+                </span>
+              )}
+            </div>
+
+            {upcoming.length === 0 && <div className="sidebar-empty">Sin próximas entregas</div>}
+
+            <div className="sidebar-days">
+              {upcoming.map(([dateKey, dateTasks]) => {
+                const expanded = expandedSidebarDays.has(dateKey)
+                const visibleTasks = expanded ? dateTasks : dateTasks.slice(0, SIDEBAR_VISIBLE)
+                const hiddenCount = dateTasks.length - SIDEBAR_VISIBLE
+                const dayDate = parseISO(dateKey)
+                const isDayToday = isToday(dayDate)
+
+                return (
+                  <div key={dateKey} className={`sidebar-day${isDayToday ? ' sidebar-day--today' : ''}`}>
+                    <div className="sidebar-day-header">
+                      <div className="sidebar-day-date">
+                        <span className="sidebar-day-weekday">
+                          {format(dayDate, 'EEEE', { locale: es })}
+                        </span>
+                        <span className="sidebar-day-num">{format(dayDate, "d 'de' MMMM", { locale: es })}</span>
+                      </div>
+                      <span className="sidebar-count">{dateTasks.length}</span>
+                    </div>
+
+                    <div className="sidebar-tasks">
+                      {visibleTasks.map((task) => (
+                        <button
+                          key={task.id}
+                          type="button"
+                          className={`sidebar-task-card priority-${task.priority}`}
+                          onClick={() => openTaskFicha(task)}
+                          title="Abrir ficha de la OP"
+                        >
+                          <div className="sidebar-task-top">
+                            <span className="sidebar-task-op">{task.opNumber}</span>
+                            <span className={`sidebar-task-priority priority-${task.priority}`}>
+                              {priorityLabel(task.priority)}
+                            </span>
+                          </div>
+                          <span className="sidebar-task-client">{task.title}</span>
+                          <span className="sidebar-task-meta">{taskColumnLabel(task)}</span>
+                        </button>
+                      ))}
+
+                      {!expanded && hiddenCount > 0 && (
+                        <button
+                          type="button"
+                          className="more-pill small"
+                          onClick={() => toggleSidebarDay(dateKey)}
+                          aria-expanded={false}
+                        >
+                          <span>+{hiddenCount} más</span>
+                          <span className="more-pill-chevron" aria-hidden>
+                            ▾
+                          </span>
+                        </button>
+                      )}
+                      {expanded && hiddenCount > 0 && (
+                        <button
+                          type="button"
+                          className="more-pill small more-pill--collapse"
+                          onClick={() => toggleSidebarDay(dateKey)}
+                          aria-expanded
+                        >
+                          <span>Ver menos</span>
+                          <span className="more-pill-chevron more-pill-chevron--up" aria-hidden>
+                            ▴
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </aside>
       </div>
@@ -164,4 +294,3 @@ const CalendarPage = ({ tasks, onBack }: CalendarPageProps) => {
 }
 
 export default CalendarPage
-

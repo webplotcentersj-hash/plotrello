@@ -1,11 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import { useAuth } from '../hooks/useAuth'
 import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import apiService from '../services/api'
 import type { UsuarioRecord } from '../types/api'
+import { uploadAttachmentAndGetUrl } from '../utils/storage'
+import {
+  avatarHue,
+  downloadFileFromUrl,
+  downloadProofJson,
+  fileNameFromUrl,
+  formatDayDivider,
+  formatMessageTime,
+  isImageUrl,
+  userInitials
+} from '../utils/mensajeriaHelpers'
 import './MensajeriaPage.css'
+
+type DmRoom = { id: number; nombre: string; created_at?: string }
 
 type ThreadMsg = {
   id: number
@@ -13,9 +26,14 @@ type ThreadMsg = {
   nombre_usuario?: string
   contenido: string
   timestamp: string
+  archivos_urls?: string[]
 }
 
-type DmRoom = { id: number; nombre: string; created_at?: string }
+type PendingAttachment = {
+  id: string
+  file: File
+  uploading?: boolean
+}
 
 const parseDmPeerId = (roomNombre: string, currentUserId: number): number | null => {
   const m = String(roomNombre).match(/^dm:(\d+):(\d+)$/)
@@ -30,14 +48,33 @@ type MensajeriaPageProps = {
   onLogout: () => void
 }
 
+const MESSAGES_PAGE_SIZE = 5
+
+const toThreadMsg = (m: {
+  id: number
+  usuario_id: number
+  nombre_usuario?: string
+  contenido: string
+  timestamp: string
+  archivos_urls?: string[]
+}): ThreadMsg => ({
+  id: m.id,
+  usuario_id: m.usuario_id,
+  nombre_usuario: m.nombre_usuario,
+  contenido: m.contenido,
+  timestamp: m.timestamp,
+  archivos_urls: m.archivos_urls
+})
+
 export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   const navigate = useNavigate()
-  const { usuario, canManageRecursosHumanos } = useAuth()
+  const { usuario } = useAuth()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [rooms, setRooms] = useState<DmRoom[]>([])
   const [unreadByRoomId, setUnreadByRoomId] = useState<Record<number, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null)
   const [messages, setMessages] = useState<ThreadMsg[]>([])
@@ -45,10 +82,26 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [recipientSearch, setRecipientSearch] = useState('')
+  const [showNewChat, setShowNewChat] = useState(false)
   const [openingPeerId, setOpeningPeerId] = useState<number | null>(null)
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
+  const [proofLoadingId, setProofLoadingId] = useState<number | null>(null)
+  const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null)
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+
   const bottomRef = useRef<HTMLDivElement>(null)
+  const bubblesRef = useRef<HTMLUListElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const stickToBottomRef = useRef(true)
+  const messagesRef = useRef<ThreadMsg[]>([])
 
   const currentUserId = usuario?.id ?? null
+
+  const showToast = (msg: string) => {
+    setToast(msg)
+    window.setTimeout(() => setToast(null), 4000)
+  }
 
   const peers = useMemo(() => {
     if (currentUserId == null) return []
@@ -91,17 +144,17 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   }
 
   const searchRecipients = useMemo(() => {
-    if (!usuario || !canManageRecursosHumanos) return []
+    if (!usuario) return []
     const q = recipientSearch.trim().toLowerCase()
     const list = usuarios.filter((u) => u.id !== usuario.id)
-    if (!q) return list
+    if (!q) return list.slice(0, 12)
     return list.filter(
       (u) =>
         u.nombre.toLowerCase().includes(q) ||
         String(u.id).includes(q) ||
         u.rol.toLowerCase().includes(q)
     )
-  }, [usuarios, usuario, canManageRecursosHumanos, recipientSearch])
+  }, [usuarios, usuario, recipientSearch])
 
   const openConversationWithPeer = async (peerId: number) => {
     if (!usuario || openingPeerId != null) return
@@ -115,24 +168,76 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     }
     setSelectedRoomId(res.data.roomId)
     setRecipientSearch('')
+    setShowNewChat(false)
+    stickToBottomRef.current = true
     await loadIndex({ silent: true })
   }
 
-  const loadThread = async (roomId: number, opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false
-    if (!silent) {
-      setLoadingThread(true)
-      setError(null)
-    }
-    const res = await apiService.getMensajesPorRoomId(roomId, 120)
+  const loadThread = useCallback(async (roomId: number) => {
+    setLoadingThread(true)
+    setError(null)
+    setHasMoreOlder(false)
+    const res = await apiService.getMensajesPorRoomIdPaginated(roomId, MESSAGES_PAGE_SIZE)
     if (res.success && res.data) {
-      setMessages(res.data as ThreadMsg[])
-    } else if (!silent) {
+      setMessages(res.data.messages.map(toThreadMsg))
+      setHasMoreOlder(res.data.hasMore)
+    } else {
       setMessages([])
       setError(res.error || 'No se pudieron cargar los mensajes')
     }
-    if (!silent) setLoadingThread(false)
+    setLoadingThread(false)
+  }, [])
+
+  const loadOlderMessages = async () => {
+    if (!selectedRoomId || loadingOlder || !hasMoreOlder || messages.length === 0) return
+    const el = bubblesRef.current
+    const prevScrollHeight = el?.scrollHeight ?? 0
+
+    setLoadingOlder(true)
+    const res = await apiService.getMensajesPorRoomIdPaginated(selectedRoomId, MESSAGES_PAGE_SIZE, {
+      beforeId: messages[0].id
+    })
+    setLoadingOlder(false)
+
+    if (res.success && res.data) {
+      setHasMoreOlder(res.data.hasMore)
+      setMessages((prev) => [...res.data!.messages.map(toThreadMsg), ...prev])
+      stickToBottomRef.current = false
+      requestAnimationFrame(() => {
+        if (!el) return
+        el.scrollTop = el.scrollHeight - prevScrollHeight
+      })
+    } else {
+      setError(res.error || 'No se pudieron cargar mensajes anteriores')
+    }
   }
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  const pollNewMessages = useCallback(async (roomId: number) => {
+    const current = messagesRef.current
+    const lastId = current[current.length - 1]?.id
+    if (lastId == null) {
+      const res = await apiService.getMensajesPorRoomIdPaginated(roomId, MESSAGES_PAGE_SIZE)
+      if (res.success && res.data) {
+        setMessages(res.data.messages.map(toThreadMsg))
+        setHasMoreOlder(res.data.hasMore)
+      }
+      return
+    }
+
+    const res = await apiService.getMensajesNuevosPorRoomId(roomId, lastId)
+    if (!res.success || !res.data?.length) return
+
+    const incoming = res.data.map(toThreadMsg)
+    setMessages((prev) => {
+      const ids = new Set(prev.map((m) => m.id))
+      const novel = incoming.filter((m) => !ids.has(m.id))
+      return novel.length > 0 ? [...prev, ...novel] : prev
+    })
+  }, [])
 
   useEffect(() => {
     if (!usuario) return
@@ -142,20 +247,21 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   useEffect(() => {
     if (selectedRoomId == null) {
       setMessages([])
+      setHasMoreOlder(false)
       return
     }
+    stickToBottomRef.current = true
     void loadThread(selectedRoomId)
-  }, [selectedRoomId])
+  }, [selectedRoomId, loadThread])
 
   useEffect(() => {
     if (selectedRoomId == null) return
-    const t = window.setInterval(() => void loadThread(selectedRoomId, { silent: true }), 12000)
+    const t = window.setInterval(() => void pollNewMessages(selectedRoomId), 12000)
     return () => window.clearInterval(t)
-  }, [selectedRoomId])
+  }, [selectedRoomId, pollNewMessages])
 
   useEffect(() => {
     if (!usuario || selectedRoomId == null) return
-    // Al abrir una conversación, marcar como leída y refrescar badges.
     void (async () => {
       await apiService.marcarChatLeido(`dm:${selectedRoomId}`, usuario.id)
       const roomIds = rooms.map((r) => r.id)
@@ -165,26 +271,114 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     })()
   }, [usuario?.id, selectedRoomId, rooms])
 
+  const handleBubblesScroll = () => {
+    const el = bubblesRef.current
+    if (!el) return
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+    stickToBottomRef.current = distance < 80
+  }
+
   useEffect(() => {
+    if (!stickToBottomRef.current) return
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const handlePickFiles = (files: FileList | null) => {
+    if (!files?.length) return
+    const next: PendingAttachment[] = Array.from(files).map((file) => ({
+      id: `${Date.now()}-${file.name}-${Math.random().toString(36).slice(2, 6)}`,
+      file
+    }))
+    setPendingFiles((prev) => [...prev, ...next])
+  }
 
   const handleSend = async () => {
     if (!usuario || selectedRoomId == null) return
     const text = draft.trim()
-    if (!text || sending) return
+    if ((!text && pendingFiles.length === 0) || sending) return
+
     setSending(true)
-    const res = await apiService.enviarMensajeDm({ roomId: selectedRoomId, contenido: text, usuarioId: usuario.id })
-    setSending(false)
-    if (res.success && res.data) {
-      setDraft('')
-      setMessages((prev) => [...prev, res.data as any])
-      // refrescar lista (por si se crean rooms en otro lado)
-      void loadIndex()
-    } else {
-      setError(res.error || 'No se pudo enviar')
+    setError(null)
+    const uploadedUrls: string[] = []
+
+    try {
+      for (const item of pendingFiles) {
+        setPendingFiles((prev) => prev.map((p) => (p.id === item.id ? { ...p, uploading: true } : p)))
+        const url = await uploadAttachmentAndGetUrl(item.file, 'mensajeria-dm')
+        uploadedUrls.push(url)
+      }
+
+      let contenido = text
+      if (!contenido && uploadedUrls.length > 0) {
+        contenido = `📎 ${uploadedUrls.length} archivo(s) adjunto(s)`
+      }
+
+      const res = await apiService.enviarMensajeDm({
+        roomId: selectedRoomId,
+        contenido,
+        usuarioId: usuario.id,
+        archivosUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined
+      })
+
+      if (res.success && res.data) {
+        setDraft('')
+        setPendingFiles([])
+        stickToBottomRef.current = true
+        setMessages((prev) => [...prev, toThreadMsg(res.data!)])
+        void loadIndex({ silent: true })
+      } else {
+        setError(res.error || 'No se pudo enviar')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al subir archivos')
+    } finally {
+      setSending(false)
     }
   }
+
+  const handleDownloadAttachment = async (url: string) => {
+    setDownloadingUrl(url)
+    try {
+      await downloadFileFromUrl(url, fileNameFromUrl(url))
+    } catch {
+      showToast('No se pudo descargar el archivo')
+    } finally {
+      setDownloadingUrl(null)
+    }
+  }
+
+  const handleDownloadProof = async (messageId: number) => {
+    if (!usuario) return
+    setProofLoadingId(messageId)
+    const res = await apiService.generarPruebaMensajeDm(messageId, usuario.id)
+    setProofLoadingId(null)
+    if (!res.success || !res.data) {
+      setError(res.error || 'No se pudo generar la prueba')
+      return
+    }
+    const verifyUrl = `${window.location.origin}/mensajeria/verificar/${res.data.proof_token}`
+    downloadProofJson({
+      ...res.data,
+      verify_url: verifyUrl,
+      sistema: 'PLOT Mensajería Interna'
+    })
+    showToast('Prueba descargada. El token también se puede verificar en línea.')
+  }
+
+  const messagesWithDividers = useMemo(() => {
+    const out: Array<{ type: 'divider'; key: string; label: string } | { type: 'msg'; key: string; msg: ThreadMsg }> =
+      []
+    let lastDay = ''
+    for (const msg of messages) {
+      const dayKey = new Date(msg.timestamp).toDateString()
+      if (dayKey !== lastDay) {
+        lastDay = dayKey
+        out.push({ type: 'divider', key: `d-${dayKey}`, label: formatDayDivider(msg.timestamp) })
+      }
+      out.push({ type: 'msg', key: `m-${msg.id}`, msg })
+    }
+    return out
+  }, [messages])
 
   if (!usuario) {
     return (
@@ -218,7 +412,8 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
           <div>
             <h1>Mensajería interna</h1>
             <p>
-              Tus conversaciones privadas con RRHH/Administración y otros usuarios. Se guarda fecha y hora de cada mensaje.
+              Chateá con cualquier compañero del equipo. Los mensajes quedan registrados con fecha, hora y token de
+              prueba descargable.
             </p>
           </div>
           <button type="button" className="mensajeria-btn mensajeria-btn-ghost" onClick={() => navigate('/')}>
@@ -229,41 +424,65 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
         {error && (
           <div className="mensajeria-error" role="alert">
             {error}
+            <button type="button" className="mensajeria-error-close" onClick={() => setError(null)} aria-label="Cerrar">
+              ×
+            </button>
+          </div>
+        )}
+
+        {toast && (
+          <div className="mensajeria-toast" role="status">
+            {toast}
           </div>
         )}
 
         <div className="mensajeria-layout">
           <aside className="mensajeria-sidebar">
-            {canManageRecursosHumanos && (
+            <div className="mensajeria-sidebar-top">
+              <button
+                type="button"
+                className={`mensajeria-new-chat-btn ${showNewChat ? 'is-open' : ''}`}
+                onClick={() => setShowNewChat((v) => !v)}
+              >
+                ✉ Nuevo mensaje
+              </button>
+            </div>
+
+            {showNewChat && (
               <div className="mensajeria-recipient-search">
-                <label className="mensajeria-search-label" htmlFor="mensajeria-buscar-dest">
-                  Buscar destinatario
-                </label>
                 <input
                   id="mensajeria-buscar-dest"
                   type="search"
                   className="mensajeria-search-input"
-                  placeholder="Nombre, rol o ID…"
+                  placeholder="Buscar por nombre, rol o ID…"
                   value={recipientSearch}
                   onChange={(e) => setRecipientSearch(e.target.value)}
                   autoComplete="off"
-                  aria-label="Buscar usuario para escribirle"
+                  aria-label="Buscar compañero"
                 />
-                <ul className="mensajeria-search-results" role="listbox" aria-label="Resultados de búsqueda">
+                <ul className="mensajeria-search-results" role="listbox">
                   {searchRecipients.map((u) => (
                     <li key={u.id}>
                       <button
                         type="button"
                         className="mensajeria-search-pick"
-                        role="option"
                         disabled={openingPeerId != null}
                         onClick={() => void openConversationWithPeer(u.id)}
                       >
-                        <span className="mensajeria-search-pick-name">
-                          {openingPeerId === u.id ? 'Abriendo…' : u.nombre}
+                        <span
+                          className="mensajeria-avatar mensajeria-avatar--sm"
+                          style={{ background: `hsl(${avatarHue(u.id)} 55% 42%)` }}
+                          aria-hidden
+                        >
+                          {userInitials(u.nombre)}
                         </span>
-                        <span className="mensajeria-search-pick-meta">
-                          {u.rol} · #{u.id}
+                        <span className="mensajeria-search-pick-body">
+                          <span className="mensajeria-search-pick-name">
+                            {openingPeerId === u.id ? 'Abriendo…' : u.nombre}
+                          </span>
+                          <span className="mensajeria-search-pick-meta">
+                            {u.rol} · #{u.id}
+                          </span>
                         </span>
                       </button>
                     </li>
@@ -281,13 +500,12 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
                 Actualizar
               </button>
             </div>
+
             {loading ? (
               <p className="mensajeria-muted">Cargando…</p>
             ) : peers.length === 0 ? (
               <p className="mensajeria-muted">
-                {canManageRecursosHumanos
-                  ? 'Buscar arriba un destinatario para abrir el chat, o esperá a que alguien te escriba.'
-                  : 'Todavía no tenés conversaciones. RRHH/Administración pueden iniciarlas desde el panel de RRHH o mensajería.'}
+                Todavía no tenés conversaciones. Usá <strong>Nuevo mensaje</strong> para escribirle a un compañero.
               </p>
             ) : (
               <ul className="mensajeria-list">
@@ -296,17 +514,27 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
                     <button
                       type="button"
                       className={`mensajeria-peer ${selectedRoomId === room.id ? 'is-active' : ''}`}
-                      onClick={() => setSelectedRoomId(room.id)}
+                      onClick={() => {
+                        setSelectedRoomId(room.id)
+                        stickToBottomRef.current = true
+                      }}
                     >
-                      <span className="mensajeria-peer-name">{peer?.nombre || `Usuario #${peerId}`}</span>
-                      <span className="mensajeria-peer-meta">
-                        {peer?.rol || '—'}
-                        {Number(unreadByRoomId[room.id] || 0) > 0 && (
-                          <span className="mensajeria-unread" aria-label="Mensajes no leídos">
-                            {unreadByRoomId[room.id]}
-                          </span>
-                        )}
+                      <span
+                        className="mensajeria-avatar"
+                        style={{ background: `hsl(${avatarHue(peerId)} 55% 42%)` }}
+                        aria-hidden
+                      >
+                        {userInitials(peer?.nombre || `U${peerId}`)}
                       </span>
+                      <span className="mensajeria-peer-body">
+                        <span className="mensajeria-peer-name">{peer?.nombre || `Usuario #${peerId}`}</span>
+                        <span className="mensajeria-peer-meta">{peer?.rol || '—'}</span>
+                      </span>
+                      {Number(unreadByRoomId[room.id] || 0) > 0 && (
+                        <span className="mensajeria-unread" aria-label="Mensajes no leídos">
+                          {unreadByRoomId[room.id]}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -317,50 +545,176 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
           <main className="mensajeria-main">
             {selectedRoomId == null ? (
               <div className="mensajeria-empty">
-                <p>Elegí una conversación para ver los mensajes.</p>
+                <div className="mensajeria-empty-icon" aria-hidden>
+                  💬
+                </div>
+                <p>Elegí una conversación o iniciá un mensaje nuevo.</p>
+                <button type="button" className="mensajeria-btn" onClick={() => setShowNewChat(true)}>
+                  Nuevo mensaje
+                </button>
               </div>
             ) : (
               <>
                 <div className="mensajeria-thread-head">
-                  <div>
-                    <strong>{selected?.peer?.nombre || 'Conversación'}</strong>
-                    <span className="mensajeria-thread-meta">{selected?.peer?.rol || ''}</span>
+                  <div className="mensajeria-thread-peer">
+                    <span
+                      className="mensajeria-avatar mensajeria-avatar--lg"
+                      style={{ background: `hsl(${avatarHue(selected?.peerId ?? 0)} 55% 42%)` }}
+                      aria-hidden
+                    >
+                      {userInitials(selected?.peer?.nombre || 'U')}
+                    </span>
+                    <div>
+                      <strong>{selected?.peer?.nombre || 'Conversación'}</strong>
+                      <span className="mensajeria-thread-meta">{selected?.peer?.rol || ''}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="mensajeria-thread">
                   {loadingThread ? (
-                    <p className="mensajeria-muted">Cargando mensajes…</p>
+                    <p className="mensajeria-muted mensajeria-thread-loading">Cargando mensajes…</p>
                   ) : (
-                    <ul className="mensajeria-bubbles">
-                      {messages.map((m) => {
-                        const mine = m.usuario_id === usuario.id
-                        return (
-                          <li key={m.id} className={`mensajeria-bubble ${mine ? 'is-mine' : 'is-theirs'}`}>
-                            {!mine && <span className="mensajeria-author">{m.nombre_usuario || 'Usuario'}</span>}
-                            <span className="mensajeria-text">{m.contenido}</span>
-                            <time className="mensajeria-time" dateTime={m.timestamp}>
-                              {new Date(m.timestamp).toLocaleString('es-AR', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </time>
+                    <ul
+                      className="mensajeria-bubbles"
+                      ref={bubblesRef}
+                      onScroll={handleBubblesScroll}
+                    >
+                      {hasMoreOlder && (
+                        <li className="mensajeria-load-older">
+                          <button
+                            type="button"
+                            className="mensajeria-load-older-btn"
+                            disabled={loadingOlder}
+                            onClick={() => void loadOlderMessages()}
+                          >
+                            {loadingOlder
+                              ? 'Cargando mensajes anteriores…'
+                              : `↑ Ver ${MESSAGES_PAGE_SIZE} mensajes anteriores`}
+                          </button>
+                        </li>
+                      )}
+                      {messagesWithDividers.map((item) =>
+                        item.type === 'divider' ? (
+                          <li key={item.key} className="mensajeria-day-divider" aria-hidden>
+                            <span>{item.label}</span>
                           </li>
+                        ) : (
+                          (() => {
+                            const m = item.msg
+                            const mine = m.usuario_id === usuario.id
+                            return (
+                              <li
+                                key={item.key}
+                                className={`mensajeria-bubble-row ${mine ? 'is-mine' : 'is-theirs'}`}
+                              >
+                                {!mine && (
+                                  <span
+                                    className="mensajeria-avatar mensajeria-avatar--xs"
+                                    style={{ background: `hsl(${avatarHue(m.usuario_id)} 55% 42%)` }}
+                                    aria-hidden
+                                  >
+                                    {userInitials(m.nombre_usuario || 'U')}
+                                  </span>
+                                )}
+                                <div className={`mensajeria-bubble ${mine ? 'is-mine' : 'is-theirs'}`}>
+                                  {!mine && (
+                                    <span className="mensajeria-author">{m.nombre_usuario || 'Usuario'}</span>
+                                  )}
+                                  {m.contenido && <span className="mensajeria-text">{m.contenido}</span>}
+                                  {m.archivos_urls && m.archivos_urls.length > 0 && (
+                                    <div className="mensajeria-attachments">
+                                      {m.archivos_urls.map((url, idx) => {
+                                        const name = fileNameFromUrl(url)
+                                        const image = isImageUrl(url)
+                                        return (
+                                          <div key={`${url}-${idx}`} className="mensajeria-attachment">
+                                            <span className="mensajeria-attachment-icon" aria-hidden>
+                                              {image ? '🖼' : '📎'}
+                                            </span>
+                                            <span className="mensajeria-attachment-name" title={name}>
+                                              {name}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="mensajeria-attachment-dl"
+                                              disabled={downloadingUrl === url}
+                                              onClick={() => void handleDownloadAttachment(url)}
+                                            >
+                                              {downloadingUrl === url ? '…' : 'Descargar'}
+                                            </button>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                  <div className="mensajeria-bubble-footer">
+                                    <time className="mensajeria-time" dateTime={m.timestamp}>
+                                      {formatMessageTime(m.timestamp)}
+                                    </time>
+                                    <button
+                                      type="button"
+                                      className="mensajeria-proof-btn"
+                                      title="Descargar prueba verificable con token"
+                                      disabled={proofLoadingId === m.id}
+                                      onClick={() => void handleDownloadProof(m.id)}
+                                    >
+                                      {proofLoadingId === m.id ? '…' : '⎙ Prueba'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </li>
+                            )
+                          })()
                         )
-                      })}
+                      )}
                       <div ref={bottomRef} />
                     </ul>
                   )}
                 </div>
 
+                {pendingFiles.length > 0 && (
+                  <div className="mensajeria-pending-files">
+                    {pendingFiles.map((f) => (
+                      <span key={f.id} className="mensajeria-pending-chip">
+                        📎 {f.file.name}
+                        {f.uploading && ' …'}
+                        <button
+                          type="button"
+                          aria-label="Quitar archivo"
+                          onClick={() => setPendingFiles((prev) => prev.filter((p) => p.id !== f.id))}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mensajeria-compose">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="mensajeria-file-input"
+                    multiple
+                    onChange={(e) => {
+                      handlePickFiles(e.target.files)
+                      e.target.value = ''
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="mensajeria-attach-btn"
+                    title="Adjuntar archivo"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={sending}
+                  >
+                    📎
+                  </button>
                   <textarea
                     className="mensajeria-input"
                     rows={2}
-                    placeholder="Escribí tu respuesta…"
+                    placeholder="Escribí un mensaje… (Enter para enviar, Shift+Enter nueva línea)"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => {
@@ -369,13 +723,13 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
                         void handleSend()
                       }
                     }}
-                    disabled={selectedRoomId == null}
+                    disabled={selectedRoomId == null || sending}
                   />
                   <button
                     type="button"
-                    className="mensajeria-btn"
+                    className="mensajeria-btn mensajeria-send-btn"
                     onClick={() => void handleSend()}
-                    disabled={sending || !draft.trim() || selectedRoomId == null}
+                    disabled={sending || (!draft.trim() && pendingFiles.length === 0) || selectedRoomId == null}
                   >
                     {sending ? 'Enviando…' : 'Enviar'}
                   </button>
@@ -388,4 +742,3 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     </div>
   )
 }
-

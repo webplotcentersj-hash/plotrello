@@ -3979,6 +3979,44 @@ class ApiService {
     return this.handleFallback(fallbackSectores)
   }
 
+  /** Sectores de campo (Instalaciones / Metalúrgica) asignados al usuario vía usuario_sectores. */
+  async getUsuarioCampoSectores(
+    usuarioId: number
+  ): Promise<ApiResponse<{ instalaciones: boolean; metalurgica: boolean }>> {
+    const empty = { instalaciones: false, metalurgica: false }
+    if (!supabase) {
+      return { success: true, data: empty }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('usuario_sectores')
+        .select('sector_id, sectores(nombre)')
+        .eq('usuario_id', usuarioId)
+
+      if (error) {
+        console.warn('getUsuarioCampoSectores:', error.message)
+        return { success: true, data: empty }
+      }
+
+      const nombres = new Set<string>()
+      for (const row of data ?? []) {
+        const nombre = (row as { sectores?: { nombre?: string } | null }).sectores?.nombre
+        if (nombre) nombres.add(nombre)
+      }
+
+      return {
+        success: true,
+        data: {
+          instalaciones: nombres.has('Instalaciones'),
+          metalurgica: nombres.has('Metalúrgica')
+        }
+      }
+    } catch (e) {
+      console.warn('getUsuarioCampoSectores:', e)
+      return { success: true, data: empty }
+    }
+  }
+
   /**
    * Libro de Actas por Sector
    */
@@ -6060,6 +6098,49 @@ class ApiService {
     }
   }
 
+  private mapChatMessageRow(msg: any, roomId: number): ChatMessageUI {
+    let archivosUrls: string[] | undefined = undefined
+    if (msg.archivos_urls) {
+      try {
+        if (typeof msg.archivos_urls === 'string') {
+          archivosUrls = JSON.parse(msg.archivos_urls)
+        } else if (Array.isArray(msg.archivos_urls)) {
+          archivosUrls = msg.archivos_urls
+        }
+      } catch (e) {
+        console.error('Error parseando archivos_urls:', e)
+      }
+    }
+
+    let reacciones: ReaccionesMap | undefined = undefined
+    const rawReacciones = msg.reacciones
+    if (rawReacciones) {
+      try {
+        if (typeof rawReacciones === 'string') {
+          reacciones = JSON.parse(rawReacciones)
+        } else {
+          reacciones = rawReacciones as ReaccionesMap
+        }
+      } catch (e) {
+        console.error('Error parseando reacciones:', e)
+      }
+    }
+
+    return {
+      id: msg.id,
+      canal: `dm:${roomId}`,
+      usuario_id: msg.id_usuario,
+      nombre_usuario: msg.nombre_usuario,
+      contenido: msg.mensaje,
+      tipo: inferChatType(msg.mensaje),
+      timestamp: msg.timestamp,
+      archivos_urls: archivosUrls,
+      reply_to_id: msg.reply_to_id,
+      reacciones,
+      estado_entrega: (msg.estado_entrega as ChatMessageUI['estado_entrega']) ?? 'sent'
+    }
+  }
+
   /** Mensajes de un room por id (DM u otro canal no mapeado en chatChannelToRoom). */
   async getMensajesPorRoomId(roomId: number, limit: number = 80): Promise<ApiResponse<ChatMessageUI[]>> {
     if (supabase) {
@@ -6072,59 +6153,59 @@ class ApiService {
 
       if (error) return { success: false, error: error.message }
 
-      const mensajes =
-        data?.map((msg: any) => {
-          let archivosUrls: string[] | undefined = undefined
-          if (msg.archivos_urls) {
-            try {
-              if (typeof msg.archivos_urls === 'string') {
-                archivosUrls = JSON.parse(msg.archivos_urls)
-              } else if (Array.isArray(msg.archivos_urls)) {
-                archivosUrls = msg.archivos_urls
-              }
-            } catch (e) {
-              console.error('Error parseando archivos_urls:', e)
-            }
-          }
-
-          let reacciones: ReaccionesMap | undefined = undefined
-          const rawReacciones = msg.reacciones
-          if (rawReacciones) {
-            try {
-              if (typeof rawReacciones === 'string') {
-                reacciones = JSON.parse(rawReacciones)
-              } else {
-                reacciones = rawReacciones as ReaccionesMap
-              }
-            } catch (e) {
-              console.error('Error parseando reacciones:', e)
-            }
-          }
-
-          return {
-            id: msg.id,
-            canal: `dm:${roomId}`,
-            usuario_id: msg.id_usuario,
-            nombre_usuario: msg.nombre_usuario,
-            contenido: msg.mensaje,
-            tipo: inferChatType(msg.mensaje),
-            timestamp: msg.timestamp,
-            archivos_urls: archivosUrls,
-            reply_to_id: msg.reply_to_id,
-            reacciones,
-            estado_entrega: (msg.estado_entrega as ChatMessageUI['estado_entrega']) ?? 'sent'
-          }
-        }) ?? []
-
-      return { success: true, data: (mensajes.reverse() as ChatMessageUI[]) }
+      const mensajes = data?.map((msg: any) => this.mapChatMessageRow(msg, roomId)) ?? []
+      return { success: true, data: mensajes.reverse() as ChatMessageUI[] }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /** Página de mensajes (más recientes primero al pedir; devuelve orden cronológico). */
+  async getMensajesPorRoomIdPaginated(
+    roomId: number,
+    limit: number,
+    opts?: { beforeId?: number }
+  ): Promise<ApiResponse<{ messages: ChatMessageUI[]; hasMore: boolean }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    let query = supabase
+      .from('chat_messages')
+      .select('id, room_id, id_usuario, nombre_usuario, mensaje, timestamp, archivos_urls, reply_to_id, reacciones, estado_entrega')
+      .eq('room_id', roomId)
+      .order('id', { ascending: false })
+      .limit(limit + 1)
+
+    if (opts?.beforeId != null) {
+      query = query.lt('id', opts.beforeId)
+    }
+
+    const { data, error } = await query
+    if (error) return { success: false, error: error.message }
+
+    const rows = data ?? []
+    const hasMore = rows.length > limit
+    const page = (hasMore ? rows.slice(0, limit) : rows).map((msg: any) => this.mapChatMessageRow(msg, roomId))
+    return { success: true, data: { messages: page.reverse(), hasMore } }
+  }
+
+  /** Mensajes nuevos posteriores a un id (para polling sin recargar todo el hilo). */
+  async getMensajesNuevosPorRoomId(roomId: number, afterId: number): Promise<ApiResponse<ChatMessageUI[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('id, room_id, id_usuario, nombre_usuario, mensaje, timestamp, archivos_urls, reply_to_id, reacciones, estado_entrega')
+      .eq('room_id', roomId)
+      .gt('id', afterId)
+      .order('id', { ascending: true })
+
+    if (error) return { success: false, error: error.message }
+    const mensajes = data?.map((msg: any) => this.mapChatMessageRow(msg, roomId)) ?? []
+    return { success: true, data: mensajes as ChatMessageUI[] }
   }
 
   async enviarMensajeDm(params: {
     roomId: number
     contenido: string
     usuarioId: number
+    archivosUrls?: string[]
   }): Promise<ApiResponse<ChatMessageUI>> {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
@@ -6142,12 +6223,25 @@ class ApiService {
       reply_to_id: null,
       estado_entrega: 'sent'
     }
+    if (params.archivosUrls && params.archivosUrls.length > 0) {
+      payload.archivos_urls = params.archivosUrls
+    }
 
     const { data, error } = await supabase.from('chat_messages').insert(payload).select().single()
 
     if (error) return { success: false, error: error.message }
 
     const row = data as any
+    let archivosUrls: string[] | undefined
+    if (row.archivos_urls) {
+      try {
+        archivosUrls = Array.isArray(row.archivos_urls)
+          ? row.archivos_urls
+          : JSON.parse(String(row.archivos_urls))
+      } catch {
+        archivosUrls = params.archivosUrls
+      }
+    }
     return {
       success: true,
       data: {
@@ -6158,10 +6252,123 @@ class ApiService {
         contenido: params.contenido,
         tipo: 'message',
         timestamp: row.timestamp,
+        archivos_urls: archivosUrls,
         reply_to_id: null,
         reacciones: {},
         estado_entrega: 'sent'
       } as ChatMessageUI
+    }
+  }
+
+  async generarPruebaMensajeDm(
+    messageId: number,
+    usuarioId: number
+  ): Promise<
+    ApiResponse<{
+      proof_token: string
+      message_id: number
+      room_id: number
+      id_usuario: number
+      nombre_usuario: string
+      mensaje: string
+      msg_timestamp: string
+      archivos_urls: string[]
+      token_created_at: string
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('generar_prueba_mensaje_dm', {
+        p_message_id: messageId,
+        p_user_id: usuarioId
+      })
+      if (error) return { success: false, error: error.message }
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) return { success: false, error: 'No se pudo generar la prueba' }
+      let archivos: string[] = []
+      if (row.archivos_urls) {
+        try {
+          archivos = Array.isArray(row.archivos_urls)
+            ? row.archivos_urls
+            : JSON.parse(String(row.archivos_urls))
+        } catch {
+          archivos = []
+        }
+      }
+      return {
+        success: true,
+        data: {
+          proof_token: String(row.proof_token),
+          message_id: Number(row.message_id),
+          room_id: Number(row.room_id),
+          id_usuario: Number(row.id_usuario),
+          nombre_usuario: String(row.nombre_usuario ?? ''),
+          mensaje: String(row.mensaje ?? ''),
+          msg_timestamp: String(row.msg_timestamp ?? row.timestamp ?? ''),
+          archivos_urls: archivos,
+          token_created_at: String(row.token_created_at ?? '')
+        }
+      }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al generar prueba' }
+    }
+  }
+
+  async obtenerPruebaMensajePorToken(token: string): Promise<
+    ApiResponse<{
+      proof_token: string
+      message_id: number
+      room_id: number
+      id_usuario: number
+      nombre_usuario: string
+      mensaje: string
+      msg_timestamp: string
+      archivos_urls: string[]
+      token_created_at: string
+      generated_by: number
+      download_count: number
+      room_nombre: string
+      es_dm: boolean
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('obtener_prueba_mensaje_por_token', {
+        p_token: token
+      })
+      if (error) return { success: false, error: error.message }
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) return { success: false, error: 'Token no válido o expirado' }
+      let archivos: string[] = []
+      if (row.archivos_urls) {
+        try {
+          archivos = Array.isArray(row.archivos_urls)
+            ? row.archivos_urls
+            : JSON.parse(String(row.archivos_urls))
+        } catch {
+          archivos = []
+        }
+      }
+      return {
+        success: true,
+        data: {
+          proof_token: String(row.proof_token),
+          message_id: Number(row.message_id),
+          room_id: Number(row.room_id),
+          id_usuario: Number(row.id_usuario),
+          nombre_usuario: String(row.nombre_usuario ?? ''),
+          mensaje: String(row.mensaje ?? ''),
+          msg_timestamp: String(row.msg_timestamp ?? ''),
+          archivos_urls: archivos,
+          token_created_at: String(row.token_created_at ?? ''),
+          generated_by: Number(row.generated_by ?? 0),
+          download_count: Number(row.download_count ?? 0),
+          room_nombre: String(row.room_nombre ?? ''),
+          es_dm: Boolean(row.es_dm)
+        }
+      }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al verificar token' }
     }
   }
 

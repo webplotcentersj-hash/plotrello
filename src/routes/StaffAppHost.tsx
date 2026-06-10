@@ -6,6 +6,7 @@ const BoardPage = lazy(() => import('../pages/BoardPage'))
 const StatisticsPage = lazy(() => import('../pages/StatisticsPage'))
 const ChatPage = lazy(() => import('../pages/ChatPage'))
 const MensajeriaPage = lazy(() => import('../pages/MensajeriaPage'))
+const MensajeriaProofVerifyPage = lazy(() => import('../pages/MensajeriaProofVerifyPage'))
 const ClienteConsultaPage = lazy(() => import('../pages/ClienteConsultaPage'))
 const UsuariosPage = lazy(() => import('../pages/UsuariosPage'))
 const ImpresorasPage = lazy(() => import('../pages/ImpresorasPage'))
@@ -722,6 +723,7 @@ function AppRoutes({
   const hideGlobalFloaters =
     hideCampoFloaters ||
     isBoardRoute ||
+    pathname === '/statistics' ||
     pathname.startsWith('/mostrador') ||
     pathname.startsWith('/rrhh') ||
     pathname.startsWith('/caja')
@@ -825,7 +827,6 @@ function AppRoutes({
             onNavigateToUsuarios={() => navigate('/usuarios')}
             onNavigateToChat={() => navigate('/chat')}
             onNavigateToMensajeria={() => navigate('/mensajeria')}
-            onNavigateToHerramienta={() => navigate('/herramienta')}
             onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
             onNavigateToCompras={() => navigate('/compras/dashboard')}
             onNavigateToCaja={() =>
@@ -904,6 +905,7 @@ function AppRoutes({
         path="/mensajeria"
         element={<MensajeriaPage onLogout={onLogout} />}
       />
+      <Route path="/mensajeria/verificar/:token" element={<MensajeriaProofVerifyPage />} />
       <Route
         path="/consulta-cliente"
         element={<ClienteConsultaPage />}

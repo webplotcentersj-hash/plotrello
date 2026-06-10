@@ -3,7 +3,9 @@ import { Link, useLocation } from 'react-router-dom'
 import { buildHeaderQuickNavItems } from '../utils/headerQuickNav'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
+import { useCampoSectorMode } from '../hooks/useCampoSectorMode'
 import { useDmMensajeriaUnread } from '../hooks/useDmMensajeriaUnread'
+import { useHeaderQuickNavBadges } from '../hooks/useHeaderQuickNavBadges'
 import NotificationsDropdown from './NotificationsDropdown'
 import HeaderSpotlightCard from './HeaderSpotlightCard'
 import ClockWidget from './ClockWidget'
@@ -19,7 +21,6 @@ type HeaderProps = {
   onNavigateToStats?: () => void
   onNavigateToCalendar?: () => void
   onNavigateToUsuarios?: () => void
-  onNavigateToHerramienta?: () => void
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
   onNavigateToCaja?: () => void
@@ -31,6 +32,7 @@ type HeaderProps = {
   onNavigateToFlota?: () => void
   onNavigateToERP?: () => void
   onSolicitarProductos?: () => void
+  onOpenPermisos?: () => void
   onNavigateToChat?: () => void
   onNavigateToMensajeria?: () => void
   onLogout?: () => void
@@ -47,7 +49,6 @@ const Header = ({
   onNavigateToStats,
   onNavigateToCalendar,
   onNavigateToUsuarios,
-  onNavigateToHerramienta,
   onNavigateToMostrador,
   onNavigateToCompras,
   onNavigateToCaja,
@@ -59,6 +60,7 @@ const Header = ({
   onNavigateToFlota,
   onNavigateToERP,
   onSolicitarProductos,
+  onOpenPermisos,
   onNavigateToChat,
   onNavigateToMensajeria,
   onLogout,
@@ -77,43 +79,27 @@ const Header = ({
     canAccessAtencionPublico,
     canAccessMostradorViews,
     isTallerGrafico,
-    isInstalaciones,
     isMetalurgica,
     canAccessTotemImpresionPanel
   } = useAuth()
   const location = useLocation()
+  const { mode: campoSectorMode } = useCampoSectorMode()
+  const canAccessAppCampo = campoSectorMode !== 'none'
   const dmMensajeriaUnread = useDmMensajeriaUnread(usuario?.id)
   const showMensajeriaUnreadBadge =
     dmMensajeriaUnread > 0 && !!onNavigateToMensajeria && location.pathname !== '/mensajeria'
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
+  const quickNavBadges = useHeaderQuickNavBadges()
   const [actionsOpen, setActionsOpen] = useState(false)
 
-  const quickNavItems = useMemo(
-    () =>
-      buildHeaderQuickNavItems({
-        usuario,
-        isAdmin,
-        canAccessMostradorViews,
-        canAccessAsesorPresupuestos,
-        canManageCompras,
-        canManageCaja,
-        canManageRecursosHumanos,
-        onNavigateToStats,
-        onNavigateToMostrador,
-        onNavigateToCompras,
-        onNavigateToCaja,
-        onNavigateToDiseno,
-        onNavigateToRecursosHumanos,
-        onNavigateToAsesorPresupuestos,
-        onNavigateToFlota,
-        onNavigateToERP
-      }),
-    [
+  const quickNavItems = useMemo(() => {
+    const items = buildHeaderQuickNavItems({
       usuario,
       isAdmin,
       canAccessMostradorViews,
       canAccessAsesorPresupuestos,
+      canAccessAtencionPublico,
       canManageCompras,
       canManageCaja,
       canManageRecursosHumanos,
@@ -124,10 +110,46 @@ const Header = ({
       onNavigateToDiseno,
       onNavigateToRecursosHumanos,
       onNavigateToAsesorPresupuestos,
+      onNavigateToAtencionPublico,
       onNavigateToFlota,
-      onNavigateToERP
-    ]
-  )
+      onNavigateToERP,
+      onOpenPermisos,
+      onSolicitarProductos
+    })
+    return items.map((item) => ({
+      ...item,
+      badge: quickNavBadges[item.id] ?? item.badge ?? 0
+    }))
+  }, [
+    usuario,
+    isAdmin,
+    canAccessMostradorViews,
+    canAccessAsesorPresupuestos,
+    canAccessAtencionPublico,
+    canManageCompras,
+    canManageCaja,
+    canManageRecursosHumanos,
+    onNavigateToStats,
+    onNavigateToMostrador,
+    onNavigateToCompras,
+    onNavigateToCaja,
+    onNavigateToDiseno,
+    onNavigateToRecursosHumanos,
+    onNavigateToAsesorPresupuestos,
+    onNavigateToAtencionPublico,
+    onNavigateToFlota,
+    onNavigateToERP,
+    onOpenPermisos,
+    onSolicitarProductos,
+    quickNavBadges
+  ])
+
+  const renderQuickNavBadge = (count: number) =>
+    count > 0 ? (
+      <span className="header-quick-nav-badge" title={`${count} novedad${count === 1 ? '' : 'es'}`}>
+        {count > 99 ? '99+' : count}
+      </span>
+    ) : null
 
   return (
     <header className="tp-header">
@@ -146,8 +168,24 @@ const Header = ({
               {quickNavItems.map((item) => {
                 const btnClass = `header-quick-nav-btn${
                   item.id.startsWith('dashboard-') ? ' header-quick-nav-btn--primary' : ''
-                }`
-                return item.href ? (
+                }${(item.badge ?? 0) > 0 ? ' header-quick-nav-btn--has-badge' : ''}`
+                const badge = renderQuickNavBadge(item.badge ?? 0)
+                return item.href && item.external ? (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    className={btnClass}
+                    title={item.title ?? item.label}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="header-quick-nav-icon" aria-hidden>
+                      {item.icon}
+                    </span>
+                    <span className="header-quick-nav-label">{item.label}</span>
+                    {badge}
+                  </a>
+                ) : item.href ? (
                   <Link
                     key={item.id}
                     to={item.href}
@@ -158,6 +196,7 @@ const Header = ({
                       {item.icon}
                     </span>
                     <span className="header-quick-nav-label">{item.label}</span>
+                    {badge}
                   </Link>
                 ) : (
                   <button
@@ -171,6 +210,7 @@ const Header = ({
                       {item.icon}
                     </span>
                     <span className="header-quick-nav-label">{item.label}</span>
+                    {badge}
                   </button>
                 )
               })}
@@ -255,18 +295,20 @@ const Header = ({
                 📊 Estadísticas
               </button>
             )}
-            {(isInstalaciones || isMetalurgica || isAdmin) && (
+            {canAccessAppCampo && (
               <Link
                 to="/app-campo"
                 className="brand-button"
                 onClick={() => setActionsOpen(false)}
               >
                 📱 App campo
-                {isAdmin
+                {campoSectorMode === 'both'
                   ? ' (Inst. / Met.)'
-                  : isMetalurgica
+                  : campoSectorMode === 'metalurgica'
                     ? ' (Metalúrgica)'
-                    : ' (Instalaciones)'}
+                    : campoSectorMode === 'instalaciones'
+                      ? ' (Instalaciones)'
+                      : ''}
               </Link>
             )}
             {onNavigateToCalendar && (
@@ -277,11 +319,6 @@ const Header = ({
             {onNavigateToUsuarios && isAdmin && (
               <button className="brand-button" onClick={onNavigateToUsuarios}>
                 👥 Usuarios
-              </button>
-            )}
-            {onNavigateToHerramienta && (
-              <button className="brand-button" onClick={onNavigateToHerramienta}>
-                🛠️ Nueva Herramienta
               </button>
             )}
             {canAccessMostradorViews && onNavigateToMostrador && (
@@ -372,11 +409,6 @@ const Header = ({
                 🧩 Kanban Taller Gráfico
               </a>
             )}
-            {canAccessAtencionPublico && onNavigateToAtencionPublico && (
-              <button className="brand-button" onClick={onNavigateToAtencionPublico}>
-                📞 Atención al público
-              </button>
-            )}
             {onNavigateToFlota && (
               <button className="brand-button" onClick={onNavigateToFlota}>
                 🚗 Gestión de Flota
@@ -451,11 +483,6 @@ const Header = ({
             >
               🍽️ Menú Diario
             </a>
-            {onSolicitarProductos && (
-              <button className="brand-button" onClick={onSolicitarProductos}>
-                📦 Solicitar Productos
-              </button>
-            )}
             <a
               href="/mis-pedidos"
               className="brand-button"

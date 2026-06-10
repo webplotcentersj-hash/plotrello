@@ -12,6 +12,12 @@ import {
 } from '../utils/sectoresFotosLugar'
 import { blobToDataUrl, compressImageFileToJpegDataUrl } from '../utils/campoFotosDb'
 import { useAuth } from '../hooks/useAuth'
+import { useCampoSectorMode } from '../hooks/useCampoSectorMode'
+import {
+  clampCampoFinalTarget,
+  taskAllowedInCampoMode,
+  type CampoListSectorMode
+} from '../utils/campoSectorAccess'
 import './InstalacionesMetalurgicaCampoPage.css'
 
 const ETAPA_KANBAN_FINALIZADO = 'Finalizado' as const
@@ -51,26 +57,6 @@ function isCampoRelevantTask(t: Task): boolean {
   return opSectoresRequierenFotosLugar(t.sectores)
 }
 
-/** OP relacionada con Instalaciones (columna, sector asignado o sector requerido). */
-function taskTouchesInstalaciones(t: Task): boolean {
-  return (
-    t.status === 'instalaciones' ||
-    t.assignedSector === 'Instalaciones' ||
-    Boolean(t.sectores?.includes('Instalaciones'))
-  )
-}
-
-/** OP relacionada con Metalúrgica (columna, sector asignado o sector requerido). */
-function taskTouchesMetalurgica(t: Task): boolean {
-  return (
-    t.status === 'metalurgica' ||
-    t.assignedSector === 'Metalúrgica' ||
-    Boolean(t.sectores?.includes('Metalúrgica'))
-  )
-}
-
-type CampoListSectorMode = 'instalaciones' | 'metalurgica' | 'both'
-
 /**
  * Una sola fila por número de OP visible: a veces hay dos `Task` (mismo opNumber) con `id` distinto
  * (ej. tarjeta en columna Metalúrgica vs otra que solo lista el sector en `sectores` → «en OP»).
@@ -85,7 +71,10 @@ function dedupeKeyForCampoTask(t: Task): string {
 }
 
 /** Una sola fila por OP: evita duplicados (misma orden en varias tarjetas). */
-function dedupeCampoTasksByOrden(tasks: Task[], prefer: CampoListSectorMode): Task[] {
+function dedupeCampoTasksByOrden(
+  tasks: Task[],
+  prefer: Exclude<CampoListSectorMode, 'none'>
+): Task[] {
   const map = new Map<string, Task>()
   const score = (t: Task): number => {
     let s = new Date(t.updatedAt || t.createdAt || 0).getTime()
@@ -161,20 +150,14 @@ type Props = {
 }
 
 export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData }: Props) {
-  const { isAdmin, isInstalaciones, isMetalurgica } = useAuth()
+  const { isAdmin } = useAuth()
+  const { mode: listSectorMode, loading: sectorModeLoading } = useCampoSectorMode()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const listSectorMode: CampoListSectorMode = useMemo(() => {
-    if (isAdmin) return 'both'
-    if (isMetalurgica) return 'metalurgica'
-    if (isInstalaciones) return 'instalaciones'
-    return 'both'
-  }, [isAdmin, isInstalaciones, isMetalurgica])
-
   const campoTasks = useMemo(() => {
+    if (listSectorMode === 'none') return []
     let list = tasks.filter(isCampoRelevantTask)
-    if (listSectorMode === 'instalaciones') list = list.filter(taskTouchesInstalaciones)
-    else if (listSectorMode === 'metalurgica') list = list.filter(taskTouchesMetalurgica)
+    list = list.filter((t) => taskAllowedInCampoMode(t, listSectorMode))
 
     list = dedupeCampoTasksByOrden(list, listSectorMode)
 
@@ -192,10 +175,40 @@ export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData 
 
   const selected = selectedId ? campoTasks.find((t) => t.id === selectedId) : null
 
+  useEffect(() => {
+    if (selectedId && !selected) setSelectedId(null)
+  }, [selectedId, selected])
+
+  if (sectorModeLoading) {
+    return (
+      <div className="campo-app">
+        <header className="campo-app-header">
+          <h1 className="campo-app-title">App campo</h1>
+          <p className="campo-app-sub">Cargando tu sector…</p>
+        </header>
+      </div>
+    )
+  }
+
+  if (listSectorMode === 'none') {
+    return (
+      <div className="campo-app">
+        <header className="campo-app-header">
+          <h1 className="campo-app-title">App campo</h1>
+          <p className="campo-app-sub">
+            Tu usuario no está asignado a Instalaciones ni Metalúrgica. Pedí a RRHH o administración que
+            configure tu rol o sectores.
+          </p>
+        </header>
+      </div>
+    )
+  }
+
   if (selected) {
     return (
       <CampoDetail
         task={selected}
+        listSectorMode={listSectorMode}
         onBack={() => setSelectedId(null)}
         onReloadData={onReloadData}
         canUpload={!selected.opBloqueada || isAdmin}
@@ -247,11 +260,13 @@ export default function InstalacionesMetalurgicaCampoPage({ tasks, onReloadData 
 
 function CampoDetail({
   task,
+  listSectorMode,
   onBack,
   onReloadData,
   canUpload
 }: {
   task: Task
+  listSectorMode: CampoListSectorMode
   onBack: () => void
   onReloadData?: (options?: { silent?: boolean }) => Promise<void>
   canUpload: boolean
@@ -277,7 +292,10 @@ function CampoDetail({
   const audioStreamRef = useRef<MediaStream | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
 
-  const finalTarget = useMemo(() => resolveCampoFinalizadoTarget(task), [task])
+  const finalTarget = useMemo(
+    () => clampCampoFinalTarget(resolveCampoFinalizadoTarget(task), listSectorMode),
+    [task, listSectorMode]
+  )
   const yaFinalizadoEtapa = useMemo(() => {
     if (finalTarget === 'metalurgica') return task.etapaMetalurgica?.trim() === ETAPA_KANBAN_FINALIZADO
     if (finalTarget === 'instalaciones') return task.etapaInstalaciones?.trim() === ETAPA_KANBAN_FINALIZADO

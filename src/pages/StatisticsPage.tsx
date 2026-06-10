@@ -49,6 +49,52 @@ const sanitizeName = (name?: string) => {
   return name
 }
 
+const PIE_PALETTE = [
+  '#3b82f6',
+  '#22c55e',
+  '#f59e0b',
+  '#a855f7',
+  '#ef4444',
+  '#14b8a6',
+  '#f97316',
+  '#fb7185',
+  '#22d3ee',
+  '#9ca3af',
+  '#eab308',
+  '#6366f1'
+]
+
+const CHART_TOOLTIP_STYLE = {
+  background: '#1a1d2e',
+  border: '1px solid rgba(255,255,255,0.12)',
+  borderRadius: 10,
+  color: '#e5ecf5',
+  fontSize: 12
+}
+
+type LegendItem = { name: string; value: number; color: string }
+
+function StatsChartLegend({ items, maxHeight = 168 }: { items: LegendItem[]; maxHeight?: number }) {
+  if (!items.length) return null
+  const total = items.reduce((acc, item) => acc + item.value, 0)
+  return (
+    <ul className="stats-chart-legend" style={{ maxHeight }}>
+      {items.map((item) => {
+        const pct = total > 0 ? Math.round((item.value / total) * 100) : 0
+        return (
+          <li key={item.name} className="stats-chart-legend-item" title={item.name}>
+            <span className="stats-chart-legend-dot" style={{ background: item.color }} aria-hidden />
+            <span className="stats-chart-legend-name">{item.name}</span>
+            <span className="stats-chart-legend-meta">
+              {item.value} <span className="stats-chart-legend-pct">({pct}%)</span>
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPageProps) => {
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
@@ -381,11 +427,13 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
       const sector = task.assignedSector || 'Sin sector'
       sectorCounts[sector] = (sectorCounts[sector] || 0) + 1
     })
-    return Object.entries(sectorCounts).map(([name, value], index) => ({
-      name,
-      value,
-      color: index === 0 ? '#3b82f6' : '#22c55e'
-    }))
+    return Object.entries(sectorCounts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: COLORS[name as keyof typeof COLORS] || PIE_PALETTE[index % PIE_PALETTE.length]
+      }))
   }, [safeTasks])
 
   // 4. Carga de Trabajo por Operario
@@ -639,69 +687,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
       .sort((a, b) => b.daysStalled - a.daysStalled)
   }, [filteredTasks])
 
-  // 10. Lead Time y Cycle Time (p50/p90) por Estado
-  const leadCycleTimeByStatus = useMemo(() => {
-    if (!filteredTasks || filteredTasks.length === 0) return []
-    const statusMap: Record<string, number[]> = {}
-    
-    filteredTasks.forEach((task) => {
-      if (!task?.status || !task.createdAt || !task.updatedAt) return
-      const col = BOARD_COLUMNS.find((c) => c.id === task.status)
-      const label = col?.label || task.status
-      
-      try {
-        const start = new Date(task.createdAt).getTime()
-        const end = new Date(task.updatedAt).getTime()
-        if (isNaN(start) || isNaN(end)) return
-        const days = Math.max((end - start) / (1000 * 60 * 60 * 24), 0)
-        
-        if (!statusMap[label]) statusMap[label] = []
-        statusMap[label].push(days)
-      } catch {
-        return
-      }
-    })
-    
-    return Object.entries(statusMap).map(([name, values]) => ({
-      name,
-      p50: calculatePercentile(values, 50),
-      p90: calculatePercentile(values, 90),
-      promedio: values.reduce((a, b) => a + b, 0) / values.length
-    }))
-  }, [filteredTasks])
-
-  // 11. Lead Time y Cycle Time (p50/p90) por Operario
-  const leadCycleTimeByOperator = useMemo(() => {
-    if (!filteredTasks || filteredTasks.length === 0) return []
-    const operatorMap: Record<string, number[]> = {}
-    
-    filteredTasks.forEach((task) => {
-      if (!task?.createdAt || !task.updatedAt) return
-      const owner = safeTeamMembers.find((m) => m.id === task.ownerId)
-      const name = sanitizeName(owner?.name) || 'Sin asignar'
-      
-      try {
-        const start = new Date(task.createdAt).getTime()
-        const end = new Date(task.updatedAt).getTime()
-        if (isNaN(start) || isNaN(end)) return
-        const days = Math.max((end - start) / (1000 * 60 * 60 * 24), 0)
-        
-        if (!operatorMap[name]) operatorMap[name] = []
-        operatorMap[name].push(days)
-      } catch {
-        return
-      }
-    })
-    
-    return Object.entries(operatorMap).map(([name, values]) => ({
-      name,
-      p50: calculatePercentile(values, 50),
-      p90: calculatePercentile(values, 90),
-      promedio: values.reduce((a, b) => a + b, 0) / values.length
-    }))
-  }, [filteredTasks, safeTeamMembers])
-
-  // 12. Aging WIP (Work In Progress) - Buckets de tiempo
+  // 10. Aging WIP (Work In Progress) - Buckets de tiempo
   const agingWIP = useMemo(() => {
     if (!filteredTasks || filteredTasks.length === 0) return []
     const now = Date.now()
@@ -1166,18 +1152,6 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
     )
     line += 4
 
-    addLine('Lead/Cycle Time por Estado (p50/p90) - Top 5:', true)
-    leadCycleTimeByStatus.slice(0, 5).forEach((t) =>
-      addLine(`- ${t.name}: p50=${t.p50.toFixed(1)}d, p90=${t.p90.toFixed(1)}d, prom=${t.promedio.toFixed(1)}d`)
-    )
-    line += 4
-
-    addLine('Lead/Cycle Time por Operario (p50/p90) - Top 5:', true)
-    leadCycleTimeByOperator.slice(0, 5).forEach((t) =>
-      addLine(`- ${t.name}: p50=${t.p50.toFixed(1)}d, p90=${t.p90.toFixed(1)}d, prom=${t.promedio.toFixed(1)}d`)
-    )
-    line += 4
-
     addLine('Aging WIP:', true)
     agingWIP.forEach((a) => addLine(`- ${a.name}: ${a.value} tareas`))
     line += 4
@@ -1257,47 +1231,98 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
           )}
         </div>
         <div className="stats-filters">
-          <div className="filter-group">
-            <label>📅 Desde</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          </div>
-          <div className="filter-group">
-            <label>📆 Hasta</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-          <div className="filter-group">
-            <label>🏭 Sector</label>
-            <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)}>
-              <option value="all">Todos</option>
-              {BOARD_COLUMNS.map((col) => (
-                <option key={col.id} value={col.label}>
-                  {col.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-group">
-            <label>👤 Operario</label>
-            <select value={operatorFilter} onChange={(e) => setOperatorFilter(e.target.value)}>
-              <option value="all">Todos</option>
-              {safeTeamMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {sanitizeName(m.name) || m.id}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-group export-group">
-            <button onClick={() => exportCsv('orders-por-estado', ordersByStatus, ['name', 'value'])}>
-              ⬇️ Exportar estados
-            </button>
-            <button onClick={() => exportCsv('tiempo-por-operario', avgCycleByOperator, ['name', 'Promedio (días)'])}>
-              ⬇️ Exportar tiempos
-            </button>
-            <button onClick={() => exportCsv('actividad', chronologicalActivity, ['fechaHora', 'usuario', 'opNumber', 'movimiento'])}>
-              ⬇️ Exportar actividad
-            </button>
-            <button onClick={exportPdf}>⬇️ PDF</button>
+          <div className="stats-filter-toolbar">
+            <div className="stats-filter-fields">
+              <label className="stats-filter-chip">
+                <span className="stats-filter-chip-label">Desde</span>
+                <input
+                  type="date"
+                  className="stats-filter-input"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  aria-label="Fecha desde"
+                />
+              </label>
+              <label className="stats-filter-chip">
+                <span className="stats-filter-chip-label">Hasta</span>
+                <input
+                  type="date"
+                  className="stats-filter-input"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  aria-label="Fecha hasta"
+                />
+              </label>
+              <label className="stats-filter-chip stats-filter-chip--grow">
+                <span className="stats-filter-chip-label">Sector</span>
+                <select
+                  className="stats-filter-input"
+                  value={sectorFilter}
+                  onChange={(e) => setSectorFilter(e.target.value)}
+                  aria-label="Filtrar por sector"
+                >
+                  <option value="all">Todos</option>
+                  {BOARD_COLUMNS.map((col) => (
+                    <option key={col.id} value={col.label}>
+                      {col.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="stats-filter-chip stats-filter-chip--grow">
+                <span className="stats-filter-chip-label">Operario</span>
+                <select
+                  className="stats-filter-input"
+                  value={operatorFilter}
+                  onChange={(e) => setOperatorFilter(e.target.value)}
+                  aria-label="Filtrar por operario"
+                >
+                  <option value="all">Todos</option>
+                  {safeTeamMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {sanitizeName(m.name) || m.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="stats-export-toolbar" aria-label="Exportar reportes">
+              <span className="stats-export-toolbar-label">Exportar</span>
+              <button
+                type="button"
+                className="stats-export-pill"
+                title="Exportar órdenes por estado (CSV)"
+                onClick={() => exportCsv('orders-por-estado', ordersByStatus, ['name', 'value'])}
+              >
+                Estados
+              </button>
+              <button
+                type="button"
+                className="stats-export-pill"
+                title="Exportar tiempos por operario (CSV)"
+                onClick={() => exportCsv('tiempo-por-operario', avgCycleByOperator, ['name', 'Promedio (días)'])}
+              >
+                Tiempos
+              </button>
+              <button
+                type="button"
+                className="stats-export-pill"
+                title="Exportar actividad (CSV)"
+                onClick={() =>
+                  exportCsv('actividad', chronologicalActivity, [
+                    'fechaHora',
+                    'usuario',
+                    'opNumber',
+                    'movimiento'
+                  ])
+                }
+              >
+                Actividad
+              </button>
+              <button type="button" className="stats-export-pill stats-export-pill--pdf" title="Descargar PDF" onClick={exportPdf}>
+                PDF
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -1742,95 +1767,99 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
             </div>
           </div>
 
-          <div className="stat-card">
+          <div className="stat-card stat-card--pie">
             <h3>Órdenes por Estado</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={ordersByStatus}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                  isAnimationActive
-                  animationDuration={800}
-                  animationEasing="ease-out"
-                >
-                  {ordersByStatus.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="stat-card">
-            <h3>Top 5 Clientes (por N° de trabajos)</h3>
-            {topClients.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={topClients}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                    isAnimationActive
-                    animationDuration={800}
-                    animationEasing="ease-out"
-                  >
-                    {topClients.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                No hay datos para mostrar
+            {ordersByStatus.length > 0 ? (
+              <div className="stats-pie-layout">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={ordersByStatus}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={52}
+                      outerRadius={82}
+                      paddingAngle={3}
+                      dataKey="value"
+                      isAnimationActive
+                      animationDuration={800}
+                      animationEasing="ease-out"
+                    >
+                      {ordersByStatus.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="rgba(12,14,24,0.85)" strokeWidth={1} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <StatsChartLegend items={ordersByStatus} maxHeight={200} />
               </div>
+            ) : (
+              <div className="stats-chart-empty">No hay datos para mostrar</div>
             )}
           </div>
 
-          <div className="stat-card">
+          <div className="stat-card stat-card--pie">
+            <h3>Top 5 Clientes</h3>
+            {topClients.length > 0 ? (
+              <div className="stats-pie-layout">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={topClients}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={82}
+                      paddingAngle={3}
+                      dataKey="value"
+                      isAnimationActive
+                      animationDuration={800}
+                      animationEasing="ease-out"
+                    >
+                      {topClients.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="rgba(12,14,24,0.85)" strokeWidth={1} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <StatsChartLegend items={topClients} maxHeight={160} />
+              </div>
+            ) : (
+              <div className="stats-chart-empty">No hay datos para mostrar</div>
+            )}
+          </div>
+
+          <div className="stat-card stat-card--pie">
             <h3>Distribución por Sector</h3>
             {distributionBySector.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={distributionBySector}
-                    cx="50%"
-                    cy="50%"
-                    isAnimationActive
-                    animationDuration={800}
-                    animationEasing="ease-out"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {distributionBySector.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                No hay datos para mostrar
+              <div className="stats-pie-layout">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={distributionBySector}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={82}
+                      paddingAngle={3}
+                      dataKey="value"
+                      isAnimationActive
+                      animationDuration={800}
+                      animationEasing="ease-out"
+                    >
+                      {distributionBySector.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="rgba(12,14,24,0.85)" strokeWidth={1} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <StatsChartLegend items={distributionBySector} maxHeight={200} />
               </div>
+            ) : (
+              <div className="stats-chart-empty">No hay datos para mostrar</div>
             )}
           </div>
         </div>
@@ -1898,76 +1927,68 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
           </div>
         </div>
 
-        {/* Tercera fila: Tiempo promedio por estado y por operario */}
-        <div className="stats-row">
-          <div className="stat-card full-width">
-            <h3>Tiempo Promedio por Estado (Detección de Cuellos de Botella)</h3>
+        {/* Tiempos de producción (tablero) */}
+        <div className="stats-section-head">
+          <h2>Tiempos de producción</h2>
+          <p>Cuellos de botella y duración promedio por estado, tipo y operario.</p>
+        </div>
+        <div className="stats-row stats-row--charts">
+          <div className="stat-card">
+            <h3>Tiempo por estado</h3>
+            <p className="stat-subtitle">Cuellos de botella</p>
             {avgTimeByStatus.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={avgTimeByStatus}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                <Bar dataKey="Tiempo Promedio (días)" fill="#f97316" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={avgTimeByStatus} margin={{ top: 8, right: 8, left: 0, bottom: 56 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" angle={-35} textAnchor="end" height={70} tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                  <Bar dataKey="Tiempo Promedio (días)" fill="#f97316" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                No hay datos para mostrar
-              </div>
+              <div className="stats-chart-empty">No hay datos para mostrar</div>
             )}
           </div>
-        </div>
 
-        <div className="stats-row">
-          <div className="stat-card full-width">
-            <h3>Tiempo Promedio por Tipo de Orden</h3>
-            <p className="stat-subtitle">Días desde creación a última actualización</p>
+          <div className="stat-card">
+            <h3>Tiempo por tipo</h3>
+            <p className="stat-subtitle">Creación → última actualización</p>
             {avgCycleByStatus.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={avgCycleByStatus}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-20} textAnchor="end" height={80} />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                <Bar dataKey="Promedio (días)" fill="#60a5fa" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={avgCycleByStatus} margin={{ top: 8, right: 8, left: 0, bottom: 48 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" angle={-25} textAnchor="end" height={60} tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                  <Bar dataKey="Promedio (días)" fill="#60a5fa" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                No hay datos para mostrar
-              </div>
+              <div className="stats-chart-empty">No hay datos para mostrar</div>
             )}
           </div>
-        </div>
 
-        <div className="stats-row">
-          <div className="stat-card full-width">
-            <h3>Tiempo Promedio por Operario</h3>
-            <p className="stat-subtitle">Días desde creación a última actualización</p>
+          <div className="stat-card">
+            <h3>Tiempo por operario</h3>
+            <p className="stat-subtitle">Creación → última actualización</p>
             {avgCycleByOperator.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={avgCycleByOperator}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                <Bar dataKey="Promedio (días)" fill="#34d399" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={avgCycleByOperator} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#c7d0dd', fontSize: 10 }} />
+                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                  <Bar dataKey="Promedio (días)" fill="#34d399" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                No hay datos para mostrar
-              </div>
+              <div className="stats-chart-empty">No hay datos para mostrar</div>
             )}
           </div>
         </div>
 
-        {/* Cuarta fila: Tablas */}
+        {/* Tablas operativas */}
         <div className="stats-row">
           <div className="stat-card full-width">
             <h3>Registro de Actividad Cronológico</h3>
@@ -2018,59 +2039,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
           </div>
         </div>
 
-        {/* Sexta fila: Métricas Avanzadas - Lead/Cycle Time por Estado */}
-        <div className="stats-row">
-          <div className="stat-card full-width">
-            <h3>Lead/Cycle Time por Estado (p50/p90)</h3>
-            <p className="stat-subtitle">Tiempo en días: mediana (p50) y percentil 90 (p90)</p>
-            {leadCycleTimeByStatus.length > 0 ? (
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={leadCycleTimeByStatus}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-20} textAnchor="end" height={80} />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
-                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
-                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                No hay datos para mostrar
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Séptima fila: Lead/Cycle Time por Operario */}
-        <div className="stats-row">
-          <div className="stat-card full-width">
-            <h3>Lead/Cycle Time por Operario (p50/p90)</h3>
-            <p className="stat-subtitle">Tiempo en días: mediana (p50) y percentil 90 (p90)</p>
-            {leadCycleTimeByOperator.length > 0 ? (
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={leadCycleTimeByOperator}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="p50" fill="#60a5fa" name="Mediana (p50)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
-                  <Bar dataKey="p90" fill="#f97316" name="Percentil 90 (p90)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
-                  <Bar dataKey="promedio" fill="#34d399" name="Promedio" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={800} animationEasing="ease-out" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                No hay datos para mostrar
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Octava fila: Aging WIP y Throughput */}
+        {/* Aging WIP y Throughput */}
         <div className="stats-row">
           <div className="stat-card">
             <h3>Aging WIP (Work In Progress)</h3>

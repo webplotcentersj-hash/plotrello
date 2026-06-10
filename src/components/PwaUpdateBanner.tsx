@@ -17,10 +17,21 @@ export default function PwaUpdateBanner() {
         </div>
       </div>
       <div className="pwa-update-banner__actions">
+        <button
+          type="button"
+          className="pwa-update-banner__btn pwa-update-banner__btn--ghost"
+          onClick={() => pwa.openUpdateModal('available')}
+        >
+          Ver novedades
+        </button>
         <button type="button" className="pwa-update-banner__btn pwa-update-banner__btn--primary" onClick={pwa.applyUpdate}>
           Actualizar ahora
         </button>
-        <button type="button" className="pwa-update-banner__btn pwa-update-banner__btn--ghost" onClick={pwa.dismissBanner}>
+        <button
+          type="button"
+          className="pwa-update-banner__btn pwa-update-banner__btn--ghost"
+          onClick={pwa.dismissBanner}
+        >
           Más tarde
         </button>
       </div>

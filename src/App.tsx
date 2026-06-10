@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import GlobalAlertScreen from './components/GlobalAlertScreen'
 import PwaUpdateBanner from './components/PwaUpdateBanner'
+import PwaUpdateModalHost from './components/PwaUpdateModalHost'
 import PwaUpdateToast from './components/PwaUpdateToast'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
@@ -103,6 +104,7 @@ function App() {
     <PwaUpdateProvider>
       <GlobalAlertScreen />
       <PwaUpdateBanner />
+      <PwaUpdateModalHost />
       <PwaUpdateToast />
       <BrowserRouter>
         <EnvDebugGate />

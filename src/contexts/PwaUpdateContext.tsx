@@ -8,6 +8,11 @@ import {
   type ReactNode
 } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import {
+  CURRENT_PWA_RELEASE,
+  PWA_RELEASE_PENDING_KEY,
+  PWA_RELEASE_STORAGE_KEY
+} from '../data/pwaReleaseNotes'
 
 type ToastType = 'info' | 'success' | 'error'
 
@@ -17,13 +22,18 @@ export type PwaToast = {
   type: ToastType
 } | null
 
+export type PwaUpdateModalMode = 'available' | 'installed'
+
 type PwaUpdateContextValue = {
   needRefresh: boolean
   checking: boolean
   bannerDismissed: boolean
   toast: PwaToast
+  modalMode: PwaUpdateModalMode | null
   checkForUpdate: () => Promise<void>
   applyUpdate: () => Promise<void>
+  openUpdateModal: (mode: PwaUpdateModalMode) => void
+  closeUpdateModal: () => void
   dismissBanner: () => void
   dismissToast: () => void
 }
@@ -55,7 +65,9 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(false)
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [toast, setToast] = useState<PwaToast>(null)
+  const [modalMode, setModalMode] = useState<PwaUpdateModalMode | null>(null)
   const toastIdRef = useRef(0)
+  const modalShownForRefreshRef = useRef(false)
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++toastIdRef.current
@@ -82,9 +94,47 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
     }
   })
 
+  const openUpdateModal = useCallback((mode: PwaUpdateModalMode) => {
+    setModalMode(mode)
+  }, [])
+
+  const closeUpdateModal = useCallback(() => {
+    setModalMode((current) => {
+      if (current === 'installed') {
+        try {
+          localStorage.setItem(PWA_RELEASE_STORAGE_KEY, CURRENT_PWA_RELEASE.id)
+        } catch {
+          /* ignore */
+        }
+      }
+      if (current === 'available') {
+        setBannerDismissed(true)
+      }
+      return null
+    })
+  }, [])
+
+  useEffect(() => {
+    try {
+      const pending = sessionStorage.getItem(PWA_RELEASE_PENDING_KEY)
+      if (pending === CURRENT_PWA_RELEASE.id) {
+        sessionStorage.removeItem(PWA_RELEASE_PENDING_KEY)
+        setModalMode('installed')
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   useEffect(() => {
     needRefreshRef.current = needRefresh
-    if (needRefresh) setChecking(false)
+    if (needRefresh) {
+      setChecking(false)
+      if (!modalShownForRefreshRef.current) {
+        modalShownForRefreshRef.current = true
+        setModalMode('available')
+      }
+    }
   }, [needRefresh])
 
   useEffect(() => {
@@ -110,6 +160,11 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
 
   const applyUpdate = useCallback(async () => {
     try {
+      sessionStorage.setItem(PWA_RELEASE_PENDING_KEY, CURRENT_PWA_RELEASE.id)
+    } catch {
+      /* ignore */
+    }
+    try {
       await updateServiceWorker(true)
     } finally {
       window.location.reload()
@@ -118,7 +173,7 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
 
   const checkForUpdate = useCallback(async () => {
     if (needRefreshRef.current) {
-      await applyUpdate()
+      setModalMode('available')
       return
     }
 
@@ -129,7 +184,7 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
       await new Promise((resolve) => window.setTimeout(resolve, 1200))
 
       if (needRefreshRef.current) {
-        showToast('Nueva versión detectada. Tocá «Actualizar ahora».', 'info')
+        setModalMode('available')
       } else {
         showToast('Ya tenés la última versión instalada.', 'success')
       }
@@ -150,8 +205,11 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
         checking,
         bannerDismissed,
         toast,
+        modalMode,
         checkForUpdate,
         applyUpdate,
+        openUpdateModal,
+        closeUpdateModal,
         dismissBanner,
         dismissToast
       }}

@@ -5,15 +5,21 @@ export type HeaderQuickNavItem = {
   label: string
   icon: string
   href?: string
+  /** Enlace externo (abre en pestaña nueva). */
+  external?: boolean
   onClick?: () => void
   title?: string
+  badge?: number
 }
+
+const VIA_PUBLICA_URL = 'https://vp-zeta-eight.vercel.app/'
 
 type BuildHeaderQuickNavCtx = {
   usuario: Usuario | null
   isAdmin: boolean
   canAccessMostradorViews: boolean
   canAccessAsesorPresupuestos: boolean
+  canAccessAtencionPublico: boolean
   canManageCompras: boolean
   canManageCaja: boolean
   canManageRecursosHumanos: boolean
@@ -24,8 +30,11 @@ type BuildHeaderQuickNavCtx = {
   onNavigateToDiseno?: () => void
   onNavigateToRecursosHumanos?: () => void
   onNavigateToAsesorPresupuestos?: () => void
+  onNavigateToAtencionPublico?: () => void
   onNavigateToFlota?: () => void
   onNavigateToERP?: () => void
+  onOpenPermisos?: () => void
+  onSolicitarProductos?: () => void
 }
 
 /** Botones visibles en el header según el rol (dashboard propio + menú diario + flota). */
@@ -188,6 +197,18 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       break
   }
 
+  // ——— Vía Pública (administración, gerencia y presupuestos) ———
+  if (ctx.isAdmin || rol === 'presupuestos') {
+    push({
+      id: 'via-publica',
+      label: 'Vía Pública',
+      icon: '🛣️',
+      href: VIA_PUBLICA_URL,
+      external: true,
+      title: 'Vía Pública Plot Center'
+    })
+  }
+
   // ——— Accesos comunes visibles para todos los usuarios logueados ———
   push({
     id: 'menu-diario',
@@ -204,6 +225,47 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       icon: '🚗',
       onClick: ctx.onNavigateToFlota,
       title: 'Gestión de flota'
+    })
+  }
+
+  // ——— Accesos frecuentes (todos los usuarios logueados) ———
+  if (ctx.usuario) {
+    if (ctx.canManageRecursosHumanos) {
+      push({
+        id: 'permisos',
+        label: 'Permisos',
+        icon: '📋',
+        href: '/rrhh/permisos',
+        title: 'Gestionar solicitudes de permisos'
+      })
+    } else if (ctx.onOpenPermisos) {
+      push({
+        id: 'permisos',
+        label: 'Permisos',
+        icon: '📋',
+        onClick: ctx.onOpenPermisos,
+        title: 'Solicitar permisos, turnos o vacaciones'
+      })
+    }
+  }
+
+  if (ctx.onSolicitarProductos) {
+    push({
+      id: 'solicitar-productos',
+      label: 'Productos',
+      icon: '📦',
+      onClick: ctx.onSolicitarProductos,
+      title: 'Solicitar productos faltantes'
+    })
+  }
+
+  if (ctx.canAccessAtencionPublico && ctx.onNavigateToAtencionPublico) {
+    push({
+      id: 'atencion-publico',
+      label: 'Atención',
+      icon: '📞',
+      onClick: ctx.onNavigateToAtencionPublico,
+      title: 'Atención al público'
     })
   }
 
