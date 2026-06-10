@@ -3729,17 +3729,37 @@ class ApiService {
     return this.handleFallback(fallbackUsuarios)
   }
 
-  /** Solo los IDs pedidos (p. ej. interlocutores de DMs) — más rápido que listar_usuarios. */
+  /** Solo los IDs pedidos. Usa RPC (SECURITY DEFINER); el SELECT directo suele fallar por RLS. */
   async getUsuariosPorIds(ids: number[]): Promise<ApiResponse<UsuarioRecord[]>> {
     const unique = [...new Set(ids.filter((n) => Number.isFinite(n) && n > 0))]
     if (unique.length === 0) return { success: true, data: [] }
     if (supabase) {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nombre, rol')
-        .in('id', unique)
-      if (error) return { success: false, error: error.message }
-      return { success: true, data: (data as UsuarioRecord[]) ?? [] }
+      const wanted = new Set(unique)
+      const byId = new Map<number, UsuarioRecord>()
+
+      const { data: listed, error: listErr } = await supabase.rpc('listar_usuarios')
+      if (!listErr && Array.isArray(listed)) {
+        for (const u of listed as UsuarioRecord[]) {
+          if (wanted.has(u.id)) byId.set(u.id, u)
+        }
+      }
+
+      if (byId.size < unique.length) {
+        const { data: extra, error: extraErr } = await supabase.rpc('obtener_usuarios_por_ids', {
+          p_ids: unique
+        })
+        if (!extraErr && Array.isArray(extra)) {
+          for (const u of extra as UsuarioRecord[]) {
+            if (wanted.has(u.id)) byId.set(u.id, u)
+          }
+        }
+      }
+
+      if (byId.size === 0 && listErr) {
+        return { success: false, error: listErr.message }
+      }
+
+      return { success: true, data: [...byId.values()] }
     }
     const all = await this.getUsuarios()
     if (!all.success || !all.data) return all

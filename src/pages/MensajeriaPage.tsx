@@ -126,12 +126,15 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
     const peerIds = peerIdsFromRooms(roomList, userId)
     if (peerIds.length === 0) return
     const res = await apiService.getUsuariosPorIds(peerIds)
-    if (res.success && res.data) {
+    if (res.success && res.data?.length) {
       setUsuarios((prev) => {
         const byId = new Map(prev.map((u) => [u.id, u]))
         for (const u of res.data!) byId.set(u.id, u)
         return [...byId.values()]
       })
+    }
+    if (!res.success || (res.data?.length ?? 0) < peerIds.length) {
+      await loadAllUsuarios()
     }
   }
 

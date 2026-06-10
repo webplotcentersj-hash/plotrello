@@ -18,13 +18,15 @@ export function buildReleaseGuideText(release: PwaReleaseNotes): string {
     lines.push('')
   }
 
-  lines.push('── CÓMO USARLO (PASO A PASO) ──', '')
-
-  release.guideSteps.forEach((step, index) => {
-    lines.push(`${index + 1}. ${step.title}`)
-    lines.push(`   ${step.description}`)
-    lines.push('')
-  })
+  const steps = release.guideSteps ?? []
+  if (steps.length > 0) {
+    lines.push('── CÓMO USARLO (PASO A PASO) ──', '')
+    steps.forEach((step, index) => {
+      lines.push(`${index + 1}. ${step.title}`)
+      lines.push(`   ${step.description}`)
+      lines.push('')
+    })
+  }
 
   lines.push(
     '── AYUDA ──',
