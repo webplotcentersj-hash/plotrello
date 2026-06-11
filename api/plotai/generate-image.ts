@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { GoogleGenAI } from '@google/genai'
 
 type Body = {
   prompt?: string
@@ -25,8 +24,8 @@ function setCors(req: VercelRequest, res: VercelResponse): void {
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
 }
 
-function extractImageFromResponse(response: unknown): { data: string; mimeType: string } | null {
-  const root = response as {
+function extractImageFromGeminiJson(payload: unknown): { data: string; mimeType: string } | null {
+  const root = payload as {
     candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>
   }
   const parts = root?.candidates?.[0]?.content?.parts || []
@@ -81,21 +80,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const enhancedPrompt = `Genera una imagen realista de producto gráfico / comunicación visual para imprenta: ${prompt}. Relación de aspecto ${aspectRatio}. Estilo profesional, iluminación natural, sin texto ilegible ni marcas de agua.`
 
   try {
-    const ai = new GoogleGenAI({ apiKey })
-    const response = await ai.models.generateContent({
-      model,
-      contents: enhancedPrompt
-    })
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: enhancedPrompt }] }],
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE']
+          }
+        })
+      }
+    )
 
-    const image = extractImageFromResponse(response)
+    const payload = (await upstream.json().catch(() => ({}))) as {
+      error?: { message?: string; code?: number; status?: string }
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string; inlineData?: { data?: string; mimeType?: string } }> } }>
+    }
+
+    if (!upstream.ok) {
+      const apiMessage = payload?.error?.message || `Gemini HTTP ${upstream.status}`
+      res.status(upstream.status >= 400 && upstream.status < 500 ? upstream.status : 502).json({
+        success: false,
+        provider: 'gemini',
+        error: apiMessage,
+        metadata: { model, size: aspectRatio }
+      })
+      return
+    }
+
+    const image = extractImageFromGeminiJson(payload)
     if (!image) {
       const text =
-        (response as { text?: string })?.text ||
-        (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-          ?.candidates?.[0]?.content?.parts?.map((p) => p?.text)
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((p) => p?.text)
           .filter(Boolean)
-          .join('\n') ||
-        ''
+          .join('\n') || ''
 
       res.status(502).json({
         success: false,
