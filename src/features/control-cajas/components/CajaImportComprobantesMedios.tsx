@@ -128,7 +128,7 @@ export default function CajaImportComprobantesMedios({
         `(${r.tickets} cobro(s) MP/tarjeta`
       if (r.resumenes) ok += `, ${r.resumenes} línea(s) de resumen`
       if (r.egresos) ok += `, ${r.egresos} egreso(s)`
-      ok += '). Revisá en Mis movimientos o Historial.'
+      ok += '). Revisá en Historial.'
       if (!bulk.persistedRemote && bulk.remoteError) {
         ok += ` Guardados en este navegador (${bulk.remoteError}).`
       }
@@ -171,7 +171,7 @@ export default function CajaImportComprobantesMedios({
             <p className="caja-cc-sub caja-cc-planilla-zone-lead">
               Subí fotos de tickets Mercado Pago (Point), POSnet o cierres de lote. PlotAI lee los montos y,
               al confirmar <strong>Volcar al sistema</strong>, se registran como movimientos de caja en PlotLab
-              (ingresos con tarjeta/MP, visibles en Mis movimientos). No suman al conteo de billetes del arqueo.
+              (ingresos con tarjeta/MP, visibles en Historial). No suman al conteo de billetes del arqueo.
             </p>
           </div>
         </header>

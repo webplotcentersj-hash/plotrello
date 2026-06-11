@@ -2,7 +2,8 @@ import {
   getCierreFechaCaja,
   listCierres,
   listEgresoSolicitudes,
-  listMovimientos
+  listMovimientos,
+  mismoCajaSlug
 } from './cajaRepository'
 import { calcularPaseTrazabilidad } from './paseCaja'
 import { fondoFijoEfectivo } from './fondoCaja'
@@ -53,6 +54,7 @@ export function fondoMontoParaCaja(caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo
 export type ConciliacionCierreTurno = {
   ok: boolean
   alertas: string[]
+  avisos: string[]
 }
 
 export function conciliarCierreTurno(input: {
@@ -63,39 +65,49 @@ export function conciliarCierreTurno(input: {
 }): ConciliacionCierreTurno {
   const { calc, cierre, arqueoTotal, tolerancia = 0 } = input
   const alertas: string[] = []
+  const avisos: string[] = []
+  const fmt = (n: number) => n.toLocaleString('es-AR')
 
   const arqueoEsperado = calc.arqueo_efectivo + calc.arqueo_otros
   if (arqueoTotal != null && Math.abs(arqueoTotal - arqueoEsperado) > tolerancia + 1) {
     alertas.push(
-      `Arqueo registrado ($${arqueoTotal.toLocaleString('es-AR')}) no coincide con montos del cierre de turno.`
+      `Arqueo registrado ($${fmt(arqueoTotal)}) no coincide con montos del cierre de turno ($${fmt(arqueoEsperado)}).`
     )
   }
 
-  const cuadreEf =
-    Math.abs(calc.arqueo_efectivo - (calc.fondo_monto + calc.resto_efectivo + calc.egresos_aprobados_ef)) <=
-    tolerancia + 0.02
-  if (!cuadreEf) {
-    alertas.push(
-      'Efectivo: arqueo ≠ fondo + resto a administración + egresos aprobados (en efectivo).'
-    )
+  const repartoEf =
+    calc.fondo_monto + calc.resto_efectivo + calc.egresos_aprobados_ef
+  const difEf = calc.arqueo_efectivo - repartoEf
+  if (Math.abs(difEf) > tolerancia + 0.02) {
+    if (difEf < 0) {
+      alertas.push(
+        `Efectivo insuficiente: arqueo $${fmt(calc.arqueo_efectivo)} no alcanza para fondo $${fmt(calc.fondo_monto)} + egresos $${fmt(calc.egresos_aprobados_ef)} + resto admin $${fmt(calc.resto_efectivo)}.`
+      )
+    } else {
+      alertas.push(
+        `Efectivo sin asignar: arqueo $${fmt(calc.arqueo_efectivo)} supera fondo + egresos + resto ($${fmt(repartoEf)}).`
+      )
+    }
   }
 
   if (cierre) {
     if (Math.abs((cierre.ef_contado || 0) - calc.arqueo_efectivo) > tolerancia + 1) {
       alertas.push(
-        `Cierre del día: efectivo contado ($${(cierre.ef_contado || 0).toLocaleString('es-AR')}) ≠ arqueo ($${calc.arqueo_efectivo.toLocaleString('es-AR')}).`
+        `Cierre del día: efectivo contado ($${fmt(cierre.ef_contado || 0)}) ≠ arqueo ($${fmt(calc.arqueo_efectivo)}).`
       )
     }
     if (Math.abs((cierre.egr_ef || 0) - calc.egresos_aprobados_ef) > tolerancia + 1) {
       alertas.push(
-        `Cierre: egresos efectivo ($${(cierre.egr_ef || 0).toLocaleString('es-AR')}) ≠ egresos aprobados ($${calc.egresos_aprobados_ef.toLocaleString('es-AR')}).`
+        `Cierre: egresos efectivo ($${fmt(cierre.egr_ef || 0)}) ≠ egresos aprobados ($${fmt(calc.egresos_aprobados_ef)}).`
       )
     }
   } else {
-    alertas.push('No hay cierre de caja cargado para esta fecha/caja; conviene registrarlo para conciliar.')
+    avisos.push(
+      'No hay cierre de caja cargado para esta fecha/caja; conviene registrarlo para conciliar.'
+    )
   }
 
-  return { ok: alertas.length === 0, alertas }
+  return { ok: alertas.length === 0, alertas, avisos }
 }
 
 export function buildMovimientosCierreTurno(opts: {
@@ -220,7 +232,8 @@ export async function egresosDelDiaParaCierreTurno(
 ): Promise<EgresosDelDiaResumen> {
   const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
   const fromSol = totalEgresosAprobados(solicitudes)
-  if (fromSol.efectivo > 0 || fromSol.otros > 0) {
+  const hayAprobados = solicitudes.some((s) => s.estado === 'aprobado')
+  if (hayAprobados) {
     return {
       solicitudes,
       totales: fromSol,
@@ -233,10 +246,13 @@ export async function egresosDelDiaParaCierreTurno(
   const movs = await listMovimientos()
   const movimientosEgreso = movs.filter((m) => {
     if (m.fecha.slice(0, 10) !== fecha) return false
-    if (m.origen_slug !== cajaSlug) return false
+    if (!mismoCajaSlug(m.origen_slug, cajaSlug)) return false
     if (m.tipo_movimiento === 'egreso') return true
     if (/egreso/i.test(m.concepto)) return true
-    if (m.destino_slug === 'admin' && (m.efectivo > 0 || m.otros > 0)) {
+    if (
+      mismoCajaSlug(m.destino_slug, 'admin') &&
+      (m.efectivo > 0 || m.otros > 0)
+    ) {
       return !/pase de caja|cierre de turno/i.test(m.concepto)
     }
     return false

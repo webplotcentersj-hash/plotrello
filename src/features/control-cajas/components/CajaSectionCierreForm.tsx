@@ -7,13 +7,15 @@ import {
   getCierre,
   getParams,
   listCajas,
+  listEgresoSolicitudes,
   listMovimientos,
   listMovimientosPorCierre,
   getPlanillaById,
   listPlanillas,
-  resolveCajaSlug,
   saveCierre
 } from '../cajaRepository'
+import { buscarPlanillaCaja } from '../paseCajaMontos'
+import { totalEgresosAprobados } from '../cierreTurno'
 import { cierrePrecargaDesdePlanilla } from '../cajaTotales'
 import { calcularTotalesCaja, enrichCierreFromTotales } from '../movimientoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
@@ -145,14 +147,16 @@ export default function CajaSectionCierreForm({
 
   const bloqueado = estadoCierre === 'cerrado' || estadoCierre === 'observado'
 
-  const cargarDesdeMovimientos = () => {
+  const cargarDesdeMovimientos = async () => {
     if (!cajaSlug) return
     const totales = calcularTotalesCaja(movimientos, cajaSlug, fecha, fecha)
     const calc = enrichCierreFromTotales(form, totales, tolerancia)
+    const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
+    const egresosSol = totalEgresosAprobados(solicitudes)
     setForm({
       fondo_fijo: form.fondo_fijo,
       ing_ef: calc.ing_ef,
-      egr_ef: calc.egr_ef,
+      egr_ef: egresosSol.efectivo > 0 ? egresosSol.efectivo : calc.egr_ef,
       ef_contado: form.ef_contado,
       tarj_sist: calc.tarj_sist,
       tarj_fis: form.tarj_fis,
@@ -161,7 +165,9 @@ export default function CajaSectionCierreForm({
       cta_cte: calc.cta_cte
     })
     setMsg(
-      `Precargado desde ${totales.detalle.ingresos} ingreso(s) y ${totales.detalle.egresos} egreso(s) del día.`
+      `Precargado desde ${totales.detalle.ingresos} ingreso(s) y ${totales.detalle.egresos} egreso(s) del día` +
+        (egresosSol.efectivo > 0 ? ` · egresos aprobados $ ${fmtArs(egresosSol.efectivo)}` : '') +
+        '.'
     )
   }
 
@@ -189,28 +195,33 @@ export default function CajaSectionCierreForm({
       cargarPlanillaActiva()
       return
     }
-    const planillas = await listPlanillas(20)
-    const match = planillas.find(
-      (p) =>
-        p.fecha_hasta === fecha ||
-        p.fecha_desde === fecha ||
-        resolveCajaSlug(p.caja_nombre, cajas) === cajaSlug
-    )
+    if (!cajaSlug) {
+      setMsg('Elegí la caja antes de precargar desde planilla.')
+      return
+    }
+    const caja = cajas.find((c) => c.slug === cajaSlug)
+    const planillas = await listPlanillas(120)
+    const match = buscarPlanillaCaja(planillas, cajaSlug, fecha, caja?.nombre)
     if (!match) {
-      setMsg('No hay planilla PDF guardada para esta fecha/caja. Importala arriba o elegila en «Planillas recibidas de caja».')
+      setMsg(
+        'No hay planilla PDF guardada para esta fecha/caja. Usá «Subir planilla PDF nueva» o importala en Movimientos.'
+      )
       return
     }
 
-    const full = await getPlanillaById(match.id)
     setIdPlanilla(match.id)
+    const full = await getPlanillaById(match.id)
     if (full) {
-      aplicarPlanillaParsed(full, `${match.archivo_nombre} (${full.ventas.length} ventas)`)
+      aplicarPlanillaParsed(
+        full,
+        `${match.archivo_nombre}${full.ventas.length ? ` (${full.ventas.length} ventas)` : ''}`
+      )
       return
     }
 
     const t = match.totales
     if (!t) {
-      setMsg('Planilla sin totales. Volvé a importar el PDF en Movimientos.')
+      setMsg('Planilla sin totales. Volvé a importar el PDF.')
       return
     }
     setForm((prev) => ({
@@ -223,6 +234,25 @@ export default function CajaSectionCierreForm({
       egr_ef: t.egresos_efectivo ?? prev.egr_ef
     }))
     setMsg(`Totales precargados desde planilla: ${match.archivo_nombre}`)
+  }
+
+  const cargarEgresosAprobados = async () => {
+    if (!cajaSlug) return
+    const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
+    const tot = totalEgresosAprobados(solicitudes)
+    if (!tot.efectivo && !tot.otros) {
+      setMsg('No hay egresos aprobados para esta fecha/caja.')
+      return
+    }
+    setForm((prev) => ({
+      ...prev,
+      egr_ef: tot.efectivo || prev.egr_ef
+    }))
+    setMsg(
+      `Egresos aprobados: $ ${fmtArs(tot.efectivo)} efectivo` +
+        (tot.otros ? ` · $ ${fmtArs(tot.otros)} otros` : '') +
+        '.'
+    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -330,11 +360,14 @@ export default function CajaSectionCierreForm({
               contado y cupones en los pasos siguientes.
             </p>
             <div className="caja-cc-cierre-precarga-btns">
-              <button type="button" className="btn-primary btn-small" onClick={cargarDesdeMovimientos}>
+              <button type="button" className="btn-primary btn-small" onClick={() => void cargarDesdeMovimientos()}>
                 Desde movimientos del día
               </button>
               <button type="button" className="btn-secondary btn-small" onClick={() => void cargarDesdePlanilla()}>
                 Desde planilla PDF
+              </button>
+              <button type="button" className="btn-secondary btn-small" onClick={() => void cargarEgresosAprobados()}>
+                Egresos aprobados
               </button>
               <button
                 type="button"

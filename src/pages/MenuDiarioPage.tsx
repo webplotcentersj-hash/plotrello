@@ -63,6 +63,7 @@ const MenuDiarioPage = () => {
   const [guardandoTurno, setGuardandoTurno] = useState(false)
   const [perdidaBeneficioComida, setPerdidaBeneficioComida] = useState<RrhhNovedad | null>(null)
   const [acumuladoDescuento, setAcumuladoDescuento] = useState({ cantidad: 0, total: 0 })
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 720px)')
@@ -71,19 +72,6 @@ const MenuDiarioPage = () => {
     mql.addEventListener('change', update)
     return () => mql.removeEventListener('change', update)
   }, [])
-
-  useEffect(() => {
-    if (authLoading) return
-    if (!usuario) {
-      navigate('/')
-      return
-    }
-    loadMenu()
-    const interval = setInterval(() => {
-      setHoraActual(getArgentinaDate())
-    }, 60000)
-    return () => clearInterval(interval)
-  }, [authLoading, usuario, navigate])
 
   useEffect(() => {
     setPuedeSeleccionar(
@@ -115,7 +103,7 @@ const MenuDiarioPage = () => {
       else setIntercambios([])
     }
     tick()
-    const t = setInterval(tick, 45000)
+    const t = setInterval(tick, 20000)
     return () => clearInterval(t)
   }, [menu?.id, usuario?.id, loadSeleccionesMesa])
 
@@ -160,32 +148,54 @@ const MenuDiarioPage = () => {
     [loadAcumuladoDescuento]
   )
 
-  const loadMenu = async () => {
-    setLoading(true)
-    try {
-      const response = await apiService.obtenerMenuDiaActual()
-      if (response.success && response.data) {
-        setMenu(response.data)
-        if (usuario?.id) {
+  const refreshMenuData = useCallback(
+    async (opts?: { pantallaCompleta?: boolean }) => {
+      if (!usuario?.id) return
+      if (opts?.pantallaCompleta) setLoading(true)
+      try {
+        const response = await apiService.obtenerMenuDiaActual()
+        if (response.success && response.data) {
+          setMenu(response.data)
           await Promise.all([
             loadMiSeleccion(response.data.id, usuario.id),
-            loadPerdidaBeneficioComida(usuario.id)
+            loadPerdidaBeneficioComida(usuario.id),
+            loadSeleccionesMesa(response.data.id)
           ])
-        }
-        await loadSeleccionesMesa(response.data.id)
-      } else {
-        setMenu(null)
-        setSeleccionesMesa([])
-        if (usuario?.id) {
+        } else {
+          setMenu(null)
+          setSeleccionesMesa([])
+          setMiSeleccion(null)
           await loadPerdidaBeneficioComida(usuario.id)
         }
+      } catch (error) {
+        console.error('Error cargando menú:', error)
+      } finally {
+        if (opts?.pantallaCompleta) setLoading(false)
       }
-    } catch (error) {
-      console.error('Error cargando menú:', error)
-    } finally {
-      setLoading(false)
+    },
+    [usuario?.id, loadPerdidaBeneficioComida, loadSeleccionesMesa]
+  )
+
+  const loadMenu = useCallback(() => refreshMenuData({ pantallaCompleta: true }), [refreshMenuData])
+
+  useEffect(() => {
+    if (authLoading) return
+    if (!usuario) {
+      navigate('/')
+      return
     }
-  }
+    void loadMenu()
+    const interval = setInterval(() => {
+      setHoraActual(getArgentinaDate())
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [authLoading, usuario, navigate, loadMenu])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const loadMiSeleccion = async (idMenu: number, idUsuario: number) => {
     const response = await apiService.obtenerSeleccionUsuarioMenu(idMenu, idUsuario)
@@ -211,7 +221,7 @@ const MenuDiarioPage = () => {
 
   const handleConfirmarPedido = async () => {
     if (!usuario?.id || !menu) return
-    if (perdidaBeneficioComida) {
+    if (perdidaBeneficioComida && !miSeleccion) {
       const nuevoTotal = acumuladoDescuento.total + MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS
       const ok = confirm(
         `Tenés registrada la pérdida del beneficio de comida (hasta el ${perdidaBeneficioComida.fecha_hasta}).\n\n` +
@@ -249,10 +259,11 @@ const MenuDiarioPage = () => {
       )
       if (response.success && response.data) {
         setMiSeleccion(response.data)
+        let msg = miSeleccion ? 'Pedido actualizado' : 'Pedido registrado correctamente'
         if (perdidaBeneficioComida) {
           const platoNom =
             menu.platos?.find((p) => p.id === platoElegido)?.nombre_plato ?? response.data.nombre_plato
-          await apiService.menuDescuentoBeneficioRegistrar({
+          const desc = await apiService.menuDescuentoBeneficioRegistrar({
             id_usuario: usuario.id,
             id_menu: menu.id,
             id_seleccion: response.data.id,
@@ -260,13 +271,19 @@ const MenuDiarioPage = () => {
             fecha: menu.fecha,
             nombre_plato: platoNom ?? null
           })
+          if (!desc.success) {
+            msg = `Pedido guardado, pero no se pudo registrar el descuento: ${desc.error ?? 'error desconocido'}. Avisá a RRHH.`
+          } else {
+            msg = miSeleccion
+              ? `Pedido actualizado. Descuento: ${formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)} por pedido.`
+              : `Pedido registrado. Se descontarán ${formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)} de tu sueldo.`
+          }
         }
-        alert(
-          perdidaBeneficioComida
-            ? `Pedido registrado. Se descontarán ${formatMenuDescuentoArs(MENU_DESCUENTO_PERDIDA_BENEFICIO_ARS)} de tu sueldo.`
-            : 'Pedido registrado correctamente'
-        )
-        await loadMenu()
+        setToast(msg)
+        if (perdidaBeneficioComida) {
+          await loadAcumuladoDescuento(usuario.id, perdidaBeneficioComida)
+        }
+        await refreshMenuData()
       } else {
         alert('Error: ' + response.error)
       }
@@ -288,17 +305,29 @@ const MenuDiarioPage = () => {
       alert('Ese turno ya está completo (10 lugares). Elegí otro horario.')
       return
     }
+    const prevSeleccion = miSeleccion
+    const prevMesa = seleccionesMesa
+    setMiSeleccion({ ...miSeleccion, turno_almuerzo: turnoSoloEdit })
+    setSeleccionesMesa((prev) =>
+      prev.map((s) =>
+        s.id_usuario === usuario.id ? { ...s, turno_almuerzo: turnoSoloEdit } : s
+      )
+    )
     setGuardandoTurno(true)
     try {
       const response = await apiService.actualizarSoloTurnoMenu(menu.id, usuario.id, turnoSoloEdit)
       if (response.success && response.data) {
         setMiSeleccion(response.data)
-        await loadSeleccionesMesa(menu.id)
-        alert('Turno de almuerzo actualizado')
+        setToast('Turno de almuerzo actualizado')
+        void loadSeleccionesMesa(menu.id)
       } else {
+        setMiSeleccion(prevSeleccion)
+        setSeleccionesMesa(prevMesa)
         alert('Error: ' + (response.error || 'No se pudo guardar'))
       }
     } catch (error: unknown) {
+      setMiSeleccion(prevSeleccion)
+      setSeleccionesMesa(prevMesa)
       alert('Error: ' + (error instanceof Error ? error.message : 'Error al guardar'))
     } finally {
       setGuardandoTurno(false)
@@ -324,8 +353,8 @@ const MenuDiarioPage = () => {
       setPlatoElegido(null)
       setTurnoElegido(null)
       setEmojiElegido(null)
-      alert('Pedido cancelado')
-      loadMenu()
+      setToast('Pedido cancelado')
+      void refreshMenuData()
     } else {
       alert('Error: ' + response.error)
     }
@@ -435,6 +464,12 @@ const MenuDiarioPage = () => {
       </div>
 
       <div className="menu-diario-content">
+        {toast ? (
+          <div className="menu-diario-toast" role="status">
+            {toast}
+          </div>
+        ) : null}
+
         {perdidaBeneficioComida ? (
           <div className="menu-beneficio-aviso" role="alert">
             <strong>⚠️ Pérdida del beneficio de comida</strong>
@@ -549,7 +584,7 @@ const MenuDiarioPage = () => {
               </div>
             )}
 
-            {miSeleccion ? (
+            {miSeleccion && !puedeSeleccionar ? (
               <div className="menu-seleccion-card">
                 <h3>✅ Tu pedido</h3>
                 <div className="seleccion-info">
@@ -585,7 +620,7 @@ const MenuDiarioPage = () => {
               </div>
             ) : null}
 
-            {miSeleccion && usuario && menu ? (
+            {miSeleccion && usuario && menu && !puedeSeleccionar ? (
               <div className="menu-seleccion-card menu-turno-libre-card">
                 <h3>🕐 Cambiar turno de almuerzo</h3>
                 <p className="seleccion-subtitle">
@@ -736,10 +771,20 @@ const MenuDiarioPage = () => {
               </div>
             ) : null}
 
-            {!miSeleccion && puedeSeleccionar ? (
+            {puedeSeleccionar ? (
               <div className="menu-seleccion-card menu-form-pedido">
-                <h3>Armar tu pedido</h3>
-                <p className="seleccion-subtitle">Elegí plato, turno de almuerzo y cómo te sentís (al menos 5 opciones de emoji).</p>
+                <h3>{miSeleccion ? 'Cambiar pedido' : 'Armar tu pedido'}</h3>
+                <p className="seleccion-subtitle">
+                  {miSeleccion
+                    ? 'Modificá plato, turno o emoji y guardá. No hace falta cancelar el pedido.'
+                    : 'Elegí plato, turno de almuerzo y cómo te sentís (al menos 5 opciones de emoji).'}
+                </p>
+                {miSeleccion ? (
+                  <p className="menu-pedido-actual">
+                    Pedido actual: <strong>{miSeleccion.nombre_plato}</strong> ·{' '}
+                    {getTurnoAlmuerzoLabel(miSeleccion.turno_almuerzo ?? 1)} · {miSeleccion.emoji_estado}
+                  </p>
+                ) : null}
 
                 <h4 className="menu-form-step">1. Plato</h4>
                 <div className="menu-plato-pick">
@@ -799,11 +844,33 @@ const MenuDiarioPage = () => {
                   type="button"
                   className="btn-confirmar-pedido"
                   onClick={handleConfirmarPedido}
-                  disabled={seleccionando}
+                  disabled={
+                    seleccionando ||
+                    platoElegido == null ||
+                    turnoElegido == null ||
+                    !emojiElegido
+                  }
                 >
-                  {seleccionando ? 'Guardando…' : 'Confirmar pedido'}
+                  {seleccionando ? 'Guardando…' : miSeleccion ? 'Guardar cambios' : 'Confirmar pedido'}
                 </button>
                 {seleccionando && <p className="seleccion-loading">Procesando…</p>}
+                {miSeleccion ? (
+                  <div className="menu-pedido-acciones menu-pedido-acciones--form">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleCancelarSeleccion}
+                      disabled={seleccionando}
+                    >
+                      Cancelar pedido
+                    </button>
+                    {!isMobile ? (
+                      <button type="button" className="btn-descargar-pedido" onClick={handleDescargarPedido}>
+                        📄 Descargar pedido (PDF)
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -813,15 +880,6 @@ const MenuDiarioPage = () => {
                 <p>
                   No registraste pedido a tiempo (hasta las {MENU_PEDIDO_HORA_TOPE_TEXTO} AM Argentina). Contactá a
                   RRHH si necesitás ayuda.
-                </p>
-              </div>
-            ) : null}
-
-            {miSeleccion && puedeSeleccionar ? (
-              <div className="menu-seleccion-card menu-cambiar-hint">
-                <p>
-                  Para cambiar solo el turno usá la sección &quot;Cambiar turno de almuerzo&quot;. Para cambiar plato o
-                  emoji, cancelá el pedido arriba y volvé a cargarlo (antes de las {MENU_PEDIDO_HORA_TOPE_TEXTO} AM).
                 </p>
               </div>
             ) : null}

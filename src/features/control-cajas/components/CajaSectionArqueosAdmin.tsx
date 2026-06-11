@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { deleteArqueo, getParams, listArqueos, listCajas } from '../cajaRepository'
+import { deleteArqueo, getParams, listArqueos, listCajas, mismoCajaSlug } from '../cajaRepository'
 import { resolveUsuarioCajaEtiqueta } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS, TURNOS_CAJA } from '../constants'
 import { fmtArs, fmtDateAr } from '../format'
@@ -47,7 +47,7 @@ export default function CajaSectionArqueosAdmin() {
 
   const arqueosFiltrados = useMemo(() => {
     return arqueos.filter((a) => {
-      if (filtCaja && a.caja_slug !== filtCaja) return false
+      if (filtCaja && !mismoCajaSlug(a.caja_slug, filtCaja)) return false
       if (filtTurno && a.turno !== filtTurno) return false
       if (filtCajera && cajeraLabel(a) !== filtCajera) return false
       if (filtDesde && a.fecha < filtDesde) return false

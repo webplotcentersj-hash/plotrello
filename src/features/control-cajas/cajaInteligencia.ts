@@ -376,7 +376,7 @@ export function alertasDesdePlanilla(
       fecha,
       titulo: 'Planilla PDF con líneas sin cuadrar',
       detalle: `${planilla.lineas_cuadre_invalido} comprobante(s) donde Total ≠ suma de medios de pago. Revisá antes del cierre.`,
-      accion: { label: 'Movimientos', section: 'movimientos' }
+      accion: { label: 'Mi arqueo', section: 'arqueo' }
     })
   }
 
@@ -397,7 +397,7 @@ export function alertasDesdePlanilla(
         fecha,
         titulo: 'Totales PDF vs cálculo interno',
         detalle: `Neto en PDF $${fmtArs(t.neto)} vs recalculado $${fmtArs(resumen.neto.total)} (Δ $${fmtArs(Math.abs(t.neto - resumen.neto.total))}).`,
-        accion: { label: 'Movimientos', section: 'movimientos' }
+        accion: { label: 'Mi arqueo', section: 'arqueo' }
       })
     }
   }

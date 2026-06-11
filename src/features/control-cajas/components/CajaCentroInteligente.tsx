@@ -296,7 +296,7 @@ export default function CajaCentroInteligente({
                     </div>
                     <strong>{a.titulo}</strong>
                     <p>{a.detalle}</p>
-                    {a.accion && onNavigate && (isAdmin || a.accion.section === 'arqueo' || a.accion.section === 'movimientos' || a.accion.section === 'cierre_turno') && (
+                    {a.accion && onNavigate && (isAdmin || a.accion.section === 'arqueo' || a.accion.section === 'historial' || a.accion.section === 'cierre_turno') && (
                       <button
                         type="button"
                         className="btn-link caja-cc-intel-goto"

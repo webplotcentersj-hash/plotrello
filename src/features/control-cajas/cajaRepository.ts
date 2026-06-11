@@ -72,6 +72,26 @@ function filterMovimientos(list: CajaMovimiento[], opts?: { usuario?: string; us
   return out
 }
 
+/** Une listas locales y remotas por id (gana el registro con created_at más reciente). */
+function mergeById<T extends { id: string; created_at?: string }>(
+  remote: T[],
+  local: T[]
+): T[] {
+  const byId = new Map<string, T>()
+  for (const item of local) byId.set(item.id, item)
+  for (const item of remote) {
+    const prev = byId.get(item.id)
+    if (!prev) {
+      byId.set(item.id, item)
+      continue
+    }
+    const tNew = item.created_at ?? ''
+    const tOld = prev.created_at ?? ''
+    if (tNew >= tOld) byId.set(item.id, item)
+  }
+  return [...byId.values()]
+}
+
 /** Une movimientos locales y remotos (mismo id: gana el más reciente por updated_at/created_at). */
 function mergeMovimientosLists(remote: CajaMovimiento[], local: CajaMovimiento[]): CajaMovimiento[] {
   const byId = new Map<string, CajaMovimiento>()
@@ -202,34 +222,51 @@ export async function listArqueos(opts?: {
   usuario?: string
   usuarioId?: number
 }): Promise<CajaArqueo[]> {
+  const local = readLocal().arqueos
+  let remote: CajaArqueo[] = []
   if (await checkRemote()) {
     let q = supabase!.from('control_caja_arqueos').select('*').order('fecha', { ascending: false })
     if (opts?.usuarioId != null) q = q.eq('id_usuario', opts.usuarioId)
     else if (opts?.usuario) q = q.eq('usuario_nombre', opts.usuario)
     const { data, error } = await q
-    if (!error && data) {
-      return data.map(mapArqueoRow)
-    }
+    if (!error && data) remote = data.map(mapArqueoRow)
   }
-  let list = readLocal().arqueos
+  let list = mergeById(remote, local)
   if (opts?.usuarioId != null) list = list.filter((a) => a.id_usuario === opts.usuarioId)
   else if (opts?.usuario) list = list.filter((a) => a.usuario_nombre === opts.usuario)
-  return [...list].sort((a, b) => b.fecha.localeCompare(a.fecha))
+  return [...list].sort((a, b) => {
+    const byFecha = b.fecha.localeCompare(a.fecha)
+    if (byFecha !== 0) return byFecha
+    return (b.created_at ?? '').localeCompare(a.created_at ?? '')
+  })
 }
 
-/** Último arqueo de una caja (misma fecha primero, luego el más reciente). */
+/** Comparación flexible de slug/nombre de caja. */
+export function mismoCajaSlug(a: string, b: string): boolean {
+  if (!a || !b) return false
+  const na = a.toLowerCase().replace(/\s+/g, '')
+  const nb = b.toLowerCase().replace(/\s+/g, '')
+  return na === nb || na.includes(nb) || nb.includes(na)
+}
+
 export async function getUltimoArqueoCaja(
   cajaSlug: string,
   fecha?: string
 ): Promise<CajaArqueo | null> {
   const arqueos = await listArqueos()
-  const delSlug = arqueos.filter((a) => a.caja_slug === cajaSlug)
+  const delSlug = arqueos
+    .filter((a) => mismoCajaSlug(a.caja_slug, cajaSlug))
+    .sort((a, b) => {
+      const byFecha = b.fecha.localeCompare(a.fecha)
+      if (byFecha !== 0) return byFecha
+      return (b.created_at ?? '').localeCompare(a.created_at ?? '')
+    })
   if (!delSlug.length) return null
-  if (fecha) {
-    const mismoDia = delSlug.find((a) => a.fecha === fecha)
-    if (mismoDia) return mismoDia
-  }
-  return delSlug[0]
+  if (!fecha) return delSlug[0]
+  const mismoDia = delSlug.filter((a) => a.fecha === fecha)
+  if (mismoDia.length) return mismoDia[0]
+  const anteriores = delSlug.filter((a) => a.fecha <= fecha)
+  return anteriores[0] ?? null
 }
 
 function mapArqueoRow(r: Record<string, unknown>): CajaArqueo {
@@ -658,7 +695,9 @@ export function getCierreFechaCaja(
   fecha: string,
   cajaSlug: string
 ): CajaCierre | null {
-  return cierres.find((c) => c.fecha === fecha && c.caja_slug === cajaSlug) ?? null
+  return (
+    cierres.find((c) => c.fecha === fecha && mismoCajaSlug(c.caja_slug, cajaSlug)) ?? null
+  )
 }
 
 // —— Egresos (aprobación administración) ——
@@ -690,20 +729,21 @@ export async function listEgresoSolicitudes(opts?: {
   cajaSlug?: string
   soloPendientes?: boolean
 }): Promise<CajaEgresoSolicitud[]> {
+  const local = readLocal().egreso_solicitudes
+  let remote: CajaEgresoSolicitud[] = []
   if (await checkRemote()) {
     let q = supabase!
       .from('control_caja_egreso_solicitudes')
       .select('*')
       .order('created_at', { ascending: false })
     if (opts?.fecha) q = q.eq('fecha', opts.fecha)
-    if (opts?.cajaSlug) q = q.eq('caja_slug', opts.cajaSlug)
     if (opts?.soloPendientes) q = q.eq('estado', 'pendiente')
     const { data, error } = await q
-    if (!error && data) return data.map((r) => mapEgresoRow(r))
+    if (!error && data) remote = data.map((r) => mapEgresoRow(r))
   }
-  let list = readLocal().egreso_solicitudes
+  let list = mergeById(remote, local)
   if (opts?.fecha) list = list.filter((s) => s.fecha === opts.fecha)
-  if (opts?.cajaSlug) list = list.filter((s) => s.caja_slug === opts.cajaSlug)
+  if (opts?.cajaSlug) list = list.filter((s) => mismoCajaSlug(s.caja_slug, opts.cajaSlug!))
   if (opts?.soloPendientes) list = list.filter((s) => s.estado === 'pendiente')
   return [...list].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
 }
@@ -1073,15 +1113,37 @@ export async function savePlanillaImport(
 export async function getPlanillaById(id: string): Promise<PlanillaCajaParsed | null> {
   if (await checkRemote()) {
     const { data, error } = await supabase!.from('control_caja_planillas').select('*').eq('id', id).maybeSingle()
-    if (!error && data?.datos) {
-      const parsed = datosJsonToPlanilla(data.datos as Record<string, unknown>, {
-        archivo_nombre: String(data.archivo_nombre),
-        caja_nombre: String(data.caja_nombre),
-        fecha_desde: data.fecha_desde ? String(data.fecha_desde).slice(0, 10) : '',
-        fecha_hasta: data.fecha_hasta ? String(data.fecha_hasta).slice(0, 10) : '',
-        totales: (data.totales as PlanillaCajaParsed['totales']) ?? null
-      })
-      if (parsed) return parsed
+    if (!error && data) {
+      if (data.datos) {
+        const parsed = datosJsonToPlanilla(data.datos as Record<string, unknown>, {
+          archivo_nombre: String(data.archivo_nombre),
+          caja_nombre: String(data.caja_nombre),
+          fecha_desde: data.fecha_desde ? String(data.fecha_desde).slice(0, 10) : '',
+          fecha_hasta: data.fecha_hasta ? String(data.fecha_hasta).slice(0, 10) : '',
+          totales: (data.totales as PlanillaCajaParsed['totales']) ?? null
+        })
+        if (parsed) return parsed
+      }
+      if (data.totales) {
+        return {
+          archivo_nombre: String(data.archivo_nombre),
+          empresa: '',
+          caja_nombre: String(data.caja_nombre),
+          fecha_desde: data.fecha_desde ? String(data.fecha_desde).slice(0, 10) : '',
+          fecha_hasta: data.fecha_hasta ? String(data.fecha_hasta).slice(0, 10) : '',
+          cantidad_ventas: 0,
+          totales: data.totales as PlanillaCajaParsed['totales'],
+          ventas: [],
+          egresos: [],
+          egresos_compras: [],
+          egresos_pagos_proveedores: [],
+          ingresos_varios: [],
+          ingresos_pagos_clientes: [],
+          movimientos_mec: [],
+          lineas_cuadre_invalido: 0,
+          warnings: []
+        }
+      }
     }
   }
   const local = readLocal().planillas.find((p) => p.id === id) as
@@ -1279,14 +1341,16 @@ function mapCierreRow(r: Record<string, unknown>): CajaCierre {
 }
 
 export async function listCierres(): Promise<CajaCierre[]> {
+  const local = readLocal().cierres
+  let remote: CajaCierre[] = []
   if (await checkRemote()) {
     const { data, error } = await supabase!
       .from('control_caja_cierres')
       .select('*')
       .order('fecha', { ascending: false })
-    if (!error && data) return data.map(mapCierreRow)
+    if (!error && data) remote = data.map(mapCierreRow)
   }
-  return [...readLocal().cierres].sort((a, b) => b.fecha.localeCompare(a.fecha))
+  return [...mergeById(remote, local)].sort((a, b) => b.fecha.localeCompare(a.fecha))
 }
 
 export async function getCierre(id: string): Promise<CajaCierre | null> {

@@ -40,6 +40,31 @@
   gap: 20px;
 }
 
+.menu-pedido-actual {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.menu-pedido-acciones--form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.menu-diario-toast {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #065f46;
+  font-size: 14px;
+}
+
 .menu-beneficio-aviso {
   padding: 14px 18px;
   border-radius: 8px;

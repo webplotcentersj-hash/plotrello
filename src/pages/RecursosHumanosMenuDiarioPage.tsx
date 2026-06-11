@@ -65,6 +65,7 @@ const RecursosHumanosMenuDiarioPage = () => {
   const [planillaHasta, setPlanillaHasta] = useState('')
   const [descuentosDetalle, setDescuentosDetalle] = useState<MenuDescuentoBeneficioComida[]>([])
   const [descuentosResumen, setDescuentosResumen] = useState<MenuDescuentoBeneficioResumen[]>([])
+  const [descuentosPorSeleccion, setDescuentosPorSeleccion] = useState<Record<number, number>>({})
   const [planillaLoading, setPlanillaLoading] = useState(false)
   const [planillaError, setPlanillaError] = useState<string | null>(null)
   const [planillaAbierta, setPlanillaAbierta] = useState(true)
@@ -148,10 +149,23 @@ const RecursosHumanosMenuDiarioPage = () => {
   const loadSelecciones = async () => {
     const m = menuSeleccionado ?? menuHoy
     if (!m) return
-    const response = await apiService.obtenerSeleccionesMenu(m.id)
+    const fecha = String(m.fecha).slice(0, 10)
+    const [response, descRes] = await Promise.all([
+      apiService.obtenerSeleccionesMenu(m.id),
+      apiService.menuDescuentosBeneficioListar({ fechaDesde: fecha, fechaHasta: fecha })
+    ])
     if (response.success && response.data) {
       setSelecciones(response.data)
+    } else {
+      setSelecciones([])
     }
+    const map: Record<number, number> = {}
+    if (descRes.success && descRes.data) {
+      for (const d of descRes.data) {
+        if (d.id_seleccion != null) map[d.id_seleccion] = d.monto
+      }
+    }
+    setDescuentosPorSeleccion(map)
   }
 
   const loadHistorialMenus = async (params?: { desde?: string | null; hasta?: string | null }) => {
@@ -912,23 +926,29 @@ const RecursosHumanosMenuDiarioPage = () => {
                     <th>Turno almuerzo</th>
                     <th>Cómo se siente</th>
                     <th>Hora</th>
+                    <th>Descuento</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selecciones.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center' }}>No hay selecciones registradas</td>
+                      <td colSpan={6} style={{ textAlign: 'center' }}>No hay selecciones registradas</td>
                     </tr>
                   ) : (
-                    selecciones.map((sel) => (
+                    selecciones.map((sel) => {
+                      const desc = descuentosPorSeleccion[sel.id]
+                      return (
                       <tr key={sel.id}>
                         <td>{sel.nombre_usuario || `Usuario ${sel.id_usuario}`}</td>
                         <td>{sel.nombre_plato || '-'}</td>
                         <td>{getTurnoAlmuerzoLabel(sel.turno_almuerzo ?? 1)}</td>
                         <td className="rrhh-table-emoji">{sel.emoji_estado || '—'}</td>
                         <td>{formatArgentinaTime(sel.fecha_seleccion)}</td>
+                        <td className={desc ? 'rrhh-menu-planilla-monto' : ''}>
+                          {desc ? formatMenuDescuentoArs(desc) : '—'}
+                        </td>
                       </tr>
-                    ))
+                    )})
                   )}
                 </tbody>
               </table>

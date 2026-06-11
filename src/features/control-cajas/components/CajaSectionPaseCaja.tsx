@@ -4,10 +4,16 @@ import {
   getUltimoArqueoCaja,
   listCajas,
   listMovimientos,
+  listPlanillas,
   resolveCajaSlugForUsuario,
   resolveCajaSlugFromHistorial,
   saveMovimiento
 } from '../cajaRepository'
+import {
+  buscarPlanillaCaja,
+  montosCajaDesdeFuentes,
+  sugerirMontoPase
+} from '../paseCajaMontos'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
 import { fmtArs, parseNum } from '../format'
@@ -51,6 +57,10 @@ export default function CajaSectionPaseCaja({
   const [observacion, setObservacion] = useState('')
   const [hintOrigen, setHintOrigen] = useState<string | null>(null)
   const [hintDestino, setHintDestino] = useState<string | null>(null)
+  const [hintOrigenOt, setHintOrigenOt] = useState<string | null>(null)
+  const [hintDestinoOt, setHintDestinoOt] = useState<string | null>(null)
+  const [hintPase, setHintPase] = useState<string | null>(null)
+  const [arqueoCargando, setArqueoCargando] = useState(false)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -126,34 +136,90 @@ export default function CajaSectionPaseCaja({
     }
   }, [soloMisPases, cajas, origen, destino])
 
-  const sugerirDesdeArqueo = useCallback(
-    async (slug: string, side: 'origen' | 'destino') => {
-      if (!slug) return
-      const arq = await getUltimoArqueoCaja(slug, fecha)
-      if (!arq) {
-        if (side === 'origen') setHintOrigen('Sin arqueo previo para esta caja/fecha.')
-        else setHintDestino('Sin arqueo previo para esta caja/fecha.')
-        return
-      }
-      const texto = `Último arqueo ${arq.fecha}: $ ${fmtArs(arq.total)}`
-      if (side === 'origen') {
-        setOrigenEfAntes(String(arq.total))
-        setHintOrigen(texto)
-      } else {
-        setDestinoEfAntes(String(arq.total))
-        setHintDestino(texto)
-      }
-    },
-    [fecha]
-  )
-
   useEffect(() => {
-    if (origen) void sugerirDesdeArqueo(origen, 'origen')
-  }, [origen, fecha, sugerirDesdeArqueo])
+    if (!origen && !destino) {
+      setHintOrigen(null)
+      setHintDestino(null)
+      setHintOrigenOt(null)
+      setHintDestinoOt(null)
+      setHintPase(null)
+      return
+    }
 
-  useEffect(() => {
-    if (destino) void sugerirDesdeArqueo(destino, 'destino')
-  }, [destino, fecha, sugerirDesdeArqueo])
+    let cancelled = false
+    setArqueoCargando(true)
+
+    void (async () => {
+      try {
+        const planillas = await listPlanillas(120)
+        if (cancelled) return
+
+        const [arqOrigen, arqDestino] = await Promise.all([
+          origen ? getUltimoArqueoCaja(origen, fecha) : Promise.resolve(null),
+          destino ? getUltimoArqueoCaja(destino, fecha) : Promise.resolve(null)
+        ])
+        if (cancelled) return
+
+        const cajaOrigen = cajas.find((c) => c.slug === origen)
+        const cajaDestino = cajas.find((c) => c.slug === destino)
+        const planOrigen = origen
+          ? buscarPlanillaCaja(planillas, origen, fecha, cajaOrigen?.nombre)
+          : null
+        const planDestino = destino
+          ? buscarPlanillaCaja(planillas, destino, fecha, cajaDestino?.nombre)
+          : null
+
+        let origenEf = 0
+        let origenOt = 0
+
+        if (origen) {
+          const m = montosCajaDesdeFuentes(cajaOrigen, arqOrigen, planOrigen, fecha)
+          origenEf = m.efectivo
+          origenOt = m.otros
+          setOrigenEfAntes(String(m.efectivo))
+          setOrigenOtAntes(String(m.otros))
+          setHintOrigen(m.hintEfectivo)
+          setHintOrigenOt(m.hintOtros)
+        } else {
+          setHintOrigen(null)
+          setHintOrigenOt(null)
+        }
+
+        if (destino) {
+          const m = montosCajaDesdeFuentes(cajaDestino, arqDestino, planDestino, fecha)
+          setDestinoEfAntes(String(m.efectivo))
+          setDestinoOtAntes(String(m.otros))
+          setHintDestino(m.hintEfectivo)
+          setHintDestinoOt(m.hintOtros)
+        } else {
+          setHintDestino(null)
+          setHintDestinoOt(null)
+        }
+
+        if (origen && destino) {
+          const sug = sugerirMontoPase({
+            origen: cajaOrigen,
+            destino: cajaDestino,
+            origenEf,
+            origenOt
+          })
+          setPaseEf(sug.efectivo > 0 ? String(sug.efectivo) : '')
+          setPaseOt(sug.otros > 0 ? String(sug.otros) : '')
+          setHintPase(sug.hint || null)
+        } else {
+          setPaseEf('')
+          setPaseOt('')
+          setHintPase(null)
+        }
+      } finally {
+        if (!cancelled) setArqueoCargando(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [origen, destino, fecha, cajas])
 
   useEffect(() => {
     if (origen && destino === origen) {
@@ -241,8 +307,8 @@ export default function CajaSectionPaseCaja({
   return (
     <div className="caja-cc-pase-section">
       <p className="caja-cc-intro caja-cc-sub">
-        Registrá los montos que había en cada caja <strong>antes</strong> del pase, el monto transferido y el saldo
-        resultante. Queda historial con usuario, fecha y hora.
+        Los montos se completan desde el <strong>arqueo</strong> y la <strong>planilla</strong> de cada caja. El monto
+        del pase se sugiere según el fondo y el destino (administración u otra caja). Podés ajustar antes de guardar.
       </p>
 
       <form className="caja-cc-card caja-cc-pase-form" onSubmit={(e) => void handleSubmit(e)}>
@@ -281,15 +347,11 @@ export default function CajaSectionPaseCaja({
                 ))}
               </select>
             )}
-            {hintOrigen && <span className="caja-cc-field-hint">{hintOrigen}</span>}
-            <button
-              type="button"
-              className="btn-link caja-cc-pase-suggest"
-              onClick={() => void sugerirDesdeArqueo(origen, 'origen')}
-              disabled={!origen}
-            >
-              Usar último arqueo →
-            </button>
+            {arqueoCargando && origen ? (
+              <span className="caja-cc-field-hint">Cargando montos del arqueo…</span>
+            ) : (
+              hintOrigen && <span className="caja-cc-field-hint">{hintOrigen}</span>
+            )}
           </label>
           <label className="caja-cc-field">
             Caja destino (recibe el dinero)
@@ -300,15 +362,11 @@ export default function CajaSectionPaseCaja({
                 </option>
               ))}
             </select>
-            {hintDestino && <span className="caja-cc-field-hint">{hintDestino}</span>}
-            <button
-              type="button"
-              className="btn-link caja-cc-pase-suggest"
-              onClick={() => void sugerirDesdeArqueo(destino, 'destino')}
-              disabled={!destino}
-            >
-              Usar último arqueo →
-            </button>
+            {arqueoCargando && destino ? (
+              <span className="caja-cc-field-hint">Cargando montos del arqueo…</span>
+            ) : (
+              hintDestino && <span className="caja-cc-field-hint">{hintDestino}</span>
+            )}
           </label>
         </div>
 
@@ -335,6 +393,7 @@ export default function CajaSectionPaseCaja({
                   value={origenOtAntes}
                   onChange={(e) => setOrigenOtAntes(e.target.value)}
                 />
+                {hintOrigenOt && <span className="caja-cc-field-hint">{hintOrigenOt}</span>}
               </label>
             </div>
           </div>
@@ -361,6 +420,7 @@ export default function CajaSectionPaseCaja({
                   value={destinoOtAntes}
                   onChange={(e) => setDestinoOtAntes(e.target.value)}
                 />
+                {hintDestinoOt && <span className="caja-cc-field-hint">{hintDestinoOt}</span>}
               </label>
             </div>
           </div>
@@ -368,6 +428,11 @@ export default function CajaSectionPaseCaja({
 
         <div className="caja-cc-pase-block highlight">
           <h4>Monto del pase</h4>
+          {arqueoCargando ? (
+            <p className="caja-cc-field-hint">Calculando monto sugerido…</p>
+          ) : (
+            hintPase && <p className="caja-cc-field-hint">{hintPase}</p>
+          )}
           <div className="caja-cc-grid-2">
             <label className="caja-cc-field">
               Efectivo que pasa
@@ -390,6 +455,7 @@ export default function CajaSectionPaseCaja({
           </label>
         </div>
 
+        {origen && destino ? (
         <div className="caja-cc-pase-preview">
           <h4>Resultado (trazabilidad)</h4>
           <table className="caja-cc-table caja-cc-pase-table">
@@ -403,13 +469,13 @@ export default function CajaSectionPaseCaja({
             </thead>
             <tbody>
               <tr>
-                <td>{cajaNombre(origen)} (origen)</td>
+                <td>{cajaNombre(origen) || origen} (origen)</td>
                 <td className="num">$ {fmtArs(calc.origen_efectivo_antes + calc.origen_otros_antes)}</td>
                 <td className="num">− $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}</td>
                 <td className="num">$ {fmtArs(calc.origen_efectivo_despues + calc.origen_otros_despues)}</td>
               </tr>
               <tr>
-                <td>{cajaNombre(destino)} (destino)</td>
+                <td>{cajaNombre(destino) || destino} (destino)</td>
                 <td className="num">$ {fmtArs(calc.destino_efectivo_antes + calc.destino_otros_antes)}</td>
                 <td className="num">+ $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}</td>
                 <td className="num">$ {fmtArs(calc.destino_efectivo_despues + calc.destino_otros_despues)}</td>
@@ -421,6 +487,7 @@ export default function CajaSectionPaseCaja({
             $ {fmtArs(calc.destino_efectivo_antes)} → $ {fmtArs(calc.destino_efectivo_despues)}
           </p>
         </div>
+        ) : null}
 
         <label className="caja-cc-field">
           Observación

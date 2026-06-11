@@ -6,6 +6,7 @@ import type { CajaSectionId } from '../types'
 import { getParams, usesRemoteStorage } from '../cajaRepository'
 import { resolveUsuarioCajaEtiqueta } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
+import CajaMenuOperativa from './CajaMenuOperativa'
 import CajaSectionTablero from './CajaSectionTablero'
 import CajaTableroAdmin from './CajaTableroAdmin'
 import CajaSectionCierreForm from './CajaSectionCierreForm'
@@ -33,6 +34,7 @@ import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import '../../../pages/CajaDashboardPage.css'
 
 const SECTION_TITLES: Record<CajaSectionId, string> = {
+  menu: 'Menú',
   tablero_admin: 'Calendario de cajas',
   centro_ia: 'Centro de inteligencia',
   tablero: 'Tablero ERP',
@@ -64,7 +66,7 @@ function vistaDesdePath(pathname: string): VistaCajaModulo | null {
 }
 
 function seccionInicial(vista: VistaCajaModulo): CajaSectionId {
-  return vista === 'admin' ? 'tablero_admin' : 'arqueo'
+  return vista === 'admin' ? 'tablero_admin' : 'menu'
 }
 
 export default function ControlCajasModule() {
@@ -98,7 +100,7 @@ export default function ControlCajasModule() {
   const enVistaAdmin = isAdmin && vista === 'admin'
 
   const [section, setSection] = useState<CajaSectionId>(() =>
-    isAdmin ? seccionInicial(pathVista ?? 'admin') : 'arqueo'
+    isAdmin ? seccionInicial(pathVista ?? 'admin') : 'menu'
   )
   const [editCierreId, setEditCierreId] = useState<string | null>(null)
   const [remote, setRemote] = useState<boolean | null>(null)
@@ -106,8 +108,13 @@ export default function ControlCajasModule() {
   /** Recarga movimientos en arqueo sin remontar toda la página (evita cierre al importar planilla). */
   const [movimientosRefreshKey, setMovimientosRefreshKey] = useState(0)
   const [planillaActiva, setPlanillaActiva] = useState<PlanillaCajaParsed | null>(null)
+  const [menuRefreshToken, setMenuRefreshToken] = useState(0)
 
   const nav = useMemo(() => (enVistaAdmin ? NAV_ADMIN : NAV_CAJA), [enVistaAdmin])
+
+  useEffect(() => {
+    if (!enVistaAdmin && section === 'menu') setMenuRefreshToken((t) => t + 1)
+  }, [enVistaAdmin, section])
 
   const cambiarVista = (v: VistaCajaModulo) => {
     setVista(v)
@@ -140,7 +147,7 @@ export default function ControlCajasModule() {
   useEffect(() => {
     if (!isAdmin) {
       setVista('operativa')
-      setSection('arqueo')
+      setSection('menu')
       setEditCierreId(null)
       return
     }
@@ -150,6 +157,10 @@ export default function ControlCajasModule() {
       setEditCierreId(null)
     }
   }, [isAdmin, pathVista])
+
+  useEffect(() => {
+    if (!enVistaAdmin && section === 'movimientos') setSection('historial')
+  }, [enVistaAdmin, section])
 
   const bumpRefresh = () => setRefreshKey((k) => k + 1)
 
@@ -165,17 +176,19 @@ export default function ControlCajasModule() {
   }
 
   const showPageTitle =
+    section !== 'menu' &&
     section !== 'tablero_admin' &&
     section !== 'centro_ia' &&
     section !== 'cierres_new' &&
     section !== 'cierres'
 
-  const SECCIONES_PLANILLA: CajaSectionId[] = ['arqueo', 'movimientos', 'movimientos_admin', 'cierres']
+  const SECCIONES_PLANILLA: CajaSectionId[] = ['arqueo', 'movimientos_admin', 'cierres']
 
   const goSection = (s: CajaSectionId) => {
     setEditCierreId(null)
-    setSection(s)
-    if (!SECCIONES_PLANILLA.includes(s)) setPlanillaActiva(null)
+    const target = !enVistaAdmin && s === 'movimientos' ? 'historial' : s
+    setSection(target)
+    if (!SECCIONES_PLANILLA.includes(target)) setPlanillaActiva(null)
   }
 
   const seccionConPlanilla = SECCIONES_PLANILLA.includes(section)
@@ -305,10 +318,7 @@ export default function ControlCajasModule() {
                 key={item.section}
                 type="button"
                 className={`caja-cc-nav-item${section === item.section ? ' active' : ''}`}
-                onClick={() => {
-                  setEditCierreId(null)
-                  setSection(item.section)
-                }}
+                onClick={() => goSection(item.section)}
               >
                 <span className="caja-cc-nav-icon">{item.icon}</span>
                 {item.label}
@@ -322,6 +332,11 @@ export default function ControlCajasModule() {
 
         <main className="caja-cc-content" key={refreshKey}>
           <div className="caja-cc-content-plotlab-bar">
+            {!enVistaAdmin && section !== 'menu' ? (
+              <button type="button" className="btn-link caja-cc-volver-menu" onClick={() => goSection('menu')}>
+                ← Volver al menú
+              </button>
+            ) : null}
             <CajaVolverPlotLab small />
           </div>
           {showIntelBar && (
@@ -338,6 +353,15 @@ export default function ControlCajasModule() {
               <h2>{SECTION_TITLES[section]}</h2>
               <CajaVolverPlotLab small />
             </div>
+          )}
+
+          {section === 'menu' && !enVistaAdmin && (
+            <CajaMenuOperativa
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              refreshToken={menuRefreshToken}
+              onNavigate={goSection}
+            />
           )}
 
           {section === 'tablero_admin' && enVistaAdmin && (
@@ -434,20 +458,6 @@ export default function ControlCajasModule() {
               usuarioNombre={usuarioEtiqueta}
               usuarioId={usuarioId}
             />
-          )}
-
-          {section === 'movimientos' && (
-            <>
-              {panelPlanillaIntel}
-              <CajaSectionMovimientos
-                usuarioNombre={usuarioEtiqueta}
-                usuarioId={usuarioId}
-                soloMisMovimientos
-                allowExcelImport
-                hidePlanillaImport
-                title="Mis movimientos"
-              />
-            </>
           )}
 
           {section === 'historial' && (

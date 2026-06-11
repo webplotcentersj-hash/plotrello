@@ -16753,18 +16753,20 @@ class ApiService {
       return { success: false, error: 'Supabase no inicializado' }
     }
     try {
+      const row = {
+        id_usuario: input.id_usuario,
+        id_menu: input.id_menu,
+        id_seleccion: input.id_seleccion,
+        id_novedad: input.id_novedad,
+        fecha: input.fecha,
+        monto: input.monto ?? 7000,
+        nombre_plato: input.nombre_plato ?? null
+      }
+      await supabase.from('menu_descuentos_beneficio_comida').delete().eq('id_seleccion', input.id_seleccion)
       const { data, error } = await supabase
         .from('menu_descuentos_beneficio_comida')
-        .insert({
-          id_usuario: input.id_usuario,
-          id_menu: input.id_menu,
-          id_seleccion: input.id_seleccion,
-          id_novedad: input.id_novedad,
-          fecha: input.fecha,
-          monto: input.monto ?? 7000,
-          nombre_plato: input.nombre_plato ?? null
-        })
-        .select('*, usuarios(nombre)')
+        .insert(row)
+        .select('*')
         .single()
       if (error) throw error
       return {

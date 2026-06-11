@@ -32,13 +32,13 @@ export type NavItem =
     }
 
 export const NAV_CAJA: NavItem[] = [
+  { section: 'menu', label: 'Menú', icon: '🏠', cajaOnly: true },
   { header: 'Mi día' },
   { section: 'arqueo', label: 'Mi arqueo', icon: '💵', cajaOnly: true },
   { section: 'cierre_turno', label: 'Cierre de turno', icon: '🔁', cajaOnly: true },
   { section: 'pase_caja', label: 'Pase de caja', icon: '↔️', cajaOnly: true },
   { section: 'traspasos', label: 'Mis traspasos', icon: '🔀', cajaOnly: true },
   { section: 'egresos', label: 'Egresos', icon: '📤', cajaOnly: true },
-  { section: 'movimientos', label: 'Mis movimientos', icon: '📋', cajaOnly: true },
   { section: 'historial', label: 'Historial', icon: '🕐', cajaOnly: true },
   { section: 'asistente', label: 'Asistente IA', icon: '✨' }
 ]

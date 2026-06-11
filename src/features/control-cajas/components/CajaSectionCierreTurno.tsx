@@ -5,6 +5,7 @@ import {
   getUltimoArqueoCaja,
   listCajas,
   listCierres,
+  listPlanillas,
   listTransferenciaLotes,
   resolveCajaSlug,
   resolveCajaSlugForUsuario,
@@ -15,6 +16,7 @@ import {
   saveTransferenciaLote,
   updateCajaFondoFijo
 } from '../cajaRepository'
+import { buscarPlanillaCaja, montosCajaDesdeFuentes } from '../paseCajaMontos'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
 import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
@@ -144,11 +146,24 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   }, [origen, fecha])
 
   useEffect(() => {
-    if (!origen) return
-    void getUltimoArqueoCaja(origen, fecha).then((arq) => {
-      if (arq) setArqueoEf(String(arq.total))
-    })
-  }, [origen, fecha])
+    if (!origen || !fecha) return
+    let cancelled = false
+    void (async () => {
+      const [arq, planillas] = await Promise.all([
+        getUltimoArqueoCaja(origen, fecha),
+        listPlanillas(120)
+      ])
+      if (cancelled) return
+      const caja = cajas.find((c) => c.slug === origen)
+      const plan = buscarPlanillaCaja(planillas, origen, fecha, caja?.nombre)
+      const m = montosCajaDesdeFuentes(caja, arq, plan, fecha)
+      setArqueoEf(String(m.efectivo))
+      setArqueoOt(String(m.otros))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [origen, fecha, cajas])
 
   const cajaOrigen = cajas.find((c) => c.slug === origen)
 
@@ -182,14 +197,15 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
   }, [calc, fecha, origen, arqueoEf, arqueoOt, tolerancia])
 
   const [concilOpen, setConcilOpen] = useState(false)
-  const [concilState, setConcilState] = useState<{ ok: boolean; alertas: string[] }>({
+  const [concilState, setConcilState] = useState<{ ok: boolean; alertas: string[]; avisos: string[] }>({
     ok: true,
-    alertas: []
+    alertas: [],
+    avisos: []
   })
 
   useEffect(() => {
-    if (concilOpen) void concil.then(setConcilState)
-  }, [concil, concilOpen])
+    void concil.then(setConcilState)
+  }, [concil])
 
   const adminSlug = cajas.find((c) => c.slug === 'admin')?.slug ?? 'admin'
   const cajaNombre = (s: string) => cajas.find((c) => c.slug === s)?.nombre ?? s
@@ -553,15 +569,30 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
           <h3>Revisión opcional (arqueo vs cierre)</h3>
         </button>
         {concilOpen && (
-          <div className={`caja-cc-card-collapsible-body ${concilState.ok ? 'caja-cc-result ok' : 'caja-cc-result bad'}`}>
-            {concilState.alertas.length === 0 ? (
-              <p>Sin alertas.</p>
+          <div
+            className={`caja-cc-card-collapsible-body caja-cc-result ${
+              concilState.alertas.length ? 'bad' : concilState.avisos.length ? 'neutral' : 'ok'
+            }`}
+          >
+            {concilState.alertas.length === 0 && concilState.avisos.length === 0 ? (
+              <p>Cuadre correcto: arqueo, fondo, egresos y resto a administración coinciden.</p>
             ) : (
-              <ul className="caja-cc-concil-list">
-                {concilState.alertas.map((a, i) => (
-                  <li key={i}>{a}</li>
-                ))}
-              </ul>
+              <>
+                {concilState.alertas.length > 0 && (
+                  <ul className="caja-cc-concil-list">
+                    {concilState.alertas.map((a, i) => (
+                      <li key={`a-${i}`}>{a}</li>
+                    ))}
+                  </ul>
+                )}
+                {concilState.avisos.length > 0 && (
+                  <ul className="caja-cc-concil-list caja-cc-concil-avisos">
+                    {concilState.avisos.map((a, i) => (
+                      <li key={`v-${i}`}>{a}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
         )}

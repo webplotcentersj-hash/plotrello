@@ -3113,3 +3113,153 @@
   font-size: 12px;
   white-space: nowrap;
 }
+
+.caja-dashboard-page .caja-cc-volver-menu {
+  font-size: 13px;
+  margin-right: auto;
+}
+
+.caja-dashboard-page .caja-cc-content-plotlab-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.caja-dashboard-page .caja-cc-menu-operativa {
+  max-width: 720px;
+}
+
+.caja-dashboard-page .caja-cc-menu-estado-line {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-menu-siguiente {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 14px;
+  color: #1e3a5f;
+}
+
+.caja-dashboard-page .caja-cc-menu-siguiente--ok {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.caja-dashboard-page .caja-cc-menu-siguiente .btn-primary {
+  white-space: nowrap;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso--siguiente {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.caja-dashboard-page .caja-cc-menu-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.caja-dashboard-page .caja-cc-menu-badge--hecho {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.caja-dashboard-page .caja-cc-menu-badge--pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.caja-dashboard-page .caja-cc-menu-badge--alerta {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.caja-dashboard-page .caja-cc-menu-pasos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.caja-dashboard-page .caja-cc-menu-paso-orden {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso-body strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso-body span {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.caja-dashboard-page .caja-cc-menu-paso-arrow {
+  color: #94a3b8;
+  font-size: 18px;
+}

@@ -105,7 +105,7 @@ export default function CajaPlanillasRecibidasPanel({
         <p className="caja-cc-empty">Cargando planillas…</p>
       ) : planillas.length === 0 ? (
         <p className="caja-cc-empty">
-          Todavía no hay planillas guardadas. La cajera las sube en Arqueo / Mis movimientos, o podés importar
+          Todavía no hay planillas guardadas. La cajera las sube en Mi arqueo, o podés importar
           abajo.
         </p>
       ) : planillasFiltradas.length === 0 ? (
