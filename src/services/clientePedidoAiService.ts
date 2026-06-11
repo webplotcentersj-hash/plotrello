@@ -35,9 +35,15 @@ export async function generarMockupImagenIa(prompt: string): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, aspectRatio: '16:9' })
   })
-  const json = (await resp.json().catch(() => ({}))) as { dataUrl?: string; error?: string; success?: boolean }
+  const json = (await resp.json().catch(() => ({}))) as {
+    dataUrl?: string
+    error?: string
+    success?: boolean
+    debugText?: string
+  }
   if (!resp.ok || !json.dataUrl) {
-    throw new Error(json.error || 'No se pudo generar la vista previa con IA.')
+    const detail = json.error || (resp.status === 500 ? 'Error del servidor al generar la imagen.' : '')
+    throw new Error(detail || 'No se pudo generar la vista previa con IA.')
   }
   return json.dataUrl
 }
