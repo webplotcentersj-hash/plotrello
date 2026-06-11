@@ -33,7 +33,7 @@ import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import '../../../pages/CajaDashboardPage.css'
 
 const SECTION_TITLES: Record<CajaSectionId, string> = {
-  tablero_admin: 'Hoy',
+  tablero_admin: 'Calendario de cajas',
   centro_ia: 'Centro de inteligencia',
   tablero: 'Tablero ERP',
   cierres_new: 'Nuevo cierre',

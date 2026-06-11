@@ -2204,6 +2204,210 @@
   line-height: 1.35;
 }
 
+/* —— Calendario admin —— */
+.caja-dashboard-page .caja-cc-calendario {
+  margin-bottom: 20px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-head h3 {
+  margin: 0 0 4px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.caja-dashboard-page .caja-cc-calendario-month {
+  min-width: 140px;
+  text-align: center;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-calendario-search {
+  margin-bottom: 12px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-hits {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-hit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-hit:hover,
+.caja-dashboard-page .caja-cc-calendario-hit.is-active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.caja-dashboard-page .caja-cc-calendario-hit-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-calendario-no-hits {
+  margin: 0 0 12px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-grid-wrap {
+  overflow-x: auto;
+}
+
+.caja-dashboard-page .caja-cc-calendario-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(36px, 1fr));
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+}
+
+.caja-dashboard-page .caja-cc-calendario-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(36px, 1fr));
+  gap: 4px;
+}
+
+.caja-dashboard-page .caja-cc-cal-day {
+  position: relative;
+  min-height: 44px;
+  padding: 4px 2px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.caja-dashboard-page .caja-cc-cal-day--pad {
+  border: none;
+  background: transparent;
+  cursor: default;
+  min-height: 0;
+}
+
+.caja-dashboard-page .caja-cc-cal-day:hover:not(.caja-cc-cal-day--pad) {
+  border-color: #93c5fd;
+  background: #f8fafc;
+}
+
+.caja-dashboard-page .caja-cc-cal-day.is-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+.caja-dashboard-page .caja-cc-cal-day.is-today .caja-cc-cal-day-num {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.caja-dashboard-page .caja-cc-cal-day.is-dimmed {
+  opacity: 0.35;
+}
+
+.caja-dashboard-page .caja-cc-cal-day-num {
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  line-height: 1.2;
+}
+
+.caja-dashboard-page .caja-cc-cal-dots {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 6px;
+}
+
+.caja-dashboard-page .caja-cc-cal-dots .dot,
+.caja-dashboard-page .caja-cc-calendario-legend .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.caja-dashboard-page .dot.cierre {
+  background: #22c55e;
+}
+
+.caja-dashboard-page .dot.planilla {
+  background: #3b82f6;
+}
+
+.caja-dashboard-page .dot.arqueo {
+  background: #f59e0b;
+}
+
+.caja-dashboard-page .dot.pendiente {
+  background: #ef4444;
+}
+
+.caja-dashboard-page .caja-cc-calendario-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-calendario-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.caja-dashboard-page .caja-cc-calendario-day-cajas {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.caja-dashboard-page .caja-cc-empty-day {
+  margin-top: 8px;
+}
+
 .caja-dashboard-page .caja-cc-fondo-regla ol.caja-cc-steps-simple {
   margin: 0 0 16px;
   padding-left: 1.25rem;

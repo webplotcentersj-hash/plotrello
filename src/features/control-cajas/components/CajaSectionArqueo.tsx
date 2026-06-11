@@ -14,7 +14,7 @@ import { estadoArqueo } from '../movimientoCaja'
 import { DEFAULT_CAJERAS } from '../constants'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
-import { fondoFijoEfectivo, fondoMinimoCaja, requiereFondoMinimo, validarEfectivoFisicoVsFondo } from '../fondoCaja'
+import { FONDO_CAJA_RECOMENDADO, fondoFijoEfectivo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { efectivoQuedaEnCajaDesdePlanilla } from '../cajaTotales'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
@@ -120,7 +120,8 @@ export default function CajaSectionArqueo({
   }, [billetes])
 
   const cajaActiva = cajas.find((c) => c.slug === cajaSlug)
-  const fondoMin = cajaActiva ? fondoMinimoCaja(cajaActiva) : 0
+  const fondoTraspaso = cajaActiva ? fondoFijoEfectivo(cajaActiva) : 0
+  const otraCajaOperativa = cajas.find((c) => c.slug !== cajaSlug && c.slug !== 'admin' && c.slug !== 'vuelto')
 
   const teorico = useMemo(() => {
     if (!cajaSlug || !cajaActiva) return null
@@ -158,13 +159,11 @@ export default function CajaSectionArqueo({
       setFirmaError('Tenés que firmar en el recuadro antes de guardar.')
       return
     }
-    const caja = cajas.find((c) => c.slug === cajaSlug)
-    if (caja) {
-      const v = validarEfectivoFisicoVsFondo(total, caja)
-      if (!v.ok) {
-        setMsg(v.mensaje)
-        return
-      }
+    if (efectivoQuedaPlanilla != null && total > 0 && Math.abs(total - efectivoQuedaPlanilla) > 0.02) {
+      setMsg(
+        `El conteo ($ ${fmtArs(total)}) no coincide con el efectivo de la planilla ($ ${fmtArs(efectivoQuedaPlanilla)}). Revisá billetes.`
+      )
+      return
     }
     setFirmaError(undefined)
     setSaving(true)
@@ -207,8 +206,6 @@ export default function CajaSectionArqueo({
     }
   }
 
-  const bajoFondo = fondoMin > 0 && total > 0 && total < fondoMin
-
   const cajaAsignadaNombre = cajaActiva?.nombre ?? ''
   const mostrarSelectorCaja =
     fijarCajaUsuario && !cajaResolviendo && (!cajaAutoAsignada || !cajaSlug)
@@ -224,13 +221,18 @@ export default function CajaSectionArqueo({
       )}
 
       <div className="caja-cc-help">
-        Subí arriba el PDF del día: ahí está el efectivo que queda. Contá solo billetes y monedas; no incluyas
-        tarjetas, transferencias ni cuenta corriente (eso se concilia aparte).
-        {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (
+        Subí arriba el PDF del día: ahí está el <strong>efectivo que queda</strong> en caja. Contá solo billetes y
+        monedas hasta ese monto; no incluyas tarjetas, transferencias ni cuenta corriente (eso se concilia aparte).
+        {cajaActiva && otraCajaOperativa && (
           <>
             {' '}
-            El <strong>fondo de caja</strong> es el dinero que debe permanecer siempre en la caja; el configurado es{' '}
-            <strong>$ {fmtArs(fondoMin)}</strong> (no puede haber menos en el arqueo).
+            El <strong>fondo de caja</strong> no es un monto fijo del arqueo: es lo que, al{' '}
+            <strong>cierre de turno</strong>, se traspasa de {cajaActiva.nombre} a {otraCajaOperativa.nombre} (o
+            viceversa). Recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)}
+            {fondoTraspaso > 0 && fondoTraspaso !== FONDO_CAJA_RECOMENDADO
+              ? ` · configurado $ ${fmtArs(fondoTraspaso)}`
+              : ''}
+            , editable por la cajera en el cierre.
           </>
         )}
       </div>
@@ -310,27 +312,22 @@ export default function CajaSectionArqueo({
       )}
       {teorico != null && efectivoQuedaPlanilla == null && (
         <div className="caja-cc-result neutral">
-          <span>Efectivo teórico (fondo + mov. del día)</span>
+          <span>Efectivo teórico según movimientos del día</span>
           <strong>$ {fmtArs(teorico.teorico)}</strong>
         </div>
       )}
       <div
         className={`caja-cc-result ${
-          bajoFondo
+          diferenciaPlanilla != null && Math.abs(diferenciaPlanilla) > 0.02
             ? 'bad'
-            : diferenciaPlanilla != null && Math.abs(diferenciaPlanilla) > 0.02
+            : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
               ? 'bad'
-              : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
-                ? 'bad'
-                : total > 0
-                  ? 'ok'
-                  : 'neutral'
+              : total > 0
+                ? 'ok'
+                : 'neutral'
         }`}
       >
-        <span>
-          Total contado (solo billetes)
-          {fondoMin > 0 && ` · fondo configurado $ ${fmtArs(fondoMin)}`}
-        </span>
+        <span>Total contado (solo billetes)</span>
         <strong>$ {fmtArs(total)}</strong>
         {diferenciaPlanilla != null && total > 0 && (
           <span className="caja-cc-field-hint">
@@ -347,12 +344,6 @@ export default function CajaSectionArqueo({
           </span>
         )}
       </div>
-      {bajoFondo && cajaActiva && (
-        <p className="caja-cc-error">
-          El conteo está por debajo del fondo de caja. Revisá billetes o informá a administración antes de
-          guardar.
-        </p>
-      )}
       <div className="caja-cc-card caja-cc-signature-block">
         <SignaturePad
           key={firmaPadKey}

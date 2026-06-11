@@ -55,7 +55,7 @@ export const DEFAULT_PARAMS = {
 }
 
 export const NAV_ADMIN: NavItem[] = [
-  { section: 'tablero_admin', label: 'Hoy', icon: '📊', adminOnly: true },
+  { section: 'tablero_admin', label: 'Calendario', icon: '📅', adminOnly: true },
   { section: 'cierre_turno', label: 'Cierre de turno', icon: '🔁', adminOnly: true },
   { section: 'egresos', label: 'Egresos', icon: '📤', adminOnly: true },
   { section: 'arqueos_admin', label: 'Arqueos', icon: '💵', adminOnly: true },
