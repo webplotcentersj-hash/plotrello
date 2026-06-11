@@ -1,0 +1,84 @@
+export type WorkPoolSector = 'diseno' | 'instalaciones' | 'metalurgica'
+
+export type WorkPoolJobEstado =
+  | 'borrador'
+  | 'disponible'
+  | 'asignado'
+  | 'en_curso'
+  | 'entregado'
+  | 'en_revision'
+  | 'aprobado'
+  | 'cambios'
+  | 'cancelado'
+
+export type WorkPoolJobModo = 'bolsa' | 'asignado'
+
+export type WorkPoolLedgerTipo = 'acreditacion' | 'pago' | 'ajuste' | 'reverso'
+
+export type WorkPoolJob = {
+  id: number
+  sector: WorkPoolSector
+  id_orden: number | null
+  numero_op: string | null
+  titulo: string
+  descripcion: string | null
+  modo: WorkPoolJobModo
+  estado: WorkPoolJobEstado
+  prioridad: string
+  plazo: string | null
+  monto_presupuestado: number
+  monto_final: number | null
+  moneda: string
+  id_usuario_asignado: number | null
+  id_usuario_creador: number | null
+  codigo_tarifa: string | null
+  metadata: Record<string, unknown>
+  notas_entrega: string | null
+  motivo_rechazo: string | null
+  tomado_at: string | null
+  entregado_at: string | null
+  aprobado_at: string | null
+  created_at: string
+  updated_at: string
+  asignado_nombre?: string | null
+}
+
+export type WorkPoolPricingRule = {
+  id: number
+  sector: WorkPoolSector
+  codigo: string
+  nombre: string
+  monto_base: number
+  activo: boolean
+}
+
+export type WorkPoolSaldoOperario = {
+  acreditado: number
+  pagado: number
+  saldo_pendiente: number
+}
+
+export type WorkPoolResumenSector = {
+  sector: string
+  trabajos_abiertos: number
+  trabajos_aprobados: number
+  deuda_operarios: number
+}
+
+export const WORK_POOL_SECTOR_LABELS: Record<WorkPoolSector, string> = {
+  diseno: 'Diseño',
+  instalaciones: 'Instalaciones',
+  metalurgica: 'Metalúrgica'
+}
+
+export const WORK_POOL_ESTADO_LABELS: Record<WorkPoolJobEstado, string> = {
+  borrador: 'Borrador',
+  disponible: 'Disponible',
+  asignado: 'Asignado',
+  en_curso: 'En curso',
+  entregado: 'Entregado',
+  en_revision: 'En revisión',
+  aprobado: 'Aprobado',
+  cambios: 'Cambios',
+  cancelado: 'Cancelado'
+}

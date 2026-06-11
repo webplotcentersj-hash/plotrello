@@ -1800,6 +1800,98 @@
   line-height: 1.45;
 }
 
+.caja-cc-alerta-doble-fuente {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.caja-cc-alerta-doble-fuente p {
+  margin: 0;
+}
+
+.caja-cc-alerta-doble-fuente p + p {
+  margin-top: 6px;
+}
+
+.caja-cc-plotlab-ventas {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f0f9ff;
+  border: 1px solid #7dd3fc;
+  color: #0c4a6e;
+}
+
+.caja-cc-plotlab-ventas--empty {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.caja-cc-plotlab-ventas strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.caja-cc-plotlab-ventas-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.caja-cc-plotlab-ventas-total-label,
+.caja-cc-plotlab-ventas-total {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid #bae6fd;
+  font-size: 14px;
+}
+
+.caja-cc-sync-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10050;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  animation: caja-cc-sync-toast-in 0.25s ease;
+  pointer-events: none;
+}
+
+.caja-cc-sync-toast--ok {
+  background: #14532d;
+  color: #ecfdf5;
+}
+
+.caja-cc-sync-toast--err {
+  background: #7f1d1d;
+  color: #fef2f2;
+}
+
+@keyframes caja-cc-sync-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .caja-dashboard-page .caja-cc-planilla-foot {
   margin: 12px 0 0;
   font-size: 12px;
@@ -1862,11 +1954,23 @@
   margin-bottom: 16px;
 }
 
+.caja-dashboard-page .caja-cc-metrics--money {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .caja-dashboard-page .caja-cc-metrics--money {
+    grid-template-columns: 1fr;
+  }
+}
+
 .caja-dashboard-page .caja-cc-metric {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 14px 16px;
+  min-width: 0;
 }
 
 .caja-dashboard-page .caja-cc-metric-l {
@@ -1879,6 +1983,14 @@
 .caja-dashboard-page .caja-cc-metric-v {
   font-size: 22px;
   font-weight: 700;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.caja-dashboard-page .caja-cc-metric-v.money {
+  font-size: clamp(15px, 2.2vw, 20px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .caja-dashboard-page .caja-cc-metric-v.ok {

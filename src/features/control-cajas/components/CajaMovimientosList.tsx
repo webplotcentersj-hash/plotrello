@@ -62,11 +62,13 @@ export default function CajaMovimientosList({
                 {showUsuario && m.usuario_nombre ? ` · ${m.usuario_nombre}` : ''}
                 {m.origen_importacion === 'planilla_pdf'
                   ? ' · Planilla PDF'
-                  : m.origen_importacion === 'comprobante'
-                    ? ' · Comprobante MP/POS'
-                    : m.origen_importacion === 'excel'
-                      ? ' · Excel'
-                      : ''}
+                  : m.origen_importacion === 'plotlab_venta'
+                    ? ' · Venta PlotLab'
+                    : m.origen_importacion === 'comprobante'
+                      ? ' · Comprobante MP/POS'
+                      : m.origen_importacion === 'excel'
+                        ? ' · Excel'
+                        : ''}
                 {m.anulado ? ' · Anulado' : ''}
                 {m.cierre_id ? ' · En cierre cerrado' : ''}
               </div>

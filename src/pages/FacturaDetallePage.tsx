@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import apiService from '../services/api'
+import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
 import './FacturaDetallePage.css'
 
@@ -135,6 +136,22 @@ export default function FacturaDetallePage() {
         alert('Error registrando cobro: ' + (r.error || 'desconocido'))
         return
       }
+
+      const usuarioRaw = localStorage.getItem('usuario')
+      const usuario = usuarioRaw ? JSON.parse(usuarioRaw) : null
+      void syncVentaPlotLabACaja({
+        tipo: 'cobro',
+        cobroId: r.data?.id,
+        numeroComprobante: cobroForm.numero_comprobante?.trim() || factura.numero_factura || null,
+        clienteNombre: factura.cliente_nombre || 'Cliente',
+        monto,
+        metodoPago: cobroForm.metodo_pago,
+        estadoPago: 'Pagado',
+        fecha: cobroForm.fecha_pago,
+        usuarioId: usuario?.id,
+        usuarioNombre: usuario?.nombre || usuario?.usuario || 'Tesorería'
+      }).catch((err) => console.warn('Sync cobro → caja:', err))
+
       alert('Cobro registrado.')
       await loadCxc(factura.id)
       setShowCobro(false)

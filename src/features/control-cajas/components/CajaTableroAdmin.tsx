@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { buildCalendarioCajasIndex, yearMonthFromDate } from '../calendarioCajasData'
 import { resumenAdminHoy } from '../cajaDashboardData'
+import { alertaDobleFuenteCaja } from '../plotlabVentasCajaData'
 import { fmtArs, fmtDateAr } from '../format'
 import {
   listArqueos,
   listCajas,
   listEgresoSolicitudes,
+  listMovimientos,
   listPlanillas,
   listTransferenciaLotes
 } from '../cajaRepository'
@@ -18,9 +20,10 @@ import CajaVolverPlotLab from './CajaVolverPlotLab'
 type Props = {
   onCierreTurno: () => void
   onEgresos: () => void
+  refreshKey?: number
 }
 
-export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
+export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey = 0 }: Props) {
   const hoy = getArgentinaDateString()
   const [selectedFecha, setSelectedFecha] = useState(hoy)
   const [yearMonth, setYearMonth] = useState(() => yearMonthFromDate(hoy))
@@ -30,6 +33,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
   const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
   const [arqueos, setArqueos] = useState<Awaited<ReturnType<typeof listArqueos>>>([])
   const [egresos, setEgresos] = useState<Awaited<ReturnType<typeof listEgresoSolicitudes>>>([])
+  const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
   const [loading, setLoading] = useState(true)
   const [detalleLote, setDetalleLote] = useState<CajaTransferenciaLote | null>(null)
 
@@ -40,26 +44,43 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
       listPlanillas(300),
       listEgresoSolicitudes(),
       listArqueos(),
-      listCajas()
-    ]).then(([l, p, e, a, c]) => {
+      listCajas(),
+      listMovimientos()
+    ]).then(([l, p, e, a, c, m]) => {
       setLotes(l)
       setPlanillas(p)
       setEgresos(e)
       setArqueos(a)
       setCajas(c)
+      setMovimientos(m)
       setLoading(false)
     })
+  }, [refreshKey])
+
+  useEffect(() => {
+    const onRefresh = () => {
+      void listMovimientos().then(setMovimientos)
+    }
+    window.addEventListener('caja-datos-actualizados', onRefresh)
+    return () => window.removeEventListener('caja-datos-actualizados', onRefresh)
   }, [])
 
   const calendarioIndex = useMemo(
-    () => buildCalendarioCajasIndex(lotes, planillas, arqueos, egresos, cajas),
-    [lotes, planillas, arqueos, egresos, cajas]
+    () => buildCalendarioCajasIndex(lotes, planillas, arqueos, egresos, cajas, movimientos),
+    [lotes, planillas, arqueos, egresos, cajas, movimientos]
   )
 
   const resumen = useMemo(
-    () => resumenAdminHoy(selectedFecha, lotes, planillas, egresos, cajas),
-    [selectedFecha, lotes, planillas, egresos, cajas]
+    () => resumenAdminHoy(selectedFecha, lotes, planillas, egresos, cajas, movimientos),
+    [selectedFecha, lotes, planillas, egresos, cajas, movimientos]
   )
+
+  const alertasDobleFuente = useMemo(() => {
+    return cajas
+      .filter((c) => c.activa && c.slug !== 'admin' && c.slug !== 'vuelto')
+      .map((c) => alertaDobleFuenteCaja(selectedFecha, c.slug, planillas, movimientos))
+      .filter((a) => a.activa)
+  }, [selectedFecha, cajas, planillas, movimientos])
 
   const cajaNombre = (slug: string) => cajas.find((x) => x.slug === slug)?.nombre ?? slug
 
@@ -73,7 +94,9 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
       ? 'Resto enviado a administración (cierres de turno)'
       : resumen.ingresoFuente === 'planilla'
         ? 'Ingresos en planillas PDF (aún sin cierre de turno)'
-        : 'Sin cierres de turno ni planillas este día'
+        : resumen.ingresoFuente === 'plotlab'
+          ? 'Ingresos desde ventas PlotLab (mostrador / CRM)'
+          : 'Sin cierres de turno ni planillas este día'
 
   const esHoy = selectedFecha === hoy
   const tituloDia = esHoy ? `Hoy — ${fmtDateAr(selectedFecha)}` : fmtDateAr(selectedFecha)
@@ -101,6 +124,14 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos }: Props) {
         </div>
         <CajaVolverPlotLab small />
       </div>
+
+      {alertasDobleFuente.length > 0 && (
+        <div className="caja-cc-alerta-doble-fuente" role="alert">
+          {alertasDobleFuente.map((a, i) => (
+            <p key={i}>{a.mensaje}</p>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p className="caja-cc-muted">Cargando movimientos del calendario…</p>

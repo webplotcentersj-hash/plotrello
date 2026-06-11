@@ -1,4 +1,4 @@
-import type { ArticuloEmpresaRecord } from '../types/api'
+import type { ArticuloEmpresaRecord, TipoIntencionPedido } from '../types/api'
 import { cantidadStockADescontar } from './commerceStockService'
 
 /** Artículo que descuenta stock en venta tipo compra. */
@@ -14,6 +14,31 @@ export function articuloPermiteCotizacion(
 ): boolean {
   const modo = articulo.modo_venta || 'ambos'
   return modo === 'cotizacion' || modo === 'ambos'
+}
+
+export function articuloPermiteIntencion(
+  articulo: Pick<ArticuloEmpresaRecord, 'modo_venta'>,
+  tipoIntencion: TipoIntencionPedido
+): boolean {
+  return tipoIntencion === 'compra' ? articuloPermiteCompra(articulo) : articuloPermiteCotizacion(articulo)
+}
+
+export function validarItemsParaIntencion(
+  items: Array<{ nombre: string; articulo?: Pick<ArticuloEmpresaRecord, 'modo_venta'> | null }>,
+  tipoIntencion: TipoIntencionPedido
+): string | null {
+  if (tipoIntencion === 'compra') {
+    const bloqueados = items.filter((it) => it.articulo && !articuloPermiteCompra(it.articulo))
+    if (bloqueados.length) {
+      return `Estos productos solo admiten cotización: ${bloqueados.map((b) => b.nombre).join(', ')}`
+    }
+  } else {
+    const bloqueados = items.filter((it) => it.articulo && !articuloPermiteCotizacion(it.articulo))
+    if (bloqueados.length) {
+      return `Estos productos solo admiten compra directa: ${bloqueados.map((b) => b.nombre).join(', ')}`
+    }
+  }
+  return null
 }
 
 export function articuloControlaStockEnCompra(
@@ -50,8 +75,19 @@ export type ValidacionCantidadVenta = { ok: true } | { ok: false; error: string;
 
 export function validarCantidadVentaComercial(
   articulo: ArticuloEmpresaRecord,
-  cantidadDeseada: number
+  cantidadDeseada: number,
+  tipoIntencion: TipoIntencionPedido = 'compra'
 ): ValidacionCantidadVenta {
+  if (tipoIntencion === 'cotizacion') {
+    const qty = Math.floor(cantidadDeseada)
+    if (!Number.isFinite(qty) || qty < 1) {
+      return { ok: false, error: 'Cantidad inválida' }
+    }
+    if (qty > 9999) {
+      return { ok: false, error: 'Cantidad máxima 9999', max: 9999 }
+    }
+    return { ok: true }
+  }
   const qty = Math.floor(cantidadDeseada)
   if (!Number.isFinite(qty) || qty < 1) {
     return { ok: false, error: 'Cantidad inválida' }

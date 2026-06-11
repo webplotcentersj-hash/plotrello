@@ -2,24 +2,29 @@ import { useEffect, useMemo, useState } from 'react'
 import { ventasDiariasAgregadas } from '../cajaDashboardData'
 import { fmtArs, fmtDateAr } from '../format'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
-import { listCierres, listPlanillas } from '../cajaRepository'
+import { listCierres, listMovimientos, listPlanillas } from '../cajaRepository'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 export default function CajaSectionVentasDiarias() {
   const [cierres, setCierres] = useState<Awaited<ReturnType<typeof listCierres>>>([])
   const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
+  const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
   const [q, setQ] = useState('')
   const [limit, setLimit] = useState(LIST_PAGE_SIZE)
 
   useEffect(() => {
-    void Promise.all([listCierres(), listPlanillas(200)]).then(([c, p]) => {
+    void Promise.all([listCierres(), listPlanillas(200), listMovimientos()]).then(([c, p, m]) => {
       setCierres(c)
       setPlanillas(p)
+      setMovimientos(m)
     })
   }, [])
 
-  const byDate = useMemo(() => ventasDiariasAgregadas(cierres, planillas), [cierres, planillas])
+  const byDate = useMemo(
+    () => ventasDiariasAgregadas(cierres, planillas, movimientos),
+    [cierres, planillas, movimientos]
+  )
 
   const days = useMemo(() => {
     const all = Object.keys(byDate).sort().reverse()
@@ -48,10 +53,15 @@ export default function CajaSectionVentasDiarias() {
     [days, byDate]
   )
 
+  const plotlabCount = movimientos.filter(
+    (m) => m.origen_importacion === 'plotlab_venta' && !m.anulado
+  ).length
   const fuenteHint =
     planillas.length > 0
       ? `${planillas.length} planilla(s) importada(s) — ventas principales desde PDF.`
-      : 'Importá planillas PDF en Mi arqueo o Movimientos para ver ventas por día.'
+      : plotlabCount > 0
+        ? `${plotlabCount} venta(s) sincronizadas desde PlotLab (mostrador / CRM).`
+        : 'Ventas desde PlotLab o importá planillas PDF en Mi arqueo.'
 
   const toolbar = (
     <div className="caja-cc-card-toolbar">
@@ -96,7 +106,13 @@ export default function CajaSectionVentasDiarias() {
                 {daysVisible.map((d) => {
                   const x = byDate[d]
                   const fuente =
-                    x.planillas > 0 ? `${x.planillas} planilla` : x.cierres > 0 ? `${x.cierres} cierre` : '—'
+                    x.planillas > 0
+                      ? `${x.planillas} planilla`
+                      : x.plotlab > 0
+                        ? `${x.plotlab} PlotLab`
+                        : x.cierres > 0
+                          ? `${x.cierres} cierre`
+                          : '—'
                   return (
                     <tr key={d}>
                       <td>{fmtDateAr(d)}</td>

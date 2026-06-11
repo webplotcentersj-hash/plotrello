@@ -11,6 +11,10 @@ export default function PlanillaMediosResumen({ ingresos, egresos, neto }: Props
   return (
     <div className="caja-cc-planilla-medios-resumen">
       <h4>Totales por medio de pago (todo el PDF)</h4>
+      <p className="caja-cc-help caja-cc-planilla-medios-destino">
+        Al importar: <strong>Egresos</strong> (efectivo + tarjetas) → sección Egresos ·{' '}
+        <strong>Cta.cte.</strong> neta → Nuevo cierre (Paso 5) · <strong>Efectivo</strong> neto → Mi arqueo (billetes).
+      </p>
       <div className="caja-cc-table-scroll">
         <table className="caja-cc-table caja-cc-table-compact">
           <thead>

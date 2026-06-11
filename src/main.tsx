@@ -2,7 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
+import { initPlotlabVentaCajaBridge } from './features/control-cajas/plotlabVentaCajaSync'
 import './style.css'
+
+initPlotlabVentaCajaBridge()
 
 // Manejo global de errores no capturados
 window.addEventListener('error', (event) => {

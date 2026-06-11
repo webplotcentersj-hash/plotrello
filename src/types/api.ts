@@ -1603,6 +1603,10 @@ export interface Venta {
   valor_total: number
   metodo_pago?: MetodoPago | null
   estado_pago: EstadoPago
+  /** Monto ya cobrado (ventas parciales → sync caja). */
+  monto_pagado?: number | null
+  /** Caja donde se registró el cobro en mostrador. */
+  caja_slug_cobro?: string | null
   fecha_venta: string
   id_vendedor: number
   nombre_vendedor: string

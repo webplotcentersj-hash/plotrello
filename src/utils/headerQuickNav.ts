@@ -124,6 +124,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
           title: 'Dashboard Diseño'
         })
       }
+      push({
+        id: 'bolsa-diseno',
+        label: 'PlotBolsa',
+        icon: '🧰',
+        href: '/bolsa',
+        title: 'Bolsa de trabajos de diseño'
+      })
       break
     case 'taller-grafico':
       push({
@@ -151,6 +158,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/app-campo',
         title: 'App campo Instalaciones'
       })
+      push({
+        id: 'bolsa-instalaciones',
+        label: 'PlotBolsa',
+        icon: '🧰',
+        href: '/bolsa',
+        title: 'Bolsa de trabajos instalaciones'
+      })
       break
     case 'metalurgica':
       push({
@@ -159,6 +173,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         icon: '🔧',
         href: '/metalurgica/inventario',
         title: 'Inventario Metalúrgica'
+      })
+      push({
+        id: 'bolsa-metalurgica',
+        label: 'PlotBolsa',
+        icon: '🧰',
+        href: '/bolsa',
+        title: 'Bolsa de trabajos metalúrgica'
       })
       break
     case 'asesor-tecnico':
@@ -174,6 +195,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       break
     case 'administracion':
     case 'gerencia':
+      push({
+        id: 'bolsa-admin',
+        label: 'PlotBolsa',
+        icon: '🧰',
+        href: '/bolsa',
+        title: 'Bolsa de trabajos y cuenta operarios'
+      })
       if (ctx.isAdmin && ctx.onNavigateToStats) {
         push({
           id: 'dashboard-stats',

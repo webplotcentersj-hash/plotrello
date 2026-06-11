@@ -25,6 +25,8 @@ import { generateContent } from '../services/plotAIService'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
+import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
+import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
 import './CRMVentasPage.css'
 
 const CRM_VENTAS_TAB_KEY = 'crmVentasActiveTab'
@@ -256,6 +258,11 @@ const CRMVentasPage = () => {
   const [oportunidadParaPresupuesto, setOportunidadParaPresupuesto] = useState<OportunidadVenta | null>(null)
   const [crmBootstrapped, setCrmBootstrapped] = useState(false)
   const [lastDataRefresh, setLastDataRefresh] = useState<Date | null>(null)
+  const [cobroCajaModal, setCobroCajaModal] = useState<{
+    venta: Venta
+    estadoDestino: 'Pagado' | 'Parcial'
+  } | null>(null)
+  const [resyncVentaId, setResyncVentaId] = useState<number | null>(null)
 
   const busquedaOportunidadRef = useRef<HTMLInputElement>(null)
   const busquedaVentaRef = useRef<HTMLInputElement>(null)
@@ -1285,6 +1292,11 @@ const CRMVentasPage = () => {
   }
 
   const actualizarEstadoPagoVenta = async (venta: Venta, nuevoEstado: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado') => {
+    if (nuevoEstado === 'Pagado' || nuevoEstado === 'Parcial') {
+      setCobroCajaModal({ venta, estadoDestino: nuevoEstado })
+      return
+    }
+
     if (!supabase) {
       alert('Error: Supabase no está inicializado')
       return
@@ -1300,10 +1312,61 @@ const CRMVentasPage = () => {
 
       if (error) throw error
 
+      const { dispararSyncCajaVenta } = await import('../features/control-cajas/plotlabVentaCajaSync')
+      dispararSyncCajaVenta({ ...venta, estado_pago: nuevoEstado })
+
       await loadData()
     } catch (error: any) {
       console.error('Error actualizando estado de pago:', error)
       alert('Error al actualizar estado de pago: ' + error.message)
+    }
+  }
+
+  const confirmarCobroCaja = async (data: { cajaSlug: string; montoPagado?: number }) => {
+    if (!cobroCajaModal) return
+    const { venta, estadoDestino } = cobroCajaModal
+    const r = await apiService.actualizarVenta(venta.id, {
+      estado_pago: estadoDestino,
+      caja_slug_cobro: data.cajaSlug,
+      monto_pagado: estadoDestino === 'Parcial' ? data.montoPagado ?? null : venta.valor_total
+    })
+    if (!r.success) throw new Error(r.error || 'No se pudo actualizar la venta')
+    await forceResyncVenta({
+      ...venta,
+      estado_pago: estadoDestino,
+      caja_slug_cobro: data.cajaSlug,
+      monto_pagado: estadoDestino === 'Parcial' ? data.montoPagado : venta.valor_total
+    })
+    await loadData()
+  }
+
+  const handleResyncCajaVenta = async (venta: Venta) => {
+    setResyncVentaId(venta.id)
+    try {
+      const r = await forceResyncVenta(venta)
+      if (!r.ok && !r.omitido) alert(r.error)
+    } finally {
+      setResyncVentaId(null)
+    }
+  }
+
+  const actualizarMetodoPagoVenta = async (
+    venta: Venta,
+    nuevoMetodo: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+  ) => {
+    if (nuevoMetodo === venta.metodo_pago) return
+
+    try {
+      const r = await apiService.actualizarVenta(venta.id, { metodo_pago: nuevoMetodo })
+      if (!r.success) {
+        alert('Error al actualizar método de pago: ' + (r.error || 'desconocido'))
+        return
+      }
+      await forceResyncVenta({ ...venta, metodo_pago: nuevoMetodo })
+      await loadData()
+    } catch (error: any) {
+      console.error('Error actualizando método de pago:', error)
+      alert('Error al actualizar método de pago: ' + error.message)
     }
   }
 
@@ -2584,6 +2647,39 @@ const CRMVentasPage = () => {
                       </div>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    className="btn-action"
+                    title="Re-sincronizar con Control de Cajas"
+                    disabled={resyncVentaId === venta.id}
+                    onClick={() => void handleResyncCajaVenta(venta)}
+                  >
+                    {resyncVentaId === venta.id ? '↻…' : '↻ Caja'}
+                  </button>
+                  <select
+                    className="venta-estado-select"
+                    value={venta.metodo_pago || 'Otro'}
+                    onChange={(e) =>
+                      actualizarMetodoPagoVenta(
+                        venta,
+                        e.target.value as
+                          | 'Efectivo'
+                          | 'Transferencia'
+                          | 'Tarjeta'
+                          | 'Cheque'
+                          | 'Cuenta Corriente'
+                          | 'Otro'
+                      )
+                    }
+                    title="Método de pago (actualiza caja si la venta está cobrada)"
+                  >
+                    <option value="Efectivo">💵 Efectivo</option>
+                    <option value="Tarjeta">💳 Tarjeta</option>
+                    <option value="Transferencia">🏦 Transferencia</option>
+                    <option value="Cheque">📄 Cheque</option>
+                    <option value="Cuenta Corriente">📒 Cta. cte.</option>
+                    <option value="Otro">Otro</option>
+                  </select>
                   <select
                     className="venta-estado-select"
                     value={venta.estado_pago}
@@ -3454,6 +3550,15 @@ const CRMVentasPage = () => {
       )}
 
       {/* Modal Crear Presupuesto */}
+      {cobroCajaModal && (
+        <CajaCobroVentaModal
+          venta={cobroCajaModal.venta}
+          estadoDestino={cobroCajaModal.estadoDestino}
+          onClose={() => setCobroCajaModal(null)}
+          onConfirm={confirmarCobroCaja}
+        />
+      )}
+
       {mostrarModalPresupuesto && usuario && (
         <CrearPresupuestoModal
           key={oportunidadParaPresupuesto ? `opp-${oportunidadParaPresupuesto.id}` : 'presupuesto-nuevo'}

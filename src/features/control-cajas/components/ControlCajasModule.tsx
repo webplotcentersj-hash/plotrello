@@ -215,6 +215,7 @@ export default function ControlCajasModule() {
         onPlanillaParsed={setPlanillaActiva}
         onImported={() => {
           refreshMovimientos()
+          bumpRefresh()
         }}
       />
       {section === 'arqueo' && (
@@ -366,6 +367,7 @@ export default function ControlCajasModule() {
 
           {section === 'tablero_admin' && enVistaAdmin && (
             <CajaTableroAdmin
+              refreshKey={refreshKey}
               onCierreTurno={() => setSection('cierre_turno')}
               onEgresos={() => setSection('egresos')}
             />

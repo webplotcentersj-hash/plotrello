@@ -529,7 +529,9 @@ function mapMovRow(r: Record<string, unknown>): CajaMovimiento {
         ? 'planilla_pdf'
         : imp === 'comprobante'
           ? 'comprobante'
-          : 'manual'
+          : imp === 'plotlab_venta'
+            ? 'plotlab_venta'
+            : 'manual'
   const tipo = r.tipo_movimiento
   return {
     id: String(r.id),
@@ -746,6 +748,51 @@ export async function listEgresoSolicitudes(opts?: {
   if (opts?.cajaSlug) list = list.filter((s) => mismoCajaSlug(s.caja_slug, opts.cajaSlug!))
   if (opts?.soloPendientes) list = list.filter((s) => s.estado === 'pendiente')
   return [...list].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+}
+
+/** Egreso ya aprobado al importar planilla (sin duplicar movimiento). */
+export async function saveEgresoSolicitudImportado(
+  input: Omit<
+    CajaEgresoSolicitud,
+    'id' | 'estado' | 'created_at' | 'updated_at' | 'aprobador_id' | 'motivo_rechazo'
+  > & { id?: string; aprobador_nombre?: string | null }
+): Promise<CajaEgresoSolicitud> {
+  const id = input.id ?? newId()
+  const now = new Date().toISOString()
+  const aprobadorNombre = input.aprobador_nombre ?? 'Planilla PDF'
+  const record: CajaEgresoSolicitud = {
+    ...input,
+    id,
+    estado: 'aprobado',
+    aprobador_id: null,
+    aprobador_nombre: aprobadorNombre,
+    motivo_rechazo: null,
+    created_at: now,
+    updated_at: now
+  }
+
+  if (await checkRemote()) {
+    const { error } = await supabase!.from('control_caja_egreso_solicitudes').insert({
+      id,
+      fecha: input.fecha,
+      caja_slug: input.caja_slug,
+      concepto: input.concepto,
+      monto_efectivo: input.monto_efectivo,
+      monto_otros: input.monto_otros,
+      estado: 'aprobado',
+      solicitante_id: input.solicitante_id ?? null,
+      solicitante_nombre: input.solicitante_nombre ?? null,
+      observacion: input.observacion ?? null,
+      aprobador_nombre: aprobadorNombre,
+      id_movimiento: input.id_movimiento ?? null
+    })
+    if (!error) return record
+  }
+
+  const store = readLocal()
+  store.egreso_solicitudes.unshift(record)
+  writeLocal(store)
+  return record
 }
 
 export async function createEgresoSolicitud(

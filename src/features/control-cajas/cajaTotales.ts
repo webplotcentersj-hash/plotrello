@@ -99,19 +99,36 @@ export function cierrePrecargaDesdePlanilla(planilla: PlanillaCajaParsed): Parti
       }
     : calc.egresos
 
+  const ctaNeto = netoCtaCteDesdePlanilla(planilla)
   return {
     ing_ef: ing.efectivo ?? 0,
     egr_ef: egr.efectivo ?? 0,
     tarj_sist: ing.tarjetas ?? 0,
     trans: ing.trans_b ?? 0,
-    cta_cte: ing.cta_cte ?? 0,
+    cta_cte: Math.abs(ctaNeto) > 0 ? ctaNeto : (ing.cta_cte ?? 0),
     total_ventas: ing.total ?? 0
   }
 }
 
 /** Neto del día solo en columna Efectivo (ingresos − egresos en efectivo). */
 export function netoEfectivoDesdePlanilla(planilla: PlanillaCajaParsed): number {
+  const t = planilla.totales
+  if (t?.neto_por_columna?.efectivo != null && Math.abs(t.neto_por_columna.efectivo) > 0) {
+    return t.neto_por_columna.efectivo
+  }
+  if (t) {
+    const desdeTotales = (t.ingresos_efectivo || 0) - (t.egresos_efectivo || 0)
+    if (Math.abs(desdeTotales) > 0) return desdeTotales
+  }
   return calcularTotalesDesdePlanilla(planilla).neto.efectivo
+}
+
+/** Neto cuenta corriente del PDF (columna Cta.cte, fila Neto). */
+export function netoCtaCteDesdePlanilla(planilla: PlanillaCajaParsed): number {
+  const t = planilla.totales
+  if (t?.neto_por_columna?.cta_cte != null) return t.neto_por_columna.cta_cte
+  if (t) return (t.ingresos_cta_cte || 0) - (t.egresos_cta_cte || 0)
+  return calcularTotalesDesdePlanilla(planilla).neto.cta_cte
 }
 
 /**

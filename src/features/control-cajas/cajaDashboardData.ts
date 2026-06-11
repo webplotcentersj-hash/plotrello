@@ -23,9 +23,10 @@ export type VentasDiaCanal = {
   tot: number
   planillas: number
   cierres: number
+  plotlab: number
 }
 
-export type SistemaDiaFuente = 'cierres' | 'planillas' | 'movimientos' | 'ninguno'
+export type SistemaDiaFuente = 'cierres' | 'planillas' | 'movimientos' | 'plotlab' | 'ninguno'
 
 export function mesArgentina(): string {
   return getArgentinaDateString().slice(0, 7)
@@ -37,6 +38,32 @@ export function planillaEnFecha(p: PlanillaCajaGuardada, fecha: string): boolean
   if (!d && !h) return false
   if (d && h) return fecha >= d && fecha <= h
   return d === fecha || h === fecha
+}
+
+/** Fechas cubiertas por una planilla (rango inclusive). */
+export function fechasEnRangoPlanilla(p: Pick<PlanillaCajaGuardada, 'fecha_desde' | 'fecha_hasta'>): string[] {
+  const d = (p.fecha_desde || p.fecha_hasta || '').slice(0, 10)
+  const h = (p.fecha_hasta || p.fecha_desde || d).slice(0, 10)
+  if (!d) return []
+  if (d === h) return [d]
+  const out: string[] = []
+  const cur = new Date(`${d}T12:00:00`)
+  const end = new Date(`${h}T12:00:00`)
+  while (cur <= end) {
+    out.push(cur.toISOString().slice(0, 10))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return out
+}
+
+export function totalesEgresosPlanilla(p: PlanillaCajaGuardada): number {
+  const t = p.totales ?? {}
+  return Number(t.egresos_total) || 0
+}
+
+export function totalesIngresosPlanilla(p: PlanillaCajaGuardada): number {
+  const t = p.totales ?? {}
+  return Number(t.ingresos_total) || 0
 }
 
 function totalesPlanilla(p: PlanillaCajaGuardada) {
@@ -97,16 +124,50 @@ export function sistemaBancoParaFecha(
   return { valor: 0, fuente: 'ninguno' }
 }
 
-/** Ventas por día: planillas (principal) + cierres en días sin planilla. */
+function ingresosPlotLabDelDia(movimientos: CajaMovimiento[], fecha: string): VentasDiaCanal {
+  const row: VentasDiaCanal = {
+    ef: 0,
+    tj: 0,
+    mp: 0,
+    tr: 0,
+    cc: 0,
+    tot: 0,
+    planillas: 0,
+    cierres: 0,
+    plotlab: 0
+  }
+  for (const mov of movimientos) {
+    if (mov.fecha !== fecha || mov.anulado || mov.tipo_movimiento !== 'ingreso') continue
+    if (mov.origen_importacion !== 'plotlab_venta') continue
+    row.ef += mov.efectivo || 0
+    row.tj += mov.tarjeta || 0
+    row.mp += mov.tarjeta || 0
+    row.tr += mov.transferencia_bancaria || 0
+    row.cc += mov.cuenta_corriente || 0
+    row.tot += mov.monto_total || 0
+    row.plotlab += 1
+  }
+  return row
+}
+
+export function totalesIngresosPlotLab(
+  movimientos: CajaMovimiento[],
+  fecha: string
+): number {
+  return ingresosPlotLabDelDia(movimientos, fecha).tot
+}
+
+/** Ventas por día: planillas (principal) + PlotLab en vivo + cierres en días sin planilla. */
 export function ventasDiariasAgregadas(
   cierres: CajaCierre[],
-  planillas: PlanillaCajaGuardada[]
+  planillas: PlanillaCajaGuardada[],
+  movimientos: CajaMovimiento[] = []
 ): Record<string, VentasDiaCanal> {
   const m: Record<string, VentasDiaCanal> = {}
 
   const ensure = (fecha: string): VentasDiaCanal => {
     if (!m[fecha]) {
-      m[fecha] = { ef: 0, tj: 0, mp: 0, tr: 0, cc: 0, tot: 0, planillas: 0, cierres: 0 }
+      m[fecha] = { ef: 0, tj: 0, mp: 0, tr: 0, cc: 0, tot: 0, planillas: 0, cierres: 0, plotlab: 0 }
     }
     return m[fecha]
   }
@@ -125,9 +186,35 @@ export function ventasDiariasAgregadas(
     row.planillas += 1
   }
 
+  const fechasPlotLab = new Set<string>()
+  for (const mov of movimientos) {
+    if (
+      mov.origen_importacion === 'plotlab_venta' &&
+      mov.tipo_movimiento === 'ingreso' &&
+      !mov.anulado &&
+      mov.fecha
+    ) {
+      fechasPlotLab.add(mov.fecha)
+    }
+  }
+
+  for (const fecha of fechasPlotLab) {
+    const row = ensure(fecha)
+    if (row.planillas > 0) continue
+    const pl = ingresosPlotLabDelDia(movimientos, fecha)
+    if (pl.plotlab <= 0) continue
+    row.ef += pl.ef
+    row.tj += pl.tj
+    row.mp += pl.mp
+    row.tr += pl.tr
+    row.cc += pl.cc
+    row.tot += pl.tot
+    row.plotlab += pl.plotlab
+  }
+
   for (const c of cierres) {
     const row = ensure(c.fecha)
-    if (row.planillas > 0) continue
+    if (row.planillas > 0 || row.plotlab > 0) continue
     row.ef += c.ing_ef
     row.tj += c.tarj_sist
     row.mp += c.mp_qr
@@ -325,7 +412,7 @@ function validarCuadreMovimiento(m: CajaMovimiento): number | null {
 export type ResumenAdminHoy = {
   fecha: string
   ingresoHoy: number
-  ingresoFuente: 'cierre_turno' | 'planilla' | 'ninguno'
+  ingresoFuente: 'cierre_turno' | 'planilla' | 'plotlab' | 'ninguno'
   egresosHoy: number
   egresosPendientes: number
   fondoFijo: number
@@ -340,7 +427,8 @@ export function resumenAdminHoy(
   lotes: CajaTransferenciaLote[],
   planillas: PlanillaCajaGuardada[],
   egresos: CajaEgresoSolicitud[],
-  cajas: CajaRegistro[] = []
+  cajas: CajaRegistro[] = [],
+  movimientos: CajaMovimiento[] = []
 ): ResumenAdminHoy {
   const cierresTurnoHoy = lotes.filter((l) => l.fecha === fecha)
   const ingresoLotes = cierresTurnoHoy.reduce(
@@ -352,21 +440,40 @@ export function resumenAdminHoy(
   if (ingresoLotes <= 0) {
     for (const p of planillas) {
       if (planillaEnFecha(p, fecha)) {
-        ingresoPlanilla += Number(p.totales?.ingresos_total) || 0
+        ingresoPlanilla += totalesIngresosPlanilla(p)
       }
     }
   }
 
-  const ingresoHoy = ingresoLotes > 0 ? ingresoLotes : ingresoPlanilla
+  let ingresoPlotLab = 0
+  if (ingresoLotes <= 0 && ingresoPlanilla <= 0) {
+    ingresoPlotLab = totalesIngresosPlotLab(movimientos, fecha)
+  }
+
+  const ingresoHoy =
+    ingresoLotes > 0 ? ingresoLotes : ingresoPlanilla > 0 ? ingresoPlanilla : ingresoPlotLab
   const ingresoFuente: ResumenAdminHoy['ingresoFuente'] =
-    ingresoLotes > 0 ? 'cierre_turno' : ingresoPlanilla > 0 ? 'planilla' : 'ninguno'
+    ingresoLotes > 0
+      ? 'cierre_turno'
+      : ingresoPlanilla > 0
+        ? 'planilla'
+        : ingresoPlotLab > 0
+          ? 'plotlab'
+          : 'ninguno'
 
   const delDia = egresos.filter((e) => e.fecha === fecha)
   const aprobados = delDia.filter((e) => e.estado === 'aprobado')
-  const egresosHoy = aprobados.reduce(
+  let egresosHoy = aprobados.reduce(
     (s, e) => s + (e.monto_efectivo || 0) + (e.monto_otros || 0),
     0
   )
+  if (egresosHoy <= 0) {
+    for (const p of planillas) {
+      if (planillaEnFecha(p, fecha)) {
+        egresosHoy += totalesEgresosPlanilla(p)
+      }
+    }
+  }
   const egresosPendientes = delDia.filter((e) => e.estado === 'pendiente').length
 
   const fondosOperativas = cajas
@@ -392,6 +499,8 @@ export function labelFuenteSistema(fuente: SistemaDiaFuente): string {
       return 'cierres del día'
     case 'planillas':
       return 'planillas PDF importadas'
+    case 'plotlab':
+      return 'ventas PlotLab en vivo'
     case 'movimientos':
       return 'movimientos volcados'
     default:

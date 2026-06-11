@@ -10037,6 +10037,21 @@ class ApiService {
           p_usuario_id: usuarioId
         })
         if (error) return { success: false, error: error.message }
+
+        if (data) {
+          const { data: sol } = await supabase
+            .from('totem_impresion_solicitudes')
+            .select('id_venta')
+            .eq('id', solicitudId)
+            .maybeSingle()
+          if (sol?.id_venta) {
+            const ventaRes = await this.getVenta(Number(sol.id_venta))
+            if (ventaRes.success && ventaRes.data) {
+              void syncCajaDesdeVentaApi(ventaRes.data)
+            }
+          }
+        }
+
         return { success: true, data: Boolean(data) }
       } catch (e) {
         return { success: false, error: e instanceof Error ? e.message : 'Error desconocido' }
@@ -17174,25 +17189,32 @@ class ApiService {
       if (error) throw error
 
       // La función RPC devuelve un JSON con {success: true, data: {...}}
+      let ventaCreada: { id: number; numero_venta: string } | null = null
+
       if (data && typeof data === 'object' && 'success' in data) {
         const result = data as any
         if (result.success && result.data) {
-          return {
-            success: true,
-            data: result.data as { id: number; numero_venta: string }
-          }
+          ventaCreada = result.data as { id: number; numero_venta: string }
         }
+      } else if (data && typeof data === 'object' && 'id' in data) {
+        ventaCreada = data as { id: number; numero_venta: string }
       }
 
-      // Si no viene en el formato esperado, intentar acceder directamente
-      if (data && typeof data === 'object' && 'id' in data) {
-        return {
-          success: true,
-          data: data as { id: number; numero_venta: string }
-        }
-      }
+      if (!ventaCreada) throw new Error('Formato de respuesta inesperado')
 
-      throw new Error('Formato de respuesta inesperado')
+      void syncCajaDesdeVentaApi({
+        id: ventaCreada.id,
+        numero_venta: ventaCreada.numero_venta,
+        cliente_nombre: venta.cliente_nombre,
+        valor_total: venta.valor_total,
+        metodo_pago: venta.metodo_pago ?? null,
+        estado_pago: venta.estado_pago ?? null,
+        fecha_venta: venta.fecha_venta ?? null,
+        id_vendedor: venta.id_vendedor,
+        nombre_vendedor: venta.nombre_vendedor
+      })
+
+      return { success: true, data: ventaCreada }
     } catch (error: any) {
       console.error('Error al crear venta directa:', error)
       return {
@@ -17309,19 +17331,24 @@ class ApiService {
         }
       }
 
+      let ventaCreada: { id: number; numero_venta: string } | null = null
+
       if (payload && typeof payload === 'object' && 'success' in (payload as object)) {
         const result = payload as { success?: boolean; data?: { id: number; numero_venta: string }; error?: string }
-        if (result.success && result.data) {
-          return { success: true, data: result.data }
-        }
-        throw new Error(result.error || 'No se pudo crear la venta desde la oportunidad')
+        if (result.success && result.data) ventaCreada = result.data
+        else throw new Error(result.error || 'No se pudo crear la venta desde la oportunidad')
+      } else if (payload && typeof payload === 'object' && 'id' in (payload as object)) {
+        ventaCreada = payload as { id: number; numero_venta: string }
       }
 
-      if (payload && typeof payload === 'object' && 'id' in (payload as object)) {
-        return { success: true, data: payload as { id: number; numero_venta: string } }
+      if (!ventaCreada) throw new Error('Formato de respuesta inesperado al crear venta desde oportunidad')
+
+      const ventaRes = await this.getVenta(ventaCreada.id)
+      if (ventaRes.success && ventaRes.data) {
+        void syncCajaDesdeVentaApi(ventaRes.data)
       }
 
-      throw new Error('Formato de respuesta inesperado al crear venta desde oportunidad')
+      return { success: true, data: ventaCreada }
     } catch (error: any) {
       console.error('Error al crear venta desde oportunidad:', error)
       return {
@@ -17545,6 +17572,8 @@ class ApiService {
       valor_total: number
       metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
       estado_pago: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
+      monto_pagado: number | null
+      caja_slug_cobro: string | null
       fecha_venta: string
       observaciones: string
       comprobante_pago_url: string | null
@@ -17561,6 +17590,8 @@ class ApiService {
       if (venta.valor_total !== undefined) updateData.valor_total = venta.valor_total
       if (venta.metodo_pago !== undefined) updateData.metodo_pago = venta.metodo_pago
       if (venta.estado_pago !== undefined) updateData.estado_pago = venta.estado_pago
+      if (venta.monto_pagado !== undefined) updateData.monto_pagado = venta.monto_pagado
+      if (venta.caja_slug_cobro !== undefined) updateData.caja_slug_cobro = venta.caja_slug_cobro
       if (venta.fecha_venta !== undefined) updateData.fecha_venta = venta.fecha_venta
       if (venta.observaciones !== undefined) updateData.observaciones = venta.observaciones
       if (venta.comprobante_pago_url !== undefined) {
@@ -17574,6 +17605,11 @@ class ApiService {
         .eq('id', id)
 
       if (error) throw error
+
+      const ventaRes = await this.getVenta(id)
+      if (ventaRes.success && ventaRes.data) {
+        void syncCajaDesdeVentaApi(ventaRes.data, { silencioso: true })
+      }
 
       return { success: true, data: { success: true } }
     } catch (error: any) {
@@ -19444,7 +19480,55 @@ class ApiService {
           console.warn('No se pudo actualizar CxP luego del pago:', e)
         }
 
-        return { success: true, data: data as import('../types/api').PagoCobroRecord }
+        const pagoRecord = data as import('../types/api').PagoCobroRecord
+        void (async () => {
+          try {
+            const { syncEgresoDesdePagoPlotLab } = await import('../features/control-cajas/plotlabEgresosSync')
+            const { getParams, listCajas, resolveCajaSlugForUsuario } = await import(
+              '../features/control-cajas/cajaRepository'
+            )
+            const usuarioData = localStorage.getItem('usuario')
+            const usuario = usuarioData ? JSON.parse(usuarioData) : null
+            const [cajas, params] = await Promise.all([listCajas(), getParams()])
+            const cajaSlug =
+              resolveCajaSlugForUsuario(
+                usuario?.nombre || 'Tesorería',
+                cajas,
+                params.cajeras,
+                { usuarioId: usuario?.id }
+              ) || cajas.find((c) => c.slug !== 'admin' && c.slug !== 'vuelto')?.slug
+            if (!cajaSlug) return
+            let concepto = `Pago proveedor #${pago.id_cuenta_por_pagar}`
+            if (supabase) {
+              const { data: cxp } = await supabase
+                .from('cuentas_por_pagar')
+                .select('proveedor_nombre, concepto')
+                .eq('id', pago.id_cuenta_por_pagar)
+                .maybeSingle()
+              if (cxp) {
+                concepto =
+                  (cxp as { proveedor_nombre?: string; concepto?: string }).proveedor_nombre ||
+                  (cxp as { concepto?: string }).concepto ||
+                  concepto
+              }
+            }
+            await syncEgresoDesdePagoPlotLab({
+              pagoId: pagoRecord.id,
+              monto: Number(pago.monto) || 0,
+              metodoPago: pago.metodo_pago,
+              fecha: pago.fecha_pago,
+              concepto,
+              cajaSlug,
+              usuarioId: usuario?.id,
+              usuarioNombre: usuario?.nombre || 'Tesorería',
+              numeroComprobante: pago.numero_comprobante
+            })
+          } catch (e) {
+            console.warn('Sync egreso pago → caja:', e)
+          }
+        })()
+
+        return { success: true, data: pagoRecord }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
@@ -20661,6 +20745,20 @@ function inferChatType(message: string): ChatMessageUI['tipo'] {
   if (message.toLowerCase().includes('zumbido')) return 'buzz'
   if (message.toLowerCase().includes('alerta') || message.includes('¡Atención!')) return 'alert'
   return 'message'
+}
+
+type VentaCajaSyncPayload = import('../features/control-cajas/plotlabVentaCajaSync').VentaCajaSyncRecord
+
+async function syncCajaDesdeVentaApi(
+  venta: VentaCajaSyncPayload,
+  opts?: { silencioso?: boolean }
+): Promise<void> {
+  try {
+    const { syncDesdeVentaRecord } = await import('../features/control-cajas/plotlabVentaCajaSync')
+    await syncDesdeVentaRecord(venta, { silencioso: opts?.silencioso ?? false })
+  } catch (e) {
+    console.warn('Sync venta → caja:', e)
+  }
 }
 
 export const apiService = new ApiService()

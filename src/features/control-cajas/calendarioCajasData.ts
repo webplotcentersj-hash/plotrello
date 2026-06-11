@@ -1,9 +1,14 @@
-import { planillaEnFecha, resumenAdminHoy } from './cajaDashboardData'
+import {
+  fechasEnRangoPlanilla,
+  planillaEnFecha,
+  resumenAdminHoy,
+} from './cajaDashboardData'
 import { fmtArs, fmtDateAr } from './format'
 import { matchSearchQuery } from './listFilters'
 import type {
   CajaArqueo,
   CajaEgresoSolicitud,
+  CajaMovimiento,
   CajaRegistro,
   CajaTransferenciaLote,
   PlanillaCajaGuardada
@@ -80,7 +85,8 @@ export function buildCalendarioCajasIndex(
   planillas: PlanillaCajaGuardada[],
   arqueos: CajaArqueo[],
   egresos: CajaEgresoSolicitud[],
-  cajas: CajaRegistro[]
+  cajas: CajaRegistro[],
+  movimientos: CajaMovimiento[] = []
 ): CalendarioCajasIndex {
   const index: CalendarioCajasIndex = {}
   const fechas = new Set<string>()
@@ -89,8 +95,7 @@ export function buildCalendarioCajasIndex(
     if (l.fecha) fechas.add(l.fecha)
   }
   for (const p of planillas) {
-    const f = p.fecha_hasta || p.fecha_desde
-    if (f) fechas.add(f)
+    for (const f of fechasEnRangoPlanilla(p)) fechas.add(f)
   }
   for (const a of arqueos) {
     if (a.fecha) fechas.add(a.fecha)
@@ -98,9 +103,12 @@ export function buildCalendarioCajasIndex(
   for (const e of egresos) {
     if (e.fecha) fechas.add(e.fecha)
   }
+  for (const m of movimientos) {
+    if (m.origen_importacion === 'plotlab_venta' && m.fecha && !m.anulado) fechas.add(m.fecha)
+  }
 
   for (const fecha of fechas) {
-    const resumen = resumenAdminHoy(fecha, lotes, planillas, egresos, cajas)
+    const resumen = resumenAdminHoy(fecha, lotes, planillas, egresos, cajas, movimientos)
     const day = ensureDay(index, fecha)
     day.ingreso = resumen.ingresoHoy
     day.egreso = resumen.egresosHoy
@@ -113,12 +121,18 @@ export function buildCalendarioCajasIndex(
     }
   }
 
+  const planillasContadas = new Set<string>()
   for (const p of planillas) {
-    const f = p.fecha_hasta || p.fecha_desde
-    if (!f) continue
-    const day = ensureDay(index, f)
-    day.planillas += 1
-    addCajaSlug(day, p.caja_slug)
+    for (const f of fechasEnRangoPlanilla(p)) {
+      if (!planillaEnFecha(p, f)) continue
+      const day = ensureDay(index, f)
+      const key = `${p.id}:${f}`
+      if (!planillasContadas.has(key)) {
+        day.planillas += 1
+        planillasContadas.add(key)
+      }
+      addCajaSlug(day, p.caja_slug)
+    }
   }
 
   for (const a of arqueos) {

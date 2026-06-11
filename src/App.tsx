@@ -4,6 +4,7 @@ import GlobalAlertScreen from './components/GlobalAlertScreen'
 import PwaUpdateBanner from './components/PwaUpdateBanner'
 import PwaUpdateModalHost from './components/PwaUpdateModalHost'
 import PwaUpdateToast from './components/PwaUpdateToast'
+import CajaSyncToastHost from './features/control-cajas/components/CajaSyncToastHost'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
@@ -102,6 +103,7 @@ function App() {
       <PwaUpdateBanner />
       <PwaUpdateModalHost />
       <PwaUpdateToast />
+      <CajaSyncToastHost />
       {loading ? (
         <LoadingScreen />
       ) : (

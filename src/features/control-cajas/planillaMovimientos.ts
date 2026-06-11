@@ -1,7 +1,7 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { newId } from './format'
 
-function fechaPlanillaImport(planilla: PlanillaCajaParsed): string {
+export function fechaPlanillaImport(planilla: PlanillaCajaParsed): string {
   const raw = (planilla.fecha_hasta || planilla.fecha_desde || '').trim().slice(0, 10)
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : getArgentinaDateString()
 }

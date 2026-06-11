@@ -368,6 +368,11 @@ const Header = ({
                 💰 Caja
               </Link>
             )}
+            {(isDiseno || isMetalurgica || canAccessAppCampo || isAdmin) && (
+              <Link to="/bolsa" className="brand-button" onClick={() => setActionsOpen(false)}>
+                🧰 PlotBolsa
+              </Link>
+            )}
             {(isDiseno || isAdmin) && onNavigateToDiseno && (
               <button className="brand-button" onClick={onNavigateToDiseno}>
                 🎨 Dashboard Diseño

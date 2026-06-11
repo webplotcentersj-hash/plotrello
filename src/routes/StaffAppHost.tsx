@@ -98,6 +98,7 @@ const MetalurgicaInventarioPage = lazy(() => import('../pages/MetalurgicaInventa
 const TallerGraficoDashboardPage = lazy(() => import('../pages/TallerGraficoDashboardPage'))
 const SectorEtapaKanbanPage = lazy(() => import('../pages/SectorEtapaKanbanPage'))
 const InstalacionesMetalurgicaCampoPage = lazy(() => import('../pages/InstalacionesMetalurgicaCampoPage'))
+const WorkPoolPage = lazy(() => import('../pages/WorkPoolPage'))
 const PresupuestosClientesAdminPage = lazy(() => import('../pages/PresupuestosClientesAdminPage'))
 const PresupuestoClienteDetalleAdminPage = lazy(() => import('../pages/PresupuestoClienteDetalleAdminPage'))
 const PedidoClienteDetalleAdminPage = lazy(() => import('../pages/PedidoClienteDetalleAdminPage'))
@@ -868,6 +869,7 @@ function AppRoutes({
           <InstalacionesMetalurgicaCampoPage tasks={tasks} onReloadData={onReloadData} />
         }
       />
+      <Route path="/bolsa" element={<WorkPoolPage />} />
       <Route
         path="/statistics"
         element={

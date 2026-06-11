@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { Sparkles, ImageIcon } from 'lucide-react'
 import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
-import { validarCantidadVentaComercial } from '../services/commerceCatalogService'
+import {
+  articuloPermiteIntencion,
+  validarCantidadVentaComercial,
+  validarItemsParaIntencion
+} from '../services/commerceCatalogService'
 import {
   generarMockupImagenIa,
   generarPedidoDesdeEspecificacion
@@ -138,10 +142,41 @@ export default function ClienteNuevoPedidoPage() {
     }
   }
 
+  const validarIntencionActual = useCallback((): string | null => {
+    return validarItemsParaIntencion(
+      items.map((item) => ({
+        nombre: item.nombre_articulo || `Artículo #${item.id_articulo}`,
+        articulo: articuloById(item.id_articulo)
+      })),
+      tipoIntencion
+    )
+  }, [items, tipoIntencion, articuloById])
+
+  const cambiarTipoIntencion = (intencion: TipoIntencionPedido) => {
+    setTipoIntencion(intencion)
+    setError('')
+    const conflicto = validarItemsParaIntencion(
+      items.map((item) => ({
+        nombre: item.nombre_articulo || `Artículo #${item.id_articulo}`,
+        articulo: articuloById(item.id_articulo)
+      })),
+      intencion
+    )
+    if (conflicto) setError(conflicto)
+  }
+
   const agregarArticulo = (articulo: ArticuloEmpresaRecord) => {
+    if (!articuloPermiteIntencion(articulo, tipoIntencion)) {
+      setError(
+        tipoIntencion === 'cotizacion'
+          ? `"${articulo.nombre}" solo admite compra directa. Cambiá a Compra o elegí otro producto.`
+          : `"${articulo.nombre}" solo admite cotización. Cambiá a Solicitar cotización o elegí otro producto.`
+      )
+      return
+    }
     const existente = items.find((i) => i.id_articulo === articulo.id)
     const nuevaCantidad = (existente?.cantidad || 0) + 1
-    const v = validarCantidadVentaComercial(articulo, nuevaCantidad)
+    const v = validarCantidadVentaComercial(articulo, nuevaCantidad, tipoIntencion)
     if (!v.ok) {
       setError(v.error)
       return
@@ -183,7 +218,7 @@ export default function ClienteNuevoPedidoPage() {
     if (campo === 'cantidad') {
       const articulo = articuloById(nuevosItems[index].id_articulo)
       if (articulo) {
-        const v = validarCantidadVentaComercial(articulo, Number(valor))
+        const v = validarCantidadVentaComercial(articulo, Number(valor), tipoIntencion)
         if (!v.ok) {
           setError(v.error)
           return
@@ -294,6 +329,12 @@ export default function ClienteNuevoPedidoPage() {
 
     if (!tieneDescripcion) {
       setError('Completá la especificación o generá la descripción con IA')
+      return
+    }
+
+    const conflictoIntencion = validarIntencionActual()
+    if (conflictoIntencion) {
+      setError(conflictoIntencion)
       return
     }
 
@@ -442,25 +483,30 @@ export default function ClienteNuevoPedidoPage() {
 
           <section className="cliente-page-form-section form-section">
             <h2>Tipo de solicitud</h2>
+            <p className="form-section-hint">
+              {tipoIntencion === 'cotizacion'
+                ? 'Pedís presupuesto sin compromiso de compra. Te contactamos con precios y plazos.'
+                : 'Confirmás compra con los precios del catálogo.'}
+            </p>
             <div className="intencion-opciones" role="radiogroup" aria-label="Tipo de solicitud">
-              <label className={`intencion-opcion ${tipoIntencion === 'compra' ? 'is-selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="tipo_intencion"
-                  checked={tipoIntencion === 'compra'}
-                  onChange={() => setTipoIntencion('compra')}
-                />
-                <span>Compra</span>
-              </label>
-              <label className={`intencion-opcion ${tipoIntencion === 'cotizacion' ? 'is-selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="tipo_intencion"
-                  checked={tipoIntencion === 'cotizacion'}
-                  onChange={() => setTipoIntencion('cotizacion')}
-                />
-                <span>Solicitar cotización</span>
-              </label>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={tipoIntencion === 'compra'}
+                className={`intencion-opcion ${tipoIntencion === 'compra' ? 'is-selected' : ''}`}
+                onClick={() => cambiarTipoIntencion('compra')}
+              >
+                Compra
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={tipoIntencion === 'cotizacion'}
+                className={`intencion-opcion ${tipoIntencion === 'cotizacion' ? 'is-selected' : ''}`}
+                onClick={() => cambiarTipoIntencion('cotizacion')}
+              >
+                Solicitar cotización
+              </button>
             </div>
           </section>
 
@@ -477,7 +523,19 @@ export default function ClienteNuevoPedidoPage() {
                     {articulo.descripcion && <p>{articulo.descripcion}</p>}
                     <div className="articulo-precio">${articulo.precio_base?.toFixed(2) || '0.00'}</div>
                   </div>
-                  <button type="button" className="btn-agregar" onClick={() => agregarArticulo(articulo)}>
+                  <button
+                    type="button"
+                    className="btn-agregar"
+                    onClick={() => agregarArticulo(articulo)}
+                    disabled={!articuloPermiteIntencion(articulo, tipoIntencion)}
+                    title={
+                      articuloPermiteIntencion(articulo, tipoIntencion)
+                        ? 'Agregar al pedido'
+                        : tipoIntencion === 'cotizacion'
+                          ? 'Este producto solo admite compra directa'
+                          : 'Este producto solo admite cotización'
+                    }
+                  >
                     + Agregar
                   </button>
                 </div>
@@ -513,28 +571,40 @@ export default function ClienteNuevoPedidoPage() {
                           }
                         />
                       </div>
-                      <div className="item-field">
-                        <label htmlFor={`item-precio-${index}`}>Precio unit.</label>
-                        <input
-                          id={`item-precio-${index}`}
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={item.precio_unitario}
-                          onChange={(e) =>
-                            actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
+                      {tipoIntencion === 'compra' && (
+                        <div className="item-field">
+                          <label htmlFor={`item-precio-${index}`}>Precio unit.</label>
+                          <input
+                            id={`item-precio-${index}`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.precio_unitario}
+                            onChange={(e) =>
+                              actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                      )}
                       <div className="item-field item-field--total">
-                        <span className="item-field-label">Subtotal</span>
-                        <strong className="item-total-value">${item.precio_total.toFixed(2)}</strong>
+                        <span className="item-field-label">
+                          {tipoIntencion === 'cotizacion' ? 'Estimado' : 'Subtotal'}
+                        </span>
+                        <strong className="item-total-value">
+                          {tipoIntencion === 'cotizacion'
+                            ? 'A cotizar'
+                            : `$${item.precio_total.toFixed(2)}`}
+                        </strong>
                       </div>
                     </div>
                   </div>
                 ))}
                 <div className="total-pedido">
-                  <strong>Total: ${calcularTotal().toFixed(2)}</strong>
+                  <strong>
+                    {tipoIntencion === 'cotizacion'
+                      ? 'Total: a cotizar por mostrador'
+                      : `Total: $${calcularTotal().toFixed(2)}`}
+                  </strong>
                 </div>
               </div>
             )}
@@ -720,7 +790,13 @@ export default function ClienteNuevoPedidoPage() {
               Cancelar
             </button>
             <button type="submit" className="cliente-btn-primary" disabled={saving || items.length === 0}>
-              {saving ? 'Creando pedido…' : `Crear pedido ($${calcularTotal().toFixed(2)})`}
+              {saving
+                ? tipoIntencion === 'cotizacion'
+                  ? 'Enviando solicitud…'
+                  : 'Creando pedido…'
+                : tipoIntencion === 'cotizacion'
+                  ? 'Solicitar cotización'
+                  : `Crear pedido ($${calcularTotal().toFixed(2)})`}
             </button>
           </div>
         </form>

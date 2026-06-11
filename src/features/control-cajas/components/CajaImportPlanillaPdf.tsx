@@ -14,7 +14,11 @@ import {
 } from '../cajaRepository'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
-import { calcularTotalesDesdePlanilla, efectivoQuedaEnCajaDesdePlanilla } from '../cajaTotales'
+import {
+  calcularTotalesDesdePlanilla,
+  efectivoQuedaEnCajaDesdePlanilla,
+  netoCtaCteDesdePlanilla
+} from '../cajaTotales'
 import { fmtArs, fmtDateAr } from '../format'
 import { countPlanillaLineas, isPlanillaAiAvailable, mergePlanillaPreferComplete } from '../planillaCajaGemini'
 import {
@@ -22,7 +26,8 @@ import {
   parsePlanillaCajaPdfLocal,
   type PlanillaCajaParsed
 } from '../parsePlanillaCajaPdf'
-import { planillaAllToMovimientos, resumenImportacion } from '../planillaMovimientos'
+import { fechaPlanillaImport, planillaAllToMovimientos, resumenImportacion } from '../planillaMovimientos'
+import { syncEgresosSolicitudesDesdePlanilla } from '../planillaEgresosSync'
 import PlanillaLineasTable from './PlanillaLineasTable'
 import PlanillaMediosResumen from './PlanillaMediosResumen'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
@@ -219,7 +224,22 @@ export default function CajaImportPlanillaPdf({
 
       const r = resumenImportacion(movs)
       const efectivoQ = efectivoQuedaEnCajaDesdePlanilla(preview)
+      const egresosSol = await syncEgresosSolicitudesDesdePlanilla({
+        planilla: preview,
+        cajaSlug,
+        fecha: fechaPlanillaImport(preview),
+        usuarioNombre,
+        usuarioId,
+        movimientos: bulk.records
+      })
+      const ctaCte = netoCtaCteDesdePlanilla(preview)
       let okMsg = `Planilla guardada (${guardada.id.slice(0, 8)}…). Importados: ${r.total} movimientos (${r.ventas} ventas, ${r.egresos} egresos, ${r.traspasos} traspasos) en ${cajas.find((c) => c.slug === cajaSlug)?.nombre ?? cajaSlug}.`
+      if (egresosSol > 0) {
+        okMsg += ` ${egresosSol} egreso(s) registrados (efectivo + tarjetas) en la sección Egresos.`
+      }
+      if (Math.abs(ctaCte) > 0) {
+        okMsg += ` Cta. cte. neta: $ ${fmtArs(ctaCte)} (ver en Nuevo cierre → Paso 5).`
+      }
       if (modoArqueo && efectivoQ > 0) {
         okMsg += ` Efectivo que queda: $ ${fmtArs(efectivoQ)} — contá billetes abajo.`
       }
@@ -403,7 +423,7 @@ export default function CajaImportPlanillaPdf({
             </ul>
           )}
 
-          <div className="caja-cc-metrics">
+          <div className="caja-cc-metrics caja-cc-metrics--counts">
             <div className="caja-cc-metric">
               <span className="caja-cc-metric-l">Ventas FA/FB</span>
               <span className="caja-cc-metric-v">{preview.ventas.length}</span>
@@ -424,22 +444,6 @@ export default function CajaImportPlanillaPdf({
               <span className="caja-cc-metric-l">MEC</span>
               <span className="caja-cc-metric-v">{preview.movimientos_mec.length}</span>
             </div>
-            {t && (
-              <>
-                <div className="caja-cc-metric highlight">
-                  <span className="caja-cc-metric-l">Ingresos</span>
-                  <span className="caja-cc-metric-v">$ {fmtArs(t.ingresos_total)}</span>
-                </div>
-                <div className="caja-cc-metric">
-                  <span className="caja-cc-metric-l">Egresos</span>
-                  <span className="caja-cc-metric-v">$ {fmtArs(t.egresos_total)}</span>
-                </div>
-                <div className="caja-cc-metric highlight">
-                  <span className="caja-cc-metric-l">Neto</span>
-                  <span className="caja-cc-metric-v">$ {fmtArs(t.neto)}</span>
-                </div>
-              </>
-            )}
             {preview.lineas_cuadre_invalido > 0 && (
               <div className="caja-cc-metric warn">
                 <span className="caja-cc-metric-l">Sin cuadrar</span>
@@ -447,21 +451,39 @@ export default function CajaImportPlanillaPdf({
               </div>
             )}
           </div>
+          {t && (
+            <div className="caja-cc-metrics caja-cc-metrics--money">
+              <div className="caja-cc-metric highlight">
+                <span className="caja-cc-metric-l">Ingresos</span>
+                <span className="caja-cc-metric-v money">$ {fmtArs(t.ingresos_total)}</span>
+              </div>
+              <div className="caja-cc-metric">
+                <span className="caja-cc-metric-l">Egresos</span>
+                <span className="caja-cc-metric-v money">$ {fmtArs(t.egresos_total)}</span>
+              </div>
+              <div className="caja-cc-metric highlight">
+                <span className="caja-cc-metric-l">Neto</span>
+                <span className="caja-cc-metric-v money">$ {fmtArs(t.neto)}</span>
+              </div>
+            </div>
+          )}
 
           {resumen && (
             <>
               <p className="caja-cc-planilla-fisico">
                 {modoArqueo ? (
                   <>
-                    Efectivo que queda (columna Efectivo del PDF):{' '}
+                    Efectivo para arqueo (columna <strong>Efectivo</strong>, fila Neto del PDF):{' '}
                     <strong>$ {fmtArs(efectivoQuedaEnCajaDesdePlanilla(preview))}</strong>
                   </>
                 ) : (
                   <>
-                    Efectivo físico neto: <strong>$ {fmtArs(resumen.neto.fisico_neto)}</strong>
+                    Efectivo neto (arqueo): <strong>$ {fmtArs(efectivoQuedaEnCajaDesdePlanilla(preview))}</strong>
                     <span className="caja-cc-field-hint">
                       {' '}
-                      · Tarjetas/MP: $ {fmtArs(resumen.neto.electronico_neto)} · Cta. cte.: $ {fmtArs(resumen.neto.cta_cte)}
+                      · Tarjetas/MP: $ {fmtArs(resumen.neto.electronico_neto)} · Cta. cte. neta: $ {fmtArs(netoCtaCteDesdePlanilla(preview))}
+                      {' '}
+                      (va al cierre del día)
                     </span>
                   </>
                 )}

@@ -5,10 +5,13 @@ import {
   getParams,
   listCajas,
   listMovimientos,
+  listPlanillas,
   resolveCajaSlugForUsuario,
   resolveCajaSlugFromHistorial,
   saveArqueo
 } from '../cajaRepository'
+import { alertaDobleFuenteCaja, resumenPlotlabVentasCaja } from '../plotlabVentasCajaData'
+import CajaPlotlabVentasPanel from './CajaPlotlabVentasPanel'
 import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
 import { estadoArqueo } from '../movimientoCaja'
 import { DEFAULT_CAJERAS } from '../constants'
@@ -56,11 +59,23 @@ export default function CajaSectionArqueo({
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
+  const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
 
   useEffect(() => {
     if (!cajaSlug || !fecha) return
-    void listMovimientos().then(setMovimientos)
+    void Promise.all([listMovimientos(), listPlanillas(120)]).then(([m, p]) => {
+      setMovimientos(m)
+      setPlanillas(p)
+    })
   }, [cajaSlug, fecha, movimientosRefreshKey])
+
+  useEffect(() => {
+    const onRefresh = () => {
+      void listMovimientos().then(setMovimientos)
+    }
+    window.addEventListener('caja-datos-actualizados', onRefresh)
+    return () => window.removeEventListener('caja-datos-actualizados', onRefresh)
+  }, [])
 
   useEffect(() => {
     if (!planillaActiva) return
@@ -140,6 +155,18 @@ export default function CajaSectionArqueo({
   const diferenciaPlanilla =
     efectivoQuedaPlanilla != null && total > 0 ? total - efectivoQuedaPlanilla : null
 
+  const resumenPlotlab = useMemo(
+    () => (cajaSlug && fecha ? resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug) : null),
+    [movimientos, fecha, cajaSlug]
+  )
+  const alertaDoble = useMemo(
+    () =>
+      cajaSlug && fecha
+        ? alertaDobleFuenteCaja(fecha, cajaSlug, planillas, movimientos)
+        : { activa: false, plotlabIngresos: 0, planillaIngresos: 0, mensaje: '' },
+    [fecha, cajaSlug, planillas, movimientos]
+  )
+
   const setCantidad = (denom: number, raw: string) => {
     const q = Math.max(0, Math.floor(parseNum(raw)))
     setBilletes((prev) => ({ ...prev, [`b${denom}`]: q }))
@@ -212,10 +239,20 @@ export default function CajaSectionArqueo({
 
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
+      {resumenPlotlab && cajaActiva && (
+        <CajaPlotlabVentasPanel resumen={resumenPlotlab} cajaNombre={cajaActiva.nombre} />
+      )}
+
+      {alertaDoble.activa && (
+        <div className="caja-cc-alerta-doble-fuente" role="alert">
+          {alertaDoble.mensaje}
+        </div>
+      )}
+
       {efectivoQuedaPlanilla != null && (
         <div className="caja-cc-planilla-arqueo-hint">
-          <strong>Según planilla PDF — efectivo que queda en caja:</strong>{' '}
-          <strong>$ {fmtArs(efectivoQuedaPlanilla)}</strong>. Contá billetes hasta llegar a ese monto; tarjetas, MP y
+          <strong>Según planilla PDF — efectivo neto (fila Neto, columna Efectivo):</strong>{' '}
+          <strong>$ {fmtArs(efectivoQuedaPlanilla)}</strong>. Contá billetes hasta ese monto; tarjetas, MP, cta. cte. y
           transferencias no van en el arqueo.
         </div>
       )}
