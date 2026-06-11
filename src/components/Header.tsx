@@ -80,7 +80,8 @@ const Header = ({
     canAccessMostradorViews,
     isTallerGrafico,
     isMetalurgica,
-    canAccessTotemImpresionPanel
+    canAccessTotemImpresionPanel,
+    canManageWorkPool
   } = useAuth()
   const location = useLocation()
   const { mode: campoSectorMode } = useCampoSectorMode()
@@ -103,6 +104,7 @@ const Header = ({
       canManageCompras,
       canManageCaja,
       canManageRecursosHumanos,
+      canManageWorkPool,
       onNavigateToStats,
       onNavigateToMostrador,
       onNavigateToCompras,
@@ -129,6 +131,7 @@ const Header = ({
     canManageCompras,
     canManageCaja,
     canManageRecursosHumanos,
+    canManageWorkPool,
     onNavigateToStats,
     onNavigateToMostrador,
     onNavigateToCompras,

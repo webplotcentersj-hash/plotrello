@@ -3,6 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { jsPDF } from 'jspdf'
 import type { Task } from '../types/board'
 import type { SectorRecord } from '../types/api'
+import { useAuth } from '../hooks/useAuth'
+import WorkPoolPublicarForm from '../features/work-pool/WorkPoolPublicarForm'
+import {
+  inferProductFromOpSectorName,
+  inferSectorFromOpSectorName,
+  WORK_POOL_PRODUCT_CONFIG
+} from '../features/work-pool/workPoolConfig'
 import './OpViewPage.css'
 
 type OpViewPageProps = {
@@ -19,8 +26,11 @@ const badgeColorByPriority: Record<Task['priority'], string> = {
 const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
   const { opNumber } = useParams<{ opNumber: string }>()
   const navigate = useNavigate()
+  const { usuario, canManageWorkPool } = useAuth()
   const contentRef = useRef<HTMLDivElement | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [deriveOpen, setDeriveOpen] = useState(false)
+  const [deriveSuccess, setDeriveSuccess] = useState('')
 
   const task = useMemo(() => {
     if (!opNumber) return null
@@ -33,6 +43,9 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
 
   const sectorColor =
     (task && sectores.find((s) => s.nombre === task.assignedSector)?.color) || '#4b5563'
+
+  const deriveProduct = task ? inferProductFromOpSectorName(task.assignedSector ?? task.status) : null
+  const deriveSector = task ? inferSectorFromOpSectorName(task.assignedSector ?? task.status) : null
 
   if (!opNumber) {
     return (
@@ -139,6 +152,48 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
             </p>
           </div>
         </section>
+
+        {canManageWorkPool && usuario && task && (
+          <section className="opview-derive">
+            <div className="opview-derive__head">
+              <div>
+                <p className="opview-derive__eyebrow">Derivar trabajo</p>
+                <h3>
+                  {deriveProduct
+                    ? `${WORK_POOL_PRODUCT_CONFIG[deriveProduct].icon} ${WORK_POOL_PRODUCT_CONFIG[deriveProduct].label}`
+                    : 'Plot Design / Bolsa Plot'}
+                </h3>
+                <p className="opview-derive__hint">
+                  Publicá en bolsa libre o asigná directo a un empleado desde esta OP.
+                </p>
+              </div>
+              <button type="button" className="ghost-button" onClick={() => setDeriveOpen((v) => !v)}>
+                {deriveOpen ? 'Ocultar' : 'Derivar desde OP'}
+              </button>
+            </div>
+            {deriveSuccess && <p className="opview-derive__ok">{deriveSuccess}</p>}
+            {deriveOpen && deriveProduct && (
+              <WorkPoolPublicarForm
+                product={deriveProduct}
+                idUsuarioCreador={usuario.id}
+                numeroOp={task.opNumber}
+                descripcionInicial={task.summary || task.title}
+                sectorInicial={deriveSector ?? undefined}
+                compact
+                onSuccess={() => {
+                  setDeriveSuccess('Trabajo derivado correctamente desde la OP.')
+                  setDeriveOpen(false)
+                }}
+                onError={() => setDeriveSuccess('')}
+              />
+            )}
+            {deriveOpen && !deriveProduct && (
+              <p className="opview-derive__warn">
+                No se detectó sector compatible. Usá el panel admin de Plot Design o Bolsa Plot.
+              </p>
+            )}
+          </section>
+        )}
 
         <footer className="opview-footer">
           <button className="ghost-button" onClick={() => navigate('/')}>

@@ -180,8 +180,4 @@
     transition: border-color 0.12s ease, background 0.12s ease;
   }
 
-  /* Botón flotante de permisos: mismo criterio que chat/IA en pantalla chica */
-  .solicitudes-floating-button {
-    display: none !important;
-  }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, startTransition } from 'react'
-import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import type { TaskStatus } from '../types/board'
 const BoardPage = lazy(() => import('../pages/BoardPage'))
 // Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
@@ -98,7 +98,9 @@ const MetalurgicaInventarioPage = lazy(() => import('../pages/MetalurgicaInventa
 const TallerGraficoDashboardPage = lazy(() => import('../pages/TallerGraficoDashboardPage'))
 const SectorEtapaKanbanPage = lazy(() => import('../pages/SectorEtapaKanbanPage'))
 const InstalacionesMetalurgicaCampoPage = lazy(() => import('../pages/InstalacionesMetalurgicaCampoPage'))
-const WorkPoolPage = lazy(() => import('../pages/WorkPoolPage'))
+const PlotDesignPage = lazy(() => import('../pages/PlotDesignPage'))
+const BolsaPlotPage = lazy(() => import('../pages/BolsaPlotPage'))
+const WorkPoolLegacyRedirect = lazy(() => import('../pages/WorkPoolLegacyRedirect'))
 const PresupuestosClientesAdminPage = lazy(() => import('../pages/PresupuestosClientesAdminPage'))
 const PresupuestoClienteDetalleAdminPage = lazy(() => import('../pages/PresupuestoClienteDetalleAdminPage'))
 const PedidoClienteDetalleAdminPage = lazy(() => import('../pages/PedidoClienteDetalleAdminPage'))
@@ -107,10 +109,9 @@ const LibroActasSectorPage = lazy(() => import('../pages/LibroActasSectorPage'))
 const LibroActasPage = lazy(() => import('../pages/LibroActasPage'))
 const ProtocolosBasesPage = lazy(() => import('../pages/ProtocolosBasesPage'))
 const AsesorPresupuestosPage = lazy(() => import('../pages/AsesorPresupuestosPage'))
-const SolicitudesPermisosFloatingButton = lazy(() => import('../components/SolicitudesPermisosFloatingButton'))
+const StaffFloatingDock = lazy(() => import('../components/StaffFloatingDock'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
-import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type {
   HistorialMovimiento,
@@ -718,24 +719,6 @@ function AppRoutes({
   materiales: MaterialRecord[]
 }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const hideCampoFloaters = pathname === '/app-campo'
-  const isBoardRoute = pathname === '/' || pathname === ''
-  const hideGlobalFloaters =
-    hideCampoFloaters ||
-    isBoardRoute ||
-    pathname === '/statistics' ||
-    pathname.startsWith('/mensajeria') ||
-    pathname.startsWith('/mostrador') ||
-    pathname.startsWith('/rrhh') ||
-    pathname.startsWith('/caja')
-  const isPhoneLayout = usePhoneBoardLayout()
-  const hideImpresorasButton =
-    isPhoneLayout ||
-    (pathname === '/menu-diario' &&
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(max-width: 720px)').matches)
   const { isAdmin, isPresupuestos } = useAuth()
 
   // Los movimientos de asesor técnico/presupuestos solo los ven admin y presupuestos
@@ -753,52 +736,9 @@ function AppRoutes({
       <Suspense fallback={null}>
         <TallerGraficoPedidoEntregaOverlay />
       </Suspense>
-      {!hideGlobalFloaters && (
-        <>
-          {/* Botón flotante para acceder a impresoras */}
-          {!hideImpresorasButton && (
-            <button
-              className="floating-button"
-              onClick={() => navigate('/impresoras')}
-              title="Ver ocupación de impresoras"
-              style={{
-                position: 'fixed',
-                bottom: '30px',
-                right: '30px',
-                width: '60px',
-                height: '60px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                border: 'none',
-                color: '#fff',
-                fontSize: '28px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
-                zIndex: 1000,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.3s ease',
-                fontWeight: 'bold'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.1)'
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.6)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)'
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
-              }}
-            >
-              🖨️
-            </button>
-          )}
-          {/* Botón flotante para solicitudes y permisos */}
-          <Suspense fallback={null}>
-            <SolicitudesPermisosFloatingButton />
-          </Suspense>
-        </>
-      )}
+      <Suspense fallback={null}>
+        <StaffFloatingDock />
+      </Suspense>
       <Suspense
         fallback={
           <div
@@ -869,7 +809,9 @@ function AppRoutes({
           <InstalacionesMetalurgicaCampoPage tasks={tasks} onReloadData={onReloadData} />
         }
       />
-      <Route path="/bolsa" element={<WorkPoolPage />} />
+      <Route path="/plot-design" element={<PlotDesignPage />} />
+      <Route path="/bolsa-plot" element={<BolsaPlotPage />} />
+      <Route path="/bolsa" element={<WorkPoolLegacyRedirect />} />
       <Route
         path="/statistics"
         element={

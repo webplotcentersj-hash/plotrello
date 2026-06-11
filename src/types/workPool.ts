@@ -1,3 +1,5 @@
+export type WorkPoolProduct = 'plot-design' | 'bolsa-plot'
+
 export type WorkPoolSector = 'diseno' | 'instalaciones' | 'metalurgica'
 
 export type WorkPoolJobEstado =
@@ -63,6 +65,55 @@ export type WorkPoolResumenSector = {
   trabajos_abiertos: number
   trabajos_aprobados: number
   deuda_operarios: number
+}
+
+export type WorkPoolProfile = {
+  id: number
+  id_usuario: number
+  sector: WorkPoolSector
+  skills: string[]
+  zona_cobertura: string | null
+  activo: boolean
+  aprobado: boolean
+  notas_admin: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type WorkPoolFreelancerResumen = {
+  id_usuario: number
+  nombre: string
+  sectores: WorkPoolSector[]
+  skills: string[]
+  zona_cobertura: string | null
+  perfil_aprobado: boolean
+  perfil_activo: boolean
+  trabajos_activos: number
+  trabajos_aprobados: number
+  pendientes_revision: number
+  acreditado: number
+  pagado: number
+  saldo_pendiente: number
+  ultimo_trabajo_at: string | null
+}
+
+export type WorkPoolAdminKpis = {
+  deuda_total: number
+  trabajos_abiertos: number
+  pendientes_revision: number
+  operarios_activos: number
+  disponibles_bolsa: number
+  aprobados_mes: number
+  acreditado_total: number
+  pagado_total: number
+}
+
+export type WorkPoolAdminDashboard = {
+  kpis: WorkPoolAdminKpis
+  resumen_sectores: WorkPoolResumenSector[]
+  freelancers: WorkPoolFreelancerResumen[]
+  pendientes_revision: WorkPoolJob[]
+  jobs_recientes: WorkPoolJob[]
 }
 
 export const WORK_POOL_SECTOR_LABELS: Record<WorkPoolSector, string> = {

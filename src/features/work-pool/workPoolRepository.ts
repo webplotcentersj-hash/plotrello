@@ -1,11 +1,16 @@
 import { supabase } from '../../services/supabaseClient'
 import type {
+  WorkPoolAdminDashboard,
+  WorkPoolFreelancerResumen,
   WorkPoolJob,
   WorkPoolPricingRule,
+  WorkPoolProduct,
+  WorkPoolProfile,
   WorkPoolResumenSector,
   WorkPoolSaldoOperario,
   WorkPoolSector
 } from '../../types/workPool'
+import { sectorsForProduct } from './workPoolConfig'
 
 function mapJob(row: Record<string, unknown>): WorkPoolJob {
   return {
@@ -219,4 +224,190 @@ export async function registrarPagoOperario(input: {
 
 export function isWorkPoolModuleAvailable(): boolean {
   return Boolean(supabase)
+}
+
+export async function listWorkPoolProfiles(): Promise<{
+  success: boolean
+  data?: WorkPoolProfile[]
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const { data, error } = await supabase
+    .from('work_pool_profiles')
+    .select('*')
+    .order('updated_at', { ascending: false })
+  if (error) return { success: false, error: error.message }
+  return { success: true, data: (data ?? []) as WorkPoolProfile[] }
+}
+
+async function fetchUsuarioNombres(
+  ids: number[]
+): Promise<Map<number, string>> {
+  const map = new Map<number, string>()
+  if (!supabase || ids.length === 0) return map
+
+  const unique = [...new Set(ids)]
+  const { data, error } = await supabase.rpc('obtener_usuarios_por_ids', {
+    p_ids: unique
+  })
+  if (!error && Array.isArray(data)) {
+    for (const row of data as Array<{ id: number; nombre?: string }>) {
+      map.set(Number(row.id), String(row.nombre ?? `Usuario #${row.id}`))
+    }
+  }
+
+  const missing = unique.filter((id) => !map.has(id))
+  if (missing.length > 0) {
+    const { data: rows } = await supabase
+      .from('usuarios')
+      .select('id, nombre')
+      .in('id', missing)
+    for (const row of rows ?? []) {
+      map.set(Number((row as { id: number }).id), String((row as { nombre: string }).nombre))
+    }
+  }
+
+  return map
+}
+
+function isCurrentMonth(iso: string | null): boolean {
+  if (!iso) return false
+  const d = new Date(iso)
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+}
+
+export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Promise<{
+  success: boolean
+  data?: WorkPoolAdminDashboard
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const productSectors = product ? sectorsForProduct(product) : null
+
+  const [jobsRes, profilesRes, resumenRes] = await Promise.all([
+    listWorkPoolJobs({}),
+    listWorkPoolProfiles(),
+    getResumenPlot()
+  ])
+
+  if (!jobsRes.success) return { success: false, error: jobsRes.error }
+  let jobs = jobsRes.data ?? []
+  let profiles = profilesRes.data ?? []
+  let resumen = resumenRes.data ?? []
+
+  if (productSectors) {
+    jobs = jobs.filter((j) => productSectors.includes(j.sector))
+    profiles = profiles.filter((p) => productSectors.includes(p.sector))
+    resumen = resumen.filter((r) => productSectors.includes(r.sector as WorkPoolSector))
+  }
+
+  const userIds = new Set<number>()
+  for (const j of jobs) {
+    if (j.id_usuario_asignado) userIds.add(j.id_usuario_asignado)
+  }
+  for (const p of profiles) userIds.add(p.id_usuario)
+
+  const nombres = await fetchUsuarioNombres([...userIds])
+
+  const freelancerMap = new Map<number, WorkPoolFreelancerResumen>()
+
+  const ensureFreelancer = (idUsuario: number): WorkPoolFreelancerResumen => {
+    let f = freelancerMap.get(idUsuario)
+    if (!f) {
+      f = {
+        id_usuario: idUsuario,
+        nombre: nombres.get(idUsuario) ?? `Operario #${idUsuario}`,
+        sectores: [],
+        skills: [],
+        zona_cobertura: null,
+        perfil_aprobado: false,
+        perfil_activo: false,
+        trabajos_activos: 0,
+        trabajos_aprobados: 0,
+        pendientes_revision: 0,
+        acreditado: 0,
+        pagado: 0,
+        saldo_pendiente: 0,
+        ultimo_trabajo_at: null
+      }
+      freelancerMap.set(idUsuario, f)
+    }
+    return f
+  }
+
+  for (const p of profiles) {
+    const f = ensureFreelancer(p.id_usuario)
+    if (!f.sectores.includes(p.sector)) f.sectores.push(p.sector)
+    f.skills = [...new Set([...f.skills, ...p.skills])]
+    f.zona_cobertura = p.zona_cobertura ?? f.zona_cobertura
+    f.perfil_aprobado = f.perfil_aprobado || p.aprobado
+    f.perfil_activo = f.perfil_activo || p.activo
+  }
+
+  const activosEstados = new Set(['asignado', 'en_curso', 'cambios'])
+  let pendientesRevision = 0
+  let disponiblesBolsa = 0
+  let aprobadosMes = 0
+
+  for (const j of jobs) {
+    if (j.estado === 'disponible') disponiblesBolsa += 1
+    if (j.estado === 'entregado' || j.estado === 'en_revision') pendientesRevision += 1
+    if (j.estado === 'aprobado' && isCurrentMonth(j.aprobado_at)) aprobadosMes += 1
+
+    if (!j.id_usuario_asignado) continue
+    const f = ensureFreelancer(j.id_usuario_asignado)
+    if (!f.sectores.includes(j.sector)) f.sectores.push(j.sector)
+    if (activosEstados.has(j.estado)) f.trabajos_activos += 1
+    if (j.estado === 'aprobado') f.trabajos_aprobados += 1
+    if (j.estado === 'entregado' || j.estado === 'en_revision') f.pendientes_revision += 1
+
+    const refDate = j.aprobado_at ?? j.entregado_at ?? j.tomado_at ?? j.created_at
+    if (refDate && (!f.ultimo_trabajo_at || refDate > f.ultimo_trabajo_at)) {
+      f.ultimo_trabajo_at = refDate
+    }
+  }
+
+  const saldoResults = await Promise.all(
+    [...freelancerMap.keys()].map(async (id) => {
+      const res = await getSaldoOperario(id)
+      return { id, saldo: res.data }
+    })
+  )
+  for (const { id, saldo } of saldoResults) {
+    const f = freelancerMap.get(id)
+    if (!f || !saldo) continue
+    f.acreditado = saldo.acreditado
+    f.pagado = saldo.pagado
+    f.saldo_pendiente = saldo.saldo_pendiente
+  }
+
+  const freelancers = [...freelancerMap.values()].sort(
+    (a, b) => b.saldo_pendiente - a.saldo_pendiente || b.trabajos_activos - a.trabajos_activos
+  )
+
+  const deudaTotal = resumen.reduce((s, r) => s + Number(r.deuda_operarios ?? 0), 0)
+  const trabajosAbiertos = resumen.reduce((s, r) => s + Number(r.trabajos_abiertos ?? 0), 0)
+  const operariosActivos = freelancers.filter((f) => f.trabajos_activos > 0 || f.saldo_pendiente > 0).length
+
+  return {
+    success: true,
+    data: {
+      kpis: {
+        deuda_total: deudaTotal,
+        trabajos_abiertos: trabajosAbiertos,
+        pendientes_revision: pendientesRevision,
+        operarios_activos: operariosActivos,
+        disponibles_bolsa: disponiblesBolsa,
+        aprobados_mes: aprobadosMes,
+        acreditado_total: freelancers.reduce((s, f) => s + f.acreditado, 0),
+        pagado_total: freelancers.reduce((s, f) => s + f.pagado, 0)
+      },
+      resumen_sectores: resumen,
+      freelancers,
+      pendientes_revision: jobs.filter((j) => j.estado === 'entregado' || j.estado === 'en_revision'),
+      jobs_recientes: jobs.slice(0, 40)
+    }
+  }
 }

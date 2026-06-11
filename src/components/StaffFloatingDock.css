@@ -1,0 +1,48 @@
+.staff-floating-dock {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 10060;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.staff-floating-dock > * {
+  pointer-events: auto;
+}
+
+.staff-floating-dock__impresoras {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border: none;
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.staff-floating-dock__impresoras:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.55);
+}
+
+.staff-floating-dock .solicitudes-floating-button {
+  position: static !important;
+  bottom: auto !important;
+  right: auto !important;
+}
+
+@media (max-width: 768px) {
+  .staff-floating-dock {
+    display: none !important;
+  }
+}

@@ -23,6 +23,7 @@ type BuildHeaderQuickNavCtx = {
   canManageCompras: boolean
   canManageCaja: boolean
   canManageRecursosHumanos: boolean
+  canManageWorkPool: boolean
   onNavigateToStats?: () => void
   onNavigateToMostrador?: () => void
   onNavigateToCompras?: () => void
@@ -93,7 +94,24 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
           onClick: ctx.onNavigateToAsesorPresupuestos,
           title: 'Asesor técnico / presupuestos'
         })
-      } else if (ctx.canAccessMostradorViews && ctx.onNavigateToMostrador) {
+      }
+      if (ctx.canManageWorkPool) {
+        push({
+          id: 'plot-design-admin',
+          label: 'Plot Design',
+          icon: '🎨',
+          href: '/plot-design',
+          title: 'Admin Plot Design — diseñadores y bolsa creativa'
+        })
+        push({
+          id: 'bolsa-plot-admin',
+          label: 'Bolsa Plot',
+          icon: '🧰',
+          href: '/bolsa-plot',
+          title: 'Admin Bolsa Plot — instalaciones y metalúrgica'
+        })
+      }
+      if (!ctx.canAccessAsesorPresupuestos && ctx.canAccessMostradorViews && ctx.onNavigateToMostrador) {
         push({
           id: 'dashboard-mostrador',
           label: 'Mostrador',
@@ -125,11 +143,11 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         })
       }
       push({
-        id: 'bolsa-diseno',
-        label: 'PlotBolsa',
-        icon: '🧰',
-        href: '/bolsa',
-        title: 'Bolsa de trabajos de diseño'
+        id: 'plot-design',
+        label: 'Plot Design',
+        icon: '🎨',
+        href: '/plot-design',
+        title: 'Bolsa y trabajos de diseño'
       })
       break
     case 'taller-grafico':
@@ -159,11 +177,11 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         title: 'App campo Instalaciones'
       })
       push({
-        id: 'bolsa-instalaciones',
-        label: 'PlotBolsa',
+        id: 'bolsa-plot-inst',
+        label: 'Bolsa Plot',
         icon: '🧰',
-        href: '/bolsa',
-        title: 'Bolsa de trabajos instalaciones'
+        href: '/bolsa-plot',
+        title: 'Bolsa instalaciones y metalúrgica'
       })
       break
     case 'metalurgica':
@@ -175,11 +193,11 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         title: 'Inventario Metalúrgica'
       })
       push({
-        id: 'bolsa-metalurgica',
-        label: 'PlotBolsa',
+        id: 'bolsa-plot-metal',
+        label: 'Bolsa Plot',
         icon: '🧰',
-        href: '/bolsa',
-        title: 'Bolsa de trabajos metalúrgica'
+        href: '/bolsa-plot',
+        title: 'Bolsa instalaciones y metalúrgica'
       })
       break
     case 'asesor-tecnico':
@@ -194,14 +212,42 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       }
       break
     case 'administracion':
+      if (ctx.canManageWorkPool) {
+        push({
+          id: 'plot-design-admin',
+          label: 'Plot Design',
+          icon: '🎨',
+          href: '/plot-design',
+          title: 'Admin Plot Design — diseñadores y bolsa creativa'
+        })
+        push({
+          id: 'bolsa-plot-admin',
+          label: 'Bolsa Plot',
+          icon: '🧰',
+          href: '/bolsa-plot',
+          title: 'Admin Bolsa Plot — instalaciones y metalúrgica'
+        })
+      }
+      if (ctx.isAdmin && ctx.onNavigateToStats) {
+        push({
+          id: 'dashboard-stats',
+          label: 'Estadísticas',
+          icon: '📊',
+          onClick: ctx.onNavigateToStats,
+          title: 'Estadísticas del tablero'
+        })
+      }
+      if (ctx.isAdmin && ctx.onNavigateToERP) {
+        push({
+          id: 'dashboard-erp',
+          label: 'ERP',
+          icon: '💼',
+          onClick: ctx.onNavigateToERP,
+          title: 'Sistema ERP'
+        })
+      }
+      break
     case 'gerencia':
-      push({
-        id: 'bolsa-admin',
-        label: 'PlotBolsa',
-        icon: '🧰',
-        href: '/bolsa',
-        title: 'Bolsa de trabajos y cuenta operarios'
-      })
       if (ctx.isAdmin && ctx.onNavigateToStats) {
         push({
           id: 'dashboard-stats',

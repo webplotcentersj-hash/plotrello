@@ -142,6 +142,19 @@ export function useAuth() {
       usuario.rol === 'taller-grafico')
   /** Marcar pago en caja (RPC acotada a caja / administración / gerencia). */
   const canMarcarPagoTotemImpresion = !!usuario && (usuario.rol === 'caja' || isAdmin)
+  /** PlotBolsa modo admin: publicar, aprobar, dashboard y cuenta Plot (solo administración y presupuestos). */
+  const canManageWorkPool =
+    !!usuario && (usuario.rol === 'administracion' || usuario.rol === 'presupuestos')
+  /** PlotBolsa modo operario: tomar trabajos y ver cuenta propia. */
+  const isWorkPoolOperario =
+    !!usuario &&
+    (usuario.rol === 'diseno' || usuario.rol === 'instalaciones' || usuario.rol === 'metalurgica')
+  const canAccessPlotDesign =
+    canManageWorkPool || usuario?.rol === 'diseno'
+  const canAccessBolsaPlot =
+    canManageWorkPool ||
+    usuario?.rol === 'instalaciones' ||
+    usuario?.rol === 'metalurgica'
 
   return {
     usuario,
@@ -172,6 +185,10 @@ export function useAuth() {
     canAccessTotemImpresionPanel,
     canMarcarPagoTotemImpresion,
     canAccessMostradorViews,
+    canManageWorkPool,
+    isWorkPoolOperario,
+    canAccessPlotDesign,
+    canAccessBolsaPlot,
     loading,
     setUsuario
   }

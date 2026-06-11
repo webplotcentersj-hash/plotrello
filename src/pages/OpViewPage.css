@@ -106,6 +106,53 @@
   margin-top: 18px;
 }
 
+.opview-derive {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  background: rgba(249, 115, 22, 0.06);
+}
+
+.opview-derive__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.opview-derive__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #fdba74;
+}
+
+.opview-derive__head h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.opview-derive__hint {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #94a3b8;
+}
+
+.opview-derive__ok {
+  margin: 10px 0 0;
+  color: #6ee7b7;
+  font-size: 0.88rem;
+}
+
+.opview-derive__warn {
+  margin: 10px 0 0;
+  color: #fcd34d;
+  font-size: 0.88rem;
+}
+
 @media print {
   body {
     background: #fff;

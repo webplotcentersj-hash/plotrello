@@ -1,23 +1,22 @@
 .solicitudes-floating-button {
-  position: fixed !important;
+  position: fixed;
   bottom: 100px;
   right: 30px;
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   border: none;
   color: #fff;
-  font-size: 28px;
+  font-size: 26px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-  z-index: 1001 !important;
+  z-index: 10061;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   font-weight: bold;
-  position: relative;
 }
 
 .solicitudes-floating-button:hover {
