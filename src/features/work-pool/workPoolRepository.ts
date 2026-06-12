@@ -3,6 +3,7 @@ import type {
   WorkPoolAdminDashboard,
   WorkPoolFreelancerResumen,
   WorkPoolJob,
+  WorkPoolOrdenSugerida,
   WorkPoolPricingRule,
   WorkPoolProduct,
   WorkPoolProfile,
@@ -64,6 +65,65 @@ export async function listWorkPoolJobs(opts: {
   const { data, error } = await query
   if (error) return { success: false, error: error.message }
   return { success: true, data: (data ?? []).map((r) => mapJob(r as Record<string, unknown>)) }
+}
+
+export async function searchOrdenesWorkPool(
+  query: string,
+  limit = 12
+): Promise<{ success: boolean; data?: WorkPoolOrdenSugerida[]; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const q = query.trim()
+  if (q.length < 2) return { success: true, data: [] }
+
+  const escapeIlike = (s: string) => s.replace(/[%_\\]/g, '\\$&')
+  const normalized = escapeIlike(q.replace(/^OP-?/i, '').trim() || q)
+  const pattern = `%${normalized}%`
+  const clientePattern = `%${escapeIlike(q)}%`
+
+  const { data, error } = await supabase
+    .from('ordenes_trabajo')
+    .select('id, numero_op, cliente, descripcion, estado, sector')
+    .or(`numero_op.ilike.${pattern},cliente.ilike.${clientePattern}`)
+    .or('eliminada.eq.false,eliminada.is.null')
+    .order('fecha_creacion', { ascending: false })
+    .limit(limit)
+
+  if (error) return { success: false, error: error.message }
+
+  return {
+    success: true,
+    data: (data ?? []).map((row) => ({
+      id: Number((row as { id: number }).id),
+      numero_op: String((row as { numero_op: string }).numero_op ?? ''),
+      cliente: String((row as { cliente: string }).cliente ?? ''),
+      descripcion: (row as { descripcion: string | null }).descripcion ?? null,
+      estado: String((row as { estado: string }).estado ?? ''),
+      sector: (row as { sector: string | null }).sector ?? null
+    }))
+  }
+}
+
+export async function findWorkPoolJobForOp(
+  numeroOp: string,
+  sector: WorkPoolSector
+): Promise<{ success: boolean; data?: WorkPoolJob | null; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const op = numeroOp.trim()
+  if (!op) return { success: true, data: null }
+
+  const { data, error } = await supabase
+    .from('work_pool_jobs')
+    .select('*')
+    .eq('sector', sector)
+    .eq('numero_op', op)
+    .not('estado', 'in', '("cancelado")')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return { success: false, error: error.message }
+  if (!data) return { success: true, data: null }
+  return { success: true, data: mapJob(data as Record<string, unknown>) }
 }
 
 export async function listPricingRules(

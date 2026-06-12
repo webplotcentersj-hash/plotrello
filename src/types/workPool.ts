@@ -108,6 +108,15 @@ export type WorkPoolAdminKpis = {
   pagado_total: number
 }
 
+export type WorkPoolOrdenSugerida = {
+  id: number
+  numero_op: string
+  cliente: string
+  descripcion: string | null
+  estado: string
+  sector: string | null
+}
+
 export type WorkPoolAdminDashboard = {
   kpis: WorkPoolAdminKpis
   resumen_sectores: WorkPoolResumenSector[]

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { WorkPoolProduct, WorkPoolSector } from '../../types/workPool'
-import { WORK_POOL_SECTOR_LABELS } from '../../types/workPool'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { WorkPoolJob, WorkPoolOrdenSugerida, WorkPoolProduct, WorkPoolSector } from '../../types/workPool'
+import { WORK_POOL_ESTADO_LABELS, WORK_POOL_SECTOR_LABELS } from '../../types/workPool'
 import { apiService } from '../../services/api'
 import type { UsuarioRecord } from '../../types/api'
 import {
@@ -9,13 +9,18 @@ import {
   sectorsForProduct,
   WORK_POOL_PRODUCT_CONFIG
 } from './workPoolConfig'
-import { crearWorkPoolJob, listPricingRules } from './workPoolRepository'
+import {
+  crearWorkPoolJob,
+  findWorkPoolJobForOp,
+  listPricingRules,
+  listWorkPoolJobs,
+  searchOrdenesWorkPool
+} from './workPoolRepository'
 import './WorkPoolModule.css'
 
 export type WorkPoolPublicarFormProps = {
   product: WorkPoolProduct
   idUsuarioCreador: number
-  /** Prellenado al derivar desde OP */
   numeroOp?: string
   descripcionInicial?: string
   sectorInicial?: WorkPoolSector
@@ -59,8 +64,31 @@ export default function WorkPoolPublicarForm({
   const [creating, setCreating] = useState(false)
   const [localError, setLocalError] = useState('')
 
+  const [opQuery, setOpQuery] = useState(numeroOp)
+  const [opSugerencias, setOpSugerencias] = useState<WorkPoolOrdenSugerida[]>([])
+  const [opBuscando, setOpBuscando] = useState(false)
+  const [opDropdownOpen, setOpDropdownOpen] = useState(false)
+  const [opSeleccionada, setOpSeleccionada] = useState<WorkPoolOrdenSugerida | null>(null)
+  const [jobExistente, setJobExistente] = useState<WorkPoolJob | null>(null)
+
+  const [tarifaQuery, setTarifaQuery] = useState('')
+  const [empleadoQuery, setEmpleadoQuery] = useState('')
+
+  const [disponibles, setDisponibles] = useState<WorkPoolJob[]>([])
+  const [loadingDisponibles, setLoadingDisponibles] = useState(false)
+
+  const opSearchRef = useRef<HTMLDivElement>(null)
+
+  const loadDisponibles = useCallback(async () => {
+    setLoadingDisponibles(true)
+    const res = await listWorkPoolJobs({ sector, soloDisponibles: true })
+    if (res.success) setDisponibles(res.data ?? [])
+    setLoadingDisponibles(false)
+  }, [sector])
+
   useEffect(() => {
     setCreateOp(numeroOp)
+    setOpQuery(numeroOp)
   }, [numeroOp])
 
   useEffect(() => {
@@ -71,7 +99,8 @@ export default function WorkPoolPublicarForm({
     void listPricingRules(sector).then((res) => {
       if (res.success) setTarifas(res.data ?? [])
     })
-  }, [sector])
+    void loadDisponibles()
+  }, [sector, loadDisponibles])
 
   useEffect(() => {
     void apiService.getUsuarios().then((res) => {
@@ -81,10 +110,76 @@ export default function WorkPoolPublicarForm({
     })
   }, [sector])
 
+  useEffect(() => {
+    if (compact && numeroOp) return
+    const q = opQuery.trim()
+    if (q.length < 2) {
+      setOpSugerencias([])
+      setOpBuscando(false)
+      return
+    }
+    setOpBuscando(true)
+    const t = window.setTimeout(() => {
+      void searchOrdenesWorkPool(q, 10).then((res) => {
+        setOpBuscando(false)
+        if (res.success) {
+          setOpSugerencias(res.data ?? [])
+          setOpDropdownOpen(true)
+        }
+      })
+    }, 280)
+    return () => window.clearTimeout(t)
+  }, [opQuery, compact, numeroOp])
+
+  useEffect(() => {
+    const op = createOp.trim()
+    if (!op) {
+      setJobExistente(null)
+      return
+    }
+    void findWorkPoolJobForOp(op, sector).then((res) => {
+      if (res.success) setJobExistente(res.data ?? null)
+    })
+  }, [createOp, sector])
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (opSearchRef.current && !opSearchRef.current.contains(e.target as Node)) {
+        setOpDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [])
+
+  const tarifasFiltradas = useMemo(() => {
+    const q = tarifaQuery.trim().toLowerCase()
+    if (!q) return tarifas
+    return tarifas.filter(
+      (t) => t.nombre.toLowerCase().includes(q) || t.codigo.toLowerCase().includes(q)
+    )
+  }, [tarifas, tarifaQuery])
+
+  const empleadosFiltrados = useMemo(() => {
+    const q = empleadoQuery.trim().toLowerCase()
+    if (!q) return empleados
+    return empleados.filter((u) => u.nombre.toLowerCase().includes(q))
+  }, [empleados, empleadoQuery])
+
   const montoFromTarifa = useMemo(() => {
     const t = tarifas.find((x) => x.codigo === createTarifa)
     return t?.monto_base ?? 0
   }, [tarifas, createTarifa])
+
+  const seleccionarOp = (orden: WorkPoolOrdenSugerida) => {
+    setOpSeleccionada(orden)
+    setCreateOp(orden.numero_op)
+    setOpQuery(orden.numero_op)
+    setOpDropdownOpen(false)
+    if (!createDesc.trim() && orden.descripcion) {
+      setCreateDesc(orden.descripcion)
+    }
+  }
 
   const handleSubmit = async () => {
     if (!createOp.trim()) {
@@ -122,11 +217,14 @@ export default function WorkPoolPublicarForm({
     }
 
     setCreateOp(numeroOp)
+    setOpQuery(numeroOp)
+    setOpSeleccionada(null)
     setCreateDesc('')
     setCreateTarifa('')
     setCreateMonto('')
     setEmpleadoId('')
     setModo('bolsa')
+    void loadDisponibles()
     onSuccess?.()
   }
 
@@ -138,7 +236,7 @@ export default function WorkPoolPublicarForm({
             {cfg.icon} Publicar en {cfg.label}
           </h3>
           <p className="work-pool-publicar__hint">
-            Derivá desde la OP a la bolsa libre o asigná directamente a un empleado del sector.
+            Buscá la OP, elegí tarifario y publicá en bolsa o asigná a un empleado.
           </p>
         </>
       )}
@@ -157,6 +255,29 @@ export default function WorkPoolPublicarForm({
           ))}
         </div>
       )}
+
+      {/* Bolsa disponible actual */}
+      <section className="work-pool-publicar__disponibles">
+        <div className="work-pool-publicar__disponibles-head">
+          <h4>Disponibles en bolsa ({WORK_POOL_SECTOR_LABELS[sector]})</h4>
+          <span className="work-pool-publicar__pill">{disponibles.length}</span>
+        </div>
+        {loadingDisponibles ? (
+          <p className="work-pool-publicar__muted">Cargando…</p>
+        ) : disponibles.length === 0 ? (
+          <p className="work-pool-publicar__muted">No hay trabajos disponibles en este sector.</p>
+        ) : (
+          <div className="work-pool-publicar__disponibles-grid">
+            {disponibles.map((job) => (
+              <article key={job.id} className="work-pool-publicar__disp-card">
+                <strong>{job.titulo}</strong>
+                <span>{job.numero_op ? `OP ${job.numero_op}` : 'Sin OP'}</span>
+                <span>{formatArs(job.monto_presupuestado)}</span>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="work-pool-publicar__modo" role="radiogroup" aria-label="Modo de publicación">
         <button
@@ -177,27 +298,81 @@ export default function WorkPoolPublicarForm({
         </button>
       </div>
 
-      <div className="work-pool-module__form-row">
-        <label>
-          Nº OP <span className="work-pool-publicar__req">*</span>
+      {/* Buscador OP */}
+      <div className="work-pool-publicar__search-block" ref={opSearchRef}>
+        <label className="work-pool-publicar__search-label">
+          Buscar OP <span className="work-pool-publicar__req">*</span>
           <input
-            value={createOp}
-            onChange={(e) => setCreateOp(e.target.value)}
-            placeholder="Ej. 100660"
+            value={opQuery}
+            onChange={(e) => {
+              setOpQuery(e.target.value)
+              setCreateOp(e.target.value)
+              setOpSeleccionada(null)
+            }}
+            onFocus={() => opSugerencias.length > 0 && setOpDropdownOpen(true)}
+            placeholder="Nº OP o cliente (mín. 2 caracteres)"
             readOnly={Boolean(numeroOp) && compact}
+            autoComplete="off"
           />
         </label>
-        <label>
-          Tarifario
-          <select value={createTarifa} onChange={(e) => setCreateTarifa(e.target.value)}>
-            <option value="">— Elegir —</option>
-            {tarifas.map((t) => (
-              <option key={t.codigo} value={t.codigo}>
-                {t.nombre} ({formatArs(t.monto_base)})
-              </option>
+        {opBuscando && <span className="work-pool-publicar__search-status">Buscando…</span>}
+        {opDropdownOpen && opSugerencias.length > 0 && (
+          <ul className="work-pool-publicar__dropdown" role="listbox">
+            {opSugerencias.map((orden) => (
+              <li key={orden.id}>
+                <button type="button" onClick={() => seleccionarOp(orden)}>
+                  <strong>OP {orden.numero_op}</strong>
+                  <span>{orden.cliente}</span>
+                  <small>{orden.estado}{orden.sector ? ` · ${orden.sector}` : ''}</small>
+                </button>
+              </li>
             ))}
-          </select>
+          </ul>
+        )}
+        {opSeleccionada && (
+          <div className="work-pool-publicar__op-preview">
+            <strong>OP {opSeleccionada.numero_op}</strong> — {opSeleccionada.cliente}
+            <span>{opSeleccionada.estado}</span>
+          </div>
+        )}
+        {jobExistente && (
+          <div className="work-pool-module__alert work-pool-module__alert--info">
+            Esta OP ya tiene un trabajo en {WORK_POOL_SECTOR_LABELS[sector]} (
+            {WORK_POOL_ESTADO_LABELS[jobExistente.estado]}).
+          </div>
+        )}
+      </div>
+
+      {/* Tarifario con buscador */}
+      <div className="work-pool-publicar__search-block">
+        <label className="work-pool-publicar__search-label">
+          Tarifario disponible
+          <input
+            value={tarifaQuery}
+            onChange={(e) => setTarifaQuery(e.target.value)}
+            placeholder="Buscar tarifa…"
+          />
         </label>
+        {tarifasFiltradas.length === 0 ? (
+          <p className="work-pool-publicar__muted">Sin tarifas para este sector.</p>
+        ) : (
+          <div className="work-pool-publicar__tarifa-grid">
+            {tarifasFiltradas.map((t) => (
+              <button
+                key={t.codigo}
+                type="button"
+                className={`work-pool-publicar__tarifa-card${createTarifa === t.codigo ? ' is-active' : ''}`}
+                onClick={() => setCreateTarifa(createTarifa === t.codigo ? '' : t.codigo)}
+              >
+                <strong>{t.nombre}</strong>
+                <span>{formatArs(t.monto_base)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="work-pool-module__form-row">
         <label>
           Monto manual (opcional)
           <input
@@ -211,18 +386,31 @@ export default function WorkPoolPublicarForm({
       </div>
 
       {modo === 'asignado' && (
-        <div className="work-pool-module__form-row">
-          <label style={{ gridColumn: '1 / -1' }}>
-            Empleado ({WORK_POOL_SECTOR_LABELS[sector]})
-            <select value={empleadoId} onChange={(e) => setEmpleadoId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">— Elegir empleado —</option>
-              {empleados.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nombre}
-                </option>
-              ))}
-            </select>
+        <div className="work-pool-publicar__search-block">
+          <label className="work-pool-publicar__search-label">
+            Buscar empleado ({WORK_POOL_SECTOR_LABELS[sector]})
+            <input
+              value={empleadoQuery}
+              onChange={(e) => setEmpleadoQuery(e.target.value)}
+              placeholder="Nombre del operario…"
+            />
           </label>
+          <div className="work-pool-publicar__empleado-grid">
+            {empleadosFiltrados.length === 0 ? (
+              <p className="work-pool-publicar__muted">No hay empleados para este sector.</p>
+            ) : (
+              empleadosFiltrados.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  className={`work-pool-publicar__empleado-card${empleadoId === u.id ? ' is-active' : ''}`}
+                  onClick={() => setEmpleadoId(empleadoId === u.id ? '' : u.id)}
+                >
+                  {u.nombre}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
 

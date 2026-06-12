@@ -138,6 +138,9 @@ function deletedRowSearchBlob(row: DeletedOpRow): string {
 
 /** Fichas visibles en grilla por tanda (evita 2000 nodos DOM de golpe). */
 const LIBRARY_GRID_BATCH = 120
+const LIBRARY_SERVER_SEARCH_MIN = 2
+const LIBRARY_SERVER_SEARCH_LIMIT = 50
+const LIBRARY_SERVER_SEARCH_DEBOUNCE_MS = 320
 
 type TaskLibraryModalProps = {
   tasks: Task[]
@@ -193,10 +196,66 @@ const TaskLibraryModal = ({
   const [catalogTasks, setCatalogTasks] = useState<Task[] | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState<string | null>(null)
-  const [catalogProgress, setCatalogProgress] = useState<number | null>(null)
+  const [catalogProgress, setCatalogProgress] = useState<{ loaded: number; total: number | null } | null>(
+    null
+  )
+  const [dbTotalCount, setDbTotalCount] = useState<number | null>(null)
+  const [serverSearchTasks, setServerSearchTasks] = useState<Task[] | null>(null)
+  const [serverSearchLoading, setServerSearchLoading] = useState(false)
+  const [serverSearchTruncated, setServerSearchTruncated] = useState(false)
+  const [serverSearchError, setServerSearchError] = useState<string | null>(null)
   const [gridVisibleCount, setGridVisibleCount] = useState(LIBRARY_GRID_BATCH)
 
   const libraryTasks = catalogTasks ?? tasks
+
+  const serverSearchActive =
+    searchQuery.trim().length >= LIBRARY_SERVER_SEARCH_MIN || idBdQuery.trim() !== ''
+
+  useEffect(() => {
+    let cancelled = false
+    void apiService.getOrdenesBibliotecaCount().then((res) => {
+      if (!cancelled && res.success && res.data != null) setDbTotalCount(res.data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!serverSearchActive) {
+      setServerSearchTasks(null)
+      setServerSearchLoading(false)
+      setServerSearchTruncated(false)
+      setServerSearchError(null)
+      return
+    }
+
+    setServerSearchLoading(true)
+    setServerSearchError(null)
+    const t = window.setTimeout(() => {
+      const idBdRaw = idBdQuery.trim()
+      const idBd = idBdRaw !== '' ? Number(idBdRaw) : undefined
+      void apiService
+        .searchOrdenesBiblioteca(searchQuery.trim(), {
+          idBd: idBd != null && Number.isFinite(idBd) ? idBd : undefined
+        })
+        .then((res) => {
+          setServerSearchLoading(false)
+          if (!res.success) {
+            setServerSearchTasks(null)
+            setServerSearchTruncated(false)
+            setServerSearchError(res.error || 'No se pudo buscar en la base.')
+            return
+          }
+          const rows = res.data ?? []
+          setServerSearchTasks(rows.map((o) => ordenToTask(o)))
+          setServerSearchTruncated(rows.length >= LIBRARY_SERVER_SEARCH_LIMIT)
+          setServerSearchError(null)
+        })
+    }, LIBRARY_SERVER_SEARCH_DEBOUNCE_MS)
+
+    return () => window.clearTimeout(t)
+  }, [searchQuery, idBdQuery, serverSearchActive])
 
   const openLibraryDetail = useCallback((t: Task) => {
     setLibraryDetailTask(t)
@@ -270,13 +329,21 @@ const TaskLibraryModal = ({
     return { all, ocultas, eliminadas, entregadas }
   }, [libraryTasks])
 
+  const tasksForFiltering = useMemo(() => {
+    if (serverSearchActive && serverSearchTasks !== null) return serverSearchTasks
+    return libraryTasks
+  }, [libraryTasks, serverSearchActive, serverSearchTasks])
+
+  const skipTextFilter =
+    serverSearchActive && serverSearchTasks !== null && !serverSearchLoading
+
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const qId = idBdQuery.trim()
-    const filtered = libraryTasks.filter((task) => {
-      const matchesSearch = matchesSearchQuery(task, q)
+    const filtered = tasksForFiltering.filter((task) => {
+      const matchesSearch = skipTextFilter ? true : matchesSearchQuery(task, q)
       const matchesIdBd =
-        qId === '' ? true : String(parseTaskIdToOrdenId(task.id) ?? task.id) === qId
+        skipTextFilter ? true : qId === '' ? true : String(parseTaskIdToOrdenId(task.id) ?? task.id) === qId
 
       const matchesSector = selectedSector === 'todos' || task.assignedSector === selectedSector
 
@@ -344,7 +411,7 @@ const TaskLibraryModal = ({
       const existing = new Set(filtered.map((t) => t.id))
       for (const id of pinnedTaskIds) {
         if (existing.has(id)) continue
-        const t = libraryTasks.find((x) => x.id === id)
+        const t = tasksForFiltering.find((x) => x.id === id) ?? libraryTasks.find((x) => x.id === id)
         if (t) filtered.push(t)
       }
     }
@@ -357,9 +424,11 @@ const TaskLibraryModal = ({
     })
     return sorted
   }, [
+    tasksForFiltering,
     libraryTasks,
     searchQuery,
     idBdQuery,
+    skipTextFilter,
     selectedTableroEstado,
     sortBy,
     selectedSector,
@@ -397,7 +466,8 @@ const TaskLibraryModal = ({
     fechaDesde,
     fechaHasta,
     viewMode,
-    catalogTasks
+    catalogTasks,
+    serverSearchTasks
   ])
 
   const handleRefreshCatalog = useCallback(async () => {
@@ -407,10 +477,10 @@ const TaskLibraryModal = ({
       setCatalogTasks(cached.map((o) => ordenToTask(o)))
     }
     setCatalogLoading(true)
-    setCatalogProgress(cached?.length ?? 0)
+    setCatalogProgress({ loaded: cached?.length ?? 0, total: dbTotalCount })
     try {
       const resp = await apiService.getOrdenesBibliotecaCatalogo({
-        onProgress: (n) => setCatalogProgress(n)
+        onProgress: (loaded, total) => setCatalogProgress({ loaded, total })
       })
       if (resp.success && resp.data) {
         writeOrdenesBibliotecaCache(resp.data)
@@ -433,7 +503,7 @@ const TaskLibraryModal = ({
       setCatalogLoading(false)
       setCatalogProgress(null)
     }
-  }, [])
+  }, [dbTotalCount])
 
   const filteredEliminadasTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -657,8 +727,9 @@ const TaskLibraryModal = ({
           <div>
             <h2>Bibliotecas de OPs - Filtros Avanzados</h2>
             <p className="task-library-readonly-hint">
-              Búsqueda y consulta; desde el detalle podés editar y guardar como en el tablero. Hacé clic en una ficha
-              para abrir el detalle completo (movimientos, adjuntos, comentarios, trazados).
+              Búsqueda en toda la base (2+ caracteres) sin descargar todo; catálogo completo opcional. Desde el detalle
+              podés editar y guardar como en el tablero.
+              {dbTotalCount != null ? ` · ${dbTotalCount.toLocaleString('es-AR')} OP en base` : ''}
             </p>
           </div>
           <button type="button" className="task-library-close" onClick={onClose}>
@@ -672,10 +743,27 @@ const TaskLibraryModal = ({
               <label>Buscar</label>
               <input
                 type="text"
-                placeholder="N° OP, id orden, cliente, descripción, etiquetas, materiales, contacto…"
+                placeholder="N° OP, cliente, #id… (busca en toda la base desde 2 caracteres)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              {serverSearchLoading && (
+                <span className="task-library-server-search-hint">Buscando en toda la base…</span>
+              )}
+              {!serverSearchLoading && serverSearchError && (
+                <span className="task-library-server-search-hint task-library-server-search-hint--error" role="alert">
+                  {serverSearchError}
+                </span>
+              )}
+              {!serverSearchLoading && !serverSearchError && serverSearchActive && serverSearchTasks !== null && (
+                <span className="task-library-server-search-hint">
+                  {serverSearchTasks.length === 0
+                    ? 'Sin coincidencias en la base.'
+                    : serverSearchTruncated
+                      ? `${serverSearchTasks.length} coincidencias (mostrando las más recientes; refiná la búsqueda).`
+                      : `${serverSearchTasks.length} coincidencia${serverSearchTasks.length === 1 ? '' : 's'} en la base.`}
+                </span>
+              )}
             </div>
             <div className="filter-field" style={{ maxWidth: 220 }}>
               <label>ID BD</label>
@@ -831,13 +919,17 @@ const TaskLibraryModal = ({
               className="btn-limpiar btn-catalogo-completo"
               onClick={() => void handleRefreshCatalog()}
               disabled={catalogLoading}
-              title="Descarga todas las OP en páginas livianas (sin m²). No afecta la carga del tablero."
+              title="Descarga todas las OP en páginas livianas (sin m²), sin tope artificial. No afecta la carga del tablero."
             >
               {catalogLoading
                 ? catalogProgress != null
-                  ? `Cargando catálogo… ${catalogProgress}`
+                  ? catalogProgress.total != null
+                    ? `Cargando catálogo… ${catalogProgress.loaded.toLocaleString('es-AR')} / ${catalogProgress.total.toLocaleString('es-AR')}`
+                    : `Cargando catálogo… ${catalogProgress.loaded.toLocaleString('es-AR')}`
                   : 'Cargando catálogo…'
-                : 'Actualizar catálogo completo'}
+                : dbTotalCount != null
+                  ? `Actualizar catálogo completo (${dbTotalCount.toLocaleString('es-AR')} OP)`
+                  : 'Actualizar catálogo completo'}
             </button>
           </div>
         </div>
@@ -866,8 +958,11 @@ const TaskLibraryModal = ({
                   : `${filteredEliminadasTasks.length} fichas · ${filteredDeletedOps.length} filas auditoría`}
               </span>
               <span className="results-count" title="Totales globales (sin filtros)">
-                Total: {counters.all}
-                {catalogTasks == null ? ` (tablero, máx. ${tasks.length})` : ' (catálogo completo)'} · Ocultas:{' '}
+                Total cargado: {counters.all}
+                {catalogTasks == null
+                  ? ` (tablero ~${tasks.length}${dbTotalCount != null ? ` de ${dbTotalCount.toLocaleString('es-AR')}` : ''})`
+                  : ' (catálogo completo)'}
+                {serverSearchActive && serverSearchTasks !== null ? ' · búsqueda en servidor' : ''} · Ocultas:{' '}
                 {counters.ocultas} · Entregadas: {counters.entregadas} · Eliminadas: {counters.eliminadas}
               </span>
               {catalogError ? (

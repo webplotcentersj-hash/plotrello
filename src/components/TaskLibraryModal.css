@@ -409,6 +409,18 @@
   color: #fca5a5;
 }
 
+.task-library-server-search-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #7dd3fc;
+  line-height: 1.35;
+}
+
+.task-library-server-search-hint--error {
+  color: #fca5a5;
+}
+
 .task-library-load-more {
   display: flex;
   flex-wrap: wrap;
