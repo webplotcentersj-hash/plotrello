@@ -265,6 +265,8 @@ export type UserRole =
   | 'compras'
   | 'asesor-tecnico'
   | 'presupuestos'
+  | 'operario-diseno'
+  | 'operario-bolsa'
 
 export interface UsuarioRecord {
   id: number

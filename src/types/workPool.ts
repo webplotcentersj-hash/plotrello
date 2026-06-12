@@ -17,11 +17,55 @@ export type WorkPoolJobModo = 'bolsa' | 'asignado'
 
 export type WorkPoolLedgerTipo = 'acreditacion' | 'pago' | 'ajuste' | 'reverso'
 
+export type WorkPoolSolicitudRubro = 'diseno' | 'instalaciones' | 'metalurgica'
+export type WorkPoolSolicitudNivel =
+  | 'estudiante'
+  | 'junior'
+  | 'semi_senior'
+  | 'titulado'
+  | 'experto'
+
+export type WorkPoolSolicitud = {
+  id: number
+  tipo: 'diseno' | 'bolsa'
+  rubro: WorkPoolSolicitudRubro | null
+  nivel: WorkPoolSolicitudNivel | null
+  nombre_completo: string
+  email: string
+  telefono: string | null
+  documento: string | null
+  titulo_texto: string | null
+  experiencia: string | null
+  referencias: string | null
+  portfolio_url: string | null
+  portfolio_archivo_url: string | null
+  portfolio_archivo_nombre: string | null
+  cv_url: string | null
+  cv_nombre: string | null
+  titulo_url: string | null
+  titulo_nombre: string | null
+  titulo_universitario_url: string | null
+  titulo_universitario_nombre: string | null
+  libreta_url: string | null
+  libreta_nombre: string | null
+  mensaje: string | null
+  skills: string[]
+  zona_cobertura: string | null
+  estado: 'pendiente' | 'aprobada' | 'rechazada'
+  id_usuario_creado: number | null
+  revisado_por: number | null
+  notas_admin: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type WorkPoolJob = {
   id: number
   sector: WorkPoolSector
   id_orden: number | null
   numero_op: string | null
+  id_pedido_cliente?: number | null
+  numero_pedido?: string | null
   titulo: string
   descripcion: string | null
   modo: WorkPoolJobModo
@@ -52,6 +96,15 @@ export type WorkPoolPricingRule = {
   nombre: string
   monto_base: number
   activo: boolean
+}
+
+export type WorkPoolPedidoChat = {
+  id_pedido: number
+  numero_pedido: string
+  titulo_trabajo: string
+  id_job: number
+  mensajes_no_leidos: number
+  ultimo_mensaje_at: string | null
 }
 
 export type WorkPoolSaldoOperario = {

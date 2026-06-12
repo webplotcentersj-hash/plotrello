@@ -14,6 +14,10 @@ import {
   formatRelativeTime,
   PEDIDO_ESTADO_LABELS
 } from '../utils/clienteMensajesThread'
+import {
+  pedidoMensajePiiErrorMessage,
+  validatePedidoMensajeSinPii
+} from '../utils/pedidoMensajePiiFilter'
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageLoading from '../components/cliente/ClientePageLoading'
@@ -178,6 +182,12 @@ export default function ClienteMensajesPage() {
   const enviarMensaje = async () => {
     if (!cliente || !pedidoSeleccionado || !nuevoMensaje.trim()) return
 
+    const pii = validatePedidoMensajeSinPii(nuevoMensaje)
+    if (!pii.ok) {
+      setError(pedidoMensajePiiErrorMessage(pii))
+      return
+    }
+
     setEnviando(true)
     setError('')
     try {
@@ -218,7 +228,7 @@ export default function ClienteMensajesPage() {
       <ClientePageHeader
         eyebrow="Comunicación"
         title="Mensajes"
-        subtitle="Chateá con el equipo sobre tus pedidos. Las respuestas de Plot Center aparecen acá."
+        subtitle="Chateá con el equipo u operario asignado. No compartas teléfono, email ni datos de contacto."
       />
 
       <div className="cliente-mensajes-intro cliente-card">
@@ -337,7 +347,7 @@ export default function ClienteMensajesPage() {
 
                     const mensaje = item.message
                     const esCliente = mensaje.es_del_cliente
-                    const autor = esCliente ? 'Vos' : mensaje.nombre_usuario || 'Plot Center'
+                    const autor = esCliente ? 'Vos' : mensaje.nombre_usuario || 'Equipo Plot'
 
                     return (
                       <article

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import NotificationsDropdown from '../../components/NotificationsDropdown'
 import { useAuth } from '../../hooks/useAuth'
 import type { WorkPoolProduct, WorkPoolJob, WorkPoolSector } from '../../types/workPool'
 import { WORK_POOL_ESTADO_LABELS, WORK_POOL_SECTOR_LABELS } from '../../types/workPool'
@@ -9,14 +10,23 @@ import {
   WORK_POOL_PRODUCT_CONFIG
 } from './workPoolConfig'
 import {
+  isOperarioExternoRol,
+  jobPedidoLabel,
+  maskJobForOperarioExterno
+} from './workPoolOperarioExterno'
+import {
+  contarMensajesOperarioNoLeidos,
   entregarWorkPoolJob,
   getSaldoOperario,
   listWorkPoolJobs,
+  listWorkPoolJobsForOperario,
   tomarWorkPoolJob
 } from './workPoolRepository'
+import WorkPoolOperarioMensajes from './WorkPoolOperarioMensajes'
+import WorkPoolOperarioDashboard from './WorkPoolOperarioDashboard'
 import './WorkPoolModule.css'
 
-type ViewTab = 'bolsa' | 'mis' | 'cuenta'
+type ViewTab = 'bolsa' | 'mis' | 'cuenta' | 'mensajes'
 
 function formatArs(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -26,29 +36,47 @@ type Props = { product: WorkPoolProduct }
 
 export default function WorkPoolOperarioView({ product }: Props) {
   const navigate = useNavigate()
-  const { usuario } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { usuario, isOperarioExterno, setUsuario } = useAuth()
   const cfg = WORK_POOL_PRODUCT_CONFIG[product]
   const sectors = sectorsForProduct(product)
+  const externo = isOperarioExterno || isOperarioExternoRol(usuario?.rol)
+
+  const parseInitialView = (): ViewTab => {
+    const v = searchParams.get('view')
+    if (v === 'mensajes' && externo) return 'mensajes'
+    if (v === 'cuenta') return 'cuenta'
+    if (v === 'mis') return 'mis'
+    if (v === 'bolsa' && !externo) return 'bolsa'
+    return externo ? 'mis' : 'bolsa'
+  }
 
   const [sector, setSector] = useState<WorkPoolSector>(() =>
     defaultSectorForProduct(product, usuario?.rol)
   )
-  const [view, setView] = useState<ViewTab>('bolsa')
+  const [view, setView] = useState<ViewTab>(parseInitialView)
   const [jobs, setJobs] = useState<WorkPoolJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saldo, setSaldo] = useState({ acreditado: 0, pagado: 0, saldo_pendiente: 0 })
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
+  const [lastUpdated, setLastUpdated] = useState(() => new Date())
+
+  const pedidoMensajesParam = searchParams.get('pedido')
+  const pedidoMensajesInicial = pedidoMensajesParam ? parseInt(pedidoMensajesParam, 10) : null
 
   const load = useCallback(async () => {
     if (!usuario) return
     setLoading(true)
     setError('')
 
-    const jobsRes = await listWorkPoolJobs({
-      sector,
-      soloDisponibles: view === 'bolsa',
-      idUsuario: view === 'mis' ? usuario.id : undefined
-    })
+    const jobsRes = externo
+      ? await listWorkPoolJobsForOperario(usuario.id, product)
+      : await listWorkPoolJobs({
+          sector,
+          soloDisponibles: view === 'bolsa',
+          idUsuario: view === 'mis' ? usuario.id : undefined
+        })
 
     if (!jobsRes.success) {
       setError(jobsRes.error || 'Error al cargar trabajos')
@@ -66,18 +94,70 @@ export default function WorkPoolOperarioView({ product }: Props) {
     const saldoRes = await getSaldoOperario(usuario.id)
     if (saldoRes.success && saldoRes.data) setSaldo(saldoRes.data)
 
+    setLastUpdated(new Date())
     setLoading(false)
-  }, [usuario, sector, view])
+  }, [usuario, sector, view, externo, product])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!externo || !usuario) return
+    void contarMensajesOperarioNoLeidos(usuario.id, product).then((res) => {
+      if (res.success && res.data != null) setMensajesNoLeidos(res.data)
+    })
+  }, [externo, usuario, view, product])
+
+  const changeView = (next: ViewTab) => {
+    setView(next)
+    const params = new URLSearchParams(searchParams)
+    params.set('view', next)
+    if (next !== 'mensajes') params.delete('pedido')
+    setSearchParams(params, { replace: true })
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('usuario')
+    setUsuario(null)
+    navigate('/login')
+  }
 
   const runAction = async (fn: () => Promise<{ success: boolean; error?: string }>) => {
     setError('')
     const res = await fn()
     if (!res.success) setError(res.error || 'Error en la acción')
     else void load()
+  }
+
+  const handleEntregar = (jobId: number) => {
+    if (!usuario) return
+    const notas = window.prompt('Notas de entrega (opcional)') ?? ''
+    void runAction(() => entregarWorkPoolJob(jobId, usuario.id, notas || undefined))
+  }
+
+  if (externo && usuario) {
+    const dashView =
+      view === 'bolsa' ? 'mis' : (view as 'mis' | 'mensajes' | 'cuenta')
+
+    return (
+      <WorkPoolOperarioDashboard
+        product={product}
+        usuario={usuario}
+        view={dashView}
+        onChangeView={(v) => changeView(v)}
+        onLogout={handleLogout}
+        jobs={jobs}
+        loading={loading}
+        error={error}
+        saldo={saldo}
+        mensajesNoLeidos={mensajesNoLeidos}
+        onEntregar={handleEntregar}
+        pedidoMensajesInicial={Number.isNaN(pedidoMensajesInicial ?? NaN) ? null : pedidoMensajesInicial}
+        onUnreadChange={setMensajesNoLeidos}
+        lastUpdated={lastUpdated}
+      />
+    )
   }
 
   return (
@@ -89,10 +169,26 @@ export default function WorkPoolOperarioView({ product }: Props) {
           </h1>
           <p>{cfg.tagline}</p>
         </div>
-        <button type="button" className="work-pool-module__back" onClick={() => navigate('/')}>
-          ← PlotLab
-        </button>
+        <div className="work-pool-module__head-actions">
+          {externo && <NotificationsDropdown />}
+          {externo ? (
+            <button type="button" className="work-pool-module__back" onClick={handleLogout}>
+              Cerrar sesión
+            </button>
+          ) : (
+            <button type="button" className="work-pool-module__back" onClick={() => navigate('/')}>
+              ← PlotLab
+            </button>
+          )}
+        </div>
       </header>
+
+      {externo && (
+        <div className="work-pool-module__alert work-pool-module__alert--info">
+          Los trabajos te los asigna el equipo desde Plot Design. No ves datos de contacto del cliente ni
+          número de OP; solo el pedido portal cuando corresponde.
+        </div>
+      )}
 
       {sectors.length > 1 && (
         <div className="work-pool-module__tabs" role="tablist" aria-label="Sector">
@@ -111,30 +207,53 @@ export default function WorkPoolOperarioView({ product }: Props) {
       )}
 
       <div className="work-pool-module__view-tabs" role="tablist" aria-label="Vista">
-        <button
-          type="button"
-          className={`work-pool-module__tab${view === 'bolsa' ? ' is-active' : ''}`}
-          onClick={() => setView('bolsa')}
-        >
-          Bolsa disponible
-        </button>
+        {!externo && (
+          <button
+            type="button"
+            className={`work-pool-module__tab${view === 'bolsa' ? ' is-active' : ''}`}
+            onClick={() => changeView('bolsa')}
+          >
+            Bolsa disponible
+          </button>
+        )}
         <button
           type="button"
           className={`work-pool-module__tab${view === 'mis' ? ' is-active' : ''}`}
-          onClick={() => setView('mis')}
+          onClick={() => changeView('mis')}
         >
-          Mis trabajos
+          {externo ? 'Entrantes' : 'Mis trabajos'}
         </button>
+        {externo && (
+          <button
+            type="button"
+            className={`work-pool-module__tab${view === 'mensajes' ? ' is-active' : ''}`}
+            onClick={() => changeView('mensajes')}
+          >
+            Mensajes
+            {mensajesNoLeidos > 0 && (
+              <span className="work-pool-module__tab-badge">{mensajesNoLeidos > 9 ? '9+' : mensajesNoLeidos}</span>
+            )}
+          </button>
+        )}
         <button
           type="button"
           className={`work-pool-module__tab${view === 'cuenta' ? ' is-active' : ''}`}
-          onClick={() => setView('cuenta')}
+          onClick={() => changeView('cuenta')}
         >
           Mi cuenta
         </button>
       </div>
 
       {error && <div className="work-pool-module__alert work-pool-module__alert--error">{error}</div>}
+
+      {view === 'mensajes' && externo && usuario && (
+        <WorkPoolOperarioMensajes
+          idUsuario={usuario.id}
+          product={product}
+          pedidoInicial={Number.isNaN(pedidoMensajesInicial ?? NaN) ? null : pedidoMensajesInicial}
+          onUnreadChange={setMensajesNoLeidos}
+        />
+      )}
 
       {view === 'cuenta' && (
         <div className="work-pool-module__stats">
@@ -153,7 +272,7 @@ export default function WorkPoolOperarioView({ product }: Props) {
         </div>
       )}
 
-      {view !== 'cuenta' && (
+      {view !== 'cuenta' && view !== 'mensajes' && (
         <>
           {loading ? (
             <p className="work-pool-module__empty">Cargando…</p>
@@ -165,7 +284,10 @@ export default function WorkPoolOperarioView({ product }: Props) {
             </p>
           ) : (
             <div className="work-pool-module__jobs">
-              {jobs.map((job) => (
+              {jobs.map((raw) => {
+                const job = externo ? maskJobForOperarioExterno(raw) : raw
+                const pedidoLabel = jobPedidoLabel(job)
+                return (
                 <article key={job.id} className="work-pool-module__job">
                   <div className="work-pool-module__job-head">
                     <h4>{job.titulo}</h4>
@@ -176,12 +298,13 @@ export default function WorkPoolOperarioView({ product }: Props) {
                   </div>
                   {job.descripcion && <p className="work-pool-module__job-desc">{job.descripcion}</p>}
                   <div className="work-pool-module__job-meta">
-                    {job.numero_op && <span>OP {job.numero_op}</span>}
+                    {pedidoLabel ? <span>Pedido {pedidoLabel}</span> : null}
+                    {!externo && job.numero_op ? <span>OP {job.numero_op}</span> : null}
                     <span>{formatArs(job.monto_presupuestado)}</span>
                     {job.plazo && <span>Plazo {job.plazo}</span>}
                   </div>
                   <div className="work-pool-module__job-actions">
-                    {view === 'bolsa' && job.estado === 'disponible' && usuario && (
+                    {!externo && view === 'bolsa' && job.estado === 'disponible' && usuario && (
                       <button
                         type="button"
                         className="work-pool-module__btn work-pool-module__btn--primary"
@@ -202,7 +325,7 @@ export default function WorkPoolOperarioView({ product }: Props) {
                         Marcar entregado
                       </button>
                     )}
-                    {job.numero_op && (
+                    {!externo && job.numero_op && (
                       <button
                         type="button"
                         className="work-pool-module__btn work-pool-module__btn--ghost"
@@ -213,15 +336,21 @@ export default function WorkPoolOperarioView({ product }: Props) {
                     )}
                   </div>
                 </article>
-              ))}
+              )})}
             </div>
           )}
         </>
       )}
 
-      {!loading && view === 'bolsa' && jobs.length === 0 && (
+      {!loading && !externo && view === 'bolsa' && jobs.length === 0 && (
         <div className="work-pool-module__alert work-pool-module__alert--info">
           Cuando Plot publique trabajos desde una OP, van a aparecer acá para que los tomes.
+        </div>
+      )}
+      {!loading && externo && view === 'mis' && jobs.length === 0 && (
+        <div className="work-pool-module__alert work-pool-module__alert--info">
+          Todavía no tenés trabajos asignados. El equipo de Plot Design te enviará pedidos desde el panel
+          de publicación.
         </div>
       )}
     </div>

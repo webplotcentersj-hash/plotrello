@@ -23,6 +23,7 @@ import {
   solicitarCambiosWorkPoolJob
 } from './workPoolRepository'
 import WorkPoolPublicarForm from './WorkPoolPublicarForm'
+import WorkPoolSolicitudesPanel from './WorkPoolSolicitudesPanel'
 import './WorkPoolModule.css'
 import './WorkPoolAdminPanel.css'
 
@@ -379,6 +380,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
       {dashboard && tab === 'freelancers' && (
         <div className="work-pool-admin__content">
+        <WorkPoolSolicitudesPanel />
         <section className="work-pool-admin__section">
           <div className="work-pool-admin__section-head">
             <h2>Freelancers y operarios externos</h2>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, startTransition } from 'react'
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom'
+import OperarioExternoGate from '../features/work-pool/OperarioExternoGate'
 import type { TaskStatus } from '../types/board'
 const BoardPage = lazy(() => import('../pages/BoardPage'))
 // Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
@@ -732,7 +733,8 @@ function AppRoutes({
   }, [activity, isAdmin, isPresupuestos])
 
   return (
-    <>
+    <OperarioExternoGate>
+      <>
       <Suspense fallback={null}>
         <TallerGraficoPedidoEntregaOverlay />
       </Suspense>
@@ -1298,5 +1300,6 @@ function AppRoutes({
     </Routes>
     </Suspense>
     </>
+    </OperarioExternoGate>
   )
 }

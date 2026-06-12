@@ -17,6 +17,8 @@ export type Usuario = {
     | 'compras'
     | 'asesor-tecnico'
     | 'presupuestos'
+    | 'operario-diseno'
+    | 'operario-bolsa'
 }
 
 function readStoredUsuario(): Usuario | null {
@@ -145,15 +147,24 @@ export function useAuth() {
   const canManageWorkPool =
     !!usuario && (usuario.rol === 'administracion' || usuario.rol === 'presupuestos')
   /** PlotBolsa modo operario: tomar trabajos y ver cuenta propia. */
+  const isOperarioExternoDiseno = usuario?.rol === 'operario-diseno'
+  const isOperarioExternoBolsa = usuario?.rol === 'operario-bolsa'
+  const isOperarioExterno = isOperarioExternoDiseno || isOperarioExternoBolsa
   const isWorkPoolOperario =
     !!usuario &&
-    (usuario.rol === 'diseno' || usuario.rol === 'instalaciones' || usuario.rol === 'metalurgica')
+    (usuario.rol === 'diseno' ||
+      usuario.rol === 'instalaciones' ||
+      usuario.rol === 'metalurgica' ||
+      isOperarioExterno)
   const canAccessPlotDesign =
-    canManageWorkPool || usuario?.rol === 'diseno'
+    canManageWorkPool || usuario?.rol === 'diseno' || isOperarioExternoDiseno
   const canAccessBolsaPlot =
     canManageWorkPool ||
     usuario?.rol === 'instalaciones' ||
-    usuario?.rol === 'metalurgica'
+    usuario?.rol === 'metalurgica' ||
+    isOperarioExternoBolsa
+  const operarioExternoHome =
+    isOperarioExternoDiseno ? '/plot-design' : isOperarioExternoBolsa ? '/bolsa-plot' : null
 
   return {
     usuario,
@@ -188,6 +199,10 @@ export function useAuth() {
     isWorkPoolOperario,
     canAccessPlotDesign,
     canAccessBolsaPlot,
+    isOperarioExterno,
+    isOperarioExternoDiseno,
+    isOperarioExternoBolsa,
+    operarioExternoHome,
     loading,
     setUsuario
   }

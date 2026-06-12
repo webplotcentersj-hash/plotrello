@@ -35,6 +35,7 @@ const OpEliminadasPage = lazy(() => import('./pages/OpEliminadasPage'))
 const ClienteLoginPage = lazy(() => import('./pages/ClienteLoginPage'))
 const ClientePortalRoutes = lazy(() => import('./routes/ClientePortalRoutes'))
 const StaffAppHost = lazy(() => import('./routes/StaffAppHost'))
+const OperarioBolsaSolicitudPage = lazy(() => import('./pages/OperarioBolsaSolicitudPage'))
 
 /** App campo: sin panel de debug fijo (debe vivir dentro de BrowserRouter). */
 function EnvDebugGate() {
@@ -268,8 +269,39 @@ function App() {
             }
           />
           <Route
+            path="/operario-bolsa/solicitud"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>}>
+                <OperarioBolsaSolicitudPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/postulacion-operarios"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>}>
+                <OperarioBolsaSolicitudPage />
+              </Suspense>
+            }
+          />
+          <Route
             path="/login"
-            element={isAuthenticated ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />}
+            element={
+              isAuthenticated ? (
+                <Navigate
+                  to={
+                    usuario?.rol === 'operario-diseno'
+                      ? '/plot-design'
+                      : usuario?.rol === 'operario-bolsa'
+                        ? '/bolsa-plot'
+                        : '/'
+                  }
+                  replace
+                />
+              ) : (
+                <Login onLogin={handleLogin} />
+              )
+            }
           />
           <Route
             path="/cliente/login"

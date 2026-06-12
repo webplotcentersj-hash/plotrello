@@ -38,6 +38,11 @@ function mapRolToChatCanal(rol: UserRole | string | undefined): string {
   }
 }
 
+function notificationIsWorkPoolBolsa(n: Pick<Notification, 'title'>): boolean {
+  const title = (n.title ?? '').trim()
+  return title.startsWith('[Plot Design]') || title.startsWith('[Bolsa Plot]')
+}
+
 /** Coincide con títulos/textos insertados por solicitar/responder_intercambio_turno_menu (menú diario). */
 function notificationTargetsMenuDiario(n: Pick<Notification, 'title' | 'description'>): boolean {
   const title = (n.title ?? '').toLowerCase()
@@ -300,6 +305,20 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     }
 
     try {
+      if (notificationIsWorkPoolBolsa(notification)) {
+        const route =
+          usuario?.rol === 'operario-bolsa'
+            ? '/bolsa-plot'
+            : usuario?.rol === 'operario-diseno'
+              ? '/plot-design'
+              : '/plot-design'
+        if (notification.pedido_id != null) {
+          navigate(`${route}?view=mensajes&pedido=${notification.pedido_id}`)
+        } else {
+          navigate(`${route}?view=mis`)
+        }
+        return
+      }
       // Atención al público / chat de solicitud
       if (notification.solicitud_chat_id != null) {
         navigate(`/atencion-publico?solicitud_chat=${notification.solicitud_chat_id}`)

@@ -26,7 +26,18 @@ const badgeColorByPriority: Record<Task['priority'], string> = {
 const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
   const { opNumber } = useParams<{ opNumber: string }>()
   const navigate = useNavigate()
-  const { usuario, canManageWorkPool } = useAuth()
+  const { usuario, canManageWorkPool, isOperarioExterno, operarioExternoHome } = useAuth()
+
+  if (isOperarioExterno && operarioExternoHome) {
+    return (
+      <div className="op-view-page" style={{ padding: 24 }}>
+        <p>No tenés acceso a fichas de OP.</p>
+        <button type="button" onClick={() => navigate(operarioExternoHome)}>
+          Volver a mi panel
+        </button>
+      </div>
+    )
+  }
   const contentRef = useRef<HTMLDivElement | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [deriveOpen, setDeriveOpen] = useState(false)

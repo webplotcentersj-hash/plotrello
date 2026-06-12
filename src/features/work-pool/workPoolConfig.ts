@@ -62,13 +62,23 @@ export function defaultSectorForProduct(
 
 /** Rol de staff que puede operar cada producto (sin contar admin/presupuestos). */
 export function operarioRolForProduct(product: WorkPoolProduct): string[] {
-  if (product === 'plot-design') return ['diseno']
-  return ['instalaciones', 'metalurgica']
+  if (product === 'plot-design') return ['diseno', 'operario-diseno']
+  return ['instalaciones', 'metalurgica', 'operario-bolsa']
+}
+
+export function operarioExternoRolForProduct(product: WorkPoolProduct): string {
+  return product === 'plot-design' ? 'operario-diseno' : 'operario-bolsa'
 }
 
 export function canOperarioAccessProduct(product: WorkPoolProduct, rol?: string): boolean {
   if (!rol) return false
   return operarioRolForProduct(product).includes(rol)
+}
+
+export function staffRolForWorkPoolSector(sector: WorkPoolSector): string {
+  if (sector === 'diseno') return 'diseno'
+  if (sector === 'instalaciones') return 'instalaciones'
+  return 'metalurgica'
 }
 
 export function inferSectorFromOpSectorName(name?: string | null): WorkPoolSector | null {
@@ -85,8 +95,13 @@ export function inferProductFromOpSectorName(name?: string | null): WorkPoolProd
   return productForSector(sector)
 }
 
+/** Roles de empleados internos asignables en publicar (sin operarios externos). */
 export function rolForWorkPoolSector(sector: WorkPoolSector): string {
-  if (sector === 'diseno') return 'diseno'
-  if (sector === 'instalaciones') return 'instalaciones'
-  return 'metalurgica'
+  return staffRolForWorkPoolSector(sector)
+}
+
+/** Roles asignables al publicar: internos + operarios externos aprobados. */
+export function rolesAsignablesWorkPoolSector(sector: WorkPoolSector): string[] {
+  if (sector === 'diseno') return ['diseno', 'operario-diseno']
+  return ['instalaciones', 'metalurgica', 'operario-bolsa']
 }

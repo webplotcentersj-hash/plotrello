@@ -5,10 +5,11 @@ import { apiService } from '../../services/api'
 import type { UsuarioRecord } from '../../types/api'
 import {
   defaultSectorForProduct,
-  rolForWorkPoolSector,
+  rolesAsignablesWorkPoolSector,
   sectorsForProduct,
   WORK_POOL_PRODUCT_CONFIG
 } from './workPoolConfig'
+import { isOperarioExternoRol } from './workPoolOperarioExterno'
 import {
   crearWorkPoolJob,
   findWorkPoolJobForOp,
@@ -88,6 +89,9 @@ export default function WorkPoolPublicarForm({
 
   const [disponibles, setDisponibles] = useState<WorkPoolJob[]>([])
   const [loadingDisponibles, setLoadingDisponibles] = useState(false)
+  const [pedidoPortalSeleccionado, setPedidoPortalSeleccionado] = useState<PedidoClienteRecord | null>(
+    null
+  )
 
   const opSearchRef = useRef<HTMLDivElement>(null)
 
@@ -117,8 +121,8 @@ export default function WorkPoolPublicarForm({
   useEffect(() => {
     void apiService.getUsuarios().then((res) => {
       if (!res.success || !res.data) return
-      const rol = rolForWorkPoolSector(sector)
-      setEmpleados(res.data.filter((u) => u.rol === rol))
+      const roles = rolesAsignablesWorkPoolSector(sector)
+      setEmpleados(res.data.filter((u) => roles.includes(u.rol)))
     })
   }, [sector])
 
@@ -221,6 +225,7 @@ export default function WorkPoolPublicarForm({
   }
 
   const aplicarPedidoPortal = (pedido: PedidoClienteRecord) => {
+    setPedidoPortalSeleccionado(pedido)
     const texto = [pedido.brief_publico, pedido.objetivo_proyecto, pedido.observaciones_cliente]
       .filter(Boolean)
       .join('\n\n')
@@ -239,15 +244,25 @@ export default function WorkPoolPublicarForm({
     }
   }
 
+  const empleadoSeleccionado = empleados.find((u) => u.id === empleadoId)
+  const asignadoEsExterno = isOperarioExternoRol(empleadoSeleccionado?.rol)
+  const modoEfectivo = asignadoEsExterno ? 'asignado' : modo
+
   const handleSubmit = async () => {
-    if (!createOp.trim()) {
-      const msg = 'Indicá el número de OP'
+    if (!createOp.trim() && !pedidoPortalSeleccionado) {
+      const msg = 'Indicá el número de OP o elegí un pedido del portal'
       setLocalError(msg)
       onError?.(msg)
       return
     }
-    if (modo === 'asignado' && !empleadoId) {
-      const msg = 'Elegí el empleado a asignar'
+    if (pedidoPortalSeleccionado && !empleadoId) {
+      const msg = 'Los pedidos del portal se envían asignando un operario (no van solos a la bolsa)'
+      setLocalError(msg)
+      onError?.(msg)
+      return
+    }
+    if (modoEfectivo === 'asignado' && !empleadoId) {
+      const msg = 'Elegí el empleado u operario externo a asignar'
       setLocalError(msg)
       onError?.(msg)
       return
@@ -257,13 +272,18 @@ export default function WorkPoolPublicarForm({
     setLocalError('')
     const res = await crearWorkPoolJob({
       sector,
-      numero_op: createOp.trim(),
+      numero_op: createOp.trim() || undefined,
+      titulo: pedidoPortalSeleccionado
+        ? `Pedido ${pedidoPortalSeleccionado.numero_pedido}`
+        : undefined,
       descripcion: createDesc.trim() || undefined,
       codigo_tarifa: createTarifa || undefined,
       monto: createMonto ? Number(createMonto) : undefined,
       id_usuario_creador: idUsuarioCreador,
-      id_usuario_asignado: modo === 'asignado' ? Number(empleadoId) : undefined,
-      modo
+      id_usuario_asignado: modoEfectivo === 'asignado' ? Number(empleadoId) : undefined,
+      modo: modoEfectivo,
+      id_pedido_cliente: pedidoPortalSeleccionado?.id,
+      numero_pedido: pedidoPortalSeleccionado?.numero_pedido
     })
     setCreating(false)
 
@@ -277,6 +297,7 @@ export default function WorkPoolPublicarForm({
     setCreateOp(numeroOp)
     setOpQuery(numeroOp)
     setOpSeleccionada(null)
+    setPedidoPortalSeleccionado(null)
     setCreateDesc('')
     setCreateTarifa('')
     setCreateMonto('')
@@ -336,6 +357,13 @@ export default function WorkPoolPublicarForm({
           </div>
         )}
       </section>
+
+      {pedidoPortalSeleccionado && (
+        <div className="work-pool-module__alert work-pool-module__alert--info">
+          Pedido portal <strong>{pedidoPortalSeleccionado.numero_pedido}</strong> listo para asignar. Elegí
+          operario y publicá; no se envía automáticamente a la bolsa.
+        </div>
+      )}
 
       {!compact && (
         <WorkPoolFuentesEntrada
@@ -502,9 +530,14 @@ export default function WorkPoolPublicarForm({
                   key={u.id}
                   type="button"
                   className={`work-pool-publicar__empleado-card${empleadoId === u.id ? ' is-active' : ''}`}
-                  onClick={() => setEmpleadoId(empleadoId === u.id ? '' : u.id)}
+                  onClick={() => {
+                    const next = empleadoId === u.id ? '' : u.id
+                    setEmpleadoId(next)
+                    if (next && isOperarioExternoRol(u.rol)) setModo('asignado')
+                  }}
                 >
                   {u.nombre}
+                  {isOperarioExternoRol(u.rol) ? ' · externo' : ''}
                 </button>
               ))
             )}
