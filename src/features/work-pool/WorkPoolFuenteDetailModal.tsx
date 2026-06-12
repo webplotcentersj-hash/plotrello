@@ -192,19 +192,40 @@ export default function WorkPoolFuenteDetailModal({
     }
   }
 
-  if (detail.kind === 'op' && task && !loading && !error) {
-    return (
-      <>
-        <Suspense fallback={null}>
-          <TaskViewModal
-            task={task}
-            teamMembers={teamMembers}
-            sectores={sectores}
-            exhaustiveDetail
-            onClose={onClose}
-          />
-        </Suspense>
-        {createPortal(
+  if (detail.kind === 'op') {
+    if (loading) {
+      return createPortal(
+        <div className="wp-fuente-detail-backdrop wp-fuente-detail-backdrop--op" role="presentation">
+          <p className="wp-fuente-detail__loading">Cargando OP completa…</p>
+        </div>,
+        document.body
+      )
+    }
+    if (error) {
+      return createPortal(
+        <div className="wp-fuente-detail-backdrop wp-fuente-detail-backdrop--op" role="presentation" onClick={onClose}>
+          <div className="wp-fuente-detail wp-fuente-detail--compact" onClick={(e) => e.stopPropagation()}>
+            <p className="wp-fuente-detail__error">{error}</p>
+            <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost" onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
+        </div>,
+        document.body
+      )
+    }
+    if (task) {
+      return createPortal(
+        <div className="wp-fuente-op-portal">
+          <Suspense fallback={<div className="wp-fuente-detail-backdrop wp-fuente-detail-backdrop--op" />}>
+            <TaskViewModal
+              task={task}
+              teamMembers={teamMembers}
+              sectores={sectores}
+              exhaustiveDetail
+              onClose={onClose}
+            />
+          </Suspense>
           <div className="wp-fuente-detail__op-bar">
             <span>
               OP <strong>{detail.orden.numero_op}</strong> — {detail.orden.cliente}
@@ -224,11 +245,11 @@ export default function WorkPoolFuenteDetailModal({
                 Cerrar
               </button>
             </div>
-          </div>,
-          document.body
-        )}
-      </>
-    )
+          </div>
+        </div>,
+        document.body
+      )
+    }
   }
 
   const title =

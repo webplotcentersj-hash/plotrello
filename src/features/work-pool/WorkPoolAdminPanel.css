@@ -212,14 +212,12 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  background: linear-gradient(135deg, #fff 0%, #fed7aa 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #fed7aa;
+  background: none;
 }
 
 .work-pool--plot-design .work-pool-admin__hero h1 {
-  background: linear-gradient(135deg, #fff 0%, #e9d5ff 55%, #c084fc 100%);
+  color: #d8b4fe;
 }
 
 .work-pool-admin__hero p {

@@ -1,3 +1,34 @@
+/* OP: portaleado a body para no quedar recortado por transform del panel admin */
+.wp-fuente-op-portal .task-view-overlay.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 13000 !important;
+  padding: 16px;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.wp-fuente-op-portal .task-view-modal--exhaustive.modal-content {
+  margin: 0 auto;
+  max-height: min(92vh, calc(100vh - 120px));
+}
+
+.wp-fuente-detail-backdrop--op {
+  z-index: 13000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wp-fuente-detail--compact {
+  width: min(420px, 100%);
+  padding: 20px;
+  border-radius: 14px;
+  background: #141824;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .wp-fuente-detail-backdrop {
   position: fixed;
   inset: 0;
@@ -222,7 +253,7 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.wp-fuente-detail__op-bar {
+.wp-fuente-op-portal .wp-fuente-detail__op-bar {
   position: fixed;
   left: 50%;
   bottom: 20px;
