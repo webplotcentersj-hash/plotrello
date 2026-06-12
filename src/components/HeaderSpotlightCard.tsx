@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import apiService from '../services/api'
 import type { FechaPlotHoyItem, Notification } from '../types/api'
@@ -99,6 +99,44 @@ function EquipoLegajoAvatar({
   }
 
   return <div className="header-spotlight-equipo-avatar">{inner}</div>
+}
+
+function ComunicadoDescripcion({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [truncated, setTruncated] = useState(false)
+  const descRef = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    if (expanded) return
+    const el = descRef.current
+    if (!el) return
+    const check = () => setTruncated(el.scrollHeight > el.clientHeight + 1)
+    check()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [text, expanded])
+
+  return (
+    <>
+      <p
+        ref={descRef}
+        className={`header-spotlight-comunicado-desc${expanded ? ' is-expanded' : ''}`}
+      >
+        {text}
+      </p>
+      {truncated || expanded ? (
+        <button
+          type="button"
+          className="header-spotlight-comunicado-more"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+        >
+          {expanded ? 'Leer menos' : 'Leer más'}
+        </button>
+      ) : null}
+    </>
+  )
 }
 
 function comunicadoAccentClass(type: Notification['type']): string {
@@ -356,9 +394,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                     >
                       <div className="header-spotlight-comunicado-copy">
                         <p className="header-spotlight-comunicado-title">{n.title}</p>
-                        {n.description ? (
-                          <p className="header-spotlight-comunicado-desc">{n.description}</p>
-                        ) : null}
+                        {n.description ? <ComunicadoDescripcion text={n.description} /> : null}
                       </div>
                     </article>
                   </li>
