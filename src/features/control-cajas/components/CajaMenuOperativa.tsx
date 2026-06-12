@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { estadoPasoMenu, loadEstadoOperativaHoy, type CajaEstadoOperativaHoy } from '../cajaOperativaHoy'
-import { fmtDateAr } from '../format'
+import { fmtArs, fmtDateAr } from '../format'
+import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaSectionId } from '../types'
+import CajaSubidaInteligente from './CajaSubidaInteligente'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Paso = {
@@ -19,7 +21,7 @@ const PASOS: Paso[] = [
     section: 'arqueo',
     icon: '💵',
     label: 'Mi arqueo',
-    descripcion: 'Subí la planilla PDF del día y contá el efectivo en billetes.'
+    descripcion: 'Cierre / ventas del turno: efectivo a contar en billetes.'
   },
   {
     orden: 2,
@@ -33,7 +35,7 @@ const PASOS: Paso[] = [
     section: 'pase_caja',
     icon: '↔️',
     label: 'Pase de caja',
-    descripcion: 'Si movés plata entre cajas durante el día, registrá el pase con trazabilidad.'
+    descripcion: 'PDF con IN/IV «PASE DE CAJA» o pase manual entre cajas.'
   },
   {
     orden: 4,
@@ -77,22 +79,35 @@ type Props = {
   usuarioId?: number
   refreshToken?: number
   onNavigate: (section: CajaSectionId) => void
+  onPlanillaParsed?: (planilla: PlanillaCajaParsed | null) => void
+  onImported?: () => void
 }
 
 function resumenDia(estado: CajaEstadoOperativaHoy): string {
   const partes: string[] = []
-  if (estado.planillaImportada) partes.push('planilla')
+  if (estado.planillasDelDia > 0) {
+    partes.push(
+      estado.planillasDelDia === 1 ? '1 planilla' : `${estado.planillasDelDia} planillas`
+    )
+  }
   if (estado.arqueoHecho) partes.push('arqueo')
-  if (estado.cierreTurnoHecho) partes.push('cierre')
+  if (estado.cierreTurnoHecho) partes.push('cierre turno')
   if (!partes.length) return 'Todavía no registraste pasos del día.'
-  return `Hoy: ${partes.join(' · ')}.`
+  const base = `Hoy: ${partes.join(' · ')}.`
+  const t = estado.totalesDia
+  if (t && (t.ingresos > 0 || t.egresos > 0)) {
+    return `${base} Neto coherente: $ ${fmtArs(t.neto)} (${t.comprobantes_unicos} comprob. únicos).`
+  }
+  return base
 }
 
 export default function CajaMenuOperativa({
   usuarioNombre,
   usuarioId,
   refreshToken = 0,
-  onNavigate
+  onNavigate,
+  onPlanillaParsed,
+  onImported
 }: Props) {
   const hoy = getArgentinaDateString()
   const [estado, setEstado] = useState<CajaEstadoOperativaHoy | null>(null)
@@ -138,7 +153,7 @@ export default function CajaMenuOperativa({
                 · Caja <strong>{estado.cajaNombre}</strong>
               </>
             ) : null}
-            . Seguí el orden: arqueo → cierre de turno.
+            . Subí el PDF del día aquí; el sistema lo clasifica e importa sin duplicar comprobantes.
           </p>
           {cargando ? (
             <p className="caja-cc-menu-estado-line">Cargando estado del día…</p>
@@ -148,6 +163,36 @@ export default function CajaMenuOperativa({
         </div>
         <CajaVolverPlotLab small />
       </div>
+
+      {estado?.totalesDia && (estado.totalesDia.ingresos > 0 || estado.totalesDia.egresos > 0) ? (
+        <div className="caja-cc-menu-coherencia" aria-label="Totales coherentes del día">
+          <div className="caja-cc-menu-coherencia-kpi">
+            <small>Ingresos</small>
+            <strong>$ {fmtArs(estado.totalesDia.ingresos)}</strong>
+          </div>
+          <div className="caja-cc-menu-coherencia-kpi">
+            <small>Egresos</small>
+            <strong>$ {fmtArs(estado.totalesDia.egresos)}</strong>
+          </div>
+          <div className="caja-cc-menu-coherencia-kpi caja-cc-menu-coherencia-kpi--neto">
+            <small>Neto día</small>
+            <strong>$ {fmtArs(estado.totalesDia.neto)}</strong>
+          </div>
+          <div className="caja-cc-menu-coherencia-kpi">
+            <small>Comprobantes</small>
+            <strong>{estado.totalesDia.comprobantes_unicos}</strong>
+          </div>
+        </div>
+      ) : null}
+
+      <CajaSubidaInteligente
+        usuarioNombre={usuarioNombre}
+        usuarioId={usuarioId}
+        estado={estado}
+        onNavigate={onNavigate}
+        onPlanillaParsed={onPlanillaParsed}
+        onImported={onImported}
+      />
 
       {siguientePaso && estado ? (
         <div className="caja-cc-menu-siguiente">

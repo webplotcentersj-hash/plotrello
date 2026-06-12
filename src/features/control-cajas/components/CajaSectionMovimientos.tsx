@@ -14,7 +14,6 @@ import {
 } from '../parseMovimientosExcel'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import CajaMovimientosList from './CajaMovimientosList'
-import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
@@ -27,8 +26,6 @@ type Props = {
   allowExcelImport?: boolean
   allowDelete?: boolean
   title?: string
-  /** Si el padre ya muestra la zona PDF (arqueo/movimientos unificado). */
-  hidePlanillaImport?: boolean
 }
 
 export default function CajaSectionMovimientos({
@@ -37,8 +34,7 @@ export default function CajaSectionMovimientos({
   soloMisMovimientos = false,
   allowExcelImport = true,
   allowDelete = true,
-  title = 'Movimientos de caja',
-  hidePlanillaImport = false
+  title = 'Movimientos de caja'
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -265,14 +261,6 @@ export default function CajaSectionMovimientos({
       </div>
 
       {importMsg && <p className="caja-cc-help">{importMsg}</p>}
-
-      {!hidePlanillaImport && (
-        <CajaImportPlanillaPdf
-          usuarioNombre={usuarioNombre}
-          usuarioId={usuarioId}
-          onImported={() => void reload()}
-        />
-      )}
 
       <form className="caja-cc-card" onSubmit={(e) => void handleSubmit(e)}>
         <h3>Nuevo movimiento</h3>

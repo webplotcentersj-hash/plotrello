@@ -30,17 +30,12 @@ function readStoredUsuario(): Usuario | null {
   }
 }
 
-function hasCachedStaffSession(): boolean {
-  if (typeof window === 'undefined') return false
-  return Boolean(localStorage.getItem('usuario') && localStorage.getItem('auth_token'))
-}
-
 export function useAuth() {
   const [usuario, setUsuario] = useState<Usuario | null>(readStoredUsuario)
-  /** Con usuario + token en localStorage, mostrar la UI al instante y validar en segundo plano. */
+  /** Con usuario en localStorage, mostrar la UI al instante y validar sesión en segundo plano. */
   const [loading, setLoading] = useState(() => {
     if (typeof window === 'undefined') return true
-    return !hasCachedStaffSession()
+    return readStoredUsuario() == null
   })
 
   useEffect(() => {
@@ -124,8 +119,12 @@ export function useAuth() {
   const canManageTallerImprenta = !!usuario && (usuario.rol === 'imprenta' || usuario.rol === 'administracion')
   // Puede gestionar metalúrgica: metalurgica o administracion
   const canManageMetalurgica = !!usuario && (usuario.rol === 'metalurgica' || usuario.rol === 'administracion')
-  // Puede gestionar recursos humanos: recursos-humanos o administracion
-  const canManageRecursosHumanos = !!usuario && (usuario.rol === 'recursos-humanos' || usuario.rol === 'administracion')
+  // Puede gestionar recursos humanos: RRHH, administración o gerencia (admin ve todo RRHH)
+  const canManageRecursosHumanos =
+    !!usuario &&
+    (usuario.rol === 'recursos-humanos' ||
+      usuario.rol === 'administracion' ||
+      usuario.rol === 'gerencia')
   // Puede gestionar asesor técnico: asesor-tecnico o administracion
   const canManageAsesorTecnico = !!usuario && (usuario.rol === 'asesor-tecnico' || usuario.rol === 'administracion')
   // Puede gestionar presupuestos: presupuestos o administracion (también asesor-tecnico por vinculación)

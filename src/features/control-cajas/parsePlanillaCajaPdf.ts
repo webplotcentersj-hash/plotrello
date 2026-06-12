@@ -5,7 +5,7 @@ import { validarCuadreMediosPago } from './planillaMediosPago'
 /** Monto argentino: 2.485.275,55 o 5305,33 */
 const AR_AMOUNT = /(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})/g
 
-const COMPROBANTE_PREFIX = /^(FA|FB|IV|IPC|EG|MEC)\s+(\S+)\s+(.+)$/i
+const COMPROBANTE_PREFIX = /^(FA|FB|IV|IN|IPC|EG|MEC)\s+(\S+)\s+(.+)$/i
 
 /** Columnas de cada línea (orden del PDF Plot Center). */
 export const PLANILLA_LINEA_COLUMNAS = [
@@ -220,7 +220,7 @@ function wrapLinea(
 function parseLineaComprobante(line: string, bloque: PlanillaBloqueId): PlanillaLineaConMontos | null {
   const m = line.match(COMPROBANTE_PREFIX)
   if (!m) return null
-  const prefix = m[1].toUpperCase()
+  const prefix = m[1].toUpperCase() === 'IN' ? 'IV' : m[1].toUpperCase()
   const num = m[2]
   const rest = m[3]
   const amounts = parseAmountsFromTail(rest)
@@ -254,7 +254,7 @@ function parseMecLine(line: string): PlanillaLineaMec | null {
 function bloqueDesdePrefijo(prefix: string, current: PlanillaBloqueId): PlanillaBloqueId {
   const p = prefix.toUpperCase()
   if (p === 'FA' || p === 'FB') return 'ingresos_ventas'
-  if (p === 'IV') return 'ingresos_varios'
+  if (p === 'IV' || p === 'IN') return 'ingresos_varios'
   if (p === 'IPC') return 'ingresos_pagos_clientes'
   if (p === 'MEC') return 'movimientos_mec'
   if (p === 'EG') return current.startsWith('egreso') ? current : 'egresos_varios'
@@ -312,7 +312,7 @@ function parseTotalesDeCaja(lines: string[]): PlanillaCajaTotales | null {
 /** Si el extractor falló, partir por prefijos de comprobante. */
 function splitFallbackLines(text: string): string[] {
   return text
-    .split(/(?=\b(?:FA|FB|IV|IPC|EG|MEC)\s+\S+)/i)
+    .split(/(?=\b(?:FA|FB|IV|IN|IPC|EG|MEC)\s+\S+)/i)
     .map((s) => s.replace(/\s+/g, ' ').trim())
     .filter((s) => s.length > 8)
 }
@@ -358,7 +358,7 @@ export function parsePlanillaCajaText(rawText: string, archivoNombre: string): P
     if (prefix === 'FA' || prefix === 'FB') {
       const v = parseLineaComprobante(trimmed, 'ingresos_ventas')
       if (v && v.total > 0) ventas.push(v as PlanillaLineaVenta)
-    } else if (prefix === 'IV') {
+    } else if (prefix === 'IV' || prefix === 'IN') {
       const v = parseLineaComprobante(trimmed, 'ingresos_varios')
       if (v && v.total > 0) ingresos_varios.push(v)
     } else if (prefix === 'IPC') {

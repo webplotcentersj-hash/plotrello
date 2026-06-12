@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { usePwaUpdateOptional } from '../contexts/PwaUpdateContext'
-import { getReleaseModalContent, readLastSeenReleaseId } from '../data/pwaReleaseNotes'
+import { getReleaseModalContent } from '../data/pwaReleaseNotes'
 import { downloadReleaseGuide } from '../utils/pwaReleaseGuide'
 import './PwaUpdate.css'
 
@@ -13,10 +13,7 @@ export default function PwaUpdateModal({ mode, onClose }: PwaUpdateModalProps) {
   const pwa = usePwaUpdateOptional()
   const dialogRef = useRef<HTMLDivElement>(null)
 
-  const release = useMemo(
-    () => getReleaseModalContent(readLastSeenReleaseId(), mode),
-    [mode]
-  )
+  const release = useMemo(() => getReleaseModalContent(null, mode), [mode])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -44,12 +41,10 @@ export default function PwaUpdateModal({ mode, onClose }: PwaUpdateModalProps) {
             {isAvailable ? '⟳' : '✓'}
           </span>
           <div>
-            <h2 id="pwa-update-modal-title">
-              {isAvailable ? 'Hay una actualización lista' : release.title}
-            </h2>
+            <h2 id="pwa-update-modal-title">{release.title}</h2>
             <p className="pwa-update-modal__subtitle">
               {isAvailable
-                ? `Versión ${release.label} · Instalá para usar estos cambios.`
+                ? `Versión ${release.label} · Hay una actualización lista. Instalá para usar estos cambios.`
                 : `Versión ${release.label} · Ya está instalada en tu dispositivo.`}
             </p>
           </div>
@@ -78,9 +73,9 @@ export default function PwaUpdateModal({ mode, onClose }: PwaUpdateModalProps) {
             </ul>
           </section>
 
-          {!isAvailable && hasGuide && (
+          {hasGuide && (
             <section className="pwa-update-modal__section">
-              <h3>Guía rápida</h3>
+              <h3>{isAvailable ? 'Cómo usar lo nuevo' : 'Guía rápida'}</h3>
               <ol className="pwa-update-modal__steps">
                 {release.guideSteps.map((step) => (
                   <li key={step.title}>
@@ -94,7 +89,7 @@ export default function PwaUpdateModal({ mode, onClose }: PwaUpdateModalProps) {
         </div>
 
         <footer className="pwa-update-modal__footer">
-          {!isAvailable && hasGuide && (
+          {hasGuide && (
             <button
               type="button"
               className="pwa-update-modal__btn pwa-update-modal__btn--ghost"

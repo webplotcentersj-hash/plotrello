@@ -25,7 +25,9 @@ import CajaSectionVentasDiarias from './CajaSectionVentasDiarias'
 import CajaSectionConfig from './CajaSectionConfig'
 import CajaPlotAI from './CajaPlotAI'
 import CajaCentroInteligente from './CajaCentroInteligente'
-import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
+import CajaPlanillaResumenActiva from './CajaPlanillaResumenActiva'
+import CajaSubidaInteligente from './CajaSubidaInteligente'
 import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import CajaPlanillasRecibidasPanel from './CajaPlanillasRecibidasPanel'
 import CajaInteligenciaBar from './CajaInteligenciaBar'
@@ -164,11 +166,22 @@ export default function ControlCajasModule() {
 
   const bumpRefresh = () => setRefreshKey((k) => k + 1)
 
-  if (authLoading || !canManageCaja) {
+  if (authLoading && !usuario) {
     return (
       <div className="caja-dashboard-page">
         <div className="caja-loading-container">
           <p>Verificando permisos…</p>
+          <CajaVolverPlotLab />
+        </div>
+      </div>
+    )
+  }
+
+  if (!canManageCaja) {
+    return (
+      <div className="caja-dashboard-page">
+        <div className="caja-loading-container">
+          <p>Redirigiendo…</p>
           <CajaVolverPlotLab />
         </div>
       </div>
@@ -182,63 +195,19 @@ export default function ControlCajasModule() {
     section !== 'cierres_new' &&
     section !== 'cierres'
 
-  const SECCIONES_PLANILLA: CajaSectionId[] = ['arqueo', 'movimientos_admin', 'cierres']
-
   const goSection = (s: CajaSectionId) => {
     setEditCierreId(null)
     const target = !enVistaAdmin && s === 'movimientos' ? 'historial' : s
     setSection(target)
-    if (!SECCIONES_PLANILLA.includes(target)) setPlanillaActiva(null)
   }
-
-  const seccionConPlanilla = SECCIONES_PLANILLA.includes(section)
-  const adminVePlanillasRecibidas = enVistaAdmin && section === 'cierres'
 
   const refreshMovimientos = () => setMovimientosRefreshKey((k) => k + 1)
 
-  const panelPlanillaIntel = seccionConPlanilla ? (
-    <section className="caja-cc-planilla-hub" aria-label="Planilla PDF y concordancia">
-      <CajaCentroInteligente
-        isAdmin={isAdmin}
-        usuarioNombre={usuarioEtiqueta}
-        usuarioId={usuarioId}
-        onNavigate={goSection}
-        compact
-        collapsible
-        defaultExpanded={false}
-        planillaActiva={planillaActiva}
-      />
-      <CajaImportPlanillaPdf
-        usuarioNombre={usuarioEtiqueta}
-        usuarioId={usuarioId}
-        modoArqueo={section === 'arqueo'}
-        onPlanillaParsed={setPlanillaActiva}
-        onImported={() => {
-          refreshMovimientos()
-          bumpRefresh()
-        }}
-      />
-      {section === 'arqueo' && (
-        <p className="caja-cc-help caja-cc-arqueo-mp-hint">
-          Los comprobantes MP / POS son para conciliar tarjetas y transferencias; no forman parte del conteo de
-          billetes.
-        </p>
-      )}
-      {section === 'arqueo' && (
-        <CajaImportComprobantesMedios
-          usuarioNombre={usuarioEtiqueta}
-          usuarioId={usuarioId}
-          onImported={refreshMovimientos}
-        />
-      )}
-      {adminVePlanillasRecibidas && (
-        <CajaPlanillasRecibidasPanel
-          titulo="Planillas recibidas de caja (mismo detalle que el PDF)"
-          onPlanillaLoaded={setPlanillaActiva}
-        />
-      )}
-    </section>
-  ) : null
+  const onPlanillaImportada = () => {
+    refreshMovimientos()
+    bumpRefresh()
+    setMenuRefreshToken((t) => t + 1)
+  }
 
   const showIntelBar =
     enVistaAdmin &&
@@ -362,6 +331,8 @@ export default function ControlCajasModule() {
               usuarioId={usuarioId}
               refreshToken={menuRefreshToken}
               onNavigate={goSection}
+              onPlanillaParsed={setPlanillaActiva}
+              onImported={onPlanillaImportada}
             />
           )}
 
@@ -389,6 +360,7 @@ export default function ControlCajasModule() {
               usuarioId={usuarioId}
               planillaActiva={planillaActiva}
               onPlanillaParsed={setPlanillaActiva}
+              onIrSubirPdf={() => setSection('cierres')}
               onSaved={() => {
                 setEditCierreId(null)
                 setPlanillaActiva(null)
@@ -404,7 +376,32 @@ export default function ControlCajasModule() {
 
           {section === 'cierres' && enVistaAdmin && (
             <>
-              {panelPlanillaIntel}
+              <section className="caja-cc-planilla-hub" aria-label="Subir PDF del día">
+                <CajaSubidaInteligente
+                  usuarioNombre={usuarioEtiqueta}
+                  usuarioId={usuarioId}
+                  onNavigate={goSection}
+                  onPlanillaParsed={setPlanillaActiva}
+                  onImported={onPlanillaImportada}
+                  autoNavigate={false}
+                />
+                {planillaActiva ? (
+                  <CajaCentroInteligente
+                    isAdmin={isAdmin}
+                    usuarioNombre={usuarioEtiqueta}
+                    usuarioId={usuarioId}
+                    onNavigate={goSection}
+                    compact
+                    collapsible
+                    defaultExpanded={false}
+                    planillaActiva={planillaActiva}
+                  />
+                ) : null}
+                <CajaPlanillasRecibidasPanel
+                  titulo="Planillas recibidas de caja"
+                  onPlanillaLoaded={setPlanillaActiva}
+                />
+              </section>
               <CajaSectionCierresList
                 onNuevo={() => {
                   setEditCierreId(null)
@@ -422,7 +419,35 @@ export default function ControlCajasModule() {
 
           {section === 'arqueo' && (
             <>
-              {panelPlanillaIntel}
+              {!enVistaAdmin ? (
+                <section className="caja-cc-planilla-hub" aria-label="Planilla del día">
+                  {planillaActiva ? (
+                    <CajaPlanillaResumenActiva planilla={planillaActiva} />
+                  ) : (
+                    <CajaAvisoPdfUnico onIr={() => goSection('menu')} />
+                  )}
+                  {planillaActiva ? (
+                    <CajaCentroInteligente
+                      isAdmin={false}
+                      usuarioNombre={usuarioEtiqueta}
+                      usuarioId={usuarioId}
+                      onNavigate={goSection}
+                      compact
+                      collapsible
+                      defaultExpanded={false}
+                      planillaActiva={planillaActiva}
+                    />
+                  ) : null}
+                  <p className="caja-cc-help caja-cc-arqueo-mp-hint">
+                    Los comprobantes MP / POS son para conciliar tarjetas; el PDF del día va en el Menú.
+                  </p>
+                  <CajaImportComprobantesMedios
+                    usuarioNombre={usuarioEtiqueta}
+                    usuarioId={usuarioId}
+                    onImported={refreshMovimientos}
+                  />
+                </section>
+              ) : null}
               <CajaSectionArqueo
                 usuarioNombre={usuarioEtiqueta}
                 usuarioId={usuarioId}
@@ -435,7 +460,11 @@ export default function ControlCajasModule() {
           )}
 
           {section === 'cierre_turno' && (
-            <CajaSectionCierreTurno usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
+            <CajaSectionCierreTurno
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              onIrSubirPdf={() => goSection('menu')}
+            />
           )}
 
           {section === 'pase_caja' && (
@@ -470,13 +499,12 @@ export default function ControlCajasModule() {
 
           {section === 'movimientos_admin' && enVistaAdmin && (
             <>
-              {panelPlanillaIntel}
+              <CajaAvisoPdfUnico onIr={() => goSection('cierres')} destinoLabel="Cierres" />
               <CajaSectionMovimientos
                 usuarioNombre={usuarioEtiqueta}
                 usuarioId={usuarioId}
                 soloMisMovimientos={false}
                 allowExcelImport
-                hidePlanillaImport
                 title="Movimientos entre cajas"
               />
             </>

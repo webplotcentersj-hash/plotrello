@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
+import { clasificarPlanillaPorContenido, TIPO_PLANILLA_LABEL } from '../cajaCoherencia'
+import { importarPlanillaAlSistema } from '../cajaPlanillaImport'
+import { resolverDestinoPlanilla } from '../cajaPlanillaRouter'
 import {
   getParams,
   getPlanillaById,
@@ -8,11 +11,8 @@ import {
   planillaYaImportada,
   resolveCajaSlug,
   resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial,
-  saveMovimientosBulk,
-  savePlanillaImport
+  resolveCajaSlugFromHistorial
 } from '../cajaRepository'
-import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
 import {
   calcularTotalesDesdePlanilla,
@@ -26,8 +26,7 @@ import {
   parsePlanillaCajaPdfLocal,
   type PlanillaCajaParsed
 } from '../parsePlanillaCajaPdf'
-import { fechaPlanillaImport, planillaAllToMovimientos, resumenImportacion } from '../planillaMovimientos'
-import { syncEgresosSolicitudesDesdePlanilla } from '../planillaEgresosSync'
+import type { CajaSectionId } from '../types'
 import PlanillaLineasTable from './PlanillaLineasTable'
 import PlanillaMediosResumen from './PlanillaMediosResumen'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
@@ -44,6 +43,10 @@ type Props = {
   deferImport?: boolean
   /** En Mi arqueo: el PDF documenta el efectivo que queda en caja. */
   modoArqueo?: boolean
+  /** Tras importar, navegar a la sección detectada (pase, arqueo, etc.). */
+  autoRutear?: boolean
+  onDestinoDetectado?: (section: CajaSectionId, planilla: PlanillaCajaParsed) => void
+  estadoOperativa?: { arqueoHecho?: boolean; cierreTurnoHecho?: boolean }
 }
 
 export default function CajaImportPlanillaPdf({
@@ -53,7 +56,10 @@ export default function CajaImportPlanillaPdf({
   onPlanillaParsed,
   compact = false,
   deferImport = false,
-  modoArqueo = false
+  modoArqueo = false,
+  autoRutear = false,
+  onDestinoDetectado,
+  estadoOperativa
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [parsing, setParsing] = useState(false)
@@ -85,8 +91,9 @@ export default function CajaImportPlanillaPdf({
       const full = await getPlanillaById(match.id)
       if (!full) return
       setPreviewAndNotify(full)
-      setImportLocked(true)
-      setMsg(`Planilla del día ya importada (${match.archivo_nombre}). Completá el conteo de billetes abajo.`)
+      setMsg(
+        `Última planilla del día: ${match.archivo_nombre}. Podés subir más PDFs (2.º cierre, pase, etc.); los comprobantes repetidos no se duplican.`
+      )
     })()
   }, [modoArqueo, usuarioId, preview])
 
@@ -110,8 +117,8 @@ export default function CajaImportPlanillaPdf({
   }
 
   const handleFile = async (file: File) => {
-    if (importLocked) {
-      setErr('Esta planilla ya fue importada. Continuá con el conteo de billetes abajo.')
+    if (importLocked && preview?.archivo_nombre === file.name) {
+      setErr('Este PDF ya fue importado. Subí otro comprobante o continuá con el arqueo.')
       return
     }
     if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -154,11 +161,18 @@ export default function CajaImportPlanillaPdf({
         if (modoArqueo) {
           setPreviewAndNotify(parsed)
           setImportLocked(true)
+          setMsg(`«${parsed.archivo_nombre}» ya importada. Los movimientos siguen en el sistema.`)
         }
         return
       }
 
       setPreviewAndNotify(parsed)
+      const destinoPreview = resolverDestinoPlanilla(parsed, estadoOperativa)
+      if (!duplicada) {
+        setMsg(
+          `Detectado: ${TIPO_PLANILLA_LABEL[destinoPreview.tipo]} → irá a ${destinoPreview.titulo} al importar.`
+        )
+      }
       const totalLineas =
         parsed.ventas.length +
         parsed.ingresos_varios.length +
@@ -197,61 +211,28 @@ export default function CajaImportPlanillaPdf({
     setErr(null)
     setImportProgress(null)
     try {
-      const [cajas] = await Promise.all([listCajas()])
-      const cajaSlug = await resolverCajaSlugPlanilla(preview)
-      if (!cajaSlug) {
-        throw new Error('No se pudo determinar la caja. Revisá Maestros → Cajeras o el nombre en el PDF.')
-      }
-      if (await planillaYaImportada(preview, cajaSlug)) {
-        throw new Error(`«${preview.archivo_nombre}» ya está importada. No podés importar el mismo PDF otra vez.`)
-      }
-      if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
-
-      setImportProgress('Guardando planilla…')
-      const guardada = await savePlanillaImport(preview, cajaSlug, usuarioNombre, usuarioId)
-      const movs = planillaAllToMovimientos(preview, cajas, cajaSlug, usuarioNombre, usuarioId)
-      if (!movs.length) {
-        throw new Error(
-          'La planilla se guardó pero no se generaron movimientos. Revisá que el PDF tenga líneas FA/FB, EG o MEC con montos.'
-        )
-      }
-
-      setImportProgress(`Importando 0 / ${movs.length} movimientos…`)
-      const bulk = await saveMovimientosBulk(movs, {
-        cajas,
-        onProgress: (done, total) => setImportProgress(`Importando ${done} / ${total} movimientos…`)
-      })
-
-      const r = resumenImportacion(movs)
-      const efectivoQ = efectivoQuedaEnCajaDesdePlanilla(preview)
-      const egresosSol = await syncEgresosSolicitudesDesdePlanilla({
+      const res = await importarPlanillaAlSistema({
         planilla: preview,
-        cajaSlug,
-        fecha: fechaPlanillaImport(preview),
         usuarioNombre,
         usuarioId,
-        movimientos: bulk.records
+        estadoOperativa,
+        onProgress: setImportProgress
       })
-      const ctaCte = netoCtaCteDesdePlanilla(preview)
-      let okMsg = `Planilla guardada (${guardada.id.slice(0, 8)}…). Importados: ${r.total} movimientos (${r.ventas} ventas, ${r.egresos} egresos, ${r.traspasos} traspasos) en ${cajas.find((c) => c.slug === cajaSlug)?.nombre ?? cajaSlug}.`
-      if (egresosSol > 0) {
-        okMsg += ` ${egresosSol} egreso(s) registrados (efectivo + tarjetas) en la sección Egresos.`
-      }
-      if (Math.abs(ctaCte) > 0) {
-        okMsg += ` Cta. cte. neta: $ ${fmtArs(ctaCte)} (ver en Nuevo cierre → Paso 5).`
-      }
-      if (modoArqueo && efectivoQ > 0) {
-        okMsg += ` Efectivo que queda: $ ${fmtArs(efectivoQ)} — contá billetes abajo.`
-      }
-      if (!bulk.persistedRemote && bulk.remoteError) {
-        okMsg += ` Quedaron en este navegador (servidor: ${bulk.remoteError}).`
-      } else if (!bulk.persistedRemote) {
-        okMsg += ' Guardados en este navegador.'
+      if (!res.success) {
+        throw new Error(res.error ?? 'Error al importar')
       }
 
-      if (modoArqueo) {
+      let okMsg = res.mensaje ?? 'Planilla importada.'
+      if (res.planillaId) {
+        okMsg = `Planilla ${res.planillaId.slice(0, 8)}… · ${okMsg}`
+      }
+
+      if (modoArqueo || autoRutear) {
         onPlanillaParsed?.(preview)
-        setImportLocked(true)
+        setImportLocked(false)
+        if (autoRutear && onDestinoDetectado) {
+          onDestinoDetectado(res.destino, preview)
+        }
       } else {
         setPreviewAndNotify(null)
       }
@@ -267,6 +248,7 @@ export default function CajaImportPlanillaPdf({
   }
 
   const t = preview?.totales
+  const tipoPreview = preview ? clasificarPlanillaPorContenido(preview) : null
   const resumen = preview ? calcularTotalesDesdePlanilla(preview) : null
   const egresosLineas = preview
     ? [...preview.egresos, ...preview.egresos_compras, ...preview.egresos_pagos_proveedores]
@@ -308,8 +290,8 @@ export default function CajaImportPlanillaPdf({
             <h3 className="caja-cc-planilla-zone-title">Planilla PDF · PLOT CENTER</h3>
             <p className="caja-cc-sub caja-cc-planilla-zone-lead">
               {modoArqueo
-                ? 'Subí el PDF del día: la columna Efectivo indica cuánto queda en caja. Contá billetes contra ese monto.'
-                : 'Importá el listado exportado: ventas, ingresos, egresos y MEC con medios de pago para movimientos y cierre.'}
+                ? 'Podés subir 2, 3 o más PDFs por día (cierre, pase, parcial). Se cruzan por nº de comprobante sin duplicar movimientos.'
+                : 'Importá el listado exportado: ventas, ingresos (IV/IN), egresos y MEC. Varios PDFs el mismo día se consolidan sin repetir comprobantes.'}
             </p>
           </div>
         </header>
@@ -389,6 +371,9 @@ export default function CajaImportPlanillaPdf({
             <div>
               <h3>
                 Planilla leída — {totalLineas} líneas{' '}
+                {tipoPreview ? (
+                  <span className="caja-cc-planilla-tipo-badge">{TIPO_PLANILLA_LABEL[tipoPreview]}</span>
+                ) : null}
                 <span className="caja-cc-planilla-ia-badge">
                   {preview.warnings.some((w) => w.includes('PlotAI')) ? '✨ PlotAI' : '📋 Local'}
                 </span>

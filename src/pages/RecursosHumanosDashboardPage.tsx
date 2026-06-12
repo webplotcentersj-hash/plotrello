@@ -10,7 +10,7 @@ const RecursosHumanosDashboardPage = () => {
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
   const canAccessRrhhDashboard =
     !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
-  const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [stats, setStats] = useState({
     totalUsuarios: 0,
@@ -31,7 +31,7 @@ const RecursosHumanosDashboardPage = () => {
   }, [canAccessRrhhDashboard, navigate, authLoading])
 
   const loadDashboardData = async () => {
-    setLoading(true)
+    setStatsLoading(true)
     try {
       const [usuariosResponse, pruebasResponse] = await Promise.all([
         apiService.getUsuarios(),
@@ -70,11 +70,11 @@ const RecursosHumanosDashboardPage = () => {
     } catch (error) {
       console.error('Error cargando datos del dashboard:', error)
     } finally {
-      setLoading(false)
+      setStatsLoading(false)
     }
   }
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="rrhh-dashboard-loading">
         <div className="spinner"></div>
@@ -106,12 +106,12 @@ const RecursosHumanosDashboardPage = () => {
         </div>
 
         {/* Estadísticas principales */}
-        <div className="rrhh-stats-grid">
+        <div className={`rrhh-stats-grid${statsLoading ? ' rrhh-stats-grid--loading' : ''}`}>
           <div className="rrhh-stat-card">
             <div className="rrhh-stat-icon">👥</div>
             <div className="rrhh-stat-info">
               <h3>Total de Usuarios</h3>
-              <p className="rrhh-stat-value">{stats.totalUsuarios}</p>
+              <p className="rrhh-stat-value">{statsLoading ? '…' : stats.totalUsuarios}</p>
             </div>
           </div>
 
@@ -119,7 +119,7 @@ const RecursosHumanosDashboardPage = () => {
             <div className="rrhh-stat-icon">🏷️</div>
             <div className="rrhh-stat-info">
               <h3>Roles distintos</h3>
-              <p className="rrhh-stat-value">{stats.rolesDistintos}</p>
+              <p className="rrhh-stat-value">{statsLoading ? '…' : stats.rolesDistintos}</p>
             </div>
           </div>
 
@@ -127,7 +127,7 @@ const RecursosHumanosDashboardPage = () => {
             <div className="rrhh-stat-icon">📝</div>
             <div className="rrhh-stat-info">
               <h3>Pruebas de conocimiento</h3>
-              <p className="rrhh-stat-value">{stats.totalPruebas}</p>
+              <p className="rrhh-stat-value">{statsLoading ? '…' : stats.totalPruebas}</p>
             </div>
           </div>
 
@@ -136,7 +136,7 @@ const RecursosHumanosDashboardPage = () => {
             <div className="rrhh-stat-info">
               <h3>Asignaciones / Finalizadas</h3>
               <p className="rrhh-stat-value">
-                {stats.pruebasAsignaciones} / {stats.pruebasFinalizadas}
+                {statsLoading ? '…' : `${stats.pruebasAsignaciones} / ${stats.pruebasFinalizadas}`}
               </p>
             </div>
           </div>
@@ -283,6 +283,9 @@ const RecursosHumanosDashboardPage = () => {
         {/* Distribución por roles */}
         <div className="rrhh-section">
           <h2>Distribución por Roles</h2>
+          {statsLoading ? (
+            <p className="rrhh-dashboard-inline-loading">Cargando estadísticas…</p>
+          ) : null}
           <div className="rrhh-roles-grid">
             {Object.entries(stats.usuariosPorRol).map(([rol, count]) => (
               <div key={rol} className="rrhh-role-card">
@@ -304,6 +307,9 @@ const RecursosHumanosDashboardPage = () => {
         {/* Lista de usuarios recientes */}
         <div className="rrhh-section">
           <h2>Usuarios del Sistema</h2>
+          {statsLoading ? (
+            <p className="rrhh-dashboard-inline-loading">Cargando usuarios…</p>
+          ) : null}
           <div className="rrhh-users-table">
             <table>
               <thead>

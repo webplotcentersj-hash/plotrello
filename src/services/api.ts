@@ -16921,9 +16921,10 @@ class ApiService {
       return { success: false, error: 'Supabase no inicializado' }
     }
     try {
+      // Sin join a usuarios: el SELECT directo falla por RLS (permission denied).
       let q = supabase
         .from('menu_descuentos_beneficio_comida')
-        .select('*, usuarios(nombre)')
+        .select('*')
         .order('fecha', { ascending: false })
         .order('id', { ascending: false })
       if (filters?.idUsuario) q = q.eq('id_usuario', filters.idUsuario)
@@ -16933,9 +16934,35 @@ class ApiService {
       const { data, error } = await q
       if (error) throw error
       const rows = (data ?? []) as Record<string, unknown>[]
+      const ids = [
+        ...new Set(
+          rows
+            .map((r) => Number(r.id_usuario))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        )
+      ]
+      const nameById = new Map<number, string>()
+      if (ids.length > 0) {
+        const { data: usuariosRows, error: usuariosErr } = await supabase.rpc(
+          'obtener_usuarios_por_ids',
+          { p_ids: ids }
+        )
+        if (!usuariosErr && Array.isArray(usuariosRows)) {
+          for (const u of usuariosRows as UsuarioRecord[]) {
+            if (u?.id) nameById.set(u.id, u.nombre)
+          }
+        }
+      }
       return {
         success: true,
-        data: rows.map((r) => this.mapMenuDescuentoBeneficioRow(r))
+        data: rows.map((r) => {
+          const idUsuario = Number(r.id_usuario)
+          const nombre = nameById.get(idUsuario)
+          return this.mapMenuDescuentoBeneficioRow({
+            ...r,
+            usuarios: nombre ? { nombre } : null
+          })
+        })
       }
     } catch (e) {
       return {

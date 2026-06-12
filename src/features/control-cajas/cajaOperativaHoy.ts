@@ -1,10 +1,11 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
-import { planillaEnFecha } from './cajaDashboardData'
+import { calcularTotalesCoherentesDia, contarPlanillasDelDia, type TotalesCajaDia } from './cajaCoherencia'
 import {
   getParams,
   listArqueos,
   listCajas,
   listEgresoSolicitudes,
+  listMovimientos,
   listPlanillas,
   listTransferenciaLotes,
   listTraspasos,
@@ -21,10 +22,12 @@ export type CajaEstadoOperativaHoy = {
   cajaSlug: string | null
   cajaNombre: string | null
   planillaImportada: boolean
+  planillasDelDia: number
   arqueoHecho: boolean
   cierreTurnoHecho: boolean
   egresosPendientes: number
   traspasosPendientes: number
+  totalesDia: TotalesCajaDia | null
 }
 
 export async function loadEstadoOperativaHoy(
@@ -32,14 +35,15 @@ export async function loadEstadoOperativaHoy(
   usuarioNombre: string,
   fecha = getArgentinaDateString()
 ): Promise<CajaEstadoOperativaHoy> {
-  const [cajas, params, planillas, arqueos, lotes, egresos, traspasos] = await Promise.all([
+  const [cajas, params, planillas, arqueos, lotes, egresos, traspasos, movimientos] = await Promise.all([
     listCajas(),
     getParams(),
     listPlanillas(80),
     listArqueos({ usuarioId }),
     listTransferenciaLotes(50),
     listEgresoSolicitudes(),
-    listTraspasos({ estado: 'pendiente' })
+    listTraspasos({ estado: 'pendiente' }),
+    listMovimientos({ usuarioId })
   ])
 
   const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
@@ -51,11 +55,16 @@ export async function loadEstadoOperativaHoy(
   }
   const cajaNombre = cajaSlug ? (cajas.find((c) => c.slug === cajaSlug)?.nombre ?? cajaSlug) : null
 
-  const planillaImportada = planillas.some(
-    (p) =>
-      planillaEnFecha(p, fecha) &&
-      (p.caja_slug === cajaSlug || p.id_usuario === usuarioId)
-  )
+  const planillasDelDia = contarPlanillasDelDia(planillas, fecha, cajaSlug, usuarioId)
+  const planillaImportada = planillasDelDia > 0
+
+  const totalesDia =
+    cajaSlug != null
+      ? {
+          ...calcularTotalesCoherentesDia(movimientos, fecha, cajaSlug),
+          planillas_del_dia: planillasDelDia
+        }
+      : null
 
   const arqueoHecho =
     cajaSlug != null && arqueos.some((a) => a.fecha === fecha && a.caja_slug === cajaSlug)
@@ -85,10 +94,12 @@ export async function loadEstadoOperativaHoy(
     cajaSlug,
     cajaNombre,
     planillaImportada,
+    planillasDelDia,
     arqueoHecho,
     cierreTurnoHecho,
     egresosPendientes,
-    traspasosPendientes
+    traspasosPendientes,
+    totalesDia
   }
 }
 
@@ -99,8 +110,16 @@ export function estadoPasoMenu(
   switch (section) {
     case 'arqueo':
       if (estado.arqueoHecho) return { tipo: 'hecho', detalle: 'Arqueo guardado hoy' }
-      if (estado.planillaImportada) return { tipo: 'pendiente', detalle: 'Planilla lista — contá billetes' }
-      return { tipo: 'pendiente', detalle: 'Subí planilla PDF y contá' }
+      if (estado.planillasDelDia > 0) {
+        return {
+          tipo: 'pendiente',
+          detalle:
+            estado.planillasDelDia === 1
+              ? '1 planilla importada — contá billetes'
+              : `${estado.planillasDelDia} planillas — contá billetes`
+        }
+      }
+      return { tipo: 'pendiente', detalle: 'Subí PDF de cierre o usá lectura inteligente arriba' }
     case 'cierre_turno':
       if (estado.cierreTurnoHecho) return { tipo: 'hecho', detalle: 'Cierre de turno registrado' }
       if (estado.arqueoHecho) return { tipo: 'pendiente', detalle: 'Podés cerrar el turno' }

@@ -36,7 +36,9 @@ function etiquetaUsuarioArrobaParaImprimir(sel: MenuSeleccion): string {
 
 const RecursosHumanosMenuDiarioPage = () => {
   const navigate = useNavigate()
-  const { canManageRecursosHumanos, usuario, loading: authLoading } = useAuth()
+  const { canManageRecursosHumanos, isAdmin, usuario, loading: authLoading } = useAuth()
+  const canAccessRrhhMenu =
+    !!usuario && (canManageRecursosHumanos || isAdmin || usuario.rol === 'gerencia')
   const [loading, setLoading] = useState(true)
   const [menuHoy, setMenuHoy] = useState<MenuDiario | null>(null)
   const [selecciones, setSelecciones] = useState<MenuSeleccion[]>([])
@@ -72,13 +74,13 @@ const RecursosHumanosMenuDiarioPage = () => {
 
   useEffect(() => {
     if (authLoading) return
-    if (!canManageRecursosHumanos) {
+    if (!canAccessRrhhMenu) {
       navigate('/rrhh/dashboard')
       return
     }
-    loadMenuHoy()
+    void loadMenuHoy()
     // Historial inicia colapsado; se carga cuando se abre o cuando se ajustan filtros.
-  }, [canManageRecursosHumanos, navigate, authLoading])
+  }, [canAccessRrhhMenu, navigate, authLoading])
 
   useEffect(() => {
     if (!planillaMes) return
@@ -94,10 +96,10 @@ const RecursosHumanosMenuDiarioPage = () => {
   }, [planillaMes])
 
   useEffect(() => {
-    if (!canManageRecursosHumanos || !planillaDesde || !planillaHasta) return
+    if (!canAccessRrhhMenu || !planillaDesde || !planillaHasta) return
     void loadPlanillaDescuentos(planillaDesde, planillaHasta)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManageRecursosHumanos, planillaDesde, planillaHasta])
+  }, [canAccessRrhhMenu, planillaDesde, planillaHasta])
 
   const loadMenuHoy = async () => {
     setLoading(true)
@@ -106,7 +108,7 @@ const RecursosHumanosMenuDiarioPage = () => {
       if (response.success && response.data) {
         setMenuHoy(response.data)
         if (response.data.platos && response.data.platos.length > 0) {
-          setPlatos(response.data.platos.map(p => p.nombre_plato))
+          setPlatos(response.data.platos.map((p) => p.nombre_plato))
         } else {
           setPlatos([''])
         }
@@ -503,7 +505,7 @@ const RecursosHumanosMenuDiarioPage = () => {
     generarPdfMenuDiario(m, listaPdf, 'imprimir')
   }
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="rrhh-menu-page">
         <div className="rrhh-menu-header">
@@ -525,7 +527,9 @@ const RecursosHumanosMenuDiarioPage = () => {
 
       <div className="rrhh-menu-content">
         {/* Menú del día */}
-        {menuHoy ? (
+        {loading ? (
+          <p className="rrhh-menu-planilla-empty">Cargando menú del día…</p>
+        ) : menuHoy ? (
           <div className="rrhh-menu-card">
             <div className="rrhh-menu-card-header">
               <h3>Menú del Día - {formatArgentinaDate(menuHoy.fecha)}</h3>

@@ -16,7 +16,15 @@ import {
   listWorkPoolJobs,
   searchOrdenesWorkPool
 } from './workPoolRepository'
+import { parseWorkPoolOpQuery } from './workPoolOpSearch'
+import WorkPoolOperarioRecommender from './WorkPoolOperarioRecommender'
 import './WorkPoolModule.css'
+
+function resumenDescripcion(text: string | null | undefined, max = 72): string {
+  if (!text?.trim()) return ''
+  const one = text.replace(/\s+/g, ' ').trim()
+  return one.length <= max ? one : `${one.slice(0, max)}…`
+}
 
 export type WorkPoolPublicarFormProps = {
   product: WorkPoolProduct
@@ -67,6 +75,7 @@ export default function WorkPoolPublicarForm({
   const [opQuery, setOpQuery] = useState(numeroOp)
   const [opSugerencias, setOpSugerencias] = useState<WorkPoolOrdenSugerida[]>([])
   const [opBuscando, setOpBuscando] = useState(false)
+  const [opSearchError, setOpSearchError] = useState<string | null>(null)
   const [opDropdownOpen, setOpDropdownOpen] = useState(false)
   const [opSeleccionada, setOpSeleccionada] = useState<WorkPoolOrdenSugerida | null>(null)
   const [jobExistente, setJobExistente] = useState<WorkPoolJob | null>(null)
@@ -110,26 +119,32 @@ export default function WorkPoolPublicarForm({
     })
   }, [sector])
 
+  const opSearchParsed = useMemo(() => parseWorkPoolOpQuery(opQuery), [opQuery])
+
   useEffect(() => {
     if (compact && numeroOp) return
-    const q = opQuery.trim()
-    if (q.length < 2) {
+    if (!opSearchParsed.canSearch) {
       setOpSugerencias([])
       setOpBuscando(false)
+      setOpSearchError(null)
       return
     }
     setOpBuscando(true)
+    setOpSearchError(null)
     const t = window.setTimeout(() => {
-      void searchOrdenesWorkPool(q, 10).then((res) => {
+      void searchOrdenesWorkPool(opQuery, 15).then((res) => {
         setOpBuscando(false)
         if (res.success) {
           setOpSugerencias(res.data ?? [])
           setOpDropdownOpen(true)
+        } else {
+          setOpSugerencias([])
+          setOpSearchError(res.error ?? 'No se pudo buscar en la base.')
         }
       })
-    }, 280)
+    }, 300)
     return () => window.clearTimeout(t)
-  }, [opQuery, compact, numeroOp])
+  }, [opQuery, opSearchParsed.canSearch, compact, numeroOp])
 
   useEffect(() => {
     const op = createOp.trim()
@@ -170,6 +185,16 @@ export default function WorkPoolPublicarForm({
     const t = tarifas.find((x) => x.codigo === createTarifa)
     return t?.monto_base ?? 0
   }, [tarifas, createTarifa])
+
+  const briefParaIA = useMemo(() => {
+    const parts = [
+      createDesc.trim(),
+      opSeleccionada?.descripcion?.trim(),
+      opSeleccionada?.cliente?.trim(),
+      opSeleccionada?.sector?.trim()
+    ].filter(Boolean)
+    return parts.join(' · ')
+  }, [createDesc, opSeleccionada])
 
   const seleccionarOp = (orden: WorkPoolOrdenSugerida) => {
     setOpSeleccionada(orden)
@@ -309,21 +334,37 @@ export default function WorkPoolPublicarForm({
               setCreateOp(e.target.value)
               setOpSeleccionada(null)
             }}
-            onFocus={() => opSugerencias.length > 0 && setOpDropdownOpen(true)}
-            placeholder="Nº OP o cliente (mín. 2 caracteres)"
+            onFocus={() => {
+              if (opSugerencias.length > 0 || opSearchParsed.canSearch) setOpDropdownOpen(true)
+            }}
+            placeholder="Nº OP (ej. 100660), cliente, DNI, #id…"
             readOnly={Boolean(numeroOp) && compact}
             autoComplete="off"
           />
         </label>
-        {opBuscando && <span className="work-pool-publicar__search-status">Buscando…</span>}
+        {opBuscando && <span className="work-pool-publicar__search-status">Buscando en toda la base…</span>}
+        {opSearchError && (
+          <span className="work-pool-publicar__search-status work-pool-publicar__search-status--error" role="alert">
+            {opSearchError}
+          </span>
+        )}
+        {opDropdownOpen && opSearchParsed.canSearch && !opBuscando && opSugerencias.length === 0 && !opSearchError && (
+          <p className="work-pool-publicar__search-empty">Sin coincidencias. Probá nº OP, apellido o #id de BD.</p>
+        )}
         {opDropdownOpen && opSugerencias.length > 0 && (
           <ul className="work-pool-publicar__dropdown" role="listbox">
             {opSugerencias.map((orden) => (
               <li key={orden.id}>
                 <button type="button" onClick={() => seleccionarOp(orden)}>
-                  <strong>OP {orden.numero_op}</strong>
+                  <strong>OP {orden.numero_op.trim()}</strong>
                   <span>{orden.cliente}</span>
-                  <small>{orden.estado}{orden.sector ? ` · ${orden.sector}` : ''}</small>
+                  {orden.descripcion ? (
+                    <small className="work-pool-publicar__dropdown-desc">{resumenDescripcion(orden.descripcion)}</small>
+                  ) : null}
+                  <small>
+                    #{orden.id} · {orden.estado}
+                    {orden.sector ? ` · ${orden.sector}` : ''}
+                  </small>
                 </button>
               </li>
             ))}
@@ -387,6 +428,15 @@ export default function WorkPoolPublicarForm({
 
       {modo === 'asignado' && (
         <div className="work-pool-publicar__search-block">
+          <WorkPoolOperarioRecommender
+            sector={sector}
+            candidatos={empleados}
+            descripcion={briefParaIA}
+            codigoTarifa={createTarifa}
+            empleadoQuery={empleadoQuery}
+            selectedId={empleadoId}
+            onSelect={(id) => setEmpleadoId(id)}
+          />
           <label className="work-pool-publicar__search-label">
             Buscar empleado ({WORK_POOL_SECTOR_LABELS[sector]})
             <input

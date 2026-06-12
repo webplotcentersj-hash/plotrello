@@ -156,20 +156,24 @@ const MenuDiarioPage = () => {
         const response = await apiService.obtenerMenuDiaActual()
         if (response.success && response.data) {
           setMenu(response.data)
-          await Promise.all([
-            loadMiSeleccion(response.data.id, usuario.id),
-            loadPerdidaBeneficioComida(usuario.id),
-            loadSeleccionesMesa(response.data.id)
-          ])
         } else {
           setMenu(null)
           setSeleccionesMesa([])
           setMiSeleccion(null)
-          await loadPerdidaBeneficioComida(usuario.id)
+        }
+        if (opts?.pantallaCompleta) setLoading(false)
+
+        if (response.success && response.data) {
+          void Promise.all([
+            loadMiSeleccion(response.data.id, usuario.id),
+            loadSeleccionesMesa(response.data.id),
+            loadPerdidaBeneficioComida(usuario.id)
+          ])
+        } else {
+          void loadPerdidaBeneficioComida(usuario.id)
         }
       } catch (error) {
         console.error('Error cargando menú:', error)
-      } finally {
         if (opts?.pantallaCompleta) setLoading(false)
       }
     },
@@ -179,7 +183,7 @@ const MenuDiarioPage = () => {
   const loadMenu = useCallback(() => refreshMenuData({ pantallaCompleta: true }), [refreshMenuData])
 
   useEffect(() => {
-    if (authLoading) return
+    if (authLoading && !usuario) return
     if (!usuario) {
       navigate('/')
       return

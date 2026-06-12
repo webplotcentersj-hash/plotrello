@@ -19,13 +19,24 @@ export function clearStaffSession(): void {
   localStorage.removeItem('plotlab_login_usuario')
 }
 
+const STAFF_JWT_STATUS_CACHE_KEY = 'plotlab_staff_jwt_enabled'
+
 /** true si PLOT_LAB_STAFF_JWT_SECRET está configurado en Vercel. */
 export async function isStaffJwtEnabledOnServer(): Promise<boolean> {
   try {
+    if (typeof sessionStorage !== 'undefined') {
+      const cached = sessionStorage.getItem(STAFF_JWT_STATUS_CACHE_KEY)
+      if (cached === '1') return true
+      if (cached === '0') return false
+    }
     const resp = await plotLabFetch('/api/auth/staff-jwt-status')
     if (!resp.ok) return false
     const json = (await resp.json()) as { enabled?: boolean }
-    return json.enabled === true
+    const enabled = json.enabled === true
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(STAFF_JWT_STATUS_CACHE_KEY, enabled ? '1' : '0')
+    }
+    return enabled
   } catch {
     return false
   }

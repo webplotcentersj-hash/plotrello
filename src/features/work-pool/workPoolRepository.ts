@@ -12,6 +12,12 @@ import type {
   WorkPoolSector
 } from '../../types/workPool'
 import { sectorsForProduct } from './workPoolConfig'
+import {
+  mapOrdenRow,
+  mergeAndRankWorkPoolOpRows,
+  parseWorkPoolOpQuery,
+  WORK_POOL_OP_SEARCH_SELECT
+} from './workPoolOpSearch'
 
 function mapJob(row: Record<string, unknown>): WorkPoolJob {
   return {
@@ -48,6 +54,7 @@ export async function listWorkPoolJobs(opts: {
   estado?: string
   soloDisponibles?: boolean
   idUsuario?: number
+  limit?: number
 }): Promise<{ success: boolean; data?: WorkPoolJob[]; error?: string }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
 
@@ -55,7 +62,7 @@ export async function listWorkPoolJobs(opts: {
     .from('work_pool_jobs')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(opts.limit ?? 200)
 
   if (opts.sector) query = query.eq('sector', opts.sector)
   if (opts.estado) query = query.eq('estado', opts.estado)
@@ -67,39 +74,80 @@ export async function listWorkPoolJobs(opts: {
   return { success: true, data: (data ?? []).map((r) => mapJob(r as Record<string, unknown>)) }
 }
 
+function activasOrdenesFilter<T extends { or: (filters: string) => T }>(query: T): T {
+  return query.or('eliminada.eq.false,eliminada.is.null')
+}
+
 export async function searchOrdenesWorkPool(
   query: string,
-  limit = 12
+  limit = 15
 ): Promise<{ success: boolean; data?: WorkPoolOrdenSugerida[]; error?: string }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
-  const q = query.trim()
-  if (q.length < 2) return { success: true, data: [] }
 
-  const escapeIlike = (s: string) => s.replace(/[%_\\]/g, '\\$&')
-  const normalized = escapeIlike(q.replace(/^OP-?/i, '').trim() || q)
-  const pattern = `%${normalized}%`
-  const clientePattern = `%${escapeIlike(q)}%`
+  const parsed = parseWorkPoolOpQuery(query)
+  if (!parsed.canSearch) return { success: true, data: [] }
 
-  const { data, error } = await supabase
-    .from('ordenes_trabajo')
-    .select('id, numero_op, cliente, descripcion, estado, sector')
-    .or(`numero_op.ilike.${pattern},cliente.ilike.${clientePattern}`)
-    .or('eliminada.eq.false,eliminada.is.null')
-    .order('fecha_creacion', { ascending: false })
-    .limit(limit)
+  const fetchIlike = async (column: string, value: string, take: number) => {
+    const pattern = `%${value.replace(/[%_\\]/g, '\\$&')}%`
+    const { data, error } = await activasOrdenesFilter(
+      supabase!
+        .from('ordenes_trabajo')
+        .select(WORK_POOL_OP_SEARCH_SELECT)
+        .ilike(column, pattern)
+    )
+      .order('fecha_creacion', { ascending: false })
+      .limit(take)
 
-  if (error) return { success: false, error: error.message }
+    if (error) throw new Error(error.message)
+    return (data ?? []).map((row) => mapOrdenRow(row as Record<string, unknown>))
+  }
 
-  return {
-    success: true,
-    data: (data ?? []).map((row) => ({
-      id: Number((row as { id: number }).id),
-      numero_op: String((row as { numero_op: string }).numero_op ?? ''),
-      cliente: String((row as { cliente: string }).cliente ?? ''),
-      descripcion: (row as { descripcion: string | null }).descripcion ?? null,
-      estado: String((row as { estado: string }).estado ?? ''),
-      sector: (row as { sector: string | null }).sector ?? null
-    }))
+  try {
+    const tasks: Promise<ReturnType<typeof mapOrdenRow>[]>[] = []
+
+    if (parsed.idBd != null) {
+      tasks.push(
+        (async () => {
+          const { data, error } = await activasOrdenesFilter(
+            supabase.from('ordenes_trabajo').select(WORK_POOL_OP_SEARCH_SELECT).eq('id', parsed.idBd!)
+          )
+          if (error) throw new Error(error.message)
+          return (data ?? []).map((row) => mapOrdenRow(row as Record<string, unknown>))
+        })()
+      )
+    }
+
+    if (parsed.opDigits) {
+      tasks.push(fetchIlike('numero_op', parsed.opDigits, 30))
+      tasks.push(fetchIlike('numero_ficha_original', parsed.opDigits, 12))
+      if (parsed.opRaw && parsed.opRaw !== parsed.opDigits) {
+        tasks.push(fetchIlike('numero_op', parsed.opRaw, 20))
+      }
+    }
+
+    const searchTerms = new Set<string>()
+    if (parsed.textBlob.length >= 2) searchTerms.add(parsed.textBlob)
+    for (const token of parsed.tokens) searchTerms.add(token)
+
+    for (const term of searchTerms) {
+      if (parsed.isOpNumeric && term.replace(/\D/g, '') === parsed.opDigits) continue
+      tasks.push(fetchIlike('cliente', term, 20))
+      tasks.push(fetchIlike('descripcion', term, 15))
+      tasks.push(fetchIlike('dni_cuit', term.replace(/\s/g, ''), 12))
+      if (term.replace(/\D/g, '').length >= 4) {
+        tasks.push(fetchIlike('telefono_cliente', term.replace(/\D/g, ''), 10))
+      }
+      if (term.includes('@')) {
+        tasks.push(fetchIlike('email_cliente', term, 10))
+      }
+    }
+
+    const batches = await Promise.all(tasks)
+    const data = mergeAndRankWorkPoolOpRows(batches, parsed, limit)
+    return { success: true, data }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Error al buscar OP'
+    return { success: false, error: msg }
   }
 }
 
@@ -284,6 +332,67 @@ export async function registrarPagoOperario(input: {
 
 export function isWorkPoolModuleAvailable(): boolean {
   return Boolean(supabase)
+}
+
+export async function fetchOrdenesDisenoHistorial(limit = 350): Promise<{
+  success: boolean
+  data?: import('./workPoolOperarioRecommendations').OrdenDisenoHistorial[]
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const { data, error } = await supabase
+    .from('ordenes_trabajo')
+    .select('descripcion, operario_asignado, fecha_creacion, fecha_entrega, etiquetas, sector, estado')
+    .or('eliminada.eq.false,eliminada.is.null')
+    .or(
+      'sector.ilike.%dise%,estado.ilike.%Dise%,estado.ilike.%Gráfico%,estado.ilike.%Grafico%'
+    )
+    .order('fecha_creacion', { ascending: false })
+    .limit(limit)
+
+  if (error) return { success: false, error: error.message }
+  return {
+    success: true,
+    data: (data ?? []).map((row) => ({
+      descripcion: (row as { descripcion: string | null }).descripcion ?? null,
+      operario_asignado: (row as { operario_asignado: string | null }).operario_asignado ?? null,
+      fecha_creacion: (row as { fecha_creacion: string | null }).fecha_creacion ?? null,
+      fecha_entrega: (row as { fecha_entrega: string | null }).fecha_entrega ?? null,
+      etiquetas: (row as { etiquetas: unknown }).etiquetas
+    }))
+  }
+}
+
+export async function recommendWorkPoolOperarios(input: {
+  sector: WorkPoolSector
+  candidatos: import('../../types/api').UsuarioRecord[]
+  descripcion?: string
+  codigoTarifa?: string | null
+}): Promise<{
+  success: boolean
+  data?: import('./workPoolOperarioRecommendations').WorkPoolOperarioRecommendation[]
+  error?: string
+}> {
+  const { buildWorkPoolOperarioRecommendations } = await import('./workPoolOperarioRecommendations')
+
+  const [jobsRes, ordenesRes] = await Promise.all([
+    listWorkPoolJobs({ sector: input.sector, limit: 450 }),
+    input.sector === 'diseno' ? fetchOrdenesDisenoHistorial() : Promise.resolve({ success: true, data: [] })
+  ])
+
+  if (!jobsRes.success) return { success: false, error: jobsRes.error }
+
+  const recommendations = buildWorkPoolOperarioRecommendations({
+    candidatos: input.candidatos,
+    jobs: jobsRes.data ?? [],
+    ordenesDiseno: ordenesRes.data ?? [],
+    descripcion: input.descripcion,
+    codigoTarifa: input.codigoTarifa,
+    sector: input.sector
+  })
+
+  return { success: true, data: recommendations }
 }
 
 export async function listWorkPoolProfiles(): Promise<{

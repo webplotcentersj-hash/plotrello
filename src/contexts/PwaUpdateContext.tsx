@@ -190,7 +190,7 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
       if (needRefreshRef.current) {
         setModalMode('available')
       } else {
-        showToast('Ya tenés la última versión instalada.', 'success')
+        setModalMode('installed')
       }
     } catch {
       showToast('No se pudo buscar actualizaciones. Intentá de nuevo.', 'error')

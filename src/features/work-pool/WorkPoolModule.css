@@ -443,6 +443,29 @@
   color: var(--text-muted, #94a3b8);
 }
 
+.work-pool-publicar__search-status--error {
+  color: #fca5a5;
+  right: auto;
+  left: 0;
+  max-width: 100%;
+}
+
+.work-pool-publicar__search-empty {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.work-pool-publicar__dropdown-desc {
+  display: block;
+  color: #cbd5e1 !important;
+  line-height: 1.35;
+}
+
 .work-pool-publicar__dropdown {
   position: absolute;
   left: 0;
@@ -555,6 +578,264 @@
 .work-pool--plot-design .work-pool-publicar__empleado-card.is-active {
   border-color: rgba(168, 85, 247, 0.45);
   background: rgba(168, 85, 247, 0.12);
+}
+
+/* —— Recomendador IA operarios —— */
+.work-pool-ai-recommender {
+  margin-bottom: 20px;
+  padding: 18px 18px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  background: linear-gradient(
+    145deg,
+    rgba(88, 28, 135, 0.22) 0%,
+    rgba(15, 23, 42, 0.55) 45%,
+    rgba(30, 41, 59, 0.4) 100%
+  );
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.work-pool-ai-recommender__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.work-pool-ai-recommender__title-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.work-pool-ai-recommender__spark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.45);
+  flex-shrink: 0;
+}
+
+.work-pool-ai-recommender__head h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.work-pool-ai-recommender__head p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.45;
+  max-width: 52ch;
+}
+
+.work-pool-ai-recommender__head p strong {
+  color: #e9d5ff;
+}
+
+.work-pool-ai-recommender__loading {
+  font-size: 0.78rem;
+  color: #c4b5fd;
+  animation: work-pool-ai-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes work-pool-ai-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.work-pool-ai-recommender__error {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: #fca5a5;
+}
+
+.work-pool-ai-recommender__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.work-pool-ai-recommender__card {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.65);
+  padding: 12px 14px;
+  transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.work-pool-ai-recommender__card:hover {
+  border-color: rgba(168, 85, 247, 0.35);
+  transform: translateY(-1px);
+}
+
+.work-pool-ai-recommender__card.is-top {
+  border-color: rgba(250, 204, 21, 0.35);
+  background: linear-gradient(160deg, rgba(120, 53, 15, 0.25), rgba(15, 23, 42, 0.7));
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.08);
+}
+
+.work-pool-ai-recommender__card.is-selected {
+  border-color: rgba(168, 85, 247, 0.55);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+
+.work-pool-ai-recommender__card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.work-pool-ai-recommender__rank {
+  font-size: 1.35rem;
+  line-height: 1;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.work-pool-ai-recommender__identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.work-pool-ai-recommender__identity strong {
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-pool-ai-recommender__match {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #c4b5fd;
+  letter-spacing: 0.02em;
+}
+
+.work-pool-ai-recommender__pick {
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  background: rgba(168, 85, 247, 0.15);
+  color: #ede9fe;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.work-pool-ai-recommender__pick:hover {
+  background: rgba(168, 85, 247, 0.28);
+}
+
+.work-pool-ai-recommender__card.is-selected .work-pool-ai-recommender__pick {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #bbf7d0;
+}
+
+.work-pool-ai-recommender__bar {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.work-pool-ai-recommender__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+  transition: width 0.4s ease;
+}
+
+.work-pool-ai-recommender__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.work-pool-ai-recommender__stats > div {
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.work-pool-ai-recommender__stats small {
+  display: block;
+  font-size: 0.62rem;
+  color: #94a3b8;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.work-pool-ai-recommender__stats strong {
+  font-size: 0.88rem;
+  color: #f1f5f9;
+}
+
+.work-pool-ai-recommender__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.work-pool-ai-recommender__badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.work-pool-ai-recommender__trend {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  margin-left: auto;
+}
+
+.work-pool-ai-recommender__reasons {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.74rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.work-pool-ai-recommender__reasons li + li {
+  margin-top: 3px;
+}
+
+@media (max-width: 768px) {
+  .work-pool-ai-recommender__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {

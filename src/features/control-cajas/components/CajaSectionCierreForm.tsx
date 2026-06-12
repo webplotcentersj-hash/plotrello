@@ -23,7 +23,7 @@ import type { CajaCierreEstadoCierre, CajaMovimiento } from '../types'
 import CajaBadge from './CajaBadge'
 import CajaCierreSnapshotPanel from './CajaCierreSnapshotPanel'
 import CajaCollapsibleCard from './CajaCollapsibleCard'
-import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import {
   FONDO_CAJA_RECOMENDADO,
@@ -40,6 +40,7 @@ type Props = {
   onPlanillaParsed?: (planilla: PlanillaCajaParsed | null) => void
   onSaved: () => void
   onCancel: () => void
+  onIrSubirPdf?: () => void
 }
 
 const emptyForm = (): CierreFormInput => ({
@@ -56,12 +57,10 @@ const emptyForm = (): CierreFormInput => ({
 
 export default function CajaSectionCierreForm({
   editId,
-  usuarioNombre,
-  usuarioId,
   planillaActiva = null,
-  onPlanillaParsed,
   onSaved,
-  onCancel
+  onCancel,
+  onIrSubirPdf
 }: Props) {
   const [cajas, setCajas] = useState<Awaited<ReturnType<typeof listCajas>>>([])
   const [cajeras, setCajeras] = useState<string[]>([])
@@ -81,7 +80,6 @@ export default function CajaSectionCierreForm({
   const [snapshot, setSnapshot] = useState<Record<string, unknown> | null>(null)
   const [movsVinculados, setMovsVinculados] = useState<CajaMovimiento[]>([])
   const [idPlanilla, setIdPlanilla] = useState<string | null>(null)
-  const [mostrarImportPdf, setMostrarImportPdf] = useState(false)
 
   useEffect(() => {
     void Promise.all([listCajas(), getParams()]).then(([c, p]) => {
@@ -204,7 +202,7 @@ export default function CajaSectionCierreForm({
     const match = buscarPlanillaCaja(planillas, cajaSlug, fecha, caja?.nombre)
     if (!match) {
       setMsg(
-        'No hay planilla PDF guardada para esta fecha/caja. Usá «Subir planilla PDF nueva» o importala en Movimientos.'
+        'No hay planilla PDF para esta fecha/caja. Subila en la lista Cierres (arriba) y volvé a precargar.'
       )
       return
     }
@@ -369,14 +367,8 @@ export default function CajaSectionCierreForm({
               <button type="button" className="btn-secondary btn-small" onClick={() => void cargarEgresosAprobados()}>
                 Egresos aprobados
               </button>
-              <button
-                type="button"
-                className="btn-link btn-small"
-                onClick={() => setMostrarImportPdf((v) => !v)}
-              >
-                {mostrarImportPdf ? 'Ocultar subida de PDF' : 'Subir planilla PDF nueva'}
-              </button>
             </div>
+            {onIrSubirPdf ? <CajaAvisoPdfUnico onIr={onIrSubirPdf} destinoLabel="Cierres" /> : null}
             {planillaActiva && (
               <p className="caja-cc-help">
                 Planilla leída: <strong>{planillaActiva.archivo_nombre}</strong> —{' '}
@@ -384,16 +376,6 @@ export default function CajaSectionCierreForm({
                   usar en este cierre
                 </button>
               </p>
-            )}
-            {mostrarImportPdf && onPlanillaParsed && (
-              <div className="caja-cc-cierre-import-pdf">
-                <CajaImportPlanillaPdf
-                  compact
-                  usuarioNombre={usuarioNombre}
-                  usuarioId={usuarioId}
-                  onPlanillaParsed={onPlanillaParsed}
-                />
-              </div>
             )}
           </CajaCollapsibleCard>
         )}

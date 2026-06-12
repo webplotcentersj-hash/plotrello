@@ -93,6 +93,44 @@ export const PWA_RELEASE_HISTORY: PwaReleaseNotes[] = [
         description: 'Corregimos un problema que dejaba la app en «Cargando aplicación…» después de actualizar.'
       }
     ]
+  },
+  {
+    id: '2026-06-12',
+    label: '12 jun 2026',
+    title: 'Biblioteca de OPs y PlotBolsa',
+    summary:
+      'La biblioteca busca en toda la base sin descargar todo, el catálogo completo ya no tiene tope de 2.200 OP y PlotBolsa tiene buscadores al publicar.',
+    improvements: [
+      {
+        icon: '🔍',
+        title: 'Biblioteca — búsqueda en servidor',
+        description:
+          'Con 2+ caracteres o ID de OP buscás en toda la base (hasta 50 resultados). Ya no hace falta bajar el catálogo entero para encontrar una ficha.'
+      },
+      {
+        icon: '📚',
+        title: 'Catálogo completo sin tope',
+        description:
+          '«Actualizar catálogo completo» descarga todas las OP en páginas livianas, con progreso X / total.'
+      },
+      {
+        icon: '📋',
+        title: 'PlotBolsa — publicar con buscadores',
+        description:
+          'Al publicar en Plot Design / Bolsa Plot: buscador de OP, panel de disponibles, tarifario y empleados.'
+      }
+    ],
+    guideSteps: [
+      {
+        title: 'Buscar una OP antigua',
+        description: 'Tablero → Bibliotecas de OPs → escribí nº OP o cliente (mín. 2 letras) o el ID BD.'
+      },
+      {
+        title: 'Ver todas las fichas',
+        description:
+          'Si necesitás exportar o filtrar masivamente, usá «Actualizar catálogo completo» y esperá el progreso.'
+      }
+    ]
   }
 ]
 
@@ -129,21 +167,22 @@ export type PwaReleaseModalContent = {
   guideSteps: PwaReleaseGuideStep[]
 }
 
-/** Contenido del modal: solo cambios de la(s) versión(es) pendiente(s) de mostrar. */
+/**
+ * Contenido del modal: siempre la última versión desplegada (CURRENT_PWA_RELEASE).
+ * El botón ⟳ y el aviso de actualización deben mostrar lo que se instala ahora, no releases viejas acumuladas.
+ */
 export function getReleaseModalContent(
-  lastSeenId: string | null,
-  mode: 'available' | 'installed'
+  _lastSeenId: string | null,
+  _mode: 'available' | 'installed'
 ): PwaReleaseModalContent {
-  const target =
-    mode === 'installed' ? [CURRENT_PWA_RELEASE] : getUnseenReleases(lastSeenId)
-  const latest = target[target.length - 1]!
+  const latest = CURRENT_PWA_RELEASE
 
   return {
-    ids: target.map((r) => r.id),
-    label: target.length > 1 ? `${target[0]!.label} → ${latest.label}` : latest.label,
+    ids: [latest.id],
+    label: latest.label,
     title: latest.title,
     summary: latest.summary,
-    improvements: target.flatMap((r) => r.improvements),
+    improvements: latest.improvements,
     guideSteps: latest.guideSteps ?? []
   }
 }

@@ -5,6 +5,8 @@ import {
   getUltimoArqueoCaja,
   listCajas,
   listCierres,
+  listMovimientos,
+  getPlanillaById,
   listPlanillas,
   listTransferenciaLotes,
   resolveCajaSlug,
@@ -20,8 +22,9 @@ import { buscarPlanillaCaja, montosCajaDesdeFuentes } from '../paseCajaMontos'
 import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { DEFAULT_CAJERAS } from '../constants'
 import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
+import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
 import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
-import CajaImportPlanillaPdf from './CajaImportPlanillaPdf'
+import CajaPlanillaResumenActiva from './CajaPlanillaResumenActiva'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
 import { notifyAdminsCaja } from '../cajaNotificaciones'
 import { comprobantesToMovimientos } from '../comprobantesMediosImport'
@@ -38,7 +41,8 @@ import {
   hayEgresosPendientes,
   type EgresosDelDiaResumen
 } from '../cierreTurno'
-import { planillaAllToMovimientos } from '../planillaMovimientos'
+import { filtrarMovimientosDuplicados } from '../cajaCoherencia'
+import { fechaPlanillaImport, planillaAllToMovimientos } from '../planillaMovimientos'
 import { newId } from '../format'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro, CajaTransferenciaLote } from '../types'
@@ -47,9 +51,10 @@ import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 type Props = {
   usuarioNombre: string
   usuarioId?: number
+  onIrSubirPdf?: () => void
 }
 
-export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Props) {
+export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrSubirPdf }: Props) {
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lotes, setLotes] = useState<CajaTransferenciaLote[]>([])
   const [tolerancia, setTolerancia] = useState(0)
@@ -165,6 +170,35 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
     }
   }, [origen, fecha, cajas])
 
+  useEffect(() => {
+    if (!origen || !fecha) {
+      setPlanillaPreview(null)
+      setPlanillaId(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const planillas = await listPlanillas(120)
+      if (cancelled) return
+      const caja = cajas.find((c) => c.slug === origen)
+      const match = buscarPlanillaCaja(planillas, origen, fecha, caja?.nombre)
+      if (!match) {
+        setPlanillaPreview(null)
+        setPlanillaId(null)
+        return
+      }
+      const full = await getPlanillaById(match.id)
+      if (cancelled) return
+      if (full) {
+        setPlanillaPreview(full)
+        setPlanillaId(match.id)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [origen, fecha, cajas])
+
   const cajaOrigen = cajas.find((c) => c.slug === origen)
 
   useEffect(() => {
@@ -265,13 +299,24 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
         const guardada = await savePlanillaImport(planillaPreview, slugOrigen, usuarioNombre, usuarioId)
         idPlanilla = guardada.id
         setPlanillaId(guardada.id)
-        const movs = planillaAllToMovimientos(
+        const todosMovs = planillaAllToMovimientos(
           planillaPreview,
           cajas,
           slugOrigen,
           usuarioNombre,
           usuarioId
         )
+        const fechaImp = fechaPlanillaImport(planillaPreview)
+        const existentes = await listMovimientos()
+        const delDia = existentes.filter(
+          (m) =>
+            m.fecha === fechaImp &&
+            (m.destino_slug === slugOrigen || m.origen_slug === slugOrigen)
+        )
+        const { nuevos: movs } = filtrarMovimientosDuplicados(todosMovs, delDia, {
+          cajaSlug: slugOrigen,
+          fecha: fechaImp
+        })
         if (movs.length) await saveMovimientosBulk(movs)
       }
 
@@ -534,21 +579,14 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId }: Pro
       </div>
 
       <div className="caja-cc-card">
-        <h3>Planilla PDF y comprobantes</h3>
-        <p className="caja-cc-sub">
-          Subí el listado del día (PDF) y los comprobantes de Mercado Pago / POS para que administración cuadre.
-        </p>
-        <CajaImportPlanillaPdf
-          usuarioNombre={usuarioNombre}
-          usuarioId={usuarioId}
-          compact
-          deferImport
-          onPlanillaParsed={(p) => {
-            setPlanillaPreview(p)
-            setPlanillaId(null)
-            if (p) setMsg(null)
-          }}
-        />
+        <h3>Planilla del día y comprobantes</h3>
+        {planillaPreview ? (
+          <CajaPlanillaResumenActiva planilla={planillaPreview} />
+        ) : onIrSubirPdf ? (
+          <CajaAvisoPdfUnico onIr={onIrSubirPdf} />
+        ) : (
+          <p className="caja-cc-help">Subí el PDF del día desde el Menú antes de cerrar el turno.</p>
+        )}
         <h4 className="caja-cc-comprobantes-embed-title">Comprobantes MP · POS · tarjetas</h4>
         <CajaImportComprobantesMedios
           usuarioNombre={usuarioNombre}
