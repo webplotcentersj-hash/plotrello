@@ -1,7 +1,7 @@
 import type { WorkPoolOrdenSugerida } from '../../types/workPool'
 
 export const WORK_POOL_OP_SEARCH_SELECT =
-  'id, numero_op, cliente, descripcion, estado, sector, dni_cuit, telefono_cliente, email_cliente, numero_ficha_original, fecha_creacion'
+  'id, numero_op, cliente, descripcion, estado, sector, dni_cuit, telefono_cliente, email_cliente, numero_ficha_original, fecha_creacion, brief_publico, objetivo_proyecto, brief_token, id_pedido_cliente, origen_pedido_web'
 
 export type WorkPoolOpSearchRow = WorkPoolOrdenSugerida & {
   dni_cuit?: string | null
@@ -9,6 +9,7 @@ export type WorkPoolOpSearchRow = WorkPoolOrdenSugerida & {
   email_cliente?: string | null
   numero_ficha_original?: string | null
   fecha_creacion?: string | null
+  origen_pedido_web?: boolean | null
 }
 
 export type ParsedWorkPoolOpQuery = {
@@ -140,6 +141,8 @@ export function rankWorkPoolOpRow(row: WorkPoolOpSearchRow, parsed: ParsedWorkPo
     score += new Date(row.fecha_creacion).getTime() / 1e15
   }
 
+  if (row.en_tablero || row.en_tablero_diseno) score += 1_800
+
   return score
 }
 
@@ -168,7 +171,13 @@ export function mergeAndRankWorkPoolOpRows(
       cliente: row.cliente,
       descripcion: row.descripcion,
       estado: row.estado,
-      sector: row.sector
+      sector: row.sector,
+      en_tablero: row.en_tablero ?? row.en_tablero_diseno,
+      en_tablero_diseno: row.en_tablero ?? row.en_tablero_diseno,
+      brief_publico: row.brief_publico,
+      objetivo_proyecto: row.objetivo_proyecto,
+      brief_token: row.brief_token,
+      id_pedido_cliente: row.id_pedido_cliente
     }))
 }
 
@@ -184,6 +193,13 @@ export function mapOrdenRow(row: Record<string, unknown>): WorkPoolOpSearchRow {
     telefono_cliente: (row.telefono_cliente as string) ?? null,
     email_cliente: (row.email_cliente as string) ?? null,
     numero_ficha_original: (row.numero_ficha_original as string) ?? null,
-    fecha_creacion: (row.fecha_creacion as string) ?? null
+    fecha_creacion: (row.fecha_creacion as string) ?? null,
+    brief_publico: (row.brief_publico as string) ?? null,
+    objetivo_proyecto: (row.objetivo_proyecto as string) ?? null,
+    brief_token: (row.brief_token as string) ?? null,
+    id_pedido_cliente: row.id_pedido_cliente != null ? Number(row.id_pedido_cliente) : null,
+    origen_pedido_web: (row.origen_pedido_web as boolean) ?? null,
+    en_tablero: (row.en_tablero as boolean) ?? (row.en_tablero_diseno as boolean) ?? undefined,
+    en_tablero_diseno: (row.en_tablero as boolean) ?? (row.en_tablero_diseno as boolean) ?? undefined
   }
 }

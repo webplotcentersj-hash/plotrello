@@ -29,11 +29,14 @@ export type WorkPoolOperarioRecommendation = {
 }
 
 export type OrdenDisenoHistorial = {
+  numero_op?: string | null
+  cliente?: string | null
   descripcion: string | null
   operario_asignado: string | null
   fecha_creacion: string | null
   fecha_entrega: string | null
   etiquetas: unknown
+  estado?: string | null
 }
 
 type OperarioAccumulator = {

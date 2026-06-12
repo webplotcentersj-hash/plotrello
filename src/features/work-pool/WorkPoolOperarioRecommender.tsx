@@ -4,6 +4,7 @@ import type { WorkPoolSector } from '../../types/workPool'
 import { recommendWorkPoolOperarios } from './workPoolRepository'
 import type { WorkPoolOperarioRecommendation } from './workPoolOperarioRecommendations'
 import { classifyWorkPoolTask, WORK_POOL_TASK_CATEGORY_LABELS } from './workPoolTaskClassifier'
+import WorkPoolOperarioDetailModal from './WorkPoolOperarioDetailModal'
 
 type WorkPoolOperarioRecommenderProps = {
   sector: WorkPoolSector
@@ -35,6 +36,7 @@ export default function WorkPoolOperarioRecommender({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<WorkPoolOperarioRecommendation[]>([])
+  const [detailRec, setDetailRec] = useState<WorkPoolOperarioRecommendation | null>(null)
 
   const categoria = useMemo(
     () => WORK_POOL_TASK_CATEGORY_LABELS[classifyWorkPoolTask(descripcion, codigoTarifa || null)],
@@ -113,6 +115,15 @@ export default function WorkPoolOperarioRecommender({
             <article
               key={rec.id_usuario}
               className={`work-pool-ai-recommender__card${isSelected ? ' is-selected' : ''}${rec.rank === 1 ? ' is-top' : ''}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailRec(rec)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setDetailRec(rec)
+                }
+              }}
             >
               <div className="work-pool-ai-recommender__card-top">
                 <span className="work-pool-ai-recommender__rank" aria-hidden>
@@ -125,7 +136,10 @@ export default function WorkPoolOperarioRecommender({
                 <button
                   type="button"
                   className="work-pool-ai-recommender__pick"
-                  onClick={() => onSelect(rec.id_usuario)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSelect(rec.id_usuario)
+                  }}
                 >
                   {isSelected ? 'Elegido' : 'Elegir'}
                 </button>
@@ -198,6 +212,16 @@ export default function WorkPoolOperarioRecommender({
           )
         })}
       </div>
+
+      {detailRec ? (
+        <WorkPoolOperarioDetailModal
+          rec={detailRec}
+          sector={sector}
+          selected={selectedId === detailRec.id_usuario}
+          onClose={() => setDetailRec(null)}
+          onSelect={() => onSelect(detailRec.id_usuario)}
+        />
+      ) : null}
     </section>
   )
 }

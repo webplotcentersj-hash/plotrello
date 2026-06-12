@@ -115,6 +115,14 @@ export type WorkPoolOrdenSugerida = {
   descripcion: string | null
   estado: string
   sector: string | null
+  /** OP en cola del tablero (Diseño Gráfico, Instalaciones o Metalúrgica). */
+  en_tablero?: boolean
+  /** @deprecated Usar en_tablero */
+  en_tablero_diseno?: boolean
+  brief_publico?: string | null
+  objetivo_proyecto?: string | null
+  brief_token?: string | null
+  id_pedido_cliente?: number | null
 }
 
 export type WorkPoolAdminDashboard = {

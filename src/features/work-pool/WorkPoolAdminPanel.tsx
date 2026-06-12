@@ -129,17 +129,51 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
   const kpis = dashboard?.kpis
 
+  const tabItems: { id: AdminTab; label: string; icon: string }[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'freelancers', label: 'Freelancers', icon: '👥' },
+    { id: 'publicar', label: 'Publicar', icon: '✦' },
+    { id: 'pipeline', label: 'Pipeline', icon: '🔀' }
+  ]
+
   return (
     <div className={`work-pool-admin ${cfg.themeClass}`}>
+      <div className="work-pool-admin__ambient" aria-hidden>
+        <span className="work-pool-admin__orb work-pool-admin__orb--1" />
+        <span className="work-pool-admin__orb work-pool-admin__orb--2" />
+        <span className="work-pool-admin__orb work-pool-admin__orb--3" />
+        <span className="work-pool-admin__grid" />
+      </div>
+
       <header className="work-pool-admin__hero">
         <div className="work-pool-admin__hero-glow" aria-hidden />
         <div className="work-pool-admin__hero-inner">
-          <div>
+          <div className="work-pool-admin__hero-copy">
             <span className="work-pool-admin__eyebrow">Administración · {cfg.label}</span>
             <h1>
-              {cfg.icon} {cfg.label}
+              <span className="work-pool-admin__hero-icon" aria-hidden>
+                {cfg.icon}
+              </span>
+              {cfg.label}
             </h1>
             <p>{cfg.adminTagline}</p>
+            {kpis && !loading ? (
+              <div className="work-pool-admin__hero-stats" aria-label="Resumen rápido">
+                <span>
+                  <strong>{kpis.trabajos_abiertos}</strong> abiertos
+                </span>
+                <span>
+                  <strong>{kpis.disponibles_bolsa}</strong> en bolsa
+                </span>
+                <span>
+                  <strong>{kpis.pendientes_revision}</strong> en revisión
+                </span>
+              </div>
+            ) : null}
+            <span className="work-pool-admin__live">
+              <i aria-hidden />
+              Bolsa en vivo
+            </span>
           </div>
           <div className="work-pool-admin__hero-actions">
             {canAccessPlotDesign && canAccessBolsaPlot && (
@@ -167,21 +201,18 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
       <div className="work-pool-admin__toolbar">
         <div className="work-pool-admin__tabs" role="tablist">
-          {(
-            [
-              ['dashboard', 'Dashboard'],
-              ['freelancers', 'Freelancers'],
-              ['publicar', 'Publicar'],
-              ['pipeline', 'Pipeline']
-            ] as const
-          ).map(([id, label]) => (
+          {tabItems.map(({ id, label, icon }) => (
             <button
               key={id}
               type="button"
               role="tab"
+              aria-selected={tab === id}
               className={`work-pool-admin__tab${tab === id ? ' is-active' : ''}`}
               onClick={() => setTab(id)}
             >
+              <span className="work-pool-admin__tab-icon" aria-hidden>
+                {icon}
+              </span>
               {label}
             </button>
           ))}
@@ -204,9 +235,16 @@ export default function WorkPoolAdminPanel({ product }: Props) {
       {error && <div className="work-pool-module__alert work-pool-module__alert--error">{error}</div>}
 
       {loading && !dashboard ? (
-        <p className="work-pool-module__empty">Cargando panel de administración…</p>
+        <div className="work-pool-admin__skeleton" aria-busy="true" aria-label="Cargando panel">
+          <div className="work-pool-admin__skeleton-kpis">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="work-pool-admin__skeleton-card" />
+            ))}
+          </div>
+          <div className="work-pool-admin__skeleton-wide" />
+        </div>
       ) : dashboard && tab === 'dashboard' ? (
-        <>
+        <div className="work-pool-admin__content work-pool-admin__content--dashboard">
           <section className="work-pool-admin__kpi-grid">
             <article className="work-pool-admin__kpi work-pool-admin__kpi--deuda">
               <span className="work-pool-admin__kpi-icon">💳</span>
@@ -336,10 +374,11 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               )}
             </div>
           </section>
-        </>
+        </div>
       ) : null}
 
       {dashboard && tab === 'freelancers' && (
+        <div className="work-pool-admin__content">
         <section className="work-pool-admin__section">
           <div className="work-pool-admin__section-head">
             <h2>Freelancers y operarios externos</h2>
@@ -385,9 +424,11 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             </div>
           )}
         </section>
+        </div>
       )}
 
       {tab === 'publicar' && usuario && (
+        <div className="work-pool-admin__content">
         <section className="work-pool-admin__publish">
           <WorkPoolPublicarForm
             product={product}
@@ -399,9 +440,11 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             onError={(msg) => setError(msg)}
           />
         </section>
+        </div>
       )}
 
       {dashboard && tab === 'pipeline' && (
+        <div className="work-pool-admin__content">
         <section className="work-pool-admin__section">
           <h2>Pipeline de trabajos</h2>
           <div className="work-pool-admin__table-wrap">
@@ -438,6 +481,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             </table>
           </div>
         </section>
+        </div>
       )}
     </div>
   )

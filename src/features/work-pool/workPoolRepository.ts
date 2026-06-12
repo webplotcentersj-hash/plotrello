@@ -16,8 +16,14 @@ import {
   mapOrdenRow,
   mergeAndRankWorkPoolOpRows,
   parseWorkPoolOpQuery,
-  WORK_POOL_OP_SEARCH_SELECT
+  WORK_POOL_OP_SEARCH_SELECT,
+  type WorkPoolOpSearchRow
 } from './workPoolOpSearch'
+import {
+  isOrdenEnTableroCola,
+  supabaseHistorialSectorOrFilter,
+  supabaseTableroColaOrFilter
+} from './workPoolTablero'
 
 function mapJob(row: Record<string, unknown>): WorkPoolJob {
   return {
@@ -78,9 +84,143 @@ function activasOrdenesFilter<T extends { or: (filters: string) => T }>(query: T
   return query.or('eliminada.eq.false,eliminada.is.null')
 }
 
+function mapOrdenTableroSugerida(row: WorkPoolOpSearchRow): WorkPoolOrdenSugerida {
+  return {
+    id: row.id,
+    numero_op: row.numero_op,
+    cliente: row.cliente,
+    descripcion: row.descripcion,
+    estado: row.estado,
+    sector: row.sector,
+    en_tablero: true,
+    en_tablero_diseno: true,
+    brief_publico: row.brief_publico,
+    objetivo_proyecto: row.objetivo_proyecto,
+    brief_token: row.brief_token,
+    id_pedido_cliente: row.id_pedido_cliente
+  }
+}
+
+export async function listOrdenesTableroPorSector(
+  sector: WorkPoolSector,
+  limit = 30
+): Promise<{ success: boolean; data?: WorkPoolOrdenSugerida[]; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const { data, error } = await activasOrdenesFilter(
+    supabase
+      .from('ordenes_trabajo')
+      .select(WORK_POOL_OP_SEARCH_SELECT)
+      .or(supabaseTableroColaOrFilter(sector))
+  )
+    .order('fecha_creacion', { ascending: false })
+    .limit(limit)
+
+  if (error) return { success: false, error: error.message }
+
+  return {
+    success: true,
+    data: (data ?? []).map((row) => mapOrdenTableroSugerida(mapOrdenRow(row as Record<string, unknown>)))
+  }
+}
+
+/** @deprecated Usar listOrdenesTableroPorSector('diseno') */
+export async function listOrdenesDisenoGraficoTablero(limit = 30) {
+  return listOrdenesTableroPorSector('diseno', limit)
+}
+
+export type WorkPoolOperarioTrabajoItem = {
+  id: string
+  tipo: 'bolsa' | 'orden'
+  titulo: string
+  subtitulo: string
+  fecha: string | null
+  estado: string
+  numero_op: string | null
+  monto?: number | null
+}
+
+export type WorkPoolOperarioDetail = {
+  foto_url: string | null
+  legajo_sector: string | null
+  saldo_pendiente: number
+  acreditado: number
+  trabajos: WorkPoolOperarioTrabajoItem[]
+}
+
+export async function loadOperarioWorkPoolDetail(input: {
+  idUsuario: number
+  nombre: string
+  sector: WorkPoolSector
+}): Promise<{ success: boolean; data?: WorkPoolOperarioDetail; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const nombreNorm = input.nombre.trim().toLowerCase()
+  const nombreLocal = nombreNorm.split('@')[0]
+
+  const [jobsRes, ordenesRes, saldoRes, legajoRes] = await Promise.all([
+    listWorkPoolJobs({ sector: input.sector, idUsuario: input.idUsuario, limit: 40 }),
+    fetchOrdenesTableroHistorial(input.sector, 200),
+    getSaldoOperario(input.idUsuario),
+    supabase.rpc('obtener_legajo_empleado', { p_id_usuario: input.idUsuario })
+  ])
+
+  const trabajos: WorkPoolOperarioTrabajoItem[] = []
+
+  for (const job of jobsRes.data ?? []) {
+    trabajos.push({
+      id: `job-${job.id}`,
+      tipo: 'bolsa',
+      titulo: job.titulo || job.numero_op || `Trabajo #${job.id}`,
+      subtitulo: job.descripcion?.slice(0, 120) ?? '',
+      fecha: job.aprobado_at ?? job.entregado_at ?? job.tomado_at ?? job.created_at,
+      estado: job.estado,
+      numero_op: job.numero_op,
+      monto: job.monto_final ?? job.monto_presupuestado
+    })
+  }
+
+  for (const orden of ordenesRes.data ?? []) {
+    const opName = (orden.operario_asignado ?? '').toLowerCase()
+    if (!opName.includes(nombreLocal) && !opName.includes(nombreNorm)) continue
+    trabajos.push({
+      id: `orden-${orden.numero_op ?? orden.fecha_creacion}`,
+      tipo: 'orden',
+      titulo: orden.numero_op
+        ? `OP ${orden.numero_op}${orden.cliente ? ` · ${orden.cliente}` : ''}`
+        : orden.descripcion?.slice(0, 80) || 'Trabajo en tablero',
+      subtitulo: orden.descripcion?.slice(0, 100) ?? orden.estado ?? '',
+      fecha: orden.fecha_entrega ?? orden.fecha_creacion,
+      estado: orden.estado ?? 'tablero',
+      numero_op: orden.numero_op ?? null
+    })
+  }
+
+  trabajos.sort((a, b) => {
+    const ta = a.fecha ? new Date(a.fecha).getTime() : 0
+    const tb = b.fecha ? new Date(b.fecha).getTime() : 0
+    return tb - ta
+  })
+
+  const legajoRow = Array.isArray(legajoRes.data) ? legajoRes.data[0] : legajoRes.data
+  const legajo = legajoRow as { foto_url?: string | null; sector?: string | null } | null
+
+  return {
+    success: true,
+    data: {
+      foto_url: (legajo?.foto_url ?? '').trim() || null,
+      legajo_sector: legajo?.sector ?? null,
+      saldo_pendiente: saldoRes.data?.saldo_pendiente ?? 0,
+      acreditado: saldoRes.data?.acreditado ?? 0,
+      trabajos: trabajos.slice(0, 24)
+    }
+  }
+}
+
 export async function searchOrdenesWorkPool(
   query: string,
-  limit = 15
+  limit = 15,
+  opts?: { incluirTableroSector?: WorkPoolSector }
 ): Promise<{ success: boolean; data?: WorkPoolOrdenSugerida[]; error?: string }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
 
@@ -142,8 +282,38 @@ export async function searchOrdenesWorkPool(
       }
     }
 
+    if (opts?.incluirTableroSector) {
+      const tableroSector = opts.incluirTableroSector
+      tasks.push(
+        (async () => {
+          const res = await listOrdenesTableroPorSector(tableroSector, 40)
+          if (!res.success || !res.data) return []
+          const q = parsed.textBlob
+          if (!q || q.length < 2) {
+            return res.data.map((o) => mapOrdenRow({ ...o, en_tablero: true, en_tablero_diseno: true }))
+          }
+          return res.data
+            .filter((o) => {
+              const blob = `${o.numero_op} ${o.cliente} ${o.descripcion ?? ''}`.toLowerCase()
+              return blob.includes(q) || parsed.tokens.some((t) => blob.includes(t))
+            })
+            .map((o) => mapOrdenRow({ ...o, en_tablero: true, en_tablero_diseno: true }))
+        })()
+      )
+    }
+
     const batches = await Promise.all(tasks)
-    const data = mergeAndRankWorkPoolOpRows(batches, parsed, limit)
+    const tableroSector = opts?.incluirTableroSector
+    const marked = batches.map((batch) =>
+      batch.map((row) => {
+        const enCola =
+          row.en_tablero ??
+          row.en_tablero_diseno ??
+          (tableroSector ? isOrdenEnTableroCola(row.estado, tableroSector, row.sector) : false)
+        return { ...row, en_tablero: enCola, en_tablero_diseno: enCola }
+      })
+    ) as WorkPoolOpSearchRow[][]
+    const data = mergeAndRankWorkPoolOpRows(marked, parsed, limit)
     return { success: true, data }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Error al buscar OP'
@@ -334,7 +504,10 @@ export function isWorkPoolModuleAvailable(): boolean {
   return Boolean(supabase)
 }
 
-export async function fetchOrdenesDisenoHistorial(limit = 350): Promise<{
+export async function fetchOrdenesTableroHistorial(
+  sector: WorkPoolSector,
+  limit = 350
+): Promise<{
   success: boolean
   data?: import('./workPoolOperarioRecommendations').OrdenDisenoHistorial[]
   error?: string
@@ -343,11 +516,9 @@ export async function fetchOrdenesDisenoHistorial(limit = 350): Promise<{
 
   const { data, error } = await supabase
     .from('ordenes_trabajo')
-    .select('descripcion, operario_asignado, fecha_creacion, fecha_entrega, etiquetas, sector, estado')
+    .select('numero_op, cliente, descripcion, operario_asignado, fecha_creacion, fecha_entrega, etiquetas, sector, estado')
     .or('eliminada.eq.false,eliminada.is.null')
-    .or(
-      'sector.ilike.%dise%,estado.ilike.%Dise%,estado.ilike.%Gráfico%,estado.ilike.%Grafico%'
-    )
+    .or(supabaseHistorialSectorOrFilter(sector))
     .order('fecha_creacion', { ascending: false })
     .limit(limit)
 
@@ -355,13 +526,21 @@ export async function fetchOrdenesDisenoHistorial(limit = 350): Promise<{
   return {
     success: true,
     data: (data ?? []).map((row) => ({
+      numero_op: (row as { numero_op: string | null }).numero_op ?? null,
+      cliente: (row as { cliente: string | null }).cliente ?? null,
       descripcion: (row as { descripcion: string | null }).descripcion ?? null,
       operario_asignado: (row as { operario_asignado: string | null }).operario_asignado ?? null,
       fecha_creacion: (row as { fecha_creacion: string | null }).fecha_creacion ?? null,
       fecha_entrega: (row as { fecha_entrega: string | null }).fecha_entrega ?? null,
-      etiquetas: (row as { etiquetas: unknown }).etiquetas
+      etiquetas: (row as { etiquetas: unknown }).etiquetas,
+      estado: (row as { estado: string | null }).estado ?? null
     }))
   }
+}
+
+/** @deprecated Usar fetchOrdenesTableroHistorial('diseno') */
+export async function fetchOrdenesDisenoHistorial(limit = 350) {
+  return fetchOrdenesTableroHistorial('diseno', limit)
 }
 
 export async function recommendWorkPoolOperarios(input: {
@@ -378,7 +557,7 @@ export async function recommendWorkPoolOperarios(input: {
 
   const [jobsRes, ordenesRes] = await Promise.all([
     listWorkPoolJobs({ sector: input.sector, limit: 450 }),
-    input.sector === 'diseno' ? fetchOrdenesDisenoHistorial() : Promise.resolve({ success: true, data: [] })
+    fetchOrdenesTableroHistorial(input.sector)
   ])
 
   if (!jobsRes.success) return { success: false, error: jobsRes.error }

@@ -18,6 +18,9 @@ import {
 } from './workPoolRepository'
 import { parseWorkPoolOpQuery } from './workPoolOpSearch'
 import WorkPoolOperarioRecommender from './WorkPoolOperarioRecommender'
+import WorkPoolFuentesEntrada from './WorkPoolFuentesEntrada'
+import type { PedidoClienteRecord } from '../../types/api'
+import { TABLERO_COLA_SHORT } from './workPoolTablero'
 import './WorkPoolModule.css'
 
 function resumenDescripcion(text: string | null | undefined, max = 72): string {
@@ -132,7 +135,7 @@ export default function WorkPoolPublicarForm({
     setOpBuscando(true)
     setOpSearchError(null)
     const t = window.setTimeout(() => {
-      void searchOrdenesWorkPool(opQuery, 15).then((res) => {
+      void searchOrdenesWorkPool(opQuery, 15, { incluirTableroSector: sector }).then((res) => {
         setOpBuscando(false)
         if (res.success) {
           setOpSugerencias(res.data ?? [])
@@ -144,7 +147,7 @@ export default function WorkPoolPublicarForm({
       })
     }, 300)
     return () => window.clearTimeout(t)
-  }, [opQuery, opSearchParsed.canSearch, compact, numeroOp])
+  }, [opQuery, opSearchParsed.canSearch, compact, numeroOp, sector])
 
   useEffect(() => {
     const op = createOp.trim()
@@ -189,6 +192,8 @@ export default function WorkPoolPublicarForm({
   const briefParaIA = useMemo(() => {
     const parts = [
       createDesc.trim(),
+      opSeleccionada?.objetivo_proyecto?.trim(),
+      opSeleccionada?.brief_publico?.trim(),
       opSeleccionada?.descripcion?.trim(),
       opSeleccionada?.cliente?.trim(),
       opSeleccionada?.sector?.trim()
@@ -196,13 +201,41 @@ export default function WorkPoolPublicarForm({
     return parts.join(' · ')
   }, [createDesc, opSeleccionada])
 
+  const aplicarTextoBrief = (orden: WorkPoolOrdenSugerida) => {
+    const parts = [orden.objetivo_proyecto, orden.brief_publico, orden.descripcion].filter(Boolean)
+    if (parts.length) setCreateDesc(parts.join('\n\n'))
+  }
+
   const seleccionarOp = (orden: WorkPoolOrdenSugerida) => {
     setOpSeleccionada(orden)
     setCreateOp(orden.numero_op)
     setOpQuery(orden.numero_op)
     setOpDropdownOpen(false)
-    if (!createDesc.trim() && orden.descripcion) {
-      setCreateDesc(orden.descripcion)
+    if (!createDesc.trim()) aplicarTextoBrief(orden)
+    else if (orden.objetivo_proyecto || orden.brief_publico) aplicarTextoBrief(orden)
+  }
+
+  const aplicarBriefPendiente = (texto: string, cliente?: string) => {
+    if (texto) setCreateDesc(texto)
+    if (cliente && !opQuery.trim()) setOpQuery(cliente)
+  }
+
+  const aplicarPedidoPortal = (pedido: PedidoClienteRecord) => {
+    const texto = [pedido.brief_publico, pedido.objetivo_proyecto, pedido.observaciones_cliente]
+      .filter(Boolean)
+      .join('\n\n')
+    if (texto) setCreateDesc(texto)
+    if (pedido.numero_op) {
+      setCreateOp(pedido.numero_op)
+      setOpQuery(pedido.numero_op)
+      setOpSeleccionada(null)
+      setOpDropdownOpen(true)
+    } else {
+      const cliente =
+        (pedido as PedidoClienteRecord & { cliente?: { nombre?: string; empresa?: string } }).cliente?.empresa ||
+        (pedido as PedidoClienteRecord & { cliente?: { nombre?: string } }).cliente?.nombre
+      if (cliente) setOpQuery(cliente)
+      else if (pedido.numero_pedido) setOpQuery(pedido.numero_pedido)
     }
   }
 
@@ -304,6 +337,15 @@ export default function WorkPoolPublicarForm({
         )}
       </section>
 
+      {!compact && (
+        <WorkPoolFuentesEntrada
+          sector={sector}
+          onSeleccionarOp={seleccionarOp}
+          onAplicarBrief={aplicarBriefPendiente}
+          onAplicarPedido={aplicarPedidoPortal}
+        />
+      )}
+
       <div className="work-pool-publicar__modo" role="radiogroup" aria-label="Modo de publicación">
         <button
           type="button"
@@ -356,7 +398,12 @@ export default function WorkPoolPublicarForm({
             {opSugerencias.map((orden) => (
               <li key={orden.id}>
                 <button type="button" onClick={() => seleccionarOp(orden)}>
-                  <strong>OP {orden.numero_op.trim()}</strong>
+                  <strong>
+                    OP {orden.numero_op.trim()}
+                    {orden.en_tablero || orden.en_tablero_diseno
+                      ? ` · Tablero ${TABLERO_COLA_SHORT[sector]}`
+                      : ''}
+                  </strong>
                   <span>{orden.cliente}</span>
                   {orden.descripcion ? (
                     <small className="work-pool-publicar__dropdown-desc">{resumenDescripcion(orden.descripcion)}</small>

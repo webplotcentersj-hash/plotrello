@@ -1,45 +1,174 @@
+/* —— Animaciones base —— */
+@keyframes wp-admin-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(24px, -18px) scale(1.06);
+  }
+  66% {
+    transform: translate(-16px, 12px) scale(0.96);
+  }
+}
+
+@keyframes wp-admin-pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+  }
+}
+
+@keyframes wp-admin-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes wp-admin-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wp-admin-title-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 18px rgba(168, 85, 247, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 28px rgba(168, 85, 247, 0.55));
+  }
+}
+
+@keyframes wp-admin-skeleton {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* —— Layout principal —— */
 .work-pool-admin {
+  position: relative;
   min-height: 100vh;
   padding: 0 0 56px;
+  overflow-x: hidden;
   background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(249, 115, 22, 0.22), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(99, 102, 241, 0.14), transparent),
-    linear-gradient(180deg, #0c0e18 0%, #0f111b 40%, #0b0d14 100%);
+    radial-gradient(ellipse 90% 55% at 8% -8%, rgba(249, 115, 22, 0.2), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 92% 4%, rgba(99, 102, 241, 0.12), transparent 50%),
+    linear-gradient(180deg, #080a12 0%, #0c0e18 35%, #0a0c14 100%);
   color: #e2e8f0;
 }
 
+.work-pool--plot-design.work-pool-admin {
+  background:
+    radial-gradient(ellipse 85% 60% at 12% -12%, rgba(168, 85, 247, 0.28), transparent 52%),
+    radial-gradient(ellipse 55% 40% at 88% 8%, rgba(99, 102, 241, 0.18), transparent 48%),
+    radial-gradient(ellipse 40% 30% at 50% 100%, rgba(236, 72, 153, 0.08), transparent 55%),
+    linear-gradient(180deg, #07060f 0%, #0b0918 38%, #08070f 100%);
+}
+
+/* —— Ambiente animado —— */
+.work-pool-admin__ambient {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.work-pool-admin__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 20%, black 20%, transparent 75%);
+}
+
+.work-pool-admin__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  animation: wp-admin-float 18s ease-in-out infinite;
+}
+
+.work-pool-admin__orb--1 {
+  width: 420px;
+  height: 420px;
+  top: -120px;
+  left: -80px;
+  background: rgba(249, 115, 22, 0.22);
+}
+
+.work-pool-admin__orb--2 {
+  width: 320px;
+  height: 320px;
+  top: 8%;
+  right: -60px;
+  background: rgba(99, 102, 241, 0.16);
+  animation-delay: -6s;
+  animation-duration: 22s;
+}
+
+.work-pool-admin__orb--3 {
+  width: 260px;
+  height: 260px;
+  bottom: 10%;
+  left: 35%;
+  background: rgba(16, 185, 129, 0.1);
+  animation-delay: -12s;
+  animation-duration: 20s;
+}
+
+.work-pool--plot-design .work-pool-admin__orb--1 {
+  background: rgba(168, 85, 247, 0.32);
+}
+
+.work-pool--plot-design .work-pool-admin__orb--2 {
+  background: rgba(99, 102, 241, 0.22);
+}
+
+.work-pool--plot-design .work-pool-admin__orb--3 {
+  background: rgba(236, 72, 153, 0.14);
+}
+
+/* —— Hero —— */
 .work-pool-admin__hero {
   position: relative;
+  z-index: 1;
   overflow: hidden;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 8px;
 }
 
 .work-pool-admin__hero-glow {
   position: absolute;
-  inset: -40% -20% auto;
-  height: 280px;
-  background: radial-gradient(circle, rgba(249, 115, 22, 0.35), transparent 65%);
+  inset: -50% -25% auto;
+  height: 320px;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.32), transparent 68%);
   pointer-events: none;
 }
 
 .work-pool--plot-design .work-pool-admin__hero-glow {
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.35), transparent 65%);
-}
-
-.work-pool--plot-design .work-pool-admin__eyebrow {
-  color: #d8b4fe;
-}
-
-.work-pool--plot-design .work-pool-admin__tab.is-active {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(124, 58, 237, 0.15));
-  border-color: rgba(168, 85, 247, 0.45);
-  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.15);
-}
-
-.work-pool-admin__product-switch {
-  display: flex;
-  gap: 8px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.38), transparent 65%);
 }
 
 .work-pool-admin__hero-inner {
@@ -47,37 +176,126 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 20px;
-  padding: 32px 28px 28px;
+  gap: 24px;
+  padding: 36px 28px 30px;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+.work-pool-admin__hero-copy {
+  max-width: 640px;
 }
 
 .work-pool-admin__eyebrow {
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #fdba74;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.22);
+}
+
+.work-pool--plot-design .work-pool-admin__eyebrow {
+  color: #e9d5ff;
+  background: rgba(168, 85, 247, 0.14);
+  border-color: rgba(168, 85, 247, 0.28);
 }
 
 .work-pool-admin__hero h1 {
-  margin: 0 0 10px;
-  font-size: clamp(1.8rem, 4vw, 2.4rem);
-  background: linear-gradient(135deg, #fff 0%, #fed7aa 100%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 12px;
+  font-size: clamp(2rem, 4.5vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #ffffff 0%, #fed7aa 55%, #fb923c 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+.work-pool--plot-design .work-pool-admin__hero h1 {
+  background: linear-gradient(135deg, #ffffff 0%, #e9d5ff 40%, #c084fc 70%, #a855f7 100%);
+  background-size: 200% auto;
+  animation: wp-admin-shimmer 8s linear infinite;
+}
+
+.work-pool-admin__hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  font-size: 1.6rem;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: inherit;
+  filter: none;
+  animation: wp-admin-title-glow 4s ease-in-out infinite;
+}
+
+.work-pool--bolsa-plot .work-pool-admin__hero-icon {
+  animation: none;
+}
+
 .work-pool-admin__hero p {
-  margin: 0;
+  margin: 0 0 16px;
   max-width: 560px;
   color: #94a3b8;
-  font-size: 0.95rem;
-  line-height: 1.55;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.work-pool-admin__hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.work-pool-admin__hero-stats strong {
+  color: #f1f5f9;
+  font-size: 1rem;
+  margin-right: 4px;
+}
+
+.work-pool--plot-design .work-pool-admin__hero-stats strong {
+  color: #e9d5ff;
+}
+
+.work-pool-admin__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6ee7b7;
+  padding: 5px 12px 5px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.work-pool-admin__live i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  animation: wp-admin-pulse-live 2s ease-in-out infinite;
 }
 
 .work-pool-admin__hero-actions {
@@ -87,24 +305,48 @@
   align-items: flex-start;
 }
 
+.work-pool-admin__product-switch {
+  display: flex;
+  gap: 8px;
+}
+
 .work-pool-admin__refresh {
   border: 1px solid rgba(249, 115, 22, 0.35);
   background: rgba(249, 115, 22, 0.12);
   color: #fdba74;
-  border-radius: 10px;
-  padding: 8px 14px;
+  border-radius: 12px;
+  padding: 9px 16px;
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.work-pool-admin__refresh:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.2);
+}
+
+.work-pool--plot-design .work-pool-admin__refresh {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: rgba(168, 85, 247, 0.14);
+  color: #e9d5ff;
+}
+
+.work-pool--plot-design .work-pool-admin__refresh:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.25);
+}
+
+/* —— Toolbar y tabs —— */
 .work-pool-admin__toolbar {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 0 28px 20px;
+  padding: 16px 28px 22px;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -113,25 +355,50 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  padding: 5px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(12px);
 }
 
 .work-pool-admin__tab {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
-  color: #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
   border-radius: 12px;
   padding: 10px 18px;
   font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+}
+
+.work-pool-admin__tab:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.work-pool-admin__tab-icon {
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.85;
 }
 
 .work-pool-admin__tab.is-active {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(234, 88, 12, 0.15));
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.28), rgba(234, 88, 12, 0.14));
   border-color: rgba(249, 115, 22, 0.45);
   color: #fff;
-  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.15);
+  box-shadow: 0 8px 28px rgba(249, 115, 22, 0.18);
+}
+
+.work-pool--plot-design .work-pool-admin__tab.is-active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.32), rgba(124, 58, 237, 0.16));
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 8px 28px rgba(168, 85, 247, 0.22);
 }
 
 .work-pool-admin__sector-filter {
@@ -140,6 +407,10 @@
   gap: 10px;
   font-size: 0.78rem;
   color: #94a3b8;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .work-pool-admin__sector-filter select {
@@ -151,6 +422,55 @@
   font: inherit;
 }
 
+/* —— Contenido animado —— */
+.work-pool-admin__content {
+  position: relative;
+  z-index: 1;
+  animation: wp-admin-fade-up 0.45s ease-out both;
+}
+
+.work-pool-admin__content--dashboard .work-pool-admin__kpi-grid {
+  animation-delay: 0.05s;
+}
+
+/* —— Skeleton loading —— */
+.work-pool-admin__skeleton {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 28px 40px;
+}
+
+.work-pool-admin__skeleton-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.work-pool-admin__skeleton-card,
+.work-pool-admin__skeleton-wide {
+  border-radius: 18px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: wp-admin-skeleton 1.4s ease-in-out infinite;
+}
+
+.work-pool-admin__skeleton-card {
+  height: 88px;
+}
+
+.work-pool-admin__skeleton-wide {
+  height: 200px;
+}
+
+/* —— KPIs —— */
 .work-pool-admin__kpi-grid,
 .work-pool-admin__sector-board,
 .work-pool-admin__section,
@@ -167,54 +487,103 @@
 }
 
 .work-pool-admin__kpi {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 18px 16px;
-  border-radius: 18px;
+  padding: 20px 18px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 24px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.work-pool-admin__kpi::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.work-pool-admin__kpi:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 36px rgba(0, 0, 0, 0.22);
+}
+
+.work-pool-admin__kpi:hover::after {
+  opacity: 1;
+  animation: wp-admin-shimmer 1.2s ease;
+}
+
+.work-pool--plot-design .work-pool-admin__kpi:hover {
+  border-color: rgba(168, 85, 247, 0.25);
+  box-shadow: 0 12px 36px rgba(168, 85, 247, 0.1);
 }
 
 .work-pool-admin__kpi--deuda {
   border-color: rgba(249, 115, 22, 0.35);
-  background: linear-gradient(145deg, rgba(249, 115, 22, 0.12), rgba(255, 255, 255, 0.03));
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.14), rgba(255, 255, 255, 0.03));
+}
+
+.work-pool--plot-design .work-pool-admin__kpi--deuda {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: linear-gradient(145deg, rgba(88, 28, 135, 0.22), rgba(255, 255, 255, 0.03));
 }
 
 .work-pool-admin__kpi--warn {
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .work-pool-admin__kpi--ok {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .work-pool-admin__kpi-icon {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   line-height: 1;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
 
 .work-pool-admin__kpi small {
   display: block;
   font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: #94a3b8;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .work-pool-admin__kpi strong {
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(180deg, #fff, #cbd5e1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
+/* —— Sector board —— */
 .work-pool-admin__sector-board h2,
 .work-pool-admin__section-head h2,
 .work-pool-admin__publish h2 {
   margin: 0 0 16px;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .work-pool-admin__sector-cards {
@@ -224,49 +593,58 @@
 }
 
 .work-pool-admin__sector-card {
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(12px);
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.work-pool-admin__sector-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(168, 85, 247, 0.22);
 }
 
 .work-pool-admin__sector-card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .work-pool-admin__sector-card-head span {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
 }
 
 .work-pool-admin__sector-card-head h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
 .work-pool-admin__sector-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 .work-pool-admin__sector-metrics > div span {
   display: block;
   font-size: 0.72rem;
   color: #94a3b8;
+  margin-bottom: 4px;
 }
 
 .work-pool-admin__sector-metrics strong {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 
 .work-pool-admin__bar {
-  height: 6px;
+  height: 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  margin-top: 6px;
+  margin-top: 8px;
   overflow: hidden;
 }
 
@@ -274,7 +652,12 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #60a5fa, #3b82f6);
+  background: linear-gradient(90deg, #818cf8, #6366f1);
+  transition: width 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.work-pool--plot-design .work-pool-admin__bar i {
+  background: linear-gradient(90deg, #c084fc, #a855f7);
 }
 
 .work-pool-admin__bar--ok i {
@@ -282,16 +665,17 @@
 }
 
 .work-pool-admin__sector-deuda {
-  margin: 14px 0 0;
-  font-size: 0.82rem;
+  margin: 16px 0 0;
+  font-size: 0.84rem;
   color: #94a3b8;
 }
 
+/* —— Secciones —— */
 .work-pool-admin__section-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .work-pool-admin__section-head h2 {
@@ -301,10 +685,15 @@
 .work-pool-admin__pill {
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 4px 11px;
   border-radius: 999px;
   background: rgba(249, 115, 22, 0.2);
   color: #fdba74;
+}
+
+.work-pool--plot-design .work-pool-admin__pill {
+  background: rgba(168, 85, 247, 0.22);
+  color: #e9d5ff;
 }
 
 .work-pool-admin__review-list {
@@ -318,10 +707,16 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  background: rgba(168, 85, 247, 0.06);
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(99, 102, 241, 0.06));
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.work-pool-admin__review-card:hover {
+  transform: translateX(4px);
+  box-shadow: -4px 0 0 rgba(168, 85, 247, 0.5), 0 8px 28px rgba(0, 0, 0, 0.2);
 }
 
 .work-pool-admin__review-card h4 {
@@ -334,6 +729,7 @@
   color: #cbd5e1;
 }
 
+/* —— Freelancers —— */
 .work-pool-admin__freelancer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -345,24 +741,30 @@
 }
 
 .work-pool-admin__freelancer-card {
-  padding: 16px;
-  border-radius: 18px;
+  padding: 18px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .work-pool-admin__freelancer-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-4px);
+  border-color: rgba(168, 85, 247, 0.28);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 
 .work-pool-admin__freelancer-card.has-debt {
-  border-color: rgba(249, 115, 22, 0.35);
-  box-shadow: 0 12px 32px rgba(249, 115, 22, 0.08);
+  border-color: rgba(249, 115, 22, 0.4);
+  box-shadow: 0 12px 32px rgba(249, 115, 22, 0.1);
+}
+
+.work-pool--plot-design .work-pool-admin__freelancer-card.has-debt {
+  border-color: rgba(236, 72, 153, 0.35);
+  box-shadow: 0 12px 32px rgba(236, 72, 153, 0.08);
 }
 
 .work-pool-admin__freelancer-head {
@@ -372,21 +774,27 @@
 }
 
 .work-pool-admin__avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   background: linear-gradient(135deg, #f97316, #ea580c);
   color: #fff;
   flex-shrink: 0;
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
+}
+
+.work-pool--plot-design .work-pool-admin__avatar {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
 }
 
 .work-pool-admin__freelancer-head h4 {
   margin: 0 0 6px;
-  font-size: 0.98rem;
+  font-size: 1rem;
 }
 
 .work-pool-admin__freelancer-tags {
@@ -398,7 +806,7 @@
 .work-pool-admin__freelancer-tags span {
   font-size: 0.68rem;
   font-weight: 600;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: #cbd5e1;
@@ -447,10 +855,11 @@
 
 .work-pool-admin__pay-box {
   margin-top: 20px;
-  padding: 18px;
-  border-radius: 16px;
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 20px;
+  border-radius: 18px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  backdrop-filter: blur(12px);
 }
 
 .work-pool-admin__pay-box h3 {
@@ -465,16 +874,24 @@
 }
 
 .work-pool-admin__publish {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 22px !important;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 22px;
+  padding: 24px !important;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+}
+
+.work-pool--plot-design .work-pool-admin__publish {
+  border-color: rgba(168, 85, 247, 0.2);
+  box-shadow: 0 8px 48px rgba(88, 28, 135, 0.15);
 }
 
 .work-pool-admin__table-wrap {
   overflow-x: auto;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .work-pool-admin__table {
@@ -485,7 +902,7 @@
 
 .work-pool-admin__table th,
 .work-pool-admin__table td {
-  padding: 12px 14px;
+  padding: 13px 16px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -493,20 +910,39 @@
 .work-pool-admin__table th {
   font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: #94a3b8;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .work-pool-admin__table tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(168, 85, 247, 0.06);
 }
 
 .work-pool-module__alert {
+  position: relative;
+  z-index: 1;
   max-width: 1400px;
   margin: 0 auto 16px;
   padding-left: 28px;
   padding-right: 28px;
+}
+
+.work-pool-module__empty {
+  position: relative;
+  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Plot Design — botones primarios del módulo */
+.work-pool--plot-design .work-pool-module__btn--primary {
+  background: linear-gradient(135deg, #c084fc, #a855f7);
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
+}
+
+.work-pool--plot-design .work-pool-module__btn--primary:hover {
+  box-shadow: 0 6px 28px rgba(168, 85, 247, 0.45);
 }
 
 @media (max-width: 768px) {
@@ -515,12 +951,40 @@
   .work-pool-admin__kpi-grid,
   .work-pool-admin__sector-board,
   .work-pool-admin__section,
-  .work-pool-admin__publish {
+  .work-pool-admin__publish,
+  .work-pool-admin__skeleton {
     padding-left: 14px;
     padding-right: 14px;
   }
 
   .work-pool-admin__freelancer-stats {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .work-pool-admin__tabs {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .work-pool-admin__tab {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+  }
+
+  .work-pool-admin__tab-icon {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-pool-admin__orb,
+  .work-pool-admin__live i,
+  .work-pool-admin__hero h1,
+  .work-pool-admin__hero-icon,
+  .work-pool-admin__content,
+  .work-pool-admin__skeleton-card,
+  .work-pool-admin__skeleton-wide {
+    animation: none !important;
   }
 }
