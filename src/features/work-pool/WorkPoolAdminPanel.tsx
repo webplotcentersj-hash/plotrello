@@ -151,23 +151,23 @@ export default function WorkPoolAdminPanel({ product }: Props) {
           <div className="work-pool-admin__hero-copy">
             <span className="work-pool-admin__eyebrow">Administración · {cfg.label}</span>
             <h1>
-              <span className="work-pool-admin__hero-icon" aria-hidden>
-                {cfg.icon}
-              </span>
-              {cfg.label}
+              {cfg.icon} {cfg.label}
             </h1>
             <p>{cfg.adminTagline}</p>
             {kpis && !loading ? (
               <div className="work-pool-admin__hero-stats" aria-label="Resumen rápido">
-                <span>
-                  <strong>{kpis.trabajos_abiertos}</strong> abiertos
-                </span>
-                <span>
-                  <strong>{kpis.disponibles_bolsa}</strong> en bolsa
-                </span>
-                <span>
-                  <strong>{kpis.pendientes_revision}</strong> en revisión
-                </span>
+                <div className="work-pool-admin__hero-stat">
+                  <strong>{kpis.trabajos_abiertos}</strong>
+                  <span>abiertos</span>
+                </div>
+                <div className="work-pool-admin__hero-stat">
+                  <strong>{kpis.disponibles_bolsa}</strong>
+                  <span>en bolsa</span>
+                </div>
+                <div className="work-pool-admin__hero-stat">
+                  <strong>{kpis.pendientes_revision}</strong>
+                  <span>en revisión</span>
+                </div>
               </div>
             ) : null}
             <span className="work-pool-admin__live">

@@ -340,6 +340,7 @@ export default function WorkPoolPublicarForm({
       {!compact && (
         <WorkPoolFuentesEntrada
           sector={sector}
+          idUsuarioCreador={idUsuarioCreador}
           onSeleccionarOp={seleccionarOp}
           onAplicarBrief={aplicarBriefPendiente}
           onAplicarPedido={aplicarPedidoPortal}
