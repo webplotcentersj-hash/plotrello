@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import type { WorkPoolProduct } from '../../types/workPool'
 import {
@@ -7,6 +7,7 @@ import {
 } from './workPoolConfig'
 import WorkPoolAdminPanel from './WorkPoolAdminPanel'
 import WorkPoolOperarioView from './WorkPoolOperarioView'
+import { isOperarioExternoRol, operarioExternoHomeRoute } from './workPoolOperarioExterno'
 import './WorkPoolModule.css'
 
 type Props = { product: WorkPoolProduct }
@@ -33,6 +34,11 @@ export default function WorkPoolModule({ product }: Props) {
         <p className="work-pool-module__empty">Tenés que iniciar sesión para acceder a {cfg.label}.</p>
       </div>
     )
+  }
+
+  if (isOperarioExternoRol(usuario.rol)) {
+    const home = operarioExternoHomeRoute(usuario.rol)
+    if (home) return <Navigate to={home} replace />
   }
 
   if (!canAccess) {

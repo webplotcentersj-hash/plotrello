@@ -1,4 +1,5 @@
 import type { Usuario } from '../hooks/useAuth'
+import { OPERARIO_EXTERNO_DASHBOARD } from '../features/work-pool/workPoolOperarioExterno'
 
 export type HeaderQuickNavItem = {
   id: string
@@ -53,10 +54,10 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
   if (rol === 'operario-diseno') {
     push({
       id: 'plot-design-externo',
-      label: 'Plot Design',
+      label: 'Mi panel',
       icon: '🎨',
-      href: '/plot-design',
-      title: 'Mi panel de diseño externo'
+      href: OPERARIO_EXTERNO_DASHBOARD.diseno,
+      title: 'Panel operario externo — Plot Design'
     })
     return items
   }
@@ -64,10 +65,10 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
   if (rol === 'operario-bolsa') {
     push({
       id: 'bolsa-plot-externo',
-      label: 'Bolsa Plot',
+      label: 'Mi panel',
       icon: '🧰',
-      href: '/bolsa-plot',
-      title: 'Mi panel de bolsa'
+      href: OPERARIO_EXTERNO_DASHBOARD.bolsa,
+      title: 'Panel operario externo — Bolsa Plot'
     })
     return items
   }

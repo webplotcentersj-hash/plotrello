@@ -18,6 +18,7 @@ function shouldHideFloatingDock(pathname: string): boolean {
   if (pathname.startsWith('/rrhh')) return true
   if (pathname.startsWith('/caja')) return true
   if (pathname === '/plot-design' || pathname === '/bolsa-plot') return true
+  if (pathname.startsWith('/operario-externo')) return true
   if (pathname.startsWith('/impresoras')) return true
   return false
 }

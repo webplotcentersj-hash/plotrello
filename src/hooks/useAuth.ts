@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
 
 export type Usuario = {
   id: number
@@ -163,8 +164,7 @@ export function useAuth() {
     usuario?.rol === 'instalaciones' ||
     usuario?.rol === 'metalurgica' ||
     isOperarioExternoBolsa
-  const operarioExternoHome =
-    isOperarioExternoDiseno ? '/plot-design' : isOperarioExternoBolsa ? '/bolsa-plot' : null
+  const operarioExternoHome = operarioExternoHomeRoute(usuario?.rol)
 
   return {
     usuario,

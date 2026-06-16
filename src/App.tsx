@@ -10,6 +10,7 @@ import EnvDebug from './components/EnvDebug'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
 import { useAuth } from './hooks/useAuth'
 import type { Usuario } from './hooks/useAuth'
+import { operarioExternoHomeRoute } from './features/work-pool/workPoolOperarioExterno'
 import './app.css'
 import './plotlab-mobile.css'
 
@@ -288,16 +289,7 @@ function App() {
             path="/login"
             element={
               isAuthenticated ? (
-                <Navigate
-                  to={
-                    usuario?.rol === 'operario-diseno'
-                      ? '/plot-design'
-                      : usuario?.rol === 'operario-bolsa'
-                        ? '/bolsa-plot'
-                        : '/'
-                  }
-                  replace
-                />
+                <Navigate to={operarioExternoHomeRoute(usuario?.rol) ?? '/'} replace />
               ) : (
                 <Login onLogin={handleLogin} />
               )

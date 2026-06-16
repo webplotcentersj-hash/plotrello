@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { isOperarioExternoRol, operarioExternoHomeRoute } from './workPoolOperarioExterno'
 
-const ALLOWED = ['/plot-design', '/bolsa-plot']
+const ALLOWED = ['/operario-externo']
 
 function homeFromStorage(): string | null {
   if (typeof window === 'undefined') return null

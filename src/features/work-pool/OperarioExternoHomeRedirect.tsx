@@ -14,7 +14,7 @@ function homeFromStorage(): string | null {
   }
 }
 
-/** Redirige operarios externos aprobados a su panel (/plot-design o /bolsa-plot). */
+/** Redirige operarios externos aprobados a su panel (/operario-externo/...). */
 export default function OperarioExternoHomeRedirect() {
   const { isOperarioExterno, operarioExternoHome, loading } = useAuth()
 

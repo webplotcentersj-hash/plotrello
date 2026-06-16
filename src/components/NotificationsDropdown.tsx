@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type { Notification, UserRole } from '../types/api'
@@ -306,12 +307,7 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
 
     try {
       if (notificationIsWorkPoolBolsa(notification)) {
-        const route =
-          usuario?.rol === 'operario-bolsa'
-            ? '/bolsa-plot'
-            : usuario?.rol === 'operario-diseno'
-              ? '/plot-design'
-              : '/plot-design'
+        const route = operarioExternoHomeRoute(usuario?.rol) ?? '/plot-design'
         if (notification.pedido_id != null) {
           navigate(`${route}?view=mensajes&pedido=${notification.pedido_id}`)
         } else {

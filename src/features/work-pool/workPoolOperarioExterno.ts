@@ -7,10 +7,24 @@ export function isOperarioExternoRol(rol?: string | null): rol is OperarioExtern
   return !!rol && (OPERARIO_EXTERNO_ROLES as readonly string[]).includes(rol)
 }
 
+/** Panel del operario externo (no confundir con /plot-design ni /bolsa-plot de administración). */
+export const OPERARIO_EXTERNO_DASHBOARD = {
+  diseno: '/operario-externo/diseno',
+  bolsa: '/operario-externo/bolsa'
+} as const
+
 export function operarioExternoHomeRoute(rol?: string | null): string | null {
-  if (rol === 'operario-diseno') return '/plot-design'
-  if (rol === 'operario-bolsa') return '/bolsa-plot'
+  if (rol === 'operario-diseno') return OPERARIO_EXTERNO_DASHBOARD.diseno
+  if (rol === 'operario-bolsa') return OPERARIO_EXTERNO_DASHBOARD.bolsa
   return null
+}
+
+export function operarioExternoDashboardForRubro(
+  rubro: 'diseno' | 'instalaciones' | 'metalurgica'
+): string {
+  return rubro === 'diseno'
+    ? OPERARIO_EXTERNO_DASHBOARD.diseno
+    : OPERARIO_EXTERNO_DASHBOARD.bolsa
 }
 
 /** Operario externo: solo trabajos asignados desde Plot Design / Bolsa Plot admin. */

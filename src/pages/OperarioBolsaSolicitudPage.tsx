@@ -13,6 +13,8 @@ import {
   Wrench
 } from 'lucide-react'
 import { enviarSolicitudOperarioExterno } from '../features/work-pool/workPoolRepository'
+import { operarioExternoHomeRoute, isOperarioExternoRol } from '../features/work-pool/workPoolOperarioExterno'
+import { useAuth } from '../hooks/useAuth'
 import {
   MAX_POSTULACION_MB,
   POSTULACION_DOC_EXT,
@@ -126,6 +128,7 @@ async function uploadIfPresent(file: File | null, subfolder: string) {
 }
 
 export default function OperarioBolsaSolicitudPage() {
+  const { usuario } = useAuth()
   const [stepIndex, setStepIndex] = useState(0)
   const [rubro, setRubro] = useState<PostulacionRubro>('diseno')
   const [nivel, setNivel] = useState<PostulacionNivel>('estudiante')
@@ -269,6 +272,9 @@ export default function OperarioBolsaSolicitudPage() {
   const progressPct = Math.round(((stepIndex + 1) / POSTULACION_WIZARD_STEPS.length) * 100)
 
   if (ok) {
+    const panelLink = isOperarioExternoRol(usuario?.rol)
+      ? operarioExternoHomeRoute(usuario.rol)
+      : null
     return (
       <div className="operario-solicitud-page operario-solicitud-page--ok">
         <div className="operario-solicitud-card operario-solicitud-card--ok">
@@ -279,11 +285,19 @@ export default function OperarioBolsaSolicitudPage() {
           <h1>¡Postulación enviada!</h1>
           <p>
             Recibimos tu solicitud como <strong>{rubroLabel(rubro)}</strong> ({nivelLabel(nivel)}).
-            Si es aprobada, te contactaremos con usuario de acceso al panel.
+            {panelLink
+              ? ' Ya podés entrar a tu panel de operario externo.'
+              : ' Si es aprobada, te contactaremos con usuario de acceso al panel.'}
           </p>
-          <Link to="/login" className="operario-solicitud-btn">
-            Ir al login
-          </Link>
+          {panelLink ? (
+            <Link to={panelLink} className="operario-solicitud-btn">
+              Ir a mi panel
+            </Link>
+          ) : (
+            <Link to="/login" className="operario-solicitud-btn">
+              Ir al login
+            </Link>
+          )}
         </div>
       </div>
     )
