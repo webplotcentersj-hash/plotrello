@@ -29,6 +29,7 @@ import {
   requiereTituloUniversitarioDiseno,
   rubroLabel,
   tituloCertificadoOpcional,
+  normalizePortfolioUrl,
   validatePostulacionFile,
   validatePostulacionForm,
   validatePostulacionWizardStep,
@@ -237,7 +238,7 @@ export default function OperarioBolsaSolicitudPage() {
         documento: documento.trim() || undefined,
         titulo_texto: tituloTexto.trim() || undefined,
         referencias: referencias.trim() || undefined,
-        portfolio_url: portfolioUrl.trim() || undefined,
+        portfolio_url: portfolioUrl.trim() ? normalizePortfolioUrl(portfolioUrl) : undefined,
         mensaje: mensaje.trim() || undefined,
         zona_cobertura: zona.trim() || undefined,
         skills: skills.split(',').map((s) => s.trim()).filter(Boolean),
@@ -319,7 +320,7 @@ export default function OperarioBolsaSolicitudPage() {
                       aria-pressed={rubro === r.id}
                     >
                       <span className="operario-solicitud-rubro__icon">
-                        <Icon size={22} strokeWidth={1.75} aria-hidden />
+                        <Icon size={18} strokeWidth={1.75} aria-hidden />
                       </span>
                       <strong>{r.label}</strong>
                       <span>{r.desc}</span>
@@ -373,19 +374,32 @@ export default function OperarioBolsaSolicitudPage() {
                 />
               </label>
               <label>
-                Teléfono
-                <input value={telefono} onChange={(e) => setTelefono(e.target.value)} disabled={loading} />
+                Teléfono *
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  placeholder="Ej: 264 4123456"
+                  disabled={loading}
+                  autoComplete="tel"
+                />
               </label>
               <label>
-                Documento (DNI)
-                <input value={documento} onChange={(e) => setDocumento(e.target.value)} disabled={loading} />
+                Documento (DNI) *
+                <input
+                  value={documento}
+                  onChange={(e) => setDocumento(e.target.value)}
+                  placeholder="Sin puntos ni espacios"
+                  disabled={loading}
+                  inputMode="numeric"
+                />
               </label>
               <label className="operario-solicitud-grid--full">
-                Zona de cobertura
+                Zona de residencia
                 <input
                   value={zona}
                   onChange={(e) => setZona(e.target.value)}
-                  placeholder="Ej: San Juan capital y Valle del Ullúm"
+                  placeholder="Ej: San Juan capital, Rivadavia, Chimbas…"
                   disabled={loading}
                 />
               </label>
@@ -549,11 +563,13 @@ export default function OperarioBolsaSolicitudPage() {
                 <label>
                   Portafolio (URL alternativa)
                   <input
-                    type="url"
+                    type="text"
+                    inputMode="url"
                     value={portfolioUrl}
                     onChange={(e) => setPortfolioUrl(e.target.value)}
-                    placeholder="https://behance.net/… o drive con trabajos"
+                    placeholder="behance.net/tu-usuario o https://…"
                     disabled={loading}
+                    autoComplete="url"
                   />
                 </label>
               </>
@@ -584,7 +600,7 @@ export default function OperarioBolsaSolicitudPage() {
               </div>
               {zona && (
                 <div>
-                  <dt>Zona</dt>
+                  <dt>Residencia</dt>
                   <dd>{zona}</dd>
                 </div>
               )}
@@ -643,7 +659,7 @@ export default function OperarioBolsaSolicitudPage() {
             </li>
             <li>
               <CheckCircle2 size={16} aria-hidden />
-              Chat con clientes por pedido del portal (sin datos de contacto)
+              Chat con clientes por pedido del portal
             </li>
           </ul>
           <div className="operario-solicitud-hero__progress" aria-hidden>

@@ -111,6 +111,25 @@ export function fileExtension(name: string): string {
   return name.split('.').pop()?.toLowerCase() ?? ''
 }
 
+/** Acepta URL con o sin https:// (evita bloqueo del input type=url del navegador). */
+export function isValidPortfolioUrl(raw: string): boolean {
+  const t = raw.trim()
+  if (!t) return true
+  try {
+    const href = /^https?:\/\//i.test(t) ? t : `https://${t}`
+    const u = new URL(href)
+    return Boolean(u.hostname && u.hostname.includes('.'))
+  } catch {
+    return false
+  }
+}
+
+export function normalizePortfolioUrl(raw: string): string {
+  const t = raw.trim()
+  if (!t) return ''
+  return /^https?:\/\//i.test(t) ? t : `https://${t}`
+}
+
 export function validatePostulacionFile(
   file: File | null,
   allowedExt: readonly string[],
@@ -154,6 +173,8 @@ export function validatePostulacionForm(input: PostulacionFormInput): string[] {
 
   if (!input.nombre_completo.trim()) errors.push('El nombre completo es obligatorio.')
   if (!input.email.trim()) errors.push('El email es obligatorio.')
+  if (!input.telefono?.trim()) errors.push('El teléfono es obligatorio.')
+  if (!input.documento?.trim()) errors.push('El documento (DNI) es obligatorio.')
   if (!input.experiencia.trim()) errors.push('Contá tu experiencia en el rubro.')
 
   if (requiereReferenciasObligatorias(input.rubro, input.nivel) && !input.referencias?.trim()) {
@@ -204,6 +225,9 @@ export function validatePostulacionForm(input: PostulacionFormInput): string[] {
   if (input.rubro === 'diseno') {
     const hasPortfolio = Boolean(input.portfolio_url?.trim()) || Boolean(input.portfolioFile)
     if (!hasPortfolio) errors.push('Subí tu portafolio (archivo) o indicá una URL.')
+    if (input.portfolio_url?.trim() && !isValidPortfolioUrl(input.portfolio_url)) {
+      errors.push('La URL del portafolio no es válida. Ej: https://behance.net/tu-usuario')
+    }
     if (input.portfolioFile) {
       const portfolioErr = validatePostulacionFile(
         input.portfolioFile,
@@ -231,6 +255,8 @@ export function validatePostulacionWizardStep(
       if (input.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
         return 'Ingresá un email válido.'
       }
+      if (!input.telefono?.trim()) return 'El teléfono es obligatorio.'
+      if (!input.documento?.trim()) return 'El documento (DNI) es obligatorio.'
       return null
     }
     case 'formacion': {
