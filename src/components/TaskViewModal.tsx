@@ -82,10 +82,11 @@ function YesNo(v: boolean | null | undefined) {
 function describeHistorialMovimiento(m: HistorialMovimiento): string {
   const c = m.comentario?.trim()
   if (c) return c
+  const at = m.accion_tipo?.trim()
+  if (at === 'restart_tablero') return 'Restart en biblioteca — OP restaurada al tablero'
   const ea = m.estado_anterior?.trim()
   const en = m.estado_nuevo?.trim()
   if (ea || en) return `${ea || '—'} → ${en || '—'}`
-  const at = m.accion_tipo?.trim()
   return at ? `Acción: ${at}` : 'Registro sin detalle'
 }
 
@@ -145,6 +146,11 @@ export default function TaskViewModal({
 
   const viewTask = resolvedFromApi ?? task
   const ordenIdView = useMemo(() => parseTaskIdToOrdenId(viewTask.id), [viewTask.id])
+  const historialRefreshKey = useMemo(
+    () =>
+      `${task.visibleEnTablero}|${task.ordenEliminada}|${task.entregado}|${task.status}`,
+    [task.visibleEnTablero, task.ordenEliminada, task.entregado, task.status]
+  )
 
   const tagsKey = useMemo(
     () => (viewTask.tags ?? []).map((t) => t.trim()).sort().join('\u0001'),
@@ -167,6 +173,22 @@ export default function TaskViewModal({
   useEffect(() => {
     setFichaPdfEmbedOpen(false)
   }, [ordenIdView])
+
+  useEffect(() => {
+    if (!exhaustiveDetail) return
+    setResolvedFromApi((prev) => {
+      if (!prev || prev.id !== task.id) return prev
+      return { ...prev, ...task }
+    })
+  }, [
+    exhaustiveDetail,
+    task.id,
+    task.visibleEnTablero,
+    task.ordenEliminada,
+    task.entregado,
+    task.status,
+    task.assignedSector
+  ])
 
   /** Colores de etiquetas: antes se llamaba `loadTagColor` en cada render → re-renders en cascada y tildado. */
   useEffect(() => {
@@ -237,7 +259,7 @@ export default function TaskViewModal({
     return () => {
       cancelled = true
     }
-  }, [ordenIdView, exhaustiveDetail])
+  }, [ordenIdView, exhaustiveDetail, historialRefreshKey])
 
   useEffect(() => {
     setResolvedFromApi(null)
@@ -322,7 +344,7 @@ export default function TaskViewModal({
     return () => {
       cancelled = true
     }
-  }, [exhaustiveDetail, ordenIdView])
+  }, [exhaustiveDetail, ordenIdView, historialRefreshKey])
 
   // Modal solo lectura (tablero): también mostrar adjuntos del grupo.
   useEffect(() => {

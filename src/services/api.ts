@@ -2132,13 +2132,84 @@ class ApiService {
    * - Si estaba oculta (visible_en_tablero=false): la vuelve visible.
    * - Si estaba eliminada lógicamente: la desmarca y limpia motivo/fecha (sin pasar por updateOrden, que bloquea edits sobre eliminada=true).
    * - Si estaba entregada/archivada: desmarca entregado y limpia fecha_entrega_efectiva para que vuelva al tablero.
+   * Registra auditoría en historial_movimientos (quién hizo restart).
    */
+  private async registrarRestartTableroHistorial(
+    orden: OrdenTrabajo,
+    ctx: {
+      estadoAnterior: string | null
+      eraOculta: boolean
+      eraEliminada: boolean
+      eraEntregada: boolean
+      sectorAnterior: string | null
+      numeroOp: string | null
+      cliente: string | null
+      motivoEliminacion: string | null
+    }
+  ): Promise<void> {
+    const partes: string[] = []
+    if (ctx.eraEliminada) partes.push('eliminada')
+    if (ctx.eraOculta) partes.push('oculta del tablero')
+    if (ctx.eraEntregada) partes.push('entregada/archivada')
+    const detalleEstado = partes.length ? partes.join(', ') : 'restauración manual'
+    const { nombre } = this.getCurrentUser()
+    const comentario = `${nombre} restauró la OP al tablero desde biblioteca (${detalleEstado}).`
+
+    await this.registrarCambioHistorial(
+      orden.id!,
+      ctx.estadoAnterior,
+      orden.estado ?? orden.sector ?? 'visible_en_tablero',
+      comentario,
+      'restart_tablero',
+      {
+        origen: 'restartOrdenParaTablero',
+        numero_op: orden.numero_op ?? ctx.numeroOp,
+        cliente: orden.cliente ?? ctx.cliente,
+        visible_en_tablero_antes: !ctx.eraOculta,
+        eliminada_antes: ctx.eraEliminada,
+        entregado_antes: ctx.eraEntregada,
+        sector_anterior: ctx.sectorAnterior,
+        sector_restaurado: orden.sector ?? null,
+        motivo_eliminacion_antes: ctx.motivoEliminacion
+      }
+    )
+  }
+
+  private async finalizarRestartOrden(
+    orden: OrdenTrabajo,
+    ctx: {
+      estadoAnterior: string | null
+      eraOculta: boolean
+      eraEliminada: boolean
+      eraEntregada: boolean
+      sectorAnterior: string | null
+      numeroOp: string | null
+      cliente: string | null
+      motivoEliminacion: string | null
+    }
+  ): Promise<OrdenTrabajo> {
+    await this.registrarRestartTableroHistorial(orden, ctx)
+    applyOrdenRestartLocally(orden)
+    return orden
+  }
+
   async restartOrdenParaTablero(id: number): Promise<ApiResponse<OrdenTrabajo>> {
     if (!supabase) {
       const index = fallbackOrdenes.findIndex((o) => o.id === id)
       if (index === -1) return { success: false, error: 'Orden no encontrada' }
+      const antes = fallbackOrdenes[index]
+      const auditCtx = {
+        estadoAnterior: antes.estado ?? null,
+        eraOculta: antes.visible_en_tablero === false,
+        eraEliminada: antes.eliminada === true,
+        eraEntregada: antes.entregado === true,
+        sectorAnterior: antes.sector ?? null,
+        numeroOp: antes.numero_op ?? null,
+        cliente: antes.cliente ?? null,
+        motivoEliminacion: antes.motivo_eliminacion ?? null
+      }
       fallbackOrdenes[index] = {
-        ...fallbackOrdenes[index],
+        ...antes,
         visible_en_tablero: true,
         eliminada: false,
         motivo_eliminacion: null,
@@ -2146,14 +2217,18 @@ class ApiService {
         entregado: false,
         fecha_entrega_efectiva: null
       }
-      applyOrdenRestartLocally(fallbackOrdenes[index])
-      return { success: true, data: fallbackOrdenes[index] }
+      const ordenFb = fallbackOrdenes[index]
+      await this.registrarRestartTableroHistorial(ordenFb, auditCtx)
+      applyOrdenRestartLocally(ordenFb)
+      return { success: true, data: ordenFb }
     }
 
     try {
       const r0 = await supabase
         .from('ordenes_trabajo')
-        .select('id, eliminada, entregado, sector, sector_inicial, estado')
+        .select(
+          'id, eliminada, entregado, sector, sector_inicial, estado, visible_en_tablero, numero_op, cliente, motivo_eliminacion'
+        )
         .eq('id', id)
         .maybeSingle()
       if (r0.error) return { success: false, error: r0.error.message }
@@ -2167,7 +2242,23 @@ class ApiService {
         sector?: string | null
         sector_inicial?: string | null
         estado?: string | null
+        visible_en_tablero?: boolean | null
+        numero_op?: string | null
+        cliente?: string | null
+        motivo_eliminacion?: string | null
       }
+
+      const auditCtx = {
+        estadoAnterior: row.estado?.trim() || row.sector?.trim() || null,
+        eraOculta: row.visible_en_tablero === false,
+        eraEliminada: row.eliminada === true,
+        eraEntregada: row.entregado === true,
+        sectorAnterior: row.sector?.trim() || null,
+        numeroOp: row.numero_op?.trim() || null,
+        cliente: row.cliente?.trim() || null,
+        motivoEliminacion: row.motivo_eliminacion?.trim() || null
+      }
+
       const patch: Record<string, unknown> = { visible_en_tablero: true }
       const eliminada = row.eliminada === true
       if (eliminada) {
@@ -2209,8 +2300,7 @@ class ApiService {
             .select('*')
             .maybeSingle()
           if (err2) return { success: false, error: err2.message }
-          const orden2 = data2 as OrdenTrabajo
-          applyOrdenRestartLocally(orden2)
+          const orden2 = await this.finalizarRestartOrden(data2 as OrdenTrabajo, auditCtx)
           return { success: true, data: orden2 }
         }
         if (row.entregado === true && msg.includes('fecha_entrega_efectiva')) {
@@ -2228,15 +2318,13 @@ class ApiService {
             .select('*')
             .maybeSingle()
           if (err3) return { success: false, error: err3.message }
-          const orden3 = data3 as OrdenTrabajo
-          applyOrdenRestartLocally(orden3)
+          const orden3 = await this.finalizarRestartOrden(data3 as OrdenTrabajo, auditCtx)
           return { success: true, data: orden3 }
         }
         return { success: false, error: msg || 'No se pudo restaurar la OP.' }
       }
       if (!data) return { success: false, error: 'No se devolvió la orden actualizada.' }
-      const orden = data as OrdenTrabajo
-      applyOrdenRestartLocally(orden)
+      const orden = await this.finalizarRestartOrden(data as OrdenTrabajo, auditCtx)
       return { success: true, data: orden }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Error al restaurar la OP.'
