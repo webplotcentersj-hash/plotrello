@@ -10,7 +10,8 @@ import { calcCarteraStatsCuentaCorriente } from '../utils/cuentaCorrienteStats'
 import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
 import { downloadCarteraCsv } from '../utils/cuentaCorrienteExport'
 import CcExportMenu from '../components/CcExportMenu'
-import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
+import CuentaCorrienteCobranzasPanel from '../components/CuentaCorrienteCobranzasPanel'
+import type { ClienteCuentaCorrienteRecord, ClienteRecord, CcCobranzasPanelData } from '../types/api'
 import { normalizeEstadoCc, type EstadoCuentaCorriente } from '../constants/cuentaCorriente'
 import './CuentaCorrientePage.css'
 
@@ -35,6 +36,23 @@ const CuentaCorrientePage = () => {
   const [mensajeOk, setMensajeOk] = useState<string | null>(null)
   const [scoringCliente, setScoringCliente] = useState<CuentaCorrienteRow | null>(null)
   const [recalculandoTodos, setRecalculandoTodos] = useState(false)
+  const [cobranzas, setCobranzas] = useState<CcCobranzasPanelData | null>(null)
+  const [cobranzasLoading, setCobranzasLoading] = useState(false)
+  const [cobranzasError, setCobranzasError] = useState<string | null>(null)
+
+  const loadCobranzas = async () => {
+    setCobranzasLoading(true)
+    setCobranzasError(null)
+    try {
+      const res = await apiService.listCobranzasCcPanel()
+      if (res.success && res.data) setCobranzas(res.data)
+      else setCobranzasError(res.error || 'No se pudieron cargar las cobranzas')
+    } catch {
+      setCobranzasError('Error de conexión al cargar cobranzas')
+    } finally {
+      setCobranzasLoading(false)
+    }
+  }
 
   const loadRegistros = async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -55,6 +73,7 @@ const CuentaCorrientePage = () => {
 
   useEffect(() => {
     void loadRegistros()
+    void loadCobranzas()
   }, [])
 
   useEffect(() => {
@@ -400,12 +419,20 @@ const CuentaCorrientePage = () => {
       )}
 
       {modoForm === 'cerrado' && (
-        <CuentaCorrienteDashboard
-          registros={registros}
-          isAdmin={isAdmin}
-          onAprobar={(id) => void resolverSolicitud(id, 'aprobar')}
-          resolviendoId={resolviendoId}
-        />
+        <>
+          <CuentaCorrienteCobranzasPanel
+            data={cobranzas}
+            loading={cobranzasLoading}
+            error={cobranzasError}
+            onRefresh={() => void loadCobranzas()}
+          />
+          <CuentaCorrienteDashboard
+            registros={registros}
+            isAdmin={isAdmin}
+            onAprobar={(id) => void resolverSolicitud(id, 'aprobar')}
+            resolviendoId={resolviendoId}
+          />
+        </>
       )}
 
       {modoForm === 'vincular' && !clienteVincular && (

@@ -510,6 +510,13 @@ export interface CcVentaResumen {
   fecha_venta: string
   comprobante_pago_url?: string | null
   observaciones?: string | null
+  id_vendedor?: number | null
+  nombre_vendedor?: string | null
+  monto_pagado?: number | null
+  monto_pendiente?: number | null
+  fecha_vencimiento?: string | null
+  dias_vencido?: number | null
+  bucket?: CcCobranzaAgingBucket | null
 }
 
 export interface CcPerfilResumen {
@@ -535,6 +542,64 @@ export interface CcPerfilCliente {
   resumen: CcPerfilResumen
   movimientos: CcCuentaMovimiento[]
   ventas_cc: CcVentaResumen[]
+}
+
+export type CcCobranzaAgingBucket = 'al_dia' | '1_30' | '31_60' | '61_90' | '90_mas'
+
+export interface CcCobranzaVentaItem {
+  id_venta: number
+  numero_venta: string
+  id_cliente: number
+  cliente_nombre: string
+  valor_total: number
+  monto_pendiente: number
+  estado_pago: string
+  fecha_venta: string
+  fecha_vencimiento: string
+  dias_vencido: number
+  bucket: CcCobranzaAgingBucket
+  id_vendedor: number | null
+  nombre_vendedor: string
+}
+
+export interface CcCobranzaVendedorResumen {
+  id_vendedor: number | null
+  nombre_vendedor: string
+  ventas_count: number
+  monto_pendiente: number
+  ventas_pendientes: number
+}
+
+export interface CcCobranzasPanelData {
+  ventas_abiertas: CcCobranzaVentaItem[]
+  por_vendedor: CcCobranzaVendedorResumen[]
+  aging: Record<CcCobranzaAgingBucket, { count: number; monto: number }>
+  cobrado_mes: number
+  pagos_mes_count: number
+  total_por_cobrar: number
+  total_vencido: number
+  clientes_con_deuda: number
+  tasa_cobranza_mes: number
+  top_clientes: CcCobranzaClienteResumen[]
+  pagos_recientes: CcCobranzaPagoReciente[]
+}
+
+export interface CcCobranzaClienteResumen {
+  id_cliente: number
+  cliente_nombre: string
+  ventas_abiertas: number
+  monto_pendiente: number
+  peor_dias_vencido: number
+}
+
+export interface CcCobranzaPagoReciente {
+  id_movimiento: number
+  fecha: string
+  monto: number
+  id_cliente: number
+  cliente_nombre: string
+  concepto?: string | null
+  url_comprobante?: string | null
 }
 
 export type AltaCuentaCorrientePayload = {

@@ -5,13 +5,18 @@ import apiService from '../services/api'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
 import CuentaCorrienteScoringPanel from '../components/CuentaCorrienteScoringPanel'
 import CuentaCorrienteInteresesPanel from '../components/CuentaCorrienteInteresesPanel'
-import type { CcCuentaMovimiento, CcPerfilCliente, CcVentaResumen } from '../types/api'
+import type { CcCobranzaAgingBucket, CcCuentaMovimiento, CcPerfilCliente, CcVentaResumen } from '../types/api'
 import { TIPO_CLIENTE_CC_LABELS, labelCondicionIva } from '../constants/cuentaCorriente'
 import {
   formatLimiteCredito,
   type CcScoreNivel
 } from '../constants/cuentaCorrienteScoring'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
+import {
+  CC_AGING_LABELS,
+  estadoCobroVenta,
+  resumenPorVendedor
+} from '../utils/cuentaCorrienteCobranzas'
 import {
   formatMontoArs,
   movimientosConSaldoCorrido,
@@ -96,6 +101,29 @@ export default function CuentaCorrientePerfilPage() {
 
   const nombre =
     perfil?.ficha.razon_social || perfil?.ficha.nombre || `Cliente #${idCliente}`
+
+  const ventasPorVendedor = useMemo(() => {
+    if (!perfil) return []
+    const clienteNombre = nombre
+    const items = perfil.ventas_cc
+      .filter((v) => (v.monto_pendiente ?? 0) > 0.009)
+      .map((v) => ({
+        id_venta: v.id,
+        numero_venta: v.numero_venta,
+        id_cliente: idCliente,
+        cliente_nombre: clienteNombre,
+        valor_total: v.valor_total,
+        monto_pendiente: v.monto_pendiente ?? v.valor_total,
+        estado_pago: v.estado_pago,
+        fecha_venta: v.fecha_venta?.slice(0, 10) ?? '',
+        fecha_vencimiento: v.fecha_vencimiento ?? '',
+        dias_vencido: v.dias_vencido ?? 0,
+        bucket: (v.bucket ?? 'al_dia') as CcCobranzaAgingBucket,
+        id_vendedor: v.id_vendedor ?? null,
+        nombre_vendedor: v.nombre_vendedor?.trim() || 'Sin vendedor'
+      }))
+    return resumenPorVendedor(items)
+  }, [perfil, idCliente, nombre])
 
   const limiteEfectivo =
     perfil?.resumen.limite_credito ?? perfil?.resumen.limite_credito_sugerido ?? null
@@ -442,6 +470,20 @@ export default function CuentaCorrientePerfilPage() {
       {tab === 'ventas' && (
         <section className="cc-perfil-section">
           <h2>Historial de ventas en cuenta corriente</h2>
+          {ventasPorVendedor.length > 0 && (
+            <div className="cc-perfil-ventas-vendedores">
+              <h3>Pendiente por vendedor</h3>
+              <div className="cc-perfil-ventas-vendedores__grid">
+                {ventasPorVendedor.map((v) => (
+                  <article key={v.id_vendedor ?? v.nombre_vendedor} className="cc-perfil-vendedor-chip">
+                    <span className="cc-perfil-vendedor-chip__name">{v.nombre_vendedor}</span>
+                    <strong>{formatMontoArs(v.monto_pendiente)}</strong>
+                    <span>{v.ventas_pendientes} venta{v.ventas_pendientes !== 1 ? 's' : ''}</span>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
           {perfil.ventas_cc.length === 0 ? (
             <p className="cc-perfil-empty">Sin ventas CC registradas.</p>
           ) : (
@@ -451,9 +493,13 @@ export default function CuentaCorrientePerfilPage() {
                   <tr>
                     <th>Fecha</th>
                     <th>N° venta</th>
-                    <th className="num">Monto</th>
+                    <th>Vendedor</th>
+                    <th className="num">Total</th>
+                    <th className="num">Pagado</th>
+                    <th className="num">Pendiente</th>
                     <th>Estado pago</th>
-                    <th>Venc. estimado</th>
+                    <th>Vencimiento</th>
+                    <th>Cobranza</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -464,7 +510,7 @@ export default function CuentaCorrientePerfilPage() {
                       venta={v}
                       onImputar={() => {
                         setPagoVentaId(String(v.id))
-                        setPagoMonto(String(v.valor_total))
+                        setPagoMonto(String(v.monto_pendiente ?? v.valor_total))
                         setTab('pago')
                       }}
                     />
@@ -670,24 +716,52 @@ function VentaRow({
 }) {
   const pendiente =
     venta.estado_pago !== 'Pagado' && venta.estado_pago !== 'Cancelado'
-  const venc = venta.fecha_venta
-    ? new Date(new Date(venta.fecha_venta + 'T12:00:00').getTime() + 30 * 86400000)
-    : null
+  const pagado = venta.monto_pagado ?? 0
+  const saldoPendiente = venta.monto_pendiente ?? Math.max(0, venta.valor_total - pagado)
+  const diasVencido = venta.dias_vencido ?? 0
+  const cobro = estadoCobroVenta(diasVencido)
+  const vencLabel = venta.fecha_vencimiento
+    ? new Date(venta.fecha_vencimiento + 'T12:00:00').toLocaleDateString('es-AR')
+    : venta.fecha_venta
+      ? new Date(
+          new Date(venta.fecha_venta + 'T12:00:00').getTime() + 30 * 86400000
+        ).toLocaleDateString('es-AR')
+      : '—'
+
   return (
-    <tr>
+    <tr className={diasVencido > 0 && pendiente ? 'cc-perfil-venta--late' : ''}>
       <td>
         {venta.fecha_venta
           ? new Date(venta.fecha_venta + 'T12:00:00').toLocaleDateString('es-AR')
           : '—'}
       </td>
       <td>{venta.numero_venta}</td>
+      <td>
+        <span className="cc-perfil-vendedor" title={venta.nombre_vendedor || 'Sin vendedor'}>
+          {venta.nombre_vendedor || 'Sin vendedor'}
+        </span>
+      </td>
       <td className="num">{formatMontoArs(venta.valor_total)}</td>
+      <td className="num">{pagado > 0 ? formatMontoArs(pagado) : '—'}</td>
+      <td className="num">{pendiente ? formatMontoArs(saldoPendiente) : '—'}</td>
       <td>
         <span className={`cc-perfil-estado-pago cc-perfil-estado-pago--${venta.estado_pago?.toLowerCase()}`}>
           {venta.estado_pago}
         </span>
       </td>
-      <td>{venc ? venc.toLocaleDateString('es-AR') : '—'}</td>
+      <td>{vencLabel}</td>
+      <td>
+        {pendiente ? (
+          <span className={`cc-perfil-cobro-badge cc-perfil-cobro-badge--${cobro.cls.replace('cc-cob--', '')}`}>
+            {cobro.label}
+            {venta.bucket && venta.bucket !== 'al_dia' && diasVencido > 0 && (
+              <small> · {CC_AGING_LABELS[venta.bucket]}</small>
+            )}
+          </span>
+        ) : (
+          '—'
+        )}
+      </td>
       <td>
         {pendiente && (
           <button type="button" className="cc-btn cc-btn--sm cc-btn--secondary" onClick={onImputar}>

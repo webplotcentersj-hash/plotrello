@@ -11,8 +11,16 @@ import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import {
+  agingDesdeItems,
+  enriquecerVentasCcResumenes,
+  resumenPorCliente,
+  resumenPorVendedor,
+  ventasCcAbiertasDesdeVentas
+} from '../utils/cuentaCorrienteCobranzas'
 import type {
   AltaCuentaCorrientePayload,
+  CcCobranzasPanelData,
   CcCuentaMovimiento,
   CcInteresesDevengados,
   CcPerfilCliente,
@@ -5299,12 +5307,27 @@ class ApiService {
             haber: Number(m.haber) || 0,
             saldo_acumulado: m.saldo_acumulado != null ? Number(m.saldo_acumulado) : undefined
           })),
-          ventas_cc: ventas.map((v) => ({ ...v, valor_total: Number(v.valor_total) || 0 }))
+          ventas_cc: await this.enriquecerVentasCcPerfil(ventas.map((v) => ({ ...v, valor_total: Number(v.valor_total) || 0 })))
         }
       }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al cargar perfil' }
     }
+  }
+
+  private async enriquecerVentasCcPerfil(ventas: CcVentaResumen[]): Promise<CcVentaResumen[]> {
+    if (!supabase || ventas.length === 0) return ventas
+    const ids = ventas.map((v) => v.id).filter((id) => Number.isFinite(id))
+    if (!ids.length) return ventas
+    const { data: detalles, error } = await supabase
+      .from('ventas')
+      .select('id, id_vendedor, nombre_vendedor, monto_pagado, estado_pago, fecha_venta, valor_total')
+      .in('id', ids)
+    if (error) {
+      console.warn('enriquecerVentasCcPerfil:', error.message)
+      return ventas
+    }
+    return enriquecerVentasCcResumenes(ventas, detalles ?? [])
   }
 
   async actualizarCondicionesCreditoCc(payload: {
@@ -5447,6 +5470,110 @@ class ApiService {
       return { success: true }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al quitar cliente' }
+    }
+  }
+
+  /** Panel cobranzas CC: ventas fiadas abiertas, vendedor, aging. */
+  async listCobranzasCcPanel(diasHistorial = 120): Promise<ApiResponse<CcCobranzasPanelData>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const desde = new Date()
+      desde.setDate(desde.getDate() - diasHistorial)
+      const fechaDesde = desde.toISOString().slice(0, 10)
+
+      const ventasRes = await this.obtenerVentas(undefined, fechaDesde, undefined, 'todos')
+      if (!ventasRes.success) {
+        return { success: false, error: ventasRes.error || 'Error al cargar ventas CC' }
+      }
+
+      const ventas_abiertas = ventasCcAbiertasDesdeVentas(ventasRes.data ?? [])
+      const por_vendedor = resumenPorVendedor(ventas_abiertas)
+      const top_clientes = resumenPorCliente(ventas_abiertas)
+      const aging = agingDesdeItems(ventas_abiertas)
+      const total_por_cobrar = ventas_abiertas.reduce((s, v) => s + v.monto_pendiente, 0)
+      const total_vencido = ventas_abiertas
+        .filter((v) => v.dias_vencido > 0)
+        .reduce((s, v) => s + v.monto_pendiente, 0)
+      const clientes_con_deuda = top_clientes.length
+
+      const mesInicio = new Date()
+      mesInicio.setDate(1)
+      const mesKey = mesInicio.toISOString().slice(0, 7)
+
+      const { data: pagosRaw, error: pagosErr } = await supabase
+        .from('cc_cuenta_movimientos')
+        .select('id, id_cliente, haber, fecha, tipo, concepto, url_comprobante')
+        .eq('tipo', 'pago')
+        .gte('fecha', `${mesKey}-01`)
+        .order('fecha', { ascending: false })
+        .limit(50)
+
+      if (pagosErr) {
+        console.warn('listCobranzasCcPanel pagos:', pagosErr.message)
+      }
+
+      let cobrado_mes = 0
+      let pagos_mes_count = 0
+      for (const p of pagosRaw ?? []) {
+        if (p.tipo !== 'pago') continue
+        cobrado_mes += Number(p.haber) || 0
+        pagos_mes_count += 1
+      }
+
+      const denominador = cobrado_mes + total_por_cobrar
+      const tasa_cobranza_mes = denominador > 0 ? Math.round((cobrado_mes / denominador) * 100) : 0
+
+      const clienteNombre = new Map<number, string>()
+      for (const c of top_clientes) clienteNombre.set(c.id_cliente, c.cliente_nombre)
+
+      const pagosClienteIds = [
+        ...new Set((pagosRaw ?? []).map((p) => p.id_cliente).filter((id) => Number.isFinite(id)))
+      ]
+      const faltanIds = pagosClienteIds.filter((id) => !clienteNombre.has(id))
+      if (faltanIds.length) {
+        const { data: fichas } = await supabase
+          .from('clientes_cuenta_corriente')
+          .select('id_cliente, razon_social, nombre')
+          .in('id_cliente', faltanIds)
+        for (const f of fichas ?? []) {
+          clienteNombre.set(
+            f.id_cliente,
+            f.razon_social || f.nombre || `Cliente #${f.id_cliente}`
+          )
+        }
+      }
+
+      const pagos_recientes = (pagosRaw ?? [])
+        .filter((p) => p.tipo === 'pago')
+        .slice(0, 15)
+        .map((p) => ({
+          id_movimiento: p.id,
+          fecha: String(p.fecha).slice(0, 10),
+          monto: Number(p.haber) || 0,
+          id_cliente: p.id_cliente,
+          cliente_nombre: clienteNombre.get(p.id_cliente) || `Cliente #${p.id_cliente}`,
+          concepto: p.concepto,
+          url_comprobante: p.url_comprobante
+        }))
+
+      return {
+        success: true,
+        data: {
+          ventas_abiertas,
+          por_vendedor,
+          top_clientes,
+          aging,
+          cobrado_mes,
+          pagos_mes_count,
+          total_por_cobrar,
+          total_vencido,
+          clientes_con_deuda,
+          tasa_cobranza_mes,
+          pagos_recientes
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al cargar cobranzas CC' }
     }
   }
 
