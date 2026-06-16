@@ -16,7 +16,7 @@ import type {
   WorkPoolSolicitudNivel,
   WorkPoolSolicitudRubro
 } from '../../types/workPool'
-import { sectorsForProduct } from './workPoolConfig'
+import { sectorsForProduct, operarioExternoRolForProduct } from './workPoolConfig'
 import {
   mapOrdenRow,
   mergeAndRankWorkPoolOpRows,
@@ -734,6 +734,62 @@ function isCurrentMonth(iso: string | null): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
 }
 
+function rubroToSector(rubro: string | null | undefined): WorkPoolSector | null {
+  if (rubro === 'diseno') return 'diseno'
+  if (rubro === 'instalaciones') return 'instalaciones'
+  if (rubro === 'metalurgica') return 'metalurgica'
+  return null
+}
+
+async function mergeOperariosExternosAfines(
+  product: WorkPoolProduct,
+  productSectors: WorkPoolSector[],
+  ensureFreelancer: (id: number) => WorkPoolFreelancerResumen,
+  nombres: Map<number, string>
+): Promise<void> {
+  if (!supabase) return
+
+  const rol = operarioExternoRolForProduct(product)
+  const { data: usuarios } = await supabase
+    .from('usuarios')
+    .select('id, nombre, activo')
+    .eq('rol', rol)
+    .eq('activo', true)
+
+  const ids = (usuarios ?? []).map((u) => Number((u as { id: number }).id))
+  if (ids.length === 0) return
+
+  const rubroPorUsuario = new Map<number, WorkPoolSector>()
+  const { data: solicitudes } = await supabase
+    .from('work_pool_solicitudes')
+    .select('id_usuario_creado, rubro, tipo')
+    .eq('estado', 'aprobada')
+    .in('id_usuario_creado', ids)
+
+  for (const row of solicitudes ?? []) {
+    const id = Number((row as { id_usuario_creado: number }).id_usuario_creado)
+    const rubro = (row as { rubro?: string | null; tipo?: string }).rubro
+    const tipo = (row as { tipo?: string }).tipo
+    const sector =
+      rubroToSector(rubro) ??
+      (tipo === 'diseno' ? 'diseno' : tipo === 'bolsa' ? 'instalaciones' : null)
+    if (sector) rubroPorUsuario.set(id, sector)
+  }
+
+  for (const u of usuarios ?? []) {
+    const id = Number((u as { id: number }).id)
+    const f = ensureFreelancer(id)
+    f.nombre = String((u as { nombre?: string }).nombre ?? nombres.get(id) ?? f.nombre)
+    f.perfil_aprobado = true
+    f.perfil_activo = true
+
+    const sectorSolicitud = rubroPorUsuario.get(id)
+    if (sectorSolicitud && productSectors.includes(sectorSolicitud) && !f.sectores.includes(sectorSolicitud)) {
+      f.sectores.push(sectorSolicitud)
+    }
+  }
+}
+
 export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Promise<{
   success: boolean
   data?: WorkPoolAdminDashboard
@@ -803,6 +859,10 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     f.perfil_activo = f.perfil_activo || p.activo
   }
 
+  if (product && productSectors) {
+    await mergeOperariosExternosAfines(product, productSectors, ensureFreelancer, nombres)
+  }
+
   const activosEstados = new Set(['asignado', 'en_curso', 'cambios'])
   let pendientesRevision = 0
   let disponiblesBolsa = 0
@@ -840,9 +900,9 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     f.saldo_pendiente = saldo.saldo_pendiente
   }
 
-  const freelancers = [...freelancerMap.values()].sort(
-    (a, b) => b.saldo_pendiente - a.saldo_pendiente || b.trabajos_activos - a.trabajos_activos
-  )
+  const freelancers = [...freelancerMap.values()]
+    .filter((f) => f.sectores.some((s) => !productSectors || productSectors.includes(s)))
+    .sort((a, b) => b.saldo_pendiente - a.saldo_pendiente || b.trabajos_activos - a.trabajos_activos)
 
   const deudaTotal = resumen.reduce((s, r) => s + Number(r.deuda_operarios ?? 0), 0)
   const trabajosAbiertos = resumen.reduce((s, r) => s + Number(r.trabajos_abiertos ?? 0), 0)

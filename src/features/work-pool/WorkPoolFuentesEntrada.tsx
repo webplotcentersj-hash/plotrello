@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { PedidoClienteRecord } from '../../types/api'
-import type { WorkPoolOrdenSugerida, WorkPoolSector } from '../../types/workPool'
+import type { WorkPoolOrdenSugerida, WorkPoolProduct, WorkPoolSector } from '../../types/workPool'
 import { useAuth } from '../../hooks/useAuth'
 import { apiService } from '../../services/api'
 import { listOrdenesTableroPorSector } from './workPoolRepository'
@@ -12,6 +12,7 @@ import WorkPoolFuenteDetailModal, {
 import './WorkPoolFuenteDetailModal.css'
 
 type Props = {
+  product: WorkPoolProduct
   sector: WorkPoolSector
   idUsuarioCreador: number
   onSeleccionarOp: (orden: WorkPoolOrdenSugerida) => void
@@ -26,6 +27,7 @@ function resumen(text: string | null | undefined, max = 64): string {
 }
 
 export default function WorkPoolFuentesEntrada({
+  product,
   sector,
   idUsuarioCreador,
   onSeleccionarOp,
@@ -33,6 +35,7 @@ export default function WorkPoolFuentesEntrada({
   onAplicarPedido
 }: Props) {
   const { usuario } = useAuth()
+  const showBriefsPortal = product === 'plot-design'
   const [tab, setTab] = useState<'tablero' | 'briefs' | 'pedidos'>('tablero')
   const [tablero, setTablero] = useState<WorkPoolOrdenSugerida[]>([])
   const [briefs, setBriefs] = useState<BriefFuenteResumen[]>([])
@@ -57,6 +60,13 @@ export default function WorkPoolFuentesEntrada({
   }, [sector])
 
   useEffect(() => {
+    if (!showBriefsPortal) {
+      setTab('tablero')
+      setBriefs([])
+      setPedidos([])
+      setLoadingExtras(false)
+      return
+    }
     let cancelled = false
     setLoadingExtras(true)
     void Promise.all([apiService.listarBriefsPendientes(), apiService.getPedidosPendientes()]).then(
@@ -79,9 +89,9 @@ export default function WorkPoolFuentesEntrada({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [showBriefsPortal])
 
-  const loading = loadingTablero || loadingExtras
+  const loading = loadingTablero || (showBriefsPortal && loadingExtras)
 
   const aplicarDesdeDetalle = (
     detail: WorkPoolFuenteDetail,
@@ -124,7 +134,11 @@ export default function WorkPoolFuentesEntrada({
       <header className="work-pool-fuentes__head">
         <div>
           <h4>Entradas de trabajo</h4>
-          <p>OPs del tablero ({colaLabel}), briefs pendientes y pedidos del portal de clientes.</p>
+          <p>
+            {showBriefsPortal
+              ? `OPs del tablero (${colaLabel}), briefs pendientes y pedidos del portal de clientes.`
+              : `OPs del tablero de ${colaLabel} — instalaciones o metalúrgica según el sector elegido arriba.`}
+          </p>
         </div>
         <div className="work-pool-fuentes__tabs" role="tablist">
           <button
@@ -136,24 +150,28 @@ export default function WorkPoolFuentesEntrada({
           >
             {colaLabel} <span>{tablero.length}</span>
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'briefs'}
-            className={tab === 'briefs' ? 'is-active' : ''}
-            onClick={() => setTab('briefs')}
-          >
-            Briefs <span>{briefs.length}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'pedidos'}
-            className={tab === 'pedidos' ? 'is-active' : ''}
-            onClick={() => setTab('pedidos')}
-          >
-            Portal <span>{pedidos.length}</span>
-          </button>
+          {showBriefsPortal && (
+            <>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'briefs'}
+                className={tab === 'briefs' ? 'is-active' : ''}
+                onClick={() => setTab('briefs')}
+              >
+                Briefs <span>{briefs.length}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'pedidos'}
+                className={tab === 'pedidos' ? 'is-active' : ''}
+                onClick={() => setTab('pedidos')}
+              >
+                Portal <span>{pedidos.length}</span>
+              </button>
+            </>
+          )}
         </div>
       </header>
 

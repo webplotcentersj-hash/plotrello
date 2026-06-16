@@ -50,6 +50,28 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
     if (!items.some((i) => i.id === item.id)) items.push(item)
   }
 
+  if (rol === 'operario-diseno') {
+    push({
+      id: 'plot-design-externo',
+      label: 'Plot Design',
+      icon: '🎨',
+      href: '/plot-design',
+      title: 'Mi panel de diseño externo'
+    })
+    return items
+  }
+
+  if (rol === 'operario-bolsa') {
+    push({
+      id: 'bolsa-plot-externo',
+      label: 'Bolsa Plot',
+      icon: '🧰',
+      href: '/bolsa-plot',
+      title: 'Mi panel de bolsa'
+    })
+    return items
+  }
+
   // ——— Dashboard / módulo principal del rol ———
   switch (rol) {
     case 'recursos-humanos':

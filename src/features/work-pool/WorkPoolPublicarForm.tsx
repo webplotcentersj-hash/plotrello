@@ -367,6 +367,7 @@ export default function WorkPoolPublicarForm({
 
       {!compact && (
         <WorkPoolFuentesEntrada
+          product={product}
           sector={sector}
           idUsuarioCreador={idUsuarioCreador}
           onSeleccionarOp={seleccionarOp}

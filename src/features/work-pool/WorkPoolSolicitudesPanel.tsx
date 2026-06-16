@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ChevronRight, Search } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import type { WorkPoolSolicitud } from '../../types/workPool'
 import { nivelLabel, rubroLabel } from './workPoolPostulacion'
@@ -7,59 +8,37 @@ import {
   listarSolicitudesOperario,
   rechazarSolicitudOperario
 } from './workPoolRepository'
-import { solicitudTipoLabel } from './workPoolOperarioExterno'
+import WorkPoolSolicitudDetailModal from './WorkPoolSolicitudDetailModal'
 
-function adjuntoLink(url: string | null | undefined, nombre?: string | null) {
-  if (!url) return null
-  return (
-    <a href={url} target="_blank" rel="noreferrer" className="work-pool-solicitud-link">
-      {nombre || 'Ver archivo'}
-    </a>
-  )
+function initials(nombre: string) {
+  return nombre
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
 }
 
-function SolicitudDetalle({ s }: { s: WorkPoolSolicitud }) {
+function matchesSolicitudQuery(s: WorkPoolSolicitud, q: string) {
   const rubro = s.rubro ?? (s.tipo === 'diseno' ? 'diseno' : 'instalaciones')
-  return (
-    <div className="work-pool-solicitud-detalle">
-      <div className="work-pool-module__job-meta">
-        <span>{rubroLabel(rubro)}</span>
-        {s.nivel && <span>{nivelLabel(s.nivel)}</span>}
-        {!s.rubro && <span>{solicitudTipoLabel(s.tipo)}</span>}
-        {s.zona_cobertura && <span>{s.zona_cobertura}</span>}
-        <span>{new Date(s.created_at).toLocaleDateString('es-AR')}</span>
-      </div>
-      {s.titulo_texto && <p><strong>Título:</strong> {s.titulo_texto}</p>}
-      {s.experiencia && (
-        <p className="work-pool-solicitud-block">
-          <strong>Experiencia</strong>
-          <br />
-          {s.experiencia}
-        </p>
-      )}
-      {s.referencias && (
-        <p className="work-pool-solicitud-block">
-          <strong>Referencias</strong>
-          <br />
-          {s.referencias}
-        </p>
-      )}
-      {s.mensaje && <p>{s.mensaje}</p>}
-      {s.skills.length > 0 && <p><strong>Skills:</strong> {s.skills.join(', ')}</p>}
-      <div className="work-pool-solicitud-adjuntos">
-        <span>{adjuntoLink(s.cv_url, s.cv_nombre ?? 'CV')}</span>
-        <span>{adjuntoLink(s.titulo_url, s.titulo_nombre ?? 'Título / certificado')}</span>
-        <span>{adjuntoLink(s.titulo_universitario_url, s.titulo_universitario_nombre ?? 'Título universitario')}</span>
-        <span>{adjuntoLink(s.libreta_url, s.libreta_nombre ?? 'Libreta')}</span>
-        <span>{adjuntoLink(s.portfolio_archivo_url, s.portfolio_archivo_nombre ?? 'Portafolio')}</span>
-        {s.portfolio_url && (
-          <a href={s.portfolio_url} target="_blank" rel="noreferrer" className="work-pool-solicitud-link">
-            Portafolio (URL)
-          </a>
-        )}
-      </div>
-    </div>
-  )
+  const haystack = [
+    s.nombre_completo,
+    s.email,
+    s.telefono,
+    s.documento,
+    s.titulo_texto,
+    s.zona_cobertura,
+    s.experiencia,
+    s.referencias,
+    s.mensaje,
+    rubroLabel(rubro),
+    s.nivel ? nivelLabel(s.nivel) : '',
+    ...s.skills,
+    String(s.id)
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(q)
 }
 
 export default function WorkPoolSolicitudesPanel() {
@@ -67,10 +46,21 @@ export default function WorkPoolSolicitudesPanel() {
   const [solicitudes, setSolicitudes] = useState<WorkPoolSolicitud[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [detailId, setDetailId] = useState<number | null>(null)
   const [aprobarId, setAprobarId] = useState<number | null>(null)
   const [loginUser, setLoginUser] = useState('')
   const [password, setPassword] = useState('')
   const [notas, setNotas] = useState('')
+  const [query, setQuery] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
+  const selected = solicitudes.find((s) => s.id === detailId) ?? null
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return solicitudes
+    return solicitudes.filter((s) => matchesSolicitudQuery(s, q))
+  }, [solicitudes, query])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,7 +88,12 @@ export default function WorkPoolSolicitudesPanel() {
       setError(res.error || 'No se pudo aprobar')
       return
     }
+    const home = res.data?.rol === 'operario-diseno' ? '/plot-design' : '/bolsa-plot'
+    setSuccessMsg(
+      `Usuario «${loginUser.trim()}» creado. El operario entra en ${home} con el login de PlotLab (misma URL que el staff).`
+    )
     setAprobarId(null)
+    setDetailId(null)
     setLoginUser('')
     setPassword('')
     setNotas('')
@@ -110,67 +105,121 @@ export default function WorkPoolSolicitudesPanel() {
     const motivo = window.prompt('Motivo del rechazo (opcional)') ?? ''
     const res = await rechazarSolicitudOperario(id, usuario.id, motivo || undefined)
     if (!res.success) setError(res.error || 'No se pudo rechazar')
-    else void load()
+    else {
+      setDetailId(null)
+      void load()
+    }
+  }
+
+  const openAprobar = (s: WorkPoolSolicitud) => {
+    setDetailId(null)
+    setAprobarId(s.id)
+    setLoginUser(s.nombre_completo.split(/\s+/)[0].toLowerCase())
   }
 
   return (
-    <section className="work-pool-admin__section">
+    <section className="work-pool-admin__section work-pool-admin__section--solicitudes">
       <div className="work-pool-admin__section-head">
         <h2>Solicitudes de operarios externos</h2>
-        <span className="work-pool-admin__pill">{solicitudes.length}</span>
+        <span className="work-pool-admin__pill">
+          {query.trim() ? `${filtered.length} / ${solicitudes.length}` : solicitudes.length}
+        </span>
       </div>
-      <p className="work-pool-publicar__muted" style={{ marginBottom: 14 }}>
+
+      {!loading && solicitudes.length > 0 && (
+        <div className="work-pool-admin__section-toolbar">
+          <label className="work-pool-admin__search">
+            <Search size={16} aria-hidden />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nombre, email, rubro, skills…"
+              aria-label="Buscar solicitudes"
+            />
+            {query && (
+              <button
+                type="button"
+                className="work-pool-admin__search-clear"
+                onClick={() => setQuery('')}
+                aria-label="Limpiar búsqueda"
+              >
+                ×
+              </button>
+            )}
+          </label>
+        </div>
+      )}
+      <p className="work-pool-admin__form-links">
         Formulario público en{' '}
-        <a href="/operario-bolsa/solicitud" target="_blank" rel="noreferrer">
+        <a href="/operario-bolsa/solicitud" target="_blank" rel="noreferrer" className="work-pool-admin__form-link">
           /operario-bolsa/solicitud
         </a>{' '}
         o{' '}
-        <a href="/postulacion-operarios" target="_blank" rel="noreferrer">
+        <a href="/postulacion-operarios" target="_blank" rel="noreferrer" className="work-pool-admin__form-link">
           /postulacion-operarios
         </a>
         . Al aprobar se crea usuario según rubro y nivel.
       </p>
+
       {error && <div className="work-pool-module__alert work-pool-module__alert--error">{error}</div>}
+      {successMsg && (
+        <div className="work-pool-module__alert work-pool-module__alert--info">{successMsg}</div>
+      )}
+
       {loading ? (
         <p className="work-pool-module__empty">Cargando…</p>
       ) : solicitudes.length === 0 ? (
         <p className="work-pool-module__empty">No hay solicitudes pendientes.</p>
+      ) : filtered.length === 0 ? (
+        <p className="work-pool-module__empty">Ninguna solicitud coincide con «{query.trim()}».</p>
       ) : (
-        <div className="work-pool-admin__review-list">
-          {solicitudes.map((s) => (
-            <article key={s.id} className="work-pool-admin__review-card">
-              <div>
-                <h4>
-                  {s.nombre_completo} — {s.email}
-                </h4>
-                <SolicitudDetalle s={s} />
-              </div>
-              <div className="work-pool-module__job-actions">
+        <ul className="work-pool-solicitud-compact-list" role="list">
+          {filtered.map((s) => {
+            const rubro = s.rubro ?? (s.tipo === 'diseno' ? 'diseno' : 'instalaciones')
+            return (
+              <li key={s.id}>
                 <button
                   type="button"
-                  className="work-pool-module__btn work-pool-module__btn--success"
-                  onClick={() => {
-                    setAprobarId(s.id)
-                    setLoginUser(s.nombre_completo.split(/\s+/)[0].toLowerCase())
-                  }}
+                  className="work-pool-solicitud-compact-row"
+                  onClick={() => setDetailId(s.id)}
                 >
-                  Aprobar
+                  <span className="work-pool-solicitud-compact-row__avatar" aria-hidden>
+                    {initials(s.nombre_completo)}
+                  </span>
+                  <span className="work-pool-solicitud-compact-row__main">
+                    <strong>{s.nombre_completo}</strong>
+                    <span className="work-pool-solicitud-compact-row__email">{s.email}</span>
+                  </span>
+                  <span className="work-pool-solicitud-compact-row__tags">
+                    <span>{rubroLabel(rubro)}</span>
+                    {s.nivel && <span>{nivelLabel(s.nivel)}</span>}
+                  </span>
+                  <span className="work-pool-solicitud-compact-row__date">
+                    {new Date(s.created_at).toLocaleDateString('es-AR', {
+                      day: '2-digit',
+                      month: 'short'
+                    })}
+                  </span>
+                  <ChevronRight size={16} className="work-pool-solicitud-compact-row__chev" aria-hidden />
                 </button>
-                <button
-                  type="button"
-                  className="work-pool-module__btn work-pool-module__btn--warn"
-                  onClick={() => void handleRechazar(s.id)}
-                >
-                  Rechazar
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {selected && (
+        <WorkPoolSolicitudDetailModal
+          solicitud={selected}
+          onClose={() => setDetailId(null)}
+          onAprobar={() => openAprobar(selected)}
+          onRechazar={() => void handleRechazar(selected.id)}
+        />
       )}
 
       {aprobarId != null && (
-        <div className="work-pool-admin__pay-box">
+        <div className="work-pool-admin__pay-box work-pool-admin__pay-box--approve">
           <h3>Aprobar solicitud #{aprobarId}</h3>
           <div className="work-pool-module__form-row">
             <label>

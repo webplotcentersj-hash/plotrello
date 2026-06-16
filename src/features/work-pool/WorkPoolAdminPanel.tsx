@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
+import {
+  Briefcase,
+  ClipboardCheck,
+  Cog,
+  GitBranch,
+  Layers,
+  HardHat,
+  LayoutDashboard,
+  Palette,
+  RefreshCw,
+  Send,
+  Users,
+  Wrench
+} from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import type {
   WorkPoolAdminDashboard,
@@ -49,9 +64,13 @@ function initials(nombre: string) {
 }
 
 function sectorIcon(sector: WorkPoolSector) {
-  if (sector === 'diseno') return '🎨'
-  if (sector === 'instalaciones') return '🪜'
-  return '🔧'
+  if (sector === 'diseno') return Palette
+  if (sector === 'instalaciones') return Wrench
+  return Cog
+}
+
+function productHeroIcon(product: WorkPoolProduct): LucideIcon {
+  return product === 'plot-design' ? Palette : HardHat
 }
 
 export default function WorkPoolAdminPanel({ product }: Props) {
@@ -89,9 +108,10 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
   const filteredFreelancers = useMemo(() => {
     if (!dashboard) return []
-    if (sectorFilter === 'todos') return dashboard.freelancers
-    return dashboard.freelancers.filter((f) => f.sectores.includes(sectorFilter))
-  }, [dashboard, sectorFilter])
+    const afines = dashboard.freelancers.filter((f) => f.sectores.some((s) => SECTORS.includes(s)))
+    if (sectorFilter === 'todos') return afines
+    return afines.filter((f) => f.sectores.includes(sectorFilter))
+  }, [dashboard, sectorFilter, SECTORS])
 
   const filteredPendientes = useMemo(() => {
     if (!dashboard) return []
@@ -130,12 +150,14 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
   const kpis = dashboard?.kpis
 
-  const tabItems: { id: AdminTab; label: string; icon: string }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'freelancers', label: 'Freelancers', icon: '👥' },
-    { id: 'publicar', label: 'Publicar', icon: '✦' },
-    { id: 'pipeline', label: 'Pipeline', icon: '🔀' }
+  const tabItems: { id: AdminTab; label: string; Icon: LucideIcon }[] = [
+    { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+    { id: 'freelancers', label: 'Afines', Icon: Users },
+    { id: 'publicar', label: 'Publicar', Icon: Send },
+    { id: 'pipeline', label: 'Pipeline', Icon: GitBranch }
   ]
+
+  const HeroIcon = productHeroIcon(product)
 
   return (
     <div className={`work-pool-admin ${cfg.themeClass}`}>
@@ -152,22 +174,40 @@ export default function WorkPoolAdminPanel({ product }: Props) {
           <div className="work-pool-admin__hero-copy">
             <span className="work-pool-admin__eyebrow">Administración · {cfg.label}</span>
             <h1>
-              {cfg.icon} {cfg.label}
+              <span className="work-pool-admin__hero-brand" aria-hidden>
+                <HeroIcon size={26} strokeWidth={1.75} />
+              </span>
+              <span className="work-pool-admin__hero-title">{cfg.label}</span>
             </h1>
             <p>{cfg.adminTagline}</p>
             {kpis && !loading ? (
               <div className="work-pool-admin__hero-stats" aria-label="Resumen rápido">
                 <div className="work-pool-admin__hero-stat">
-                  <strong>{kpis.trabajos_abiertos}</strong>
-                  <span>abiertos</span>
+                  <span className="work-pool-admin__hero-stat-icon" aria-hidden>
+                    <Briefcase size={16} strokeWidth={2} />
+                  </span>
+                  <span className="work-pool-admin__hero-stat-text">
+                    <strong>{kpis.trabajos_abiertos}</strong>
+                    <span>Abiertos</span>
+                  </span>
                 </div>
                 <div className="work-pool-admin__hero-stat">
-                  <strong>{kpis.disponibles_bolsa}</strong>
-                  <span>en bolsa</span>
+                  <span className="work-pool-admin__hero-stat-icon" aria-hidden>
+                    <Layers size={16} strokeWidth={2} />
+                  </span>
+                  <span className="work-pool-admin__hero-stat-text">
+                    <strong>{kpis.disponibles_bolsa}</strong>
+                    <span>En bolsa</span>
+                  </span>
                 </div>
                 <div className="work-pool-admin__hero-stat">
-                  <strong>{kpis.pendientes_revision}</strong>
-                  <span>en revisión</span>
+                  <span className="work-pool-admin__hero-stat-icon" aria-hidden>
+                    <ClipboardCheck size={16} strokeWidth={2} />
+                  </span>
+                  <span className="work-pool-admin__hero-stat-text">
+                    <strong>{kpis.pendientes_revision}</strong>
+                    <span>En revisión</span>
+                  </span>
                 </div>
               </div>
             ) : null}
@@ -180,12 +220,14 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             {canAccessPlotDesign && canAccessBolsaPlot && (
               <div className="work-pool-admin__product-switch">
                 {product === 'bolsa-plot' ? (
-                  <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost" onClick={() => navigate('/plot-design')}>
-                    🎨 Plot Design
+                  <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost work-pool-admin__product-btn" onClick={() => navigate('/plot-design')}>
+                    <Palette size={16} aria-hidden />
+                    Plot Design
                   </button>
                 ) : (
-                  <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost" onClick={() => navigate('/bolsa-plot')}>
-                    🧰 Bolsa Plot
+                  <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost work-pool-admin__product-btn" onClick={() => navigate('/bolsa-plot')}>
+                    <HardHat size={16} aria-hidden />
+                    Bolsa Plot
                   </button>
                 )}
               </div>
@@ -194,7 +236,8 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               ← PlotLab
             </button>
             <button type="button" className="work-pool-admin__refresh" onClick={() => void load()} disabled={loading}>
-              {loading ? 'Actualizando…' : '↻ Actualizar'}
+              <RefreshCw size={15} className={loading ? 'work-pool-admin__refresh-spin' : undefined} aria-hidden />
+              {loading ? 'Actualizando…' : 'Actualizar'}
             </button>
           </div>
         </div>
@@ -202,7 +245,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
       <div className="work-pool-admin__toolbar">
         <div className="work-pool-admin__tabs" role="tablist">
-          {tabItems.map(({ id, label, icon }) => (
+          {tabItems.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
@@ -212,7 +255,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               onClick={() => setTab(id)}
             >
               <span className="work-pool-admin__tab-icon" aria-hidden>
-                {icon}
+                <Icon size={16} strokeWidth={2} />
               </span>
               {label}
             </button>
@@ -304,6 +347,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                   }))
               ).map((r) => {
                 const sector = r.sector as WorkPoolSector
+                const SectorIcon = sectorIcon(sector)
                 const max = Math.max(
                   Number(r.trabajos_abiertos),
                   Number(r.trabajos_aprobados),
@@ -312,7 +356,9 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                 return (
                   <article key={r.sector} className="work-pool-admin__sector-card">
                     <div className="work-pool-admin__sector-card-head">
-                      <span>{sectorIcon(sector)}</span>
+                      <span className="work-pool-admin__sector-card-icon" aria-hidden>
+                        <SectorIcon size={20} strokeWidth={1.75} />
+                      </span>
                       <h3>{WORK_POOL_SECTOR_LABELS[sector] ?? r.sector}</h3>
                     </div>
                     <div className="work-pool-admin__sector-metrics">
@@ -383,7 +429,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
         <WorkPoolSolicitudesPanel />
         <section className="work-pool-admin__section">
           <div className="work-pool-admin__section-head">
-            <h2>Freelancers y operarios externos</h2>
+            <h2>Operarios afines</h2>
             <span className="work-pool-admin__pill">{filteredFreelancers.length}</span>
           </div>
           <div className="work-pool-admin__freelancer-grid work-pool-admin__freelancer-grid--full">
@@ -501,18 +547,21 @@ function ReviewJobCard({
   onNavigateOp: (op: string) => void
 }) {
   return (
-    <article className="work-pool-admin__review-card">
-      <div>
+    <article className="work-pool-admin__review-card work-pool-admin__review-card--compact">
+      <div className="work-pool-admin__review-card-main">
         <h4>{job.titulo}</h4>
-        <p>{job.descripcion || 'Sin descripción'}</p>
-        <div className="work-pool-module__job-meta">
+        <div className="work-pool-module__job-meta work-pool-admin__review-card-meta">
           <span>{WORK_POOL_SECTOR_LABELS[job.sector]}</span>
           {job.numero_op && <span>OP {job.numero_op}</span>}
           <span>{formatArs(job.monto_presupuestado)}</span>
-          {job.notas_entrega && <span>Entrega: {job.notas_entrega}</span>}
         </div>
+        {(job.descripcion || job.notas_entrega) && (
+          <p className="work-pool-admin__review-card-snippet">
+            {job.notas_entrega || job.descripcion}
+          </p>
+        )}
       </div>
-      <div className="work-pool-module__job-actions">
+      <div className="work-pool-module__job-actions work-pool-admin__review-card-actions">
         {usuarioId && (
           <>
             <button

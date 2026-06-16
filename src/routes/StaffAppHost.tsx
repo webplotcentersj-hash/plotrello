@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, startTransition } from 'react'
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import OperarioExternoGate from '../features/work-pool/OperarioExternoGate'
+import OperarioExternoHomeRedirect from '../features/work-pool/OperarioExternoHomeRedirect'
 import type { TaskStatus } from '../types/board'
 const BoardPage = lazy(() => import('../pages/BoardPage'))
 // Lazy load de páginas menos críticas para mejorar tiempo de carga inicial
@@ -760,7 +761,9 @@ function AppRoutes({
       <Route
         path="/"
         element={
-          <BoardPage
+          <>
+            <OperarioExternoHomeRedirect />
+            <BoardPage
             tasks={tasks}
             setTasks={setTasks}
             activity={filteredActivity}
@@ -790,6 +793,7 @@ function AppRoutes({
             sectores={sectores}
             materialesCatalog={materiales}
           />
+          </>
         }
       />
       <Route path="/menu" element={<MenuOnlyPage onLogout={onLogout} />} />
