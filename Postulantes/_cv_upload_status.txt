@@ -1,0 +1,6 @@
+Finished: 2026-06-09T11:37:53.548Z
+Postulaciones con legacy_id: 553
+Subidos: 553
+Ya en Storage (omitidos): 0
+CV local no encontrado: 0
+Errores: 0

@@ -1,0 +1,9 @@
+Finished: 2026-06-09T11:30:18.811Z
+Method: anon RPC rrhh_importar_postulaciones_legacy
+Batches OK: 23/23
+RPC rows processed (sum): 553
+rrhh_postulaciones COUNT before: 0
+rrhh_postulaciones COUNT after: 553
+Net new rows: 553
+
+All batches succeeded.

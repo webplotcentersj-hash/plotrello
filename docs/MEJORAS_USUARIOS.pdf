@@ -1,0 +1,553 @@
+%PDF-1.3
+%ºß¬à
+3 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 3999
+>>
+stream
+0.200025 w
+0 G
+BT
+/F2 15 Tf
+17.25 TL
+0 g
+48. 781.8899999999999864 Td
+(Mejoras recientes en Plotrello) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 755.6399999999999864 Td
+(Resumen para usuarios — Mayo 2026) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 732.1399999999999864 Td
+(Este documento describe los cambios más visibles del sistema. Están pensados para facilitar el trabajo diario,) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 718.6399999999999864 Td
+(reducir errores y ofrecer información más clara.) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0 g
+48. 663.1399999999999864 Td
+(Mostrador — Entrega de órdenes) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 642.1399999999999864 Td
+(• **Comprobante PDF:** al marcar la orden como entregada, **el PDF ya no se descarga automáticamente**.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 628.6399999999999864 Td
+(Así se evitan descargas o ventanas inesperadas al confirmar la entrega.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 611.1399999999999864 Td
+(• **Si necesitás el comprobante:** después del mensaje de éxito, usá el botón **«Descargar Comprobante) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 597.6399999999999864 Td
+(PDF»** cuando lo quieras guardar o imprimir.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 580.1399999999999864 Td
+(• **Firma del cliente:** si el cliente firma en tablet u otro dispositivo, la firma **sigue apareciendo al instante** en) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 566.6399999999999864 Td
+(la pantalla del mostrador.) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0 g
+48. 511.1399999999999864 Td
+(Órdenes de trabajo \(OP\)) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 490.1399999999999864 Td
+(• **Descripción del trabajo:** es **obligatoria** para poder avanzar; ayuda a dejar registrado qué se hizo en cada) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 476.6399999999999864 Td
+(trabajo.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 459.1399999999999864 Td
+(• **Ayuda al cargar:** hay una **ventana guía** para completar la ficha junto con PlotAI, más ordenado y con) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 445.6399999999999864 Td
+(menos dudas al cargar datos.) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0 g
+48. 390.1399999999999864 Td
+(Flota \(vehículos y recorridos\)) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 369.1399999999999864 Td
+(• **Historial:** podés **filtrar por fechas** para encontrar viajes o registros de un período.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 351.6399999999999864 Td
+(• **Detalle:** al abrir un ítem, ves un **resumen completo** en un panel y podés **generar un PDF** cuando) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 338.1399999999999864 Td
+(haga falta compartir o archivar.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 320.6399999999999864 Td
+(• **Llegada:** se registran **combustible restante**, **objetivo del viaje** y **observaciones**; también) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 307.1399999999999864 Td
+(**acompañantes** y vínculo con la orden de trabajo; el **mapa** usa mejor la ubicación \(geocodificación\).) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0 g
+48. 251.6399999999999864 Td
+(ERP — Gastos) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 230.6399999999999864 Td
+(• **Tickets:** podés cargar **imagen o PDF del ticket** y el sistema ayuda a **completar datos**) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 217.1399999999999864 Td
+(automáticamente.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 199.6399999999999864 Td
+(• **Panel:** hay un **tablero con números y gráficos** para ver gastos por período y categoría.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 182.1399999999999864 Td
+(• **Organización:** **categorías** y **método de pago** para clasificar bien los gastos; los permisos están) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 168.6399999999999864 Td
+(ajustados para que el módulo funcione correctamente según tu rol.) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0 g
+48. 113.1399999999999864 Td
+(PlotAI) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 92.1399999999999864 Td
+(• **Administración:** se evita guardar en lugares incorrectos información que no debería persistir en ciertos) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 78.6399999999999864 Td
+(flujos.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 6 0 R
+>>
+endobj
+6 0 obj
+<<
+/Length 1648
+>>
+stream
+0.200025 w
+0 G
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 793.8899999999999864 Td
+(• **Chat público:** se **bloquean consultas internas o sensibles** que no corresponden exponer en ese canal.) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0 g
+48. 738.3899999999999864 Td
+(Metalúrgica — Inventario y pañol) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 717.3899999999999864 Td
+(• **Búsqueda:** buscador más visible; el **pañol** queda **antes** que otras secciones para ir directo a lo que) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 703.8899999999999864 Td
+(necesitás.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 686.3899999999999864 Td
+(• **Claridad:** **Stock** e **Inventario** están **separados visualmente** para no confundir cantidades.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 668.8899999999999864 Td
+(• **Análisis:** **gráficos** e **historial** para seguir movimientos.) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 651.3899999999999864 Td
+(• **Flujo:** resultados bajo el buscador y acceso rápido desde el pañol \(incluye ventanas de detalle cuando) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 637.8899999999999864 Td
+(aplica\).) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0 g
+48. 582.3899999999999864 Td
+(Pantalla de administración) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 561.3899999999999864 Td
+(• **Encabezado:** se **quitó el botón Salir** del encabezado para un uso más acorde al resto del sistema \(el) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 547.8899999999999864 Td
+(cierre de sesión sigue disponible donde corresponda en tu flujo habitual\).) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+48. 504.3899999999999864 Td
+(Si tenés dudas sobre alguna función, consultá con tu referente interno o administrador del sistema.) Tj
+ET
+endstream
+endobj
+1 0 obj
+<</Type /Pages
+/Kids [3 0 R 5 0 R ]
+/Count 2
+>>
+endobj
+7 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+8 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+9 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+10 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+11 0 obj
+<<
+/Type /Font
+/BaseFont /Courier
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+12 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+13 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+14 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+15 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Roman
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+16 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+17 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Italic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+18 0 obj
+<<
+/Type /Font
+/BaseFont /Times-BoldItalic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+19 0 obj
+<<
+/Type /Font
+/BaseFont /ZapfDingbats
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+20 0 obj
+<<
+/Type /Font
+/BaseFont /Symbol
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+2 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 7 0 R
+/F2 8 0 R
+/F3 9 0 R
+/F4 10 0 R
+/F5 11 0 R
+/F6 12 0 R
+/F7 13 0 R
+/F8 14 0 R
+/F9 15 0 R
+/F10 16 0 R
+/F11 17 0 R
+/F12 18 0 R
+/F13 19 0 R
+/F14 20 0 R
+>>
+/XObject <<
+>>
+>>
+endobj
+21 0 obj
+<<
+/Producer (jsPDF 3.0.4)
+/CreationDate (D:20260504110320-03'00')
+>>
+endobj
+22 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+>>
+endobj
+xref
+0 23
+0000000000 65535 f 
+0000006040 00000 n 
+0000007865 00000 n 
+0000000015 00000 n 
+0000000152 00000 n 
+0000004203 00000 n 
+0000004340 00000 n 
+0000006103 00000 n 
+0000006228 00000 n 
+0000006358 00000 n 
+0000006491 00000 n 
+0000006629 00000 n 
+0000006753 00000 n 
+0000006882 00000 n 
+0000007014 00000 n 
+0000007150 00000 n 
+0000007278 00000 n 
+0000007405 00000 n 
+0000007534 00000 n 
+0000007667 00000 n 
+0000007769 00000 n 
+0000008115 00000 n 
+0000008201 00000 n 
+trailer
+<<
+/Size 23
+/Root 22 0 R
+/Info 21 0 R
+/ID [ <EC91B8D86C30B372385BD01C1BAF1AAF> <EC91B8D86C30B372385BD01C1BAF1AAF> ]
+>>
+startxref
+8305
+%%EOF

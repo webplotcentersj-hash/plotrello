@@ -36,3 +36,14 @@ backend/api/config/database.php
 # MCP configuration (contains sensitive tokens)
 mcp.json
 *.mcp.json
+
+# Local/exports/temp artifacts (do not commit)
+supabase/.temp/
+supabase/patches/_*
+Postulantes/uploads*/
+*.zip
+*.mp4
+*.mpeg
+.cursor_erp_query*.json
+skills-lock.json
+sql-files-list.txt
