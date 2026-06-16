@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, Fragment } from 'react'
 import type { Task, TaskStatus, Priority, TeamMember } from '../types/board'
-import type { MaterialRecord, SectorRecord } from '../types/api'
+import type { MaterialRecord, OrdenTrabajo, SectorRecord } from '../types/api'
 import TaskCard from './TaskCard'
 import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import apiService from '../services/api'
@@ -208,6 +208,22 @@ const TaskLibraryModal = ({
 
   const libraryTasks = catalogTasks ?? tasks
 
+  useEffect(() => {
+    const onOrdenUpsert = (event: Event) => {
+      const orden = (event as CustomEvent<{ orden?: OrdenTrabajo }>).detail?.orden
+      if (!orden?.id) return
+      const task = ordenToTask(orden)
+      setCatalogTasks((prev) => {
+        if (!prev) return prev
+        const idx = prev.findIndex((t) => t.id === task.id)
+        if (idx === -1) return [...prev, task]
+        return prev.map((t) => (t.id === task.id ? task : t))
+      })
+    }
+    window.addEventListener('plotrello-orden-upsert', onOrdenUpsert)
+    return () => window.removeEventListener('plotrello-orden-upsert', onOrdenUpsert)
+  }, [])
+
   const serverSearchActive =
     searchQuery.trim().length >= LIBRARY_SERVER_SEARCH_MIN || idBdQuery.trim() !== ''
 
@@ -305,6 +321,14 @@ const TaskLibraryModal = ({
       await onRestartOrdenEnTablero(t)
       await refreshLibraryDetailFromServer(t.id)
       setEliminadasTasks((prev) => prev.filter((x) => x.id !== t.id))
+      setServerSearchTasks((prev) => {
+        if (!prev) return prev
+        const ordenId = parseTaskIdToOrdenId(t.id)
+        return prev.map((x) => {
+          if (parseTaskIdToOrdenId(x.id) !== ordenId) return x
+          return { ...x, visibleEnTablero: true, ordenEliminada: false, entregado: false }
+        })
+      })
     },
     [onRestartOrdenEnTablero, refreshLibraryDetailFromServer]
   )

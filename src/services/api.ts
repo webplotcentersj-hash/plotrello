@@ -11,6 +11,7 @@ import { puedeFinalizarViajeFlota } from '../utils/flotaPermisos'
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { stripPayloadForEspejoGrupo } from '../utils/opEspejoSectores'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import { applyOrdenRestartLocally } from '../utils/ordenLocalSync'
 import {
   agingDesdeItems,
   enriquecerVentasCcResumenes,
@@ -2145,13 +2146,14 @@ class ApiService {
         entregado: false,
         fecha_entrega_efectiva: null
       }
+      applyOrdenRestartLocally(fallbackOrdenes[index])
       return { success: true, data: fallbackOrdenes[index] }
     }
 
     try {
       const r0 = await supabase
         .from('ordenes_trabajo')
-        .select('id, eliminada, entregado')
+        .select('id, eliminada, entregado, sector, sector_inicial, estado')
         .eq('id', id)
         .maybeSingle()
       if (r0.error) return { success: false, error: r0.error.message }
@@ -2159,7 +2161,13 @@ class ApiService {
         return { success: false, error: 'Orden no encontrada.' }
       }
 
-      const row = r0.data as { eliminada?: boolean | null; entregado?: boolean | null }
+      const row = r0.data as {
+        eliminada?: boolean | null
+        entregado?: boolean | null
+        sector?: string | null
+        sector_inicial?: string | null
+        estado?: string | null
+      }
       const patch: Record<string, unknown> = { visible_en_tablero: true }
       const eliminada = row.eliminada === true
       if (eliminada) {
@@ -2170,6 +2178,15 @@ class ApiService {
       if (row.entregado === true) {
         patch.entregado = false
         patch.fecha_entrega_efectiva = null
+      }
+      const sectorRestaurar =
+        (row.sector && String(row.sector).trim()) ||
+        (row.sector_inicial && String(row.sector_inicial).trim()) ||
+        (row.estado && String(row.estado).trim()) ||
+        null
+      if (!row.sector?.trim() && sectorRestaurar) {
+        patch.sector = sectorRestaurar
+        if (!row.estado?.trim()) patch.estado = sectorRestaurar
       }
 
       const { data, error } = await supabase.from('ordenes_trabajo').update(patch).eq('id', id).select('*').maybeSingle()
@@ -2183,6 +2200,7 @@ class ApiService {
               visible_en_tablero: true,
               eliminada: false,
               motivo_eliminacion: null,
+              ...(sectorRestaurar ? { sector: sectorRestaurar, estado: sectorRestaurar } : {}),
               ...(row.entregado === true
                 ? { entregado: false, fecha_entrega_efectiva: null }
                 : {})
@@ -2191,7 +2209,9 @@ class ApiService {
             .select('*')
             .maybeSingle()
           if (err2) return { success: false, error: err2.message }
-          return { success: true, data: data2 as OrdenTrabajo }
+          const orden2 = data2 as OrdenTrabajo
+          applyOrdenRestartLocally(orden2)
+          return { success: true, data: orden2 }
         }
         if (row.entregado === true && msg.includes('fecha_entrega_efectiva')) {
           const { data: data3, error: err3 } = await supabase
@@ -2199,6 +2219,7 @@ class ApiService {
             .update({
               visible_en_tablero: true,
               entregado: false,
+              ...(sectorRestaurar ? { sector: sectorRestaurar, estado: sectorRestaurar } : {}),
               ...(eliminada
                 ? { eliminada: false, motivo_eliminacion: null, fecha_eliminacion: null }
                 : {})
@@ -2207,12 +2228,16 @@ class ApiService {
             .select('*')
             .maybeSingle()
           if (err3) return { success: false, error: err3.message }
-          return { success: true, data: data3 as OrdenTrabajo }
+          const orden3 = data3 as OrdenTrabajo
+          applyOrdenRestartLocally(orden3)
+          return { success: true, data: orden3 }
         }
         return { success: false, error: msg || 'No se pudo restaurar la OP.' }
       }
       if (!data) return { success: false, error: 'No se devolvió la orden actualizada.' }
-      return { success: true, data: data as OrdenTrabajo }
+      const orden = data as OrdenTrabajo
+      applyOrdenRestartLocally(orden)
+      return { success: true, data: orden }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Error al restaurar la OP.'
       return { success: false, error: msg }

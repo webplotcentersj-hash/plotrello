@@ -40,3 +40,30 @@ export function writeOrdenesTableroCache(rows: OrdenTrabajo[]): void {
     window.setTimeout(persist, 0)
   }
 }
+
+export function patchOrdenInTableroCache(orden: OrdenTrabajo): void {
+  if (typeof window === 'undefined' || !orden?.id) return
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    const visible = isOrdenVisibleOnTablero(orden)
+    let rows: OrdenTrabajo[] = []
+    if (raw) {
+      const p = JSON.parse(raw) as Payload
+      if (Array.isArray(p?.rows)) rows = [...p.rows]
+    }
+    const idx = rows.findIndex((r) => r.id === orden.id)
+    if (visible) {
+      if (idx >= 0) rows[idx] = { ...rows[idx], ...orden }
+      else rows.unshift(orden)
+    } else if (idx >= 0) {
+      rows.splice(idx, 1)
+    }
+    if (rows.length === 0) {
+      localStorage.removeItem(CACHE_KEY)
+      return
+    }
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), rows }))
+  } catch {
+    /* quota / parse */
+  }
+}

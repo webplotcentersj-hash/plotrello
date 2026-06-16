@@ -27,3 +27,20 @@ export function writeOrdenesBibliotecaCache(rows: OrdenTrabajo[]): void {
     /* quota */
   }
 }
+
+export function patchOrdenInBibliotecaCache(orden: OrdenTrabajo): void {
+  if (typeof window === 'undefined' || !orden?.id) return
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return
+    const p = JSON.parse(raw) as Payload
+    if (!Array.isArray(p?.rows)) return
+    const idx = p.rows.findIndex((r) => r.id === orden.id)
+    const next = [...p.rows]
+    if (idx >= 0) next[idx] = { ...next[idx], ...orden }
+    else next.push(orden)
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), rows: next }))
+  } catch {
+    /* quota / parse */
+  }
+}
