@@ -37,6 +37,14 @@ const ClienteLoginPage = lazy(() => import('./pages/ClienteLoginPage'))
 const ClientePortalRoutes = lazy(() => import('./routes/ClientePortalRoutes'))
 const StaffAppHost = lazy(() => import('./routes/StaffAppHost'))
 const OperarioBolsaSolicitudPage = lazy(() => import('./pages/OperarioBolsaSolicitudPage'))
+const OperarioExternoHomePage = lazy(() => import('./pages/OperarioExternoHomePage'))
+const OperarioExternoDashboardPage = lazy(
+  () => import('./features/work-pool/OperarioExternoDashboardPage')
+)
+
+const operarioExternoFallback = (
+  <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando panel…</div>
+)
 
 /** App campo: sin panel de debug fijo (debe vivir dentro de BrowserRouter). */
 function EnvDebugGate() {
@@ -283,6 +291,42 @@ function App() {
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>}>
                 <OperarioBolsaSolicitudPage />
               </Suspense>
+            }
+          />
+          <Route
+            path="/operario-externo"
+            element={
+              isAuthenticated ? (
+                <Suspense fallback={operarioExternoFallback}>
+                  <OperarioExternoHomePage />
+                </Suspense>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/operario-externo/diseno"
+            element={
+              isAuthenticated ? (
+                <Suspense fallback={operarioExternoFallback}>
+                  <OperarioExternoDashboardPage product="plot-design" />
+                </Suspense>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/operario-externo/bolsa"
+            element={
+              isAuthenticated ? (
+                <Suspense fallback={operarioExternoFallback}>
+                  <OperarioExternoDashboardPage product="bolsa-plot" />
+                </Suspense>
+              ) : (
+                <Navigate to="/login" replace />
+              )
             }
           />
           <Route

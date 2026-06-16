@@ -102,10 +102,6 @@ const SectorEtapaKanbanPage = lazy(() => import('../pages/SectorEtapaKanbanPage'
 const InstalacionesMetalurgicaCampoPage = lazy(() => import('../pages/InstalacionesMetalurgicaCampoPage'))
 const PlotDesignPage = lazy(() => import('../pages/PlotDesignPage'))
 const BolsaPlotPage = lazy(() => import('../pages/BolsaPlotPage'))
-const OperarioExternoHomePage = lazy(() => import('../pages/OperarioExternoHomePage'))
-const OperarioExternoDashboardPage = lazy(
-  () => import('../features/work-pool/OperarioExternoDashboardPage')
-)
 const WorkPoolLegacyRedirect = lazy(() => import('../pages/WorkPoolLegacyRedirect'))
 const PresupuestosClientesAdminPage = lazy(() => import('../pages/PresupuestosClientesAdminPage'))
 const PresupuestoClienteDetalleAdminPage = lazy(() => import('../pages/PresupuestoClienteDetalleAdminPage'))
@@ -821,15 +817,6 @@ function AppRoutes({
       />
       <Route path="/plot-design" element={<PlotDesignPage />} />
       <Route path="/bolsa-plot" element={<BolsaPlotPage />} />
-      <Route path="/operario-externo" element={<OperarioExternoHomePage />} />
-      <Route
-        path="/operario-externo/diseno"
-        element={<OperarioExternoDashboardPage product="plot-design" />}
-      />
-      <Route
-        path="/operario-externo/bolsa"
-        element={<OperarioExternoDashboardPage product="bolsa-plot" />}
-      />
       <Route path="/bolsa" element={<WorkPoolLegacyRedirect />} />
       <Route
         path="/statistics"
