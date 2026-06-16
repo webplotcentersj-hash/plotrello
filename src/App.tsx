@@ -8,9 +8,9 @@ import CajaSyncToastHost from './features/control-cajas/components/CajaSyncToast
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
-import { useAuth } from './hooks/useAuth'
-import type { Usuario } from './hooks/useAuth'
+import { useAuth, AuthProvider, type Usuario } from './hooks/useAuth'
 import { operarioExternoHomeRoute } from './features/work-pool/workPoolOperarioExterno'
+import { readStoredUsuario } from './hooks/useAuth'
 import './app.css'
 import './plotlab-mobile.css'
 
@@ -40,6 +40,9 @@ const OperarioBolsaSolicitudPage = lazy(() => import('./pages/OperarioBolsaSolic
 const OperarioExternoHomePage = lazy(() => import('./pages/OperarioExternoHomePage'))
 const OperarioExternoDashboardPage = lazy(
   () => import('./features/work-pool/OperarioExternoDashboardPage')
+)
+const OperarioExternoStaffShell = lazy(
+  () => import('./features/work-pool/OperarioExternoStaffShell')
 )
 
 const operarioExternoFallback = (
@@ -88,8 +91,23 @@ function LoadingScreen() {
 }
 
 function App() {
+  return (
+    <PwaUpdateProvider>
+      <GlobalAlertScreen />
+      <PwaUpdateBanner />
+      <PwaUpdateModalHost />
+      <PwaUpdateToast />
+      <CajaSyncToastHost />
+      <AuthProvider>
+        <AppInner />
+      </AuthProvider>
+    </PwaUpdateProvider>
+  )
+}
+
+function AppInner() {
   const { usuario, loading, setUsuario } = useAuth()
-  const isAuthenticated = !!usuario
+  const isAuthenticated = !!usuario || !!readStoredUsuario()
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
@@ -108,12 +126,7 @@ function App() {
   }
 
   return (
-    <PwaUpdateProvider>
-      <GlobalAlertScreen />
-      <PwaUpdateBanner />
-      <PwaUpdateModalHost />
-      <PwaUpdateToast />
-      <CajaSyncToastHost />
+    <>
       {loading ? (
         <LoadingScreen />
       ) : (
@@ -296,44 +309,39 @@ function App() {
           <Route
             path="/operario-externo"
             element={
-              isAuthenticated ? (
-                <Suspense fallback={operarioExternoFallback}>
-                  <OperarioExternoHomePage />
-                </Suspense>
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              <Suspense fallback={operarioExternoFallback}>
+                <OperarioExternoHomePage />
+              </Suspense>
             }
           />
           <Route
             path="/operario-externo/diseno"
             element={
-              isAuthenticated ? (
-                <Suspense fallback={operarioExternoFallback}>
-                  <OperarioExternoDashboardPage product="plot-design" />
-                </Suspense>
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              <Suspense fallback={operarioExternoFallback}>
+                <OperarioExternoDashboardPage product="plot-design" />
+              </Suspense>
             }
           />
           <Route
             path="/operario-externo/bolsa"
             element={
-              isAuthenticated ? (
-                <Suspense fallback={operarioExternoFallback}>
-                  <OperarioExternoDashboardPage product="bolsa-plot" />
-                </Suspense>
-              ) : (
-                <Navigate to="/login" replace />
-              )
+              <Suspense fallback={operarioExternoFallback}>
+                <OperarioExternoDashboardPage product="bolsa-plot" />
+              </Suspense>
             }
           />
           <Route
             path="/login"
             element={
               isAuthenticated ? (
-                <Navigate to={operarioExternoHomeRoute(usuario?.rol) ?? '/'} replace />
+                <Navigate
+                  to={
+                    operarioExternoHomeRoute(usuario?.rol) ??
+                    operarioExternoHomeRoute(readStoredUsuario()?.rol) ??
+                    '/'
+                  }
+                  replace
+                />
               ) : (
                 <Login onLogin={handleLogin} />
               )
@@ -358,19 +366,19 @@ function App() {
           <Route
             path="/*"
             element={
-              isAuthenticated ? (
-                <Suspense fallback={<LoadingScreen />}>
-                  <StaffAppHost />
-                </Suspense>
-              ) : (
-                <Login onLogin={handleLogin} />
-              )
+              <Suspense fallback={<LoadingScreen />}>
+                <OperarioExternoStaffShell
+                  isAuthenticated={isAuthenticated}
+                  login={<Login onLogin={handleLogin} />}
+                  staff={<StaffAppHost />}
+                />
+              </Suspense>
             }
           />
         </Routes>
       </BrowserRouter>
       )}
-    </PwaUpdateProvider>
+    </>
   )
 }
 

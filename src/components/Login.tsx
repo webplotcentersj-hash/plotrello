@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { staffLogin } from '../services/staffAuthApi'
@@ -24,12 +25,12 @@ const Login = ({ onLogin }: LoginProps) => {
       const response = await staffLogin(usuario, password)
       
       if (response.success && response.data) {
-        // Guardar usuario en localStorage en el formato esperado por useAuth
-        localStorage.setItem('usuario', JSON.stringify(response.data.usuario))
-        localStorage.setItem('usuario_id', response.data.usuario.id.toString())
+        const usuarioData = response.data.usuario
+        localStorage.setItem('usuario', JSON.stringify(usuarioData))
+        localStorage.setItem('usuario_id', usuarioData.id.toString())
         localStorage.setItem('plotlab_login_usuario', usuario.trim())
-        onLogin(response.data.usuario)
-        const externoHome = operarioExternoHomeRoute(response.data.usuario.rol)
+        flushSync(() => onLogin(usuarioData))
+        const externoHome = operarioExternoHomeRoute(usuarioData.rol)
         navigate(externoHome ?? '/', { replace: true })
       } else {
         setError(response.error || 'Error al iniciar sesión')

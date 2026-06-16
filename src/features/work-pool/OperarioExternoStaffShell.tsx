@@ -8,20 +8,26 @@ function homeFromStorage(): string | null {
   return isOperarioExternoRol(u?.rol) ? operarioExternoHomeRoute(u.rol) : null
 }
 
-/** Operarios externos solo pueden navegar en /operario-externo/* (no el tablero Plot Lab). */
-export default function OperarioExternoGate({ children }: { children: ReactNode }) {
+function isOperarioExternoPath(pathname: string): boolean {
+  return pathname === '/operario-externo' || pathname.startsWith('/operario-externo/')
+}
+
+type Props = {
+  isAuthenticated: boolean
+  login: ReactNode
+  staff: ReactNode
+}
+
+/** Operario externo nunca entra al tablero Plot Lab: redirige a /operario-externo/*. */
+export default function OperarioExternoStaffShell({ isAuthenticated, login, staff }: Props) {
   const { operarioExternoHome } = useAuth()
   const { pathname } = useLocation()
-
   const home = operarioExternoHome ?? homeFromStorage()
-  if (!home) {
-    return <>{children}</>
-  }
 
-  const allowed = pathname === '/operario-externo' || pathname.startsWith('/operario-externo/')
-  if (!allowed) {
+  if (home && !isOperarioExternoPath(pathname)) {
     return <Navigate to={home} replace />
   }
 
-  return <>{children}</>
+  if (!isAuthenticated) return <>{login}</>
+  return <>{staff}</>
 }

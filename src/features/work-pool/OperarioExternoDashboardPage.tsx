@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 import type { WorkPoolProduct } from '../../types/workPool'
 import { operarioExternoRolForProduct } from './workPoolConfig'
 import { operarioExternoHomeRoute } from './workPoolOperarioExterno'
+import { readStoredUsuario } from '../../hooks/useAuth'
 import WorkPoolOperarioView from './WorkPoolOperarioView'
 import './WorkPoolModule.css'
 
@@ -12,8 +13,9 @@ type Props = { product: WorkPoolProduct }
 export default function OperarioExternoDashboardPage({ product }: Props) {
   const { usuario, loading } = useAuth()
   const expectedRol = operarioExternoRolForProduct(product)
+  const sessionUser = usuario ?? readStoredUsuario()
 
-  if (loading) {
+  if (loading && !sessionUser) {
     return (
       <div className="work-pool-module">
         <p className="work-pool-module__empty">Cargando…</p>
@@ -21,12 +23,12 @@ export default function OperarioExternoDashboardPage({ product }: Props) {
     )
   }
 
-  if (!usuario) return <Navigate to="/login" replace />
+  if (!sessionUser) return <Navigate to="/login" replace />
 
-  if (usuario.rol !== expectedRol) {
-    const home = operarioExternoHomeRoute(usuario.rol)
+  if (sessionUser.rol !== expectedRol) {
+    const home = operarioExternoHomeRoute(sessionUser.rol)
     if (home) return <Navigate to={home} replace />
-    return <Navigate to="/" replace />
+    return <Navigate to="/login" replace />
   }
 
   return <WorkPoolOperarioView product={product} />
