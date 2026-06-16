@@ -1,5 +1,17 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Briefcase,
+  CheckCircle2,
+  FileUp,
+  Hammer,
+  Palette,
+  Send,
+  Sparkles,
+  Wrench
+} from 'lucide-react'
 import { enviarSolicitudOperarioExterno } from '../features/work-pool/workPoolRepository'
 import {
   MAX_POSTULACION_MB,
@@ -31,6 +43,12 @@ import './OperarioBolsaSolicitudPage.css'
 const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
 const UPLOAD_FOLDER = 'work-pool-solicitudes'
 
+const RUBRO_ICONS = {
+  diseno: Palette,
+  instalaciones: Wrench,
+  metalurgica: Hammer
+} as const
+
 function FileField({
   id,
   label,
@@ -58,31 +76,34 @@ function FileField({
         {required ? ' *' : ''}
       </label>
       <p className="operario-solicitud-hint">{hint}</p>
-      <div className="operario-solicitud-file__row">
-        <button
-          type="button"
-          className="operario-solicitud-file__btn"
-          onClick={() => ref.current?.click()}
-          disabled={disabled}
-        >
-          Seleccionar archivo
-        </button>
-        <span className="operario-solicitud-file__name">
-          {file ? file.name : 'Ningún archivo'}
-        </span>
-        {file && (
+      <div className={`operario-solicitud-file__zone${file ? ' has-file' : ''}`}>
+        <FileUp size={28} strokeWidth={1.5} className="operario-solicitud-file__zone-icon" aria-hidden />
+        <div className="operario-solicitud-file__row">
           <button
             type="button"
-            className="operario-solicitud-file__clear"
-            onClick={() => {
-              onChange(null)
-              if (ref.current) ref.current.value = ''
-            }}
+            className="operario-solicitud-file__btn"
+            onClick={() => ref.current?.click()}
             disabled={disabled}
           >
-            Quitar
+            {file ? 'Cambiar archivo' : 'Seleccionar archivo'}
           </button>
-        )}
+          <span className="operario-solicitud-file__name">
+            {file ? file.name : 'PDF, DOC o imagen según el campo'}
+          </span>
+          {file && (
+            <button
+              type="button"
+              className="operario-solicitud-file__clear"
+              onClick={() => {
+                onChange(null)
+                if (ref.current) ref.current.value = ''
+              }}
+              disabled={disabled}
+            >
+              Quitar
+            </button>
+          )}
+        </div>
       </div>
       <input
         id={id}
@@ -244,12 +265,17 @@ export default function OperarioBolsaSolicitudPage() {
     }
   }
 
+  const progressPct = Math.round(((stepIndex + 1) / POSTULACION_WIZARD_STEPS.length) * 100)
+
   if (ok) {
     return (
-      <div className="operario-solicitud-page">
+      <div className="operario-solicitud-page operario-solicitud-page--ok">
         <div className="operario-solicitud-card operario-solicitud-card--ok">
+          <div className="operario-solicitud-ok-icon" aria-hidden>
+            <CheckCircle2 size={36} strokeWidth={2} />
+          </div>
           <img src={LOGO_URL} alt="Plot Center" className="operario-solicitud-logo" />
-          <h1>Postulación enviada</h1>
+          <h1>¡Postulación enviada!</h1>
           <p>
             Recibimos tu solicitud como <strong>{rubroLabel(rubro)}</strong> ({nivelLabel(nivel)}).
             Si es aprobada, te contactaremos con usuario de acceso al panel.
@@ -282,17 +308,24 @@ export default function OperarioBolsaSolicitudPage() {
             <section className="operario-solicitud-section">
               <h2>¿En qué rubro te postulás?</h2>
               <div className="operario-solicitud-rubros" role="radiogroup" aria-label="Rubro">
-                {POSTULACION_RUBROS.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    className={`operario-solicitud-rubro${rubro === r.id ? ' is-active' : ''}`}
-                    onClick={() => handleRubroChange(r.id)}
-                  >
-                    <strong>{r.label}</strong>
-                    <span>{r.desc}</span>
-                  </button>
-                ))}
+                {POSTULACION_RUBROS.map((r) => {
+                  const Icon = RUBRO_ICONS[r.id]
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className={`operario-solicitud-rubro${rubro === r.id ? ' is-active' : ''}`}
+                      onClick={() => handleRubroChange(r.id)}
+                      aria-pressed={rubro === r.id}
+                    >
+                      <span className="operario-solicitud-rubro__icon">
+                        <Icon size={22} strokeWidth={1.75} aria-hidden />
+                      </span>
+                      <strong>{r.label}</strong>
+                      <span>{r.desc}</span>
+                    </button>
+                  )
+                })}
               </div>
             </section>
             <section className="operario-solicitud-section">
@@ -304,6 +337,7 @@ export default function OperarioBolsaSolicitudPage() {
                     type="button"
                     className={`operario-solicitud-nivel${nivel === n.id ? ' is-active' : ''}`}
                     onClick={() => setNivel(n.id)}
+                    aria-pressed={nivel === n.id}
                   >
                     <strong>{n.label}</strong>
                     <span>{n.hint}</span>
@@ -585,80 +619,153 @@ export default function OperarioBolsaSolicitudPage() {
 
   return (
     <div className="operario-solicitud-page">
-      <div className="operario-solicitud-card">
-        <header className="operario-solicitud-header">
-          <img src={LOGO_URL} alt="Plot Center" className="operario-solicitud-logo" />
-          <div>
-            <h1>Postulate como operario externo</h1>
-            <p className="operario-solicitud-lead">
-              Completá el formulario por pasos. La aprobación es manual.
+      <div className="operario-solicitud-shell">
+        <aside className="operario-solicitud-hero" aria-label="Información">
+          <div className="operario-solicitud-hero__brand">
+            <img src={LOGO_URL} alt="Plot Center" className="operario-solicitud-logo" />
+            <div>
+              <p className="operario-solicitud-hero__eyebrow">Plot Center · Bolsa externa</p>
+              <h1>Sumate al equipo</h1>
+            </div>
+          </div>
+          <p className="operario-solicitud-lead">
+            Diseño, instalaciones o metalúrgica. Completá el formulario por pasos; revisamos cada
+            postulación a mano.
+          </p>
+          <ul className="operario-solicitud-perks">
+            <li>
+              <Sparkles size={16} aria-hidden />
+              Trabajos asignados desde Plot Design o Bolsa Plot
+            </li>
+            <li>
+              <Briefcase size={16} aria-hidden />
+              Panel propio con entregas y cuenta corriente
+            </li>
+            <li>
+              <CheckCircle2 size={16} aria-hidden />
+              Chat con clientes por pedido del portal (sin datos de contacto)
+            </li>
+          </ul>
+          <div className="operario-solicitud-hero__progress" aria-hidden>
+            <div className="operario-solicitud-hero__progress-label">
+              <span>Progreso</span>
+              <strong>
+                Paso {stepIndex + 1} de {POSTULACION_WIZARD_STEPS.length}
+              </strong>
+            </div>
+            <div className="operario-solicitud-hero__bar">
+              <div
+                className="operario-solicitud-hero__bar-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <div className="operario-solicitud-hero__steps">
+              {POSTULACION_WIZARD_STEPS.map((step, index) => (
+                <div
+                  key={step.id}
+                  className={`operario-solicitud-hero__step-item${
+                    index === stepIndex ? ' is-current' : ''
+                  }${index < stepIndex ? ' is-done' : ''}`}
+                >
+                  <span className="operario-solicitud-hero__step-dot" />
+                  {step.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <div className="operario-solicitud-card">
+          <div className="operario-solicitud-mobile-head">
+            <h2>Postulate como operario externo</h2>
+            <p className="operario-solicitud-hint">
+              Paso {stepIndex + 1} de {POSTULACION_WIZARD_STEPS.length} · {currentStep.label}
             </p>
           </div>
-        </header>
 
-        <nav className="operario-solicitud-wizard" aria-label="Pasos del formulario">
-          {POSTULACION_WIZARD_STEPS.map((step, index) => (
-            <div
-              key={step.id}
-              className={`operario-solicitud-wizard__step${
-                index === stepIndex ? ' is-current' : ''
-              }${index < stepIndex ? ' is-done' : ''}`}
-            >
-              <span className="operario-solicitud-wizard__num">{index + 1}</span>
-              <span className="operario-solicitud-wizard__label">{step.label}</span>
+          <nav
+            className="operario-solicitud-wizard operario-solicitud-wizard--mobile"
+            aria-label="Pasos del formulario"
+          >
+            <div className="operario-solicitud-wizard__track">
+              {POSTULACION_WIZARD_STEPS.map((step, index) => (
+                <div
+                  key={step.id}
+                  className={`operario-solicitud-wizard__node${
+                    index === stepIndex ? ' is-current' : ''
+                  }${index < stepIndex ? ' is-done' : ''}`}
+                >
+                  <span className="operario-solicitud-wizard__num">
+                    {index < stepIndex ? '✓' : index + 1}
+                  </span>
+                  <span className="operario-solicitud-wizard__label">{step.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </nav>
+            <p className="operario-solicitud-wizard__current-title">{currentStep.label}</p>
+          </nav>
 
-        <div className="operario-solicitud-wizard__panel">{renderStep(currentStep.id)}</div>
+          <div className="operario-solicitud-wizard__panel" key={currentStep.id}>
+            {renderStep(currentStep.id)}
+          </div>
 
-        <input
-          type="text"
-          name="website"
-          value={website}
-          onChange={(e) => setWebsite(e.target.value)}
-          tabIndex={-1}
-          autoComplete="off"
-          className="operario-solicitud-honeypot"
-          aria-hidden
-        />
+          <input
+            type="text"
+            name="website"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            className="operario-solicitud-honeypot"
+            aria-hidden
+          />
 
-        {error && (
-          <p className="operario-solicitud-error" role="alert">
-            {error}
-          </p>
-        )}
-
-        <div className="operario-solicitud-wizard__actions">
-          {stepIndex > 0 && (
-            <button
-              type="button"
-              className="operario-solicitud-btn operario-solicitud-btn--ghost"
-              onClick={goBack}
-              disabled={loading}
-            >
-              Anterior
-            </button>
+          {error && (
+            <p className="operario-solicitud-error" role="alert">
+              {error}
+            </p>
           )}
-          {!isLastStep ? (
-            <button
-              type="button"
-              className="operario-solicitud-btn"
-              onClick={goNext}
-              disabled={loading}
-            >
-              Siguiente
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="operario-solicitud-btn"
-              onClick={() => void handleSubmit()}
-              disabled={loading}
-            >
-              {loading ? 'Enviando postulación…' : 'Enviar postulación'}
-            </button>
-          )}
+
+          <div className="operario-solicitud-wizard__actions">
+            {stepIndex > 0 && (
+              <button
+                type="button"
+                className="operario-solicitud-btn operario-solicitud-btn--ghost"
+                onClick={goBack}
+                disabled={loading}
+              >
+                <ArrowLeft size={18} aria-hidden />
+                Anterior
+              </button>
+            )}
+            {!isLastStep ? (
+              <button
+                type="button"
+                className="operario-solicitud-btn"
+                onClick={goNext}
+                disabled={loading}
+              >
+                Siguiente
+                <ArrowRight size={18} aria-hidden />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="operario-solicitud-btn"
+                onClick={() => void handleSubmit()}
+                disabled={loading}
+              >
+                {loading ? (
+                  'Enviando postulación…'
+                ) : (
+                  <>
+                    <Send size={18} aria-hidden />
+                    Enviar postulación
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
