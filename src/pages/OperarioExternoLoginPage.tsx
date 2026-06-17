@@ -11,6 +11,7 @@ import {
   OPERARIO_EXTERNO_LOGIN
 } from '../features/work-pool/workPoolOperarioExterno'
 import {
+  isOperarioExternoSession,
   persistOperarioExternoSession,
   readOperarioExternoUsuario
 } from '../utils/plotlabSession'
@@ -48,7 +49,9 @@ export default function OperarioExternoLoginPage({ onLogin }: Props) {
     }
   }, [])
 
-  const externoHome = operarioExternoHomeRoute(sessionUser?.rol)
+  const externoHome = isOperarioExternoSession()
+    ? operarioExternoHomeRoute(readOperarioExternoUsuario()?.rol ?? sessionUser?.rol)
+    : null
   if (externoHome) {
     return <Navigate to={externoHome} replace />
   }

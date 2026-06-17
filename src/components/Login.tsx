@@ -2,9 +2,12 @@ import { flushSync } from 'react-dom'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { staffLogin } from '../services/staffAuthApi'
-import { isOperarioExternoRol } from '../features/work-pool/workPoolOperarioExterno'
+import {
+  isOperarioExternoRol,
+  OPERARIO_EXTERNO_LOGIN
+} from '../features/work-pool/workPoolOperarioExterno'
 import { adminStaffHomeRoute } from '../utils/adminStaffHome'
-import { clearAllPlotlabSessions, persistStaffSession } from '../utils/plotlabSession'
+import { clearPlotlabAuthStorage, persistStaffSession } from '../utils/plotlabSession'
 import './Login.css'
 
 type LoginProps = {
@@ -30,8 +33,8 @@ const Login = ({ onLogin }: LoginProps) => {
         const usuarioData = response.data.usuario
 
         if (isOperarioExternoRol(usuarioData.rol)) {
-          clearAllPlotlabSessions()
-          setError('Usuario o contraseña incorrectos')
+          clearPlotlabAuthStorage()
+          navigate(OPERARIO_EXTERNO_LOGIN, { replace: true })
           return
         }
 

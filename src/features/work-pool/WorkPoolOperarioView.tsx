@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import NotificationsDropdown from '../../components/NotificationsDropdown'
 import { useAuth } from '../../hooks/useAuth'
@@ -15,7 +16,7 @@ import {
   maskJobForOperarioExterno,
   OPERARIO_EXTERNO_LOGIN
 } from './workPoolOperarioExterno'
-import { clearAllPlotlabSessions } from '../../utils/plotlabSession'
+import { clearPlotlabAuthStorage } from '../../utils/plotlabSession'
 import {
   contarMensajesOperarioNoLeidos,
   entregarWorkPoolJob,
@@ -120,13 +121,14 @@ export default function WorkPoolOperarioView({ product }: Props) {
   }
 
   const handleLogout = () => {
+    clearPlotlabAuthStorage()
+    flushSync(() => setUsuario(null))
+    navigate(OPERARIO_EXTERNO_LOGIN, { replace: true })
     void import('../../services/staffAuthApi')
       .then((m) => m.staffLogout())
       .catch(() => {
-        clearAllPlotlabSessions()
+        clearPlotlabAuthStorage()
       })
-    setUsuario(null)
-    navigate(OPERARIO_EXTERNO_LOGIN)
   }
 
   const runAction = async (fn: () => Promise<{ success: boolean; error?: string }>) => {

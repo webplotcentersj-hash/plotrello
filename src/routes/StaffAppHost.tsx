@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, startTransition } from 'react'
+import { flushSync } from 'react-dom'
 import { Routes, Route, useNavigate, Navigate, useParams } from 'react-router-dom'
 import OperarioExternoGate from '../features/work-pool/OperarioExternoGate'
 import OperarioExternoHomeRedirect from '../features/work-pool/OperarioExternoHomeRedirect'
@@ -117,6 +118,7 @@ const StaffFloatingDock = lazy(() => import('../components/StaffFloatingDock'))
 const AdminBackLink = lazy(() => import('../components/AdminBackLink'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
+import { clearPlotlabAuthStorage } from '../utils/plotlabSession'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type {
   HistorialMovimiento,
@@ -216,16 +218,19 @@ export default function StaffAppHost() {
 
 
   const handleLogout = () => {
-    void import('../services/staffAuthApi')
-      .then((m) => m.staffLogout())
-      .catch(() => {})
-    setUsuario(null)
+    clearPlotlabAuthStorage()
+    flushSync(() => setUsuario(null))
     setTasks([])
     setActivity([])
     setTeamMembers([])
     setSectores(DEFAULT_SECTORES)
     setMateriales([])
     navigate('/login', { replace: true })
+    void import('../services/staffAuthApi')
+      .then((m) => m.staffLogout())
+      .catch(() => {
+        clearPlotlabAuthStorage()
+      })
   }
 
   const loadRemoteData = useCallback(async (options?: { silent?: boolean }) => {

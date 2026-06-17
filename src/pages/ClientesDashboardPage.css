@@ -73,61 +73,6 @@
   color: #fff;
 }
 
-.cl-dash-hero {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-@media (min-width: 720px) {
-  .cl-dash-hero {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.cl-dash-hero-btn {
-  text-align: left;
-  padding: 20px 22px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 20, 32, 0.85);
-  cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.cl-dash-hero-btn:hover {
-  transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.45);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-}
-
-.cl-dash-hero-btn--accent {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(15, 20, 32, 0.9));
-}
-
-.cl-dash-hero-btn--accent:hover {
-  border-color: rgba(16, 185, 129, 0.55);
-}
-
-.cl-dash-hero-btn__title {
-  display: block;
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #f8fafc;
-  margin-bottom: 4px;
-}
-
-.cl-dash-hero-btn__hint {
-  display: block;
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
-
 .cl-dash-section__head {
   margin-bottom: 14px;
 }
@@ -208,6 +153,14 @@
 
 .cl-dash-tile--cc .cl-dash-tile__icon {
   background: rgba(139, 92, 246, 0.18);
+}
+
+.cl-dash-tile--web .cl-dash-tile__icon {
+  background: rgba(139, 92, 246, 0.22);
+}
+
+.cl-dash-tile--atencion .cl-dash-tile__icon {
+  background: rgba(34, 211, 238, 0.18);
 }
 
 .cl-dash-tile__body {

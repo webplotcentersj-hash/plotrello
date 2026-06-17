@@ -1,5 +1,5 @@
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
-import { clearAllPlotlabSessions } from '../utils/plotlabSession'
+import { clearPlotlabAuthStorage } from '../utils/plotlabSession'
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const USUARIO_KEY = 'usuario'
@@ -14,7 +14,7 @@ export function setStaffAuthToken(token: string): void {
 }
 
 export function clearStaffSession(): void {
-  clearAllPlotlabSessions()
+  clearPlotlabAuthStorage()
 }
 
 const STAFF_JWT_STATUS_CACHE_KEY = 'plotlab_staff_jwt_enabled'
@@ -61,8 +61,12 @@ export async function verifyStaffSession(): Promise<{
       usuario?: { id: number; nombre: string; rol: string }
     }
     if (json.usuario) {
+      const kind = localStorage.getItem('plotlab_session_kind')
       localStorage.setItem(USUARIO_KEY, JSON.stringify(json.usuario))
       localStorage.setItem('usuario_id', String(json.usuario.id))
+      if (kind === 'staff' || kind === 'operario_externo') {
+        localStorage.setItem('plotlab_session_kind', kind)
+      }
     }
     return { ok: true, usuario: json.usuario }
   } catch {

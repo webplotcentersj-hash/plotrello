@@ -5,10 +5,14 @@ export const PLOTLAB_SESSION_KIND_KEY = 'plotlab_session_kind'
 
 export type PlotlabSessionKind = 'staff' | 'operario_externo'
 
-const USUARIO_KEY = 'usuario'
+export const PLOTLAB_USUARIO_STORAGE_KEY = 'usuario'
+export const PLOTLAB_SESSION_KIND_STORAGE_KEY = PLOTLAB_SESSION_KIND_KEY
+
+const USUARIO_KEY = PLOTLAB_USUARIO_STORAGE_KEY
 const USUARIO_ID_KEY = 'usuario_id'
 const AUTH_TOKEN_KEY = 'auth_token'
 const LOGIN_USER_KEY = 'plotlab_login_usuario'
+const STAFF_JWT_STATUS_CACHE_KEY = 'plotlab_staff_jwt_enabled'
 
 function parseStoredUsuario(): Usuario | null {
   if (typeof window === 'undefined') return null
@@ -39,11 +43,22 @@ export function clearAllPlotlabSessions(): void {
   localStorage.removeItem(PLOTLAB_SESSION_KIND_KEY)
 }
 
+/** Limpieza completa y síncrona de credenciales Plot Lab (local + sessionStorage). */
+export function clearPlotlabAuthStorage(): void {
+  clearAllPlotlabSessions()
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    sessionStorage.removeItem(STAFF_JWT_STATUS_CACHE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function persistStaffSession(
   usuario: Usuario,
   opts?: { token?: string; loginName?: string }
 ): void {
-  clearAllPlotlabSessions()
+  clearPlotlabAuthStorage()
   localStorage.setItem(PLOTLAB_SESSION_KIND_KEY, 'staff')
   localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario))
   localStorage.setItem(USUARIO_ID_KEY, String(usuario.id))
@@ -55,7 +70,7 @@ export function persistOperarioExternoSession(
   usuario: Usuario,
   opts?: { token?: string; loginName?: string }
 ): void {
-  clearAllPlotlabSessions()
+  clearPlotlabAuthStorage()
   localStorage.setItem(PLOTLAB_SESSION_KIND_KEY, 'operario_externo')
   localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario))
   localStorage.setItem(USUARIO_ID_KEY, String(usuario.id))

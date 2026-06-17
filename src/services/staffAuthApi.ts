@@ -1,5 +1,5 @@
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
-import { clearAllPlotlabSessions } from '../utils/plotlabSession'
+import { clearPlotlabAuthStorage } from '../utils/plotlabSession'
 import { supabase } from './supabaseClient'
 import { isStaffJwtEnabledOnServer } from './staffSession'
 import type { UsuarioRecord } from '../types/api'
@@ -185,7 +185,7 @@ export async function staffLogin(
 }
 
 export async function staffLogout(): Promise<ApiResponse<void>> {
-  clearAllPlotlabSessions()
+  clearPlotlabAuthStorage()
 
   if (supabase) {
     await supabase.rpc('logout_usuario')

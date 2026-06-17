@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import {
+  ATENCION_PUBLICO,
   CLIENTES_AGREGAR,
   CLIENTES_BUSCAR,
   CLIENTES_CUENTA_CORRIENTE,
-  CLIENTES_FRECUENTES
+  CLIENTES_FRECUENTES,
+  CLIENTES_WEB_GESTION
 } from '../utils/clientesRoutes'
 import './ClientesDashboardPage.css'
 
@@ -81,7 +83,7 @@ export default function ClientesDashboardPage() {
           </span>
           <div>
             <h1>Clientes</h1>
-            <p>Buscar, alta, frecuentes y cuenta corriente en un solo lugar</p>
+            <p>Buscar, alta, portal web, atención y cuenta corriente</p>
           </div>
         </div>
         <button
@@ -93,41 +95,22 @@ export default function ClientesDashboardPage() {
         </button>
       </header>
 
-      <section className="cl-dash-hero" aria-label="Acceso rápido">
-        <button
-          type="button"
-          className="cl-dash-hero-btn"
-          onClick={() => navigate(CLIENTES_BUSCAR)}
-        >
-          <span className="cl-dash-hero-btn__title">Buscar cliente</span>
-          <span className="cl-dash-hero-btn__hint">Nombre, DNI, CUIT, teléfono o email</span>
-        </button>
-        <button
-          type="button"
-          className="cl-dash-hero-btn cl-dash-hero-btn--accent"
-          onClick={() => navigate(CLIENTES_AGREGAR)}
-        >
-          <span className="cl-dash-hero-btn__title">Agregar cliente</span>
-          <span className="cl-dash-hero-btn__hint">Alta rápida sin acceso web</span>
-        </button>
-      </section>
-
       <section className="cl-dash-section">
         <header className="cl-dash-section__head">
           <h2>Gestión de clientes</h2>
-          <p>Fichas, VIP y cobranzas</p>
+          <p>Buscar, alta, VIP, portal y cobranzas</p>
         </header>
         <div className="cl-dash-grid">
           <NavTile
             title="Buscar cliente"
-            desc="OPs, duplicados y perfil"
+            desc="Nombre, DNI, CUIT, teléfono o email"
             icon="🔍"
             accent="search"
             onClick={() => navigate(CLIENTES_BUSCAR)}
           />
           <NavTile
             title="Agregar cliente"
-            desc="Nombre, empresa, contacto y DNI"
+            desc="Alta rápida sin acceso web"
             icon="➕"
             accent="add"
             onClick={() => navigate(CLIENTES_AGREGAR)}
@@ -146,6 +129,20 @@ export default function ClientesDashboardPage() {
             accent="cc"
             badge={stats.ccPendientes}
             onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
+          />
+          <NavTile
+            title="Gestión clientes web"
+            desc="Alta, edición y acceso al portal"
+            icon="🌐"
+            accent="web"
+            onClick={() => navigate(CLIENTES_WEB_GESTION)}
+          />
+          <NavTile
+            title="Atención al público"
+            desc="Cola, turnos y totem"
+            icon="🙋"
+            accent="atencion"
+            onClick={() => navigate(ATENCION_PUBLICO)}
           />
         </div>
         {stats.ccAprobados > 0 && (

@@ -8,7 +8,7 @@ import {
   listarSolicitudesOperario,
   rechazarSolicitudOperario
 } from './workPoolRepository'
-import { operarioExternoHomeRoute } from './workPoolOperarioExterno'
+import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
 import WorkPoolSolicitudDetailModal from './WorkPoolSolicitudDetailModal'
 
 function initials(nombre: string) {
@@ -91,7 +91,7 @@ export default function WorkPoolSolicitudesPanel() {
     }
     const home = operarioExternoHomeRoute(res.data?.rol) ?? '/operario-externo'
     setSuccessMsg(
-      `Usuario «${loginUser.trim()}» creado. El operario entra en ${home} con el login de PlotLab (misma URL que el staff).`
+      `Usuario «${loginUser.trim()}» creado. Ingreso en ${OPERARIO_EXTERNO_LOGIN} → panel en ${home}.`
     )
     setAprobarId(null)
     setDetailId(null)

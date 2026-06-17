@@ -10,6 +10,7 @@ import { isOperarioExternoRol, operarioExternoHomeRoute } from '../features/work
 import {
   getSessionKind,
   PLOTLAB_SESSION_KIND_KEY,
+  PLOTLAB_USUARIO_STORAGE_KEY,
   readOperarioExternoUsuario,
   readStaffUsuario,
   readStoredUsuario as readStoredUsuarioRaw,
@@ -161,6 +162,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
     void load()
+  }, [])
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage) return
+      if (
+        event.key !== PLOTLAB_USUARIO_STORAGE_KEY &&
+        event.key !== 'auth_token' &&
+        event.key !== PLOTLAB_SESSION_KIND_KEY
+      ) {
+        return
+      }
+      setUsuario(resolveUsuarioForContext())
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   const value = useMemo((): AuthContextValue => {
