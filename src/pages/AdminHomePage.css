@@ -1,81 +1,10 @@
 .admin-home-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0b0d17 0%, #1a1d2e 100%);
-  color: #f9fbff;
-  padding-bottom: 48px;
-}
-
-.admin-home-header {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid rgba(235, 103, 27, 0.2);
-  background: rgba(235, 103, 27, 0.08);
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  backdrop-filter: blur(10px);
-}
-
-@media (min-width: 720px) {
-  .admin-home-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-.admin-home-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.admin-home-subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #b7bed3;
-}
-
-.admin-home-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.admin-home-btn {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(235, 103, 27, 0.2);
-  color: #fff7ed;
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.admin-home-btn.ghost {
-  background: rgba(255, 255, 255, 0.06);
-  color: #e2e8f0;
-}
-
-.admin-home-btn.danger {
-  background: rgba(244, 63, 94, 0.18);
-  border-color: rgba(244, 63, 94, 0.35);
-  color: #ffe4e6;
 }
 
 .admin-home-plotai {
   position: fixed;
   inset: 0;
-  z-index: 2000;
-  background: linear-gradient(135deg, #0b0d17 0%, #1a1d2e 100%);
-}
-
-@media (min-width: 1024px) {
-  .admin-home-page {
-    max-width: 1400px;
-    margin: 0 auto;
-  }
+  z-index: 3000;
+  background: #070a12;
 }

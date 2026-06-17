@@ -5,18 +5,26 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { exportTableroFichasActivasPdf } from '../utils/exportTableroFichasActivasPdf'
 import { ordenToTask } from '../utils/dataMappers'
-import type { Task } from '../types/board'
+import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import './AdminHomePage.css'
 
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 
 type AdminHomePageProps = {
   tasks: Task[]
+  activity: ActivityEvent[]
+  teamMembers: TeamMember[]
   onLogout: () => void
   onReloadData: () => void
 }
 
-export default function AdminHomePage({ tasks, onLogout, onReloadData }: AdminHomePageProps) {
+export default function AdminHomePage({
+  tasks,
+  activity,
+  teamMembers,
+  onLogout,
+  onReloadData
+}: AdminHomePageProps) {
   const navigate = useNavigate()
   const { isAdmin, isGerencia } = useAuth()
   const [pedidosPendientes, setPedidosPendientes] = useState(0)
@@ -108,26 +116,13 @@ export default function AdminHomePage({ tasks, onLogout, onReloadData }: AdminHo
 
   return (
     <div className="admin-home-page">
-      <header className="admin-home-header">
-        <div>
-          <h1 className="admin-home-title">Plot Lab</h1>
-          <p className="admin-home-subtitle">Sesión de administración</p>
-        </div>
-        <div className="admin-home-actions">
-          <button type="button" className="admin-home-btn ghost" onClick={() => navigate('/')}>
-            Tablero
-          </button>
-          <button type="button" className="admin-home-btn" onClick={onReloadData}>
-            Actualizar
-          </button>
-          <button type="button" className="admin-home-btn danger" onClick={onLogout}>
-            Salir
-          </button>
-        </div>
-      </header>
-
       <AdminModulePanel
         navigateInApp
+        onNavigateTablero={() => navigate('/tablero')}
+        onNavigateToMensajeria={() => navigate('/mensajeria')}
+        onNavigateToChat={() => navigate('/chat')}
+        onLogout={onLogout}
+        onRefreshData={onReloadData}
         kpis={{
           fichasActivas: fichasActivasTablero.length,
           urgentes: opsUrgentes,
@@ -147,8 +142,8 @@ export default function AdminHomePage({ tasks, onLogout, onReloadData }: AdminHo
           <div className="admin-home-plotai">
             <PlotAIChat
               tasks={tasks}
-              activity={[]}
-              teamMembers={[]}
+              activity={activity}
+              teamMembers={teamMembers}
               onClose={() => setIsPlotAIOpen(false)}
             />
           </div>

@@ -1,6 +1,5 @@
 import { Navigate } from 'react-router-dom'
 import { readStoredUsuario, useAuth } from '../../hooks/useAuth'
-import { adminStaffHomeRoute } from '../../utils/adminStaffHome'
 import { isOperarioExternoRol, operarioExternoHomeRoute } from './workPoolOperarioExterno'
 
 function operarioHomeFromStorage(): string | null {
@@ -8,16 +7,10 @@ function operarioHomeFromStorage(): string | null {
   return isOperarioExternoRol(u?.rol) ? operarioExternoHomeRoute(u.rol) : null
 }
 
-/** Redirige al home correcto según rol (operario externo → panel; admin/gerencia → /admin). */
+/** Solo operarios externos: el tablero `/` no es su home. Admin/gerencia entran por login a `/admin` pero pueden ir al tablero. */
 export default function StaffHomeRedirect() {
-  const { operarioExternoHome, usuario } = useAuth()
-  const stored = readStoredUsuario()
-
+  const { operarioExternoHome } = useAuth()
   const externo = operarioExternoHome ?? operarioHomeFromStorage()
   if (externo) return <Navigate to={externo} replace />
-
-  const adminHome = adminStaffHomeRoute(usuario?.rol) ?? adminStaffHomeRoute(stored?.rol)
-  if (adminHome) return <Navigate to={adminHome} replace />
-
   return null
 }

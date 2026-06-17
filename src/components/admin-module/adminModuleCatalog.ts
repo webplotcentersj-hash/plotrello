@@ -19,6 +19,8 @@ export type AdminModuleDef = {
   /** Roles con acceso. 'all' = cualquier usuario staff. 'admin' = administración y gerencia. */
   roles: Usuario['rol'][] | 'all' | 'admin'
   accent: string
+  /** Destacado en accesos rápidos del panel. */
+  featured?: boolean
   /** Abrir en pestaña nueva (p. ej. panel admin.html). */
   openInNewTab?: boolean
   /** Acción especial en lugar de navegar. */
@@ -103,16 +105,22 @@ export function moduleRoleLabels(module: AdminModuleDef): string[] {
   return module.roles.map((r) => ROLE_LABELS[r] ?? r)
 }
 
+export function resolveModuleNavigatePath(module: AdminModuleDef): string {
+  if (module.id === 'tablero' || module.path === '/') return '/tablero'
+  return module.path
+}
+
 export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
   {
     id: 'tablero',
-    title: 'Tablero principal',
-    description: 'Kanban de órdenes de trabajo en tiempo real',
-    icon: '📋',
-    path: '/',
+    title: 'Tablero Kanban',
+    description: 'Órdenes de trabajo en columnas, drag & drop y seguimiento en vivo',
+    icon: '🧩',
+    path: '/tablero',
     category: 'produccion',
     roles: 'all',
-    accent: '#eb671b'
+    accent: '#eb671b',
+    featured: true
   },
   {
     id: 'estadisticas',
@@ -212,7 +220,8 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/mostrador/dashboard',
     category: 'ventas',
     roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
-    accent: '#3b82f6'
+    accent: '#3b82f6',
+    featured: true
   },
   {
     id: 'crm-ventas',
@@ -222,7 +231,8 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/crm-ventas',
     category: 'ventas',
     roles: ['mostrador', 'presupuestos', 'administracion', 'gerencia'],
-    accent: '#2563eb'
+    accent: '#2563eb',
+    featured: true
   },
   {
     id: 'cuenta-corriente',
@@ -262,7 +272,8 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/caja/dashboard/admin',
     category: 'finanzas',
     roles: ['caja', 'administracion', 'gerencia'],
-    accent: '#10b981'
+    accent: '#10b981',
+    featured: true
   },
   {
     id: 'erp',
@@ -272,7 +283,8 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/erp',
     category: 'finanzas',
     roles: 'admin',
-    accent: '#059669'
+    accent: '#059669',
+    featured: true
   },
   {
     id: 'conciliacion-bancaria',
@@ -302,7 +314,8 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/compras/dashboard',
     category: 'compras',
     roles: ['compras', 'administracion'],
-    accent: '#8b5cf6'
+    accent: '#8b5cf6',
+    featured: true
   },
   {
     id: 'gestion-stock',
@@ -332,7 +345,8 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/rrhh/dashboard',
     category: 'rrhh',
     roles: ['recursos-humanos', 'administracion', 'gerencia'],
-    accent: '#f59e0b'
+    accent: '#f59e0b',
+    featured: true
   },
   {
     id: 'postulaciones',
@@ -443,7 +457,8 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     category: 'sistemas',
     roles: 'all',
     accent: '#a855f7',
-    action: 'plotai'
+    action: 'plotai',
+    featured: true
   },
   {
     id: 'chat',

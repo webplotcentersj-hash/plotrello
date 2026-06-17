@@ -760,6 +760,44 @@ function AppRoutes({
       >
       <Routes>
       <Route
+        path="/tablero"
+        element={
+          <>
+            <OperarioExternoHomeRedirect />
+            <BoardPage
+            tasks={tasks}
+            setTasks={setTasks}
+            activity={filteredActivity}
+            setActivity={setActivity}
+            teamMembers={teamMembers}
+            onNavigateToStats={() => navigate('/statistics')}
+            onNavigateToCalendar={() => navigate('/calendario')}
+            onNavigateToUsuarios={() => navigate('/usuarios')}
+            onNavigateToChat={() => navigate('/chat')}
+            onNavigateToMensajeria={() => navigate('/mensajeria')}
+            onNavigateToMostrador={() => navigate('/mostrador/dashboard')}
+            onNavigateToCompras={() => navigate('/compras/dashboard')}
+            onNavigateToCaja={() =>
+              navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')
+            }
+            onNavigateToDiseno={() => navigate('/diseno/dashboard')}
+            onNavigateToRecursosHumanos={() => navigate('/rrhh/dashboard')}
+            onNavigateToClientesWeb={() => navigate('/clientes-web/dashboard')}
+            onNavigateToAsesorPresupuestos={() => navigate('/asesor-presupuestos')}
+            onNavigateToAtencionPublico={() => navigate('/atencion-publico')}
+            onNavigateToFlota={() => navigate('/flota')}
+            onNavigateToERP={() => navigate('/erp')}
+            onLogout={onLogout}
+            onReloadData={onReloadData}
+            isSyncing={isSyncing}
+            syncError={syncError}
+            sectores={sectores}
+            materialesCatalog={materiales}
+          />
+          </>
+        }
+      />
+      <Route
         path="/"
         element={
           <>
@@ -803,6 +841,8 @@ function AppRoutes({
         element={
           <AdminHomePage
             tasks={tasks}
+            activity={activity}
+            teamMembers={teamMembers}
             onLogout={onLogout}
             onReloadData={() => void onReloadData()}
           />
