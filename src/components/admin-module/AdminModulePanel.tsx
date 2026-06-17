@@ -183,6 +183,49 @@ export default function AdminModulePanel({
         .toUpperCase()
     : '??'
 
+  const renderMachineButton = (module: AdminModuleDef) => {
+    const allowed = canUserAccessModule(usuario?.rol, module)
+    const loading =
+      (module.action === 'backup' && backupLoading) ||
+      (module.action === 'pdf' && pdfLoading)
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!allowed || loading) return
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        goToModule(module)
+      }
+    }
+
+    return (
+      <button
+        key={module.id}
+        type="button"
+        className={[
+          'amp-machine-btn',
+          !allowed && 'amp-machine-btn--locked',
+          loading && 'amp-machine-btn--loading'
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={{ '--module-accent': module.accent } as CSSProperties}
+        disabled={!allowed || loading}
+        title={module.description}
+        onClick={() => {
+          if (allowed && !loading) goToModule(module)
+        }}
+        onKeyDown={onKeyDown}
+      >
+        <span className="amp-machine-btn__bezel" aria-hidden />
+        <span className="amp-machine-btn__indicator" aria-hidden />
+        <span className="amp-machine-btn__icon" aria-hidden>
+          {module.icon}
+        </span>
+        <span className="amp-machine-btn__label">{module.title}</span>
+      </button>
+    )
+  }
+
   const renderModuleCard = (
     module: AdminModuleDef,
     opts: { compact?: boolean; wide?: boolean } = {}
@@ -231,19 +274,14 @@ export default function AdminModulePanel({
             {!allowed && <span className="amp-lock-badge">Bloqueado</span>}
           </div>
           <h4 className="amp-card-title">{module.title}</h4>
-          {!compact && <p className="amp-card-desc">{module.description}</p>}
-          {!compact && (
-            <div className="amp-roles" aria-label="Roles con acceso">
-              {roles.slice(0, 3).map((r) => (
-                <span key={r} className="amp-role-chip">
-                  {r}
-                </span>
-              ))}
-              {roles.length > 3 && (
-                <span className="amp-role-chip amp-role-more">+{roles.length - 3}</span>
-              )}
-            </div>
-          )}
+          <p className="amp-card-desc">{module.description}</p>
+          <div className="amp-roles" aria-label="Roles con acceso">
+            {roles.map((r) => (
+              <span key={r} className="amp-role-chip">
+                {r}
+              </span>
+            ))}
+          </div>
           <div className="amp-card-footer">
             <span className="amp-card-cta">
               {loading ? 'Procesando…' : allowed ? 'Abrir' : 'Sin acceso'}
@@ -354,16 +392,6 @@ export default function AdminModulePanel({
               />
 
               <div className="amp-hero-actions">
-                <button
-                  type="button"
-                  className="amp-hero-btn amp-hero-btn--kanban"
-                  onClick={onNavigateTablero}
-                >
-                  <span className="amp-hero-btn-icon" aria-hidden>
-                    🧩
-                  </span>
-                  Tablero
-                </button>
                 <button type="button" className="amp-hero-btn" onClick={onRefreshData}>
                   Actualizar
                 </button>
@@ -431,8 +459,17 @@ export default function AdminModulePanel({
           {!search && activeCategory === 'all' && (
             <section className="amp-bento">
               {renderKanbanHero()}
-              <div className="amp-bento-grid">
-                {featuredModules.map((m) => renderModuleCard(m, { compact: true }))}
+              <div className="amp-machine-panel">
+                <div className="amp-machine-panel__chassis">
+                  <div className="amp-machine-panel__head">
+                    <span className="amp-machine-panel__led" aria-hidden />
+                    <span className="amp-machine-panel__title">Accesos rápidos</span>
+                    <span className="amp-machine-panel__screw amp-machine-panel__screw--r" aria-hidden />
+                  </div>
+                  <div className="amp-machine-grid">
+                    {featuredModules.map((m) => renderMachineButton(m))}
+                  </div>
+                </div>
               </div>
             </section>
           )}
