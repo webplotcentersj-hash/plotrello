@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   FileUp,
   Hammer,
+  Mail,
   Palette,
   Send,
   Sparkles,
@@ -15,6 +16,7 @@ import {
 import { enviarSolicitudOperarioExterno } from '../features/work-pool/workPoolRepository'
 import { operarioExternoHomeRoute, isOperarioExternoRol } from '../features/work-pool/workPoolOperarioExterno'
 import { useAuth } from '../hooks/useAuth'
+import { PHI_PUBLIC_URL } from '../utils/phiPublicUrl'
 import {
   MAX_POSTULACION_MB,
   POSTULACION_DOC_EXT,
@@ -41,10 +43,13 @@ import {
   type PostulacionWizardStep
 } from '../features/work-pool/workPoolPostulacion'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
+import '../features/phi/phi-landing.css'
 import './OperarioBolsaSolicitudPage.css'
 
 const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
 const UPLOAD_FOLDER = 'work-pool-solicitudes'
+const ONEST_FONT =
+  'https://fonts.googleapis.com/css2?family=Onest:wght@500;700&display=swap'
 
 const RUBRO_ICONS = {
   diseno: Palette,
@@ -129,6 +134,20 @@ async function uploadIfPresent(file: File | null, subfolder: string) {
 
 export default function OperarioBolsaSolicitudPage() {
   const { usuario } = useAuth()
+
+  useEffect(() => {
+    document.title = 'Postulación · phi (φ) Plot Design'
+
+    let link = document.querySelector<HTMLLinkElement>('link[data-phi-font]')
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = ONEST_FONT
+      link.setAttribute('data-phi-font', 'true')
+      document.head.appendChild(link)
+    }
+  }, [])
+
   const [stepIndex, setStepIndex] = useState(0)
   const [rubro, setRubro] = useState<PostulacionRubro>('diseno')
   const [nivel, setNivel] = useState<PostulacionNivel>('estudiante')
@@ -276,7 +295,7 @@ export default function OperarioBolsaSolicitudPage() {
       ? operarioExternoHomeRoute(usuario.rol)
       : null
     return (
-      <div className="operario-solicitud-page operario-solicitud-page--ok">
+      <div className="phi-root operario-solicitud-page operario-solicitud-page--ok">
         <div className="operario-solicitud-card operario-solicitud-card--ok">
           <div className="operario-solicitud-ok-icon" aria-hidden>
             <CheckCircle2 size={36} strokeWidth={2} />
@@ -290,11 +309,11 @@ export default function OperarioBolsaSolicitudPage() {
               : ' Si es aprobada, te contactaremos con usuario de acceso al panel.'}
           </p>
           {panelLink ? (
-            <Link to={panelLink} className="operario-solicitud-btn">
+            <Link to={panelLink} className="phi-btn phi-btn--dark phi-btn--lg">
               Ir a mi panel
             </Link>
           ) : (
-            <Link to="/login" className="operario-solicitud-btn">
+            <Link to="/login" className="phi-btn phi-btn--dark phi-btn--lg">
               Ir al login
             </Link>
           )}
@@ -648,14 +667,34 @@ export default function OperarioBolsaSolicitudPage() {
   }
 
   return (
-    <div className="operario-solicitud-page">
+    <div className="phi-root operario-solicitud-page">
+      <div className="phi-nav-wrap">
+        <nav className="phi-nav" aria-label="phi postulación">
+          <a href={PHI_PUBLIC_URL} className="phi-nav-logo" aria-label="Volver a phi">
+            <span className="phi-nav-logo-symbol">φ</span>
+          </a>
+          <div className="phi-nav-links">
+            <a href={PHI_PUBLIC_URL} className="phi-nav-link">
+              Volver a phi
+            </a>
+          </div>
+          <Link to="/login" className="phi-btn phi-btn--dark phi-btn--icon" title="Ingresar">
+            <Mail size={22} strokeWidth={2.5} aria-hidden />
+            <span className="phi-sr-only">Ingresar</span>
+          </Link>
+        </nav>
+      </div>
+
       <div className="operario-solicitud-shell">
         <aside className="operario-solicitud-hero" aria-label="Información">
           <div className="operario-solicitud-hero__brand">
             <img src={LOGO_URL} alt="Plot Center" className="operario-solicitud-logo" />
             <div>
-              <p className="operario-solicitud-hero__eyebrow">Plot Center · Bolsa externa</p>
-              <h1>Sumate al equipo</h1>
+              <p className="operario-solicitud-hero__eyebrow">phi (φ) · Plot Design</p>
+              <h1>
+                Sumate a la{' '}
+                <span className="phi-highlight phi-highlight--pink">bolsa externa</span>
+              </h1>
             </div>
           </div>
           <p className="operario-solicitud-lead">
@@ -760,7 +799,7 @@ export default function OperarioBolsaSolicitudPage() {
             {stepIndex > 0 && (
               <button
                 type="button"
-                className="operario-solicitud-btn operario-solicitud-btn--ghost"
+                className="phi-btn phi-btn--outline operario-solicitud-btn--ghost"
                 onClick={goBack}
                 disabled={loading}
               >
@@ -771,7 +810,7 @@ export default function OperarioBolsaSolicitudPage() {
             {!isLastStep ? (
               <button
                 type="button"
-                className="operario-solicitud-btn"
+                className="phi-btn phi-btn--dark"
                 onClick={goNext}
                 disabled={loading}
               >
@@ -781,7 +820,7 @@ export default function OperarioBolsaSolicitudPage() {
             ) : (
               <button
                 type="button"
-                className="operario-solicitud-btn"
+                className="phi-btn phi-btn--dark"
                 onClick={() => void handleSubmit()}
                 disabled={loading}
               >

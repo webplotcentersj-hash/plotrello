@@ -48,13 +48,27 @@ const OperarioExternoStaffShell = lazy(
 const PhiPublicRedirect = lazy(() => import('./pages/PhiPublicRedirect'))
 
 const operarioExternoFallback = (
-  <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando panel…</div>
+  <div
+    style={{
+      padding: '32px',
+      textAlign: 'center',
+      color: '#0b0b0b',
+      background: '#fff',
+      minHeight: '100vh',
+      fontFamily: "'Onest', system-ui, sans-serif",
+      fontWeight: 600
+    }}
+  >
+    Cargando panel…
+  </div>
 )
 
 /** App campo: sin panel de debug fijo (debe vivir dentro de BrowserRouter). */
 function EnvDebugGate() {
   const { pathname } = useLocation()
   if (pathname === '/app-campo' || pathname === '/phi' || pathname.startsWith('/phi/')) return null
+  if (pathname === '/postulacion-operarios' || pathname === '/operario-bolsa/solicitud') return null
+  if (pathname.startsWith('/operario-externo')) return null
   return <EnvDebug />
 }
 

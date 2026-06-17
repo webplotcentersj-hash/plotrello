@@ -5,7 +5,8 @@ import { operarioExternoRolForProduct } from './workPoolConfig'
 import { operarioExternoHomeRoute } from './workPoolOperarioExterno'
 import { readStoredUsuario } from '../../hooks/useAuth'
 import WorkPoolOperarioView from './WorkPoolOperarioView'
-import './WorkPoolModule.css'
+import '../phi/phi-landing.css'
+import './WorkPoolOperarioDashboard.css'
 
 type Props = { product: WorkPoolProduct }
 
@@ -17,8 +18,8 @@ export default function OperarioExternoDashboardPage({ product }: Props) {
 
   if (loading && !sessionUser) {
     return (
-      <div className="work-pool-module">
-        <p className="work-pool-module__empty">Cargando…</p>
+      <div className="phi-root wp-operario-dash wp-operario-dash--loading">
+        <p className="wp-operario-dash__empty">Cargando…</p>
       </div>
     )
   }

@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Inbox, LogOut, MessageCircle, Wallet } from 'lucide-react'
 import type { Notification } from '../../types/api'
 import type { WorkPoolJob, WorkPoolProduct, WorkPoolSaldoOperario } from '../../types/workPool'
 import { WORK_POOL_ESTADO_LABELS } from '../../types/workPool'
 import apiService from '../../services/api'
+import { PHI_PUBLIC_URL } from '../../utils/phiPublicUrl'
 import { WORK_POOL_PRODUCT_CONFIG } from './workPoolConfig'
 import { jobPedidoLabel, maskJobForOperarioExterno } from './workPoolOperarioExterno'
 import WorkPoolOperarioMensajes from './WorkPoolOperarioMensajes'
+import '../phi/phi-landing.css'
 import './WorkPoolOperarioDashboard.css'
+
+const ONEST_FONT =
+  'https://fonts.googleapis.com/css2?family=Onest:wght@500;700;800&display=swap'
 
 const PLOT_LOGO = 'https://trello.plotcenter.com.ar/Group%20187.png'
 
@@ -50,29 +56,29 @@ function formatDateParts(date: Date) {
 
 const VIEW_META: Record<
   OperarioDashView,
-  { title: string; icon: string; description: (d: Date) => string }
+  { title: string; icon: ReactNode; description: (d: Date) => string }
 > = {
   mis: {
     title: 'Entrantes',
-    icon: '📥',
+    icon: <Inbox size={20} strokeWidth={2.25} aria-hidden />,
     description: (d) => `Actualizado ${formatTime(d)}`
   },
   mensajes: {
     title: 'Mensajes',
-    icon: '💬',
+    icon: <MessageCircle size={20} strokeWidth={2.25} aria-hidden />,
     description: (d) => `Pedidos portal · ${formatTime(d)}`
   },
   cuenta: {
     title: 'Mi cuenta',
-    icon: '💰',
+    icon: <Wallet size={20} strokeWidth={2.25} aria-hidden />,
     description: (d) => `Saldo Plot · ${formatTime(d)}`
   }
 }
 
-const NAV: Array<{ id: OperarioDashView; label: string; icon: string }> = [
-  { id: 'mis', label: 'Entrantes', icon: '📥' },
-  { id: 'mensajes', label: 'Mensajes', icon: '💬' },
-  { id: 'cuenta', label: 'Mi cuenta', icon: '💰' }
+const NAV: Array<{ id: OperarioDashView; label: string; icon: ReactNode }> = [
+  { id: 'mis', label: 'Entrantes', icon: <Inbox size={18} strokeWidth={2} aria-hidden /> },
+  { id: 'mensajes', label: 'Mensajes', icon: <MessageCircle size={18} strokeWidth={2} aria-hidden /> },
+  { id: 'cuenta', label: 'Mi cuenta', icon: <Wallet size={18} strokeWidth={2} aria-hidden /> }
 ]
 
 export default function WorkPoolOperarioDashboard({
@@ -94,6 +100,19 @@ export default function WorkPoolOperarioDashboard({
   const cfg = WORK_POOL_PRODUCT_CONFIG[product]
   const [now, setNow] = useState(() => new Date())
   const [notifications, setNotifications] = useState<Notification[]>([])
+
+  useEffect(() => {
+    document.title = `Panel operario · phi (φ) ${cfg.label}`
+
+    let link = document.querySelector<HTMLLinkElement>('link[data-phi-font]')
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = ONEST_FONT
+      link.setAttribute('data-phi-font', 'true')
+      document.head.appendChild(link)
+    }
+  }, [cfg.label])
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000)
@@ -161,7 +180,7 @@ export default function WorkPoolOperarioDashboard({
                   <div className="wp-operario-dash__job-actions">
                     <button
                       type="button"
-                      className="wp-operario-dash__btn wp-operario-dash__btn--success"
+                      className="phi-btn phi-btn--dark wp-operario-dash__btn"
                       onClick={() => onEntregar(job.id)}
                     >
                       Marcar entregado
@@ -287,7 +306,31 @@ export default function WorkPoolOperarioDashboard({
   }
 
   return (
-    <div className={`wp-operario-dash wp-operario-dash--${product === 'plot-design' ? 'plot-design' : 'bolsa-plot'}`}>
+    <div
+      className={`phi-root wp-operario-dash wp-operario-dash--${
+        product === 'plot-design' ? 'plot-design' : 'bolsa-plot'
+      }`}
+    >
+      <div className="phi-nav-wrap wp-operario-dash__top-nav">
+        <nav className="phi-nav" aria-label="phi operario">
+          <a href={PHI_PUBLIC_URL} className="phi-nav-logo" aria-label="Volver a phi">
+            <span className="phi-nav-logo-symbol">φ</span>
+          </a>
+          <div className="phi-nav-links">
+            <span className="wp-operario-dash__nav-pill">{productLabel}</span>
+          </div>
+          <button
+            type="button"
+            className="phi-btn phi-btn--dark phi-btn--icon wp-operario-dash__nav-logout"
+            onClick={onLogout}
+            title="Cerrar sesión"
+          >
+            <LogOut size={20} strokeWidth={2.25} aria-hidden />
+            <span className="phi-sr-only">Cerrar sesión</span>
+          </button>
+        </nav>
+      </div>
+
       <nav className="wp-operario-dash__mobile-nav" aria-label="Secciones">
         {NAV.map((item) => (
           <button
@@ -307,8 +350,9 @@ export default function WorkPoolOperarioDashboard({
           <div className="wp-operario-dash__brand">
             <img src={PLOT_LOGO} alt="Plot Center" className="wp-operario-dash__brand-logo" />
             <div>
-              <p className="wp-operario-dash__brand-title">{cfg.label}</p>
-              <p className="wp-operario-dash__brand-sub">Panel operario externo</p>
+              <p className="wp-operario-dash__brand-eyebrow">phi (φ) · {cfg.label}</p>
+              <p className="wp-operario-dash__brand-title">Panel externo</p>
+              <p className="wp-operario-dash__brand-sub">{usuario.nombre}</p>
             </div>
           </div>
 
@@ -324,9 +368,7 @@ export default function WorkPoolOperarioDashboard({
                 className={`wp-operario-dash__nav-btn${view === item.id ? ' is-active' : ''}`}
                 onClick={() => onChangeView(item.id)}
               >
-                <span className="wp-operario-dash__nav-icon" aria-hidden>
-                  {item.icon}
-                </span>
+                <span className="wp-operario-dash__nav-icon">{item.icon}</span>
                 {item.label}
                 {item.id === 'mensajes' && mensajesNoLeidos > 0 && (
                   <span className="wp-operario-dash__nav-badge">
@@ -338,9 +380,8 @@ export default function WorkPoolOperarioDashboard({
           </div>
 
           <div className="wp-operario-dash__user">
-            <div className="wp-operario-dash__user-name">{usuario.nombre}</div>
-            <div className="wp-operario-dash__user-rol">{productLabel} · externo</div>
-            <button type="button" className="wp-operario-dash__logout" onClick={onLogout}>
+            <div className="wp-operario-dash__user-rol">{productLabel} · operario externo</div>
+            <button type="button" className="phi-btn phi-btn--outline phi-btn--block wp-operario-dash__logout" onClick={onLogout}>
               Cerrar sesión
             </button>
           </div>
@@ -348,10 +389,10 @@ export default function WorkPoolOperarioDashboard({
 
         <main className="wp-operario-dash__main">
           <header className="wp-operario-dash__page-head">
-            <div className="wp-operario-dash__page-icon" aria-hidden>
-              {meta.icon}
-            </div>
-            <h1 className="wp-operario-dash__page-title">{meta.title}</h1>
+            <div className="wp-operario-dash__page-icon">{meta.icon}</div>
+            <h1 className="wp-operario-dash__page-title">
+              {meta.title}
+            </h1>
             <span className="wp-operario-dash__page-meta">{meta.description(lastUpdated)}</span>
           </header>
 
@@ -372,21 +413,13 @@ export default function WorkPoolOperarioDashboard({
             <div className="wp-operario-dash__widget-bg" aria-hidden />
             <div className="wp-operario-dash__widget-inner">
               <div className="wp-operario-dash__widget-row">
-                <span style={{ opacity: 0.6 }}>{dateInfo.weekday}</span>
+                <span className="wp-operario-dash__widget-muted">{dateInfo.weekday}</span>
                 <span>{dateInfo.rest}</span>
               </div>
               <div className="wp-operario-dash__widget-time">{formatTime(now)}</div>
               <div className="wp-operario-dash__widget-row">
-                <span style={{ opacity: 0.6 }}>San Juan, AR</span>
-                <span
-                  style={{
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    background: 'rgba(255,255,255,0.08)'
-                  }}
-                >
-                  {productLabel}
-                </span>
+                <span className="wp-operario-dash__widget-muted">San Juan, AR</span>
+                <span className="wp-operario-dash__widget-tag">{productLabel}</span>
               </div>
             </div>
           </div>

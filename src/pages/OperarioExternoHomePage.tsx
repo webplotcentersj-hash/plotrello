@@ -8,7 +8,19 @@ export default function OperarioExternoHomePage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Cargando…</div>
+      <div
+        style={{
+          padding: 32,
+          textAlign: 'center',
+          color: '#0b0b0b',
+          background: '#fff',
+          minHeight: '100vh',
+          fontFamily: "'Onest', system-ui, sans-serif",
+          fontWeight: 600
+        }}
+      >
+        Cargando…
+      </div>
     )
   }
 

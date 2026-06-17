@@ -1,54 +1,78 @@
-/* Plot Design / Bolsa — shell inspirado en dashboard-m-o-n-k-y */
+/* Panel operario externo — estilo phi (Paperfolio neo-brutalista) */
 
-.wp-operario-dash {
-  --wp-dash-bg: #1f1f23;
-  --wp-dash-card: #1f1f23;
-  --wp-dash-muted: #2a2a30;
-  --wp-dash-fg: #f4f4f5;
-  --wp-dash-muted-fg: #a1a1aa;
-  --wp-dash-border: rgba(255, 255, 255, 0.1);
-  --wp-dash-pop: rgba(255, 255, 255, 0.025);
-  --wp-dash-accent: var(--wp-dash-accent-custom, #7c3aed);
-  --wp-dash-accent-soft: color-mix(in srgb, var(--wp-dash-accent) 18%, transparent);
-  --wp-dash-success: #4ade80;
-  --wp-dash-warning: #fbbf24;
-  --wp-dash-gap: 1.25rem;
-  --wp-dash-sides: 1rem;
+.phi-root.wp-operario-dash {
+  --wp-dash-accent: var(--phi-purple, #a855f7);
+  --wp-dash-accent-soft: #f3e8ff;
+  --wp-dash-success: #16a34a;
+  --wp-dash-warning: #ca8a04;
+  --wp-dash-error-bg: #fef2f2;
+  --wp-dash-error-border: #fecaca;
+  --wp-dash-gap: clamp(16px, 2.5vw, 20px);
+  --wp-dash-sides: 16px;
 
   min-height: 100vh;
-  background: var(--wp-dash-muted);
-  color: var(--wp-dash-fg);
-  font-family: ui-monospace, SFMono-Regular, 'Roboto Mono', Menlo, Consolas, monospace;
+  min-height: 100dvh;
+  background: #fff;
+  color: var(--phi-black, #0b0b0b);
 }
 
-.wp-operario-dash--plot-design {
-  --wp-dash-accent-custom: #7c3aed;
+.phi-root.wp-operario-dash--bolsa-plot {
+  --wp-dash-accent: var(--phi-pink, #ff6b7a);
+  --wp-dash-accent-soft: #fff1f2;
 }
 
-.wp-operario-dash--bolsa-plot {
-  --wp-dash-accent-custom: #eb671b;
+.phi-root.wp-operario-dash .phi-nav-wrap.wp-operario-dash__top-nav {
+  padding: 24px 16px 8px;
+}
+
+.phi-root.wp-operario-dash .phi-nav {
+  max-width: min(1200px, 100% - 32px);
+}
+
+.phi-root.wp-operario-dash .phi-nav-links {
+  display: flex;
+  align-items: center;
+}
+
+.wp-operario-dash__nav-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--wp-dash-accent-soft);
+}
+
+.wp-operario-dash__nav-logout {
+  flex-shrink: 0;
 }
 
 .wp-operario-dash__grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--wp-dash-gap);
-  padding: 0 var(--wp-dash-sides) var(--wp-dash-gap);
+  width: min(1200px, 100% - 32px);
+  margin: 0 auto;
+  padding: 8px var(--wp-dash-sides) clamp(24px, 4vw, 40px);
 }
 
 @media (min-width: 1024px) {
   .wp-operario-dash__grid {
-    grid-template-columns: 220px minmax(0, 1fr) 280px;
-    padding: 0 1.25rem 1.25rem;
+    grid-template-columns: 240px minmax(0, 1fr) 280px;
+    padding-inline: 16px;
   }
 }
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────────── */
+
 .wp-operario-dash__sidebar {
   display: none;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 1.25rem;
+  gap: 12px;
 }
 
 @media (min-width: 1024px) {
@@ -59,57 +83,70 @@
 
 .wp-operario-dash__brand {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-radius: 0.625rem;
-  background: var(--wp-dash-card);
-  border: 2px solid var(--wp-dash-pop);
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: var(--phi-shadow-sm, 6px 6px 0 0 #0b0b0b);
 }
 
 .wp-operario-dash__brand-logo {
   width: 48px;
   height: 48px;
   object-fit: contain;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  background: #fff;
   padding: 4px;
+  box-shadow: 3px 3px 0 0 var(--phi-black, #0b0b0b);
+  flex-shrink: 0;
+}
+
+.wp-operario-dash__brand-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wp-dash-accent);
 }
 
 .wp-operario-dash__brand-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.1rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
-  line-height: 1.1;
-  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .wp-operario-dash__brand-sub {
-  margin: 0;
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  color: var(--wp-dash-muted-fg);
-  letter-spacing: 0.08em;
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--phi-muted, #393939);
 }
 
 .wp-operario-dash__nav-group {
-  background: var(--wp-dash-card);
-  border: 2px solid var(--wp-dash-pop);
-  border-radius: 0.625rem;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: var(--phi-shadow-sm, 6px 6px 0 0 #0b0b0b);
   overflow: hidden;
 }
 
 .wp-operario-dash__nav-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
+  gap: 8px;
+  padding: 12px 14px;
   font-size: 0.68rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--wp-dash-muted-fg);
-  border-bottom: 1px solid var(--wp-dash-border);
+  color: var(--phi-muted, #393939);
+  border-bottom: 2px solid var(--phi-black, #0b0b0b);
+  background: #fafafa;
 }
 
 .wp-operario-dash__bullet {
@@ -123,43 +160,51 @@
 .wp-operario-dash__nav-btn {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 10px;
   width: 100%;
-  padding: 0.75rem 0.85rem;
+  padding: 12px 14px;
   border: none;
+  border-bottom: 1px solid rgba(11, 11, 11, 0.08);
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
+.wp-operario-dash__nav-btn:last-child {
+  border-bottom: none;
+}
+
 .wp-operario-dash__nav-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: #f8fafc;
 }
 
 .wp-operario-dash__nav-btn.is-active {
   background: var(--wp-dash-accent-soft);
-  color: #fff;
+  font-weight: 800;
 }
 
 .wp-operario-dash__nav-icon {
-  font-size: 1rem;
-  opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--phi-black, #0b0b0b);
 }
 
 .wp-operario-dash__nav-badge {
   margin-left: auto;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   border-radius: 999px;
-  background: #ef4444;
+  background: var(--phi-black, #0b0b0b);
   color: #fff;
   font-size: 0.65rem;
-  font-weight: 700;
+  font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -167,56 +212,36 @@
 
 .wp-operario-dash__user {
   margin-top: auto;
-  padding: 0.75rem;
-  border-radius: 0.625rem;
-  background: var(--wp-dash-card);
-  border: 2px solid var(--wp-dash-pop);
-}
-
-.wp-operario-dash__user-name {
-  font-size: 1rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  padding: 14px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: var(--phi-shadow-sm, 6px 6px 0 0 #0b0b0b);
 }
 
 .wp-operario-dash__user-rol {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  color: var(--wp-dash-muted-fg);
-  margin-top: 2px;
+  letter-spacing: 0.06em;
+  color: var(--phi-muted, #393939);
+  margin-bottom: 12px;
 }
 
 .wp-operario-dash__logout {
-  margin-top: 0.65rem;
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--wp-dash-border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--wp-dash-muted-fg);
-  font: inherit;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.wp-operario-dash__logout:hover {
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.35);
+  padding: 12px 16px !important;
+  font-size: 0.85rem !important;
 }
 
 /* ─── Mobile nav ──────────────────────────────────────────────────────────── */
+
 .wp-operario-dash__mobile-nav {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   overflow-x: auto;
-  padding: 0.75rem var(--wp-dash-sides);
-  background: var(--wp-dash-bg);
-  border-bottom: 2px solid var(--wp-dash-pop);
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  padding: 8px var(--wp-dash-sides) 12px;
+  width: min(1200px, 100% - 32px);
+  margin: 0 auto;
 }
 
 @media (min-width: 1024px) {
@@ -227,23 +252,26 @@
 
 .wp-operario-dash__mobile-nav button {
   flex-shrink: 0;
-  padding: 8px 14px;
+  padding: 10px 16px;
   border-radius: 999px;
-  border: 1px solid var(--wp-dash-border);
-  background: rgba(255, 255, 255, 0.03);
+  border: 3px solid var(--phi-black, #0b0b0b);
+  background: #fff;
   color: inherit;
   font: inherit;
-  font-size: 0.75rem;
-  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 3px 3px 0 0 var(--phi-black, #0b0b0b);
+  transition: transform 0.12s ease;
 }
 
 .wp-operario-dash__mobile-nav button.is-active {
-  background: var(--wp-dash-accent-soft);
-  border-color: color-mix(in srgb, var(--wp-dash-accent) 45%, transparent);
+  background: var(--phi-black, #0b0b0b);
+  color: #fff;
 }
 
 /* ─── Main ────────────────────────────────────────────────────────────────── */
+
 .wp-operario-dash__main {
   min-width: 0;
   display: flex;
@@ -255,71 +283,67 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem 1rem;
-  padding: 0.85rem 1rem;
-  background: var(--wp-dash-bg);
-  border: 2px solid var(--wp-dash-pop);
-  border-radius: 0.625rem;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-@media (min-width: 1024px) {
-  .wp-operario-dash__page-head {
-    top: 0;
-    padding: 1rem 1.25rem;
-  }
+  gap: 10px 14px;
+  padding: 14px 18px;
+  background: #fff;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  box-shadow: var(--phi-shadow-sm, 6px 6px 0 0 #0b0b0b);
 }
 
 .wp-operario-dash__page-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
-  background: var(--wp-dash-accent);
+  border: 3px solid var(--phi-black, #0b0b0b);
+  background: var(--wp-dash-accent-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
-  opacity: 0.85;
+  flex-shrink: 0;
 }
 
 .wp-operario-dash__page-title {
   margin: 0;
-  font-size: clamp(1.25rem, 3vw, 2rem);
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 .wp-operario-dash__page-meta {
   margin-left: auto;
   font-size: 0.72rem;
-  color: var(--wp-dash-muted-fg);
+  font-weight: 700;
+  color: var(--phi-muted, #393939);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .wp-operario-dash__content {
-  padding: 1rem 1.25rem 1.5rem;
-  background: var(--wp-dash-bg);
-  border: 2px solid var(--wp-dash-pop);
-  border-radius: 0.625rem;
+  padding: clamp(16px, 2.5vw, 22px);
+  background: #fff;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  box-shadow: var(--phi-shadow-sm, 6px 6px 0 0 #0b0b0b);
   flex: 1;
 }
 
 /* ─── Stat cards ──────────────────────────────────────────────────────────── */
-.wp-operario-dash__stats {
+
+.wp-operario-dash__stats,
+.wp-operario-dash__cuenta-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--wp-dash-gap);
   margin-bottom: var(--wp-dash-gap);
 }
 
 .wp-operario-dash__stat {
-  background: var(--wp-dash-card);
-  border: 2px solid var(--wp-dash-pop);
-  border-radius: 0.625rem;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
   overflow: hidden;
 }
 
@@ -327,30 +351,30 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 10px 14px;
   font-size: 0.68rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--wp-dash-muted-fg);
+  color: var(--phi-muted, #393939);
+  border-bottom: 2px solid var(--phi-black, #0b0b0b);
+  background: #fafafa;
 }
 
 .wp-operario-dash__stat-head span:first-child {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .wp-operario-dash__stat-body {
-  padding: 1rem 1rem 1.15rem;
-  background: rgba(255, 255, 255, 0.04);
-  position: relative;
-  overflow: hidden;
+  padding: 14px 14px 16px;
 }
 
 .wp-operario-dash__stat-value {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
@@ -363,37 +387,39 @@
 }
 
 .wp-operario-dash__stat-desc {
-  margin: 0.5rem 0 0;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--wp-dash-muted-fg);
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--phi-muted, #393939);
 }
 
 .wp-operario-dash__stat-tag {
   display: inline-block;
-  margin-left: 0.5rem;
+  margin-left: 6px;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 2px solid var(--phi-black, #0b0b0b);
   background: var(--wp-dash-accent);
   color: #fff;
   font-size: 0.62rem;
-  font-weight: 700;
+  font-weight: 800;
   vertical-align: middle;
 }
 
-/* ─── Job cards (MONKY card style) ────────────────────────────────────────── */
+/* ─── Job cards ───────────────────────────────────────────────────────────── */
+
 .wp-operario-dash__jobs {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 12px;
 }
 
 .wp-operario-dash__job {
-  border: 2px solid var(--wp-dash-pop);
-  border-radius: 0.625rem;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
   overflow: hidden;
-  background: var(--wp-dash-card);
 }
 
 .wp-operario-dash__job-head {
@@ -401,138 +427,123 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--wp-dash-border);
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--phi-black, #0b0b0b);
+  background: #fafafa;
 }
 
 .wp-operario-dash__job-title {
   margin: 0;
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .wp-operario-dash__job-badge {
   font-size: 0.65rem;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 800;
   text-transform: uppercase;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--wp-dash-muted-fg);
+  letter-spacing: 0.04em;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  background: #fff;
+  color: var(--phi-muted, #393939);
 }
 
 .wp-operario-dash__job-badge--asignado,
 .wp-operario-dash__job-badge--en_curso {
-  background: color-mix(in srgb, var(--wp-dash-accent) 25%, transparent);
-  color: #e9d5ff;
+  background: var(--wp-dash-accent-soft);
+  color: var(--phi-black, #0b0b0b);
 }
 
 .wp-operario-dash__job-badge--entregado,
 .wp-operario-dash__job-badge--aprobado {
-  background: rgba(74, 222, 128, 0.15);
+  background: #dcfce7;
   color: var(--wp-dash-success);
 }
 
 .wp-operario-dash__job-badge--cambios {
-  background: rgba(251, 191, 36, 0.15);
+  background: #fef9c3;
   color: var(--wp-dash-warning);
 }
 
 .wp-operario-dash__job-body {
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 14px;
 }
 
 .wp-operario-dash__job-desc {
-  margin: 0 0 0.75rem;
-  font-size: 0.82rem;
-  color: var(--wp-dash-muted-fg);
-  line-height: 1.5;
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  color: var(--phi-muted, #393939);
+  line-height: 1.55;
 }
 
 .wp-operario-dash__job-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  font-size: 0.72rem;
+  gap: 8px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  color: var(--wp-dash-muted-fg);
-  margin-bottom: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--phi-muted, #393939);
+  margin-bottom: 12px;
 }
 
 .wp-operario-dash__job-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .wp-operario-dash__btn {
-  padding: 0.5rem 0.85rem;
-  border-radius: 8px;
-  border: 1px solid var(--wp-dash-border);
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
-  font: inherit;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.wp-operario-dash__btn--primary {
-  background: var(--wp-dash-accent);
-  border-color: transparent;
-  color: #fff;
-}
-
-.wp-operario-dash__btn--success {
-  background: rgba(74, 222, 128, 0.2);
-  border-color: rgba(74, 222, 128, 0.35);
-  color: var(--wp-dash-success);
+  padding: 12px 18px !important;
+  font-size: 0.85rem !important;
 }
 
 .wp-operario-dash__empty {
   text-align: center;
   padding: 2.5rem 1rem;
-  color: var(--wp-dash-muted-fg);
-  font-size: 0.85rem;
+  color: var(--phi-muted, #393939);
+  font-size: 0.9rem;
 }
 
 .wp-operario-dash__alert {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  margin-bottom: 1rem;
+  padding: 12px 14px;
+  border-radius: var(--phi-radius-sm, 12px);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .wp-operario-dash__alert--error {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fecaca;
+  background: var(--wp-dash-error-bg);
+  border-color: #ef4444;
+  color: #991b1b;
 }
 
 .wp-operario-dash__alert--info {
   background: var(--wp-dash-accent-soft);
-  border: 1px solid color-mix(in srgb, var(--wp-dash-accent) 35%, transparent);
-  color: #e9d5ff;
+  color: var(--phi-black, #0b0b0b);
 }
 
 /* ─── Right rail ──────────────────────────────────────────────────────────── */
+
 .wp-operario-dash__rail {
   display: none;
   flex-direction: column;
   gap: var(--wp-dash-gap);
-  padding-top: 1.25rem;
   position: sticky;
-  top: 1.25rem;
+  top: 20px;
   align-self: start;
-  max-height: calc(100vh - 2.5rem);
+  max-height: calc(100vh - 40px);
   overflow-y: auto;
 }
 
@@ -543,56 +554,70 @@
 }
 
 .wp-operario-dash__widget {
-  border: 2px solid var(--wp-dash-pop);
-  border-radius: 0.625rem;
-  overflow: hidden;
-  background: var(--wp-dash-card);
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: var(--phi-shadow-sm, 6px 6px 0 0 #0b0b0b);
   position: relative;
-  min-height: 160px;
+  overflow: hidden;
 }
 
 .wp-operario-dash__widget-bg {
   position: absolute;
   inset: 0;
-  opacity: 0.12;
-  background:
-    radial-gradient(circle at 30% 20%, var(--wp-dash-accent), transparent 55%),
-    linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.04));
+  opacity: 0.35;
+  background: linear-gradient(135deg, var(--wp-dash-accent-soft) 0%, transparent 60%);
   pointer-events: none;
 }
 
 .wp-operario-dash__widget-inner {
   position: relative;
   z-index: 1;
-  padding: 1rem;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 160px;
-  font-size: 0.68rem;
+  min-height: 150px;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 
 .wp-operario-dash__widget-time {
-  font-size: 2.25rem;
+  font-size: 2rem;
   font-weight: 800;
   text-align: center;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   line-height: 1;
-  padding: 0.5rem 0;
+  padding: 8px 0;
 }
 
 .wp-operario-dash__widget-row {
   display: flex;
   justify-content: space-between;
-  color: var(--wp-dash-muted-fg);
+  align-items: center;
+  gap: 8px;
+}
+
+.wp-operario-dash__widget-muted {
+  color: var(--phi-muted, #393939);
+}
+
+.wp-operario-dash__widget-tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  background: var(--wp-dash-accent-soft);
+  font-size: 0.65rem;
+  font-weight: 800;
 }
 
 .wp-operario-dash__panel {
-  border: 2px solid var(--wp-dash-pop);
-  border-radius: 0.625rem;
-  background: var(--wp-dash-card);
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
   overflow: hidden;
 }
 
@@ -600,78 +625,329 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 12px 14px;
   font-size: 0.68rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border-bottom: 1px solid var(--wp-dash-border);
+  border-bottom: 2px solid var(--phi-black, #0b0b0b);
+  background: #fafafa;
 }
 
 .wp-operario-dash__panel-body {
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
   max-height: 280px;
   overflow-y: auto;
 }
 
 .wp-operario-dash__notif {
-  padding: 0.65rem 0.75rem;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 0.72rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: #f8fafc;
+  border: 2px solid transparent;
+  font-size: 0.78rem;
 }
 
 .wp-operario-dash__notif.is-unread {
-  border-left: 3px solid var(--wp-dash-accent);
+  border-color: var(--wp-dash-accent);
+  background: var(--wp-dash-accent-soft);
 }
 
 .wp-operario-dash__notif-title {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 800;
   margin-bottom: 2px;
 }
 
 .wp-operario-dash__notif-desc {
-  color: var(--wp-dash-muted-fg);
+  color: var(--phi-muted, #393939);
   line-height: 1.4;
 }
 
 .wp-operario-dash__hint-card {
-  padding: 1rem;
-  font-size: 0.75rem;
+  padding: 14px;
+  font-size: 0.82rem;
   line-height: 1.55;
-  color: var(--wp-dash-muted-fg);
+  color: var(--phi-muted, #393939);
 }
 
 .wp-operario-dash__hint-card strong {
-  color: var(--wp-dash-fg);
+  color: var(--phi-black, #0b0b0b);
   display: block;
-  margin-bottom: 0.35rem;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
   text-transform: uppercase;
-  font-size: 0.68rem;
   letter-spacing: 0.06em;
 }
 
-/* Cuenta stats inside dash */
-.wp-operario-dash__cuenta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.85rem;
-}
+/* ─── Mensajes (phi overrides) ────────────────────────────────────────────── */
 
-/* Mensajes embebidos en el dashboard */
-.wp-operario-dash__content .work-pool-mensajes__shell {
+.phi-root.wp-operario-dash .work-pool-mensajes__shell {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 12px;
   min-height: 360px;
 }
 
-.wp-operario-dash__content .work-pool-module__alert--info {
-  background: var(--wp-dash-accent-soft);
-  border: 1px solid color-mix(in srgb, var(--wp-dash-accent) 35%, transparent);
-  color: #e9d5ff;
+.phi-root.wp-operario-dash .work-pool-mensajes__sidebar,
+.phi-root.wp-operario-dash .work-pool-mensajes__chat {
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__sidebar {
+  padding: 12px;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__sidebar-title {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--phi-muted, #393939);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__pedidos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__pedido-btn {
+  width: 100%;
+  text-align: left;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  background: #fff;
+  color: inherit;
   border-radius: 8px;
-  padding: 0.75rem 1rem;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  position: relative;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__pedido-btn.is-active {
+  background: var(--wp-dash-accent-soft);
+  box-shadow: 3px 3px 0 0 var(--phi-black, #0b0b0b);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__pedido-num {
+  font-weight: 800;
+  font-size: 0.88rem;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__pedido-titulo {
+  font-size: 0.75rem;
+  color: var(--phi-muted, #393939);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--phi-black, #0b0b0b);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--phi-muted, #393939);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__chat-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--phi-black, #0b0b0b);
+  background: #fafafa;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__chat-eyebrow {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--phi-muted, #393939);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__chat-head h3 {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__chat-sub {
   font-size: 0.78rem;
-  margin-bottom: 0.85rem;
+  color: var(--phi-muted, #393939);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__day span {
+  font-size: 0.7rem;
+  color: var(--phi-muted, #393939);
+  background: #f1f5f9;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 700;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__bubble {
+  max-width: 85%;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 2px solid var(--phi-black, #0b0b0b);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__bubble.is-mine {
+  align-self: flex-end;
+  background: var(--wp-dash-accent-soft);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__bubble.is-theirs {
+  align-self: flex-start;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__bubble-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--phi-muted, #393939);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.88rem;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__composer {
+  padding: 12px 16px 16px;
+  border-top: 2px solid var(--phi-black, #0b0b0b);
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__composer-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__composer-row textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 44px;
+  border-radius: 8px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  background: #fff;
+  color: inherit;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.phi-root.wp-operario-dash .work-pool-mensajes__error {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.phi-root.wp-operario-dash .work-pool-module__btn--primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 18px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: var(--phi-black, #0b0b0b);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.phi-root.wp-operario-dash .work-pool-module__btn--primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.phi-root.wp-operario-dash .work-pool-module__empty {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--phi-muted, #393939);
+}
+
+.phi-root.wp-operario-dash .work-pool-module__alert--info {
+  background: var(--wp-dash-accent-soft);
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  color: var(--phi-black, #0b0b0b);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .phi-root.wp-operario-dash .work-pool-mensajes__shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+.phi-root.wp-operario-dash--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phi-root.wp-operario-dash--loading .wp-operario-dash__empty {
+  padding: 4rem 1rem;
 }
