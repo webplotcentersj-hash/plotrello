@@ -365,8 +365,7 @@ const ClientesWebGestionPage = () => {
   }
 
   const buscandoActivo = debouncedTerm.length >= MIN_BUSQUEDA
-  const puedeListarSinBuscar =
-    filtroAcceso === 'con_acceso' || (listaCompletaCargada && filtroAcceso !== 'con_acceso')
+  const puedeListarSinBuscar = filtroAcceso === 'con_acceso' || listaCompletaCargada
   const mostrarVerTodos =
     !buscandoActivo && (filtroAcceso === 'sin_acceso' || filtroAcceso === 'todos') && !listaCompletaCargada
   const etiquetaVerTodos =
