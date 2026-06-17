@@ -1,13 +1,9 @@
-import { lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
+import SolicitudesPermisosFloatingButton from './SolicitudesPermisosFloatingButton'
 import './StaffFloatingDock.css'
-
-const SolicitudesPermisosFloatingButton = lazy(
-  () => import('./SolicitudesPermisosFloatingButton')
-)
 
 function shouldHideFloatingDock(pathname: string): boolean {
   if (pathname === '/' || pathname === '' || pathname === '/tablero') return true
@@ -64,9 +60,7 @@ export default function StaffFloatingDock() {
           🖨️
         </button>
       )}
-      <Suspense fallback={null}>
-        <SolicitudesPermisosFloatingButton />
-      </Suspense>
+      <SolicitudesPermisosFloatingButton />
     </div>
   )
 

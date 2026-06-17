@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -30,6 +30,8 @@ import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync
 import './CRMVentasPage.css'
 
 const CRM_VENTAS_TAB_KEY = 'crmVentasActiveTab'
+
+const VENTA_PIPELINE_ESTADOS = ['Pendiente', 'Parcial', 'Pagado', 'Cancelado'] as const
 
 /** Mínimo de caracteres en la búsqueda para autoseleccionar si hay un único cliente */
 const CLIENTE_AUTOPICK_MIN_CHARS = 4
@@ -271,7 +273,7 @@ const CRMVentasPage = () => {
   const [mostrarModalPresupuesto, setMostrarModalPresupuesto] = useState(false)
 
   // Ventas (solo CRM): ficha compacta + ampliar
-  const [ventaExpandidaId, setVentaExpandidaId] = useState<number | null>(null)
+  const [ventaModalId, setVentaModalId] = useState<number | null>(null)
 
   // PlotAI informe (solo modal Nueva/Editar Oportunidad)
   const [plotAiInforme, setPlotAiInforme] = useState<string>('')
@@ -355,8 +357,37 @@ const CRMVentasPage = () => {
     }
   }, [dropdownDocumentosAbierto, dropdownExportVentasAbierto])
 
-  const toggleVentaExpandida = useCallback((ventaId: number) => {
-    setVentaExpandidaId((prev) => (prev === ventaId ? null : ventaId))
+  const ventasPorEstado = useMemo(() => {
+    const map: Record<(typeof VENTA_PIPELINE_ESTADOS)[number], Venta[]> = {
+      Pendiente: [],
+      Parcial: [],
+      Pagado: [],
+      Cancelado: []
+    }
+    for (const venta of ventasFiltradas) {
+      const estado = venta.estado_pago as (typeof VENTA_PIPELINE_ESTADOS)[number]
+      if (VENTA_PIPELINE_ESTADOS.includes(estado)) {
+        map[estado].push(venta)
+      } else {
+        map.Pendiente.push(venta)
+      }
+    }
+    return map
+  }, [ventasFiltradas])
+
+  const ventaModal = useMemo(
+    () => (ventaModalId != null ? ventas.find((v) => v.id === ventaModalId) ?? null : null),
+    [ventaModalId, ventas]
+  )
+
+  const abrirVentaModal = useCallback((ventaId: number) => {
+    setVentaModalId(ventaId)
+    setDropdownDocumentosAbierto(null)
+  }, [])
+
+  const cerrarVentaModal = useCallback(() => {
+    setVentaModalId(null)
+    setDropdownDocumentosAbierto(null)
   }, [])
 
   const generarInformePlotAiOportunidad = useCallback(async () => {
@@ -1568,14 +1599,19 @@ const CRMVentasPage = () => {
         </div>
       ) : null}
       <header className="crm-header">
-        <div className="header-content">
-          <div>
-            <h1 style={{ margin: 0 }}>💼 CRM de Ventas</h1>
-            <p style={{ margin: '6px 0 0 0', fontSize: '0.82rem', color: 'rgba(226,232,240,0.65)' }}>
-              {lastDataRefresh
-                ? `Última actualización: ${lastDataRefresh.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · Ctrl+K buscar`
-                : 'Ctrl+K enfoca la búsqueda de esta pestaña'}
-            </p>
+        <div className="crm-header__hero">
+          <div className="crm-header__brand">
+            <span className="crm-header__icon" aria-hidden>
+              💼
+            </span>
+            <div>
+              <h1>CRM de Ventas</h1>
+              <p className="crm-header__meta">
+                {lastDataRefresh
+                  ? `Actualizado ${lastDataRefresh.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · Ctrl+K buscar`
+                  : 'Pipeline comercial · Ctrl+K enfoca la búsqueda'}
+              </p>
+            </div>
           </div>
           <div className="header-actions">
             <button className="btn-secondary" onClick={() => navigate('/')}>
@@ -1655,9 +1691,9 @@ const CRMVentasPage = () => {
             )}
           </div>
         </div>
-        
+
         {/* Estadísticas Rápidas */}
-        <div className="metricas-grid" style={{ marginTop: '24px' }}>
+        <div className="metricas-grid metricas-grid--strip">
           <div className="metrica-card" style={{ borderLeft: '4px solid #3b82f6' }}>
             <div className="metrica-icon">💰</div>
             <div className="metrica-content">
@@ -1795,7 +1831,9 @@ const CRMVentasPage = () => {
             </>
           )}
         </div>
-        
+      </header>
+
+      <div className="crm-insights">
         {/* Gráficos de Tendencias */}
         {activeTab === 'oportunidades' && oportunidades.length > 0 && (
           <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
@@ -2064,7 +2102,7 @@ const CRMVentasPage = () => {
             </div>
           </div>
         )}
-      </header>
+      </div>
 
       {/* Tabs */}
       <div className="crm-tabs" role="tablist" aria-label="Secciones del CRM">
@@ -2446,222 +2484,294 @@ const CRMVentasPage = () => {
             )}
           </div>
 
-          {/* Lista de Ventas */}
-          <div className="ventas-grid">
-            {ventasFiltradas.map((venta) => (
-              <div
-                key={venta.id}
-                className={`venta-card venta-card--compact${ventaExpandidaId === venta.id ? ' is-expanded' : ''}${dropdownDocumentosAbierto === venta.id ? ' venta-card--menu-open' : ''}`}
-              >
-                <div className="card-header">
-                  <div>
-                    <h3>{venta.cliente_nombre}</h3>
-                    <span className="numero-venta">{venta.numero_venta}</span>
-                  </div>
-                  <span
-                    className="estado-badge"
-                    style={{ backgroundColor: getEstadoPagoColor(venta.estado_pago) }}
-                  >
-                    {venta.estado_pago}
-                  </span>
-                </div>
-                
-                {venta.cliente_empresa && (
-                  <p className="cliente-empresa">🏢 {venta.cliente_empresa}</p>
-                )}
-
-                {/* Resumen compacto */}
-                <div className="venta-compact-summary">
-                  <div className="venta-compact-row">
-                    <span className="venta-compact-k">OP</span>
-                    <span className="venta-compact-v">{venta.numero_op || 'Sin OP'}</span>
-                  </div>
-                  <div className="venta-compact-row">
-                    <span className="venta-compact-k">Total</span>
-                    <span className="venta-compact-v">${Number(venta.valor_total || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="venta-compact-row">
-                    <span className="venta-compact-k">Fecha</span>
-                    <span className="venta-compact-v">{formatArgentinaDate(venta.fecha_venta)}</span>
-                  </div>
-                  <div className="venta-compact-row">
-                    <span className="venta-compact-k">Vendedor</span>
-                    <span className="venta-compact-v">{venta.nombre_vendedor}</span>
-                  </div>
-                  {venta.metodo_pago ? (
-                    <div className="venta-compact-row">
-                      <span className="venta-compact-k">Pago</span>
-                      <span className="venta-compact-v">{venta.metodo_pago}</span>
-                    </div>
-                  ) : null}
-                  {ventaExpandidaId === venta.id ? (
-                    <>
-                      {venta.cliente_telefono ? (
-                        <div className="venta-compact-row">
-                          <span className="venta-compact-k">Tel</span>
-                          <span className="venta-compact-v">{venta.cliente_telefono}</span>
-                        </div>
-                      ) : null}
-                      {venta.cliente_email ? (
-                        <div className="venta-compact-row">
-                          <span className="venta-compact-k">Email</span>
-                          <span className="venta-compact-v">{venta.cliente_email}</span>
-                        </div>
-                      ) : null}
-                      {venta.cliente_dni_cuit ? (
-                        <div className="venta-compact-row">
-                          <span className="venta-compact-k">DNI/CUIT</span>
-                          <span className="venta-compact-v">{venta.cliente_dni_cuit}</span>
-                        </div>
-                      ) : null}
-                      {venta.items && venta.items.length > 0 ? (
-                        <div className="venta-compact-row">
-                          <span className="venta-compact-k">Items</span>
-                          <span className="venta-compact-v">
-                            {venta.items.length} artículo{venta.items.length > 1 ? 's' : ''}
+          {/* Pipeline de Ventas */}
+          <div className="ventas-pipeline">
+            {VENTA_PIPELINE_ESTADOS.map((estado) => {
+              const columnVentas = ventasPorEstado[estado]
+              const columnTotal = columnVentas.reduce((sum, v) => sum + Number(v.valor_total || 0), 0)
+              return (
+                <section key={estado} className="ventas-pipeline__col">
+                  <header className="ventas-pipeline__col-head">
+                    <span
+                      className="ventas-pipeline__dot"
+                      style={{ backgroundColor: getEstadoPagoColor(estado) }}
+                    />
+                    <h3>{estado}</h3>
+                    <span className="ventas-pipeline__count">{columnVentas.length}</span>
+                    <span className="ventas-pipeline__total">${columnTotal.toLocaleString()}</span>
+                  </header>
+                  <div className="ventas-pipeline__cards">
+                    {columnVentas.map((venta) => (
+                      <button
+                        key={venta.id}
+                        type="button"
+                        className="venta-pipeline-card"
+                        onClick={() => abrirVentaModal(venta.id)}
+                      >
+                        <div className="venta-pipeline-card__top">
+                          <span className="venta-pipeline-card__client">{venta.cliente_nombre}</span>
+                          <span className="venta-pipeline-card__amount">
+                            ${Number(venta.valor_total || 0).toLocaleString()}
                           </span>
                         </div>
-                      ) : null}
-                    </>
+                        <span className="venta-pipeline-card__num">{venta.numero_venta}</span>
+                        <div className="venta-pipeline-card__meta">
+                          <span>{formatArgentinaDate(venta.fecha_venta)}</span>
+                          {venta.numero_op ? <span className="venta-pipeline-card__op">{venta.numero_op}</span> : null}
+                        </div>
+                        {venta.cliente_empresa ? (
+                          <span className="venta-pipeline-card__empresa">{venta.cliente_empresa}</span>
+                        ) : null}
+                      </button>
+                    ))}
+                    {columnVentas.length === 0 ? (
+                      <p className="ventas-pipeline__empty">Sin ventas</p>
+                    ) : null}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+
+          {ventaModal ? (
+            <div
+              className="modal-overlay venta-detail-modal-overlay"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) cerrarVentaModal()
+              }}
+            >
+              <div
+                className={`modal-content venta-detail-modal${dropdownDocumentosAbierto === ventaModal.id ? ' venta-card--menu-open' : ''}`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="venta-detail-title"
+              >
+                <div className="modal-header">
+                  <div>
+                    <h2 id="venta-detail-title">{ventaModal.cliente_nombre}</h2>
+                    <p className="venta-detail-modal__sub">
+                      {ventaModal.numero_venta}
+                      {ventaModal.cliente_empresa ? ` · ${ventaModal.cliente_empresa}` : ''}
+                    </p>
+                  </div>
+                  <button type="button" className="modal-close" onClick={cerrarVentaModal} aria-label="Cerrar">
+                    ✕
+                  </button>
+                </div>
+
+                <div className="modal-body venta-detail-modal__body">
+                  <div className="venta-detail-modal__badges">
+                    <span
+                      className="estado-badge estado-badge--sm"
+                      style={{ backgroundColor: getEstadoPagoColor(ventaModal.estado_pago) }}
+                    >
+                      {ventaModal.estado_pago}
+                    </span>
+                    {ventaModal.metodo_pago ? (
+                      <span className="venta-detail-modal__chip">{ventaModal.metodo_pago}</span>
+                    ) : null}
+                  </div>
+
+                  <div className="venta-compact-summary venta-compact-summary--modal">
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">OP</span>
+                      <span className="venta-compact-v">{ventaModal.numero_op || 'Sin OP'}</span>
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Total</span>
+                      <span className="venta-compact-v">
+                        ${Number(ventaModal.valor_total || 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Fecha</span>
+                      <span className="venta-compact-v">{formatArgentinaDate(ventaModal.fecha_venta)}</span>
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Vendedor</span>
+                      <span className="venta-compact-v">{ventaModal.nombre_vendedor}</span>
+                    </div>
+                    {ventaModal.cliente_telefono ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Tel</span>
+                        <span className="venta-compact-v">{ventaModal.cliente_telefono}</span>
+                      </div>
+                    ) : null}
+                    {ventaModal.cliente_email ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Email</span>
+                        <span className="venta-compact-v">{ventaModal.cliente_email}</span>
+                      </div>
+                    ) : null}
+                    {ventaModal.cliente_dni_cuit ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">DNI/CUIT</span>
+                        <span className="venta-compact-v">{ventaModal.cliente_dni_cuit}</span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {ventaModal.items && ventaModal.items.length > 0 ? (
+                    <div className="items-section">
+                      <strong>Items ({ventaModal.items.length}):</strong>
+                      {ventaModal.items.map((item) => (
+                        <div key={item.id} className="item-venta">
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '4px'
+                            }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <strong>{item.cantidad}x</strong> {item.descripcion}
+                              {item.codigo_articulo ? (
+                                <span
+                                  style={{
+                                    color: 'var(--text-secondary)',
+                                    fontSize: '0.75rem',
+                                    marginLeft: '8px'
+                                  }}
+                                >
+                                  ({item.codigo_articulo})
+                                </span>
+                              ) : null}
+                            </div>
+                            <div style={{ fontWeight: 600, color: '#10b981', marginLeft: '12px' }}>
+                              ${item.precio_total.toLocaleString()}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontSize: '0.75rem',
+                              color: 'var(--text-secondary)'
+                            }}
+                          >
+                            <span>Precio unitario: ${item.precio_unitario.toLocaleString()}</span>
+                            {item.descuento && item.descuento > 0 ? (
+                              <span style={{ color: '#f59e0b' }}>
+                                Descuento: ${item.descuento.toLocaleString()}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {ventaModal.observaciones ? (
+                    <div
+                      className="items-section"
+                      style={{
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        borderColor: 'rgba(139, 92, 246, 0.2)'
+                      }}
+                    >
+                      <strong>Observaciones:</strong>
+                      <p
+                        style={{
+                          margin: '8px 0 0 0',
+                          fontSize: '0.85rem',
+                          color: 'var(--text-primary)',
+                          lineHeight: '1.5'
+                        }}
+                      >
+                        {ventaModal.observaciones}
+                      </p>
+                    </div>
                   ) : null}
                 </div>
 
-                {ventaExpandidaId === venta.id && venta.items && venta.items.length > 0 && (
-                  <div className="items-section">
-                    <strong>Items ({venta.items.length}):</strong>
-                    {venta.items.map((item) => (
-                      <div key={item.id} className="item-venta">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <div style={{ flex: 1 }}>
-                            <strong>{item.cantidad}x</strong> {item.descripcion}
-                            {item.codigo_articulo && (
-                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginLeft: '8px' }}>
-                                ({item.codigo_articulo})
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontWeight: 600, color: '#10b981', marginLeft: '12px' }}>
-                            ${item.precio_total.toLocaleString()}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                          <span>Precio unitario: ${item.precio_unitario.toLocaleString()}</span>
-                          {item.descuento && item.descuento > 0 && (
-                            <span style={{ color: '#f59e0b' }}>Descuento: ${item.descuento.toLocaleString()}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {ventaExpandidaId === venta.id && venta.observaciones && (
-                  <div className="items-section" style={{ background: 'rgba(139, 92, 246, 0.1)', borderColor: 'rgba(139, 92, 246, 0.2)' }}>
-                    <strong>Observaciones:</strong>
-                    <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
-                      {venta.observaciones}
-                    </p>
-                  </div>
-                )}
-
-                <div className="card-actions">
-                  <button
-                    className="btn-action"
-                    onClick={() => toggleVentaExpandida(venta.id)}
-                    title="Ampliar/contraer ficha"
-                  >
-                    {ventaExpandidaId === venta.id ? '🔽 Cerrar' : '🔎 Ampliar'}
-                  </button>
-                  {ventaTieneOp(venta) ? (
+                <div className="modal-footer venta-detail-modal__footer card-actions">
+                  {ventaTieneOp(ventaModal) ? (
                     <button
+                      type="button"
                       className="btn-action"
                       onClick={() =>
-                        navigate(
-                          venta.id_op ? `/op/${venta.id_op}` : `/op/${venta.numero_op}`
-                        )
+                        navigate(ventaModal.id_op ? `/op/${ventaModal.id_op}` : `/op/${ventaModal.numero_op}`)
                       }
                     >
                       👁️ Ver OP
                     </button>
                   ) : (
                     <button
+                      type="button"
                       className="btn-action btn-primary"
-                      onClick={() => handleConvertirVentaAOP(venta)}
-                      title={
-                        venta.id_pedido_cliente
-                          ? 'Crea OP desde el pedido web (brief, mockup, venta vinculada)'
-                          : undefined
-                      }
+                      onClick={() => handleConvertirVentaAOP(ventaModal)}
                     >
-                      {venta.id_pedido_cliente ? '📋 Pedido → OP' : '📋 Convertir a OP'}
+                      {ventaModal.id_pedido_cliente ? '📋 Pedido → OP' : '📋 Convertir a OP'}
                     </button>
                   )}
-                  <button
-                    className="btn-action"
-                    onClick={() => handleEditarVenta(venta)}
-                  >
+                  <button type="button" className="btn-action" onClick={() => handleEditarVenta(ventaModal)}>
                     ✏️ Editar
                   </button>
                   <div className="export-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
-                    <button 
+                    <button
+                      type="button"
                       className="btn-action"
                       onClick={(e) => {
                         e.stopPropagation()
                         setDropdownDocumentosAbierto(
-                          dropdownDocumentosAbierto === venta.id ? null : venta.id
+                          dropdownDocumentosAbierto === ventaModal.id ? null : ventaModal.id
                         )
                       }}
                     >
-                      📄 Documentos {dropdownDocumentosAbierto === venta.id ? '▴' : '▾'}
+                      📄 Documentos {dropdownDocumentosAbierto === ventaModal.id ? '▴' : '▾'}
                     </button>
-                    {dropdownDocumentosAbierto === venta.id && (
-                      <div 
+                    {dropdownDocumentosAbierto === ventaModal.id ? (
+                      <div
                         className="export-menu export-menu-visible export-menu--anchored-up"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="export-menu-header">Documentos</div>
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => {
-                            generarPagarePDF(venta)
+                            generarPagarePDF(ventaModal)
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
                           🧾 Generar Pagaré
                         </button>
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => {
-                            generarFacturaRemitoPDF(venta, 'remito')
+                            generarFacturaRemitoPDF(ventaModal, 'remito')
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
                           📦 Generar Remito
                         </button>
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => {
-                            generarFacturaRemitoPDF(venta, 'factura')
+                            generarFacturaRemitoPDF(ventaModal, 'factura')
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
                           🧾 Generar Factura
                         </button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                   <button
                     type="button"
                     className="btn-action"
                     title="Re-sincronizar con Control de Cajas"
-                    disabled={resyncVentaId === venta.id}
-                    onClick={() => void handleResyncCajaVenta(venta)}
+                    disabled={resyncVentaId === ventaModal.id}
+                    onClick={() => void handleResyncCajaVenta(ventaModal)}
                   >
-                    {resyncVentaId === venta.id ? '↻…' : '↻ Caja'}
+                    {resyncVentaId === ventaModal.id ? '↻…' : '↻ Caja'}
                   </button>
                   <select
                     className="venta-estado-select"
-                    value={venta.metodo_pago || 'Otro'}
+                    value={ventaModal.metodo_pago || 'Otro'}
                     onChange={(e) =>
                       actualizarMetodoPagoVenta(
-                        venta,
+                        ventaModal,
                         e.target.value as
                           | 'Efectivo'
                           | 'Transferencia'
@@ -2671,7 +2781,6 @@ const CRMVentasPage = () => {
                           | 'Otro'
                       )
                     }
-                    title="Método de pago (actualiza caja si la venta está cobrada)"
                   >
                     <option value="Efectivo">💵 Efectivo</option>
                     <option value="Tarjeta">💳 Tarjeta</option>
@@ -2682,8 +2791,8 @@ const CRMVentasPage = () => {
                   </select>
                   <select
                     className="venta-estado-select"
-                    value={venta.estado_pago}
-                    onChange={(e) => actualizarEstadoPagoVenta(venta, e.target.value as any)}
+                    value={ventaModal.estado_pago}
+                    onChange={(e) => actualizarEstadoPagoVenta(ventaModal, e.target.value as any)}
                   >
                     <option value="Pendiente">💳 Pendiente</option>
                     <option value="Parcial">💳 Parcial</option>
@@ -2692,8 +2801,8 @@ const CRMVentasPage = () => {
                   </select>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : null}
 
           {ventasFiltradas.length === 0 && (
             <div className="empty-state">

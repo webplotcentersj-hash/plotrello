@@ -1,7 +1,10 @@
 .crm-ventas-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  padding: 32px;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(59, 130, 246, 0.18), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(139, 92, 246, 0.14), transparent 50%),
+    linear-gradient(160deg, #0b1220 0%, #0f172a 45%, #111827 100%);
+  padding: 20px 24px 32px;
 }
 
 .crm-refresh-banner {
@@ -61,12 +64,55 @@
 }
 
 .crm-header {
-  margin-bottom: 32px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-  padding: 32px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  margin-bottom: 20px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.72) 0%, rgba(15, 23, 42, 0.88) 100%);
+  padding: 18px 20px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+}
+
+.crm-header__hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.crm-header__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.crm-header__icon {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.28) 0%, rgba(139, 92, 246, 0.22) 100%);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+}
+
+.crm-header__meta {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: rgba(203, 213, 225, 0.72);
+  letter-spacing: 0.01em;
+}
+
+.crm-insights {
+  margin-bottom: 20px;
 }
 
 .header-content {
@@ -80,29 +126,31 @@
 
 .crm-header h1 {
   margin: 0;
-  font-size: 2.5rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  background: linear-gradient(120deg, #f8fafc 0%, #93c5fd 45%, #c4b5fd 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 2px 20px rgba(59, 130, 246, 0.3);
 }
 
 .header-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .btn-primary,
 .btn-secondary {
-  padding: 12px 24px;
-  border-radius: 12px;
+  padding: 9px 14px;
+  border-radius: 10px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
   border: none;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -134,6 +182,44 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
+}
+
+.metricas-grid--strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  grid-template-columns: unset;
+}
+
+.metricas-grid--strip .metrica-card {
+  flex: 0 0 auto;
+  min-width: 168px;
+  max-width: 210px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  gap: 10px;
+}
+
+.metricas-grid--strip .metrica-icon {
+  width: 38px;
+  height: 38px;
+  font-size: 1.15rem;
+  border-radius: 10px;
+}
+
+.metricas-grid--strip .metrica-content h3 {
+  font-size: 0.68rem;
+  margin-bottom: 4px;
+}
+
+.metricas-grid--strip .metrica-valor {
+  font-size: 1.05rem;
+}
+
+.metricas-grid--strip .metrica-subtitle {
+  font-size: 0.68rem;
 }
 
 .metrica-card {
@@ -841,7 +927,225 @@
 }
 
 .crm-section {
-  margin-top: 32px;
+  margin-top: 20px;
+}
+
+/* Pipeline ventas */
+.ventas-pipeline {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  align-items: flex-start;
+  scrollbar-width: thin;
+}
+
+.ventas-pipeline__col {
+  flex: 0 0 min(272px, 82vw);
+  min-width: 236px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+  padding: 10px;
+  max-height: min(72vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.ventas-pipeline__col-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 8px;
+  align-items: center;
+  padding: 4px 6px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  margin-bottom: 8px;
+}
+
+.ventas-pipeline__col-head h3 {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+}
+
+.ventas-pipeline__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  grid-row: span 2;
+}
+
+.ventas-pipeline__count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  justify-self: end;
+}
+
+.ventas-pipeline__total {
+  grid-column: 2 / -1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #86efac;
+}
+
+.ventas-pipeline__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 2px;
+  flex: 1;
+  min-height: 0;
+}
+
+.ventas-pipeline__empty {
+  margin: 0;
+  padding: 16px 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.venta-pipeline-card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 11px;
+  padding: 10px 11px;
+  background: linear-gradient(160deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.7) 100%);
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.venta-pipeline-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.45);
+}
+
+.venta-pipeline-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.venta-pipeline-card__client {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.venta-pipeline-card__amount {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #6ee7b7;
+  white-space: nowrap;
+}
+
+.venta-pipeline-card__num {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.venta-pipeline-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.68rem;
+  color: #cbd5e1;
+}
+
+.venta-pipeline-card__op {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  color: #bfdbfe;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.venta-pipeline-card__empresa {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.66rem;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.estado-badge--sm {
+  padding: 5px 10px;
+  font-size: 0.68rem;
+}
+
+.venta-detail-modal {
+  max-width: min(760px, 96vw);
+}
+
+.venta-detail-modal__sub {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: rgba(203, 213, 225, 0.75);
+}
+
+.venta-detail-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.venta-detail-modal__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.venta-detail-modal__chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+}
+
+.venta-compact-summary--modal {
+  margin: 0;
+}
+
+.venta-detail-modal__footer {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.venta-detail-modal-overlay {
+  z-index: 1200;
 }
 
 /* Modals */
@@ -980,12 +1284,29 @@
 /* Responsive */
 @media (max-width: 768px) {
   .crm-ventas-page {
-    padding: 16px;
+    padding: 12px;
   }
 
   .oportunidades-grid,
   .ventas-grid {
     grid-template-columns: 1fr;
+  }
+
+  .crm-header {
+    padding: 14px;
+  }
+
+  .crm-header__hero {
+    flex-direction: column;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .header-actions .btn-primary,
+  .header-actions .btn-secondary {
+    flex: 1 1 auto;
   }
 
   .form-row {
@@ -998,13 +1319,5 @@
 
   .filtro-group {
     width: 100%;
-  }
-
-  .crm-header {
-    padding: 20px;
-  }
-
-  .crm-header h1 {
-    font-size: 1.75rem;
   }
 }

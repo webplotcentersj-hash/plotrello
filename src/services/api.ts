@@ -12803,10 +12803,18 @@ class ApiService {
   /**
    * Obtener todos los clientes (con y sin acceso web)
    */
-  async getClientes(todos?: boolean): Promise<ApiResponse<ClienteRecord[]>> {
+  async getClientes(
+    todos?: boolean,
+    options?: { limit?: number }
+  ): Promise<ApiResponse<ClienteRecord[]>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      let query = supabase.from('clientes').select('*').order('nombre', { ascending: true })
+      const limite = Math.min(Math.max(options?.limit ?? 2500, 1), 5000)
+      let query = supabase
+        .from('clientes')
+        .select('*')
+        .order('nombre', { ascending: true })
+        .limit(limite)
       if (!todos) {
         query = query.eq('es_cliente_web', true)
       }
@@ -12815,6 +12823,24 @@ class ApiService {
       return { success: true, data: (data as ClienteRecord[]) ?? [] }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al listar clientes' }
+    }
+  }
+
+  /** Clientes sin acceso al portal (solo ficha). */
+  async getClientesSinPortal(options?: { limit?: number }): Promise<ApiResponse<ClienteRecord[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const limite = Math.min(Math.max(options?.limit ?? 2500, 1), 5000)
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('es_cliente_web', false)
+        .order('nombre', { ascending: true })
+        .limit(limite)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as ClienteRecord[]) ?? [] }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar clientes sin portal' }
     }
   }
 

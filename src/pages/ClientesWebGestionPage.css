@@ -333,6 +333,24 @@
   border-color: rgba(251, 146, 60, 0.55);
 }
 
+.cwg-pill--ver-todos {
+  margin-left: 6px;
+  color: #fff7ed;
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.85), rgba(251, 146, 60, 0.75));
+  border-color: rgba(251, 146, 60, 0.65);
+}
+
+.cwg-pill--ver-todos:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(253, 186, 116, 0.8);
+  filter: brightness(1.06);
+}
+
+.cwg-pill--ver-todos:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .cwg-search {
   flex: 1;
   min-width: 180px;

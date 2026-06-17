@@ -4,6 +4,7 @@ import AdminProtectedRoute from './components/AdminProtectedRoute'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminReports from './pages/AdminReports'
 import AdminDeletedOpsPage from './pages/AdminDeletedOpsPage'
+import './pages/AdminDashboard.css'
 import { useAuth } from '../hooks/useAuth'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import type {

@@ -9,6 +9,7 @@ type FiltroAcceso = 'todos' | 'con_acceso' | 'sin_acceso'
 
 const MIN_BUSQUEDA = 1
 const LIMITE_BUSQUEDA = 100
+const LIMITE_LISTA = 2500
 
 const ClientesWebGestionPage = () => {
   const navigate = useNavigate()
@@ -20,6 +21,7 @@ const ClientesWebGestionPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedTerm, setDebouncedTerm] = useState('')
   const [filtroAcceso, setFiltroAcceso] = useState<FiltroAcceso>('todos')
+  const [listaCompletaCargada, setListaCompletaCargada] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [crearConAcceso, setCrearConAcceso] = useState(true)
   const [editingCliente, setEditingCliente] = useState<ClienteRecord | null>(null)
@@ -65,9 +67,43 @@ const ClientesWebGestionPage = () => {
   const cargarListaPortal = useCallback(async () => {
     setBuscando(true)
     try {
-      const response = await apiService.getClientes(false)
+      const response = await apiService.getClientes(false, { limit: LIMITE_LISTA })
       if (response.success && response.data) setClientes(response.data)
       else setClientes([])
+    } catch {
+      setClientes([])
+    } finally {
+      setBuscando(false)
+    }
+  }, [])
+
+  const cargarListaSinPortal = useCallback(async () => {
+    setBuscando(true)
+    try {
+      const response = await apiService.getClientesSinPortal({ limit: LIMITE_LISTA })
+      if (response.success && response.data) {
+        setClientes(response.data)
+        setListaCompletaCargada(true)
+      } else {
+        setClientes([])
+      }
+    } catch {
+      setClientes([])
+    } finally {
+      setBuscando(false)
+    }
+  }, [])
+
+  const cargarListaTodos = useCallback(async () => {
+    setBuscando(true)
+    try {
+      const response = await apiService.getClientes(true, { limit: LIMITE_LISTA })
+      if (response.success && response.data) {
+        setClientes(response.data)
+        setListaCompletaCargada(true)
+      } else {
+        setClientes([])
+      }
     } catch {
       setClientes([])
     } finally {
@@ -80,10 +116,22 @@ const ClientesWebGestionPage = () => {
       await ejecutarBusqueda(debouncedTerm)
     } else if (filtroAcceso === 'con_acceso') {
       await cargarListaPortal()
+    } else if (listaCompletaCargada && filtroAcceso === 'sin_acceso') {
+      await cargarListaSinPortal()
+    } else if (listaCompletaCargada && filtroAcceso === 'todos') {
+      await cargarListaTodos()
     } else {
       setClientes([])
     }
-  }, [debouncedTerm, filtroAcceso, ejecutarBusqueda, cargarListaPortal])
+  }, [
+    debouncedTerm,
+    filtroAcceso,
+    listaCompletaCargada,
+    ejecutarBusqueda,
+    cargarListaPortal,
+    cargarListaSinPortal,
+    cargarListaTodos
+  ])
 
   useEffect(() => {
     if (authLoading) return
@@ -117,9 +165,39 @@ const ClientesWebGestionPage = () => {
       return
     }
 
+    if (listaCompletaCargada && filtroAcceso === 'sin_acceso') {
+      void cargarListaSinPortal()
+      return
+    }
+
+    if (listaCompletaCargada && filtroAcceso === 'todos') {
+      void cargarListaTodos()
+      return
+    }
+
     setClientes([])
     setBuscando(false)
-  }, [debouncedTerm, filtroAcceso, loadingStats, ejecutarBusqueda, cargarListaPortal])
+  }, [
+    debouncedTerm,
+    filtroAcceso,
+    listaCompletaCargada,
+    loadingStats,
+    ejecutarBusqueda,
+    cargarListaPortal,
+    cargarListaSinPortal,
+    cargarListaTodos
+  ])
+
+  const cambiarFiltro = (f: FiltroAcceso) => {
+    setFiltroAcceso(f)
+    setListaCompletaCargada(false)
+    if (f !== 'con_acceso') setClientes([])
+  }
+
+  const handleVerTodos = () => {
+    if (filtroAcceso === 'sin_acceso') void cargarListaSinPortal()
+    else if (filtroAcceso === 'todos') void cargarListaTodos()
+  }
 
   const handleCreate = async (e?: React.FormEvent) => {
     if (e) {
@@ -287,7 +365,12 @@ const ClientesWebGestionPage = () => {
   }
 
   const buscandoActivo = debouncedTerm.length >= MIN_BUSQUEDA
-  const puedeListarSinBuscar = filtroAcceso === 'con_acceso'
+  const puedeListarSinBuscar =
+    filtroAcceso === 'con_acceso' || (listaCompletaCargada && filtroAcceso !== 'con_acceso')
+  const mostrarVerTodos =
+    !buscandoActivo && (filtroAcceso === 'sin_acceso' || filtroAcceso === 'todos') && !listaCompletaCargada
+  const etiquetaVerTodos =
+    filtroAcceso === 'sin_acceso' ? `Ver todos (${stats.sinPortal})` : `Ver todos (${stats.total})`
 
   const filteredClientes = useMemo(() => {
     return clientes
@@ -390,24 +473,34 @@ const ClientesWebGestionPage = () => {
             <button
               type="button"
               className={`cwg-pill${filtroAcceso === 'todos' ? ' cwg-pill--active' : ''}`}
-              onClick={() => setFiltroAcceso('todos')}
+              onClick={() => cambiarFiltro('todos')}
             >
               Todos
             </button>
             <button
               type="button"
               className={`cwg-pill${filtroAcceso === 'con_acceso' ? ' cwg-pill--active' : ''}`}
-              onClick={() => setFiltroAcceso('con_acceso')}
+              onClick={() => cambiarFiltro('con_acceso')}
             >
               Portal ({stats.conPortal})
             </button>
             <button
               type="button"
               className={`cwg-pill${filtroAcceso === 'sin_acceso' ? ' cwg-pill--active' : ''}`}
-              onClick={() => setFiltroAcceso('sin_acceso')}
+              onClick={() => cambiarFiltro('sin_acceso')}
             >
               Sin portal ({stats.sinPortal})
             </button>
+            {mostrarVerTodos && (
+              <button
+                type="button"
+                className="cwg-pill cwg-pill--ver-todos"
+                onClick={handleVerTodos}
+                disabled={buscando}
+              >
+                {buscando ? 'Cargando…' : etiquetaVerTodos}
+              </button>
+            )}
           </div>
           {(buscandoActivo || puedeListarSinBuscar) && (
             <span className="cwg-meta">
@@ -458,8 +551,12 @@ const ClientesWebGestionPage = () => {
                       : buscandoActivo
                         ? 'No hay clientes con ese criterio'
                         : puedeListarSinBuscar
-                          ? 'No hay clientes con acceso al portal'
-                          : 'Escribí en el buscador para ver clientes (hay más de 1000 fichas)'}
+                          ? filtroAcceso === 'con_acceso'
+                            ? 'No hay clientes con acceso al portal'
+                            : 'No hay clientes en esta lista'
+                          : filtroAcceso === 'sin_acceso' || filtroAcceso === 'todos'
+                            ? 'Usá «Ver todos» o el buscador para listar clientes'
+                            : 'Escribí en el buscador para ver clientes'}
                   </td>
                 </tr>
               ) : (

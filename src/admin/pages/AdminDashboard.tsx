@@ -403,7 +403,7 @@ export default function AdminDashboard({
 
   return (
     <div className="admin-dashboard">
-      {/* Header Mobile-First */}
+      {/* Header ejecutivo (desktop por defecto; compacto en móvil) */}
       <header className="admin-header">
         <div className="admin-header-content">
           <div className="admin-header-left">
@@ -414,6 +414,12 @@ export default function AdminDashboard({
             </p>
           </div>
           <div className="admin-header-right">
+            {usuario && (
+              <div className="admin-user-info" title="Sesión activa">
+                <span>👤 {usuario.nombre}</span>
+                <span className="admin-user-role">{usuario.rol}</span>
+              </div>
+            )}
             {isInstallable && (
               <button
                 className="admin-btn admin-btn-install"
@@ -479,12 +485,6 @@ export default function AdminDashboard({
             </button>
           </div>
         </div>
-        {usuario && (
-          <div className="admin-user-info">
-            <span>👤 {usuario.nombre}</span>
-            <span className="admin-user-role">{usuario.rol}</span>
-          </div>
-        )}
       </header>
 
       {ttsError && (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import SolicitudPermisoModal from './SolicitudPermisoModal'
@@ -43,6 +44,7 @@ const SolicitudesPermisosFloatingButton = () => {
   return (
     <>
       <button
+        type="button"
         className="solicitudes-floating-button"
         onClick={() => setShowModal(true)}
         title="Solicitar Permisos / Turnos / Vacaciones / Ropa"
@@ -53,15 +55,18 @@ const SolicitudesPermisosFloatingButton = () => {
         )}
       </button>
 
-      {showModal && (
-        <SolicitudPermisoModal
-          onClose={() => {
-            setShowModal(false)
-            loadPendientesCount()
-          }}
-          onSolicitudCreada={loadPendientesCount}
-        />
-      )}
+      {showModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <SolicitudPermisoModal
+            onClose={() => {
+              setShowModal(false)
+              loadPendientesCount()
+            }}
+            onSolicitudCreada={loadPendientesCount}
+          />,
+          document.body
+        )}
     </>
   )
 }

@@ -2,16 +2,13 @@
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
   bottom: max(20px, env(safe-area-inset-bottom));
-  z-index: 10060;
+  z-index: 100100;
   display: flex;
   flex-direction: column-reverse;
   align-items: flex-end;
   gap: 12px;
-  pointer-events: none;
-}
-
-.staff-floating-dock > * {
   pointer-events: auto;
+  isolation: isolate;
 }
 
 .staff-floating-dock__impresoras {
@@ -28,6 +25,7 @@
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  touch-action: manipulation;
 }
 
 .staff-floating-dock__impresoras:hover {
@@ -36,9 +34,7 @@
 }
 
 .staff-floating-dock .solicitudes-floating-button {
-  position: static !important;
-  bottom: auto !important;
-  right: auto !important;
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {

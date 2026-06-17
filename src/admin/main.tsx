@@ -2,6 +2,8 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from '../components/ErrorBoundary'
+import PwaRefreshGate from '../components/PwaRefreshGate'
+import { PwaUpdateProvider } from '../contexts/PwaUpdateContext'
 import { AuthProvider } from '../hooks/useAuth'
 import '../style.css'
 
@@ -32,7 +34,11 @@ try {
     <React.StrictMode>
       <ErrorBoundary>
         <AuthProvider>
-          <App />
+          <PwaUpdateProvider>
+            <PwaRefreshGate>
+              <App />
+            </PwaRefreshGate>
+          </PwaUpdateProvider>
         </AuthProvider>
       </ErrorBoundary>
     </React.StrictMode>
