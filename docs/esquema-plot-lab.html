@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Plot Lab — Esquema completo del sistema</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root { --accent: #c2410c; --accent-light: #fff7ed; --border: #cbd5e1; --muted: #475569; --text: #0f172a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "DM Sans", system-ui, sans-serif; background: #e2e8f0; color: var(--text); font-size: 12.5px; line-height: 1.55; }
+    @page { size: A4 portrait; margin: 12mm; }
+    @media print {
+      body { background: #fff; }
+      .sheet { box-shadow: none !important; page-break-after: always; break-after: page; }
+      .sheet:last-child { page-break-after: auto; }
+      .no-print { display: none !important; }
+      .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+    }
+    .toolbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 12px; align-items: center; justify-content: center; padding: 10px; background: #fff; border-bottom: 1px solid var(--border); }
+    .toolbar button { font: inherit; font-weight: 700; padding: 8px 16px; border-radius: 8px; border: none; background: var(--accent); color: #fff; cursor: pointer; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 16px 14px 40px; }
+    .sheet { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 24px 28px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .cover { text-align: center; padding: 40px 20px; border-top: 5px solid var(--accent); }
+    .cover .badge { display: inline-block; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+    .cover h1 { margin: 10px 0; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; }
+    .cover .subtitle { color: var(--muted); font-size: 0.95rem; max-width: 560px; margin: 0 auto 16px; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .pill { font-size: 0.7rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+    h2 { margin: 0 0 12px; font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    h2 .num { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; font-size: 0.8rem; background: var(--accent-light); color: var(--accent); border: 2px solid var(--accent); flex-shrink: 0; }
+    h4 { margin: 0 0 6px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .funcs-title { margin: 14px 0 8px; }
+    .problema { background: #fef3c7; border-left: 4px solid #d97706; padding: 10px 14px; margin-bottom: 10px; border-radius: 0 6px 6px 0; }
+    .problema-label { display: block; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #92400e; margin-bottom: 4px; }
+    .problema p { margin: 0; color: #334155; font-size: 0.9rem; }
+    .block { margin-bottom: 10px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); }
+    .block.como { background: #f8fafc; }
+    .block.quien { background: #f0fdf4; border-color: #bbf7d0; }
+    .block.flujo { background: #eff6ff; border-color: #bfdbfe; }
+    .block p { margin: 0; color: #334155; font-size: 0.88rem; }
+    .block ol { margin: 4px 0 0; padding-left: 18px; }
+    .block li { margin-bottom: 3px; font-size: 0.85rem; color: #334155; }
+    .module-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 640px) { .module-grid { grid-template-columns: 1fr; } }
+    .module-card { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: #fafafa; }
+    .module-card strong { display: block; font-size: 0.8rem; color: var(--text); margin-bottom: 2px; }
+    .card-desc { font-size: 0.76rem; color: var(--muted); }
+    .card-detalle { margin: 4px 0 0; font-size: 0.72rem; color: #64748b; line-height: 1.4; }
+    .diagram-wrap { margin: 10px 0; padding: 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; }
+    .diagram-svg { width: 100%; height: auto; display: block; }
+    .toc { margin: 0; padding-left: 18px; columns: 2; column-gap: 24px; }
+    .toc li { margin-bottom: 4px; break-inside: avoid; }
+    .toc a { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.82rem; }
+    .roles-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+    .roles-table th, .roles-table td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+    .roles-table th { background: var(--accent-light); font-weight: 700; }
+    footer.note { margin-top: 14px; text-align: center; font-size: 0.7rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <span style="color:var(--muted)">Plot Lab — Esquema completo del sistema</span>
+  </div>
+  <div class="wrap">
+    <section class="sheet cover">
+      <span class="badge">Plot Center · Documentación</span>
+      <h1>Plot Lab<br/>Esquema completo del sistema</h1>
+      <p class="subtitle">Guía exhaustiva de módulos, herramientas, flujos y el problema de negocio que resuelve cada parte del ecosistema Plot Center.</p>
+      <div class="meta-row">
+        <span class="pill">plotrello.vercel.app</span>
+        <span class="pill">Supabase + Vercel</span>
+        <span class="pill">Junio 2026</span>
+        <span class="pill">24 módulos documentados</span>
+      </div>
+    </section>
+
+    <section class="sheet">
+      <h2><span class="num">§</span> Índice</h2>
+      <ol class="toc"><li><a href="#arquitectura">1. Arquitectura y entradas de la aplicación</a></li><li><a href="#auth">2. Autenticación, sesiones y enrutamiento</a></li><li><a href="#tablero">3. Tablero Kanban y órdenes de producción (OP)</a></li><li><a href="#insights">4. Herramientas rápidas del tablero (Insights Tools)</a></li><li><a href="#plotai">5. PlotAI — asistente inteligente</a></li><li><a href="#estadisticas">6. Estadísticas, calendario y Gantt</a></li><li><a href="#workpool">7. Work Pool — Plot Design y Bolsa Plot</a></li><li><a href="#asesor">8. Asesor técnico y presupuestos (No OP)</a></li><li><a href="#mostrador">9. Mostrador, entregas y CRM ventas</a></li><li><a href="#cuenta-corriente">9A. Cuenta corriente (mostrador) — módulo completo</a></li><li><a href="#caja">10. Control de cajas y tesorería operativa</a></li><li><a href="#compras">11. Compras, stock y proveedores</a></li><li><a href="#diseno">12. Diseño gráfico interno</a></li><li><a href="#produccion">13. Sectores productivos</a></li><li><a href="#rrhh">14. Recursos Humanos</a></li><li><a href="#clientes">15. Portal y administración clientes web</a></li><li><a href="#erp">16. ERP — contabilidad y facturación AFIP</a></li><li><a href="#publico">17. Tótem y autoservicio en local</a></li><li><a href="#atencion">18. Atención al público, reclamos y satisfacción</a></li><li><a href="#comunicacion">19. Chat, notificaciones e integraciones</a></li><li><a href="#documentacion">20. Libro de actas, protocolos y flota</a></li><li><a href="#herramientas">21. Herramientas Plot Center (externas)</a></li><li><a href="#admin-tecnico">22. Administración técnica, backup y APIs</a></li><li><a href="#datos">23. Modelo de datos e integraciones</a></li></ol>
+    </section>
+
+    <section class="sheet" id="roles">
+      <h2><span class="num">R</span> Roles y permisos</h2>
+      <div class="problema avoid-break">
+        <span class="problema-label">Problema que resuelve</span>
+        <p>Cada empleado debe ver únicamente las pantallas de su función. Un cajero no necesita ERP; un operario externo no debe acceder al tablero de OPs ni a datos de otros clientes. Los permisos mal configurados generan fugas de información y errores operativos.</p>
+      </div>
+      <div class="block como avoid-break">
+        <h4>Cómo funciona</h4>
+        <p>El rol del usuario (tabla usuarios) determina flags en useAuth: isAdmin, canManageCaja, canManageWorkPool, etc. headerQuickNav y el menú del tablero muestran solo accesos permitidos. sectorPermissions filtra qué columnas del kanban ve cada sector.</p>
+      </div>
+      <table class="roles-table avoid-break">
+        <thead><tr><th>Rol</th><th>Destino principal</th><th>Acceso destacado</th></tr></thead>
+        <tbody><tr><td>administracion / gerencia</td><td>Tablero, ERP, usuarios</td><td>Visión global, Work Pool admin, estadísticas, backup</td></tr><tr><td>mostrador</td><td>/mostrador</td><td>Entregas, ventas rápidas, cuenta corriente, CRM, consulta cliente</td></tr><tr><td>caja</td><td>/caja/dashboard</td><td>Arqueos, egresos, planillas medios de pago, pase de caja, conciliación MP</td></tr><tr><td>compras</td><td>/compras</td><td>Pedidos proveedor, stock, conciliación bancaria, mis-pedidos internos</td></tr><tr><td>diseno</td><td>/diseno</td><td>Briefs, galería, Plot Design, publicar jobs en bolsa</td></tr><tr><td>taller-grafico</td><td>/taller-grafico/dashboard</td><td>Kanban taller, inventario, overlay pedido listo</td></tr><tr><td>imprenta</td><td>/impresoras</td><td>Cola impresoras, totem impresión, etapas imprenta en OP</td></tr><tr><td>instalaciones</td><td>/app-campo</td><td>Obra en campo, Bolsa Plot, historial etapas instalaciones</td></tr><tr><td>metalurgica</td><td>/metalurgica/inventario</td><td>Inventario piezas, Bolsa Plot metalúrgica</td></tr><tr><td>recursos-humanos</td><td>/rrhh</td><td>Legajos, postulaciones IA, permisos, reloj biométrico, capacitaciones</td></tr><tr><td>asesor-tecnico / presupuestos</td><td>/asesor-presupuestos</td><td>Kanban No OP: DT → Presupuestos → Finalizado</td></tr><tr><td>operario-diseno</td><td>/operario-externo/diseno</td><td>Panel aislado: jobs asignados, mensajes, sin OP</td></tr><tr><td>operario-bolsa</td><td>/operario-externo/bolsa</td><td>Idem para instalaciones/metalúrgica externa</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="sheet" id="arquitectura">
+    <h2><span class="num">1</span> Arquitectura y entradas de la aplicación</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Plot Center combina producción gráfica, instalaciones, metalúrgica, ventas, diseño y administración. Sin una plataforma única, cada área trabajaría con Excel, WhatsApp y sistemas aislados: se pierde trazabilidad de la OP desde el pedido hasta la factura, y el cliente recibe respuestas contradictorias según a quién pregunte.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>Plot Lab es una SPA React desplegada en Vercel que se conecta a Supabase (PostgreSQL, Storage, Realtime, RPC). Tiene tres puntos de entrada HTML independientes (Vite multi-entry): la app principal para staff y módulos, admin.html para métricas administrativas, y tablet-firma.html para firmas en mostrador. Las rutas públicas, el portal cliente y el operario externo viven en el mismo dominio pero con guards de autenticación distintos.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Todo el personal interno, clientes web, operarios externos y visitantes del local (tótem).</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>Usuario abre plotrello.vercel.app → React Router resuelve la ruta.</li><li>Si requiere login staff → JWT vía /api/auth/staff-login y tabla usuarios.</li><li>Páginas consumen api.ts → Supabase RPC/REST + APIs Vercel para IA y tareas sensibles.</li><li>Realtime actualiza tablero y notificaciones entre dispositivos conectados.</li></ol></div>
+    <div class="diagram-wrap avoid-break"><svg viewBox="0 0 560 220" xmlns="http://www.w3.org/2000/svg" class="diagram-svg">
+    <text x="280" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#111">ENTRADAS Y CAPAS</text>
+    <rect x="20" y="35" width="100" height="40" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="1.5"/>
+    <text x="70" y="58" text-anchor="middle" font-size="9" fill="#111">index.html</text>
+    <rect x="140" y="35" width="90" height="40" rx="6" fill="#f8fafc" stroke="#334155"/>
+    <text x="185" y="58" text-anchor="middle" font-size="9" fill="#111">admin.html</text>
+    <rect x="250" y="35" width="100" height="40" rx="6" fill="#f8fafc" stroke="#334155"/>
+    <text x="300" y="58" text-anchor="middle" font-size="8" fill="#111">tablet-firma</text>
+    <rect x="370" y="35" width="170" height="40" rx="6" fill="#fff7ed" stroke="#eb671b" stroke-width="2"/>
+    <text x="455" y="58" text-anchor="middle" font-size="9" font-weight="600" fill="#111">React Router</text>
+    <rect x="30" y="100" width="115" height="44" rx="5" fill="#eff6ff" stroke="#2563eb"/><text x="87" y="120" text-anchor="middle" font-size="8" fill="#111">Staff / Tablero</text><text x="87" y="134" text-anchor="middle" font-size="7" fill="#666">ERP · Mostrador</text>
+    <rect x="160" y="100" width="115" height="44" rx="5" fill="#f0fdf4" stroke="#16a34a"/><text x="217" y="120" text-anchor="middle" font-size="8" fill="#111">Operario ext.</text><text x="217" y="134" text-anchor="middle" font-size="7" fill="#666">/operario-externo</text>
+    <rect x="290" y="100" width="115" height="44" rx="5" fill="#f5f3ff" stroke="#7c3aed"/><text x="347" y="120" text-anchor="middle" font-size="8" fill="#111">Cliente web</text><text x="347" y="134" text-anchor="middle" font-size="7" fill="#666">/cliente/*</text>
+    <rect x="420" y="100" width="115" height="44" rx="5" fill="#ecfeff" stroke="#0891b2"/><text x="477" y="120" text-anchor="middle" font-size="8" fill="#111">Público</text><text x="477" y="134" text-anchor="middle" font-size="7" fill="#666">Tótem · Brief</text>
+    <line x1="280" y1="75" x2="280" y2="95" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="130" y="165" width="300" height="40" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+    <text x="280" y="182" text-anchor="middle" font-size="9" font-weight="600" fill="#111">Supabase + APIs Vercel (/api/*)</text>
+    <text x="280" y="196" text-anchor="middle" font-size="7" fill="#666">PostgreSQL · Storage · Realtime · PlotAI · Auth</text>
+  </svg></div>
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>index.html → App principal</strong>
+        <span class="card-desc">Tablero, ERP, mostrador, RRHH, compras, diseño, flota.</span>
+        <p class="card-detalle">Bundle principal con cientos de rutas bajo StaffAppHost.</p>
+      </div><div class="module-card avoid-break">
+        <strong>admin.html</strong>
+        <span class="card-desc">Dashboard y reportes admin en app separada.</span>
+        <p class="card-detalle">Rutas / y /reportes — métricas globales sin cargar el tablero.</p>
+      </div><div class="module-card avoid-break">
+        <strong>tablet-firma.html</strong>
+        <span class="card-desc">Tablet en mostrador solo para firmas.</span>
+        <p class="card-detalle">Lista entregas → pantalla firma táctil, desacoplada del tablero.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Supabase</strong>
+        <span class="card-desc">BD única: OPs, pedidos, ERP, work_pool, RRHH.</span>
+        <p class="card-detalle">Auth custom con RPC login_usuario; opcional segundo proyecto para stock.</p>
+      </div><div class="module-card avoid-break">
+        <strong>APIs Vercel /api/*</strong>
+        <span class="card-desc">PlotAI, RRHH CV, auth JWT, telegram, backup.</span>
+        <p class="card-detalle">Lógica sensible y claves API nunca en el navegador.</p>
+      </div><div class="module-card avoid-break">
+        <strong>PWA</strong>
+        <span class="card-desc">Instalable en móvil para campo y mostrador.</span>
+        <p class="card-detalle">vite-plugin-pwa — acceso rápido sin buscar URL.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="auth">
+    <h2><span class="num">2</span> Autenticación, sesiones y enrutamiento</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Mezclar sesiones de empleado, cliente web y operario externo en una sola cookie genera fugas de información: un freelancer no debe ver el tablero de OPs ni datos de otros clientes. Tampoco puede un visitante anónimo acceder a compras o ERP.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>El staff inicia sesión en /login; staffAuthApi valida contra Supabase y opcionalmente emite JWT (staff-session). useAuth expone rol y flags (canManageCaja, canManageWorkPool, etc.). Los roles operario-diseno y operario-bolsa son interceptados por OperarioExternoStaffShell antes de montar StaffAppHost, redirigiendo a /operario-externo/*. Los clientes usan ClienteProtectedRoute con sesión aparte en /cliente/login.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Todos los usuarios identificados; guards automáticos según rol.</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>Login staff → guardar token → navigate según operarioExternoHomeRoute() o /.</li><li>Catch-all /* → OperarioExternoStaffShell → si externo, panel; si no, StaffAppHost.</li><li>Cliente → ClientePortalRoutes con redirect a login si no hay sesión.</li><li>Público → rutas sin guard (brief con token, tótem, reclamos).</li></ol></div>
+    <div class="diagram-wrap avoid-break"><svg viewBox="0 0 520 170" xmlns="http://www.w3.org/2000/svg" class="diagram-svg">
+    <rect x="20" y="30" width="90" height="36" rx="5" fill="#fff" stroke="#333"/><text x="65" y="52" text-anchor="middle" font-size="9" fill="#111">/login</text>
+    <line x1="110" y1="48" x2="140" y2="48" stroke="#666"/><polygon points="135,43 145,48 135,53" fill="#666"/>
+    <rect x="145" y="30" width="100" height="36" rx="5" fill="#fff7ed" stroke="#eb671b"/><text x="195" y="52" text-anchor="middle" font-size="9" fill="#111">Validar rol</text>
+    <line x1="195" y1="66" x2="100" y2="105" stroke="#16a34a"/><text x="120" y="88" font-size="8" fill="#16a34a">operario-*</text>
+    <rect x="40" y="105" width="120" height="32" rx="4" fill="#f0fdf4" stroke="#16a34a"/><text x="100" y="125" text-anchor="middle" font-size="8" fill="#111">/operario-externo/*</text>
+    <line x1="245" y1="66" x2="245" y2="105" stroke="#eb671b"/><text x="255" y="88" font-size="8" fill="#eb671b">staff</text>
+    <rect x="185" y="105" width="120" height="32" rx="4" fill="#fff7ed" stroke="#eb671b"/><text x="245" y="125" text-anchor="middle" font-size="8" fill="#111">Tablero + módulos</text>
+    <line x1="245" y1="48" x2="360" y2="48" stroke="#7c3aed"/><text x="300" y="42" font-size="8" fill="#7c3aed">cliente</text>
+    <rect x="365" y="30" width="130" height="36" rx="5" fill="#f5f3ff" stroke="#7c3aed"/><text x="430" y="52" text-anchor="middle" font-size="9" fill="#111">/cliente/login</text>
+    <rect x="185" y="145" width="150" height="22" rx="4" fill="#f8fafc" stroke="#94a3b8"/><text x="260" y="160" text-anchor="middle" font-size="7" fill="#555">Anónimo → tótem, brief, reclamos</text>
+  </svg></div>
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/login</strong>
+        <span class="card-desc">Formulario usuario/contraseña staff.</span>
+        <p class="card-detalle">flushSync + navigate al panel externo si aplica.</p>
+      </div><div class="module-card avoid-break">
+        <strong>useAuth / AuthProvider</strong>
+        <span class="card-desc">Estado global de usuario y permisos.</span>
+        <p class="card-detalle">isAdmin, canManageWorkPool, isOperarioExterno*, etc.</p>
+      </div><div class="module-card avoid-break">
+        <strong>OperarioExternoGate</strong>
+        <span class="card-desc">Bloquea rutas admin de bolsa a externos.</span>
+        <p class="card-detalle">Dentro de StaffAppHost para capa extra.</p>
+      </div><div class="module-card avoid-break">
+        <strong>OperarioExternoStaffShell</strong>
+        <span class="card-desc">Evita que externo vea tablero Plot Lab.</span>
+        <p class="card-detalle">Crítico: sin esto caían en / tras login.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/login</strong>
+        <span class="card-desc">Auth clientes web (email/password).</span>
+        <p class="card-detalle">Tabla clientes_web separada de usuarios staff.</p>
+      </div><div class="module-card avoid-break">
+        <strong>staff-jwt-status</strong>
+        <span class="card-desc">API verifica validez sesión JWT.</span>
+        <p class="card-detalle">Renovación y logout seguro.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="tablero">
+    <h2><span class="num">3</span> Tablero Kanban y órdenes de producción (OP)</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Una imprenta con múltiples sectores (diseño, taller, imprenta, instalación) necesita saber en tiempo real qué OP está en qué etapa, quién la tiene y cuándo prometió entregar. Las planillas no escalan, no avisan retrasos y no vinculan materiales, cliente y historial en un solo lugar.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>BoardPage muestra columnas Kanban con drag-and-drop (@hello-pangea/dnd). Cada tarjeta (Task) representa una OP o ficha; TaskEditModal es la ficha completa con sectores, materiales, subtareas, tiempo de trabajo y revisiones. El modo espejo replica la misma OP en el kanban de cada sector involucrado. Filtros, biblioteca de tareas y atajos de teclado aceleran la operación diaria.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Producción, gerencia, administración, y sectores con permiso en sectorPermissions.</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>Crear OP (TaskCreateModal) o desde pedido web / brief.</li><li>Mover entre columnas → actualiza estado y dispara activity feed.</li><li>Sector completa etapa → historial por sector (taller, imprenta, etc.).</li><li>Marcar entregada → visible en mostrador órdenes listas.</li><li>QR impreso → cliente consulta en tótem o /op-public.</li></ol></div>
+    <div class="diagram-wrap avoid-break"><svg viewBox="0 0 540 130" xmlns="http://www.w3.org/2000/svg" class="diagram-svg">
+    <text x="10" y="16" font-size="9" font-weight="600" fill="#444">CICLO DE VIDA OP EN TABLERO</text>
+    <rect x="10" y="28" width="95" height="70" rx="4" fill="#fef9c3" stroke="#ca8a04"/><text x="57" y="55" text-anchor="middle" font-size="8" fill="#111">Nueva OP</text><text x="57" y="68" text-anchor="middle" font-size="7" fill="#666">Create modal</text>
+    <rect x="115" y="28" width="95" height="70" rx="4" fill="#dbeafe" stroke="#2563eb"/><text x="162" y="55" text-anchor="middle" font-size="8" fill="#111">Sectores</text><text x="162" y="68" text-anchor="middle" font-size="7" fill="#666">Modo espejo</text>
+    <rect x="220" y="28" width="95" height="70" rx="4" fill="#e0e7ff" stroke="#4f46e5"/><text x="267" y="55" text-anchor="middle" font-size="8" fill="#111">Producción</text><text x="267" y="68" text-anchor="middle" font-size="7" fill="#666">Etapas</text>
+    <rect x="325" y="28" width="95" height="70" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="372" y="55" text-anchor="middle" font-size="8" fill="#111">Lista</text><text x="372" y="68" text-anchor="middle" font-size="7" fill="#666">Mostrador</text>
+    <rect x="430" y="28" width="100" height="70" rx="4" fill="#f3f4f6" stroke="#6b7280"/><text x="480" y="55" text-anchor="middle" font-size="8" fill="#111">Entregada</text><text x="480" y="68" text-anchor="middle" font-size="7" fill="#666">Firma</text>
+    <line x1="105" y1="63" x2="115" y2="63" stroke="#999"/><line x1="210" y1="63" x2="220" y2="63" stroke="#999"/><line x1="315" y1="63" x2="325" y2="63" stroke="#999"/><line x1="420" y1="63" x2="430" y2="63" stroke="#999"/>
+    <text x="10" y="115" font-size="8" fill="#666">PlotAI · QR · Biblioteca · Sprint optimizer · Alertas vencimiento</text>
+  </svg></div>
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/</strong>
+        <span class="card-desc">Tablero principal Kanban.</span>
+        <p class="card-detalle">ActivityFeed, FiltersBar, StatsPanel, WeatherWidget, ClockWidget.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/op/:opNumber</strong>
+        <span class="card-desc">Vista detalle OP enlazable.</span>
+        <p class="card-detalle">OpViewPage — lectura rápida sin modal.</p>
+      </div><div class="module-card avoid-break">
+        <strong>TaskEditModal / TaskViewModal</strong>
+        <span class="card-desc">Edición y vista completa de ficha.</span>
+        <p class="card-detalle">Materiales, cliente, fechas, responsables, adjuntos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Modo espejo (espejo sectores)</strong>
+        <span class="card-desc">OP multi-sector sincronizada.</span>
+        <p class="card-detalle">handleEspejoSectoresOpSynced — misma OP en varios kanbans.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/kanban-etapas/:slug</strong>
+        <span class="card-desc">Kanban filtrado por etapa.</span>
+        <p class="card-detalle">SectorEtapaKanbanPage para foco en una cola.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Biblioteca de tareas</strong>
+        <span class="card-desc">TaskLibraryModal — plantillas reutilizables.</span>
+        <p class="card-detalle">Acelera OPs repetitivas (cartelería, vinilos estándar).</p>
+      </div><div class="module-card avoid-break">
+        <strong>Subtareas y tiempo</strong>
+        <span class="card-desc">Subtasks, TiempoTrabajoSection.</span>
+        <p class="card-detalle">Desglose interno y registro horas por OP.</p>
+      </div><div class="module-card avoid-break">
+        <strong>RevisionesSection</strong>
+        <span class="card-desc">Control de calidad por revisión.</span>
+        <p class="card-detalle">Trazabilidad de quién aprobó arte o muestra.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Alertas vencimiento</strong>
+        <span class="card-desc">alertas_vencimiento en BD.</span>
+        <p class="card-detalle">AdminAlertButton avisa OPs próximas a vencer.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/op-eliminadas</strong>
+        <span class="card-desc">Auditoría OPs borradas.</span>
+        <p class="card-detalle">Recuperación y control — solo admin.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Export PDF/Excel</strong>
+        <span class="card-desc">exportUtils, fichas-activas-pdf API.</span>
+        <p class="card-detalle">Reportes offline del estado del tablero.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="insights">
+    <h2><span class="num">4</span> Herramientas rápidas del tablero (Insights Tools)</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>El operador del tablero no puede abandonar la ficha cada vez que necesita chatear, pedir un permiso o ver si la impresora está libre. Interrumpir el flujo genera errores al mover OPs y olvidos en solicitudes al equipo.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>InsightsToolsMenu es un menú flotante (⋯) en BoardPage con acceso a Chat interno, PlotAI, impresoras y permisos. ChatFloatingButton muestra badge de no leídos. StaffFloatingDock en móvil repite impresoras + SolicitudesPermisosFloatingButton. Todo sin cambiar de ruta.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Cualquier usuario logueado en el tablero; impresoras según rol.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>PlotAI (toggle)</strong>
+        <span class="card-desc">Abre PlotAIChat overlay contextual.</span>
+        <p class="card-detalle">Conoce tasks, activity, teamMembers; crea tareas.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Chat interno</strong>
+        <span class="card-desc">Canales y menciones entre staff.</span>
+        <p class="card-detalle">/chat página completa; preview en floating.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Impresoras</strong>
+        <span class="card-desc">Navigate a /impresoras.</span>
+        <p class="card-detalle">Ocupación y cola en tiempo real.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Permisos / turnos</strong>
+        <span class="card-desc">SolicitudPermisoModal.</span>
+        <p class="card-detalle">Vacaciones, cambio turno — badge pendientes RRHH.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Solicitar productos</strong>
+        <span class="card-desc">SolicitarProductosModal desde header.</span>
+        <p class="card-detalle">Pedido interno de insumos a compras.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Sprint Optimizer</strong>
+        <span class="card-desc">SprintOptimizerModal + PlotAI.</span>
+        <p class="card-detalle">Sugerencias de reordenar carga del sprint.</p>
+      </div><div class="module-card avoid-break">
+        <strong>QR ficha OP</strong>
+        <span class="card-desc">QRPrintView al imprimir.</span>
+        <p class="card-detalle">Cliente escanea → consulta estado sin molestar mostrador.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="plotai">
+    <h2><span class="num">5</span> PlotAI — asistente inteligente</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Buscar datos en fichas, redactar briefs, interpretar PDFs escaneados o calcular riesgos del sprint consume horas. El equipo necesita respuestas en lenguaje natural con contexto real del negocio, no un chat genérico.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>PlotAIChat usa plotAIContextService para inyectar OPs, tareas, equipo y memoria (plotAIMemoryService). Las APIs Vercel (/api/plotai/*) llaman a Gemini y ElevenLabs. Soporta voz, adjuntos, generación de imagen/video, y acciones como crear tareas. En tótem y web pública usa chat-public sin contexto staff.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Staff en tablero; clientes en tótem, embed y portal; RRHH para CVs y asistencia.</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>Usuario abre PlotAI → se arma prompt con formatCompleteContextForPrompt().</li><li>Mensaje + adjuntos → /api/plotai/generate-content o chat-public.</li><li>Opcional: TTS, live-voice, generate-image/video.</li><li>Memoria local guarda patrones para futuras conversaciones.</li></ol></div>
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>PlotAIChat</strong>
+        <span class="card-desc">UI principal en tablero.</span>
+        <p class="card-detalle">Panel lateral inteligencia + stream de mensajes.</p>
+      </div><div class="module-card avoid-break">
+        <strong>plotAIKanbanContext</strong>
+        <span class="card-desc">Busca OPs mencionadas en el chat.</span>
+        <p class="card-detalle">extractOpTokensFromUserMessage → fichas relevantes.</p>
+      </div><div class="module-card avoid-break">
+        <strong>plotAIManualService</strong>
+        <span class="card-desc">Manual interno searchable.</span>
+        <p class="card-detalle">PlotAI responde según procedimientos documentados.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Sprint predict/report</strong>
+        <span class="card-desc">APIs sprint-predict, sprint-report.</span>
+        <p class="card-detalle">Análisis de velocidad y riesgo de entregas.</p>
+      </div><div class="module-card avoid-break">
+        <strong>brief-completo</strong>
+        <span class="card-desc">Completa campos de brief con IA.</span>
+        <p class="card-detalle">Cliente escribe poco; IA estructura el pedido de diseño.</p>
+      </div><div class="module-card avoid-break">
+        <strong>pedido-especificacion</strong>
+        <span class="card-desc">Cliente describe pedido en texto libre.</span>
+        <p class="card-detalle">Genera ítems de pedido web automáticamente.</p>
+      </div><div class="module-card avoid-break">
+        <strong>asistencia-reloj</strong>
+        <span class="card-desc">Informe tardanzas/ausencias.</span>
+        <p class="card-detalle">Tras importar Excel del reloj biométrico.</p>
+      </div><div class="module-card avoid-break">
+        <strong>filter-postulaciones / extract-cv</strong>
+        <span class="card-desc">RRHH filtra CVs con IA.</span>
+        <p class="card-detalle">Metadata y scoring de candidatos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Caja PlotAI</strong>
+        <span class="card-desc">CajaMiniPlotAI en módulo caja.</span>
+        <p class="card-detalle">Consultas sobre arqueos y movimientos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Totem / embed</strong>
+        <span class="card-desc">chat-public, chat-widget.</span>
+        <p class="card-detalle">PlotAI en plotcenter.com.ar y pantalla local.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="estadisticas">
+    <h2><span class="num">6</span> Estadísticas, calendario y Gantt</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>El tablero muestra el presente pero gerencia necesita tendencias: cuántas OPs se retrasan, carga por sector, distribución en el tiempo. Sin vistas analíticas las decisiones de capacidad y contratación son a ciegas.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>StatisticsPage agrega métricas del tablero con Recharts (agentInsights, stats utils). CalendarPage superpone entregas y eventos. GanttPage muestra línea temporal de OPs. dashboard-pantallas adapta métricas para TVs en planta.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Gerencia, administración, jefes de sector.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/statistics</strong>
+        <span class="card-desc">Dashboard analítico producción.</span>
+        <p class="card-detalle">Gráficos por sector, estado, responsable.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/calendario</strong>
+        <span class="card-desc">Vista calendario de tareas.</span>
+        <p class="card-detalle">Fechas prometidas y hitos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/gantt</strong>
+        <span class="card-desc">Diagrama Gantt.</span>
+        <p class="card-detalle">Solapamientos y duración de OPs.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/dashboard-pantallas</strong>
+        <span class="card-desc">Modo TV / señalética.</span>
+        <p class="card-detalle">Métricas en pantallas del taller o recepción.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Sprint snapshots</strong>
+        <span class="card-desc">plotAiRecordSprintSnapshot.</span>
+        <p class="card-detalle">Histórico para predicción PlotAI.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="workpool">
+    <h2><span class="num">7</span> Work Pool — Plot Design y Bolsa Plot</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Picos de diseño gráfico, instalaciones en obra y trabajos metalúrgicos exceden al plantel fijo. Sin bolsa de trabajos no hay forma ordenada de publicar excedente, postular operarios externos, asignar con trazabilidad y comunicarse sin exponer datos internos de la OP.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>WorkPoolAdminPanel en /plot-design y /bolsa-plot gestiona jobs (work_pool_jobs). WorkPoolFuentesEntrada trae candidatos desde tablero (OPs en cola del sector), briefs pendientes y pedidos portal sin OP. Al publicar un job, se asigna a operario interno o externo. El externo solo ve maskJobForOperarioExterno (sin numero_op). Postulaciones pasan por work_pool_solicitudes → RRHH aprueba → usuario operario-bolsa/diseno.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Admin/diseño/instalaciones publican; operarios internos y externos ejecutan.</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>Admin abre fuentes → selecciona OP, brief o pedido web.</li><li>Publica job con rubro, plazo, monto.</li><li>Asigna operario (perfil work_pool_profiles).</li><li>Operario externo ve job en /operario-externo → mensajes por pedido.</li><li>Admin cierra job → historial en bolsa.</li></ol></div>
+    <div class="diagram-wrap avoid-break"><svg viewBox="0 0 540 150" xmlns="http://www.w3.org/2000/svg" class="diagram-svg">
+    <text x="10" y="16" font-size="9" font-weight="600" fill="#444">WORK POOL — TRES CAPAS</text>
+    <rect x="10" y="28" width="150" height="36" rx="5" fill="#fff7ed" stroke="#eb671b"/><text x="85" y="50" text-anchor="middle" font-size="8" fill="#111">Admin /plot-design /bolsa-plot</text>
+    <rect x="10" y="72" width="150" height="32" rx="5" fill="#e0e7ff" stroke="#4f46e5"/><text x="85" y="92" text-anchor="middle" font-size="8" fill="#111">Staff diseño / campo</text>
+    <rect x="10" y="112" width="150" height="32" rx="5" fill="#f0fdf4" stroke="#16a34a"/><text x="85" y="132" text-anchor="middle" font-size="8" fill="#111">Operario externo aislado</text>
+    <rect x="200" y="50" width="130" height="50" rx="5" fill="#f8fafc" stroke="#64748b"/><text x="265" y="72" text-anchor="middle" font-size="8" fill="#111">Fuentes</text><text x="265" y="86" text-anchor="middle" font-size="7" fill="#666">Tablero · Brief · Pedido</text>
+    <rect x="360" y="50" width="80" height="50" rx="5" fill="#fef3c7" stroke="#d97706"/><text x="400" y="78" text-anchor="middle" font-size="8" fill="#111">Job</text>
+    <rect x="460" y="50" width="70" height="50" rx="5" fill="#dcfce7" stroke="#16a34a"/><text x="495" y="78" text-anchor="middle" font-size="8" fill="#111">Asignado</text>
+    <line x1="160" y1="46" x2="200" y2="75" stroke="#999"/><line x1="330" y1="75" x2="360" y2="75" stroke="#999"/><line x1="440" y1="75" x2="460" y2="75" stroke="#999"/>
+  </svg></div>
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/plot-design</strong>
+        <span class="card-desc">Admin bolsa diseño gráfico.</span>
+        <p class="card-detalle">WorkPoolModule product=plot-design.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/bolsa-plot</strong>
+        <span class="card-desc">Admin bolsa instalaciones/metalúrgica.</span>
+        <p class="card-detalle">Mismo módulo, sector distinto.</p>
+      </div><div class="module-card avoid-break">
+        <strong>WorkPoolFuentesEntrada</strong>
+        <span class="card-desc">Tablero + briefs + pedidos portal.</span>
+        <p class="card-detalle">Tres pestañas de origen de trabajo.</p>
+      </div><div class="module-card avoid-break">
+        <strong>WorkPoolSolicitudesPanel</strong>
+        <span class="card-desc">Aprueba/rechaza postulantes.</span>
+        <p class="card-detalle">RPC work_pool_aprobar_solicitud.</p>
+      </div><div class="module-card avoid-break">
+        <strong>WorkPoolOperarioDashboard</strong>
+        <span class="card-desc">Panel externo: Entrantes, Mensajes, Cuenta.</span>
+        <p class="card-detalle">Modal atractivo con foto, stats, trabajos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/operario-bolsa/solicitud</strong>
+        <span class="card-desc">Formulario postulación pública.</span>
+        <p class="card-detalle">Post-envío: panel si ya es operario, si no login.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/postulacion-operarios</strong>
+        <span class="card-desc">Landing postulación operarios.</span>
+        <p class="card-detalle">Alternativa pública al formulario bolsa.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Recomendaciones operario</strong>
+        <span class="card-desc">workPoolOperarioRecommendations.</span>
+        <p class="card-detalle">Sugiere mejor operario según skills/zona.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="asesor">
+    <h2><span class="num">8</span> Asesor técnico y presupuestos (No OP)</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Antes de existir una OP hay consultas técnicas, mediciones y presupuestos que no encajan en el kanban de producción. Mezclarlos con OPs activas satura el tablero y confunde al taller con trabajos que aún no se confirmaron.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>AsesorPresupuestosPage es un kanban dedicado con columnas Asesor Técnico → Presupuestos → Finalizado (asesorPresupuestosColumns). FichaNoOPModal gestiona fichas sin número OP. AgendaAsesorTecnico y CitaModal coordinan visitas y mediciones en terreno.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Asesor técnico, presupuestos, administración.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/asesor-presupuestos</strong>
+        <span class="card-desc">Kanban No OP.</span>
+        <p class="card-detalle">Skill Cursor: fichas, filtros, sync tasks.</p>
+      </div><div class="module-card avoid-break">
+        <strong>AgendaAsesorTecnico</strong>
+        <span class="card-desc">Calendario citas técnicas.</span>
+        <p class="card-detalle">Vinculado a fichas en columna DT.</p>
+      </div><div class="module-card avoid-break">
+        <strong>CrearPresupuestoModal</strong>
+        <span class="card-desc">Alta presupuesto desde ficha.</span>
+        <p class="card-detalle">Puente hacia venta u OP futura.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Vía Pública (externo)</strong>
+        <span class="card-desc">vp-zeta-eight.vercel.app.</span>
+        <p class="card-detalle">Señalética urbana — enlace header admin/presupuestos.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="mostrador">
+    <h2><span class="num">9</span> Mostrador, entregas y CRM ventas</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>El mostrador es el punto de contacto físico: retiros, pagos, consultas y ventas espontáneas. Sin sistema, el vendedor interrumpe al taller, no registra entregas legalmente y pierde oportunidades de venta y seguimiento comercial.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>MostradorDashboardPage centraliza OPs del día. OrdenesListasPage filtra listas para avisar clientes (notify-orden-lista API). EntregaPage guía el proceso con firma (o redirige a tablet-firma). VentaRapidaModal y CRMVentasPage registran ventas y oportunidades. Cuenta corriente consolida deuda por cliente.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Mostrador, caja (cobros vinculados), gerencia comercial.</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>OP pasa a “lista” en tablero → aparece en órdenes listas.</li><li>Cliente llega → buscar cliente / escanear QR.</li><li>EntregaPage → firma tablet o /firma-cliente/:op.</li><li>Opcional: venta adicional o carga a cuenta corriente.</li><li>Mensajería envía comprobante con token verificación.</li></ol></div>
+    <div class="diagram-wrap avoid-break"><svg viewBox="0 0 520 100" xmlns="http://www.w3.org/2000/svg" class="diagram-svg">
+    <rect x="10" y="30" width="90" height="40" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="55" y="55" text-anchor="middle" font-size="8" fill="#111">OP lista</text>
+    <line x1="100" y1="50" x2="125" y2="50" stroke="#666"/><polygon points="120,45 130,50 120,55" fill="#666"/>
+    <rect x="135" y="30" width="90" height="40" rx="4" fill="#fff7ed" stroke="#eb671b"/><text x="180" y="55" text-anchor="middle" font-size="8" fill="#111">Mostrador</text>
+    <line x1="225" y1="50" x2="250" y2="50" stroke="#666"/><polygon points="245,45 255,50 245,55" fill="#666"/>
+    <rect x="260" y="30" width="90" height="40" rx="4" fill="#dbeafe" stroke="#2563eb"/><text x="305" y="50" text-anchor="middle" font-size="8" fill="#111">Entrega +</text><text x="305" y="62" text-anchor="middle" font-size="7" fill="#666">firma tablet</text>
+    <line x1="350" y1="50" x2="375" y2="50" stroke="#666"/><polygon points="370,45 380,50 370,55" fill="#666"/>
+    <rect x="385" y="30" width="125" height="40" rx="4" fill="#f5f3ff" stroke="#7c3aed"/><text x="447" y="50" text-anchor="middle" font-size="8" fill="#111">Comprobante +</text>    <text x="447" y="62" text-anchor="middle" font-size="7" fill="#666">satisfacción</text>
+  </svg></div>
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/mostrador</strong>
+        <span class="card-desc">Dashboard mostrador.</span>
+        <p class="card-detalle">Vista operativa del día.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/ordenes-listas</strong>
+        <span class="card-desc">Cola de retiros.</span>
+        <p class="card-detalle">Integración notificación orden lista.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/entrega/:id</strong>
+        <span class="card-desc">Flujo entrega completo.</span>
+        <p class="card-detalle">RegistroSalidaModal, comprobante.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/buscar-cliente</strong>
+        <span class="card-desc">BuscadorClientesModal persistente.</span>
+        <p class="card-detalle">Historial OPs y datos cliente.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/ventas</strong>
+        <span class="card-desc">Venta rápida y registro.</span>
+        <p class="card-detalle">VentaRapidaModal desde tablero también.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/crm-ventas</strong>
+        <span class="card-desc">Pipeline oportunidades.</span>
+        <p class="card-detalle">oportunidades_venta, presupuestos_ventas.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/cuenta-corriente</strong>
+        <span class="card-desc">Saldos y movimientos.</span>
+        <p class="card-detalle">Perfil por cliente /cliente/:id.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/clientes-frecuentes</strong>
+        <span class="card-desc">CRM ligero clientes habituales.</span>
+        <p class="card-detalle">Agiliza atención repetitiva.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/reportes</strong>
+        <span class="card-desc">Reportes operación mostrador.</span>
+        <p class="card-detalle">Export PDF/Excel vía crmExportUtils.</p>
+      </div><div class="module-card avoid-break">
+        <strong>tablet-firma.html</strong>
+        <span class="card-desc">App dedicada firma táctil.</span>
+        <p class="card-detalle">TabletFirmaSelectPage → TabletFirmaPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/firma-cliente/:op</strong>
+        <span class="card-desc">Firma desde móvil del cliente.</span>
+        <p class="card-detalle">Link enviado por mail/WhatsApp.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="cuenta-corriente">
+    <h2><span class="num">9A</span> Cuenta corriente (mostrador) — módulo completo</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Clientes corporativos y habituales compran a crédito. Sin cuenta corriente digital, la deuda vive en planillas: no hay límite de crédito, no se exige documentación para fiar, los pagos no tienen comprobante auditado y gerencia no ve la cartera total adeudada. El vendedor no sabe si el cliente está aprobado o si tiene mal scoring.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>Rutas /mostrador/cuenta-corriente (cartera) y /mostrador/cuenta-corriente/cliente/:id (perfil). Alta con CuentaCorrienteAltaForm: documentos en Storage, pagaré PDF para persona física, RPC registrar_alta_cuenta_corriente. Admin aprueba → cliente_habilitado_cuenta_corriente habilita ventas fiadas en VentaRapidaModal. Cada venta CC genera cargo en cc_cuenta_movimientos; cada pago con comprobante genera haber. Scoring 0–100 (excelente→crítico) y límite_credito alertan en venta. PDF dedicado: docs/CUENTA_CORRIENTE_PLOT_LAB.pdf.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Mostrador (altas, consultas), administración (aprobación, scoring, intereses), caja (cobros).</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>Alta con docs → pendiente → admin aprueba → scoring y límite.</li><li>VentaRapidaModal con toggle CC → validación habilitado + badge scoring.</li><li>Cargo automático en libro → perfil muestra saldo corrido.</li><li>Pago con comprobante obligatorio → haber → recalcula scoring.</li><li>Opcional: intereses devengados por mora (admin configura tasas).</li></ol></div>
+    <div class="diagram-wrap avoid-break"><svg viewBox="0 0 480 100" xmlns="http://www.w3.org/2000/svg" class="diagram-svg">
+    <text x="240" y="14" text-anchor="middle" font-size="9" font-weight="600" fill="#444">CUENTA CORRIENTE — LIBRO</text>
+    <rect x="20" y="28" width="130" height="36" rx="4" fill="#fee2e2" stroke="#dc2626"/><text x="85" y="50" text-anchor="middle" font-size="8" fill="#111">Venta CC → DEBE</text>
+    <rect x="175" y="28" width="130" height="36" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="240" y="50" text-anchor="middle" font-size="8" fill="#111">Pago → HABER</text>
+    <rect x="330" y="28" width="130" height="36" rx="4" fill="#fef3c7" stroke="#d97706"/><text x="395" y="50" text-anchor="middle" font-size="8" fill="#111">Interés → DEBE</text>
+    <text x="240" y="88" text-anchor="middle" font-size="7" fill="#666">saldo_actual en ficha · scoring tras cada movimiento</text>
+  </svg></div>
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/mostrador/cuenta-corriente</strong>
+        <span class="card-desc">Listado y dashboard cartera.</span>
+        <p class="card-detalle">KPIs deuda total, filtros, export CSV cartera.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mostrador/cuenta-corriente/cliente/:id</strong>
+        <span class="card-desc">Perfil cliente CC.</span>
+        <p class="card-detalle">Libro movimientos, ventas CC, registro pagos, intereses.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Estados ficha</strong>
+        <span class="card-desc">pendiente · aprobada · rechazada.</span>
+        <p class="card-detalle">Solo aprobada opera fiado.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Scoring</strong>
+        <span class="card-desc">calcular_scoring_cuenta_corriente.</span>
+        <p class="card-detalle">Niveles excelente→crítico; alerta en venta si riesgo.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Documentación alta</strong>
+        <span class="card-desc">AFIP, estatuto, DNI, domicilio, pagaré.</span>
+        <p class="card-detalle">Máx 8 MB por archivo en Storage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>cc_registrar_pago</strong>
+        <span class="card-desc">Pago con comprobante.</span>
+        <p class="card-detalle">Vinculación opcional a venta pendiente.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Intereses mora</strong>
+        <span class="card-desc">cc_registrar_intereses_devengados.</span>
+        <p class="card-detalle">% mensual, días gracia, proporcional 30 días.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Exports</strong>
+        <span class="card-desc">PDF estado cuenta, CSV libro/ventas.</span>
+        <p class="card-detalle">downloadEstadoCuentaPdf, downloadPerfilCsvPack.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="caja">
+    <h2><span class="num">10</span> Control de cajas y tesorería operativa</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Varios puntos de cobro (mostrador, tótem impresión) y egresos diarios requieren arqueos, planillas por medio de pago y traspasos entre cajas. En Excel no hay trazabilidad ni alertas de diferencias al cierre de turno.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>El feature control-cajas en CajaDashboardPage gestiona arqueos, movimientos, egresos, pase de caja, traspasos y planillas de medios de pago. Sincroniza ventas Plot Lab (plotlabVentaCajaSync) y egresos ERP. CajaPlotAI ayuda a consultar movimientos. Export PDF de arqueos y cierres.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Cajeros, administración, gerencia.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/caja/dashboard</strong>
+        <span class="card-desc">Router según rol admin/cajero.</span>
+        <p class="card-detalle">CajaDashboardPage con ControlCajasModule.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Arqueos</strong>
+        <span class="card-desc">CajaSectionArqueo, ArqueoDetalleModal.</span>
+        <p class="card-detalle">Conteo efectivo vs sistema.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Cierre de turno</strong>
+        <span class="card-desc">CajaSectionCierreTurno, snapshot.</span>
+        <p class="card-detalle">exportCierreTurno PDF único.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Planillas medios de pago</strong>
+        <span class="card-desc">planillaMediosPago, import Excel.</span>
+        <p class="card-detalle">Tarjetas, transferencias, MP por línea.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Pase de caja</strong>
+        <span class="card-desc">CajaSectionPaseCaja.</span>
+        <p class="card-detalle">Entrega efectivo entre turnos/cajeros.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Egresos</strong>
+        <span class="card-desc">CajaSectionEgresos + plotlabEgresosSync.</span>
+        <p class="card-detalle">Salidas vinculadas a ERP gastos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Conciliación MP en caja</strong>
+        <span class="card-desc">CajaSectionConcilMP.</span>
+        <p class="card-detalle">Cruce con MercadoPago del día.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Ventas diarias</strong>
+        <span class="card-desc">CajaSectionVentasDiarias.</span>
+        <p class="card-detalle">Panel ventas Plot Lab del turno.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Caja inteligencia</strong>
+        <span class="card-desc">CajaCentroInteligente, alertas.</span>
+        <p class="card-detalle">Detecta anomalías en cierres.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="compras">
+    <h2><span class="num">11</span> Compras, stock y proveedores</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Faltan insumos en medio de una OP crítica, los pedidos a proveedor no se centralizan y el stock real no coincide con lo que compras registró. La conciliación bancaria manual demora el cierre contable.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>ComprasDashboardPage unifica pedidos, proveedores y alertas. CrearPedidoCompraPage genera pedido con ítems y seguimiento. GestionStockPage actualiza niveles; mis-pedidos permite a cualquier sector solicitar insumos. ConciliacionBancariaPage y feature conciliacion-mp cruzan extractos con movimientos (incluye asistencia Gemini).</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Compras, gerencia, sectores que solicitan (mis-pedidos).</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/compras</strong>
+        <span class="card-desc">Dashboard y listado pedidos.</span>
+        <p class="card-detalle">PedidoCompraDetallePage con estados.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/compras/proveedores</strong>
+        <span class="card-desc">CRUD proveedores.</span>
+        <p class="card-detalle">Datos fiscales, contacto, plazos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/compras/gestion-stock</strong>
+        <span class="card-desc">Inventario materiales.</span>
+        <p class="card-detalle">Opcional Supabase stock separado.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/compras/crear-pedido</strong>
+        <span class="card-desc">Alta pedido compra.</span>
+        <p class="card-detalle">Presupuestos proveedor /compras/presupuestos/:id.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mis-pedidos</strong>
+        <span class="card-desc">Solicitudes internas staff.</span>
+        <p class="card-detalle">Desde SolicitarProductosModal en tablero.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/compras/conciliacion-bancaria</strong>
+        <span class="card-desc">Import extracto banco.</span>
+        <p class="card-detalle">Match con pagos registrados.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/compras/conciliacion-mercadopago</strong>
+        <span class="card-desc">Motor conciliacion-mp.</span>
+        <p class="card-detalle">reconciliation-engine + Gemini hints.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/compras/calendario-entregas</strong>
+        <span class="card-desc">Fechas llegada materiales.</span>
+        <p class="card-detalle">Compartido lógica con mostrador calendario.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/compras/reportes</strong>
+        <span class="card-desc">ReportesComprasPage, stock.</span>
+        <p class="card-detalle">Export y análisis de compras.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="diseno">
+    <h2><span class="num">12</span> Diseño gráfico interno</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Los briefs llegan por canales distintos (mail, WhatsApp, portal). El diseñador no tiene cola única ni repositorio de trabajos aprobados para reutilizar criterios. Se retrabaja y se pierden archivos fuente.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>DisenoDashboardPage resume carga del sector. BriefsPendientesPage lista briefs de portal y tokens públicos. Al aprobar brief, puede abrirse TaskCreateModal en tablero con brief_token. GaleriaTrabajosPage archiva referencias. BriefPublicoPage y ClienteBriefFormPage capturan requerimientos estructurados con ayuda IA.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Diseño gráfico, mostrador (genera link brief), clientes web.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/diseno</strong>
+        <span class="card-desc">Dashboard sector diseño.</span>
+        <p class="card-detalle">Acceso Plot Design admin si aplica.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/briefs-pendientes</strong>
+        <span class="card-desc">Cola briefs sin OP.</span>
+        <p class="card-detalle">Priorización y asignación.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/brief/:token</strong>
+        <span class="card-desc">Formulario público brief.</span>
+        <p class="card-detalle">BriefPublicoPage — sin login.</p>
+      </div><div class="module-card avoid-break">
+        <strong>BriefLinkSection</strong>
+        <span class="card-desc">En ficha OP — link al cliente.</span>
+        <p class="card-detalle">Cliente completa desde casa.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/galeria-trabajos</strong>
+        <span class="card-desc">Portfolio interno.</span>
+        <p class="card-detalle">Búsqueda por rubro, cliente, técnica.</p>
+      </div><div class="module-card avoid-break">
+        <strong>clienteBriefAiService</strong>
+        <span class="card-desc">IA sugiere campos de brief.</span>
+        <p class="card-detalle">Reduce ida y vuelta con cliente.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="produccion">
+    <h2><span class="num">13</span> Sectores productivos</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Taller gráfico, imprenta, metalúrgica e instalaciones tienen colas y recursos distintos (mesas de corte, plotters, soldadura, cuadrillas en obra). Un tablero genérico no refleja inventario ni ocupación de máquinas.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>Cada sector tiene dashboard o inventario propio y selectores de etapa en la ficha OP (EtapaTallerGraficoSelector, EtapaTallerImprentaSelector, etc.) con historial por sector. ImpresorasPage muestra cola en vivo. App campo (InstalacionesMetalurgicaCampoPage) optimiza móvil en obra. TallerGraficoPedidoEntregaOverlay avisa pedidos listos.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Operarios de planta, jefes de sector, imprenta.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/taller-grafico/dashboard</strong>
+        <span class="card-desc">Kanban taller gráfico.</span>
+        <p class="card-detalle">HistorialEtapasTallerGrafico en OP.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/taller-grafico/inventario</strong>
+        <span class="card-desc">Stock insumos taller.</span>
+        <p class="card-detalle">TallerGraficoInventarioPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/impresoras</strong>
+        <span class="card-desc">Estado plotters/impresoras.</span>
+        <p class="card-detalle">Totem impresión /impresoras/totem.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/metalurgica/inventario</strong>
+        <span class="card-desc">Piezas y materiales.</span>
+        <p class="card-detalle">HistorialEtapasMetalurgica.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/app-campo</strong>
+        <span class="card-desc">OPs en obra, fotos, avances.</span>
+        <p class="card-detalle">GPS/flota complementa logística.</p>
+      </div><div class="module-card avoid-break">
+        <strong>EtapaImpresionDigitalSelector</strong>
+        <span class="card-desc">Micro-etapas impresión.</span>
+        <p class="card-detalle">RIP, impresión, corte, etc.</p>
+      </div><div class="module-card avoid-break">
+        <strong>SeleccionarProductoStockModal</strong>
+        <span class="card-desc">Descuenta stock al cargar material en OP.</span>
+        <p class="card-detalle">commerceStockService.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="rrhh">
+    <h2><span class="num">14</span> Recursos Humanos</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>CVs por email, permisos por WhatsApp y asistencia en planillas del reloj biométrico no escalan. RRHH no puede filtrar candidatos rápido ni demostrar tardanzas objetivas en una discusión laboral.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>RecursosHumanosDashboardPage concentra módulos. Postulaciones integran submit-cv público, extract-cv IA y filter-postulaciones. Permisos fluyen SolicitudPermisoModal → RRHH aprueba. relojBiometricoService importa Excel, matchea empleados, calcula tardanzas y genera informe PlotAI. Capacitaciones y pruebas técnicas con /mis-pruebas para empleados.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>RRHH, gerencia, todos los empleados (permisos, menú, capacitaciones).</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/rrhh/postulaciones</strong>
+        <span class="card-desc">Pipeline candidatos.</span>
+        <p class="card-detalle">Estados: Nuevo, En revisión, Entrevista, etc.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/trabaja-con-nosotros</strong>
+        <span class="card-desc">CV público empleados.</span>
+        <p class="card-detalle">CvPublicoPage + API submit-cv.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/rrhh/permisos</strong>
+        <span class="card-desc">Gestión solicitudes.</span>
+        <p class="card-detalle">solicitudes_permisos en BD.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/rrhh/horarios</strong>
+        <span class="card-desc">Turnos y horarios fijos.</span>
+        <p class="card-detalle">Vinculación id reloj ↔ usuario.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Reloj biométrico</strong>
+        <span class="card-desc">Import 29.xls, planilla, export XLSX.</span>
+        <p class="card-detalle">RelojHistorialCalendario + informe IA.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/rrhh/capacitaciones</strong>
+        <span class="card-desc">Cursos admin; /capacitaciones empleado.</span>
+        <p class="card-detalle">Seguimiento cumplimiento.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/rrhh/evaluaciones</strong>
+        <span class="card-desc">Evaluaciones desempeño.</span>
+        <p class="card-detalle">Histórico por legajo.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/rrhh/incidencias</strong>
+        <span class="card-desc">Registro incidentes laborales.</span>
+        <p class="card-detalle">Trazabilidad RRHH.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/rrhh/desvinculaciones</strong>
+        <span class="card-desc">Proceso de baja.</span>
+        <p class="card-detalle">Checklist y documentación.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/rrhh/pruebas</strong>
+        <span class="card-desc">Pruebas técnicas contratación.</span>
+        <p class="card-detalle">/mis-pruebas para postulante interno.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/menu-diario</strong>
+        <span class="card-desc">Empleado elige plato.</span>
+        <p class="card-detalle">/rrhh/menu-diario administra menú.</p>
+      </div><div class="module-card avoid-break">
+        <strong>LegajoEmpleadoModal</strong>
+        <span class="card-desc">Datos completos empleado.</span>
+        <p class="card-detalle">Documentos, historial, sectores.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="clientes">
+    <h2><span class="num">15</span> Portal y administración clientes web</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Clientes corporativos quieren pedir online, ver estado y chatear sin llamar. Sin portal, cada pedido se reescribe en mostrador y no hay autoservicio de presupuestos ni briefs de diseño.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>ClientePortalShell envuelve rutas /cliente/*. commerceCartService maneja carrito; checkout genera pedido_cliente. Staff en /clientes-web revisa, detalla y convierte a OP (ConvertirPedidoAOpPage). Artículos y categorías definen catálogo con visibilidad por canal (COLUMNA_VISIBILIDAD_POR_CANAL).</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Clientes registrados; marketing/admin clientes web; diseño (briefs).</p></div>
+    <div class="block flujo avoid-break"><h4>Flujo típico</h4><ol><li>Cliente login → dashboard → catálogo o nuevo pedido.</li><li>Checkout / presupuesto / brief según tipo producto.</li><li>Staff notificado → revisa en clientes-web/pedidos.</li><li>Convertir a OP → aparece en tablero y puede ir a Work Pool.</li><li>Mensajes y chat por pedido.</li></ol></div>
+    <div class="diagram-wrap avoid-break"><svg viewBox="0 0 520 90" xmlns="http://www.w3.org/2000/svg" class="diagram-svg">
+    <rect x="10" y="25" width="75" height="40" rx="4" fill="#f5f3ff" stroke="#7c3aed"/><text x="47" y="50" text-anchor="middle" font-size="8" fill="#111">Cliente</text>
+    <line x1="85" y1="45" x2="115" y2="45" stroke="#666"/><polygon points="110,40 120,45 110,50" fill="#666"/>
+    <rect x="125" y="25" width="85" height="40" rx="4" fill="#fff7ed" stroke="#eb671b"/><text x="167" y="50" text-anchor="middle" font-size="8" fill="#111">Pedido web</text>
+    <line x1="210" y1="45" x2="240" y2="45" stroke="#666"/><polygon points="235,40 245,45 235,50" fill="#666"/>
+    <rect x="250" y="25" width="85" height="40" rx="4" fill="#dbeafe" stroke="#2563eb"/><text x="292" y="50" text-anchor="middle" font-size="8" fill="#111">Staff valida</text>
+    <line x1="335" y1="45" x2="365" y2="45" stroke="#666"/><polygon points="360,40 370,45 360,50" fill="#666"/>
+    <rect x="375" y="25" width="70" height="40" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="410" y="45" text-anchor="middle" font-size="8" fill="#111">OP</text><text x="410" y="58" text-anchor="middle" font-size="7" fill="#666">Tablero</text>
+    <line x1="445" y1="45" x2="465" y2="45" stroke="#666"/><rect x="470" y="25" width="45" height="40" rx="4" fill="#f0fdf4" stroke="#16a34a"/><text x="492" y="50" text-anchor="middle" font-size="7" fill="#111">Bolsa</text>
+  </svg></div>
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/cliente/dashboard</strong>
+        <span class="card-desc">Hub cliente.</span>
+        <p class="card-detalle">Accesos pedidos, mensajes, notificaciones.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/catalogo + carrito</strong>
+        <span class="card-desc">E-commerce B2B.</span>
+        <p class="card-detalle">articuloPermiteCompra, control stock.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/checkout</strong>
+        <span class="card-desc">Cierre pedido.</span>
+        <p class="card-detalle">aplicarStockDesdePedidoCliente al confirmar.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/presupuestos</strong>
+        <span class="card-desc">Cotizaciones formales.</span>
+        <p class="card-detalle">Form crear/editar presupuesto.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/disenos</strong>
+        <span class="card-desc">Briefs de diseño.</span>
+        <p class="card-detalle">ClienteBriefsPage + brief por token.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/buscar-op</strong>
+        <span class="card-desc">Seguimiento OP propia.</span>
+        <p class="card-detalle">Sin acceso a OPs de otros.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/mensajes</strong>
+        <span class="card-desc">Hilo por pedido.</span>
+        <p class="card-detalle">Comunicación async con Plot Center.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/clientes-web/pedidos/:id/convertir</strong>
+        <span class="card-desc">Staff crea OP.</span>
+        <p class="card-detalle">Puente web → producción.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/clientes-web/articulos</strong>
+        <span class="card-desc">Catálogo admin.</span>
+        <p class="card-detalle">ArticulosEmpresaPage, categorías.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/cliente/ayuda + reclamos</strong>
+        <span class="card-desc">Soporte autogestionado.</span>
+        <p class="card-detalle">Reduce carga atención telefónica.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="erp">
+    <h2><span class="num">16</span> ERP — contabilidad y facturación AFIP</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Facturar en un sistema, llevar libros en otro y pagar proveedores en planillas genera diferencias entre ventas mostrador y declaración fiscal. AFIP exige numeración, CAE y notas vinculadas con rigor.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>ERPDashboardPage resume salud financiera. FacturasPage integra AFIP (ConfiguracionAFIPPage, homologación). AsientosContablesPage registra movimientos; plan de cuentas y centros de costo alimentan reportes. Tesorería concilia bancos; impuestos calcula obligaciones. OCR extract-ticket digitaliza gastos desde foto.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Administración, contador externo, gerencia.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/erp/facturas</strong>
+        <span class="card-desc">Emisión y listado facturas.</span>
+        <p class="card-detalle">CrearFacturaPage, notas crédito/débito.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/asientos</strong>
+        <span class="card-desc">Libro diario.</span>
+        <p class="card-detalle">Asientos manuales y automáticos desde ventas.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/tesoreria</strong>
+        <span class="card-desc">Bancos y flujo de fondos.</span>
+        <p class="card-detalle">ErpCuentasBancariasPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/contabilidad</strong>
+        <span class="card-desc">Mayor y balances.</span>
+        <p class="card-detalle">ErpContabilidadReportesPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/impuestos</strong>
+        <span class="card-desc">IVA, retenciones.</span>
+        <p class="card-detalle">Calendario fiscal.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/cuentas-por-cobrar|pagar</strong>
+        <span class="card-desc">CxC / CxP.</span>
+        <p class="card-detalle">Vinculado clientes y proveedores.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/stock</strong>
+        <span class="card-desc">Stock valorizado contable.</span>
+        <p class="card-detalle">Distinto de stock operativo compras.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/crm</strong>
+        <span class="card-desc">CRM contable / clientes fiscales.</span>
+        <p class="card-detalle">ErpCrmPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/gastos</strong>
+        <span class="card-desc">Registro gastos + OCR ticket.</span>
+        <p class="card-detalle">extract-ticket API.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/costos</strong>
+        <span class="card-desc">Costeo por OP o centro.</span>
+        <p class="card-detalle">Análisis margen.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/reportes</strong>
+        <span class="card-desc">Reportes financieros consolidados.</span>
+        <p class="card-detalle">Export contador.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/erp/admin</strong>
+        <span class="card-desc">Parámetros sistema ERP.</span>
+        <p class="card-detalle">ErpAdminPage.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="publico">
+    <h2><span class="num">17</span> Tótem y autoservicio en local</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Filas en mostrador, clientes que solo quieren imprimir un PDF o consultar su OP, y visitantes que no saben a quién preguntar. El personal se distrae de tareas de valor y la experiencia es lenta.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>TotemAutogestionHomePage guía flujos: catálogo, checkout, imprimir, consulta. TotemAutogestionPlotAiChat integra PlotAI en pantalla. Subida de archivos vía QR a /totem/subir-archivo/:session. Pagos impresión pueden marcarse en caja. Pantalla /totem/pantalla para señalética.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Clientes en local; mostrador supervisa; caja cierra cobros tótem.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/totem</strong>
+        <span class="card-desc">Chat PlotAI pantalla recepción.</span>
+        <p class="card-detalle">TotemChatPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/totem/autogestion</strong>
+        <span class="card-desc">Menú self-service.</span>
+        <p class="card-detalle">Catálogo, checkout, imprimir.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/totem/consulta-cliente</strong>
+        <span class="card-desc">Estado OP por número/QR.</span>
+        <p class="card-detalle">Misma lógica que consulta pública.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/totem/subir-archivo/:session</strong>
+        <span class="card-desc">Upload desde celular.</span>
+        <p class="card-detalle">Sesión vinculada a tótem.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/totem/pantalla</strong>
+        <span class="card-desc">Modo display fullscreen.</span>
+        <p class="card-detalle">TotemPantallaPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/consulta-cliente</strong>
+        <span class="card-desc">Consulta sin login (web/local).</span>
+        <p class="card-detalle">ClienteConsultaPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/op-public/:op</strong>
+        <span class="card-desc">Seguimiento OP link compartido.</span>
+        <p class="card-detalle">OpPublicPage — datos no sensibles.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="atencion">
+    <h2><span class="num">18</span> Atención al público, reclamos y satisfacción</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Reclamos por redes sociales se pierden; no hay registro central ni medición de satisfacción post-entrega. Atención telefónica y presencial compiten sin cola ni priorización.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>AtencionPublicoDashboardPage gestiona cola y embed de chat para plotcenter.com.ar (código iframe documentado en pantalla). ReclamosPublicoPage y /cliente/reclamos capturan casos. SatisfaccionClientePublicPage envía encuesta tras entrega (API satisfaccion-entrega-informe). MensajeriaProofVerifyPage valida comprobantes.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Atención al público, mostrador, clientes.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/atencion-publico</strong>
+        <span class="card-desc">Dashboard cola y embeds.</span>
+        <p class="card-detalle">RegistrarAtencionModal.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/reclamos</strong>
+        <span class="card-desc">Formulario público reclamos.</span>
+        <p class="card-detalle">Trazabilidad y respuesta.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/satisfaccion-cliente</strong>
+        <span class="card-desc">Encuesta NPS/satisfacción.</span>
+        <p class="card-detalle">Post-entrega automatizable.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mensajeria</strong>
+        <span class="card-desc">Mensajes a clientes staff.</span>
+        <p class="card-detalle">Comprobante entrega digital.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/mensajeria/verificar/:token</strong>
+        <span class="card-desc">Cliente verifica autenticidad.</span>
+        <p class="card-detalle">MensajeriaProofVerifyPage.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/embed/chat-widget</strong>
+        <span class="card-desc">Widget web Plot Center.</span>
+        <p class="card-detalle">PlotAI busca trabajos por nombre empresa.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="comunicacion">
+    <h2><span class="num">19</span> Chat, notificaciones e integraciones</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Coordinar en grupos de WhatsApp mezcla vida personal y laboral; no queda historial vinculado a la OP ni alertas automáticas de agenda o orden lista.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>ChatPage persiste en chat_messages. NotificationsDropdown centraliza avisos. Telegram webhook envía recordatorios de agenda (cron agenda-telegram-reminders). notify-orden-lista API dispara aviso al cliente. Work pool tiene work_pool_notificar_operario para externos.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Todo el staff; clientes en mensajería; operarios externos.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/chat</strong>
+        <span class="card-desc">Chat interno persistente.</span>
+        <p class="card-detalle">Canales por equipo o tema.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Notificaciones</strong>
+        <span class="card-desc">notificaciones tabla + dropdown.</span>
+        <p class="card-detalle">Navegación directa a OP o permiso.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Telegram</strong>
+        <span class="card-desc">/api/telegram/webhook.</span>
+        <p class="card-detalle">Recordatorios citas asesor/agenda.</p>
+      </div><div class="module-card avoid-break">
+        <strong>notify-orden-lista</strong>
+        <span class="card-desc">Aviso automático cliente.</span>
+        <p class="card-detalle">Cuando OP pasa a lista en mostrador.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Realtime Supabase</strong>
+        <span class="card-desc">Sync tablero multiusuario.</span>
+        <p class="card-detalle">Varios operadores mismas columnas.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="documentacion">
+    <h2><span class="num">20</span> Libro de actas, protocolos y flota</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Actas de reunión en PDF sueltos y vehículos de instalación sin ubicación dificultan coordinar obra y cumplir protocolos de seguridad documentados.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>LibroActasPage indexa por sector; LibroActasSectorPage guarda entradas cronológicas. ProtocolosBasesPage centraliza documentos operativos. FlotaPage muestra mapa (Leaflet + flotaGeocode); FlotaAdminDashboard administra unidades.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Jefes de sector, instalaciones, gerencia.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/libro-actas</strong>
+        <span class="card-desc">Índice actas por sector.</span>
+        <p class="card-detalle">Registro decisiones y acuerdos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/protocolos-bases</strong>
+        <span class="card-desc">Documentación operativa.</span>
+        <p class="card-detalle">Procedimientos obligatorios.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/flota</strong>
+        <span class="card-desc">Mapa vehículos.</span>
+        <p class="card-detalle">Instalaciones sigue cuadrillas.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/flota/admin</strong>
+        <span class="card-desc">ABM flota.</span>
+        <p class="card-detalle">Conductores, mantenimiento.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="herramientas">
+    <h2><span class="num">21</span> Herramientas Plot Center (externas)</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Redimensionar arte, sacar paletas, generar QR o validar WCAG en herramientas genéricas rompe estándares de Plot Center (perfiles de color, márgenes, accesibilidad de carteles municipales).</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>HerramientaPage enlaza subdominios especializados. El header y tablero derivan según necesidad. Vía Pública es app aparte para señalética urbana del municipio/Plot Center.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Diseño, producción, marketing, presupuestos (vía pública).</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>tools.plotcenter.com.ar</strong>
+        <span class="card-desc">Suite producción general.</span>
+        <p class="card-detalle">Calculadoras, utilidades taller.</p>
+      </div><div class="module-card avoid-break">
+        <strong>aitools.plotcenter.com.ar</strong>
+        <span class="card-desc">IA creativa y automatización.</span>
+        <p class="card-detalle">Complemento PlotAI interno.</p>
+      </div><div class="module-card avoid-break">
+        <strong>resizer.plotcenter.com.ar</strong>
+        <span class="card-desc">Studio Resizer Pro.</span>
+        <p class="card-detalle">Multi-formato, encuadre, batch.</p>
+      </div><div class="module-card avoid-break">
+        <strong>extractor.plotcenter.com.ar</strong>
+        <span class="card-desc">Color Intelligence Studio.</span>
+        <p class="card-detalle">Paletas desde imagen cliente.</p>
+      </div><div class="module-card avoid-break">
+        <strong>qr.plotcenter.com.ar</strong>
+        <span class="card-desc">QR + WhatsApp.</span>
+        <p class="card-detalle">Cartelería con contacto directo.</p>
+      </div><div class="module-card avoid-break">
+        <strong>generadorqr.plotcenter.com.ar</strong>
+        <span class="card-desc">QR estilizado.</span>
+        <p class="card-detalle">Colores marca, descarga PNG.</p>
+      </div><div class="module-card avoid-break">
+        <strong>wcag.plotcenter.com.ar</strong>
+        <span class="card-desc">Contraste WCAG 2.1.</span>
+        <p class="card-detalle">Obligatorio en trabajos municipales.</p>
+      </div><div class="module-card avoid-break">
+        <strong>vp-zeta-eight.vercel.app</strong>
+        <span class="card-desc">Vía Pública.</span>
+        <p class="card-detalle">Proyecto señalética — header staff.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/herramienta</strong>
+        <span class="card-desc">Portal enlaces en Plot Lab.</span>
+        <p class="card-detalle">Acceso unificado desde staff.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="admin-tecnico">
+    <h2><span class="num">22</span> Administración técnica, backup y APIs</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Sin respaldo de fichas activas, export administrativo ni APIs seguras, un error humano o caída de servicio puede perder estado del tablero o exponer credenciales en el frontend.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>UsuariosPage gestiona roles. admin.html concentra reportes pesados. APIs Vercel ejecutan backup JSON, PDF fichas activas, auth JWT. n8n puede automatizar flujos externos (docs/n8n-integration.md). Legacy PHP fallback en api.ts para migración gradual.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Administración, DevOps, integradores.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>/usuarios</strong>
+        <span class="card-desc">CRUD usuarios y roles.</span>
+        <p class="card-detalle">bcrypt, sectores asignados.</p>
+      </div><div class="module-card avoid-break">
+        <strong>admin.html</strong>
+        <span class="card-desc">AdminDashboard, AdminReports.</span>
+        <p class="card-detalle">Bundle liviano reportes.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/api/admin/backup-json</strong>
+        <span class="card-desc">Respaldo datos.</span>
+        <p class="card-detalle">Programable o manual.</p>
+      </div><div class="module-card avoid-break">
+        <strong>/api/admin/fichas-activas-pdf</strong>
+        <span class="card-desc">PDF tablero activo.</span>
+        <p class="card-detalle">Reunión producción diaria.</p>
+      </div><div class="module-card avoid-break">
+        <strong>n8n</strong>
+        <span class="card-desc">Automatización workflows.</span>
+        <p class="card-detalle">Webhooks Plot Lab ↔ externos.</p>
+      </div><div class="module-card avoid-break">
+        <strong>ErrorBoundary + EnvDebug</strong>
+        <span class="card-desc">Estabilidad y debug dev.</span>
+        <p class="card-detalle">Captura errores React.</p>
+      </div></div>
+  </section>
+<section class="sheet" id="datos">
+    <h2><span class="num">23</span> Modelo de datos e integraciones</h2>
+    <div class="problema avoid-break">
+      <span class="problema-label">Problema que resuelve</span>
+      <p>Datos en silos impiden responder “¿cuánto ganamos en esta OP?” ni vincular pedido web, producción y factura. Un modelo relacional en Supabase une el ciclo completo.</p>
+    </div>
+    <div class="block como avoid-break"><h4>Cómo funciona</h4><p>Núcleo: ordenes_trabajo + orden_sectores + tareas. Ventas y CRM en ventas/oportunidades. Clientes web en pedidos_clientes. Work pool en work_pool_*. ERP en tablas contables y facturas AFIP. RPC encapsula lógica (login_usuario, work_pool_crear_job, etc.). Storage para CVs y adjuntos.</p></div>
+    <div class="block quien avoid-break"><h4>Quién lo usa</h4><p>Desarrollo, administración, reporting.</p></div>
+    
+    
+    <h4 class="funcs-title">Funciones y herramientas</h4>
+    <div class="module-grid"><div class="module-card avoid-break">
+        <strong>ordenes_trabajo / tareas</strong>
+        <span class="card-desc">Núcleo OP y tablero.</span>
+        <p class="card-detalle">Realtime sync.</p>
+      </div><div class="module-card avoid-break">
+        <strong>pedidos_clientes / briefs_publicos</strong>
+        <span class="card-desc">Canal web.</span>
+        <p class="card-detalle">Conversión a OP.</p>
+      </div><div class="module-card avoid-break">
+        <strong>work_pool_*</strong>
+        <span class="card-desc">Bolsa trabajos.</span>
+        <p class="card-detalle">4 tablas principales.</p>
+      </div><div class="module-card avoid-break">
+        <strong>usuarios / usuario_sectores</strong>
+        <span class="card-desc">Auth y permisos sector.</span>
+        <p class="card-detalle">sectorPermissions en UI.</p>
+      </div><div class="module-card avoid-break">
+        <strong>solicitudes_permisos / asistencia</strong>
+        <span class="card-desc">RRHH operativo.</span>
+        <p class="card-detalle">Vinculado reloj.</p>
+      </div><div class="module-card avoid-break">
+        <strong>AFIP / facturas</strong>
+        <span class="card-desc">Cumplimiento fiscal.</span>
+        <p class="card-detalle">Ver docs/HOMOLOGACION_AFIP.md.</p>
+      </div><div class="module-card avoid-break">
+        <strong>Integraciones</strong>
+        <span class="card-desc">AFIP, MercadoPago, Telegram, Gemini, ElevenLabs.</span>
+        <p class="card-detalle">Claves solo en Vercel env.</p>
+      </div></div>
+  </section>
+
+    <footer class="note" style="padding:16px;text-align:center;color:#64748b;font-size:0.75rem">
+      Regenerar: node scripts/build-esquema-plot-lab-html.mjs · node scripts/print-esquema-plot-lab-pdf.mjs
+    </footer>
+  </div>
+</body>
+</html>

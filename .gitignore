@@ -47,3 +47,5 @@ Postulantes/uploads*/
 .cursor_erp_query*.json
 skills-lock.json
 sql-files-list.txt
+phi-site/.git/
+phi-site/.git-repo-backup/

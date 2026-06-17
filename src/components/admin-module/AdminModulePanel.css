@@ -614,19 +614,22 @@
 @media (min-width: 900px) {
   .amp-bento {
     grid-template-columns: 1.55fr minmax(220px, 0.75fr);
-    align-items: start;
+    align-items: stretch;
   }
 }
 
 .amp-kanban-hero {
   position: relative;
+  display: flex;
+  flex-direction: column;
   border-radius: 24px;
   overflow: hidden;
   cursor: pointer;
   outline: none;
   border: 1px solid rgba(251, 146, 60, 0.35);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  min-height: 280px;
+  min-height: 245px;
+  height: 100%;
 }
 
 .amp-kanban-hero:hover:not(.amp-kanban-hero--locked) {
@@ -655,7 +658,9 @@
   display: grid;
   gap: 20px;
   padding: 24px;
-  height: 100%;
+  flex: 1;
+  min-height: 100%;
+  align-content: center;
 }
 
 @media (min-width: 640px) {
@@ -780,6 +785,16 @@
 /* ── Machine button panel (accesos rápidos) ── */
 .amp-machine-panel {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 245px;
+}
+
+.amp-machine-panel--filters {
+  min-height: 0;
+  height: auto;
+  margin-bottom: 4px;
 }
 
 .amp-machine-panel__chassis {
@@ -791,6 +806,10 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     inset 0 -2px 6px rgba(0, 0, 0, 0.5),
     0 12px 32px rgba(0, 0, 0, 0.45);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .amp-machine-panel__head {
@@ -833,11 +852,35 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
+  flex: 1;
+  align-content: center;
 }
 
 @media (min-width: 520px) {
   .amp-machine-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.amp-machine-grid--categories {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 640px) {
+  .amp-machine-grid--categories {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .amp-machine-grid--categories {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .amp-machine-grid--categories {
+    grid-template-columns: repeat(8, 1fr);
   }
 }
 
@@ -941,6 +984,43 @@
   opacity: 0.7;
 }
 
+.amp-machine-btn--filter {
+  min-height: 52px;
+}
+
+.amp-machine-btn--filter .amp-machine-btn__label {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.amp-machine-btn__dot {
+  font-size: 10px;
+  color: var(--module-accent, #eb671b);
+}
+
+.amp-machine-btn--active {
+  background: linear-gradient(180deg, #3a4150 0%, #252a34 45%, #1a1e26 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 12px color-mix(in srgb, var(--module-accent, #eb671b) 22%, transparent),
+    0 2px 0 #0a0c10,
+    0 0 18px color-mix(in srgb, var(--module-accent, #eb671b) 28%, transparent);
+}
+
+.amp-machine-btn--active .amp-machine-btn__indicator {
+  opacity: 1;
+  animation: amp-badge-pulse 2s ease-in-out infinite;
+}
+
+.amp-machine-btn--active .amp-machine-btn__label {
+  color: #f8fafc;
+}
+
 /* ── Toolbar & filters ── */
 .amp-toolbar {
   margin-bottom: 12px;
@@ -999,37 +1079,10 @@
   line-height: 1;
 }
 
-.amp-categories {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 16px;
-  scrollbar-width: thin;
-}
-
+/* legacy pills — replaced by machine panel */
+.amp-categories,
 .amp-cat-pill {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  color: #94a3b8;
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.amp-cat-pill:hover {
-  color: #e2e8f0;
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.amp-cat-pill--active {
-  color: #fff7ed;
-  border-color: var(--cat-color, #eb671b);
-  background: color-mix(in srgb, var(--cat-color, #eb671b) 20%, transparent);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--cat-color, #eb671b) 30%, transparent);
+  display: none;
 }
 
 /* ── Module cards ── */

@@ -506,33 +506,54 @@ export default function AdminModulePanel({
             </div>
           </div>
 
-          <div className="amp-categories" role="tablist" aria-label="Filtrar por área">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeCategory === 'all'}
-              className={`amp-cat-pill${activeCategory === 'all' ? ' amp-cat-pill--active' : ''}`}
-              onClick={() => setActiveCategory('all')}
-            >
-              Todos
-            </button>
-            {CATEGORY_ORDER.map((cat) => {
-              const count = ADMIN_MODULE_CATALOG.filter((m) => m.category === cat).length
-              if (count === 0) return null
-              return (
+          <div className="amp-machine-panel amp-machine-panel--filters">
+            <div className="amp-machine-panel__chassis">
+              <div className="amp-machine-panel__head">
+                <span className="amp-machine-panel__led" aria-hidden />
+                <span className="amp-machine-panel__title">Filtrar por área</span>
+                <span className="amp-machine-panel__screw amp-machine-panel__screw--r" aria-hidden />
+              </div>
+              <div className="amp-machine-grid amp-machine-grid--categories" role="tablist" aria-label="Filtrar por área">
                 <button
-                  key={cat}
                   type="button"
                   role="tab"
-                  aria-selected={activeCategory === cat}
-                  className={`amp-cat-pill${activeCategory === cat ? ' amp-cat-pill--active' : ''}`}
-                  style={{ '--cat-color': CATEGORY_META[cat].color } as CSSProperties}
-                  onClick={() => setActiveCategory(cat)}
+                  aria-selected={activeCategory === 'all'}
+                  className={`amp-machine-btn amp-machine-btn--filter${activeCategory === 'all' ? ' amp-machine-btn--active' : ''}`}
+                  style={{ '--module-accent': '#eb671b' } as CSSProperties}
+                  onClick={() => setActiveCategory('all')}
                 >
-                  {CATEGORY_META[cat].label}
+                  <span className="amp-machine-btn__bezel" aria-hidden />
+                  <span className="amp-machine-btn__indicator" aria-hidden />
+                  <span className="amp-machine-btn__icon" aria-hidden>
+                    ◎
+                  </span>
+                  <span className="amp-machine-btn__label">Todos</span>
                 </button>
-              )
-            })}
+                {CATEGORY_ORDER.map((cat) => {
+                  const count = ADMIN_MODULE_CATALOG.filter((m) => m.category === cat).length
+                  if (count === 0) return null
+                  const meta = CATEGORY_META[cat]
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeCategory === cat}
+                      className={`amp-machine-btn amp-machine-btn--filter${activeCategory === cat ? ' amp-machine-btn--active' : ''}`}
+                      style={{ '--module-accent': meta.color } as CSSProperties}
+                      onClick={() => setActiveCategory(cat)}
+                    >
+                      <span className="amp-machine-btn__bezel" aria-hidden />
+                      <span className="amp-machine-btn__indicator" aria-hidden />
+                      <span className="amp-machine-btn__icon amp-machine-btn__dot" aria-hidden>
+                        ●
+                      </span>
+                      <span className="amp-machine-btn__label">{meta.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="amp-body">
