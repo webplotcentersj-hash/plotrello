@@ -130,7 +130,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/statistics',
     category: 'produccion',
     roles: 'admin',
-    accent: '#f97316'
+    accent: '#ef4444'
   },
   {
     id: 'asesor-presupuestos',
@@ -140,7 +140,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/asesor-presupuestos',
     category: 'produccion',
     roles: ['asesor-tecnico', 'presupuestos', 'administracion'],
-    accent: '#fb923c'
+    accent: '#f59e0b'
   },
   {
     id: 'plot-design',
@@ -224,6 +224,17 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     accent: '#f472b6'
   },
   {
+    id: 'clientes',
+    title: 'Clientes',
+    description: 'Buscar, alta, frecuentes y cuenta corriente',
+    icon: '👥',
+    path: '/clientes/dashboard',
+    category: 'ventas',
+    roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
+    accent: '#1d4ed8',
+    featured: true
+  },
+  {
     id: 'mostrador',
     title: 'Mostrador',
     description: 'Dashboard de atención y entregas',
@@ -242,7 +253,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/crm-ventas',
     category: 'ventas',
     roles: ['mostrador', 'presupuestos', 'administracion', 'gerencia'],
-    accent: '#2563eb',
+    accent: '#6366f1',
     featured: true
   },
   {
@@ -250,10 +261,10 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     title: 'Cuenta corriente',
     description: 'Cobranzas CC, aging y perfil de clientes',
     icon: '💳',
-    path: '/mostrador/cuenta-corriente',
+    path: '/clientes/cuenta-corriente',
     category: 'ventas',
     roles: ['mostrador', 'caja', 'administracion', 'gerencia'],
-    accent: '#1d4ed8'
+    accent: '#0ea5e9'
   },
   {
     id: 'atencion-publico',
@@ -263,7 +274,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/atencion-publico',
     category: 'ventas',
     roles: 'all',
-    accent: '#60a5fa'
+    accent: '#22d3ee'
   },
   {
     id: 'clientes-web',
@@ -273,7 +284,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/clientes-web/dashboard',
     category: 'ventas',
     roles: 'admin',
-    accent: '#38bdf8'
+    accent: '#8b5cf6'
   },
   {
     id: 'caja',

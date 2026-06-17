@@ -1,16 +1,18 @@
 import { Navigate } from 'react-router-dom'
-import { readStoredUsuario, useAuth } from '../../hooks/useAuth'
-import { isOperarioExternoRol, operarioExternoHomeRoute } from './workPoolOperarioExterno'
-
-function operarioHomeFromStorage(): string | null {
-  const u = readStoredUsuario()
-  return isOperarioExternoRol(u?.rol) ? operarioExternoHomeRoute(u.rol) : null
-}
+import { useAuth } from '../../hooks/useAuth'
+import { operarioExternoHomeRoute } from './workPoolOperarioExterno'
+import {
+  isOperarioExternoSession,
+  readOperarioExternoUsuario
+} from '../../utils/plotlabSession'
 
 /** Solo operarios externos: el tablero `/` no es su home. Admin/gerencia entran por login a `/admin` pero pueden ir al tablero. */
 export default function StaffHomeRedirect() {
   const { operarioExternoHome } = useAuth()
-  const externo = operarioExternoHome ?? operarioHomeFromStorage()
+  if (!isOperarioExternoSession()) return null
+  const externoUser = readOperarioExternoUsuario()
+  const externo =
+    operarioExternoHome ?? (externoUser ? operarioExternoHomeRoute(externoUser.rol) : null)
   if (externo) return <Navigate to={externo} replace />
   return null
 }

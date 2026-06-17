@@ -1,17 +1,21 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import GlobalAlertScreen from './components/GlobalAlertScreen'
-import PwaUpdateBanner from './components/PwaUpdateBanner'
-import PwaUpdateModalHost from './components/PwaUpdateModalHost'
 import PwaUpdateToast from './components/PwaUpdateToast'
 import CajaSyncToastHost from './features/control-cajas/components/CajaSyncToastHost'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
+import PwaRefreshGate from './components/PwaRefreshGate'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
-import { useAuth, AuthProvider, type Usuario } from './hooks/useAuth'
-import { operarioExternoHomeRoute } from './features/work-pool/workPoolOperarioExterno'
+import { useAuth, type Usuario } from './hooks/useAuth'
 import { adminStaffHomeRoute } from './utils/adminStaffHome'
-import { readStoredUsuario } from './hooks/useAuth'
+import {
+  isOperarioExternoSession,
+  isStaffSession,
+  readOperarioExternoUsuario,
+  readStaffUsuario
+} from './utils/plotlabSession'
+import { operarioExternoHomeRoute } from './features/work-pool/workPoolOperarioExterno'
 import './app.css'
 import './plotlab-mobile.css'
 
@@ -111,20 +115,16 @@ function App() {
   return (
     <PwaUpdateProvider>
       <GlobalAlertScreen />
-      <PwaUpdateBanner />
-      <PwaUpdateModalHost />
       <PwaUpdateToast />
       <CajaSyncToastHost />
-      <AuthProvider>
-        <AppInner />
-      </AuthProvider>
+      <AppInner />
     </PwaUpdateProvider>
   )
 }
 
 function AppInner() {
   const { usuario, loading, setUsuario } = useAuth()
-  const isAuthenticated = !!usuario || !!readStoredUsuario()
+  const isStaffAuthenticated = isStaffSession()
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
@@ -147,6 +147,7 @@ function AppInner() {
       {loading ? (
         <LoadingScreen />
       ) : (
+      <PwaRefreshGate>
       <BrowserRouter>
         <EnvDebugGate />
         <Routes>
@@ -306,7 +307,7 @@ function AppInner() {
           <Route
             path="/op-eliminadas"
             element={
-              isAuthenticated ? (
+              isStaffAuthenticated ? (
                 <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
                   <OpEliminadasPage />
                 </Suspense>
@@ -381,15 +382,14 @@ function AppInner() {
           <Route
             path="/login"
             element={
-              isAuthenticated ? (
+              isOperarioExternoSession() ? (
                 <Navigate
-                  to={
-                    operarioExternoHomeRoute(usuario?.rol) ??
-                    operarioExternoHomeRoute(readStoredUsuario()?.rol) ??
-                    adminStaffHomeRoute(usuario?.rol) ??
-                    adminStaffHomeRoute(readStoredUsuario()?.rol) ??
-                    '/'
-                  }
+                  to={operarioExternoHomeRoute(readOperarioExternoUsuario()!.rol)!}
+                  replace
+                />
+              ) : isStaffAuthenticated ? (
+                <Navigate
+                  to={adminStaffHomeRoute(readStaffUsuario()?.rol ?? usuario?.rol) ?? '/'}
                   replace
                 />
               ) : (
@@ -418,7 +418,7 @@ function AppInner() {
             element={
               <Suspense fallback={<LoadingScreen />}>
                 <OperarioExternoStaffShell
-                  isAuthenticated={isAuthenticated}
+                  isAuthenticated={isStaffAuthenticated}
                   login={<Login onLogin={handleLogin} />}
                   staff={<StaffAppHost />}
                 />
@@ -427,6 +427,7 @@ function AppInner() {
           />
         </Routes>
       </BrowserRouter>
+      </PwaRefreshGate>
       )}
     </>
   )

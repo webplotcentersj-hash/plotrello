@@ -498,3 +498,64 @@
     flex: 1;
   }
 }
+
+/* Pantalla bloqueante: evita mezcla de chunks tras deploy */
+.pwa-refresh-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #0b0d17 0%, #1a1d2e 100%);
+}
+
+.pwa-refresh-gate__card {
+  width: min(440px, 100%);
+  padding: 28px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 18, 32, 0.95);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  color: #f4f4f5;
+  text-align: center;
+}
+
+.pwa-refresh-gate__eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #86efac;
+}
+
+.pwa-refresh-gate__card h1 {
+  margin: 0 0 12px;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.pwa-refresh-gate__card p {
+  margin: 0 0 20px;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #b7bed3;
+}
+
+.pwa-refresh-gate__btn {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #eb671b 0%, #f59e0b 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pwa-refresh-gate__btn:hover {
+  filter: brightness(1.05);
+}

@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from '../components/ErrorBoundary'
+import { AuthProvider } from '../hooks/useAuth'
 import '../style.css'
 
 // Manejo global de errores no capturados
@@ -30,7 +31,9 @@ try {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <ErrorBoundary>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ErrorBoundary>
     </React.StrictMode>
   )

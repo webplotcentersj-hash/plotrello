@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, startTransition } from 'react'
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom'
+import { Routes, Route, useNavigate, Navigate, useParams } from 'react-router-dom'
 import OperarioExternoGate from '../features/work-pool/OperarioExternoGate'
 import OperarioExternoHomeRedirect from '../features/work-pool/OperarioExternoHomeRedirect'
 import type { TaskStatus } from '../types/board'
@@ -23,8 +23,9 @@ const GaleriaTrabajosPage = lazy(() => import('../pages/GaleriaTrabajosPage'))
 const BriefsPendientesPage = lazy(() => import('../pages/BriefsPendientesPage'))
 const OrdenesListasPage = lazy(() => import('../pages/OrdenesListasPage'))
 const BuscarClientePage = lazy(() => import('../pages/BuscarClientePage'))
+const ClientesDashboardPage = lazy(() => import('../pages/ClientesDashboardPage'))
+const AgregarClientePage = lazy(() => import('../pages/AgregarClientePage'))
 const EntregaPage = lazy(() => import('../pages/EntregaPage'))
-const CalendarioEntregasPage = lazy(() => import('../pages/CalendarioEntregasPage'))
 const MostradorCalendarioPage = lazy(() => import('../pages/MostradorCalendarioPage'))
 const ReportesMostradorPage = lazy(() => import('../pages/ReportesMostradorPage'))
 const ClientesFrecuentesPage = lazy(() => import('../pages/ClientesFrecuentesPage'))
@@ -113,6 +114,7 @@ const LibroActasPage = lazy(() => import('../pages/LibroActasPage'))
 const ProtocolosBasesPage = lazy(() => import('../pages/ProtocolosBasesPage'))
 const AsesorPresupuestosPage = lazy(() => import('../pages/AsesorPresupuestosPage'))
 const StaffFloatingDock = lazy(() => import('../components/StaffFloatingDock'))
+const AdminBackLink = lazy(() => import('../components/AdminBackLink'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
@@ -217,9 +219,6 @@ export default function StaffAppHost() {
     void import('../services/staffAuthApi')
       .then((m) => m.staffLogout())
       .catch(() => {})
-    localStorage.removeItem('usuario')
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('usuario_id')
     setUsuario(null)
     setTasks([])
     setActivity([])
@@ -696,6 +695,11 @@ const ASESOR_PRESUPUESTOS_STATUSES = [
   'finalizado-asesor-presupuestos'
 ]
 
+function RedirectMostradorCcCliente() {
+  const { idCliente } = useParams()
+  return <Navigate to={`/clientes/cuenta-corriente/cliente/${idCliente ?? ''}`} replace />
+}
+
 function AppRoutes({
   tasks,
   setTasks,
@@ -742,6 +746,9 @@ function AppRoutes({
       </Suspense>
       <Suspense fallback={null}>
         <StaffFloatingDock />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AdminBackLink />
       </Suspense>
       <Suspense
         fallback={
@@ -966,7 +973,7 @@ function AppRoutes({
       />
       <Route
         path="/mostrador/buscar-cliente"
-        element={<BuscarClientePage />}
+        element={<Navigate to="/clientes/buscar" replace />}
       />
       <Route
         path="/mostrador/entrega/:id"
@@ -990,16 +997,26 @@ function AppRoutes({
       />
       <Route
         path="/mostrador/clientes-frecuentes"
-        element={<ClientesFrecuentesPage />}
+        element={<Navigate to="/clientes/frecuentes" replace />}
       />
       <Route
         path="/mostrador/cuenta-corriente"
-        element={<CuentaCorrientePage />}
+        element={<Navigate to="/clientes/cuenta-corriente" replace />}
       />
       <Route
         path="/mostrador/cuenta-corriente/cliente/:idCliente"
+        element={<RedirectMostradorCcCliente />}
+      />
+      <Route path="/clientes" element={<Navigate to="/clientes/dashboard" replace />} />
+      <Route path="/clientes/dashboard" element={<ClientesDashboardPage />} />
+      <Route path="/clientes/buscar" element={<BuscarClientePage />} />
+      <Route path="/clientes/frecuentes" element={<ClientesFrecuentesPage />} />
+      <Route path="/clientes/cuenta-corriente" element={<CuentaCorrientePage />} />
+      <Route
+        path="/clientes/cuenta-corriente/cliente/:idCliente"
         element={<CuentaCorrientePerfilPage />}
       />
+      <Route path="/clientes/agregar" element={<AgregarClientePage />} />
       <Route
         path="/atencion-publico"
         element={<AtencionPublicoDashboardPage />}
@@ -1055,10 +1072,6 @@ function AppRoutes({
       <Route
         path="/compras/presupuestos/:id"
         element={<PresupuestosPage />}
-      />
-      <Route
-        path="/compras/calendario-entregas"
-        element={<CalendarioEntregasPage />}
       />
       <Route
         path="/compras/reportes"

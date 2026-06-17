@@ -119,7 +119,7 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
       const pending = sessionStorage.getItem(PWA_RELEASE_PENDING_KEY)
       if (pending === CURRENT_PWA_RELEASE.id) {
         sessionStorage.removeItem(PWA_RELEASE_PENDING_KEY)
-        setModalMode('installed')
+        localStorage.setItem(PWA_RELEASE_STORAGE_KEY, CURRENT_PWA_RELEASE.id)
       }
     } catch {
       /* ignore */
@@ -130,10 +130,8 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
     needRefreshRef.current = needRefresh
     if (needRefresh) {
       setChecking(false)
-      if (!modalShownForRefreshRef.current) {
-        modalShownForRefreshRef.current = true
-        setModalMode('available')
-      }
+      // La pantalla PwaRefreshGate bloquea la app; no abrir modal duplicado.
+      modalShownForRefreshRef.current = true
     }
   }, [needRefresh])
 

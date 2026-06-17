@@ -8,6 +8,7 @@ import {
 } from '../utils/cuentaCorrienteCobranzas'
 import { downloadCsv } from '../utils/cuentaCorrienteExport'
 import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
+import { clientesCcPerfil } from '../utils/clientesRoutes'
 import './CuentaCorrienteCobranzasPanel.css'
 
 type TabId = 'operaciones' | 'clientes' | 'vendedores' | 'pagos' | 'aging'
@@ -221,7 +222,7 @@ export default function CuentaCorrienteCobranzasPanel({ data, loading, error, on
               {soloVencidos ? ' vencidas' : ''}.
             </p>
           ) : (
-            <OperacionesTable rows={ventasFiltradas} onCobrar={(id) => navigate(`/mostrador/cuenta-corriente/cliente/${id}`)} />
+            <OperacionesTable rows={ventasFiltradas} onCobrar={(id) => navigate(clientesCcPerfil(id))} />
           )}
         </div>
       )}
@@ -261,7 +262,7 @@ export default function CuentaCorrienteCobranzasPanel({ data, loading, error, on
                         <button
                           type="button"
                           className="cc-cob-link"
-                          onClick={() => navigate(`/mostrador/cuenta-corriente/cliente/${c.id_cliente}`)}
+                          onClick={() => navigate(clientesCcPerfil(c.id_cliente))}
                         >
                           Ver cuenta →
                         </button>
@@ -344,7 +345,7 @@ export default function CuentaCorrienteCobranzasPanel({ data, loading, error, on
                         <button
                           type="button"
                           className="cc-cob-link"
-                          onClick={() => navigate(`/mostrador/cuenta-corriente/cliente/${p.id_cliente}`)}
+                          onClick={() => navigate(clientesCcPerfil(p.id_cliente))}
                         >
                           Cuenta →
                         </button>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CLIENTES_CUENTA_CORRIENTE } from '../utils/clientesRoutes'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
@@ -221,7 +222,7 @@ export default function CuentaCorrientePerfilPage() {
     return (
       <div className="cc-perfil-page">
         <p className="cc-perfil-error">{error || 'No se encontró el perfil'}</p>
-        <Link to="/mostrador/cuenta-corriente" className="cc-btn cc-btn--secondary">
+        <Link to={CLIENTES_CUENTA_CORRIENTE} className="cc-btn cc-btn--secondary">
           Volver
         </Link>
       </div>
@@ -237,7 +238,7 @@ export default function CuentaCorrientePerfilPage() {
         <button
           type="button"
           className="cc-perfil-back"
-          onClick={() => navigate('/mostrador/cuenta-corriente')}
+          onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
         >
           ← Cuenta corriente
         </button>

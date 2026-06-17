@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { clientesCcPerfil } from '../utils/clientesRoutes'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
 import {
   ESTADO_CC_LABELS,
@@ -304,7 +305,7 @@ export default function CuentaCorrienteRegistry({
                               type="button"
                               className="cc-btn cc-btn--primary cc-btn--sm"
                               onClick={() =>
-                                navigate(`/mostrador/cuenta-corriente/cliente/${r.id_cliente}`)
+                                navigate(clientesCcPerfil(r.id_cliente))
                               }
                             >
                               Ver cuenta

@@ -15,6 +15,7 @@ import {
   maskJobForOperarioExterno,
   OPERARIO_EXTERNO_LOGIN
 } from './workPoolOperarioExterno'
+import { clearAllPlotlabSessions } from '../../utils/plotlabSession'
 import {
   contarMensajesOperarioNoLeidos,
   entregarWorkPoolJob,
@@ -119,7 +120,11 @@ export default function WorkPoolOperarioView({ product }: Props) {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('usuario')
+    void import('../../services/staffAuthApi')
+      .then((m) => m.staffLogout())
+      .catch(() => {
+        clearAllPlotlabSessions()
+      })
     setUsuario(null)
     navigate(OPERARIO_EXTERNO_LOGIN)
   }

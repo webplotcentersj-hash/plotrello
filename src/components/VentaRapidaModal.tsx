@@ -4,6 +4,7 @@ import apiService from '../services/api'
 import type { ClienteRecord, Venta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
+import { CLIENTES_CUENTA_CORRIENTE, clientesCcPerfil } from '../utils/clientesRoutes'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
 import {
@@ -781,7 +782,7 @@ const VentaRapidaModal = ({
                           className="btn-link venta-cc-hint__link"
                           onClick={() => {
                             onClose()
-                            navigate(`/mostrador/cuenta-corriente/cliente/${clienteSeleccionado!.id}`)
+                            navigate(clientesCcPerfil(clienteSeleccionado!.id))
                           }}
                         >
                           Ver perfil y cuenta
@@ -806,7 +807,7 @@ const VentaRapidaModal = ({
                       className="btn-link venta-cc-hint__link"
                       onClick={() => {
                         onClose()
-                        navigate('/mostrador/cuenta-corriente')
+                        navigate(CLIENTES_CUENTA_CORRIENTE)
                       }}
                     >
                       Ir a Cuenta corriente

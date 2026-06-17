@@ -13,6 +13,7 @@ import CcExportMenu from '../components/CcExportMenu'
 import CuentaCorrienteCobranzasPanel from '../components/CuentaCorrienteCobranzasPanel'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord, CcCobranzasPanelData } from '../types/api'
 import { normalizeEstadoCc, type EstadoCuentaCorriente } from '../constants/cuentaCorriente'
+import { CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
 import './CuentaCorrientePage.css'
 
 type CuentaCorrienteRow = ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }
@@ -341,10 +342,10 @@ const CuentaCorrientePage = () => {
             <button
               type="button"
               className="cc-header-btn cc-header-btn--back"
-              onClick={() => navigate('/mostrador/dashboard')}
+              onClick={() => navigate(CLIENTES_DASHBOARD)}
             >
               <span className="cc-header-btn__icon" aria-hidden>←</span>
-              <span>Dashboard</span>
+              <span>Clientes</span>
             </button>
             <button
               type="button"

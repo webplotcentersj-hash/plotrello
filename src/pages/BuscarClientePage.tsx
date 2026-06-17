@@ -16,6 +16,10 @@ import {
   isClienteCcOperativo,
   normalizeEstadoCc
 } from '../constants/cuentaCorriente'
+import {
+  CLIENTES_DASHBOARD,
+  clientesCcPerfil
+} from '../utils/clientesRoutes'
 import './BuscarClientePage.css'
 
 const MIN_BUSQUEDA = 1
@@ -212,9 +216,9 @@ const BuscarClientePage = () => {
         <button
           type="button"
           className="bc-btn bc-btn--ghost bc-header__back"
-          onClick={() => navigate('/mostrador/dashboard')}
+          onClick={() => navigate(CLIENTES_DASHBOARD)}
         >
-          Volver al panel
+          Volver a Clientes
         </button>
       </header>
 
@@ -406,7 +410,7 @@ const BuscarClientePage = () => {
                     className="bc-btn bc-btn--secondary"
                     onClick={() =>
                       navigate(
-                        `/mostrador/cuenta-corriente/cliente/${clienteSeleccionado.id}`
+                        clientesCcPerfil(clienteSeleccionado.id)
                       )
                     }
                   >

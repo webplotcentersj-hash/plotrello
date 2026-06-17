@@ -1,10 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from '../features/work-pool/workPoolOperarioExterno'
+import { isOperarioExternoSession, readOperarioExternoUsuario } from '../utils/plotlabSession'
 
 /** Redirige /operario-externo al panel según rol (diseno o bolsa). */
 export default function OperarioExternoHomePage() {
-  const { usuario, loading, operarioExternoHome } = useAuth()
+  const { loading, operarioExternoHome } = useAuth()
 
   if (loading) {
     return (
@@ -24,8 +25,11 @@ export default function OperarioExternoHomePage() {
     )
   }
 
-  const home = operarioExternoHome ?? operarioExternoHomeRoute(usuario?.rol)
-  if (home) return <Navigate to={home} replace />
+  const externoUser = readOperarioExternoUsuario()
+  const home =
+    operarioExternoHome ??
+    (externoUser ? operarioExternoHomeRoute(externoUser.rol) : null)
+  if (home && isOperarioExternoSession()) return <Navigate to={home} replace />
 
   return <Navigate to={OPERARIO_EXTERNO_LOGIN} replace />
 }

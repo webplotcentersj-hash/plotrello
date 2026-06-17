@@ -4,13 +4,16 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { LogIn, UserPlus } from 'lucide-react'
 import { staffLogin } from '../services/staffAuthApi'
 import { useAuth, type Usuario } from '../hooks/useAuth'
-import { readStoredUsuario } from '../hooks/useAuth'
 import { PHI_PUBLIC_URL } from '../utils/phiPublicUrl'
 import {
   isOperarioExternoRol,
   operarioExternoHomeRoute,
   OPERARIO_EXTERNO_LOGIN
 } from '../features/work-pool/workPoolOperarioExterno'
+import {
+  persistOperarioExternoSession,
+  readOperarioExternoUsuario
+} from '../utils/plotlabSession'
 import '../features/phi/phi-landing.css'
 import './OperarioExternoLoginPage.css'
 
@@ -25,7 +28,7 @@ type Props = {
 export default function OperarioExternoLoginPage({ onLogin }: Props) {
   const navigate = useNavigate()
   const { usuario, setUsuario } = useAuth()
-  const sessionUser = usuario ?? readStoredUsuario()
+  const sessionUser = usuario ?? readOperarioExternoUsuario()
 
   const [loginUser, setLoginUser] = useState('')
   const [password, setPassword] = useState('')
@@ -70,9 +73,10 @@ export default function OperarioExternoLoginPage({ onLogin }: Props) {
         return
       }
 
-      localStorage.setItem('usuario', JSON.stringify(usuarioData))
-      localStorage.setItem('usuario_id', usuarioData.id.toString())
-      localStorage.setItem('plotlab_login_usuario', loginUser.trim())
+      persistOperarioExternoSession(usuarioData, {
+        token: response.data.token,
+        loginName: response.data.loginName ?? loginUser.trim()
+      })
       flushSync(() => {
         onLogin(usuarioData)
         setUsuario(usuarioData)

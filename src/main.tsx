@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
+import { AuthProvider } from './hooks/useAuth'
 import { initPlotlabVentaCajaBridge } from './features/control-cajas/plotlabVentaCajaSync'
 import './style.css'
 
@@ -41,7 +42,9 @@ try {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <ErrorBoundary>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ErrorBoundary>
     </React.StrictMode>
   )

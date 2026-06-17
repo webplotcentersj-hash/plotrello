@@ -1,4 +1,5 @@
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
+import { clearAllPlotlabSessions } from '../utils/plotlabSession'
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const USUARIO_KEY = 'usuario'
@@ -13,10 +14,7 @@ export function setStaffAuthToken(token: string): void {
 }
 
 export function clearStaffSession(): void {
-  localStorage.removeItem(AUTH_TOKEN_KEY)
-  localStorage.removeItem(USUARIO_KEY)
-  localStorage.removeItem('usuario_id')
-  localStorage.removeItem('plotlab_login_usuario')
+  clearAllPlotlabSessions()
 }
 
 const STAFF_JWT_STATUS_CACHE_KEY = 'plotlab_staff_jwt_enabled'

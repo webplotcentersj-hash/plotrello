@@ -1,4 +1,5 @@
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
+import { clearAllPlotlabSessions } from '../utils/plotlabSession'
 import { supabase } from './supabaseClient'
 import { isStaffJwtEnabledOnServer } from './staffSession'
 import type { UsuarioRecord } from '../types/api'
@@ -69,13 +70,9 @@ async function finalizeStaffLogin(
   usuarioDb: UsuarioRecord,
   token?: string,
   loginName?: string
-): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
+): Promise<ApiResponse<{ usuario: UsuarioRecord; token?: string; loginName?: string }>> {
   await ensureUsuarioExists(usuarioDb.id, usuarioDb.nombre, usuarioDb.rol)
-  localStorage.setItem('usuario', JSON.stringify(usuarioDb))
-  localStorage.setItem('usuario_id', usuarioDb.id.toString())
-  if (loginName) localStorage.setItem('plotlab_login_usuario', loginName)
-  if (token) localStorage.setItem('auth_token', token)
-  return { success: true, data: { usuario: usuarioDb } }
+  return { success: true, data: { usuario: usuarioDb, token, loginName } }
 }
 
 async function legacyRequest<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
@@ -114,7 +111,7 @@ async function legacyRequest<T>(endpoint: string, options: RequestInit = {}): Pr
 export async function staffLogin(
   usuario: string,
   password: string
-): Promise<ApiResponse<{ usuario: UsuarioRecord }>> {
+): Promise<ApiResponse<{ usuario: UsuarioRecord; token?: string; loginName?: string }>> {
   if (supabase) {
     try {
       const { data, error } = await supabase.rpc('login_usuario', {
@@ -184,13 +181,11 @@ export async function staffLogin(
     rol: 'administracion'
   }
 
-  localStorage.setItem('usuario', JSON.stringify(mockUsuario))
-  return { success: true, data: { usuario: mockUsuario } }
+  return { success: true, data: { usuario: mockUsuario, loginName: usuario.trim() } }
 }
 
 export async function staffLogout(): Promise<ApiResponse<void>> {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('usuario')
+  clearAllPlotlabSessions()
 
   if (supabase) {
     await supabase.rpc('logout_usuario')

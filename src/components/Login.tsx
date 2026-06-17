@@ -2,8 +2,9 @@ import { flushSync } from 'react-dom'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { staffLogin } from '../services/staffAuthApi'
-import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
+import { isOperarioExternoRol } from '../features/work-pool/workPoolOperarioExterno'
 import { adminStaffHomeRoute } from '../utils/adminStaffHome'
+import { clearAllPlotlabSessions, persistStaffSession } from '../utils/plotlabSession'
 import './Login.css'
 
 type LoginProps = {
@@ -27,13 +28,20 @@ const Login = ({ onLogin }: LoginProps) => {
       
       if (response.success && response.data) {
         const usuarioData = response.data.usuario
-        localStorage.setItem('usuario', JSON.stringify(usuarioData))
-        localStorage.setItem('usuario_id', usuarioData.id.toString())
-        localStorage.setItem('plotlab_login_usuario', usuario.trim())
+
+        if (isOperarioExternoRol(usuarioData.rol)) {
+          clearAllPlotlabSessions()
+          setError('Usuario o contraseña incorrectos')
+          return
+        }
+
+        persistStaffSession(usuarioData, {
+          token: response.data.token,
+          loginName: response.data.loginName ?? usuario.trim()
+        })
         flushSync(() => onLogin(usuarioData))
-        const externoHome = operarioExternoHomeRoute(usuarioData.rol)
         const adminHome = adminStaffHomeRoute(usuarioData.rol)
-        navigate(externoHome ?? adminHome ?? '/', { replace: true })
+        navigate(adminHome ?? '/', { replace: true })
       } else {
         setError(response.error || 'Error al iniciar sesión')
       }

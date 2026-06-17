@@ -17,7 +17,7 @@ export default function PwaUpdateButton({ className }: PwaUpdateButtonProps) {
     )
   }
 
-  const { needRefresh, checking, checkForUpdate } = pwa
+  const { needRefresh, checking, checkForUpdate, applyUpdate } = pwa
 
   const label = needRefresh
     ? 'Nueva versión'
@@ -40,7 +40,10 @@ export default function PwaUpdateButton({ className }: PwaUpdateButtonProps) {
         checking && 'header-util-btn--pwa-checking',
         !needRefresh && !checking && 'header-util-btn--pwa-idle'
       )}
-      onClick={() => void checkForUpdate()}
+      onClick={() => {
+        if (needRefresh) void applyUpdate()
+        else void checkForUpdate()
+      }}
       disabled={checking}
       title={title}
       aria-label={title}

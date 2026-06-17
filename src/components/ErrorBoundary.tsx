@@ -26,6 +26,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const isAuthContextError = this.state.error?.message?.includes('useAuth debe usarse dentro de AuthProvider')
       return (
         <div style={{
           display: 'flex',
@@ -39,8 +40,10 @@ class ErrorBoundary extends Component<Props, State> {
           textAlign: 'center'
         }}>
           <h1 style={{ fontSize: '24px', marginBottom: '16px' }}>⚠️ Error en la aplicación</h1>
-          <p style={{ marginBottom: '24px', color: '#b7bed3' }}>
-            {this.state.error?.message || 'Ocurrió un error inesperado'}
+          <p style={{ marginBottom: '24px', color: '#b7bed3', maxWidth: '480px' }}>
+            {isAuthContextError
+              ? 'La app quedó con una versión mezclada tras una actualización. Recargá la página para continuar.'
+              : this.state.error?.message || 'Ocurrió un error inesperado'}
           </p>
           <button
             onClick={() => {

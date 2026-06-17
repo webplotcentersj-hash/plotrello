@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 import type { WorkPoolProduct } from '../../types/workPool'
 import { operarioExternoRolForProduct } from './workPoolConfig'
 import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
-import { readStoredUsuario } from '../../hooks/useAuth'
+import { isOperarioExternoSession, readOperarioExternoUsuario } from '../../utils/plotlabSession'
 import WorkPoolOperarioView from './WorkPoolOperarioView'
 import '../phi/phi-landing.css'
 import './WorkPoolOperarioDashboard.css'
@@ -14,7 +14,7 @@ type Props = { product: WorkPoolProduct }
 export default function OperarioExternoDashboardPage({ product }: Props) {
   const { usuario, loading } = useAuth()
   const expectedRol = operarioExternoRolForProduct(product)
-  const sessionUser = usuario ?? readStoredUsuario()
+  const sessionUser = usuario ?? readOperarioExternoUsuario()
 
   if (loading && !sessionUser) {
     return (
@@ -24,7 +24,9 @@ export default function OperarioExternoDashboardPage({ product }: Props) {
     )
   }
 
-  if (!sessionUser) return <Navigate to={OPERARIO_EXTERNO_LOGIN} replace />
+  if (!sessionUser || !isOperarioExternoSession()) {
+    return <Navigate to={OPERARIO_EXTERNO_LOGIN} replace />
+  }
 
   if (sessionUser.rol !== expectedRol) {
     const home = operarioExternoHomeRoute(sessionUser.rol)

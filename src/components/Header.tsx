@@ -12,6 +12,7 @@ import ClockWidget from './ClockWidget'
 import WeatherWidget from './WeatherWidget'
 import AdminAlertButton from './AdminAlertButton'
 import PwaUpdateButton from './PwaUpdateButton'
+import PwaUpdateModalHost from './PwaUpdateModalHost'
 import './Header.css'
 
 type HeaderProps = {
@@ -351,14 +352,6 @@ const Header = ({
                 🛒 Compras
               </button>
             )}
-            {canManageCompras && (
-              <a
-                href="/compras/calendario-entregas"
-                className="brand-button"
-              >
-                📅 Calendario Entregas
-              </a>
-            )}
             {canManageCaja && (
               <Link
                 to={isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja'}
@@ -521,6 +514,7 @@ const Header = ({
           </div>
         </div>
       )}
+      <PwaUpdateModalHost />
     </header>
   )
 }

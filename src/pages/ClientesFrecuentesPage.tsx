@@ -5,6 +5,7 @@ import type { OrdenTrabajo, ClienteRecord } from '../types/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { clienteCoincideBusqueda } from '../utils/clienteDuplicados'
+import { CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
 import './ClientesFrecuentesPage.css'
 
 type ClienteFrecuente = ClienteRecord & {
@@ -347,9 +348,9 @@ const ClientesFrecuentesPage = () => {
           <button
             type="button"
             className="cf-btn cf-btn--ghost"
-            onClick={() => navigate('/mostrador/dashboard')}
+            onClick={() => navigate(CLIENTES_DASHBOARD)}
           >
-            Volver al panel
+            Volver a Clientes
           </button>
         </div>
       </header>

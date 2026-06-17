@@ -1,19 +1,23 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
-import { readStoredUsuario, useAuth } from '../../hooks/useAuth'
-import { isOperarioExternoRol, operarioExternoHomeRoute } from './workPoolOperarioExterno'
-
-function homeFromStorage(): string | null {
-  const u = readStoredUsuario()
-  return isOperarioExternoRol(u?.rol) ? operarioExternoHomeRoute(u.rol) : null
-}
+import { useAuth } from '../../hooks/useAuth'
+import { operarioExternoHomeRoute } from './workPoolOperarioExterno'
+import {
+  isOperarioExternoSession,
+  readOperarioExternoUsuario
+} from '../../utils/plotlabSession'
 
 /** Operarios externos solo pueden navegar en /operario-externo/* (no el tablero Plot Lab). */
 export default function OperarioExternoGate({ children }: { children: ReactNode }) {
   const { operarioExternoHome } = useAuth()
   const { pathname } = useLocation()
 
-  const home = operarioExternoHome ?? homeFromStorage()
+  if (!isOperarioExternoSession()) {
+    return <>{children}</>
+  }
+
+  const externoUser = readOperarioExternoUsuario()
+  const home = operarioExternoHome ?? (externoUser ? operarioExternoHomeRoute(externoUser.rol) : null)
   if (!home) {
     return <>{children}</>
   }

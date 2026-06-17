@@ -250,13 +250,20 @@ export default function AdminModulePanel({
         key={module.id}
         className={[
           'amp-card',
+          `amp-card--${module.id}`,
+          `amp-card--cat-${module.category}`,
           compact && 'amp-card--compact',
           wide && 'amp-card--wide',
           !allowed && 'amp-card--locked'
         ]
           .filter(Boolean)
           .join(' ')}
-        style={{ '--module-accent': module.accent } as CSSProperties}
+        style={
+          {
+            '--module-accent': module.accent,
+            '--category-accent': CATEGORY_META[module.category].color
+          } as CSSProperties
+        }
         role="button"
         tabIndex={allowed && !loading ? 0 : -1}
         aria-disabled={!allowed || loading}
@@ -265,6 +272,10 @@ export default function AdminModulePanel({
         }}
         onKeyDown={onKeyDown}
       >
+        <div className="amp-card-rail" aria-hidden />
+        <div className="amp-card-watermark" aria-hidden>
+          {module.icon}
+        </div>
         <div className="amp-card-shine" aria-hidden />
         <div className="amp-card-inner">
           <div className="amp-card-top">
@@ -545,8 +556,8 @@ export default function AdminModulePanel({
                     >
                       <span className="amp-machine-btn__bezel" aria-hidden />
                       <span className="amp-machine-btn__indicator" aria-hidden />
-                      <span className="amp-machine-btn__icon amp-machine-btn__dot" aria-hidden>
-                        ●
+                      <span className="amp-machine-btn__icon" aria-hidden>
+                        {meta.label.charAt(0)}
                       </span>
                       <span className="amp-machine-btn__label">{meta.label}</span>
                     </button>
@@ -586,6 +597,21 @@ export default function AdminModulePanel({
                     <span className="amp-section-count">{modules.length}</span>
                   </header>
                   <div className="amp-grid">{modules.map((m) => renderModuleCard(m))}</div>
+                  {(activeCategory !== 'all' || search.trim()) && (
+                    <footer className="amp-section-footer">
+                      <button
+                        type="button"
+                        className="amp-section-back-admin"
+                        onClick={() => {
+                          setActiveCategory('all')
+                          setSearch('')
+                          window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                      >
+                        ← Volver a admin
+                      </button>
+                    </footer>
+                  )}
                 </section>
               ))
             )}

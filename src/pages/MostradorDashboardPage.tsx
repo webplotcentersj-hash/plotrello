@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CLIENTES_BUSCAR, CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
@@ -840,7 +841,7 @@ const MostradorDashboardPage = () => {
         <button
           type="button"
           className="md-btn md-btn--sky md-btn--lg"
-          onClick={() => navigate('/mostrador/buscar-cliente')}
+          onClick={() => navigate(CLIENTES_BUSCAR)}
         >
           <span className="md-btn__label">Buscar cliente</span>
         </button>
@@ -1022,11 +1023,18 @@ const MostradorDashboardPage = () => {
             <p>Calendario, clientes, portal y reportes</p>
           </div>
         </header>
+        <p className="md-tools-group-label">Clientes</p>
+        <div className="md-nav-grid">
+          <NavTile
+            title="Panel de clientes"
+            desc="Buscar, alta, VIP y CC"
+            accent="cc"
+            onClick={() => navigate(CLIENTES_DASHBOARD)}
+          />
+        </div>
         <p className="md-tools-group-label">Mostrador</p>
         <div className="md-nav-grid">
           <NavTile title="Calendario de entregas" desc="Vista mensual de OP" accent="cal" onClick={() => navigate('/mostrador/calendario')} />
-          <NavTile title="Clientes frecuentes" desc="VIP y preferencias" accent="vip" onClick={() => navigate('/mostrador/clientes-frecuentes')} />
-          <NavTile title="Cuenta corriente" desc="Saldos y cobros" accent="cc" onClick={() => navigate('/mostrador/cuenta-corriente')} />
           <NavTile title="Atención al público" desc="Cola y totem" onClick={() => navigate('/atencion-publico')} />
         </div>
         <p className="md-tools-group-label">Portal y ventas</p>

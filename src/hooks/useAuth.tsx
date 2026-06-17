@@ -6,7 +6,15 @@ import {
   useState,
   type ReactNode
 } from 'react'
-import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
+import { isOperarioExternoRol, operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
+import {
+  getSessionKind,
+  PLOTLAB_SESSION_KIND_KEY,
+  readOperarioExternoUsuario,
+  readStaffUsuario,
+  readStoredUsuario as readStoredUsuarioRaw,
+  type PlotlabSessionKind
+} from '../utils/plotlabSession'
 
 export type Usuario = {
   id: number
@@ -30,14 +38,24 @@ export type Usuario = {
 }
 
 export function readStoredUsuario(): Usuario | null {
-  if (typeof window === 'undefined') return null
+  return readStoredUsuarioRaw()
+}
+
+function resolveUsuarioForContext(): Usuario | null {
+  const kind = getSessionKind()
+  if (kind === 'operario_externo') return readOperarioExternoUsuario()
+  if (kind === 'staff') return readStaffUsuario()
+  const raw = readStoredUsuarioRaw()
+  if (!raw) return null
+  const inferred: PlotlabSessionKind = isOperarioExternoRol(raw.rol)
+    ? 'operario_externo'
+    : 'staff'
   try {
-    const usuarioStr = localStorage.getItem('usuario')
-    if (!usuarioStr) return null
-    return JSON.parse(usuarioStr) as Usuario
+    localStorage.setItem(PLOTLAB_SESSION_KIND_KEY, inferred)
   } catch {
-    return null
+    /* ignore */
   }
+  return inferred === 'operario_externo' ? readOperarioExternoUsuario() : readStaffUsuario()
 }
 
 type AuthContextValue = {
@@ -84,15 +102,16 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(readStoredUsuario)
+  const [usuario, setUsuario] = useState<Usuario | null>(resolveUsuarioForContext)
   const [loading, setLoading] = useState(() => {
     if (typeof window === 'undefined') return true
-    return readStoredUsuario() == null
+    return resolveUsuarioForContext() == null
   })
 
   useEffect(() => {
     const load = async () => {
-      const usuarioStr = localStorage.getItem('usuario')
+      const sessionUsuario = resolveUsuarioForContext()
+      const usuarioStr = sessionUsuario ? JSON.stringify(sessionUsuario) : null
       const hasToken = Boolean(localStorage.getItem('auth_token'))
 
       if (usuarioStr && hasToken) {
@@ -100,17 +119,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { verifyStaffSession, clearStaffSession } = await import('../services/staffSession')
           const v = await verifyStaffSession()
           if (v.ok && v.usuario) {
-            setUsuario(v.usuario as Usuario)
+            const refreshed = resolveUsuarioForContext() ?? (v.usuario as Usuario)
+            setUsuario(refreshed)
           } else if (!v.ok) {
             clearStaffSession()
             setUsuario(null)
           } else {
-            setUsuario(JSON.parse(usuarioStr) as Usuario)
+            setUsuario(sessionUsuario)
           }
         } catch (error) {
           console.error('Error al validar sesión staff:', error)
-          localStorage.removeItem('usuario')
-          localStorage.removeItem('auth_token')
+          const { clearStaffSession } = await import('../services/staffSession')
+          clearStaffSession()
           setUsuario(null)
         }
       } else if (usuarioStr) {
@@ -121,11 +141,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             clearStaffSession()
             setUsuario(null)
           } else {
-            setUsuario(JSON.parse(usuarioStr) as Usuario)
+            setUsuario(sessionUsuario)
           }
         } catch (error) {
           console.error('Error al parsear usuario:', error)
-          localStorage.removeItem('usuario')
+          const { clearStaffSession } = await import('../services/staffSession')
+          clearStaffSession()
           setUsuario(null)
         }
       } else if (import.meta.env.DEV && import.meta.env.VITE_DEV_MOCK_AUTH === '1') {
