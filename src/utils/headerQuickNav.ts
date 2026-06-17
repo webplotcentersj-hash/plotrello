@@ -235,6 +235,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       }
       break
     case 'administracion':
+      push({
+        id: 'panel-admin',
+        label: 'Panel',
+        icon: '🧭',
+        href: '/admin',
+        title: 'Panel de módulos (administración)'
+      })
       if (ctx.canManageWorkPool) {
         push({
           id: 'plot-design-admin',
@@ -271,6 +278,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       }
       break
     case 'gerencia':
+      push({
+        id: 'panel-admin',
+        label: 'Panel',
+        icon: '🧭',
+        href: '/admin',
+        title: 'Panel de módulos (gerencia)'
+      })
       if (ctx.isAdmin && ctx.onNavigateToStats) {
         push({
           id: 'dashboard-stats',

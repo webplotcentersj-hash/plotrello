@@ -10,6 +10,7 @@ import EnvDebug from './components/EnvDebug'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
 import { useAuth, AuthProvider, type Usuario } from './hooks/useAuth'
 import { operarioExternoHomeRoute } from './features/work-pool/workPoolOperarioExterno'
+import { adminStaffHomeRoute } from './utils/adminStaffHome'
 import { readStoredUsuario } from './hooks/useAuth'
 import './app.css'
 import './plotlab-mobile.css'
@@ -338,6 +339,8 @@ function AppInner() {
                   to={
                     operarioExternoHomeRoute(usuario?.rol) ??
                     operarioExternoHomeRoute(readStoredUsuario()?.rol) ??
+                    adminStaffHomeRoute(usuario?.rol) ??
+                    adminStaffHomeRoute(readStoredUsuario()?.rol) ??
                     '/'
                   }
                   replace

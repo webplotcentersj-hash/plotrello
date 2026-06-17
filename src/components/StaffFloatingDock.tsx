@@ -11,6 +11,7 @@ const SolicitudesPermisosFloatingButton = lazy(
 
 function shouldHideFloatingDock(pathname: string): boolean {
   if (pathname === '/' || pathname === '') return true
+  if (pathname === '/admin') return true
   if (pathname === '/app-campo') return true
   if (pathname === '/statistics') return true
   if (pathname.startsWith('/mensajeria')) return true

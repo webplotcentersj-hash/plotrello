@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { staffLogin } from '../services/staffAuthApi'
 import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
+import { adminStaffHomeRoute } from '../utils/adminStaffHome'
 import './Login.css'
 
 type LoginProps = {
@@ -31,7 +32,8 @@ const Login = ({ onLogin }: LoginProps) => {
         localStorage.setItem('plotlab_login_usuario', usuario.trim())
         flushSync(() => onLogin(usuarioData))
         const externoHome = operarioExternoHomeRoute(usuarioData.rol)
-        navigate(externoHome ?? '/', { replace: true })
+        const adminHome = adminStaffHomeRoute(usuarioData.rol)
+        navigate(externoHome ?? adminHome ?? '/', { replace: true })
       } else {
         setError(response.error || 'Error al iniciar sesión')
       }
