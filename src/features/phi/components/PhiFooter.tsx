@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Mail, Phone } from 'lucide-react'
 import { PHI_BRAND, PHI_NAV_LINKS, phiAsset } from '../phiContent'
+import { OPERARIO_EXTERNO_LOGIN } from '../../work-pool/workPoolOperarioExterno'
 
 export default function PhiFooter() {
   return (
@@ -52,10 +53,10 @@ export default function PhiFooter() {
                 <Link to="/postulacion-operarios">Postulación operarios</Link>
               </li>
               <li>
-                <Link to="/login">Ingreso staff / diseñador</Link>
+                <Link to={OPERARIO_EXTERNO_LOGIN}>Ingreso operario externo</Link>
               </li>
               <li>
-                <Link to="/operario-externo/diseno">Panel diseñador externo</Link>
+                <Link to={OPERARIO_EXTERNO_LOGIN}>Panel operario externo</Link>
               </li>
             </ul>
           </div>

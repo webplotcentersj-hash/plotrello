@@ -14,7 +14,7 @@ import {
   Wrench
 } from 'lucide-react'
 import { enviarSolicitudOperarioExterno } from '../features/work-pool/workPoolRepository'
-import { operarioExternoHomeRoute, isOperarioExternoRol } from '../features/work-pool/workPoolOperarioExterno'
+import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN, isOperarioExternoRol } from '../features/work-pool/workPoolOperarioExterno'
 import { useAuth } from '../hooks/useAuth'
 import { PHI_PUBLIC_URL } from '../utils/phiPublicUrl'
 import {
@@ -294,6 +294,7 @@ export default function OperarioBolsaSolicitudPage() {
     const panelLink = isOperarioExternoRol(usuario?.rol)
       ? operarioExternoHomeRoute(usuario.rol)
       : null
+    const dashboardLink = panelLink ?? OPERARIO_EXTERNO_LOGIN
     return (
       <div className="phi-root operario-solicitud-page operario-solicitud-page--ok">
         <div className="operario-solicitud-card operario-solicitud-card--ok">
@@ -306,17 +307,11 @@ export default function OperarioBolsaSolicitudPage() {
             Recibimos tu solicitud como <strong>{rubroLabel(rubro)}</strong> ({nivelLabel(nivel)}).
             {panelLink
               ? ' Ya podés entrar a tu panel de operario externo.'
-              : ' Si es aprobada, te contactaremos con usuario de acceso al panel.'}
+              : ' Si es aprobada, te vamos a notificar por email con tu usuario de acceso.'}
           </p>
-          {panelLink ? (
-            <Link to={panelLink} className="phi-btn phi-btn--dark phi-btn--lg">
-              Ir a mi panel
-            </Link>
-          ) : (
-            <Link to="/login" className="phi-btn phi-btn--dark phi-btn--lg">
-              Ir al login
-            </Link>
-          )}
+          <Link to={dashboardLink} className="phi-btn phi-btn--dark phi-btn--lg">
+            {panelLink ? 'Ir a mi panel' : 'Ir al ingreso de operarios'}
+          </Link>
         </div>
       </div>
     )
@@ -678,9 +673,13 @@ export default function OperarioBolsaSolicitudPage() {
               Volver a phi
             </a>
           </div>
-          <Link to="/login" className="phi-btn phi-btn--dark phi-btn--icon" title="Ingresar">
+          <Link
+            to={OPERARIO_EXTERNO_LOGIN}
+            className="phi-btn phi-btn--dark phi-btn--icon"
+            title="Ingreso operario externo"
+          >
             <Mail size={22} strokeWidth={2.5} aria-hidden />
-            <span className="phi-sr-only">Ingresar</span>
+            <span className="phi-sr-only">Ingreso operario externo</span>
           </Link>
         </nav>
       </div>

@@ -20,5 +20,5 @@ alwaysApply: true
 ## Reglas
 - **Nunca** `git add phi-site/` ni commitear `phi-site/` en plotrello (`phi-site/` está en `.gitignore`).
 - Estilos compartidos: plotrello usa `src/features/phi/phi-landing.css`; phi-site tiene su copia en `phi-site/src/phi-landing.css`. Si cambia el diseño, actualizar **ambos** repos por separado o documentar qué repo es fuente de verdad.
-- Enlaces cruzados: phi → Plot Lab vía `plotLabLinks.ts` / `VITE_PLOTLAB_ORIGIN`; Plot Lab → phi vía `PHI_PUBLIC_URL` en `src/utils/phiPublicUrl.ts`.
+- Enlaces cruzados: phi → Plot Lab vía `plotLabLinks.ts` / `VITE_PLOTLAB_ORIGIN`; Plot Lab → phi vía `PHI_PUBLIC_URL`. Ingreso operarios externos: solo `/operario-externo/login`.
 - Push/deploy: dos remotes, dos pipelines (Vercel phi, plotrello producción).

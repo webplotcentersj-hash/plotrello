@@ -39,6 +39,7 @@ const ClientePortalRoutes = lazy(() => import('./routes/ClientePortalRoutes'))
 const StaffAppHost = lazy(() => import('./routes/StaffAppHost'))
 const OperarioBolsaSolicitudPage = lazy(() => import('./pages/OperarioBolsaSolicitudPage'))
 const OperarioExternoHomePage = lazy(() => import('./pages/OperarioExternoHomePage'))
+const OperarioExternoLoginPage = lazy(() => import('./pages/OperarioExternoLoginPage'))
 const OperarioExternoDashboardPage = lazy(
   () => import('./features/work-pool/OperarioExternoDashboardPage')
 )
@@ -327,6 +328,29 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>}>
                 <OperarioBolsaSolicitudPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/operario-externo/login"
+            element={
+              <Suspense
+                fallback={
+                  <div
+                    style={{
+                      padding: '32px',
+                      textAlign: 'center',
+                      color: '#0b0b0b',
+                      background: '#fff',
+                      minHeight: '100vh',
+                      fontFamily: "'Onest', system-ui, sans-serif"
+                    }}
+                  >
+                    Cargando…
+                  </div>
+                }
+              >
+                <OperarioExternoLoginPage onLogin={handleLogin} />
               </Suspense>
             }
           />

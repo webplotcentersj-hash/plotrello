@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { FolderOpen, UserPlus } from 'lucide-react'
 import { phiAsset } from '../phiContent'
+import { OPERARIO_EXTERNO_LOGIN } from '../../work-pool/workPoolOperarioExterno'
 
 export default function PhiHero() {
   return (
@@ -24,7 +25,7 @@ export default function PhiHero() {
               <UserPlus size={20} aria-hidden />
               Postularme
             </Link>
-            <Link to="/login" className="phi-btn phi-btn--outline phi-btn--lg">
+            <Link to={OPERARIO_EXTERNO_LOGIN} className="phi-btn phi-btn--outline phi-btn--lg">
               <FolderOpen size={20} aria-hidden />
               Ingresar al panel
             </Link>

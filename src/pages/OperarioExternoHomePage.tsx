@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
+import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from '../features/work-pool/workPoolOperarioExterno'
 
 /** Redirige /operario-externo al panel según rol (diseno o bolsa). */
 export default function OperarioExternoHomePage() {
@@ -27,5 +27,5 @@ export default function OperarioExternoHomePage() {
   const home = operarioExternoHome ?? operarioExternoHomeRoute(usuario?.rol)
   if (home) return <Navigate to={home} replace />
 
-  return <Navigate to="/login" replace />
+  return <Navigate to={OPERARIO_EXTERNO_LOGIN} replace />
 }

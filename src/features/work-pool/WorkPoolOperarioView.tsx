@@ -12,7 +12,8 @@ import {
 import {
   isOperarioExternoRol,
   jobPedidoLabel,
-  maskJobForOperarioExterno
+  maskJobForOperarioExterno,
+  OPERARIO_EXTERNO_LOGIN
 } from './workPoolOperarioExterno'
 import {
   contarMensajesOperarioNoLeidos,
@@ -120,7 +121,7 @@ export default function WorkPoolOperarioView({ product }: Props) {
   const handleLogout = () => {
     localStorage.removeItem('usuario')
     setUsuario(null)
-    navigate('/login')
+    navigate(OPERARIO_EXTERNO_LOGIN)
   }
 
   const runAction = async (fn: () => Promise<{ success: boolean; error?: string }>) => {

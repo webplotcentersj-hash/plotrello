@@ -13,6 +13,9 @@ export const OPERARIO_EXTERNO_DASHBOARD = {
   bolsa: '/operario-externo/bolsa'
 } as const
 
+/** Login dedicado (estilo phi), distinto del /login de staff Plot Lab. */
+export const OPERARIO_EXTERNO_LOGIN = '/operario-externo/login' as const
+
 export function operarioExternoHomeRoute(rol?: string | null): string | null {
   if (rol === 'operario-diseno') return OPERARIO_EXTERNO_DASHBOARD.diseno
   if (rol === 'operario-bolsa') return OPERARIO_EXTERNO_DASHBOARD.bolsa

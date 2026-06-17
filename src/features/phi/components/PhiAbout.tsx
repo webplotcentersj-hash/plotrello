@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { User } from 'lucide-react'
 import { PHI_ABOUT_BULLETS, phiAsset } from '../phiContent'
+import { OPERARIO_EXTERNO_LOGIN } from '../../work-pool/workPoolOperarioExterno'
 
 export default function PhiAbout() {
   return (
@@ -34,7 +35,7 @@ export default function PhiAbout() {
             ))}
           </ul>
 
-          <Link to="/operario-externo/diseno" className="phi-btn phi-btn--dark phi-btn--lg">
+          <Link to={OPERARIO_EXTERNO_LOGIN} className="phi-btn phi-btn--dark phi-btn--lg">
             <User size={20} aria-hidden />
             Ir al panel diseñador
           </Link>

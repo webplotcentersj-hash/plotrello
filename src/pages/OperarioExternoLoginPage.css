@@ -1,0 +1,180 @@
+.phi-root.operario-externo-login-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #fff;
+  color: var(--phi-black, #0b0b0b);
+}
+
+.phi-root.operario-externo-login-page .phi-nav {
+  max-width: min(960px, 100% - 32px);
+}
+
+.phi-root.operario-externo-login-page .phi-nav-links {
+  display: flex;
+}
+
+.operario-externo-login-shell {
+  width: min(960px, 100% - 32px);
+  margin: 0 auto;
+  padding: 8px 16px clamp(32px, 6vw, 56px);
+  display: grid;
+  gap: clamp(20px, 3vw, 28px);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .operario-externo-login-shell {
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 400px);
+    gap: clamp(24px, 4vw, 40px);
+  }
+}
+
+.operario-externo-login-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.operario-externo-login-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.operario-externo-login-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: 14px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  background: #fff;
+  padding: 6px;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
+  flex-shrink: 0;
+}
+
+.operario-externo-login-eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--phi-purple, #a855f7);
+}
+
+.operario-externo-login-aside h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 3.5vw, 2rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.operario-externo-login-lead {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--phi-muted, #393939);
+  max-width: 40ch;
+}
+
+.operario-externo-login-notice {
+  padding: 14px 16px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background: #fff7ed;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.operario-externo-login-notice strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.operario-externo-login-notice p {
+  margin: 0;
+  color: var(--phi-muted, #393939);
+}
+
+.operario-externo-login-postular {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.operario-externo-login-card {
+  padding: clamp(20px, 3vw, 28px);
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-md, 16px);
+  background: #fff;
+  box-shadow: var(--phi-shadow-sm, 6px 6px 0 0 #0b0b0b);
+}
+
+.operario-externo-login-card h2 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.operario-externo-login-card-hint {
+  margin: 0 0 20px;
+  font-size: 0.88rem;
+  color: var(--phi-muted, #393939);
+}
+
+.operario-externo-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.operario-externo-login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--phi-muted, #393939);
+}
+
+.operario-externo-login-form input {
+  padding: 12px 14px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--phi-black, #0b0b0b);
+  background: #fff;
+}
+
+.operario-externo-login-form input:focus {
+  outline: 3px solid var(--phi-purple, #a855f7);
+  outline-offset: 2px;
+}
+
+.operario-externo-login-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 3px solid #ef4444;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.operario-externo-login-form .phi-btn--block {
+  margin-top: 4px;
+  width: 100%;
+}

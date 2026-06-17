@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import type { WorkPoolProduct } from '../../types/workPool'
 import { operarioExternoRolForProduct } from './workPoolConfig'
-import { operarioExternoHomeRoute } from './workPoolOperarioExterno'
+import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
 import { readStoredUsuario } from '../../hooks/useAuth'
 import WorkPoolOperarioView from './WorkPoolOperarioView'
 import '../phi/phi-landing.css'
@@ -24,12 +24,12 @@ export default function OperarioExternoDashboardPage({ product }: Props) {
     )
   }
 
-  if (!sessionUser) return <Navigate to="/login" replace />
+  if (!sessionUser) return <Navigate to={OPERARIO_EXTERNO_LOGIN} replace />
 
   if (sessionUser.rol !== expectedRol) {
     const home = operarioExternoHomeRoute(sessionUser.rol)
     if (home) return <Navigate to={home} replace />
-    return <Navigate to="/login" replace />
+    return <Navigate to={OPERARIO_EXTERNO_LOGIN} replace />
   }
 
   return <WorkPoolOperarioView product={product} />
