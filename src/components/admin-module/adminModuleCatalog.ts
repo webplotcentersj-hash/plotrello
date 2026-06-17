@@ -153,6 +153,17 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     accent: '#a855f7'
   },
   {
+    id: 'phi-landing',
+    title: 'phi (φ)',
+    description: 'Web pública Plot Design para diseñadores externos',
+    icon: 'φ',
+    path: 'https://phi-omega-one.vercel.app/',
+    category: 'produccion',
+    roles: 'all',
+    accent: '#c026d3',
+    openInNewTab: true
+  },
+  {
     id: 'bolsa-plot',
     title: 'Bolsa Plot',
     description: 'Trabajos de instalaciones y metalúrgica',

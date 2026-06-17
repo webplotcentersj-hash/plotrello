@@ -45,6 +45,7 @@ const OperarioExternoDashboardPage = lazy(
 const OperarioExternoStaffShell = lazy(
   () => import('./features/work-pool/OperarioExternoStaffShell')
 )
+const PhiPublicRedirect = lazy(() => import('./pages/PhiPublicRedirect'))
 
 const operarioExternoFallback = (
   <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando panel…</div>
@@ -53,7 +54,7 @@ const operarioExternoFallback = (
 /** App campo: sin panel de debug fijo (debe vivir dentro de BrowserRouter). */
 function EnvDebugGate() {
   const { pathname } = useLocation()
-  if (pathname === '/app-campo') return null
+  if (pathname === '/app-campo' || pathname === '/phi' || pathname.startsWith('/phi/')) return null
   return <EnvDebug />
 }
 
@@ -268,6 +269,14 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
                 <CvPublicoPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/phi"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando phi…</div>}>
+                <PhiPublicRedirect />
               </Suspense>
             }
           />
