@@ -1,0 +1,24 @@
+---
+description: Plot Lab y phi (φ) son dos repositorios Git distintos
+alwaysApply: true
+---
+
+# Repos separados: plotrello vs phi
+
+## plotrello (Plot Lab)
+- **Repo:** `webplotcentersj-hash/plotrello`
+- **Carpeta raíz del proyecto:** workspace `Trello/7` (este repo)
+- **Producción:** `trello.plotcenter.com.ar`
+- Contiene: tablero, admin, postulación operarios, panel operario externo, `src/features/phi/` (legacy/embebido para estilos compartidos), `public/phi/`, `public/fotopi/`
+
+## phi (φ) — sitio público Plot Design
+- **Repo:** `webplotcentersj-hash/phi`
+- **Carpeta local:** `phi-site/` (hermano dentro del workspace, **no** commitear en plotrello)
+- **Producción:** `https://phi-omega-one.vercel.app/`
+- Cambios de landing phi → commit y push **solo** en `phi-site/` (`git` propio)
+
+## Reglas
+- **Nunca** `git add phi-site/` ni commitear `phi-site/` en plotrello (`phi-site/` está en `.gitignore`).
+- Estilos compartidos: plotrello usa `src/features/phi/phi-landing.css`; phi-site tiene su copia en `phi-site/src/phi-landing.css`. Si cambia el diseño, actualizar **ambos** repos por separado o documentar qué repo es fuente de verdad.
+- Enlaces cruzados: phi → Plot Lab vía `plotLabLinks.ts` / `VITE_PLOTLAB_ORIGIN`; Plot Lab → phi vía `PHI_PUBLIC_URL` en `src/utils/phiPublicUrl.ts`.
+- Push/deploy: dos remotes, dos pipelines (Vercel phi, plotrello producción).
