@@ -1,0 +1,2 @@
+-- FK CxC→facturas, sync CxP desde facturas compra, alertas vencimiento admin
+-- Aplicado vía MCP 2026-06-19

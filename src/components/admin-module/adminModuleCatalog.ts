@@ -290,7 +290,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     id: 'caja',
     title: 'Caja',
     description: 'Movimientos, arqueos y cierre de caja',
-    icon: '💰',
+    icon: '💵',
     path: '/caja/dashboard/admin',
     category: 'finanzas',
     roles: ['caja', 'administracion', 'gerencia'],
@@ -299,7 +299,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
   },
   {
     id: 'erp',
-    title: 'ERP',
+    title: 'Contable',
     description: 'Facturación, contabilidad y tesorería',
     icon: '🏭',
     path: '/erp',

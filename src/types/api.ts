@@ -849,7 +849,7 @@ export interface AsientoContableRecord {
   numero_asiento: string
   fecha: string
   concepto: string
-  tipo_asiento: 'Manual' | 'Automático' | 'Facturación' | 'Compra' | 'Pago' | 'Cobro' | 'Ajuste'
+  tipo_asiento: 'Manual' | 'Automático' | 'Facturación' | 'Compra' | 'Pago' | 'Cobro' | 'Ajuste' | 'Tesorería'
   id_origen?: number | null
   tipo_origen?: string | null
   total_debe: number
@@ -976,6 +976,38 @@ export interface CostoOPRecord {
   observaciones?: string | null
   created_at?: string
   updated_at?: string
+}
+
+export type CostoOPAlerta = 'margen_bajo' | 'costo_supera_ingreso' | 'sin_ingreso' | 'ok'
+
+export interface CostoOPResumen {
+  id_op: number
+  numero_op: string
+  cliente: string
+  sector?: string | null
+  entregado?: boolean | null
+  reclamo_costo_monto?: number | null
+  costo_materiales: number
+  costo_mano_obra: number
+  costo_gastos_generales: number
+  costo_logistica: number
+  costo_total: number
+  ingreso: number
+  margen_abs: number
+  margen_pct: number | null
+  alerta: CostoOPAlerta
+  cantidad_lineas: number
+  ultima_fecha_costo?: string | null
+}
+
+export interface CostoClienteResumen {
+  cliente: string
+  ops: number
+  costo_total: number
+  ingreso_total: number
+  margen_abs: number
+  margen_pct: number | null
+  alertas: number
 }
 
 export interface CuentaPorCobrarRecord {

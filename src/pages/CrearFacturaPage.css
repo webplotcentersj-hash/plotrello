@@ -1,19 +1,506 @@
+/* ── Nueva factura — shell oscuro + comprobante AFIP ── */
 .crear-factura-page {
-  padding: 20px;
-  max-width: 1200px;
+  --cf-ink: #e8edf5;
+  --cf-muted: #94a3b8;
+  --cf-accent: #10b981;
+  --cf-line: rgba(148, 163, 184, 0.16);
+  --cf-surface: rgba(15, 23, 42, 0.88);
+
+  min-height: 100vh;
+  padding: 22px;
+  max-width: 1480px;
   margin: 0 auto;
+  color: var(--cf-ink);
+  background-color: #020617;
+  background-image:
+    radial-gradient(ellipse 90% 60% at 0% -5%, rgba(5, 150, 105, 0.2), transparent 55%),
+    linear-gradient(165deg, #0f172a 0%, #020617 100%);
 }
 
-.page-header {
+.crear-factura-loading {
+  padding: 48px;
+  text-align: center;
+  color: var(--cf-muted);
+}
+
+.crear-factura-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 20px 22px;
+  border-radius: 18px;
+  border: 1px solid var(--cf-line);
+  background: linear-gradient(155deg, rgba(30, 41, 59, 0.82), var(--cf-surface));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+.crear-factura-header__brand {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.crear-factura-header__icon {
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.7rem;
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.crear-factura-header__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6ee7b7;
+}
+
+.crear-factura-header h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+  font-weight: 800;
+}
+
+.crear-factura-header__sub {
+  margin: 6px 0 0;
+  color: var(--cf-muted);
+  font-size: 0.9rem;
+}
+
+.crear-factura-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crear-factura-alert {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+}
+
+.crear-factura-alert--warn {
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.1);
+  color: #fde68a;
+}
+
+.crear-factura-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .crear-factura-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.crear-factura-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.crear-factura-panel {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--cf-line);
+  background: var(--cf-surface);
+}
+
+.crear-factura-panel h2 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.crear-factura-panel__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.crear-factura-panel__head h2 {
+  margin: 0;
+}
+
+.crear-factura-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.crear-factura-field span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--cf-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.crear-factura-field input,
+.crear-factura-field select,
+.crear-factura-field textarea {
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--cf-line);
+  background: rgba(2, 6, 23, 0.55);
+  color: var(--cf-ink);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.crear-factura-field input:focus,
+.crear-factura-field select:focus,
+.crear-factura-field textarea:focus {
+  outline: none;
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
+}
+
+.crear-factura-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--cf-muted);
+  cursor: pointer;
+}
+
+.crear-factura-check input {
+  width: auto;
+}
+
+.crear-factura-origen-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.crear-factura-pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid var(--cf-line);
+  background: rgba(16, 185, 129, 0.1);
+  color: #a7f3d0;
+}
+
+.crear-factura-muted {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--cf-muted);
+}
+
+.crear-factura-items-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crear-factura-item-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid var(--cf-line);
+}
+
+.crear-factura-item-edit input,
+.crear-factura-item-edit select {
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--cf-line);
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--cf-ink);
+  font-size: 0.85rem;
+}
+
+.crear-factura-item-edit__nums {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 6px;
+}
+
+.crear-factura-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 6px 12px !important;
+  font-size: 0.82rem !important;
+}
+
+.btn-remove-item {
+  padding: 6px 10px;
+  background: rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ── Comprobante AFIP (papel blanco) ── */
+.afip-comprobante-wrap {
+  position: sticky;
+  top: 16px;
+}
+
+.afip-comprobante {
+  position: relative;
+  background: #fff;
+  color: #111827;
+  border: 2px solid #1f2937;
+  border-radius: 4px;
+  padding: 18px 20px 14px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  min-height: 720px;
+}
+
+.afip-comprobante__ribbon {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 14px;
+  border: 1px solid #374151;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: #fff;
+}
+
+.afip-comprobante__header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  margin-top: 22px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #111827;
+}
+
+.afip-comprobante__emisor {
+  padding-right: 8px;
+}
+
+.afip-comprobante__razon {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.afip-comprobante__tipo-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  border: 2px solid #111827;
+  padding: 6px 10px;
+  align-self: start;
+}
+
+.afip-comprobante__letra {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.afip-comprobante__cod {
+  font-size: 9px;
+  margin-top: 2px;
+}
+
+.afip-comprobante__ident {
+  text-align: right;
+}
+
+.afip-comprobante__titulo {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.afip-comprobante__receptor {
+  margin: 10px 0;
+  padding: 8px 0;
+  border-bottom: 1px solid #d1d5db;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.afip-comprobante__items {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 12px;
+  font-size: 10px;
+}
+
+.afip-comprobante__items th,
+.afip-comprobante__items td {
+  border: 1px solid #9ca3af;
+  padding: 4px 5px;
+  text-align: left;
+}
+
+.afip-comprobante__items th {
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.afip-comprobante__items td:nth-child(n + 3),
+.afip-comprobante__items th:nth-child(n + 3) {
+  text-align: right;
+}
+
+.afip-comprobante__empty {
+  text-align: center !important;
+  color: #6b7280;
+  padding: 20px !important;
+}
+
+.afip-comprobante__footer {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.afip-comprobante__iva-detail table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.afip-comprobante__iva-detail th,
+.afip-comprobante__iva-detail td {
+  border: 1px solid #d1d5db;
+  padding: 3px 5px;
+}
+
+.afip-comprobante__totales {
+  border: 1px solid #9ca3af;
+  padding: 8px;
+}
+
+.afip-comprobante__totales > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px dotted #d1d5db;
+}
+
+.afip-comprobante__total-final {
+  margin-top: 4px;
+  padding-top: 6px !important;
+  border-top: 2px solid #111827 !important;
+  border-bottom: none !important;
+  font-size: 12px;
+}
+
+.afip-comprobante__cae {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #9ca3af;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.afip-comprobante__cae-pending {
+  color: #b45309;
+  font-style: italic;
+}
+
+.afip-comprobante__qr-placeholder {
+  width: 72px;
+  height: 72px;
+  border: 1px dashed #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #6b7280;
+  grid-row: span 2;
+}
+
+.afip-comprobante__obs {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.afip-comprobante__preview-note {
+  margin-top: 10px;
+  font-size: 9px;
+  color: #6b7280;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .afip-comprobante__header {
+    grid-template-columns: 1fr;
+  }
+
+  .afip-comprobante__ident {
+    text-align: left;
+  }
+
+  .afip-comprobante__receptor {
+    grid-template-columns: 1fr;
+  }
+
+  .afip-comprobante__footer {
+    grid-template-columns: 1fr;
+  }
+
+  .crear-factura-item-edit__nums {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Legacy (CrearNotaPage) ── */
+.crear-factura-page .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
 }
 
-.page-header h1 {
+.crear-factura-page .page-header h1 {
   margin: 0;
-  color: #1a202c;
+  color: #fff;
   font-size: 2rem;
 }
 
@@ -24,17 +511,17 @@
 }
 
 .form-section {
-  background: white;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-line);
   border-radius: 12px;
   padding: 25px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .form-section h2 {
   margin: 0 0 20px 0;
-  color: #2d3748;
+  color: #fff;
   font-size: 1.3rem;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--cf-line);
   padding-bottom: 10px;
 }
 
@@ -53,18 +540,13 @@
 
 .btn-add-item {
   padding: 8px 16px;
-  background: #48bb78;
+  background: #10b981;
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  transition: background 0.2s;
-}
-
-.btn-add-item:hover {
-  background: #38a169;
 }
 
 .form-grid {
@@ -81,36 +563,25 @@
 
 .form-group label {
   font-size: 0.9rem;
-  color: #4a5568;
+  color: var(--cf-muted);
   font-weight: 500;
 }
 
 .form-input,
 .form-textarea {
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--cf-line);
   border-radius: 6px;
   font-size: 0.95rem;
-  transition: border-color 0.2s;
-}
-
-.form-input:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #4299e1;
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
-}
-
-.form-textarea {
-  resize: vertical;
-  font-family: inherit;
+  background: rgba(2, 6, 23, 0.55);
+  color: var(--cf-ink);
 }
 
 .empty-items {
   text-align: center;
   padding: 40px;
-  color: #718096;
-  background: #f7fafc;
+  color: var(--cf-muted);
+  background: rgba(2, 6, 23, 0.35);
   border-radius: 8px;
 }
 
@@ -126,53 +597,29 @@
   gap: 10px;
   align-items: end;
   padding: 15px;
-  background: #f7fafc;
+  background: rgba(2, 6, 23, 0.35);
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-}
-
-.item-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  border: 1px solid var(--cf-line);
 }
 
 .item-field label {
   font-size: 0.8rem;
-  color: #718096;
-  font-weight: 500;
+  color: var(--cf-muted);
 }
 
 .item-subtotal {
   padding: 10px;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--cf-line);
   border-radius: 6px;
   font-weight: 600;
-  color: #2d3748;
   text-align: right;
-}
-
-.btn-remove-item {
-  padding: 8px 12px;
-  background: #fc8181;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.2s;
-  align-self: end;
-}
-
-.btn-remove-item:hover {
-  background: #f56565;
 }
 
 .totales-preview {
   max-width: 400px;
   margin-left: auto;
-  background: #f7fafc;
+  background: rgba(2, 6, 23, 0.35);
   padding: 20px;
   border-radius: 8px;
 }
@@ -181,16 +628,11 @@
   display: flex;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--cf-line);
 }
 
 .totales-preview .total-row.total-final {
-  border-top: 2px solid #2d3748;
-  border-bottom: 2px solid #2d3748;
-  margin-top: 10px;
-  padding-top: 12px;
-  padding-bottom: 12px;
-  font-size: 1.1rem;
+  border-top: 2px solid var(--cf-muted);
   font-weight: 600;
 }
 
@@ -199,42 +641,28 @@
   justify-content: flex-end;
   gap: 10px;
   padding-top: 20px;
-  border-top: 2px solid #e2e8f0;
 }
 
-.btn-primary {
+.crear-factura-page .btn-primary {
   padding: 12px 24px;
-  background: #4299e1;
+  background: #059669;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background 0.2s;
+  font-weight: 600;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #3182ce;
-}
-
-.btn-primary:disabled {
+.crear-factura-page .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.btn-secondary {
+.crear-factura-page .btn-secondary {
   padding: 12px 24px;
-  background: #e2e8f0;
-  color: #2d3748;
-  border: none;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--cf-ink);
+  border: 1px solid var(--cf-line);
   border-radius: 8px;
   cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.2s;
 }
-
-.btn-secondary:hover {
-  background: #cbd5e0;
-}
-

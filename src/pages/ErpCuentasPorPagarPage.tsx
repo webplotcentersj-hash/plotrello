@@ -1,16 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import { estadoVencimientoErp, labelVencimientoErp } from '../utils/erpVencimiento'
 import './ErpSectionPage.css'
+
+type AlertaCxp = {
+  id: number
+  id_cuenta_por_pagar: number
+  nivel: 'proximo' | 'vencido'
+  dias_restantes: number | null
+  mensaje: string | null
+  leida: boolean
+  proveedor_nombre?: string
+  monto_pendiente?: number
+  fecha_vencimiento?: string
+}
 
 export default function ErpCuentasPorPagarPage() {
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const [searchParams] = useSearchParams()
   const estado = (searchParams.get('estado') || '').trim() || ''
 
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const [rows, setRows] = useState<any[]>([])
   const [cuentas, setCuentas] = useState<any[]>([])
+  const [alertas, setAlertas] = useState<AlertaCxp[]>([])
   const [showPagoFor, setShowPagoFor] = useState<number | null>(null)
   const [loadingPago, setLoadingPago] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,27 +40,38 @@ export default function ErpCuentasPorPagarPage() {
     observaciones: ''
   })
 
-  useEffect(() => {
-    let cancelled = false
+  const loadRows = async () => {
+    const r = await apiService.getCuentasPorPagar(estado ? ({ estado } as any) : undefined)
+    if (r.success && r.data) setRows(Array.isArray(r.data) ? r.data : [])
+    else {
+      setRows([])
+      if (!r.success) setError(r.error || 'No se pudieron cargar cuentas.')
+    }
+  }
+
+  const loadAlertas = async () => {
+    await apiService.erpRefreshAlertasCxp(7)
+    const r = await apiService.getErpAlertasCxp({ soloNoLeidas: false })
+    if (r.success && r.data) setAlertas(r.data)
+  }
+
+  const bootstrap = async () => {
     setLoading(true)
     setError(null)
-    void apiService
-      .getCuentasPorPagar(estado ? ({ estado } as any) : undefined)
-      .then((r) => {
-        if (cancelled) return
-        if (r.success && r.data) setRows(Array.isArray(r.data) ? r.data : [])
-        else {
-          setRows([])
-          if (!r.success) setError(r.error || 'No se pudieron cargar cuentas.')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+    setSyncing(true)
+    try {
+      await apiService.erpSyncCxpDesdeFacturasCompra()
+      await loadRows()
+      if (isAdmin) await loadAlertas()
+    } finally {
+      setSyncing(false)
+      setLoading(false)
     }
-  }, [estado])
+  }
+
+  useEffect(() => {
+    void bootstrap()
+  }, [estado, isAdmin])
 
   useEffect(() => {
     let cancelled = false
@@ -60,12 +88,30 @@ export default function ErpCuentasPorPagarPage() {
   const kpis = useMemo(() => {
     const pending = rows.filter((c: any) => c?.estado === 'Pendiente' || c?.estado === 'Parcial')
     const monto = pending.reduce((sum: number, c: any) => sum + (Number(c?.monto_pendiente) || 0), 0)
-    return { total: rows.length, pendientes: pending.length, monto }
-  }, [rows])
+    const proximas = rows.filter((c: any) => estadoVencimientoErp(c.fecha_vencimiento) === 'proximo').length
+    const vencidas = rows.filter((c: any) => estadoVencimientoErp(c.fecha_vencimiento) === 'vencido').length
+    const alertasActivas = alertas.filter((a) => !a.leida).length
+    return { total: rows.length, pendientes: pending.length, monto, proximas, vencidas, alertasActivas }
+  }, [rows, alertas])
+
+  const alertasNoLeidas = alertas.filter((a) => !a.leida)
+
+  const pillClass = (fecha: string | null | undefined) => {
+    const e = estadoVencimientoErp(fecha)
+    if (e === 'vencido') return 'erp-pill danger'
+    if (e === 'proximo') return 'erp-pill warn'
+    if (e === 'al_dia') return 'erp-pill ok'
+    return 'erp-pill'
+  }
 
   const openPago = (id: number, pendiente: number) => {
     setShowPagoFor(id)
     setPagoForm((p) => ({ ...p, monto: String(Number(pendiente || 0).toFixed(2)) }))
+  }
+
+  const handleMarcarLeida = async (id: number) => {
+    await apiService.marcarErpAlertaCxpLeida(id)
+    await loadAlertas()
   }
 
   const handleRegistrarPago = async () => {
@@ -104,9 +150,8 @@ export default function ErpCuentasPorPagarPage() {
       alert('Pago registrado.')
       setShowPagoFor(null)
       setPagoForm((p) => ({ ...p, monto: '', numero_comprobante: '', observaciones: '', id_cuenta_bancaria: '' }))
-      // recargar
-      const rr = await apiService.getCuentasPorPagar(estado ? ({ estado } as any) : undefined)
-      if (rr.success && rr.data) setRows(Array.isArray(rr.data) ? rr.data : [])
+      await loadRows()
+      if (isAdmin) await loadAlertas()
     } catch (e) {
       console.error(e)
       alert('Error registrando pago.')
@@ -117,51 +162,118 @@ export default function ErpCuentasPorPagarPage() {
 
   return (
     <div className="erp-section">
-      <div className="erp-section-header">
-        <div>
-          <h1>💸 Cuentas por Pagar</h1>
-          <p className="erp-section-sub">Filtro: {estado || 'todas'}</p>
+      <header className="erp-section-header">
+        <div className="erp-section-header__brand">
+          <div className="erp-section-header__icon" aria-hidden>
+            💸
+          </div>
+          <div>
+            <p className="erp-section-header__eyebrow">Tesorería</p>
+            <h1>Cuentas por pagar</h1>
+            <p className="erp-section-sub">
+              Deudas con proveedores {syncing ? '· sincronizando…' : '· desde facturas de compra'}
+            </p>
+          </div>
         </div>
         <div className="erp-section-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
-            ← Volver a ERP
+            ← Contable
           </button>
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp/tesoreria')}>
-            Ir a Tesorería
+            Tesorería
+          </button>
+          <button type="button" className="btn-primary" onClick={() => void bootstrap()} disabled={loading}>
+            Actualizar
           </button>
         </div>
+      </header>
+
+      {error && (
+        <div className="erp-panel">
+          <span className="erp-pill danger">Error</span> <span className="erp-muted">{error}</span>
+        </div>
+      )}
+
+      {isAdmin && alertasNoLeidas.length > 0 && (
+        <div className={`erp-alertas-panel ${kpis.vencidas > 0 ? 'erp-alertas-panel--danger' : ''}`}>
+          <h3>⚠️ Alertas de vencimiento ({alertasNoLeidas.length})</h3>
+          <ul className="erp-alertas-list">
+            {alertasNoLeidas.slice(0, 8).map((a) => (
+              <li key={a.id} className="erp-alerta-item">
+                <div>
+                  <span className={a.nivel === 'vencido' ? 'erp-pill danger' : 'erp-pill warn'}>
+                    {a.nivel === 'vencido' ? 'Vencida' : 'Próxima'}
+                  </span>{' '}
+                  <span>{a.mensaje || a.proveedor_nombre}</span>
+                </div>
+                <div className="erp-section-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => navigate(`/erp/cuentas-por-pagar?estado=${a.nivel === 'vencido' ? 'Vencido' : 'Pendiente'}`)}
+                  >
+                    Ver
+                  </button>
+                  <button type="button" className="btn-primary btn-sm" onClick={() => void handleMarcarLeida(a.id)}>
+                    Marcar leída
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="erp-stats-row">
+        <article className="erp-stat-card erp-stat-card--rose">
+          <div className="erp-stat-card__icon">📋</div>
+          <div className="erp-stat-card__body">
+            <div className="erp-stat-card__value">{kpis.pendientes}</div>
+            <div className="erp-stat-card__label">Pendientes</div>
+          </div>
+        </article>
+        <article className="erp-stat-card erp-stat-card--violet">
+          <div className="erp-stat-card__icon">💰</div>
+          <div className="erp-stat-card__body">
+            <div className="erp-stat-card__value">
+              ${kpis.monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="erp-stat-card__label">Monto pendiente</div>
+          </div>
+        </article>
+        <article className="erp-stat-card erp-stat-card--amber">
+          <div className="erp-stat-card__icon">⏳</div>
+          <div className="erp-stat-card__body">
+            <div className="erp-stat-card__value">{kpis.proximas}</div>
+            <div className="erp-stat-card__label">Por vencer (7 d)</div>
+          </div>
+        </article>
+        <article className="erp-stat-card erp-stat-card--sky">
+          <div className="erp-stat-card__icon">🔔</div>
+          <div className="erp-stat-card__body">
+            <div className="erp-stat-card__value">{kpis.alertasActivas}</div>
+            <div className="erp-stat-card__label">Alertas activas</div>
+          </div>
+        </article>
       </div>
 
-      {error && <div className="erp-panel"><span className="erp-pill danger">Error</span> <span className="erp-muted">{error}</span></div>}
-
-      <div className="erp-section-grid">
-        <div className="erp-panel">
-          <h2>KPIs</h2>
-          <div className="erp-kpi">
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{kpis.total}</div>
-              <div className="erp-kpi-label">Cuentas</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{kpis.pendientes}</div>
-              <div className="erp-kpi-label">Pendientes / parcial</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">
-                ${kpis.monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-              </div>
-              <div className="erp-kpi-label">Monto pendiente</div>
-            </div>
+      <section className="erp-panel">
+        <div className="erp-panel__head">
+          <div>
+            <h2>Listado de deudas</h2>
+            <p className="erp-panel__hint">{estado ? `Filtro: ${estado}` : 'Todas las cuentas por pagar'}</p>
           </div>
         </div>
-      </div>
-
-      <div className="erp-panel">
-        <h2>Listado</h2>
         {loading ? (
-          <p className="erp-muted">Cargando…</p>
+          <div className="erp-loading-inline">
+            <div className="erp-loading-inline__spinner" aria-hidden />
+            <span>Cargando deudas…</span>
+          </div>
         ) : rows.length === 0 ? (
-          <p className="erp-muted">Sin datos para el filtro.</p>
+          <div className="erp-empty">
+            <span className="erp-empty__icon">✅</span>
+            Sin cuentas por pagar. Las facturas de compra generan deuda automáticamente.
+          </div>
         ) : (
           <div className="erp-table-wrap">
             <table className="erp-table">
@@ -171,9 +283,8 @@ export default function ErpCuentasPorPagarPage() {
                   <th>Emisión</th>
                   <th>Vencimiento</th>
                   <th>Estado</th>
-                  <th>Monto pendiente</th>
+                  <th>Pendiente</th>
                   <th>Comprobante</th>
-                  <th>IVA compras</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -182,33 +293,44 @@ export default function ErpCuentasPorPagarPage() {
                   <tr key={c.id}>
                     <td>{c.proveedor_nombre || '—'}</td>
                     <td>{c.fecha_emision ? new Date(c.fecha_emision).toLocaleDateString('es-AR') : '—'}</td>
-                    <td>{c.fecha_vencimiento ? new Date(c.fecha_vencimiento).toLocaleDateString('es-AR') : '—'}</td>
-                    <td>{c.estado || '—'}</td>
-                    <td>${Number(c.monto_pendiente || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td>{c.numero_comprobante || c.comprobante || '—'}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() =>
-                          navigate(
-                            `/erp/impuestos?tab=compras&cxp=${c.id}${
-                              c.id_pedido_compra != null ? `&pedido=${c.id_pedido_compra}` : ''
-                            }`
-                          )
-                        }
-                      >
-                        Factura compra
-                      </button>
-                    </td>
-                    <td>
-                      {Number(c.monto_pendiente || 0) > 0 ? (
-                        <button type="button" className="btn-primary" onClick={() => openPago(c.id, c.monto_pendiente)}>
-                          Registrar pago
-                        </button>
+                      {c.fecha_vencimiento ? (
+                        <>
+                          {new Date(c.fecha_vencimiento).toLocaleDateString('es-AR')}{' '}
+                          <span className={pillClass(c.fecha_vencimiento)}>
+                            {labelVencimientoErp(c.fecha_vencimiento)}
+                          </span>
+                        </>
                       ) : (
-                        <span className="erp-muted">—</span>
+                        '—'
                       )}
+                    </td>
+                    <td>{c.estado || '—'}</td>
+                      <td className="erp-td-monto">
+                        ${Number(c.monto_pendiente || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </td>
+                    <td>{c.numero_documento || '—'}</td>
+                    <td>
+                      <div className="erp-section-actions">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() =>
+                            navigate(
+                              `/erp/impuestos?tab=compras&cxp=${c.id}${
+                                c.id_pedido_compra != null ? `&pedido=${c.id_pedido_compra}` : ''
+                              }`
+                            )
+                          }
+                        >
+                          Factura
+                        </button>
+                        {Number(c.monto_pendiente || 0) > 0 ? (
+                          <button type="button" className="btn-primary btn-sm" onClick={() => openPago(c.id, c.monto_pendiente)}>
+                            Pagar
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -216,45 +338,40 @@ export default function ErpCuentasPorPagarPage() {
             </table>
           </div>
         )}
-      </div>
+      </section>
 
       {showPagoFor && (
-        <div className="erp-panel">
-          <h2>Registrar pago</h2>
-          <div className="erp-kpi">
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-label">Cuenta por pagar</div>
-              <div className="erp-kpi-value">#{showPagoFor}</div>
+        <section className="erp-panel">
+          <div className="erp-panel__head">
+            <div>
+              <h2>Registrar pago</h2>
+              <p className="erp-panel__hint">Cuenta por pagar #{showPagoFor}</p>
             </div>
           </div>
-
-          <div className="erp-section-actions" style={{ marginTop: 10 }}>
-            <label className="erp-muted">
-              Monto{' '}
+          <div className="erp-toolbar">
+            <label className="erp-field">
+              <span className="erp-field__label">Monto</span>
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 value={pagoForm.monto}
                 onChange={(e) => setPagoForm((p) => ({ ...p, monto: e.target.value }))}
-                style={{ marginLeft: 8 }}
               />
             </label>
-            <label className="erp-muted">
-              Fecha{' '}
+            <label className="erp-field">
+              <span className="erp-field__label">Fecha</span>
               <input
                 type="date"
                 value={pagoForm.fecha_pago}
                 onChange={(e) => setPagoForm((p) => ({ ...p, fecha_pago: e.target.value }))}
-                style={{ marginLeft: 8 }}
               />
             </label>
-            <label className="erp-muted">
-              Método{' '}
+            <label className="erp-field">
+              <span className="erp-field__label">Método</span>
               <select
                 value={pagoForm.metodo_pago}
                 onChange={(e) => setPagoForm((p) => ({ ...p, metodo_pago: e.target.value as any }))}
-                style={{ marginLeft: 8 }}
               >
                 <option value="Transferencia">Transferencia</option>
                 <option value="Efectivo">Efectivo</option>
@@ -264,12 +381,11 @@ export default function ErpCuentasPorPagarPage() {
                 <option value="Otro">Otro</option>
               </select>
             </label>
-            <label className="erp-muted">
-              Cuenta{' '}
+            <label className="erp-field">
+              <span className="erp-field__label">Cuenta bancaria</span>
               <select
                 value={pagoForm.id_cuenta_bancaria}
                 onChange={(e) => setPagoForm((p) => ({ ...p, id_cuenta_bancaria: e.target.value }))}
-                style={{ marginLeft: 8 }}
               >
                 <option value="">(sin asignar)</option>
                 {cuentas.map((c: any) => (
@@ -279,30 +395,15 @@ export default function ErpCuentasPorPagarPage() {
                 ))}
               </select>
             </label>
-          </div>
-          <div className="erp-section-actions" style={{ marginTop: 10 }}>
-            <label className="erp-muted" style={{ flex: 1 }}>
-              Comprobante{' '}
+            <label className="erp-field" style={{ flex: 1, minWidth: 180 }}>
+              <span className="erp-field__label">Comprobante</span>
               <input
                 type="text"
                 value={pagoForm.numero_comprobante}
                 onChange={(e) => setPagoForm((p) => ({ ...p, numero_comprobante: e.target.value }))}
-                style={{ marginLeft: 8, width: 320, maxWidth: '100%' }}
               />
             </label>
           </div>
-          <div className="erp-section-actions" style={{ marginTop: 10 }}>
-            <label className="erp-muted" style={{ flex: 1 }}>
-              Observaciones{' '}
-              <input
-                type="text"
-                value={pagoForm.observaciones}
-                onChange={(e) => setPagoForm((p) => ({ ...p, observaciones: e.target.value }))}
-                style={{ marginLeft: 8, width: 520, maxWidth: '100%' }}
-              />
-            </label>
-          </div>
-
           <div className="erp-section-actions" style={{ marginTop: 14 }}>
             <button type="button" className="btn-secondary" onClick={() => setShowPagoFor(null)} disabled={loadingPago}>
               Cancelar
@@ -311,9 +412,8 @@ export default function ErpCuentasPorPagarPage() {
               {loadingPago ? 'Registrando…' : 'Confirmar pago'}
             </button>
           </div>
-        </div>
+        </section>
       )}
     </div>
   )
 }
-

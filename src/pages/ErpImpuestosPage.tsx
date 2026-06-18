@@ -43,7 +43,56 @@ export default function ErpImpuestosPage() {
   const [facturasCompra, setFacturasCompra] = useState<any[]>([])
   const [proveedores, setProveedores] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'ventas' | 'compras'>('ventas')
+  const [savingCompra, setSavingCompra] = useState(false)
+  const tab: 'ventas' | 'compras' = searchParams.get('tab')?.toLowerCase() === 'compras' ? 'compras' : 'ventas'
+
+  const switchTab = (next: 'ventas' | 'compras') => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        if (next === 'compras') p.set('tab', 'compras')
+        else {
+          p.delete('tab')
+          p.delete('pedido')
+          p.delete('cxp')
+        }
+        return p
+      },
+      { replace: true }
+    )
+  }
+
+  const reloadLibro = async (activeTab: 'ventas' | 'compras' = tab) => {
+    const p =
+      activeTab === 'ventas'
+        ? apiService.getFacturas({
+            estado: 'Emitida',
+            fechaDesde: range.from || undefined,
+            fechaHasta: range.to || undefined
+          })
+        : apiService.getFacturasCompra({
+            fechaDesde: range.from || undefined,
+            fechaHasta: range.to || undefined
+          })
+
+    const [r, rp] = await Promise.all([p, apiService.getProveedores(true)])
+
+    if (rp.success && rp.data) setProveedores(Array.isArray(rp.data) ? rp.data : [])
+    else setProveedores([])
+
+    if (activeTab === 'ventas') {
+      if ((r as any).success && (r as any).data) setFacturasEmitidas(Array.isArray((r as any).data) ? (r as any).data : [])
+      else {
+        setFacturasEmitidas([])
+        if (!(r as any).success) setError((r as any).error || 'No se pudieron cargar facturas.')
+      }
+    } else if ((r as any).success && (r as any).data) {
+      setFacturasCompra(Array.isArray((r as any).data) ? (r as any).data : [])
+    } else {
+      setFacturasCompra([])
+      if (!(r as any).success) setError((r as any).error || 'No se pudieron cargar compras.')
+    }
+  }
 
   const today = useMemo(() => new Date(), [])
   const defaultFrom = useMemo(() => {
@@ -76,9 +125,6 @@ export default function ErpImpuestosPage() {
   const [prefillBanner, setPrefillBanner] = useState<string | null>(null)
 
   useEffect(() => {
-    const tabParam = (searchParams.get('tab') || '').toLowerCase()
-    if (tabParam === 'compras') setTab('compras')
-
     const pedidoRaw = searchParams.get('pedido')
     const cxpRaw = searchParams.get('cxp')
     const pid = pedidoRaw ? Number(pedidoRaw) : NaN
@@ -141,7 +187,7 @@ export default function ErpImpuestosPage() {
             : [{ descripcion: `Pedido ${p.numero_pedido}`, cantidad: 1, precio_unitario: 0, descuento: 0, iva_porcentaje: 21 }]
         )
         setPrefillBanner(`Formulario precargado desde el pedido ${p.numero_pedido}. Completá PV, número de comprobante y revisá ítems.`)
-        setTab('compras')
+        switchTab('compras')
         return
       }
 
@@ -178,7 +224,7 @@ export default function ErpImpuestosPage() {
         setPrefillBanner(
           'Formulario precargado desde cuenta por pagar (total repartido en una línea al 21 %; ajustá alícuotas si corresponde).'
         )
-        setTab('compras')
+        switchTab('compras')
       }
     })()
 
@@ -191,37 +237,10 @@ export default function ErpImpuestosPage() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    const p = tab === 'ventas'
-      ? apiService.getFacturas({
-          estado: 'Emitida',
-          fechaDesde: range.from || undefined,
-          fechaHasta: range.to || undefined
-        })
-      : apiService.getFacturasCompra({
-          fechaDesde: range.from || undefined,
-          fechaHasta: range.to || undefined
-        })
-
-    void Promise.all([p, apiService.getProveedores(true)]).then(([r, rp]) => {
-      if (cancelled) return
-
-      if (rp.success && rp.data) setProveedores(Array.isArray(rp.data) ? rp.data : [])
-      else setProveedores([])
-
-      if (tab === 'ventas') {
-        if ((r as any).success && (r as any).data) setFacturasEmitidas(Array.isArray((r as any).data) ? (r as any).data : [])
-        else {
-          setFacturasEmitidas([])
-          if (!(r as any).success) setError((r as any).error || 'No se pudieron cargar facturas.')
-        }
-      } else {
-        if ((r as any).success && (r as any).data) setFacturasCompra(Array.isArray((r as any).data) ? (r as any).data : [])
-        else {
-          setFacturasCompra([])
-          if (!(r as any).success) setError((r as any).error || 'No se pudieron cargar compras.')
-        }
-      }
-    })
+    void reloadLibro(tab)
+      .catch(() => {
+        if (!cancelled) setError('Error al cargar datos impositivos.')
+      })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -580,7 +599,7 @@ export default function ErpImpuestosPage() {
       return
     }
 
-    setLoading(true)
+    setSavingCompra(true)
     setError(null)
     try {
       const r = await apiService.createFacturaCompra({
@@ -608,10 +627,19 @@ export default function ErpImpuestosPage() {
       setVinculoCxpId(null)
       setPrefillBanner(null)
       prefillIntentos.current.clear()
-      setSearchParams({ tab: 'compras' }, { replace: true })
-      setTab('compras')
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          p.set('tab', 'compras')
+          p.delete('pedido')
+          p.delete('cxp')
+          return p
+        },
+        { replace: true }
+      )
+      await reloadLibro('compras')
     } finally {
-      setLoading(false)
+      setSavingCompra(false)
     }
   }
 
@@ -620,120 +648,155 @@ export default function ErpImpuestosPage() {
 
   return (
     <div className="erp-section">
-      <div className="erp-section-header">
-        <div>
-          <h1>🧾 Impuestos</h1>
-          <p className="erp-section-sub">Libro IVA Ventas / Compras, reportes impositivos y control fiscal</p>
+      <header className="erp-section-header">
+        <div className="erp-section-header__brand">
+          <div className="erp-section-header__icon" aria-hidden>
+            🧾
+          </div>
+          <div>
+            <p className="erp-section-header__eyebrow">Contable</p>
+            <h1>Impuestos</h1>
+            <p className="erp-section-sub">Libro IVA Ventas / Compras, reportes impositivos y control fiscal</p>
+          </div>
         </div>
         <div className="erp-section-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
-            ← Volver a ERP
+            ← Contable
           </button>
           <button type="button" className="btn-primary" onClick={() => navigate('/erp/configuracion-afip')}>
             Configuración AFIP
           </button>
         </div>
+      </header>
+
+      {error && (
+        <div className="erp-panel">
+          <span className="erp-pill danger">Error</span> <span className="erp-muted">{error}</span>
+        </div>
+      )}
+
+      <div className="erp-tabs">
+        <button
+          type="button"
+          className={`erp-tab ${tab === 'ventas' ? 'erp-tab--active' : ''}`}
+          onClick={() => switchTab('ventas')}
+        >
+          IVA Ventas
+        </button>
+        <button
+          type="button"
+          className={`erp-tab ${tab === 'compras' ? 'erp-tab--active' : ''}`}
+          onClick={() => switchTab('compras')}
+        >
+          IVA Compras
+        </button>
       </div>
 
-      {error && <div className="erp-panel"><span className="erp-pill danger">Error</span> <span className="erp-muted">{error}</span></div>}
-
-      <div className="erp-panel">
-        <div className="erp-section-actions">
-          <button type="button" className={tab === 'ventas' ? 'btn-primary' : 'btn-secondary'} onClick={() => setTab('ventas')}>
-            IVA Ventas
-          </button>
-          <button type="button" className={tab === 'compras' ? 'btn-primary' : 'btn-secondary'} onClick={() => setTab('compras')}>
-            IVA Compras
-          </button>
-        </div>
+      <div className="erp-stats-row">
+        <article className="erp-stat-card erp-stat-card--green">
+          <div className="erp-stat-card__icon">📋</div>
+          <div className="erp-stat-card__body">
+            <div className="erp-stat-card__value">{loading ? '…' : activeLibro.totals.cantidad}</div>
+            <div className="erp-stat-card__label">{tab === 'ventas' ? 'Facturas emitidas' : 'Comprobantes de compra'}</div>
+          </div>
+        </article>
+        <article className="erp-stat-card erp-stat-card--cyan">
+          <div className="erp-stat-card__icon">💵</div>
+          <div className="erp-stat-card__body">
+            <div className="erp-stat-card__value">
+              {loading
+                ? '…'
+                : `$${(tab === 'ventas' ? kpis.monto : activeLibro.totals.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+            </div>
+            <div className="erp-stat-card__label">{tab === 'ventas' ? 'Monto emitido' : 'Total compras'}</div>
+          </div>
+        </article>
+        <article className="erp-stat-card erp-stat-card--violet">
+          <div className="erp-stat-card__icon">📊</div>
+          <div className="erp-stat-card__body">
+            <div className="erp-stat-card__value">
+              {loading ? '…' : `$${activeLibro.totals.iva_21.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+            </div>
+            <div className="erp-stat-card__label">IVA 21% del período</div>
+          </div>
+        </article>
       </div>
 
       {tab === 'compras' && (
-        <div className="erp-panel">
-          <h2>Cargar comprobante de compra (proveedor)</h2>
+        <section className="erp-panel">
+          <div className="erp-panel__head">
+            <div>
+              <h2>Cargar comprobante de compra</h2>
+              <p className="erp-panel__hint">Registrá facturas de proveedor para el libro IVA compras</p>
+            </div>
+          </div>
+
           {prefillBanner && (
-            <div
-              style={{
-                marginBottom: 12,
-                padding: '10px 12px',
-                borderRadius: 8,
-                background: '#ebf8ff',
-                border: '1px solid #bee3f8',
-                color: '#2c5282',
-                fontSize: '0.9rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 10,
-                flexWrap: 'wrap' as const
-              }}
-            >
+            <div className="erp-notice">
               <span>{prefillBanner}</span>
-              <button type="button" className="btn-secondary" onClick={() => setPrefillBanner(null)}>
-                Cerrar aviso
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setPrefillBanner(null)}>
+                Cerrar
               </button>
             </div>
           )}
+
           {(vinculoPedidoId != null || vinculoCxpId != null) && (
-            <p className="erp-muted" style={{ marginTop: 0, marginBottom: 10, fontSize: '0.88rem' }}>
+            <p className="erp-panel__hint" style={{ marginTop: 0, marginBottom: 12 }}>
               {vinculoPedidoId != null && <>Pedido compra #{vinculoPedidoId}. </>}
               {vinculoCxpId != null && <>CxP #{vinculoCxpId}. </>}
-              Al guardar, estos vínculos se persisten en la factura de compra (aplicá en Supabase el patch 2026-04-17_facturas_compra_vinculos_pedido_cxp.sql si aún no está).
+              Al guardar, los vínculos se persisten en la factura de compra.
             </p>
           )}
-          <div className="erp-section-actions" style={{ marginBottom: 10, flexWrap: 'wrap' as any }}>
-            <label className="erp-muted">
-              Tipo{' '}
+
+          <div className="erp-toolbar">
+            <label className="erp-field">
+              <span className="erp-field__label">Tipo</span>
               <select
                 value={compraForm.tipo_comprobante}
                 onChange={(e) => setCompraForm((p) => ({ ...p, tipo_comprobante: e.target.value as any }))}
-                style={{ marginLeft: 8 }}
               >
                 <option value="Factura">Factura</option>
                 <option value="Nota de Crédito">Nota de Crédito</option>
                 <option value="Nota de Débito">Nota de Débito</option>
               </select>
             </label>
-            <label className="erp-muted">
-              Letra{' '}
-              <select value={compraForm.letra} onChange={(e) => setCompraForm((p) => ({ ...p, letra: e.target.value as any }))} style={{ marginLeft: 8 }}>
+            <label className="erp-field">
+              <span className="erp-field__label">Letra</span>
+              <select value={compraForm.letra} onChange={(e) => setCompraForm((p) => ({ ...p, letra: e.target.value as any }))}>
                 <option value="A">A</option>
                 <option value="B">B</option>
                 <option value="C">C</option>
               </select>
             </label>
-            <label className="erp-muted">
-              PV{' '}
+            <label className="erp-field">
+              <span className="erp-field__label">Punto de venta</span>
               <input
                 type="number"
                 value={compraForm.punto_venta}
                 onChange={(e) => setCompraForm((p) => ({ ...p, punto_venta: Number(e.target.value) || 1 }))}
-                style={{ marginLeft: 8, width: 90 }}
               />
             </label>
-            <label className="erp-muted">
-              N°{' '}
+            <label className="erp-field">
+              <span className="erp-field__label">N° comprobante</span>
               <input
                 type="number"
                 value={compraForm.numero_comprobante}
                 onChange={(e) => setCompraForm((p) => ({ ...p, numero_comprobante: e.target.value }))}
-                style={{ marginLeft: 8, width: 140 }}
               />
             </label>
-            <label className="erp-muted">
-              Fecha{' '}
+            <label className="erp-field">
+              <span className="erp-field__label">Fecha emisión</span>
               <input
                 type="date"
                 value={compraForm.fecha_emision}
                 onChange={(e) => setCompraForm((p) => ({ ...p, fecha_emision: e.target.value }))}
-                style={{ marginLeft: 8 }}
               />
             </label>
           </div>
 
-          <div className="erp-section-actions" style={{ marginBottom: 10, flexWrap: 'wrap' as any }}>
-            <label className="erp-muted">
-              Proveedor{' '}
+          <div className="erp-toolbar">
+            <label className="erp-field" style={{ minWidth: 220 }}>
+              <span className="erp-field__label">Proveedor</span>
               <select
                 value={compraForm.id_proveedor}
                 onChange={(e) => {
@@ -746,7 +809,6 @@ export default function ErpImpuestosPage() {
                     proveedor_cuit: prov?.cuit || p.proveedor_cuit
                   }))
                 }}
-                style={{ marginLeft: 8, minWidth: 240 }}
               >
                 <option value="">(seleccionar)</option>
                 {proveedores.map((p: any) => (
@@ -756,35 +818,33 @@ export default function ErpImpuestosPage() {
                 ))}
               </select>
             </label>
-            <label className="erp-muted">
-              Nombre (manual){' '}
+            <label className="erp-field" style={{ flex: 1, minWidth: 200 }}>
+              <span className="erp-field__label">Nombre manual</span>
               <input
                 type="text"
                 value={compraForm.proveedor_nombre}
                 onChange={(e) => setCompraForm((p) => ({ ...p, proveedor_nombre: e.target.value }))}
-                style={{ marginLeft: 8, minWidth: 260 }}
-                placeholder="Si no está en lista…"
+                placeholder="Si no está en la lista…"
               />
             </label>
-            <label className="erp-muted">
-              CUIT{' '}
+            <label className="erp-field">
+              <span className="erp-field__label">CUIT</span>
               <input
                 type="text"
                 value={compraForm.proveedor_cuit}
                 onChange={(e) => setCompraForm((p) => ({ ...p, proveedor_cuit: e.target.value }))}
-                style={{ marginLeft: 8, width: 160 }}
               />
             </label>
           </div>
 
-          <div className="erp-section-actions" style={{ marginBottom: 10 }}>
-            <button type="button" className="btn-secondary" onClick={addCompraItem} disabled={loading}>
-              + Agregar item
+          <div className="erp-section-actions" style={{ marginBottom: 12 }}>
+            <button type="button" className="btn-secondary" onClick={addCompraItem} disabled={savingCompra}>
+              + Agregar ítem
             </button>
           </div>
 
           {compraItems.length === 0 ? (
-            <p className="erp-muted">Agregá items para totalizar IVA por alícuota.</p>
+            <p className="erp-muted">Agregá ítems para totalizar IVA por alícuota.</p>
           ) : (
             <div className="erp-table-wrap">
               <table className="erp-table">
@@ -803,38 +863,39 @@ export default function ErpImpuestosPage() {
                     <tr key={idx}>
                       <td>
                         <input
+                          className="erp-inline-input erp-inline-input--wide"
                           type="text"
                           value={it.descripcion}
                           onChange={(e) => updateCompraItem(idx, 'descripcion', e.target.value)}
-                          style={{ width: '100%' }}
                         />
                       </td>
                       <td>
                         <input
+                          className="erp-inline-input"
                           type="number"
                           value={it.cantidad}
                           onChange={(e) => updateCompraItem(idx, 'cantidad', parseFloat(e.target.value) || 0)}
-                          style={{ width: 90 }}
                         />
                       </td>
                       <td>
                         <input
+                          className="erp-inline-input"
                           type="number"
                           value={it.precio_unitario}
                           onChange={(e) => updateCompraItem(idx, 'precio_unitario', parseFloat(e.target.value) || 0)}
-                          style={{ width: 110 }}
                         />
                       </td>
                       <td>
                         <input
+                          className="erp-inline-input"
                           type="number"
                           value={it.descuento}
                           onChange={(e) => updateCompraItem(idx, 'descuento', parseFloat(e.target.value) || 0)}
-                          style={{ width: 110 }}
                         />
                       </td>
                       <td>
                         <select
+                          className="erp-inline-input"
                           value={it.iva_porcentaje}
                           onChange={(e) => updateCompraItem(idx, 'iva_porcentaje', parseFloat(e.target.value) || 0)}
                         >
@@ -844,7 +905,7 @@ export default function ErpImpuestosPage() {
                         </select>
                       </td>
                       <td>
-                        <button type="button" className="btn-secondary" onClick={() => removeCompraItem(idx)}>
+                        <button type="button" className="btn-secondary btn-sm" onClick={() => removeCompraItem(idx)}>
                           Quitar
                         </button>
                       </td>
@@ -855,55 +916,28 @@ export default function ErpImpuestosPage() {
             </div>
           )}
 
-          <div className="erp-section-actions" style={{ marginTop: 12, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-primary" onClick={guardarCompra} disabled={loading}>
-              Guardar compra
+          <div className="erp-section-actions" style={{ marginTop: 14, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-primary" onClick={guardarCompra} disabled={savingCompra}>
+              {savingCompra ? 'Guardando…' : 'Guardar compra'}
             </button>
           </div>
-        </div>
+        </section>
       )}
 
-      <div className="erp-section-grid">
-        <div className="erp-panel">
-          <h2>KPIs (rango)</h2>
-          {loading ? (
-            <p className="erp-muted">Cargando…</p>
-          ) : (
-            <div className="erp-kpi">
-              <div className="erp-kpi-item">
-                <div className="erp-kpi-value">{activeLibro.totals.cantidad}</div>
-                <div className="erp-kpi-label">{tab === 'ventas' ? 'Facturas emitidas' : 'Comprobantes de compra'}</div>
-              </div>
-              <div className="erp-kpi-item">
-                <div className="erp-kpi-value">
-                  ${(tab === 'ventas' ? kpis.monto : activeLibro.totals.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                </div>
-                <div className="erp-kpi-label">{tab === 'ventas' ? 'Monto emitido' : 'Total compras'}</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="erp-panel">
-          <h2>{tab === 'ventas' ? 'Libro IVA Ventas' : 'Libro IVA Compras'}</h2>
-          <div className="erp-section-actions" style={{ marginBottom: 10 }}>
-            <label className="erp-muted">
-              Desde{' '}
-              <input
-                type="date"
-                value={range.from}
-                onChange={(e) => setRange((p) => ({ ...p, from: e.target.value }))}
-                style={{ marginLeft: 8 }}
-              />
+      <section className="erp-panel">
+        <div className="erp-panel__head">
+          <div>
+            <h2>{tab === 'ventas' ? 'Libro IVA Ventas' : 'Libro IVA Compras'}</h2>
+            <p className="erp-panel__hint">Totales por alícuota y detalle por comprobante</p>
+          </div>
+          <div className="erp-section-actions">
+            <label className="erp-field">
+              <span className="erp-field__label">Desde</span>
+              <input type="date" value={range.from} onChange={(e) => setRange((p) => ({ ...p, from: e.target.value }))} />
             </label>
-            <label className="erp-muted">
-              Hasta{' '}
-              <input
-                type="date"
-                value={range.to}
-                onChange={(e) => setRange((p) => ({ ...p, to: e.target.value }))}
-                style={{ marginLeft: 8 }}
-              />
+            <label className="erp-field">
+              <span className="erp-field__label">Hasta</span>
+              <input type="date" value={range.to} onChange={(e) => setRange((p) => ({ ...p, to: e.target.value }))} />
             </label>
             {tab === 'ventas' ? (
               <button type="button" className="btn-primary" onClick={exportLibroIvaVentasCsv} disabled={loading}>
@@ -915,14 +949,7 @@ export default function ErpImpuestosPage() {
               </button>
             )}
           </div>
-          <p className="erp-section-sub" style={{ marginTop: 0 }}>
-            Totales por alícuota y detalle por comprobante. Ideal para enviar al contador.
-          </p>
         </div>
-      </div>
-
-      <div className="erp-panel">
-        <h2>Resumen por alícuota</h2>
         {loading ? (
           <p className="erp-muted">Cargando…</p>
         ) : (
@@ -939,43 +966,45 @@ export default function ErpImpuestosPage() {
               <tbody>
                 <tr>
                   <td>21%</td>
-                  <td>${activeLibro.totals.neto_21.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                  <td>${activeLibro.totals.iva_21.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                  <td>${(activeLibro.totals.neto_21 + activeLibro.totals.iva_21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${activeLibro.totals.neto_21.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${activeLibro.totals.iva_21.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${(activeLibro.totals.neto_21 + activeLibro.totals.iva_21).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                 </tr>
                 <tr>
                   <td>10,5%</td>
-                  <td>${activeLibro.totals.neto_105.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                  <td>${activeLibro.totals.iva_105.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                  <td>${(activeLibro.totals.neto_105 + activeLibro.totals.iva_105).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${activeLibro.totals.neto_105.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${activeLibro.totals.iva_105.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${(activeLibro.totals.neto_105 + activeLibro.totals.iva_105).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                 </tr>
                 <tr>
                   <td>0% (exento/no gravado)</td>
-                  <td>${activeLibro.totals.neto_0.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                  <td>${activeLibro.totals.iva_0.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                  <td>${(activeLibro.totals.neto_0 + activeLibro.totals.iva_0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${activeLibro.totals.neto_0.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${activeLibro.totals.iva_0.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="erp-td-monto">${(activeLibro.totals.neto_0 + activeLibro.totals.iva_0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                 </tr>
                 {(activeLibro.totals.otros_neto !== 0 || activeLibro.totals.otros_iva !== 0) && (
                   <tr>
                     <td>Otros</td>
-                    <td>${activeLibro.totals.otros_neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td>${activeLibro.totals.otros_iva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td>${(activeLibro.totals.otros_neto + activeLibro.totals.otros_iva).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td className="erp-td-monto">${activeLibro.totals.otros_neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td className="erp-td-monto">${activeLibro.totals.otros_iva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td className="erp-td-monto">${(activeLibro.totals.otros_neto + activeLibro.totals.otros_iva).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                   </tr>
                 )}
                 <tr>
                   <td><strong>Total</strong></td>
                   <td colSpan={2} />
-                  <td><strong>${activeLibro.totals.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong></td>
+                  <td className="erp-td-monto"><strong>${activeLibro.totals.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong></td>
                 </tr>
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="erp-panel">
-        <h2>Detalle ({tab === 'ventas' ? 'Libro IVA Ventas' : 'Libro IVA Compras'})</h2>
+      <section className="erp-panel">
+        <div className="erp-panel__head">
+          <h2>Detalle — {tab === 'ventas' ? 'Libro IVA Ventas' : 'Libro IVA Compras'}</h2>
+        </div>
         {loading ? (
           <p className="erp-muted">Cargando…</p>
         ) : activeLibro.rows.length === 0 ? (
@@ -1040,7 +1069,7 @@ export default function ErpImpuestosPage() {
             Mostrando 250 filas. Usá Export CSV para el archivo completo.
           </p>
         )}
-      </div>
+      </section>
     </div>
   )
 }

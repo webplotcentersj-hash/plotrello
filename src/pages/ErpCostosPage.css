@@ -1,0 +1,145 @@
+.costos-page .costos-margen--ok {
+  color: #34d399;
+}
+
+.costos-page .costos-margen--warn {
+  color: #fbbf24;
+}
+
+.costos-page .costos-margen--bad {
+  color: #f87171;
+}
+
+.costos-page .costos-alerta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.costos-page .costos-alerta-pill--ok {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+}
+
+.costos-page .costos-alerta-pill--warn {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fcd34d;
+}
+
+.costos-page .costos-alerta-pill--bad {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+.costos-page .costos-op-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.costos-page .costos-op-row:hover {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.costos-page .costos-op-row--selected {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.costos-page .costos-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.costos-page .costos-detail-chip {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--erp-line);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.costos-page .costos-detail-chip__label {
+  font-size: 0.72rem;
+  color: var(--erp-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.costos-page .costos-detail-chip__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.costos-page .costos-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.costos-page .costos-form-grid .erp-field--wide {
+  grid-column: 1 / -1;
+}
+
+.costos-page .costos-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.costos-page .costos-tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--erp-line);
+  background: transparent;
+  color: var(--erp-muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.costos-page .costos-tab--active {
+  background: var(--erp-accent-dim);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: var(--erp-ink);
+  font-weight: 600;
+}
+
+.costos-page .costos-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.15);
+  margin-top: 8px;
+}
+
+.costos-page .costos-bar span {
+  display: block;
+  height: 100%;
+}
+
+.costos-page .costos-bar__mat {
+  background: #38bdf8;
+}
+
+.costos-page .costos-bar__mo {
+  background: #a78bfa;
+}
+
+.costos-page .costos-bar__gg {
+  background: #fb923c;
+}
+
+.costos-page .costos-bar__log {
+  background: #f472b6;
+}

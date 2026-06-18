@@ -17892,6 +17892,30 @@ class ApiService {
     }
   }
 
+  /** Ventas del CRM/mostrador que aún no tienen factura ERP asociada. */
+  async listVentasPendientesFacturacion(limit = 100): Promise<ApiResponse<Array<import('../types/api').Venta>>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const ventasRes = await this.obtenerVentas(undefined, undefined, undefined, 'todos')
+      if (!ventasRes.success || !ventasRes.data) {
+        return { success: false, error: ventasRes.error || 'No se pudieron cargar ventas' }
+      }
+      const { data: facturadas, error } = await supabase
+        .from('facturas_venta')
+        .select('id_venta')
+        .not('id_venta', 'is', null)
+        .neq('estado', 'Anulada')
+      if (error) return { success: false, error: error.message }
+      const idsFacturadas = new Set(
+        (facturadas || []).map((f: { id_venta?: number | null }) => f.id_venta).filter((id): id is number => id != null)
+      )
+      const pendientes = ventasRes.data.filter((v) => !idsFacturadas.has(v.id) && v.estado_pago !== 'Cancelado')
+      return { success: true, data: pendientes.slice(0, limit) }
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al listar ventas pendientes' }
+    }
+  }
+
   async obtenerVentas(
     idVendedor?: number,
     fechaDesde?: string,
@@ -19034,6 +19058,117 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  async getErpPendientesAsientosSync(): Promise<
+    ApiResponse<{
+      facturas: Array<{
+        id: number
+        numero_factura: string
+        cliente_nombre: string
+        total: number
+        fecha_emision: string
+        id_venta?: number | null
+      }>
+      cobrosPagos: Array<{
+        id: number
+        tipo: string
+        monto: number
+        fecha_pago: string
+        metodo_pago?: string | null
+      }>
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const [{ data: facturas, error: errF }, { data: pagosCobros, error: errPc }, { data: asientosOrigen, error: errA }] =
+        await Promise.all([
+          supabase
+            .from('facturas_venta')
+            .select('id, numero_factura, cliente_nombre, total, fecha_emision, id_venta')
+            .eq('estado', 'Emitida')
+            .is('id_asiento_contable', null)
+            .order('fecha_emision', { ascending: false })
+            .limit(150),
+          supabase
+            .from('pagos_cobros')
+            .select('id, tipo, monto, fecha_pago, metodo_pago')
+            .order('fecha_pago', { ascending: false })
+            .limit(250),
+          supabase.from('asientos_contables').select('id_origen, tipo_origen').in('tipo_origen', ['pago_cobro', 'factura'])
+        ])
+
+      if (errF) return { success: false, error: errF.message }
+      if (errPc) return { success: false, error: errPc.message }
+      if (errA) return { success: false, error: errA.message }
+
+      const pcConAsiento = new Set(
+        (asientosOrigen || [])
+          .filter((a: { tipo_origen?: string | null; id_origen?: number | null }) => a.tipo_origen === 'pago_cobro' && a.id_origen != null)
+          .map((a: { id_origen: number }) => a.id_origen)
+      )
+
+      const cobrosPagos = (pagosCobros || []).filter((pc: { id: number }) => !pcConAsiento.has(pc.id))
+
+      return {
+        success: true,
+        data: {
+          facturas: (facturas || []) as Array<{
+            id: number
+            numero_factura: string
+            cliente_nombre: string
+            total: number
+            fecha_emision: string
+            id_venta?: number | null
+          }>,
+          cobrosPagos: cobrosPagos as Array<{
+            id: number
+            tipo: string
+            monto: number
+            fecha_pago: string
+            metodo_pago?: string | null
+          }>
+        }
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al consultar pendientes' }
+    }
+  }
+
+  async erpSyncAsientosDesdeFacturacion(): Promise<
+    ApiResponse<{
+      facturas_generadas: number
+      cobros_generados: number
+      errores: string[]
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const pend = await this.getErpPendientesAsientosSync()
+      if (!pend.success || !pend.data) {
+        return { success: false, error: pend.error || 'No se pudieron leer pendientes' }
+      }
+
+      let facturas_generadas = 0
+      let cobros_generados = 0
+      const errores: string[] = []
+
+      for (const f of pend.data.facturas) {
+        const { error } = await supabase.rpc('crear_asiento_desde_factura', { p_id_factura: f.id })
+        if (error) errores.push(`Factura ${f.numero_factura}: ${error.message}`)
+        else facturas_generadas += 1
+      }
+
+      for (const pc of pend.data.cobrosPagos) {
+        const { error } = await supabase.rpc('crear_asiento_desde_pago_cobro', { p_id_pago_cobro: pc.id })
+        if (error) errores.push(`${pc.tipo} #${pc.id}: ${error.message}`)
+        else cobros_generados += 1
+      }
+
+      return { success: true, data: { facturas_generadas, cobros_generados, errores } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al sincronizar asientos' }
+    }
+  }
+
   async crearAsientoContable(asiento: {
     fecha: string
     concepto: string
@@ -19589,12 +19724,225 @@ class ApiService {
         })
 
         if (error) return { success: false, error: error.message }
-        return { success: true, data: data as any }
+        const row = Array.isArray(data) ? data[0] : data
+        return { success: true, data: row as any }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
     }
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  async getResumenCostosOPDashboard(options?: {
+    buscar?: string
+    limite?: number
+  }): Promise<ApiResponse<import('../types/api').CostoOPResumen[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      const limite = options?.limite ?? 80
+      const buscar = (options?.buscar || '').trim()
+
+      const { data: costosRows, error: costosErr } = await supabase
+        .from('costos_op')
+        .select('*')
+        .order('fecha_costo', { ascending: false })
+        .limit(4000)
+
+      if (costosErr) return { success: false, error: costosErr.message }
+
+      const costos = (costosRows as import('../types/api').CostoOPRecord[]) ?? []
+      const byOp = new Map<number, import('../types/api').CostoOPRecord[]>()
+
+      for (const c of costos) {
+        const list = byOp.get(c.id_op) ?? []
+        list.push(c)
+        byOp.set(c.id_op, list)
+      }
+
+      const opIdsFromSearch = new Set<number>()
+      if (buscar) {
+        const safe = buscar.replace(/[%_]/g, '')
+        const { data: opsSearch } = await supabase
+          .from('ordenes_trabajo')
+          .select('id, numero_op, cliente, sector, entregado, reclamo_costo_monto')
+          .or(`numero_op.ilike.%${safe}%,cliente.ilike.%${safe}%`)
+          .limit(40)
+
+        for (const o of opsSearch ?? []) {
+          opIdsFromSearch.add(o.id)
+          if (!byOp.has(o.id)) byOp.set(o.id, [])
+        }
+      }
+
+      let opIds = [...byOp.keys()]
+      if (buscar) {
+        opIds = opIds.filter((id) => opIdsFromSearch.has(id))
+      }
+
+      opIds.sort((a, b) => {
+        const fa = byOp.get(a)?.[0]?.fecha_costo ?? ''
+        const fb = byOp.get(b)?.[0]?.fecha_costo ?? ''
+        return fb.localeCompare(fa)
+      })
+      opIds = opIds.slice(0, limite)
+
+      if (opIds.length === 0) {
+        return { success: true, data: [] }
+      }
+
+      const { data: opsData, error: opsErr } = await supabase
+        .from('ordenes_trabajo')
+        .select('id, numero_op, cliente, sector, entregado, reclamo_costo_monto')
+        .in('id', opIds)
+
+      if (opsErr) return { success: false, error: opsErr.message }
+
+      const opMap = new Map((opsData ?? []).map((o) => [o.id, o]))
+
+      const ingresoPorOp = new Map<number, number>()
+
+      const { data: ventas } = await supabase
+        .from('ventas')
+        .select('id_op, valor_total')
+        .in('id_op', opIds)
+
+      for (const v of ventas ?? []) {
+        if (!v.id_op) continue
+        const monto = Number(v.valor_total) || 0
+        ingresoPorOp.set(v.id_op, (ingresoPorOp.get(v.id_op) ?? 0) + monto)
+      }
+
+      const sinIngresoVentas = opIds.filter((id) => !ingresoPorOp.has(id))
+      if (sinIngresoVentas.length > 0) {
+        const { data: facturas } = await supabase
+          .from('facturas_venta')
+          .select('id_op, total')
+          .eq('estado', 'Emitida')
+          .in('id_op', sinIngresoVentas)
+
+        for (const f of facturas ?? []) {
+          if (!f.id_op) continue
+          const monto = Number(f.total) || 0
+          ingresoPorOp.set(f.id_op, (ingresoPorOp.get(f.id_op) ?? 0) + monto)
+        }
+      }
+
+      const sumTipo = (
+        rows: import('../types/api').CostoOPRecord[],
+        tipos: import('../types/api').CostoOPRecord['tipo_costo'][]
+      ) => rows.filter((r) => tipos.includes(r.tipo_costo)).reduce((s, r) => s + (Number(r.costo_total) || 0), 0)
+
+      const resumenes: import('../types/api').CostoOPResumen[] = []
+
+      for (const id_op of opIds) {
+        const rows = byOp.get(id_op) ?? []
+        const op = opMap.get(id_op)
+        const costo_materiales = sumTipo(rows, ['Materiales'])
+        const costo_mano_obra = sumTipo(rows, ['Mano de Obra'])
+        const costo_gastos_generales = sumTipo(rows, ['Gastos Generales'])
+        const costo_logistica = sumTipo(rows, ['Subcontratación', 'Otros'])
+        const costo_total = rows.reduce((s, r) => s + (Number(r.costo_total) || 0), 0)
+        const ingreso = ingresoPorOp.get(id_op) ?? 0
+        const margen_abs = ingreso - costo_total
+        const margen_pct = ingreso > 0 ? (margen_abs / ingreso) * 100 : null
+
+        let alerta: import('../types/api').CostoOPAlerta = 'ok'
+        if (ingreso <= 0 && costo_total > 0) alerta = 'sin_ingreso'
+        else if (ingreso > 0 && costo_total > ingreso) alerta = 'costo_supera_ingreso'
+        else if (ingreso > 0 && margen_pct != null && margen_pct < 15) alerta = 'margen_bajo'
+
+        resumenes.push({
+          id_op,
+          numero_op: op?.numero_op ?? rows[0]?.numero_op ?? String(id_op),
+          cliente: op?.cliente ?? '—',
+          sector: op?.sector ?? null,
+          entregado: op?.entregado ?? null,
+          reclamo_costo_monto: op?.reclamo_costo_monto ?? null,
+          costo_materiales,
+          costo_mano_obra,
+          costo_gastos_generales,
+          costo_logistica,
+          costo_total,
+          ingreso,
+          margen_abs,
+          margen_pct,
+          alerta,
+          cantidad_lineas: rows.length,
+          ultima_fecha_costo: rows[0]?.fecha_costo ?? null
+        })
+      }
+
+      return { success: true, data: resumenes }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async importarCostosMaterialesDesdeStock(
+    id_op: number,
+    numero_op: string
+  ): Promise<ApiResponse<{ importados: number; omitidos: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      const movRes = await this.getMovimientosStock({
+        id_orden_trabajo: id_op,
+        tipo_movimiento: 'Salida',
+        limit: 300
+      })
+      if (!movRes.success || !movRes.data) {
+        return { success: false, error: movRes.error || 'No se pudieron leer movimientos de stock' }
+      }
+
+      const costosRes = await this.getCostosOP(id_op)
+      const existentes = costosRes.data ?? []
+      const yaImportados = new Set<number>()
+      for (const c of existentes) {
+        const m = c.observaciones?.match(/stock-mov-(\d+)/)
+        if (m) yaImportados.add(Number(m[1]))
+      }
+
+      let importados = 0
+      let omitidos = 0
+
+      for (const mov of movRes.data) {
+        if (yaImportados.has(mov.id)) {
+          omitidos++
+          continue
+        }
+
+        let costoUnit = 0
+        if (stockSupabase && mov.id_articulo_stock) {
+          const { data: art } = await stockSupabase
+            .from('articulos')
+            .select('precio')
+            .eq('id', mov.id_articulo_stock)
+            .maybeSingle()
+          costoUnit = Number(art?.precio) || 0
+        }
+
+        const cantidad = Math.abs(Number(mov.cantidad) || 0) || 1
+        const crear = await this.crearCostoOP({
+          id_op,
+          numero_op,
+          tipo_costo: 'Materiales',
+          concepto: mov.descripcion || mov.codigo_articulo || 'Material stock',
+          cantidad,
+          costo_unitario: costoUnit,
+          id_material: mov.id_articulo_stock ?? null,
+          fecha_costo: mov.created_at?.split('T')[0],
+          observaciones: `Importado stock-mov-${mov.id}${costoUnit <= 0 ? ' · revisar costo unitario' : ''}`
+        })
+
+        if (crear.success) importados++
+        else omitidos++
+      }
+
+      return { success: true, data: { importados, omitidos } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
   }
 
   // ========== CUENTAS POR COBRAR ==========
@@ -19610,7 +19958,7 @@ class ApiService {
           .from('cuentas_por_cobrar')
           .select(`
             *,
-            factura:facturas_venta(*)
+            factura:facturas_venta!cuentas_por_cobrar_id_factura_fkey(*)
           `)
           .order('fecha_emision', { ascending: false })
 
@@ -19648,7 +19996,7 @@ class ApiService {
           .select(
             `
             *,
-            factura:facturas_venta(*)
+            factura:facturas_venta!cuentas_por_cobrar_id_factura_fkey(*)
           `
           )
           .eq('id_factura', id_factura)
@@ -19709,6 +20057,107 @@ class ApiService {
       }
     }
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  /** Sincroniza facturas de compra sin CxP → cuentas_por_pagar. */
+  async erpSyncCxpDesdeFacturasCompra(): Promise<ApiResponse<{ insertadas: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase.rpc('erp_sync_cxp_desde_facturas_compra')
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { insertadas: Number(data) || 0 } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /** Recalcula alertas admin de CxP (próximas a vencer / vencidas). */
+  async erpRefreshAlertasCxp(diasAviso = 7): Promise<
+    ApiResponse<{ proximo: number; vencido: number; total: number }>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase.rpc('erp_refresh_alertas_cxp', { p_dias_aviso: diasAviso })
+      if (error) return { success: false, error: error.message }
+      const raw = (data || {}) as Record<string, unknown>
+      return {
+        success: true,
+        data: {
+          proximo: Number(raw.proximo) || 0,
+          vencido: Number(raw.vencido) || 0,
+          total: Number(raw.total) || Number(raw.proximo) + Number(raw.vencido) || 0
+        }
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async getErpAlertasCxp(opts?: { soloNoLeidas?: boolean }): Promise<
+    ApiResponse<
+      Array<{
+        id: number
+        id_cuenta_por_pagar: number
+        nivel: 'proximo' | 'vencido'
+        dias_restantes: number | null
+        mensaje: string | null
+        leida: boolean
+        proveedor_nombre?: string
+        monto_pendiente?: number
+        fecha_vencimiento?: string
+      }>
+    >
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      let q = supabase
+        .from('erp_alertas_cxp')
+        .select(
+          `
+          id,
+          id_cuenta_por_pagar,
+          nivel,
+          dias_restantes,
+          mensaje,
+          leida,
+          cuenta:cuentas_por_pagar(proveedor_nombre, monto_pendiente, fecha_vencimiento)
+        `
+        )
+        .order('leida', { ascending: true })
+        .order('dias_restantes', { ascending: true })
+
+      if (opts?.soloNoLeidas) q = q.eq('leida', false)
+
+      const { data, error } = await q
+      if (error) return { success: false, error: error.message }
+
+      const rows = (data || []).map((row: any) => ({
+        id: row.id,
+        id_cuenta_por_pagar: row.id_cuenta_por_pagar,
+        nivel: row.nivel,
+        dias_restantes: row.dias_restantes,
+        mensaje: row.mensaje,
+        leida: row.leida,
+        proveedor_nombre: row.cuenta?.proveedor_nombre,
+        monto_pendiente: row.cuenta?.monto_pendiente,
+        fecha_vencimiento: row.cuenta?.fecha_vencimiento
+      }))
+
+      return { success: true, data: rows }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async marcarErpAlertaCxpLeida(id: number): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { error } = await supabase.from('erp_alertas_cxp').update({ leida: true, updated_at: new Date().toISOString() }).eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
   }
 
   async createCuentaPorPagar(input: {
@@ -20151,13 +20600,11 @@ class ApiService {
         }
 
         // Crear asiento contable automático si está configurado
-        try {
-          await supabase.rpc('crear_asiento_desde_factura', {
-            p_id_factura: id
-          })
-        } catch (errorAsiento) {
-          console.warn('No se pudo crear asiento contable automático:', errorAsiento)
-          // No fallar la emisión si el asiento falla
+        const { error: errorAsiento } = await supabase.rpc('crear_asiento_desde_factura', {
+          p_id_factura: id
+        })
+        if (errorAsiento) {
+          console.warn('No se pudo crear asiento contable automático:', errorAsiento.message)
         }
 
         return { success: true, data: data as any }

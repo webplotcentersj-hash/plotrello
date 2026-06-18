@@ -2961,7 +2961,16 @@ const CRMVentasPage = () => {
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
-                          🧾 Generar Factura
+                          🧾 Generar Factura (PDF)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigate(`/erp/facturas/nueva?id_venta=${ventaModal.id}`)
+                            setDropdownDocumentosAbierto(null)
+                          }}
+                        >
+                          🏛️ Factura AFIP (Contable)
                         </button>
                       </div>
                     ) : null}

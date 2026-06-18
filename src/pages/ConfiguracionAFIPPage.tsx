@@ -105,9 +105,14 @@ export default function ConfiguracionAFIPPage() {
     <div className="config-afip-page">
       <div className="page-header">
         <h1>⚙️ Configuración AFIP</h1>
-        <button className="btn-secondary" onClick={() => navigate('/erp')}>
-          ← Volver
-        </button>
+        <div className="erp-section-actions" style={{ gap: 8 }}>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/impuestos')}>
+            ← Impuestos
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
+            Contable
+          </button>
+        </div>
       </div>
 
       <div className="config-sections">
