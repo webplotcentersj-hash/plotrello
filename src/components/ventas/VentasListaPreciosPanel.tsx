@@ -3,9 +3,14 @@ import apiService from '../../services/api'
 import type { ArticuloEmpresaRecord } from '../../types/api'
 import {
   LISTAS_PRECIO_VENTAS,
+  labelAjustesPreciosActivos,
   resolvePrecioLista,
+  resolvePrecioListaBruto,
+  type NumeroListaPrecio,
   type TipoListaPrecioVentas
 } from '../../constants/ventasListasPrecio'
+import { useConfigAjustesPreciosVentas } from '../../hooks/useConfigAjustesPreciosVentas'
+import VentasAjustesPreciosCard from './VentasAjustesPreciosCard'
 import {
   guardarVentasPresupuestoDraft,
   type VentasPresupuestoDraftItem
@@ -22,12 +27,16 @@ function formatArs(n: number): string {
 
 function formatPrecioCelda(
   articulo: ArticuloEmpresaRecord,
-  lista: 1 | 2 | 3 | 4 | 5
+  lista: NumeroListaPrecio,
+  ajustes: import('../../constants/ventasListasPrecio').ConfigAjustesPreciosVentas
 ): string {
-  const key = `precio_lista_${lista}` as keyof ArticuloEmpresaRecord
-  const v = articulo[key]
-  if (v == null || Number(v) === 0) return '—'
-  return `$${formatArs(Number(v))}`
+  const final = resolvePrecioLista(articulo, lista, ajustes)
+  if (final == null || final === 0) return '—'
+  const bruto = resolvePrecioListaBruto(articulo, lista)
+  if (bruto != null && bruto !== final) {
+    return `$${formatArs(final)}`
+  }
+  return `$${formatArs(final)}`
 }
 
 function valorPrecioInput(v: number | null | undefined): string {
@@ -40,6 +49,7 @@ type Props = {
 }
 
 export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
+  const { ajustes, guardar, loading: loadingAjustes, saving: savingAjustes } = useConfigAjustesPreciosVentas()
   const [listaActiva, setListaActiva] = useState<TipoListaPrecioVentas>('lista_1')
   const [articulos, setArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -103,7 +113,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
   )
 
   const agregarAlCarrito = (articulo: ArticuloEmpresaRecord) => {
-    const precio = resolvePrecioLista(articulo, listaActiva)
+    const precio = resolvePrecioLista(articulo, listaActiva, ajustes)
     if (precio == null) {
       alert('Este artículo no tiene precio en la lista seleccionada.')
       return
@@ -195,6 +205,23 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
     onIrAPresupuesto()
   }
 
+  useEffect(() => {
+    if (carrito.length === 0) return
+    setCarrito((prev) =>
+      prev.map((line) => {
+        const art = articulos.find((a) => a.id === line.id_articulo_empresa)
+        if (!art) return line
+        const precio = resolvePrecioLista(art, listaActiva, ajustes)
+        if (precio == null) return line
+        return {
+          ...line,
+          precio_unitario: precio,
+          precio_total: line.cantidad * precio - line.descuento
+        }
+      })
+    )
+  }, [ajustes, listaActiva, articulos])
+
   const metaLista = LISTAS_PRECIO_VENTAS[listaActiva]
 
   return (
@@ -203,11 +230,17 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
         <div>
           <h2>Lista de precios</h2>
             <p>
-              Misma estructura que Flexxus: código, descripción, rubro y listas 1 a 5. Clic en{' '}
-              <strong>Editar</strong> para modificar descripción, rubro y precios. Lista 1 = efectivo/débito ·
-              Lista 2 = cuenta corriente.
+              Misma estructura que Flexxus: código, descripción, rubro y listas 1 a 5. Los valores en tabla
+              incluyen <strong>{labelAjustesPreciosActivos(ajustes)}</strong>. Al editar, los campos son neto
+              Flexxus (sin IVA).
             </p>
         </div>
+        <VentasAjustesPreciosCard
+          ajustes={ajustes}
+          loading={loadingAjustes}
+          saving={savingAjustes}
+          onGuardar={guardar}
+        />
         <div className="vlp-lista-switch" role="tablist" aria-label="Tipo de lista">
           {(Object.keys(LISTAS_PRECIO_VENTAS) as TipoListaPrecioVentas[]).map((id) => {
             const meta = LISTAS_PRECIO_VENTAS[id]
@@ -268,18 +301,18 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                     <th>Código</th>
                     <th>Descripción</th>
                     <th>Rubro</th>
-                    <th title="Lista 1 — efectivo o débito">L1</th>
-                    <th title="Lista 2 — cuenta corriente">L2</th>
+                    <th title="Lista 1 con IVA y recargos">L1</th>
+                    <th title="Lista 2 con IVA y recargos">L2</th>
                     <th>L3</th>
                     <th>L4</th>
                     <th>L5</th>
-                    <th>Usar</th>
+                    <th title="Precio final lista activa">Usar</th>
                     <th>Editar</th>
                   </tr>
                 </thead>
                 <tbody>
                   {articulosFiltrados.map((a) => {
-                    const pActivo = resolvePrecioLista(a, listaActiva)
+                    const pActivo = resolvePrecioLista(a, listaActiva, ajustes)
                     const editando = editandoId === a.id
                     const editCells = (
                       <>
@@ -332,11 +365,11 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                           editCells
                         ) : (
                           <>
-                            <td>{formatPrecioCelda(a, 1)}</td>
-                            <td>{formatPrecioCelda(a, 2)}</td>
-                            <td>{formatPrecioCelda(a, 3)}</td>
-                            <td>{formatPrecioCelda(a, 4)}</td>
-                            <td>{formatPrecioCelda(a, 5)}</td>
+                            <td>{formatPrecioCelda(a, 1, ajustes)}</td>
+                            <td>{formatPrecioCelda(a, 2, ajustes)}</td>
+                            <td>{formatPrecioCelda(a, 3, ajustes)}</td>
+                            <td>{formatPrecioCelda(a, 4, ajustes)}</td>
+                            <td>{formatPrecioCelda(a, 5, ajustes)}</td>
                           </>
                         )}
                         <td className="vlp-precio-activo">

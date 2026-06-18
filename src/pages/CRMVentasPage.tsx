@@ -3,7 +3,16 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import type { OportunidadVenta, Venta, OrdenTrabajo, VentaItem, ClienteRecord, PresupuestoVentaRecord } from '../types/api'
+import type {
+  OportunidadVenta,
+  Venta,
+  OrdenTrabajo,
+  VentaItem,
+  ClienteRecord,
+  PresupuestoVentaRecord,
+  PresupuestoVentaItemRecord,
+  EstadoPresupuestoCliente
+} from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString } from '../utils/dateUtils'
 import {
@@ -30,6 +39,11 @@ import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync
 import VentaRapidaModal from '../components/VentaRapidaModal'
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
 import { labelListaPrecio } from '../constants/ventasListasPrecio'
+import {
+  descargarPresupuestoVentaPDF,
+  enviarPresupuestoPorEmail,
+  enviarPresupuestoPorWhatsapp
+} from '../utils/presupuestoVentaPdf'
 import { CLIENTES_AGREGAR, CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRoutes'
 import { VENTAS_REPORTES } from '../utils/ventasRoutes'
 import './CRMVentasPage.css'
@@ -38,6 +52,46 @@ const VENTAS_TAB_KEY = 'ventasActiveTab'
 const VENTAS_TAB_KEY_LEGACY = 'crmVentasActiveTab'
 
 const VENTA_PIPELINE_ESTADOS = ['Pendiente', 'Parcial', 'Pagado', 'Cancelado'] as const
+
+const PRESUPUESTO_PIPELINE_ESTADOS: EstadoPresupuestoCliente[] = [
+  'borrador',
+  'enviado',
+  'aceptado',
+  'rechazado',
+  'cancelado',
+  'convertido'
+]
+
+function getEstadoPresupuestoColor(estado: string): string {
+  switch (estado) {
+    case 'aceptado':
+      return '#10b981'
+    case 'enviado':
+      return '#3b82f6'
+    case 'borrador':
+      return '#6b7280'
+    case 'rechazado':
+      return '#ef4444'
+    case 'cancelado':
+      return '#f59e0b'
+    case 'convertido':
+      return '#8b5cf6'
+    default:
+      return '#6b7280'
+  }
+}
+
+function labelEstadoPresupuesto(estado: string): string {
+  const labels: Record<string, string> = {
+    borrador: 'Borrador',
+    enviado: 'Enviado',
+    aceptado: 'Aceptado',
+    rechazado: 'Rechazado',
+    cancelado: 'Cancelado',
+    convertido: 'Convertido'
+  }
+  return labels[estado] || estado
+}
 
 /** Mínimo de caracteres en la búsqueda para autoseleccionar si hay un único cliente */
 const CLIENTE_AUTOPICK_MIN_CHARS = 4
@@ -287,6 +341,11 @@ const CRMVentasPage = () => {
   // Ventas (solo CRM): ficha compacta + ampliar
   const [ventaModalId, setVentaModalId] = useState<number | null>(null)
 
+  // Presupuestos: pipeline + modal detalle
+  const [presupuestoModalId, setPresupuestoModalId] = useState<number | null>(null)
+  const [presupuestoModalItems, setPresupuestoModalItems] = useState<PresupuestoVentaItemRecord[]>([])
+  const [presupuestoModalLoading, setPresupuestoModalLoading] = useState(false)
+
   // PlotAI informe (solo modal Nueva/Editar Oportunidad)
   const [plotAiInforme, setPlotAiInforme] = useState<string>('')
   const [plotAiInformeLoading, setPlotAiInformeLoading] = useState(false)
@@ -401,6 +460,64 @@ const CRMVentasPage = () => {
     setVentaModalId(null)
     setDropdownDocumentosAbierto(null)
   }, [])
+
+  const presupuestosPorEstado = useMemo(() => {
+    const map: Record<EstadoPresupuestoCliente, PresupuestoVentaRecord[]> = {
+      borrador: [],
+      enviado: [],
+      aceptado: [],
+      rechazado: [],
+      cancelado: [],
+      convertido: []
+    }
+    for (const p of presupuestosFiltrados) {
+      const estado = p.estado as EstadoPresupuestoCliente
+      if (PRESUPUESTO_PIPELINE_ESTADOS.includes(estado)) {
+        map[estado].push(p)
+      } else {
+        map.borrador.push(p)
+      }
+    }
+    return map
+  }, [presupuestosFiltrados])
+
+  const presupuestoModal = useMemo(
+    () =>
+      presupuestoModalId != null
+        ? presupuestos.find((p) => p.id === presupuestoModalId) ?? null
+        : null,
+    [presupuestoModalId, presupuestos]
+  )
+
+  const abrirPresupuestoModal = useCallback((id: number) => {
+    setPresupuestoModalId(id)
+  }, [])
+
+  const cerrarPresupuestoModal = useCallback(() => {
+    setPresupuestoModalId(null)
+    setPresupuestoModalItems([])
+    setPresupuestoModalLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (presupuestoModalId == null) return
+    let cancelled = false
+    const run = async () => {
+      setPresupuestoModalLoading(true)
+      const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuestoModalId)
+      if (cancelled) return
+      if (detalle.success && detalle.data) {
+        setPresupuestoModalItems(detalle.data.items)
+      } else {
+        setPresupuestoModalItems([])
+      }
+      setPresupuestoModalLoading(false)
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [presupuestoModalId])
 
   useEffect(() => {
     if (!crmBootstrapped) return
@@ -796,6 +913,42 @@ const CRMVentasPage = () => {
       setCrmBootstrapped(true)
     }
   }
+
+  const accionPresupuestoPdf = useCallback(
+    async (presupuesto: PresupuestoVentaRecord, modo: 'pdf' | 'whatsapp' | 'email') => {
+      const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuesto.id)
+      if (!detalle.success || !detalle.data) {
+        alert(detalle.error || 'No se pudo cargar el presupuesto')
+        return
+      }
+      const { presupuesto: p, items } = detalle.data
+      try {
+        if (modo === 'pdf') await descargarPresupuestoVentaPDF(p, items)
+        else if (modo === 'whatsapp') await enviarPresupuestoPorWhatsapp(p, items)
+        else await enviarPresupuestoPorEmail(p, items)
+        if (p.estado === 'borrador') {
+          await apiService.actualizarEstadoPresupuestoVenta(p.id, 'enviado')
+          void loadData()
+        }
+      } catch (e) {
+        console.error(e)
+        alert('Error al generar o enviar el PDF')
+      }
+    },
+    []
+  )
+
+  const actualizarEstadoPresupuestoModal = useCallback(
+    async (presupuesto: PresupuestoVentaRecord, estado: EstadoPresupuestoCliente) => {
+      const res = await apiService.actualizarEstadoPresupuestoVenta(presupuesto.id, estado)
+      if (!res.success) {
+        alert(res.error || 'No se pudo actualizar el estado')
+        return
+      }
+      void loadData()
+    },
+    []
+  )
 
   // Filtros oportunidades
   useEffect(() => {
@@ -2940,121 +3093,292 @@ const CRMVentasPage = () => {
             </div>
           </div>
 
-          {/* Lista de Presupuestos */}
-          <div className="ventas-grid">
-            {presupuestosFiltrados.map((presupuesto) => {
-              const getEstadoColor = (estado: string) => {
-                switch (estado) {
-                  case 'aceptado': return '#10b981'
-                  case 'enviado': return '#3b82f6'
-                  case 'borrador': return '#6b7280'
-                  case 'rechazado': return '#ef4444'
-                  case 'cancelado': return '#f59e0b'
-                  case 'convertido': return '#8b5cf6'
-                  default: return '#6b7280'
-                }
-              }
-
+          {/* Pipeline de presupuestos */}
+          <div className="ventas-pipeline ventas-pipeline--presupuestos">
+            {PRESUPUESTO_PIPELINE_ESTADOS.map((estado) => {
+              const columnPresupuestos = presupuestosPorEstado[estado]
+              const columnTotal = columnPresupuestos.reduce(
+                (sum, p) => sum + Number(p.precio_total || 0),
+                0
+              )
               return (
-                <div key={presupuesto.id} className="venta-card">
-                  <div className="card-header">
-                    <div>
-                      <h3>{presupuesto.cliente_nombre || 'Cliente'}</h3>
-                      <span className="numero-oportunidad">{presupuesto.numero_presupuesto}</span>
-                    </div>
+                <section key={estado} className="ventas-pipeline__col">
+                  <header className="ventas-pipeline__col-head">
                     <span
-                      className="etapa-badge"
-                      style={{ backgroundColor: getEstadoColor(presupuesto.estado) }}
-                    >
-                      {presupuesto.estado}
-                    </span>
-                  </div>
-
-                  {presupuesto.tipo_lista_precio ? (
-                    <p className="venta-pipeline-card__lista">
-                      {labelListaPrecio(presupuesto.tipo_lista_precio)}
-                    </p>
-                  ) : null}
-                  
-                  {presupuesto.cliente_empresa && (
-                    <p className="cliente-empresa">🏢 {presupuesto.cliente_empresa}</p>
-                  )}
-                  
-                  <div className="card-info">
-                    <div className="info-item">
-                      <strong>Precio total:</strong> ${presupuesto.precio_total.toLocaleString()}
-                    </div>
-                    <div className="info-item">
-                      <strong>Fecha creación:</strong> {formatArgentinaDate(presupuesto.fecha_creacion)}
-                    </div>
-                    {presupuesto.fecha_envio && (
-                      <div className="info-item">
-                        <strong>Fecha envío:</strong> {formatArgentinaDate(presupuesto.fecha_envio)}
-                      </div>
-                    )}
-                    {presupuesto.fecha_vencimiento && (
-                      <div className="info-item">
-                        <strong>Fecha vencimiento:</strong> {formatArgentinaDate(presupuesto.fecha_vencimiento)}
-                      </div>
-                    )}
-                    {presupuesto.cliente_email && (
-                      <div className="info-item">
-                        <strong>Email:</strong> {presupuesto.cliente_email}
-                      </div>
-                    )}
-                    {presupuesto.id_op_asociada && (
-                      <div className="info-item">
-                        <strong>OP asociada:</strong> {presupuesto.id_op_asociada}
-                      </div>
-                    )}
-                    {presupuesto.id_venta_asociada && (
-                      <div className="info-item">
-                        <strong>Venta asociada:</strong> {presupuesto.id_venta_asociada}
-                      </div>
-                    )}
-                  </div>
-
-                  {presupuesto.observaciones_cliente && (
-                    <div className="items-section" style={{ background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
-                      <strong>Observaciones Cliente:</strong>
-                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
-                        {presupuesto.observaciones_cliente}
-                      </p>
-                    </div>
-                  )}
-
-                  {presupuesto.observaciones_internas && (
-                    <div className="items-section" style={{ background: 'rgba(139, 92, 246, 0.1)', borderColor: 'rgba(139, 92, 246, 0.2)' }}>
-                      <strong>Observaciones Internas:</strong>
-                      <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
-                        {presupuesto.observaciones_internas}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="card-actions">
-                    {presupuesto.id_op_asociada && (
+                      className="ventas-pipeline__dot"
+                      style={{ backgroundColor: getEstadoPresupuestoColor(estado) }}
+                    />
+                    <h3>{labelEstadoPresupuesto(estado)}</h3>
+                    <span className="ventas-pipeline__count">{columnPresupuestos.length}</span>
+                    <span className="ventas-pipeline__total">${columnTotal.toLocaleString()}</span>
+                  </header>
+                  <div className="ventas-pipeline__cards">
+                    {columnPresupuestos.map((presupuesto) => (
                       <button
-                        className="btn-action"
-                        onClick={() => navigate(`/op/${presupuesto.id_op_asociada}`)}
+                        key={presupuesto.id}
+                        type="button"
+                        className="venta-pipeline-card"
+                        onClick={() => abrirPresupuestoModal(presupuesto.id)}
                       >
-                        👁️ Ver OP
+                        <div className="venta-pipeline-card__top">
+                          <span className="venta-pipeline-card__client">
+                            {presupuesto.cliente_nombre || 'Cliente'}
+                          </span>
+                          <span className="venta-pipeline-card__amount">
+                            ${Number(presupuesto.precio_total || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <span className="venta-pipeline-card__num">{presupuesto.numero_presupuesto}</span>
+                        <div className="venta-pipeline-card__meta">
+                          <span>{formatArgentinaDate(presupuesto.fecha_creacion)}</span>
+                          {presupuesto.tipo_lista_precio ? (
+                            <span className="venta-pipeline-card__lista">
+                              {labelListaPrecio(presupuesto.tipo_lista_precio)}
+                            </span>
+                          ) : null}
+                        </div>
+                        {presupuesto.cliente_empresa ? (
+                          <span className="venta-pipeline-card__empresa">{presupuesto.cliente_empresa}</span>
+                        ) : null}
                       </button>
-                    )}
-                    {presupuesto.cliente_email && (
-                      <a
-                        href={`mailto:${presupuesto.cliente_email}`}
-                        className="btn-action"
-                        style={{ textDecoration: 'none' }}
-                      >
-                        ✉️ Email
-                      </a>
-                    )}
+                    ))}
+                    {columnPresupuestos.length === 0 ? (
+                      <p className="ventas-pipeline__empty">Sin presupuestos</p>
+                    ) : null}
                   </div>
-                </div>
+                </section>
               )
             })}
           </div>
+
+          {presupuestoModal ? (
+            <div
+              className="modal-overlay venta-detail-modal-overlay"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) cerrarPresupuestoModal()
+              }}
+            >
+              <div
+                className="modal-content venta-detail-modal presupuesto-detail-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="presupuesto-detail-title"
+              >
+                <div className="modal-header">
+                  <div>
+                    <h2 id="presupuesto-detail-title">
+                      {presupuestoModal.cliente_nombre || 'Cliente'}
+                    </h2>
+                    <p className="venta-detail-modal__sub">
+                      {presupuestoModal.numero_presupuesto}
+                      {presupuestoModal.cliente_empresa ? ` · ${presupuestoModal.cliente_empresa}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="modal-close"
+                    onClick={cerrarPresupuestoModal}
+                    aria-label="Cerrar"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="modal-body venta-detail-modal__body">
+                  <div className="venta-detail-modal__badges">
+                    <span
+                      className="estado-badge estado-badge--sm"
+                      style={{ backgroundColor: getEstadoPresupuestoColor(presupuestoModal.estado) }}
+                    >
+                      {labelEstadoPresupuesto(presupuestoModal.estado)}
+                    </span>
+                    {presupuestoModal.tipo_lista_precio ? (
+                      <span className="venta-detail-modal__chip">
+                        {labelListaPrecio(presupuestoModal.tipo_lista_precio)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="venta-compact-summary venta-compact-summary--modal">
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Total</span>
+                      <span className="venta-compact-v">
+                        ${Number(presupuestoModal.precio_total || 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Creación</span>
+                      <span className="venta-compact-v">
+                        {formatArgentinaDate(presupuestoModal.fecha_creacion)}
+                      </span>
+                    </div>
+                    {presupuestoModal.fecha_vencimiento ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Vencimiento</span>
+                        <span className="venta-compact-v">
+                          {formatArgentinaDate(presupuestoModal.fecha_vencimiento)}
+                        </span>
+                      </div>
+                    ) : null}
+                    {presupuestoModal.fecha_envio ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Envío</span>
+                        <span className="venta-compact-v">
+                          {formatArgentinaDate(presupuestoModal.fecha_envio)}
+                        </span>
+                      </div>
+                    ) : null}
+                    {presupuestoModal.nombre_vendedor ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Vendedor</span>
+                        <span className="venta-compact-v">{presupuestoModal.nombre_vendedor}</span>
+                      </div>
+                    ) : null}
+                    {presupuestoModal.cliente_telefono ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Tel</span>
+                        <span className="venta-compact-v">{presupuestoModal.cliente_telefono}</span>
+                      </div>
+                    ) : null}
+                    {presupuestoModal.cliente_email ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Email</span>
+                        <span className="venta-compact-v">{presupuestoModal.cliente_email}</span>
+                      </div>
+                    ) : null}
+                    {presupuestoModal.cliente_dni_cuit ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">DNI/CUIT</span>
+                        <span className="venta-compact-v">{presupuestoModal.cliente_dni_cuit}</span>
+                      </div>
+                    ) : null}
+                    {presupuestoModal.cliente_direccion ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">Dirección</span>
+                        <span className="venta-compact-v">{presupuestoModal.cliente_direccion}</span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {presupuestoModalLoading ? (
+                    <p className="presupuesto-detail-loading">Cargando ítems…</p>
+                  ) : presupuestoModalItems.length > 0 ? (
+                    <div className="items-section">
+                      <strong>Ítems ({presupuestoModalItems.length})</strong>
+                      {presupuestoModalItems.map((item) => (
+                        <div key={item.id} className="item-venta">
+                          <div className="presupuesto-item-row">
+                            <div>
+                              <strong>{item.cantidad}x</strong> {item.descripcion}
+                              {item.codigo_articulo ? (
+                                <span className="presupuesto-item-codigo">({item.codigo_articulo})</span>
+                              ) : null}
+                            </div>
+                            <div className="presupuesto-item-total">
+                              ${item.precio_total.toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="presupuesto-item-meta">
+                            <span>P. unit.: ${item.precio_unitario.toLocaleString()}</span>
+                            {item.descuento > 0 ? (
+                              <span>Desc.: ${item.descuento.toLocaleString()}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {presupuestoModal.observaciones_cliente ? (
+                    <div className="items-section presupuesto-obs presupuesto-obs--cliente">
+                      <strong>Observaciones cliente</strong>
+                      <p>{presupuestoModal.observaciones_cliente}</p>
+                    </div>
+                  ) : null}
+
+                  {presupuestoModal.observaciones_internas ? (
+                    <div className="items-section presupuesto-obs presupuesto-obs--interna">
+                      <strong>Observaciones internas</strong>
+                      <p>{presupuestoModal.observaciones_internas}</p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="modal-footer venta-detail-modal__footer">
+                  <button
+                    type="button"
+                    className="btn-action"
+                    onClick={() => void accionPresupuestoPdf(presupuestoModal, 'pdf')}
+                  >
+                    📥 PDF
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-action"
+                    onClick={() => void accionPresupuestoPdf(presupuestoModal, 'whatsapp')}
+                  >
+                    💬 WhatsApp
+                  </button>
+                  {(presupuestoModal.cliente_email || presupuestoModal.cliente_telefono) && (
+                    <button
+                      type="button"
+                      className="btn-action"
+                      onClick={() =>
+                        void accionPresupuestoPdf(
+                          presupuestoModal,
+                          presupuestoModal.cliente_email ? 'email' : 'whatsapp'
+                        )
+                      }
+                    >
+                      ✉️ Enviar
+                    </button>
+                  )}
+                  {presupuestoModal.id_cliente ? (
+                    <button
+                      type="button"
+                      className="btn-action"
+                      onClick={() => {
+                        cerrarPresupuestoModal()
+                        navigate(clientesPerfil(presupuestoModal.id_cliente!))
+                      }}
+                    >
+                      👤 Cliente
+                    </button>
+                  ) : null}
+                  {presupuestoModal.id_op_asociada ? (
+                    <button
+                      type="button"
+                      className="btn-action"
+                      onClick={() => {
+                        cerrarPresupuestoModal()
+                        navigate(`/op/${presupuestoModal.id_op_asociada}`)
+                      }}
+                    >
+                      👁️ Ver OP
+                    </button>
+                  ) : null}
+                  <label className="presupuesto-estado-select">
+                    <span>Estado</span>
+                    <select
+                      value={presupuestoModal.estado}
+                      onChange={(e) =>
+                        void actualizarEstadoPresupuestoModal(
+                          presupuestoModal,
+                          e.target.value as EstadoPresupuestoCliente
+                        )
+                      }
+                    >
+                      {PRESUPUESTO_PIPELINE_ESTADOS.map((e) => (
+                        <option key={e} value={e}>
+                          {labelEstadoPresupuesto(e)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {presupuestosFiltrados.length === 0 && (
             <div className="empty-state">

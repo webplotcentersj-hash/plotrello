@@ -1265,6 +1265,84 @@
   z-index: 1200;
 }
 
+/* Pipeline presupuestos — columnas un poco más angostas */
+.ventas-pipeline--presupuestos .ventas-pipeline__col {
+  flex: 0 0 min(248px, 78vw);
+  min-width: 220px;
+}
+
+.presupuesto-detail-modal {
+  max-width: min(820px, 96vw);
+}
+
+.presupuesto-detail-loading {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+
+.presupuesto-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.presupuesto-item-codigo {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  margin-left: 8px;
+}
+
+.presupuesto-item-total {
+  font-weight: 600;
+  color: #34d399;
+  white-space: nowrap;
+}
+
+.presupuesto-item-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.presupuesto-obs p {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.presupuesto-obs--cliente {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.presupuesto-obs--interna {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.presupuesto-estado-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.presupuesto-estado-select select {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  color: #f8fafc;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
 /* Modals */
 .modal-overlay {
   position: fixed;

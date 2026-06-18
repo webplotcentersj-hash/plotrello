@@ -1,24 +1,42 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import apiService from '../services/api'
-import type { ClienteRecord, PresupuestoVentaRecord, OportunidadVenta } from '../types/api'
-import type { ArticuloStock } from '../types/pedidos'
-import { labelListaPrecio, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
+import type {
+  ArticuloEmpresaRecord,
+  ClienteRecord,
+  PresupuestoVentaItemRecord,
+  PresupuestoVentaRecord,
+  OportunidadVenta
+} from '../types/api'
+import {
+  labelAjustesPreciosActivos,
+  labelListaPrecio,
+  LISTAS_PRECIO_VENTAS,
+  resolvePrecioLista,
+  type TipoListaPrecioVentas
+} from '../constants/ventasListasPrecio'
+import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
+import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import {
   leerVentasPresupuestoDraft,
   limpiarVentasPresupuestoDraft
 } from '../utils/ventasPresupuestoDraft'
-import './VentaRapidaModal.css'
+import {
+  descargarPresupuestoVentaPDF,
+  enviarPresupuestoPorEmail,
+  enviarPresupuestoPorWhatsapp
+} from '../utils/presupuestoVentaPdf'
+import './CrearPresupuestoModal.css'
 
 interface CrearPresupuestoModalProps {
   onClose: () => void
   onSuccess: () => void
   usuarioId: number
   usuarioNombre: string
-  /** Pre-llenar datos de cliente y notas desde una oportunidad del CRM */
   prefillDesdeOportunidad?: OportunidadVenta | null
 }
 
 interface ItemPresupuesto {
+  id_articulo_empresa?: number
   id_articulo_stock?: number
   codigo_articulo?: string
   descripcion: string
@@ -36,6 +54,8 @@ const CrearPresupuestoModal = ({
   usuarioNombre,
   prefillDesdeOportunidad
 }: CrearPresupuestoModalProps) => {
+  const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
+
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -56,13 +76,16 @@ const CrearPresupuestoModal = ({
   const [estado, setEstado] = useState<'borrador' | 'enviado'>('borrador')
 
   const [busquedaArticulo, setBusquedaArticulo] = useState('')
-  const [articulosEncontrados, setArticulosEncontrados] = useState<ArticuloStock[]>([])
-  const [buscandoArticulos, setBuscandoArticulos] = useState(false)
+  const [categoriaArticulo, setCategoriaArticulo] = useState('todas')
+  const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloEmpresaRecord[]>([])
+  const [loadingCatalogo, setLoadingCatalogo] = useState(false)
   const [itemsPresupuesto, setItemsPresupuesto] = useState<ItemPresupuesto[]>([])
-  const [tipoListaPrecio, setTipoListaPrecio] = useState<TipoListaPrecioVentas | null>(null)
+  const [tipoListaPrecio, setTipoListaPrecio] = useState<TipoListaPrecioVentas>('lista_1')
 
   const [guardando, setGuardando] = useState(false)
   const [presupuestoCreado, setPresupuestoCreado] = useState<PresupuestoVentaRecord | null>(null)
+  const [itemsCreados, setItemsCreados] = useState<PresupuestoVentaItemRecord[]>([])
+  const [enviandoPdf, setEnviandoPdf] = useState(false)
 
   useEffect(() => {
     if (!prefillDesdeOportunidad) return
@@ -78,10 +101,16 @@ const CrearPresupuestoModal = ({
       empresa: o.cliente_empresa || '',
       direccion: o.cliente_direccion || ''
     })
-    const int = [o.descripcion, o.observaciones && `Obs. CRM: ${o.observaciones}`].filter(Boolean).join('\n\n')
-    setObservacionesInternas(`Oportunidad CRM ${o.numero_oportunidad}${int ? `\n\n${int}` : ''}`.trim())
+    const int = [o.descripcion, o.observaciones && `Obs. CRM: ${o.observaciones}`]
+      .filter(Boolean)
+      .join('\n\n')
+    setObservacionesInternas(
+      `Oportunidad CRM ${o.numero_oportunidad}${int ? `\n\n${int}` : ''}`.trim()
+    )
     if (o.descripcion?.trim()) {
-      setObservacionesCliente(`Alcance / referencia: ${o.descripcion.slice(0, 800)}${o.descripcion.length > 800 ? '…' : ''}`)
+      setObservacionesCliente(
+        `Alcance / referencia: ${o.descripcion.slice(0, 800)}${o.descripcion.length > 800 ? '…' : ''}`
+      )
     }
   }, [prefillDesdeOportunidad])
 
@@ -106,9 +135,8 @@ const CrearPresupuestoModal = ({
     })
   }, [])
 
-  // Buscar clientes (desde 1 letra)
   useEffect(() => {
-    if (busquedaCliente.trim().length < 1) {
+    if (busquedaCliente.trim().length < 1 || crearNuevoCliente || clienteSeleccionado) {
       setClientesEncontrados([])
       return
     }
@@ -117,11 +145,7 @@ const CrearPresupuestoModal = ({
       setBuscandoClientes(true)
       try {
         const response = await apiService.buscarClientes(busquedaCliente.trim())
-        if (response.success && response.data) {
-          setClientesEncontrados(response.data)
-        } else {
-          setClientesEncontrados([])
-        }
+        setClientesEncontrados(response.success && response.data ? response.data : [])
       } catch (error) {
         console.error('Error buscando clientes:', error)
         setClientesEncontrados([])
@@ -131,43 +155,75 @@ const CrearPresupuestoModal = ({
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [busquedaCliente])
+  }, [busquedaCliente, crearNuevoCliente, clienteSeleccionado])
 
-  // Buscar artículos (desde 1 letra)
   useEffect(() => {
-    if (busquedaArticulo.trim().length < 1) {
-      setArticulosEncontrados([])
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      setBuscandoArticulos(true)
+    let cancelled = false
+    const run = async () => {
+      setLoadingCatalogo(true)
       try {
-        const response = await apiService.getArticulosStock(busquedaArticulo.trim(), false)
-        if (response.success && response.data) {
-          setArticulosEncontrados(response.data)
-        } else {
-          setArticulosEncontrados([])
+        const response = await apiService.getArticulosEmpresa(undefined, false)
+        if (!cancelled && response.success && response.data) {
+          setCatalogoArticulos(
+            response.data.filter((a) => a.activo && !a.codigo?.startsWith('ART-'))
+          )
         }
       } catch (error) {
-        console.error('Error buscando artículos:', error)
-        setArticulosEncontrados([])
+        console.error('Error cargando lista de precios:', error)
       } finally {
-        setBuscandoArticulos(false)
+        if (!cancelled) setLoadingCatalogo(false)
       }
-    }, 200)
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-    return () => clearTimeout(timer)
-  }, [busquedaArticulo])
+  const categoriasArticulos = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of catalogoArticulos) {
+      if (a.categoria?.trim()) set.add(a.categoria.trim())
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [catalogoArticulos])
+
+  const articulosFiltrados = useMemo(() => {
+    const q = busquedaArticulo.trim().toLowerCase()
+    return catalogoArticulos.filter((a) => {
+      if (categoriaArticulo !== 'todas' && (a.categoria || '') !== categoriaArticulo) return false
+      if (!q) return false
+      const tokens = q.split(/\s+/).filter(Boolean)
+      const haystack = [a.nombre, a.codigo, a.descripcion, a.categoria]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return tokens.every((t) => haystack.includes(t))
+    })
+  }, [catalogoArticulos, busquedaArticulo, categoriaArticulo])
+
+  useEffect(() => {
+    if (itemsPresupuesto.length === 0 || catalogoArticulos.length === 0) return
+    setItemsPresupuesto((prev) =>
+      prev.map((item) => {
+        if (!item.id_articulo_empresa) return item
+        const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
+        if (!art) return item
+        const precio = resolvePrecioLista(art, tipoListaPrecio, ajustesPrecios)
+        if (precio == null) return item
+        const precioTotal = precio * item.cantidad - (item.descuento || 0)
+        return { ...item, precio_unitario: precio, precio_total: precioTotal }
+      })
+    )
+  }, [tipoListaPrecio, catalogoArticulos, ajustesPrecios])
 
   const seleccionarCliente = (cliente: ClienteRecord) => {
     setClienteSeleccionado(cliente)
-    setBusquedaCliente(cliente.nombre)
+    setBusquedaCliente(nombreCompletoCliente(cliente))
     setClientesEncontrados([])
     setCrearNuevoCliente(false)
-    // Pre-llenar datos del cliente
     setNuevoCliente({
-      nombre: cliente.nombre,
+      nombre: nombreCompletoCliente(cliente),
       dni_cuit: cliente.dni_cuit || '',
       telefono: cliente.telefono || '',
       email: cliente.email || '',
@@ -176,103 +232,137 @@ const CrearPresupuestoModal = ({
     })
   }
 
-  const agregarArticulo = (articulo: ArticuloStock) => {
-    if (itemsPresupuesto.some(item => item.id_articulo_stock === articulo.id)) {
+  const agregarArticulo = (articulo: ArticuloEmpresaRecord) => {
+    if (itemsPresupuesto.some((item) => item.id_articulo_empresa === articulo.id)) {
       alert('Este artículo ya está en la lista')
       return
     }
 
-    const precioUnitario = articulo.precio || 0
-    const cantidad = 1
-    const descuento = 0
-    const precioTotal = precioUnitario * cantidad - descuento
+    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+    if (precio == null) {
+      alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
+      return
+    }
 
+    const stock = articulo.stock_disponible
     const nuevoItem: ItemPresupuesto = {
-      id_articulo_stock: articulo.id,
+      id_articulo_empresa: articulo.id,
+      id_articulo_stock: articulo.id_articulo_stock ?? undefined,
       codigo_articulo: articulo.codigo || undefined,
-      descripcion: articulo.descripcion,
-      cantidad,
-      precio_unitario: precioUnitario,
-      descuento,
-      precio_total: precioTotal,
-      observaciones: articulo.stock !== null && articulo.stock <= 0 ? 'Stock agotado' : undefined
+      descripcion: articulo.nombre,
+      cantidad: 1,
+      precio_unitario: precio,
+      descuento: 0,
+      precio_total: precio,
+      observaciones:
+        stock != null && stock <= 0 && articulo.controla_stock !== false
+          ? 'Stock agotado'
+          : undefined
     }
 
     setItemsPresupuesto([...itemsPresupuesto, nuevoItem])
     setBusquedaArticulo('')
-    setArticulosEncontrados([])
   }
 
   const eliminarItem = (index: number) => {
     setItemsPresupuesto(itemsPresupuesto.filter((_, i) => i !== index))
   }
 
-  const actualizarItem = (index: number, campo: keyof ItemPresupuesto, valor: any) => {
+  const actualizarItem = (index: number, campo: keyof ItemPresupuesto, valor: number) => {
     const nuevosItems = [...itemsPresupuesto]
     const item = nuevosItems[index]
-    
-    if (campo === 'cantidad' || campo === 'precio_unitario' || campo === 'descuento') {
-      const cantidad = campo === 'cantidad' ? valor : item.cantidad
-      const precioUnitario = campo === 'precio_unitario' ? valor : item.precio_unitario
-      const descuento = campo === 'descuento' ? valor : item.descuento
-      const precioTotal = precioUnitario * cantidad - descuento
-      
-      nuevosItems[index] = {
-        ...item,
-        [campo]: valor,
-        precio_total: precioTotal
-      }
-    } else {
-      nuevosItems[index] = { ...item, [campo]: valor }
+    const cantidad = campo === 'cantidad' ? valor : item.cantidad
+    const precioUnitario = campo === 'precio_unitario' ? valor : item.precio_unitario
+    const descuento = campo === 'descuento' ? valor : item.descuento
+    nuevosItems[index] = {
+      ...item,
+      [campo]: valor,
+      precio_total: precioUnitario * cantidad - descuento
     }
-    
     setItemsPresupuesto(nuevosItems)
   }
 
-  const calcularTotal = () => {
-    return itemsPresupuesto.reduce((sum, item) => sum + item.precio_total, 0)
+  const calcularTotal = () => itemsPresupuesto.reduce((sum, item) => sum + item.precio_total, 0)
+
+  const resolverCliente = async (): Promise<{
+    id: number | null
+    nombre: string
+    telefono: string
+    email: string
+    dni_cuit: string
+    empresa: string
+    direccion: string
+  }> => {
+    if (clienteSeleccionado) {
+      return {
+        id: clienteSeleccionado.id,
+        nombre: nombreCompletoCliente(clienteSeleccionado),
+        telefono: clienteSeleccionado.telefono || nuevoCliente.telefono,
+        email: clienteSeleccionado.email || nuevoCliente.email,
+        dni_cuit: clienteSeleccionado.dni_cuit || nuevoCliente.dni_cuit,
+        empresa: clienteSeleccionado.empresa || nuevoCliente.empresa,
+        direccion: clienteSeleccionado.direccion || nuevoCliente.direccion
+      }
+    }
+
+    if (crearNuevoCliente) {
+      const nombre = nuevoCliente.nombre.trim()
+      if (!nombre) throw new Error('El nombre del cliente es obligatorio')
+
+      const clienteResponse = await apiService.buscarOCrearCliente({
+        nombre,
+        dni_cuit: nuevoCliente.dni_cuit || undefined,
+        telefono: nuevoCliente.telefono || undefined,
+        email: nuevoCliente.email || undefined,
+        direccion: nuevoCliente.direccion || undefined
+      })
+
+      if (!clienteResponse.success || !clienteResponse.data) {
+        throw new Error(clienteResponse.error || 'Error al crear cliente')
+      }
+
+      return {
+        id: clienteResponse.data.id,
+        nombre,
+        telefono: nuevoCliente.telefono,
+        email: nuevoCliente.email,
+        dni_cuit: nuevoCliente.dni_cuit,
+        empresa: nuevoCliente.empresa,
+        direccion: nuevoCliente.direccion
+      }
+    }
+
+    if (busquedaCliente.trim().length >= 2) {
+      if (clientesEncontrados.length === 1) {
+        const c = clientesEncontrados[0]
+        return {
+          id: c.id,
+          nombre: nombreCompletoCliente(c),
+          telefono: c.telefono || '',
+          email: c.email || '',
+          dni_cuit: c.dni_cuit || '',
+          empresa: c.empresa || '',
+          direccion: c.direccion || ''
+        }
+      }
+      throw new Error('Seleccioná un cliente de la lista o usá "Crear nuevo"')
+    }
+
+    throw new Error('Indicá el cliente del presupuesto')
   }
 
   const handleGuardarPresupuesto = async () => {
-    if (!clienteSeleccionado && !crearNuevoCliente) {
-      alert('Debes seleccionar o crear un cliente')
-      return
-    }
-
-    if (crearNuevoCliente && !nuevoCliente.nombre.trim()) {
-      alert('El nombre del cliente es obligatorio')
-      return
-    }
-
     if (itemsPresupuesto.length === 0) {
-      alert('Debes agregar al menos un artículo')
+      alert('Agregá al menos un artículo')
       return
     }
 
     setGuardando(true)
 
     try {
-      let clienteFinal: ClienteRecord | null = clienteSeleccionado
+      const cliente = await resolverCliente()
 
-      // Crear cliente si es nuevo
-      if (crearNuevoCliente) {
-        const clienteResponse = await apiService.buscarOCrearCliente({
-          nombre: nuevoCliente.nombre,
-          dni_cuit: nuevoCliente.dni_cuit || undefined,
-          telefono: nuevoCliente.telefono || undefined,
-          email: nuevoCliente.email || undefined,
-          direccion: nuevoCliente.direccion || undefined
-        })
-
-        if (!clienteResponse.success || !clienteResponse.data) {
-          throw new Error(clienteResponse.error || 'Error al crear cliente')
-        }
-
-        clienteFinal = clienteResponse.data
-      }
-
-      // Preparar items para la API
-      const itemsParaAPI = itemsPresupuesto.map(item => ({
+      const itemsParaAPI = itemsPresupuesto.map((item) => ({
         id_articulo_stock: item.id_articulo_stock,
         codigo_articulo: item.codigo_articulo,
         descripcion: item.descripcion,
@@ -283,15 +373,14 @@ const CrearPresupuestoModal = ({
         observaciones: item.observaciones
       }))
 
-      // Crear presupuesto
       const presupuestoResponse = await apiService.crearPresupuestoVenta({
-        id_cliente: clienteFinal?.id || null,
-        cliente_nombre: clienteFinal?.nombre || nuevoCliente.nombre,
-        cliente_telefono: clienteFinal?.telefono || nuevoCliente.telefono,
-        cliente_email: clienteFinal?.email || nuevoCliente.email,
-        cliente_dni_cuit: clienteFinal?.dni_cuit || nuevoCliente.dni_cuit,
-        cliente_empresa: clienteFinal?.empresa || nuevoCliente.empresa,
-        cliente_direccion: clienteFinal?.direccion || nuevoCliente.direccion,
+        id_cliente: cliente.id,
+        cliente_nombre: cliente.nombre,
+        cliente_telefono: cliente.telefono || undefined,
+        cliente_email: cliente.email || undefined,
+        cliente_dni_cuit: cliente.dni_cuit || undefined,
+        cliente_empresa: cliente.empresa || undefined,
+        cliente_direccion: cliente.direccion || undefined,
         id_vendedor: usuarioId,
         nombre_vendedor: usuarioNombre,
         items: itemsParaAPI,
@@ -306,14 +395,40 @@ const CrearPresupuestoModal = ({
         throw new Error(presupuestoResponse.error || 'Error al crear presupuesto')
       }
 
+      const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuestoResponse.data.id)
+      const itemsGuardados = detalle.success && detalle.data ? detalle.data.items : []
+
       limpiarVentasPresupuestoDraft()
       setPresupuestoCreado(presupuestoResponse.data)
-      onSuccess()
-    } catch (error: any) {
+      setItemsCreados(itemsGuardados)
+    } catch (error: unknown) {
       console.error('Error creando presupuesto:', error)
-      alert(`Error al crear presupuesto: ${error.message || 'Error desconocido'}`)
+      const msg = error instanceof Error ? error.message : 'Error desconocido'
+      alert(`Error al crear presupuesto: ${msg}`)
     } finally {
       setGuardando(false)
+    }
+  }
+
+  const cerrarConExito = () => {
+    onSuccess()
+    onClose()
+  }
+
+  const conPdf = async (fn: () => Promise<void>) => {
+    if (!presupuestoCreado) return
+    setEnviandoPdf(true)
+    try {
+      await fn()
+      if (presupuestoCreado.estado === 'borrador') {
+        await apiService.actualizarEstadoPresupuestoVenta(presupuestoCreado.id, 'enviado')
+        setPresupuestoCreado({ ...presupuestoCreado, estado: 'enviado' })
+      }
+    } catch (e) {
+      console.error(e)
+      alert('No se pudo generar el PDF')
+    } finally {
+      setEnviandoPdf(false)
     }
   }
 
@@ -324,218 +439,363 @@ const CrearPresupuestoModal = ({
         if (presupuestoCreado) return
         if (e.target === e.currentTarget) onClose()
       }}
-      onTouchStart={(e) => {
-        if (presupuestoCreado) return
-        if (e.target === e.currentTarget) onClose()
-      }}
     >
-      <div className="modal-content venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content presupuesto-venta-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>📄 Crear Presupuesto de Venta</h2>
-          {tipoListaPrecio ? (
-            <p className="venta-rapida-lista-badge">{labelListaPrecio(tipoListaPrecio)}</p>
-          ) : null}
-          <button className="modal-close" onClick={onClose}>×</button>
+          <p className="venta-rapida-lista-badge">{labelListaPrecio(tipoListaPrecio)}</p>
+          <button type="button" className="modal-close" onClick={presupuestoCreado ? cerrarConExito : onClose}>
+            ×
+          </button>
         </div>
 
         {presupuestoCreado ? (
           <div className="modal-body">
-            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ fontSize: '64px', marginBottom: '20px' }}>✅</div>
-              <h3 style={{ color: '#10b981', marginBottom: '10px' }}>
-                Presupuesto creado exitosamente
-              </h3>
-              <p style={{ fontSize: '1.1rem', marginBottom: '20px', color: 'var(--text-primary)' }}>
-                Número: <strong>{presupuestoCreado.numero_presupuesto}</strong>
+            <div className="presupuesto-exito">
+              <div style={{ fontSize: '3rem', marginBottom: '8px' }}>✅</div>
+              <h3>Presupuesto creado</h3>
+              <p className="presupuesto-exito__numero">
+                Número trazable: <strong>{presupuestoCreado.numero_presupuesto}</strong>
               </p>
-              <p style={{ fontSize: '1rem', marginBottom: '30px', color: 'var(--text-secondary)' }}>
-                Estado: <strong>{presupuestoCreado.estado}</strong>
+              <p style={{ color: '#94a3b8' }}>
+                Total: ${(presupuestoCreado.precio_total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
               </p>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                <button className="btn-primary" onClick={onClose}>
+              <div className="presupuesto-exito__acciones">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={enviandoPdf}
+                  onClick={() =>
+                    void conPdf(() => descargarPresupuestoVentaPDF(presupuestoCreado, itemsCreados))
+                  }
+                >
+                  📥 Descargar PDF
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={enviandoPdf}
+                  onClick={() =>
+                    void conPdf(() =>
+                      enviarPresupuestoPorWhatsapp(presupuestoCreado, itemsCreados)
+                    )
+                  }
+                >
+                  💬 WhatsApp
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={enviandoPdf}
+                  onClick={() =>
+                    void conPdf(() => enviarPresupuestoPorEmail(presupuestoCreado, itemsCreados))
+                  }
+                >
+                  ✉️ Email
+                </button>
+                <button type="button" className="btn-secondary" onClick={cerrarConExito}>
                   Cerrar
                 </button>
               </div>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '16px' }}>
+                El PDF incluye logo de la empresa y el número {presupuestoCreado.numero_presupuesto}.
+                Para WhatsApp/Email se descarga el PDF y se abre la app correspondiente.
+              </p>
             </div>
           </div>
         ) : (
           <div className="modal-body">
-            {/* Cliente */}
             <div className="form-section">
               <h3>👤 Cliente</h3>
-              <div className="form-group">
-                <label>Buscar Cliente</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={busquedaCliente}
-                    onChange={(e) => setBusquedaCliente(e.target.value)}
-                    placeholder="Buscar por nombre, DNI, teléfono..."
-                    disabled={crearNuevoCliente}
-                  />
-                  {buscandoClientes && (
-                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}>
-                      🔍
-                    </span>
-                  )}
-                </div>
-                {clientesEncontrados.length > 0 && !crearNuevoCliente && (
-                  <div className="dropdown-results">
-                    {clientesEncontrados.map((cliente) => (
-                      <div
-                        key={cliente.id}
-                        className="dropdown-item"
-                        onClick={() => seleccionarCliente(cliente)}
-                      >
-                        <strong>{cliente.nombre}</strong>
-                        {cliente.dni_cuit && <div className="dropdown-subtext">DNI/CUIT: {cliente.dni_cuit}</div>}
-                        {cliente.telefono && <div className="dropdown-subtext">Tel: {cliente.telefono}</div>}
-                      </div>
-                    ))}
-                  </div>
+              <div className="cliente-toolbar">
+                <label>Buscar cliente</label>
+                {!crearNuevoCliente && !clienteSeleccionado && (
+                  <button
+                    type="button"
+                    className="btn-link"
+                    onClick={() => {
+                      setCrearNuevoCliente(true)
+                      setClienteSeleccionado(null)
+                      setNuevoCliente((prev) => ({
+                        ...prev,
+                        nombre: busquedaCliente.trim() || prev.nombre
+                      }))
+                    }}
+                  >
+                    ➕ Crear nuevo
+                  </button>
                 )}
               </div>
 
-              {!clienteSeleccionado && (
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={crearNuevoCliente}
-                      onChange={(e) => setCrearNuevoCliente(e.target.checked)}
-                    />
-                    {' '}Crear nuevo cliente
-                  </label>
+              {!crearNuevoCliente && (
+                <div
+                  className={`cliente-search-container${clienteSeleccionado ? ' cliente-search-container--selected' : ''}`}
+                >
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Nombre, apellido, DNI, teléfono o empresa…"
+                    value={busquedaCliente}
+                    onChange={(e) => {
+                      setBusquedaCliente(e.target.value)
+                      setClienteSeleccionado(null)
+                    }}
+                    readOnly={!!clienteSeleccionado}
+                    autoComplete="off"
+                  />
+                  {buscandoClientes && !clienteSeleccionado && (
+                    <span style={{ position: 'absolute', right: 12, top: 12 }}>⏳</span>
+                  )}
+                  {clientesEncontrados.length > 0 && !clienteSeleccionado && (
+                    <div className="dropdown-results">
+                      {clientesEncontrados.map((cliente) => (
+                        <div
+                          key={cliente.id}
+                          className="dropdown-item"
+                          onClick={() => seleccionarCliente(cliente)}
+                        >
+                          <strong>{nombreCompletoCliente(cliente)}</strong>
+                          {cliente.empresa && (
+                            <span className="dropdown-subtext">🏢 {cliente.empresa}</span>
+                          )}
+                          {cliente.dni_cuit && (
+                            <span className="dropdown-subtext">🪪 {cliente.dni_cuit}</span>
+                          )}
+                          {cliente.telefono && (
+                            <span className="dropdown-subtext">📞 {cliente.telefono}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {crearNuevoCliente && (
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Nombre *</label>
-                    <input
-                      type="text"
-                      value={nuevoCliente.nombre}
-                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })}
-                      placeholder="Nombre completo"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>DNI/CUIT</label>
-                    <input
-                      type="text"
-                      value={nuevoCliente.dni_cuit}
-                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, dni_cuit: e.target.value })}
-                      placeholder="DNI/CUIT"
-                    />
-                  </div>
+                <div className="nuevo-cliente-form">
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Nombre completo *"
+                    value={nuevoCliente.nombre}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="DNI/CUIT"
+                    value={nuevoCliente.dni_cuit}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, dni_cuit: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Teléfono"
+                    value={nuevoCliente.telefono}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })}
+                  />
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="Email"
+                    value={nuevoCliente.email}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, email: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Empresa"
+                    value={nuevoCliente.empresa}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, empresa: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Dirección"
+                    value={nuevoCliente.direccion}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setCrearNuevoCliente(false)
+                      setNuevoCliente({
+                        nombre: '',
+                        dni_cuit: '',
+                        telefono: '',
+                        email: '',
+                        empresa: '',
+                        direccion: ''
+                      })
+                    }}
+                  >
+                    Cancelar nuevo cliente
+                  </button>
                 </div>
               )}
 
               {clienteSeleccionado && (
-                <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', marginTop: '8px' }}>
-                  ✓ Cliente seleccionado: <strong>{clienteSeleccionado.nombre}</strong>
-                  {clienteSeleccionado.telefono && <div>Tel: {clienteSeleccionado.telefono}</div>}
-                  {clienteSeleccionado.email && <div>Email: {clienteSeleccionado.email}</div>}
+                <div className="cliente-seleccionado">
+                  <div>
+                    <strong>✓ {nombreCompletoCliente(clienteSeleccionado)}</strong>
+                    {clienteSeleccionado.dni_cuit && (
+                      <span className="cliente-seleccionado__meta">{clienteSeleccionado.dni_cuit}</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-link"
+                    onClick={() => {
+                      setClienteSeleccionado(null)
+                      setBusquedaCliente('')
+                      setClientesEncontrados([])
+                    }}
+                  >
+                    Cambiar
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Artículos */}
             <div className="form-section">
-              <h3>📦 Artículos</h3>
-              <div className="form-group">
-                <label>Buscar Artículo</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={busquedaArticulo}
-                    onChange={(e) => setBusquedaArticulo(e.target.value)}
-                    placeholder="Buscar por código o descripción..."
-                  />
-                  {buscandoArticulos && (
-                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}>
-                      🔍
-                    </span>
-                  )}
-                </div>
-                {articulosEncontrados.length > 0 && (
-                  <div className="dropdown-results">
-                    {articulosEncontrados.map((articulo) => (
-                      <div
-                        key={articulo.id}
-                        className="dropdown-item"
-                        onClick={() => agregarArticulo(articulo)}
-                      >
-                        <strong>{articulo.descripcion}</strong>
-                        {articulo.codigo && <div className="dropdown-subtext">Código: {articulo.codigo}</div>}
-                        <div className="dropdown-subtext">
-                          Precio: ${articulo.precio?.toLocaleString() || '0'} | 
-                          Stock: {articulo.stock !== null ? articulo.stock : 'N/A'} {articulo.unidad || 'unidades'}
-                        </div>
-                      </div>
+              <h3>📦 Artículos — Lista Flexxus</h3>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 12px' }}>
+                Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>
+              </p>
+
+              <div className="lista-selector-row">
+                {(Object.keys(LISTAS_PRECIO_VENTAS) as TipoListaPrecioVentas[]).map((lista) => (
+                  <button
+                    key={lista}
+                    type="button"
+                    className={`lista-chip${tipoListaPrecio === lista ? ' lista-chip--active' : ''}`}
+                    onClick={() => setTipoListaPrecio(lista)}
+                  >
+                    {labelListaPrecio(lista)}
+                  </button>
+                ))}
+              </div>
+
+              <div className="lista-precios-filtros">
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Buscar por código, nombre o rubro…"
+                  value={busquedaArticulo}
+                  onChange={(e) => setBusquedaArticulo(e.target.value)}
+                  autoComplete="off"
+                />
+                {categoriasArticulos.length > 0 && (
+                  <select
+                    className="form-select"
+                    value={categoriaArticulo}
+                    onChange={(e) => setCategoriaArticulo(e.target.value)}
+                    style={{ width: 'auto', minWidth: '140px' }}
+                  >
+                    <option value="todas">Todos los rubros</option>
+                    {categoriasArticulos.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 )}
               </div>
 
+              {loadingCatalogo ? (
+                <p className="lista-precios-empty">Cargando catálogo…</p>
+              ) : busquedaArticulo.trim() ? (
+                <div className="lista-precios-panel">
+                  {articulosFiltrados.length === 0 ? (
+                    <p className="lista-precios-empty">Sin resultados para «{busquedaArticulo}»</p>
+                  ) : (
+                    articulosFiltrados.slice(0, 40).map((articulo) => {
+                      const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+                      return (
+                        <div
+                          key={articulo.id}
+                          className="lista-precios-row"
+                          onClick={() => agregarArticulo(articulo)}
+                        >
+                          <div>
+                            <div className="lista-precios-row__nombre">{articulo.nombre}</div>
+                            <div className="lista-precios-row__meta">
+                              {articulo.codigo && `Cód. ${articulo.codigo}`}
+                              {articulo.categoria && ` · ${articulo.categoria}`}
+                            </div>
+                          </div>
+                          <span className="lista-precios-row__precio">
+                            {precio != null
+                              ? `$${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                              : '—'}
+                          </span>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              ) : (
+                <p className="lista-precios-empty">Escribí para buscar en la lista de precios</p>
+              )}
+
               {itemsPresupuesto.length > 0 && (
-                <div className="items-list">
+                <div className="items-list" style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {itemsPresupuesto.map((item, index) => (
                     <div key={index} className="item-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <div>
                           <strong>{item.descripcion}</strong>
                           {item.codigo_articulo && (
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                              Código: {item.codigo_articulo}
-                            </div>
+                            <div className="item-codigo">Código: {item.codigo_articulo}</div>
                           )}
                         </div>
-                        <button
-                          className="btn-icon"
-                          onClick={() => eliminarItem(index)}
-                          style={{ marginLeft: '12px' }}
-                        >
+                        <button type="button" className="btn-icon" onClick={() => eliminarItem(index)}>
                           🗑️
                         </button>
                       </div>
-                      <div className="form-row" style={{ gap: '8px' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Cantidad</label>
+                      <div className="item-controls">
+                        <div className="item-control">
+                          <label>Cantidad</label>
                           <input
                             type="number"
+                            className="form-input-small"
                             min="0.001"
                             step="0.001"
                             value={item.cantidad}
-                            onChange={(e) => actualizarItem(index, 'cantidad', parseFloat(e.target.value) || 0)}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.9rem' }}
+                            onChange={(e) =>
+                              actualizarItem(index, 'cantidad', parseFloat(e.target.value) || 0)
+                            }
                           />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Precio Unit.</label>
+                        <div className="item-control">
+                          <label>Precio unit.</label>
                           <input
                             type="number"
+                            className="form-input-small"
                             min="0"
                             step="0.01"
                             value={item.precio_unitario}
-                            onChange={(e) => actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.9rem' }}
+                            onChange={(e) =>
+                              actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)
+                            }
                           />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Descuento</label>
+                        <div className="item-control">
+                          <label>Descuento</label>
                           <input
                             type="number"
+                            className="form-input-small"
                             min="0"
                             step="0.01"
                             value={item.descuento}
-                            onChange={(e) => actualizarItem(index, 'descuento', parseFloat(e.target.value) || 0)}
-                            style={{ width: '100%', padding: '6px', fontSize: '0.9rem' }}
+                            onChange={(e) =>
+                              actualizarItem(index, 'descuento', parseFloat(e.target.value) || 0)
+                            }
                           />
                         </div>
                       </div>
-                      <div style={{ marginTop: '8px', fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                      <div className="item-subtotal">
                         Subtotal: ${item.precio_total.toFixed(2)}
                       </div>
                     </div>
@@ -543,19 +803,18 @@ const CrearPresupuestoModal = ({
                 </div>
               )}
 
-              <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                <strong style={{ color: 'var(--text-primary)', fontSize: '1.1rem' }}>
-                  Total: ${calcularTotal().toFixed(2)}
-                </strong>
-              </div>
+              {itemsPresupuesto.length > 0 && (
+                <div className="presupuesto-total-box">
+                  <strong>Total: ${calcularTotal().toFixed(2)}</strong>
+                </div>
+              )}
             </div>
 
-            {/* Información adicional */}
             <div className="form-section">
-              <h3>📋 Información Adicional</h3>
+              <h3>📋 Información adicional</h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Fecha de Vencimiento</label>
+                  <label>Fecha de vencimiento</label>
                   <input
                     type="date"
                     value={fechaVencimiento}
@@ -563,31 +822,30 @@ const CrearPresupuestoModal = ({
                   />
                 </div>
                 <div className="form-group">
-                  <label>Estado</label>
-                  <select
-                    value={estado}
-                    onChange={(e) => setEstado(e.target.value as 'borrador' | 'enviado')}
-                  >
+                  <label>Estado inicial</label>
+                  <select value={estado} onChange={(e) => setEstado(e.target.value as 'borrador' | 'enviado')}>
                     <option value="borrador">Borrador</option>
                     <option value="enviado">Enviado</option>
                   </select>
                 </div>
               </div>
               <div className="form-group">
-                <label>Observaciones Cliente</label>
+                <label>Observaciones para el cliente</label>
                 <textarea
+                  className="form-textarea"
                   value={observacionesCliente}
                   onChange={(e) => setObservacionesCliente(e.target.value)}
-                  placeholder="Observaciones visibles para el cliente..."
+                  placeholder="Visible en el PDF…"
                   rows={3}
                 />
               </div>
               <div className="form-group">
-                <label>Observaciones Internas</label>
+                <label>Observaciones internas</label>
                 <textarea
+                  className="form-textarea"
                   value={observacionesInternas}
                   onChange={(e) => setObservacionesInternas(e.target.value)}
-                  placeholder="Observaciones solo para uso interno..."
+                  placeholder="Solo uso interno…"
                   rows={3}
                 />
               </div>
@@ -597,15 +855,16 @@ const CrearPresupuestoModal = ({
 
         {!presupuestoCreado && (
           <div className="modal-footer">
-            <button className="btn-secondary" onClick={onClose} disabled={guardando}>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={guardando}>
               Cancelar
             </button>
             <button
+              type="button"
               className="btn-primary"
-              onClick={handleGuardarPresupuesto}
+              onClick={() => void handleGuardarPresupuesto()}
               disabled={guardando || itemsPresupuesto.length === 0}
             >
-              {guardando ? 'Guardando...' : 'Crear Presupuesto'}
+              {guardando ? 'Guardando…' : 'Crear Presupuesto'}
             </button>
           </div>
         )}
@@ -615,4 +874,3 @@ const CrearPresupuestoModal = ({
 }
 
 export default CrearPresupuestoModal
-

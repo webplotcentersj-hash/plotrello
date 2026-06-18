@@ -1,0 +1,98 @@
+.vap-card {
+  background: rgba(30, 41, 59, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 4px;
+}
+
+.vap-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.vap-card__head h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: #f8fafc;
+}
+
+.vap-card__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(203, 213, 225, 0.75);
+  line-height: 1.4;
+}
+
+.vap-card__activos {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #86efac;
+}
+
+.vap-card__body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vap-iva-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+}
+
+.vap-pct-input {
+  width: 72px;
+  text-align: right;
+}
+
+.vap-recargos__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.vap-recargos__head strong {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+}
+
+.vap-recargos__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vap-recargos__list li {
+  display: grid;
+  grid-template-columns: auto 1fr 72px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.vap-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vap-total-pct {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fbbf24;
+}

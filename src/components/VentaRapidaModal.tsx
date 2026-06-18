@@ -8,9 +8,11 @@ import { CLIENTES_CUENTA_CORRIENTE, clientesCcPerfil } from '../utils/clientesRo
 import { getArgentinaDateString } from '../utils/dateUtils'
 import {
   labelListaPrecio,
+  labelAjustesPreciosActivos,
   resolvePrecioLista,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
+import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
 import {
   formatLimiteCredito,
@@ -58,6 +60,7 @@ const VentaRapidaModal = ({
   uiVariant = 'default'
 }: VentaRapidaModalProps) => {
   const navigate = useNavigate()
+  const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -191,12 +194,12 @@ const VentaRapidaModal = ({
         if (!item.id_articulo_empresa) return item
         const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
         if (!art) return item
-        const precio = resolvePrecioLista(art, lista)
+        const precio = resolvePrecioLista(art, lista, ajustesPrecios)
         if (precio == null) return item
         return { ...item, precio_unitario: precio, precio_lista: lista }
       })
     )
-  }, [tipoListaPrecio, catalogoArticulos])
+  }, [tipoListaPrecio, catalogoArticulos, ajustesPrecios])
 
   const seleccionarCliente = (cliente: ClienteRecord) => {
     setClienteSeleccionado(cliente)
@@ -238,7 +241,7 @@ const VentaRapidaModal = ({
       return
     }
 
-    const precio = resolvePrecioLista(articulo, tipoListaPrecio)
+    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
     if (precio == null) {
       alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
       return
@@ -916,7 +919,8 @@ const VentaRapidaModal = ({
             <p className="form-hint-comprobante venta-lista-hint">
               {tipoListaPrecio === 'lista_1'
                 ? 'Efectivo, transferencia, tarjeta y otros medios usan Lista 1.'
-                : 'Cuenta corriente usa Lista 2.'}
+                : 'Cuenta corriente usa Lista 2.'}{' '}
+              Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>.
             </p>
             <div className="lista-precios-filtros">
               <input
@@ -955,7 +959,7 @@ const VentaRapidaModal = ({
               ) : (
                 <div className="lista-precios-scroll">
                   {articulosFiltrados.slice(0, 80).map((articulo) => {
-                    const precio = resolvePrecioLista(articulo, tipoListaPrecio)
+                    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
                     const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
                     return (
                       <button

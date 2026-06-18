@@ -1,0 +1,329 @@
+/* Modal presupuesto sobre fondo oscuro del CRM */
+.presupuesto-venta-modal {
+  max-width: 720px;
+  width: 100%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.presupuesto-venta-modal .modal-body {
+  overflow-y: auto;
+  padding: 24px 28px;
+}
+
+.presupuesto-venta-modal .form-section h3 {
+  color: #f1f5f9;
+  margin: 0 0 16px;
+  font-size: 1rem;
+}
+
+.presupuesto-venta-modal .form-group label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.presupuesto-venta-modal .form-input,
+.presupuesto-venta-modal .form-select,
+.presupuesto-venta-modal .form-textarea,
+.presupuesto-venta-modal input[type='text'],
+.presupuesto-venta-modal input[type='number'],
+.presupuesto-venta-modal input[type='date'],
+.presupuesto-venta-modal input[type='email'],
+.presupuesto-venta-modal select,
+.presupuesto-venta-modal textarea {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  border-radius: 10px;
+  padding: 12px 14px;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+.presupuesto-venta-modal .form-input:focus,
+.presupuesto-venta-modal input:focus,
+.presupuesto-venta-modal select:focus,
+.presupuesto-venta-modal textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.presupuesto-venta-modal .cliente-search-container {
+  position: relative;
+}
+
+.presupuesto-venta-modal .dropdown-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.presupuesto-venta-modal .dropdown-item {
+  padding: 12px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+}
+
+.presupuesto-venta-modal .dropdown-item:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.presupuesto-venta-modal .dropdown-item strong {
+  display: block;
+  color: #f8fafc;
+  margin-bottom: 4px;
+}
+
+.presupuesto-venta-modal .dropdown-subtext {
+  display: block;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.presupuesto-venta-modal .cliente-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.presupuesto-venta-modal .nuevo-cliente-form {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+}
+
+.presupuesto-venta-modal .nuevo-cliente-form .form-input:first-child {
+  grid-column: 1 / -1;
+}
+
+.presupuesto-venta-modal .nuevo-cliente-form .btn-secondary {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.presupuesto-venta-modal .cliente-seleccionado {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 10px;
+  color: #d1fae5;
+}
+
+.presupuesto-venta-modal .cliente-seleccionado__meta {
+  display: block;
+  font-size: 0.85rem;
+  color: #6ee7b7;
+  margin-top: 4px;
+}
+
+.presupuesto-venta-modal .lista-precios-filtros {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.presupuesto-venta-modal .lista-precios-filtros .form-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.presupuesto-venta-modal .lista-precios-panel {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.presupuesto-venta-modal .lista-precios-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  color: #e2e8f0;
+}
+
+.presupuesto-venta-modal .lista-precios-row:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.presupuesto-venta-modal .lista-precios-row__nombre {
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.presupuesto-venta-modal .lista-precios-row__meta {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.presupuesto-venta-modal .lista-precios-row__precio {
+  font-weight: 700;
+  color: #34d399;
+  white-space: nowrap;
+}
+
+.presupuesto-venta-modal .lista-precios-empty {
+  padding: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+/* Item cards — contraste sobre fondo oscuro */
+.presupuesto-venta-modal .item-card {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.presupuesto-venta-modal .item-card strong {
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.presupuesto-venta-modal .item-codigo {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.presupuesto-venta-modal .item-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.presupuesto-venta-modal .item-control label {
+  font-size: 0.72rem;
+  color: #94a3b8 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.presupuesto-venta-modal .form-input-small {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc !important;
+  border-radius: 8px;
+  padding: 8px 10px;
+  width: 100%;
+  font-weight: 600;
+}
+
+.presupuesto-venta-modal .item-subtotal {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: right;
+  color: #34d399;
+  font-weight: 700;
+}
+
+.presupuesto-venta-modal .presupuesto-total-box {
+  margin-top: 16px;
+  padding: 14px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 10px;
+  color: #f8fafc;
+  font-size: 1.1rem;
+}
+
+.presupuesto-venta-modal .venta-rapida-lista-badge {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.presupuesto-venta-modal .lista-selector-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.presupuesto-venta-modal .lista-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.presupuesto-venta-modal .lista-chip--active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.2);
+  color: #fff;
+}
+
+.presupuesto-exito {
+  text-align: center;
+  padding: 32px 20px;
+  color: #e2e8f0;
+}
+
+.presupuesto-exito h3 {
+  color: #34d399;
+  margin: 0 0 8px;
+}
+
+.presupuesto-exito__numero {
+  font-size: 1.15rem;
+  margin: 16px 0;
+  color: #f8fafc;
+}
+
+.presupuesto-exito__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+@media (max-width: 640px) {
+  .presupuesto-venta-modal .nuevo-cliente-form {
+    grid-template-columns: 1fr;
+  }
+
+  .presupuesto-venta-modal .item-controls {
+    grid-template-columns: 1fr;
+  }
+}

@@ -13513,6 +13513,45 @@ class ApiService {
     }
   }
 
+  async getConfiguracionPreciosVentas(): Promise<
+    ApiResponse<import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('get_configuracion_precios_ventas')
+      if (error) return { success: false, error: error.message }
+      if (!data || typeof data !== 'object') {
+        const { DEFAULT_AJUSTES_PRECIOS_VENTAS } = await import('../constants/ventasListasPrecio')
+        return { success: true, data: DEFAULT_AJUSTES_PRECIOS_VENTAS }
+      }
+      const { normalizarConfigAjustesPrecios } = await import('../constants/ventasListasPrecio')
+      return {
+        success: true,
+        data: normalizarConfigAjustesPrecios(data as import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas)
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async guardarConfiguracionPreciosVentas(
+    config: import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas
+  ): Promise<ApiResponse<import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { normalizarConfigAjustesPrecios } = await import('../constants/ventasListasPrecio')
+      const payload = normalizarConfigAjustesPrecios(config)
+      const { data, error } = await supabase.rpc('guardar_configuracion_precios_ventas', {
+        p_payload: payload
+      })
+      if (error) return { success: false, error: error.message }
+      if (!data) return { success: false, error: 'No se recibió configuración guardada' }
+      return { success: true, data: normalizarConfigAjustesPrecios(data as typeof config) }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   /**
    * Eliminar artículo de empresa (marcar como inactivo)
    */
