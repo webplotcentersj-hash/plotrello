@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import CuentaCorrienteAltaForm from '../components/CuentaCorrienteAltaForm'
@@ -20,6 +20,7 @@ type CuentaCorrienteRow = ClienteCuentaCorrienteRecord & { cliente?: ClienteReco
 
 const CuentaCorrientePage = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { isAdmin, usuario } = useAuth()
   const [loading, setLoading] = useState(true)
   const [registros, setRegistros] = useState<CuentaCorrienteRow[]>([])
@@ -76,6 +77,31 @@ const CuentaCorrientePage = () => {
     void loadRegistros()
     void loadCobranzas()
   }, [])
+
+  useEffect(() => {
+    const raw = searchParams.get('altaCliente')
+    if (!raw) return
+    const idCliente = Number(raw)
+    if (!Number.isFinite(idCliente) || idCliente <= 0) return
+
+    let cancelled = false
+    const run = async () => {
+      const res = await apiService.getClientePorId(idCliente)
+      if (cancelled) return
+      if (res.success && res.data) {
+        setClienteVincular(res.data)
+        setModoForm('nuevo')
+        setMensajeOk(`Completá el alta de cuenta corriente para ${res.data.nombre}`)
+      }
+      const next = new URLSearchParams(searchParams)
+      next.delete('altaCliente')
+      setSearchParams(next, { replace: true })
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     if (modoForm !== 'vincular' || busqueda.trim().length < 2) {

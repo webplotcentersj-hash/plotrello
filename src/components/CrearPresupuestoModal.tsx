@@ -533,7 +533,7 @@ const CrearPresupuestoModal = ({
                 >
                   <input
                     type="text"
-                    className="form-input"
+                    className="form-input form-input--search"
                     placeholder="Nombre, apellido, DNI, teléfono o empresa…"
                     value={busquedaCliente}
                     onChange={(e) => {
@@ -680,7 +680,7 @@ const CrearPresupuestoModal = ({
               <div className="lista-precios-filtros">
                 <input
                   type="text"
-                  className="form-input"
+                  className="form-input form-input--search"
                   placeholder="Buscar por código, nombre o rubro…"
                   value={busquedaArticulo}
                   onChange={(e) => setBusquedaArticulo(e.target.value)}
@@ -688,10 +688,9 @@ const CrearPresupuestoModal = ({
                 />
                 {categoriasArticulos.length > 0 && (
                   <select
-                    className="form-select"
+                    className="form-select lista-precios-categoria"
                     value={categoriaArticulo}
                     onChange={(e) => setCategoriaArticulo(e.target.value)}
-                    style={{ width: 'auto', minWidth: '140px' }}
                   >
                     <option value="todas">Todos los rubros</option>
                     {categoriasArticulos.map((cat) => (

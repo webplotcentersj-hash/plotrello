@@ -10,6 +10,11 @@ export function clientesCcPerfil(idCliente: number | string): string {
   return `${CLIENTES_CUENTA_CORRIENTE}/cliente/${idCliente}`
 }
 
+/** Abre el formulario de alta CC con el cliente ya vinculado (p. ej. desde venta rápida). */
+export function clientesCcAlta(idCliente: number | string): string {
+  return `${CLIENTES_CUENTA_CORRIENTE}?altaCliente=${idCliente}`
+}
+
 export function clientesPerfil(idCliente: number | string): string {
   return `/clientes/cliente/${idCliente}`
 }

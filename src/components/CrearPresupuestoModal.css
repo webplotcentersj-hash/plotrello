@@ -35,26 +35,77 @@
 .presupuesto-venta-modal input[type='email'],
 .presupuesto-venta-modal select,
 .presupuesto-venta-modal textarea {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #f8fafc !important;
   border-radius: 10px;
   padding: 12px 14px;
   width: 100%;
   font-size: 0.95rem;
+  font-family: inherit;
+  -webkit-text-fill-color: #f8fafc;
+}
+
+.presupuesto-venta-modal .form-textarea,
+.presupuesto-venta-modal textarea.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+.presupuesto-venta-modal .form-input::placeholder,
+.presupuesto-venta-modal .form-textarea::placeholder,
+.presupuesto-venta-modal textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1;
+  -webkit-text-fill-color: #64748b;
 }
 
 .presupuesto-venta-modal .form-input:focus,
+.presupuesto-venta-modal .form-select:focus,
+.presupuesto-venta-modal .form-textarea:focus,
 .presupuesto-venta-modal input:focus,
 .presupuesto-venta-modal select:focus,
 .presupuesto-venta-modal textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #3b82f6 !important;
+  background: rgba(15, 23, 42, 0.95) !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc;
 }
 
 .presupuesto-venta-modal .cliente-search-container {
   position: relative;
+}
+
+.presupuesto-venta-modal .cliente-search-container .form-input,
+.presupuesto-venta-modal .cliente-search-container input.form-input {
+  background: rgba(15, 23, 42, 0.85) !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc;
+}
+
+.presupuesto-venta-modal .cliente-search-container--selected .form-input,
+.presupuesto-venta-modal .cliente-search-container--selected input.form-input {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  color: #ecfdf5 !important;
+  -webkit-text-fill-color: #ecfdf5 !important;
+  cursor: default;
+}
+
+.presupuesto-venta-modal input[readonly],
+.presupuesto-venta-modal .form-input[readonly] {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  opacity: 1;
+}
+
+.presupuesto-venta-modal .cliente-search-container--selected input[readonly] {
+  color: #ecfdf5 !important;
+  -webkit-text-fill-color: #ecfdf5 !important;
 }
 
 .presupuesto-venta-modal .dropdown-results {
@@ -326,4 +377,84 @@
   .presupuesto-venta-modal .item-controls {
     grid-template-columns: 1fr;
   }
+}
+
+/* Overrides finales — gana sobre VentaRapidaModal.css (form-input/select con !important) */
+.modal-content.presupuesto-venta-modal .form-input,
+.modal-content.presupuesto-venta-modal .form-select,
+.modal-content.presupuesto-venta-modal .form-textarea,
+.modal-content.presupuesto-venta-modal input,
+.modal-content.presupuesto-venta-modal select,
+.modal-content.presupuesto-venta-modal textarea {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc;
+}
+
+.modal-content.presupuesto-venta-modal .lista-precios-filtros .form-input,
+.modal-content.presupuesto-venta-modal .lista-precios-filtros .form-select,
+.modal-content.presupuesto-venta-modal .lista-precios-filtros input,
+.modal-content.presupuesto-venta-modal .lista-precios-filtros select {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+.modal-content.presupuesto-venta-modal .lista-precios-categoria {
+  min-width: 140px;
+  max-width: 100%;
+  width: 100%;
+}
+
+@media (min-width: 641px) {
+  .modal-content.presupuesto-venta-modal .lista-precios-filtros {
+    display: grid;
+    grid-template-columns: 1fr minmax(160px, 220px);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .modal-content.presupuesto-venta-modal .lista-precios-categoria {
+    width: auto;
+  }
+}
+
+.modal-content.presupuesto-venta-modal select option {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.modal-content.presupuesto-venta-modal .form-input::placeholder,
+.modal-content.presupuesto-venta-modal input::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  opacity: 1;
+}
+
+.modal-content.presupuesto-venta-modal .form-input:focus,
+.modal-content.presupuesto-venta-modal .form-select:focus,
+.modal-content.presupuesto-venta-modal input:focus,
+.modal-content.presupuesto-venta-modal select:focus,
+.modal-content.presupuesto-venta-modal textarea:focus {
+  border-color: #3b82f6 !important;
+  background: rgba(15, 23, 42, 0.98) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28) !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+.modal-content.presupuesto-venta-modal .cliente-search-container--selected .form-input,
+.modal-content.presupuesto-venta-modal .cliente-search-container--selected .form-input--search {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  color: #ecfdf5 !important;
+  -webkit-text-fill-color: #ecfdf5 !important;
+}
+
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
 }

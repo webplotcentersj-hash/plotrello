@@ -1,10 +1,30 @@
 import jsPDF from 'jspdf'
 import type { PresupuestoVentaItemRecord, PresupuestoVentaRecord } from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
-import { labelListaPrecio } from '../constants/ventasListasPrecio'
+import { LISTAS_PRECIO_VENTAS, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
 
 const EMPRESA_NOMBRE = 'PLOT CENTER S.R.L.'
 const EMPRESA_DOMICILIO = 'San Juan, Argentina'
+
+/** Helvetica en jsPDF no soporta bien Unicode (acentos, punto medio, etc.). */
+function pdfText(value: string | null | undefined): string {
+  if (!value) return ''
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u00b7/g, '-')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/[^\x20-\x7E]/g, (ch) => {
+      const map: Record<string, string> = { 'Ñ': 'N', 'ñ': 'n' }
+      return map[ch] ?? ''
+    })
+}
+
+function labelListaPrecioPdf(tipo: TipoListaPrecioVentas): string {
+  const meta = LISTAS_PRECIO_VENTAS[tipo]
+  return pdfText(`${meta.label} (${meta.subtitle})`)
+}
 
 function cargarLogoBase64(): Promise<string | null> {
   return new Promise((resolve) => {
@@ -48,12 +68,12 @@ export async function buildPresupuestoVentaPDF(
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(30, 41, 59)
-  doc.text(EMPRESA_NOMBRE, logo ? margin + 38 : margin, y + 10)
+  doc.text(pdfText(EMPRESA_NOMBRE), logo ? margin + 38 : margin, y + 10)
 
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  doc.text(EMPRESA_DOMICILIO, logo ? margin + 38 : margin, y + 16)
+  doc.text(pdfText(EMPRESA_DOMICILIO), logo ? margin + 38 : margin, y + 16)
 
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
@@ -62,7 +82,7 @@ export async function buildPresupuestoVentaPDF(
 
   doc.setFontSize(11)
   doc.setTextColor(15, 23, 42)
-  doc.text(presupuesto.numero_presupuesto, pageWidth - margin, y + 16, { align: 'right' })
+  doc.text(pdfText(presupuesto.numero_presupuesto), pageWidth - margin, y + 16, { align: 'right' })
 
   y += 38
   doc.setDrawColor(226, 232, 240)
@@ -77,7 +97,7 @@ export async function buildPresupuestoVentaPDF(
   doc.text(`Fecha: ${fechaCreacion}`, margin, y)
   if (presupuesto.fecha_vencimiento) {
     doc.text(
-      `Válido hasta: ${formatArgentinaDate(presupuesto.fecha_vencimiento)}`,
+      pdfText(`Valido hasta: ${formatArgentinaDate(presupuesto.fecha_vencimiento)}`),
       pageWidth - margin,
       y,
       { align: 'right' }
@@ -94,12 +114,12 @@ export async function buildPresupuestoVentaPDF(
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   const clienteLineas: string[] = [
-    presupuesto.cliente_nombre || '—',
-    presupuesto.cliente_empresa ? `Empresa: ${presupuesto.cliente_empresa}` : '',
-    presupuesto.cliente_dni_cuit ? `DNI/CUIT: ${presupuesto.cliente_dni_cuit}` : '',
-    presupuesto.cliente_telefono ? `Tel: ${presupuesto.cliente_telefono}` : '',
-    presupuesto.cliente_email ? `Email: ${presupuesto.cliente_email}` : '',
-    presupuesto.cliente_direccion ? `Dirección: ${presupuesto.cliente_direccion}` : ''
+    pdfText(presupuesto.cliente_nombre || '-'),
+    presupuesto.cliente_empresa ? pdfText(`Empresa: ${presupuesto.cliente_empresa}`) : '',
+    presupuesto.cliente_dni_cuit ? pdfText(`DNI/CUIT: ${presupuesto.cliente_dni_cuit}`) : '',
+    presupuesto.cliente_telefono ? pdfText(`Tel: ${presupuesto.cliente_telefono}`) : '',
+    presupuesto.cliente_email ? pdfText(`Email: ${presupuesto.cliente_email}`) : '',
+    presupuesto.cliente_direccion ? pdfText(`Direccion: ${presupuesto.cliente_direccion}`) : ''
   ].filter(Boolean)
 
   for (const linea of clienteLineas) {
@@ -109,9 +129,14 @@ export async function buildPresupuestoVentaPDF(
   y += 6
 
   if (presupuesto.tipo_lista_precio) {
-    doc.setFont('helvetica', 'italic')
-    doc.setTextColor(79, 70, 229)
-    doc.text(`Lista de precios: ${labelListaPrecio(presupuesto.tipo_lista_precio)}`, margin, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(71, 85, 105)
+    doc.text(
+      pdfText(`Lista de precios: ${labelListaPrecioPdf(presupuesto.tipo_lista_precio)}`),
+      margin,
+      y
+    )
     y += 8
   }
 
@@ -120,7 +145,7 @@ export async function buildPresupuestoVentaPDF(
   y += 8
 
   const colW = [14, 18, 72, 24, 20, 28]
-  const headers = ['#', 'Cód.', 'Descripción', 'Cant.', 'P. unit.', 'Subtotal']
+  const headers = ['#', 'Cod.', 'Descripcion', 'Cant.', 'P. unit.', 'Subtotal']
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(51, 65, 85)
@@ -142,8 +167,10 @@ export async function buildPresupuestoVentaPDF(
     x = margin
     const fila = [
       String(idx + 1),
-      (item.codigo_articulo || '—').slice(0, 10),
-      item.descripcion.length > 42 ? `${item.descripcion.slice(0, 39)}…` : item.descripcion,
+      pdfText((item.codigo_articulo || '-').slice(0, 10)),
+      pdfText(
+        item.descripcion.length > 42 ? `${item.descripcion.slice(0, 39)}...` : item.descripcion
+      ),
       String(item.cantidad),
       `$${item.precio_unitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
       `$${item.precio_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
@@ -179,21 +206,30 @@ export async function buildPresupuestoVentaPDF(
     y += 6
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(71, 85, 105)
-    const lines = doc.splitTextToSize(presupuesto.observaciones_cliente, pageWidth - margin * 2)
+    const lines = doc.splitTextToSize(
+      pdfText(presupuesto.observaciones_cliente),
+      pageWidth - margin * 2
+    )
     doc.text(lines, margin, y)
     y += lines.length * 5 + 8
   }
 
   doc.setFontSize(8)
   doc.setTextColor(148, 163, 184)
-  const pie =
-    'Los precios pueden variar según disponibilidad. Este presupuesto no constituye factura. ' +
-    `Documento trazable: ${presupuesto.numero_presupuesto}.`
+  const pie = pdfText(
+    'Los precios pueden variar segun disponibilidad. Este presupuesto no constituye factura. ' +
+      `Documento trazable: ${presupuesto.numero_presupuesto}.`
+  )
   const pieLines = doc.splitTextToSize(pie, pageWidth - margin * 2)
   doc.text(pieLines, margin, 285)
 
   if (presupuesto.nombre_vendedor) {
-    doc.text(`Asesor: ${presupuesto.nombre_vendedor}`, pageWidth - margin, 285, { align: 'right' })
+    doc.text(
+      pdfText(`Asesor: ${presupuesto.nombre_vendedor}`),
+      pageWidth - margin,
+      285,
+      { align: 'right' }
+    )
   }
 
   return doc

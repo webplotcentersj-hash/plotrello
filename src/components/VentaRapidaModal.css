@@ -227,6 +227,15 @@
 .venta-cc-hint__link {
   align-self: flex-start;
   font-weight: 700;
+  margin-left: 0;
+  font-size: 0.85rem;
+}
+
+.venta-cc-hint__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 8px;
 }
 
 .venta-cc-scoring {
@@ -707,6 +716,16 @@
 
 .venta-rapida-modal.venta-rapida-modal--mostrador .comprobante-pago-link {
   color: #0369a1;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .checkbox-label,
+.venta-rapida-modal.venta-rapida-modal--mostrador .checkbox-label span {
+  color: #f1f5f9 !important;
+  font-weight: 600;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .form-group > label:not(.checkbox-label) {
+  color: #f1f5f9 !important;
 }
 
 .venta-rapida-lista-badge {
